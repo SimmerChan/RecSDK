@@ -42,7 +42,7 @@
 
 
 
-> export LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:$(pwd)
+> export LD_LIBRARY_PATH=\${LD_LIBRARY_PATH}:$(pwd)
 
 
 5. 在“tf_adapter”文件夹下创建BUILD文件。写入如下内容:
