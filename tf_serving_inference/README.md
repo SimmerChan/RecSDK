@@ -8,7 +8,7 @@
 >  mkdir tf_adapter<br>
 >  cd tf_adapter
 
-<p b. 执行如下命令，在“tf_adapter”文件夹下拷贝存放“libpython3.7m.so.1.0”文件，并创建软链接。</p>
+<p> b. 执行如下命令，在“tf_adapter”文件夹下拷贝存放“libpython3.7m.so.1.0”文件，并创建软链接。</p>
 
 >  cp /usr/local/python3.7.5/lib/libpython3.7m.so.1.0 .<br>
 >  ln -s libpython3.7m.so.1.0 libpython3.7m.so<br>
@@ -21,11 +21,9 @@
 <p> a. 在“tf_adapter”文件夹下,vim CMakeLists.txt,写入如下内容保存。
 
 
-> file(TOUCH \${CMAKE_CURRENT_BINARY_DIR}/stub.c) <br>
-
-> add_library(_pywrap_tensorflow_internal SHARED \${CMAKE_CURRENT_BINARY_DIR}/stub.c)<br>
-
-> add_library(tensorflow_framework SHARED \${CMAKE_CURRENT_BINARY_DIR}/stub.c)<br>
+> file(TOUCH \\${CMAKE_CURRENT_BINARY_DIR}/stub.c) <br>
+> add_library(_pywrap_tensorflow_internal SHARED \\${CMAKE_CURRENT_BINARY_DIR}/stub.c)<br>
+> add_library(tensorflow_framework SHARED \\${CMAKE_CURRENT_BINARY_DIR}/stub.c)<br>
 
 <p> b. 执行:wq!命令保存文件并退出。</p>
 <p> c. 执行如下命令，编译出空的.so文件。</p>
