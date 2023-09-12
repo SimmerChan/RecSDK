@@ -21,9 +21,11 @@
 <p>&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp a. 在“tf_adapter”文件夹下,vim CMakeLists.txt,写入如下内容保存。
 
 
-file(TOUCH \${CMAKE_CURRENT_BINARY_DIR}/stub.c) <br>
-add_library(_pywrap_tensorflow_internal SHARED \${CMAKE_CURRENT_BINARY_DIR}/stub.c)<br>
-add_library(tensorflow_framework SHARED \${CMAKE_CURRENT_BINARY_DIR}/stub.c)<br>
+> file(TOUCH \${CMAKE_CURRENT_BINARY_DIR}/stub.c) <br>
+
+> add_library(_pywrap_tensorflow_internal SHARED \${CMAKE_CURRENT_BINARY_DIR}/stub.c)<br>
+
+> add_library(tensorflow_framework SHARED \${CMAKE_CURRENT_BINARY_DIR}/stub.c)<br>
 
 <p>&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp b. 执行:wq!命令保存文件并退出。</p>
 <p>&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp c. 执行如下命令，编译出空的.so文件。</p>
