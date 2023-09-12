@@ -20,6 +20,7 @@
 4. 编译空的libtensorflow_framework.so、_pywrap_tensorflow_internal.so文件。
 <p>&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp a. 在“tf_adapter”文件夹下,vim CMakeLists.txt,写入如下内容保存。
 
+
 > file(TOUCH \${CMAKE_CURRENT_BINARY_DIR}/stub.c)<br>
 > add_library(_pywrap_tensorflow_internal SHARED \${CMAKE_CURRENT_BINARY_DIR}/stub.c)<br>
 > add_library(tensorflow_framework SHARED \${CMAKE_CURRENT_BINARY_DIR}/stub.c)<br>
@@ -37,7 +38,9 @@
 > ln -s libtensorflow_framework.so libtensorflow_framework.so.1<br>
 <p>&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp d. 配置环境命令。</p>
 
+
 > export LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:$(pwd)
+
 5. 在“tf_adapter”文件夹下创建BUILD文件。写入如下内容:
 
 > licenses(["notice"])  # BSD/MIT.<br>
