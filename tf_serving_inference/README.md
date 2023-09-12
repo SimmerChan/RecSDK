@@ -40,8 +40,7 @@
 > ln -s libtensorflow_framework.so libtensorflow_framework.so.1<br>
 <p> d. 配置环境命令。</p>
 
->
-> export LD_LIBRARY_PATH=\${LD_LIBRARY_PATH}:$(pwd)
+> export LD_LIBRARY_PATH=\${LD_LIBRARY_PATH}:\$(pwd)
 
 
 5. 在“tf_adapter”文件夹下创建BUILD文件。写入如下内容:
