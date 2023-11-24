@@ -2,13 +2,13 @@
 1. 下载Tf-serving源码：<strong>https://github.com/tensorflow/serving/archive/1.15.0.zip </strong>
 2. 解压后进入源码目录
 3. 添加TF-serving第三方依赖
-<p>&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp a.执行如下命令，在“serving-1.15.0/third_party”目录下创建“tf_adapter”文件夹并进入。</p>
+<p> a.执行如下命令，在“serving-1.15.0/third_party”目录下创建“tf_adapter”文件夹并进入。</p>
 
 >  cd third_party/<br>
 >  mkdir tf_adapter<br>
 >  cd tf_adapter
 
-<p>&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp b. 执行如下命令，在“tf_adapter”文件夹下拷贝存放“libpython3.7m.so.1.0”文件，并创建软链接。</p>
+<p> b. 执行如下命令，在“tf_adapter”文件夹下拷贝存放“libpython3.7m.so.1.0”文件，并创建软链接。</p>
 
 >  cp /usr/local/python3.7.5/lib/libpython3.7m.so.1.0 .<br>
 >  ln -s libpython3.7m.so.1.0 libpython3.7m.so<br>
@@ -18,14 +18,15 @@
 >   mv _tf_adapter.so lib_tf_adapter.so<br>
 
 4. 编译空的libtensorflow_framework.so、_pywrap_tensorflow_internal.so文件。
-<p>&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp a. 在“tf_adapter”文件夹下,vim CMakeLists.txt,写入如下内容保存。
+<p> a. 在“tf_adapter”文件夹下,vim CMakeLists.txt,写入如下内容保存。
 
-> file(TOUCH \${CMAKE_CURRENT_BINARY_DIR}/stub.c)<br>
-> add_library(_pywrap_tensorflow_internal SHARED \${CMAKE_CURRENT_BINARY_DIR}/stub.c)<br>
-> add_library(tensorflow_framework SHARED \${CMAKE_CURRENT_BINARY_DIR}/stub.c)<br>
 
-<p>&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp b. 执行:wq!命令保存文件并退出。</p>
-<p>&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp c. 执行如下命令，编译出空的.so文件。</p>
+> file(TOUCH \\${CMAKE_CURRENT_BINARY_DIR}/stub.c) <br>
+> add_library(_pywrap_tensorflow_internal SHARED \\${CMAKE_CURRENT_BINARY_DIR}/stub.c)<br>
+> add_library(tensorflow_framework SHARED \\${CMAKE_CURRENT_BINARY_DIR}/stub.c)<br>
+
+<p> b. 执行:wq!命令保存文件并退出。</p>
+<p> c. 执行如下命令，编译出空的.so文件。</p>
 
 > mkdir temp<br>
 > cd temp<br>
@@ -35,9 +36,11 @@
 > mv libtensorflow_framework.so ../libtensorflow_framework.so<br>
 > cd ..<br>
 > ln -s libtensorflow_framework.so libtensorflow_framework.so.1<br>
-<p>&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp d. 配置环境命令。</p>
+<p> d. 配置环境命令。</p>
 
-> export LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:$(pwd)
+> export LD_LIBRARY_PATH=\\${LD_LIBRARY_PATH}:\\$(pwd)
+
+
 5. 在“tf_adapter”文件夹下创建BUILD文件。写入如下内容:
 
 > licenses(["notice"])  # BSD/MIT.<br>
