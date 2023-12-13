@@ -1,0 +1,39 @@
+{
+    "graph": "ClipFusionRule0",
+    "links": [
+        {
+            "source": "input0",
+            "target": "node1:0"
+        },
+        {
+            "source": "input1",
+            "target": "node1:1"
+        },
+        {
+            "source": "node1:0",
+            "target": "node2:0"
+        },
+        {
+            "source": "input2",
+            "target": "node2:1"
+        },
+        {
+            "source": "node2:0",
+            "target": "output0"
+        }
+    ],
+    "nodes": [
+        {
+            "id": "node1",
+            "optype": [
+                "Minimum"
+            ]
+        },
+        {
+            "id": "node2",
+            "optype": [
+                "Maximum"
+            ]
+        }
+    ]
+}

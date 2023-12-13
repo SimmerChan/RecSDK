@@ -1,0 +1,131 @@
+{
+    "graph": "LambUpdateWithLrV2RuleCond1",
+    "links": [
+        {
+            "source": "Input0",
+            "target": "Greater0:0"
+        },
+        {
+            "source": "Greater_y",
+            "target": "Greater0:1"
+        },
+        {
+            "source": "Input1",
+            "target": "Greater1:0"
+        },
+        {
+            "source": "Greater_y",
+            "target": "Greater1:1"
+        },
+        {
+            "source": "Input0",
+            "target": "RealDiv0:0"
+        },
+        {
+            "source": "Input1",
+            "target": "RealDiv0:1"
+        },
+        {
+            "source": "Greater1:0",
+            "target": "Select0:0"
+        },
+        {
+            "source": "RealDiv0:0",
+            "target": "Select0:1"
+        },
+        {
+            "source": "Select_e",
+            "target": "Select0:2"
+        },
+        {
+            "source": "Greater0:0",
+            "target": "Select1:0"
+        },
+        {
+            "source": "Select0:0",
+            "target": "Select1:1"
+        },
+        {
+            "source": "Select_e",
+            "target": "Select1:2"
+        },
+        {
+            "source": "Input2",
+            "target": "Mul0:0"
+        },
+        {
+            "source": "Select1:0",
+            "target": "Mul0:1"
+        },
+        {
+            "source": "Mul0:0",
+            "target": "Mul1:0"
+        },
+        {
+            "source": "Input3",
+            "target": "Mul1:1"
+        },
+        {
+            "source": "Input4",
+            "target": "Sub0:0"
+        },
+        {
+            "source": "Mul1:0",
+            "target": "Sub0:1"
+        },
+        {
+            "source": "Sub0:0",
+            "target": "Output0"
+        }
+    ],
+    "nodes": [
+        {
+            "id": "Greater0",
+            "optype": [
+                "Greater"
+            ]
+        },
+        {
+            "id": "Greater1",
+            "optype": [
+                "Greater"
+            ]
+        },
+        {
+            "id": "RealDiv0",
+            "optype": [
+                "RealDiv"
+            ]
+        },
+        {
+            "id": "Select0",
+            "optype": [
+                "Select"
+            ]
+        },
+        {
+            "id": "Select1",
+            "optype": [
+                "Select"
+            ]
+        },
+        {
+            "id": "Mul0",
+            "optype": [
+                "Mul"
+            ]
+        },
+        {
+            "id": "Mul1",
+            "optype": [
+                "Mul"
+            ]
+        },
+        {
+            "id": "Sub0",
+            "optype": [
+                "Sub"
+            ]
+        }
+    ]
+}

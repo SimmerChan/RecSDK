@@ -1,0 +1,239 @@
+{
+    "graph": "LambNextMVRuleCond1",
+    "links": [
+        {
+            "source": "Mul3_sub1",
+            "target": "Mul3:0"
+        },
+        {
+            "source": "Input0",
+            "target": "Mul3:1"
+        },
+        {
+            "source": "Mul2_x",
+            "target": "Mul2:0"
+        },
+        {
+            "source": "Input1",
+            "target": "Mul2:1"
+        },
+        {
+            "source": "Mul2:0",
+            "target": "Add1:0"
+        },
+        {
+            "source": "Mul3:0",
+            "target": "Add1:1"
+        },
+        {
+            "source": "Add1:0",
+            "target": "RealDiv1:0"
+        },
+        {
+            "source": "Input2",
+            "target": "RealDiv1:1"
+        },
+        {
+            "source": "Add2_y",
+            "target": "Add2:0"
+        },
+        {
+            "source": "RealDiv1:0",
+            "target": "Add2:1"
+        },
+        {
+            "source": "Add2:0",
+            "target": "Sqrt0:0"
+        },
+        {
+            "source": "RealDiv1:0",
+            "target": "Sqrt1:0"
+        },
+        {
+            "source": "Add2_y",
+            "target": "Add4:0"
+        },
+        {
+            "source": "Sqrt1:0",
+            "target": "Add4:1"
+        },
+        {
+            "source": "Mul0_x",
+            "target": "Mul0:0"
+        },
+        {
+            "source": "Input4",
+            "target": "Mul0:1"
+        },
+        {
+            "source": "Mul1_sub",
+            "target": "Mul1:0"
+        },
+        {
+            "source": "Input3",
+            "target": "Mul1:1"
+        },
+        {
+            "source": "Mul0:0",
+            "target": "Add0:0"
+        },
+        {
+            "source": "Mul1:0",
+            "target": "Add0:1"
+        },
+        {
+            "source": "Add0:0",
+            "target": "RealDiv0:0"
+        },
+        {
+            "source": "Input5",
+            "target": "RealDiv0:1"
+        },
+        {
+            "source": "RealDiv0:0",
+            "target": "RealDiv4:0"
+        },
+        {
+            "source": "Add4:0",
+            "target": "RealDiv4:1"
+        },
+        {
+            "source": "Mul4_x",
+            "target": "Mul4:0"
+        },
+        {
+            "source": "Input6",
+            "target": "Mul4:1"
+        },
+        {
+            "source": "Sqrt0:0",
+            "target": "RealDiv2:0"
+        },
+        {
+            "source": "RealDiv0:0",
+            "target": "RealDiv2:1"
+        },
+        {
+            "source": "Mul4:0",
+            "target": "Add3:0"
+        },
+        {
+            "source": "RealDiv2:0",
+            "target": "Add3:1"
+        },
+        {
+            "source": "Add3:0",
+            "target": "Output0"
+        },
+        {
+            "source": "Add0:0",
+            "target": "Output1"
+        },
+        {
+            "source": "Add1:0",
+            "target": "Output2"
+        },
+        {
+            "source": "RealDiv4:0",
+            "target": "Output3"
+        }
+    ],
+    "nodes": [
+        {
+            "id": "Mul0",
+            "optype": [
+                "Mul"
+            ]
+        },
+        {
+            "id": "Mul1",
+            "optype": [
+                "Mul"
+            ]
+        },
+        {
+            "id": "Mul2",
+            "optype": [
+                "Mul"
+            ]
+        },
+        {
+            "id": "Mul3",
+            "optype": [
+                "Mul"
+            ]
+        },
+        {
+            "id": "Mul4",
+            "optype": [
+                "Mul"
+            ]
+        },
+        {
+            "id": "Add0",
+            "optype": [
+                "Add"
+            ]
+        },
+        {
+            "id": "Add1",
+            "optype": [
+                "Add"
+            ]
+        },
+        {
+            "id": "Add2",
+            "optype": [
+                "Add"
+            ]
+        },
+        {
+            "id": "Add3",
+            "optype": [
+                "Add"
+            ]
+        },
+        {
+            "id": "Add4",
+            "optype": [
+                "Add"
+            ]
+        },
+        {
+            "id": "RealDiv0",
+            "optype": [
+                "RealDiv"
+            ]
+        },
+        {
+            "id": "RealDiv1",
+            "optype": [
+                "RealDiv"
+            ]
+        },
+        {
+            "id": "RealDiv2",
+            "optype": [
+                "Mul"
+            ]
+        },
+        {
+            "id": "RealDiv4",
+            "optype": [
+                "RealDiv"
+            ]
+        },
+        {
+            "id": "Sqrt0",
+            "optype": [
+                "Rsqrt"
+            ]
+        },
+        {
+            "id": "Sqrt1",
+            "optype": [
+                "Sqrt"
+            ]
+        }
+    ]
+}

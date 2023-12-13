@@ -1,0 +1,1 @@
+{"directed": true, "multigraph": false, "graph": "18_MatMul_E", "nodes": [{"optype": "MatMul", "id": "OutputLayer/MatMul"}, {"optype": "Relu6", "id": "ReLU6/Relu6"}, {"optype": "Const", "id": "OutputLayer/kernel"}], "links": [{"source": "ReLU6/Relu6", "target": "OutputLayer/MatMul"}, {"source": "OutputLayer/kernel", "target": "OutputLayer/MatMul"}]}

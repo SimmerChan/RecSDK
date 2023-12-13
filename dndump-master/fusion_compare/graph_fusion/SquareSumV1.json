@@ -1,0 +1,31 @@
+{
+    "graph": "SquareSumV1",
+    "links": [
+        {
+            "source": "Input0",
+            "target": "Square0:0"
+        },
+        {
+            "source": "Square0:0",
+            "target": "Sum0:0"
+        },
+        {
+            "source": "Sum0:0",
+            "target": "Output0"
+        }
+    ],
+    "nodes": [
+        {
+            "id": "Square0",
+            "optype": [
+                "Square"
+            ]
+        },
+        {
+            "id": "Sum0",
+            "optype": [
+                "ReduceSumD"
+            ]
+        }
+    ]
+}
