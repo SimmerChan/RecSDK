@@ -1,0 +1,35 @@
+{
+    "graph": "ConvRelu",
+    "links": [
+        {
+            "source": "Input0",
+            "target": "Conv2D0:0"
+        },        
+        {
+            "source": "Input1",
+            "target": "Conv2D0:1"
+        },
+        {
+            "source": "Conv2D0:0",
+            "target": "Relu0:0"
+        },
+        {
+            "source": "Relu0:0",
+            "target": "Output0"
+        }
+    ],
+    "nodes": [
+        {
+            "id": "Conv2D0",
+            "optype": [
+                "Conv2D"
+            ]
+        },
+        {
+            "id": "Relu0",
+            "optype": [
+                "Relu"
+            ]
+        }
+    ]
+}

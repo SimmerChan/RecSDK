@@ -1,0 +1,53 @@
+{
+    "graph": "ConvMulAdd",
+    "links": [
+        {
+            "source": "Input0",
+            "target": "Conv2D0:0"
+        },        
+        {
+            "source": "Input1",
+            "target": "Conv2D0:1"
+        },
+        {
+            "source": "Conv2D0:0",
+            "target": "Mul0:0"
+        },
+        {
+            "source": "Input2",
+            "target": "Mul0:1"
+        },
+        {
+            "source": "Mul0:0",
+            "target": "Add0:0"
+        },
+        {
+            "source": "Input3",
+            "target": "Add0:1"
+        },
+        {
+            "source": "Add0:0",
+            "target": "Output0"
+        }
+    ],
+    "nodes": [
+        {
+            "id": "Conv2D0",
+            "optype": [
+                "Conv2D"
+            ]
+        },
+        {
+            "id": "Mul0",
+            "optype": [
+                "Mul"
+            ]
+        },
+        {
+            "id": "Add0",
+            "optype": [
+                "Add"
+            ]
+        }
+    ]
+}

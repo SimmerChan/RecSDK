@@ -1,0 +1,105 @@
+{
+    "graph": "LambNextRightRuleCond2",
+    "links": [
+        {
+            "source": "Input0",
+            "target": "Square0:0"
+        },
+        {
+            "source": "Input1",
+            "target": "Mul2:0"
+        },
+        {
+            "source": "Mul2_x",
+            "target": "Mul2:1"
+        },
+        {
+            "source": "Mul3_x",
+            "target": "Mul3:0"
+        },
+        {
+            "source": "Square0:0",
+            "target": "Mul3:1"
+        },
+        {
+            "source": "Mul2:0",
+            "target": "Add1:0"
+        },
+        {
+            "source": "Mul3:0",
+            "target": "Add1:1"
+        },
+        {
+            "source": "TrueDiv1_recip",
+            "target": "RealDiv1:0"
+        },
+        {
+            "source": "Add1:0",
+            "target": "RealDiv1:1"
+        },
+        {
+            "source": "RealDiv1:0",
+            "target": "Sqrt0:0"
+        },
+        {
+            "source": "Sqrt0:0",
+            "target": "Add2:0"
+        },
+        {
+            "source": "Add2_y",
+            "target": "Add2:1"
+        },
+        {
+            "source": "Add1:0",
+            "target": "Output0"
+        },
+        {
+            "source": "Add2:0",
+            "target": "Output1"
+        }
+    ],
+    "nodes": [
+        {
+            "id": "Square0",
+            "optype": [
+                "Square"
+            ]
+        },
+        {
+            "id": "Mul2",
+            "optype": [
+                "Mul"
+            ]
+        },
+        {
+            "id": "Mul3",
+            "optype": [
+                "Mul"
+            ]
+        },
+        {
+            "id": "Add1",
+            "optype": [
+                "Add"
+            ]
+        },
+        {
+            "id": "RealDiv1",
+            "optype": [
+                "Mul"
+            ]
+        },
+        {
+            "id": "Sqrt0",
+            "optype": [
+                "Sqrt"
+            ]
+        },
+        {
+            "id": "Add2",
+            "optype": [
+                "Add"
+            ]
+        }
+    ]
+}

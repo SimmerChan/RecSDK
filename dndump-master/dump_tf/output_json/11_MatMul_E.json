@@ -1,0 +1,1 @@
+{"directed": true, "multigraph": false, "graph": "11_MatMul_E", "nodes": [{"optype": "MatMul", "id": "dense/MatMul"}, {"optype": "Reshape", "id": "flatten/Reshape"}, {"optype": "Const", "id": "dense/kernel"}], "links": [{"source": "flatten/Reshape", "target": "dense/MatMul"}, {"source": "dense/kernel", "target": "dense/MatMul"}]}

@@ -1,0 +1,207 @@
+{
+    "graph": "AdamApplyOneWithDecayRuleCond1",
+    "links": [
+        {
+            "source": "Input0",
+            "target": "Square0:0"
+        },
+        {
+            "source": "Mul3_x",
+            "target": "Mul3:0"
+        },
+        {
+            "source": "Square0:0",
+            "target": "Mul3:1"
+        },
+        {
+            "source": "Mul2_x",
+            "target": "Mul2:0"
+        },
+        {
+            "source": "Input1",
+            "target": "Mul2:1"
+        },
+        {
+            "source": "Mul2:0",
+            "target": "Add1:0"
+        },
+        {
+            "source": "Mul3:0",
+            "target": "Add1:1"
+        },
+        {
+            "source": "Add1:0",
+            "target": "Sqrt0:0"
+        },
+        {
+            "source": "Add2_y",
+            "target": "Add2:0"
+        },
+        {
+            "source": "Sqrt0:0",
+            "target": "Add2:1"
+        },
+        {
+            "source": "Mul0_x",
+            "target": "Mul0:0"
+        },
+        {
+            "source": "Input2",
+            "target": "Mul0:1"
+        },
+        {
+            "source": "Mul1_x",
+            "target": "Mul1:0"
+        },
+        {
+            "source": "Input0",
+            "target": "Mul1:1"
+        },
+        {
+            "source": "Mul0:0",
+            "target": "Add0:0"
+        },
+        {
+            "source": "Mul1:0",
+            "target": "Add0:1"
+        },
+        {
+            "source": "Add0:0",
+            "target": "RealDiv0:0"
+        },
+        {
+            "source": "Add2:0",
+            "target": "RealDiv0:1"
+        },
+        {
+            "source": "Mul4_x",
+            "target": "Mul4:0"
+        },
+        {
+            "source": "Input3",
+            "target": "Mul4:1"
+        },
+        {
+            "source": "Mul4:0",
+            "target": "Add3:0"
+        },
+        {
+            "source": "RealDiv0:0",
+            "target": "Add3:1"
+        },
+        {
+            "source": "Input4",
+            "target": "Mul5:0"
+        },
+        {
+            "source": "Add3:0",
+            "target": "Mul5:1"
+        },
+        {
+            "source": "Input3",
+            "target": "Sub0:0"
+        },
+        {
+            "source": "Mul5:0",
+            "target": "Sub0:1"
+        },
+        {
+            "source": "Add1:0",
+            "target": "Output0"
+        },
+        {
+            "source": "Add0:0",
+            "target": "Output1"
+        },
+        {
+            "source": "Sub0:0",
+            "target": "Output2"
+        }
+    ],
+    "nodes": [
+        {
+            "id": "Square0",
+            "optype": [
+                "Square"
+            ]
+        },
+        {
+            "id": "Mul0",
+            "optype": [
+                "Mul"
+            ]
+        },
+        {
+            "id": "Mul1",
+            "optype": [
+                "Mul"
+            ]
+        },
+        {
+            "id": "Mul2",
+            "optype": [
+                "Mul"
+            ]
+        },
+        {
+            "id": "Mul3",
+            "optype": [
+                "Mul"
+            ]
+        },
+        {
+            "id": "Mul4",
+            "optype": [
+                "Mul"
+            ]
+        },
+        {
+            "id": "Mul5",
+            "optype": [
+                "Mul"
+            ]
+        },
+        {
+            "id": "Add0",
+            "optype": [
+                "Add"
+            ]
+        },
+        {
+            "id": "Add1",
+            "optype": [
+                "Add"
+            ]
+        },
+        {
+            "id": "Add2",
+            "optype": [
+                "Add"
+            ]
+        },
+        {
+            "id": "Add3",
+            "optype": [
+                "Add"
+            ]
+        },
+        {
+            "id": "Sqrt0",
+            "optype": [
+                "Sqrt"
+            ]
+        },
+        {
+            "id": "RealDiv0",
+            "optype": [
+                "RealDiv"
+            ]
+        },
+        {
+            "id": "Sub0",
+            "optype": [
+                "Sub"
+            ]
+        }
+    ]
+}

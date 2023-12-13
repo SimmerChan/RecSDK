@@ -1,0 +1,39 @@
+{
+    "graph": "ConvBiasAdd",
+    "links": [
+        {
+            "source": "Input0",
+            "target": "Conv2D0:0"
+        },        
+        {
+            "source": "Input1",
+            "target": "Conv2D0:1"
+        },
+        {
+            "source": "Conv2D0:0",
+            "target": "BiasAdd0:0"
+        },
+        {
+            "source": "Input2",
+            "target": "BiasAdd0:1"
+        },
+        {
+            "source": "BiasAdd0:0",
+            "target": "Output0"
+        }
+    ],
+    "nodes": [
+        {
+            "id": "Conv2D0",
+            "optype": [
+                "Conv2D"
+            ]
+        },
+        {
+            "id": "BiasAdd0",
+            "optype": [
+                "BiasAdd"
+            ]
+        }
+    ]
+}

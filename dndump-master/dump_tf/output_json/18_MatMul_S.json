@@ -1,0 +1,1 @@
+{"directed": true, "multigraph": false, "graph": "18_MatMul_S", "nodes": [{"optype": "MatMul", "id": "OutputLayer/MatMul"}, {"optype": "BiasAdd", "id": "OutputLayer/BiasAdd"}, {"optype": "Const", "id": "OutputLayer/bias"}], "links": [{"source": "OutputLayer/MatMul", "target": "OutputLayer/BiasAdd"}, {"source": "OutputLayer/bias", "target": "OutputLayer/BiasAdd"}]}

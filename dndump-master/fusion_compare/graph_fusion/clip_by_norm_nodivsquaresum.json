@@ -1,0 +1,85 @@
+{
+    "graph": "clip_by_norm_nodivsquaresum",
+    "links": [
+        {
+            "source": "Input0",
+            "target": "Select0:1"
+        },
+        {
+            "source": "Input0",
+            "target": "Select1:2"
+        },
+        {
+            "source": "Input0",
+            "target": "Greater0:0"
+        },
+        {
+            "source": "ConstantSelect0",
+            "target": "Select0:2"
+        },
+        {
+            "source": "Greater0:0",
+            "target": "Select0:0"
+        },
+        {
+            "source": "ConstantGreater0",
+            "target": "Greater0:1"
+        },
+        {
+            "source": "Select0:0",
+            "target": "Sqrt0:0"
+        },
+        {
+            "source": "Sqrt0:0",
+            "target": "Select1:1"
+        },
+        {
+            "source": "Greater0:0",
+            "target": "Select1:0"
+        },
+        {
+            "source": "Select1:0",
+            "target": "Maximum0:0"
+        },
+        {
+            "source": "ConstantMaximum0",
+            "target": "Maximum0:1"
+        },
+        {
+            "source": "Maximum0:0",
+            "target": "Output0"
+        }
+    ],
+    "nodes": [
+        {
+            "id": "Select0",
+            "optype": [
+                "Select"
+            ]
+        },
+        {
+            "id": "Greater0",
+            "optype": [
+                "Greater"
+            ]
+        },
+        {
+            "id": "Sqrt0",
+            "optype": [
+                "Sqrt"
+            ]
+        },
+        {
+            "id": "Select1",
+            "optype": [
+                "Select"
+            ]
+        },
+        {
+            "id": "Maximum0",
+            "optype": [
+                "Maximum"
+            ]
+        }
+    ]
+}
