@@ -92,7 +92,7 @@ namespace MxRec {
     constexpr int KEY_PROCESS_TIMEOUT = 120;
 #endif
     constexpr int GET_BATCH_TIMEOUT = 300;
-    constexpr int EOS_TIMEOUT = 5;
+    constexpr int EOS_TIMEOUT = 30;
 
     constexpr size_t DEFAULT_RANDOM_SEED = 10086;
     // constexpr int INVALID_KEY_VALUE = -1;
@@ -211,7 +211,7 @@ namespace MxRec {
     struct RankInfo {
         RankInfo() = default;
 
-        RankInfo(int rankId, int deviceId, int localRankSize, int option, const std::vector<int>& maxStep);
+        RankInfo(int rankId, int deviceId, int localRankSize, int option, const std::vector<int>& ctrlSteps);
         RankInfo(int localRankSize, int option, const std::vector<int>& maxStep);
 
         int rankId {};
@@ -226,7 +226,7 @@ namespace MxRec {
         bool isDDR { false };
         bool isSSDEnabled { false };
         bool useDynamicExpansion {false};
-        std::vector<int> maxStep;
+        std::vector<int> ctrlSteps; // 包含三个步数: train_steps, eval_steps, save_steps
     };
 
     enum TensorIndex : uint32_t {

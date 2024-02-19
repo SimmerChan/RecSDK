@@ -37,8 +37,8 @@ namespace MxRec {
     int GlogConfig::gGlogLevel;
     string GlogConfig::gRankId;
 
-    RankInfo::RankInfo(int rankId, int deviceId, int localRankSize, int option, const vector<int>& maxStep)
-        : rankId(rankId), deviceId(deviceId), localRankSize(localRankSize), option(option), maxStep(maxStep)
+    RankInfo::RankInfo(int rankId, int deviceId, int localRankSize, int option, const vector<int>& ctrlSteps)
+        : rankId(rankId), deviceId(deviceId), localRankSize(localRankSize), option(option), ctrlSteps(ctrlSteps)
     {
         MPI_Comm_size(MPI_COMM_WORLD, &rankSize);
         if (localRankSize != 0) {
@@ -50,7 +50,7 @@ namespace MxRec {
     }
 
     RankInfo::RankInfo(int localRankSize, int option, const vector<int>& maxStep)
-        : localRankSize(localRankSize), option(option), maxStep(maxStep)
+        : localRankSize(localRankSize), option(option), ctrlSteps(maxStep)
     {
         MPI_Comm_rank(MPI_COMM_WORLD, &rankId);
         MPI_Comm_size(MPI_COMM_WORLD, &rankSize);
