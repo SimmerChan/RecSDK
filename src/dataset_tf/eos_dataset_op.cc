@@ -56,6 +56,9 @@ public:
         keyProcess = Singleton<KeyProcess>::GetInstance();
     }
 
+    Dataset(const Dataset&) = delete;
+    Dataset& operator=(const Dataset&) = delete;
+
     ~Dataset() override
     {
         input_->Unref();

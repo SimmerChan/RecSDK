@@ -456,8 +456,7 @@ void Checkpoint::ReadStreamForEmbData(CkptTransData& transData,
     auto& dst = (*loadHostEmbs)[embName].embData;
     dst.reserve(embDataOuterSize);
 
-    ssize_t readBytesNum;
-    fileSystemPtr->Read(dataDir, dst, datasetSize);
+    ssize_t readBytesNum = fileSystemPtr->Read(dataDir, dst, datasetSize);
     if (readBytesNum == -1) {
         LOG_ERROR("error happened when reading data from file.");
         throw runtime_error("error happened when reading data from file.");
