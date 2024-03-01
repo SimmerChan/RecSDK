@@ -78,6 +78,9 @@ namespace MxRec {
             hdfsWrite = reinterpret_cast<HdfsWriteFunc>(dlsym(libhdfs, "hdfsWrite"));
         }
 
+        HdfsWrapper(const HdfsWrapper&) = delete;
+        HdfsWrapper& operator=(const HdfsWrapper&) = delete;
+
         ~HdfsWrapper()
         {
             dlclose(libhdfs);

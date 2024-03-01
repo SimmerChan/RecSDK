@@ -144,6 +144,10 @@ namespace ge
     }
     static ge::graphStatus InferDataType(gert::InferDataTypeContext *context)
     {
+        if (optiling::CheckPointer(context, "context") != ge::GRAPH_SUCCESS) {
+            return ge::GRAPH_FAILED;
+        }
+
         context->SetOutputDataType(0, ge::DataType(DT_FLOAT));
         return GRAPH_SUCCESS;
     }
