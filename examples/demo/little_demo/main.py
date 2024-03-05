@@ -218,7 +218,6 @@ if __name__ == "__main__":
          use_dynamic=use_dynamic,
          use_hot=use_hot,
          use_dynamic_expansion=use_dynamic_expansion,
-         bind_cpu=True,
          if_load=IF_LOAD)
 
     cfg = Config()
