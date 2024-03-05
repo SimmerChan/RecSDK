@@ -41,6 +41,8 @@ from model import MyModel
 from config import sess_config, Config
 from optimizer import get_dense_and_sparse_optimizer
 
+npu_plugin.set_device_sat_mode(0)
+
 dense_hashtable_seed = 128
 sparse_hashtable_seed = 128
 shuffle_seed = 128
