@@ -157,14 +157,14 @@ FeatureAdmitAndEvict& KeyProcess::GetFeatAdmitAndEvict()
 
 void KeyProcess::LoadMaxOffset(OffsetMemT& loadData)
 {
-    EmbeddingMgmt::Instance()->LoadMaxOffset(loadData);
+    maxOffset = std::move(loadData);
 }
 
 /// 加载每张表key到offset的映射
 /// \param loadData
 void KeyProcess::LoadKeyOffsetMap(KeyOffsetMemT& loadData)
 {
-    EmbeddingMgmt::Instance()->LoadKeyOffsetMap(loadData);
+    keyOffsetMap = std::move(loadData);
 }
 
 void KeyProcess::LoadKeyCountMap(KeyCountMemT& loadData)

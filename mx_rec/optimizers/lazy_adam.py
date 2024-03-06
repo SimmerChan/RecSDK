@@ -91,9 +91,10 @@ class CustomizedLazyAdam(adam.AdamOptimizer, CustomizedOptimizer):
         self.config_instance.sparse_embed_config.insert_removing_var_list(velocity.name)
         named_slot_key = (var.op.graph, var.op.name)
         table_instance = self.config_instance.sparse_embed_config.get_table_instance(var)
-        ConfigInitializer.get_instance().optimizer_config.set_optimizer_for_table(table_instance.table_name, self._name,
-                                                                        {"momentum": momentum,
-                                                                         "velocity": velocity})
+        ConfigInitializer.get_instance().optimizer_config.set_optimizer_for_table(table_instance.table_name,
+                                                                                  self.optimizer_type,
+                                                                                  {"momentum": momentum,
+                                                                                   "velocity": velocity})
         return [{"slot": momentum, "named_slot_key": named_slot_key, "slot_name": "m", "optimizer": self},
                 {"slot": velocity, "named_slot_key": named_slot_key, "slot_name": "v", "optimizer": self}]
 
@@ -202,5 +203,6 @@ class CustomizedLazyAdam(adam.AdamOptimizer, CustomizedOptimizer):
 
             table_instance = self.config_instance.sparse_embed_config.get_table_instance(each_var)
             ConfigInitializer.get_instance().optimizer_config.set_optimizer_for_table(table_instance.table_name,
-                                                                                     self._name, {"momentum": momentum,
-                                                                                                  "velocity": velocity})
+                                                                                      self.optimizer_type,
+                                                                                      {"momentum": momentum,
+                                                                                       "velocity": velocity})

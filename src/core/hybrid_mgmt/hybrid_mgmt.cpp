@@ -231,16 +231,8 @@ bool HybridMgmt::Save(const string savePath)
     Checkpoint saveCkpt;
     saveData.keyCountMap = KEY_PROCESS_INSTANCE->GetKeyCountMap();
 
-    if (mgmtRankInfo.isDDR) {
-        // DDR模式保存host的emb表以及hashmap
-        LOG_DEBUG(MGMT + "Start host side save: ddr mode hashmap");
-        EmbeddingMgmt::Instance()->Save(savePath);
-    } else {
-        // HBM模式保存最大偏移（真正使用了多少vocab容量），特征到偏移的映射
-        LOG_DEBUG(MGMT + "Start host side save: no ddr mode hashmap");
-        saveData.maxOffset = EmbeddingMgmt::Instance()->GetMaxOffset();
-        saveData.keyOffsetMap = EmbeddingMgmt::Instance()->GetKeyOffsetMap();
-    }
+    EmbeddingMgmt::Instance()->Save(savePath);
+    offsetMapToSend = EmbeddingMgmt::Instance()->GetDeviceOffsets();
 
     if (isSSDEnabled) {
         LOG_DEBUG(MGMT + "Start host side save: ssd mode hashmap");
@@ -265,7 +257,6 @@ bool HybridMgmt::Save(const string savePath)
 
     // 执行保存操作
     saveCkpt.SaveModel(savePath, saveData, mgmtRankInfo, mgmtEmbInfo);
-    offsetMapToSend = std::move(saveData.offsetMap);
     // 数据处理线程释放锁
     KEY_PROCESS_INSTANCE->LoadSaveUnlock();
 #endif
@@ -293,28 +284,25 @@ bool HybridMgmt::Load(const string& loadPath)
     SetFeatureTypeForLoad(loadFeatures);
 
     EmbeddingMgmt::Instance()->Load(loadPath);
+    loadOffsetToSend = EmbeddingMgmt::Instance()->GetLoadOffsets();
 
-    loadData.hostEmbs = hostEmbs->GetHostEmbs(); // 获取已经初始化好的host emb
     // 执行加载操作
     loadCkpt.LoadModel(loadPath, loadData, mgmtRankInfo, mgmtEmbInfo, loadFeatures);
-
-    // 检查DDR模式保存的模型和当前训练配置是否一致，不一致则退出
-    if (mgmtRankInfo.isDDR && !LoadMatchesDDRSetup(loadData)) {
-        KEY_PROCESS_INSTANCE->LoadSaveUnlock();
-        return false;
-    }
 
     KEY_PROCESS_INSTANCE->LoadKeyCountMap(loadData.keyCountMap);
     if (mgmtRankInfo.isDDR) {
         // DDR模式 将加载的hash map进行赋值
         LOG_DEBUG(MGMT + "Start host side load: ddr mode hashmap");
-        auto EmbHashMaps = EmbeddingMgmt::Instance()->GetEmbHashMaps();
-        hostHashMaps->LoadHashMap(EmbHashMaps);
+        auto GetEmbHashMaps = EmbeddingMgmt::Instance()->GetEmbHashMaps();
+        LOG_DEBUG(MGMT + "over over Start host side load: ddr mode hashmap");
+        hostHashMaps->LoadHashMap(GetEmbHashMaps);
     } else {
         // HBM模式 将加载的最大偏移（真正使用了多少vocab容量）、特征到偏移的映射，进行赋值
         LOG_DEBUG(MGMT + "Start host side load: no ddr mode hashmap");
-        KEY_PROCESS_INSTANCE->LoadKeyOffsetMap(loadData.keyOffsetMap);
-        KEY_PROCESS_INSTANCE->LoadMaxOffset(loadData.maxOffset);
+        auto keyOffsetMap = EmbeddingMgmt::Instance()->GetKeyOffsetMap();
+        auto maxOffset = EmbeddingMgmt::Instance()->GetMaxOffset();
+        KEY_PROCESS_INSTANCE->LoadKeyOffsetMap(keyOffsetMap);
+        KEY_PROCESS_INSTANCE->LoadMaxOffset(maxOffset);
     }
 
     // 将加载的特征准入淘汰记录进行赋值
@@ -348,13 +336,6 @@ void HybridMgmt::SetFeatureTypeForLoad(vector<CkptFeatureType>& loadFeatures)
     if (GlobalEnv::recordKeyCount) {
         loadFeatures.push_back(CkptFeatureType::KEY_COUNT_MAP);
     }
-    if (mgmtRankInfo.isDDR) {
-        // DDR模式加载的类型为host的emb表以及hashmap
-        LOG_DEBUG(MGMT + "set feature ddr");
-    } else {
-        // HBM模式加载的类型为最大偏移（真正使用了多少vocab容量），特征到偏移的映射
-        loadFeatures.push_back(CkptFeatureType::KEY_OFFSET_MAP);
-    }
 
     // 添加特征准入淘汰相关的数据类型的加载
     FeatureAdmitAndEvict& featAdmitNEvict = KEY_PROCESS_INSTANCE->GetFeatAdmitAndEvict();
@@ -377,6 +358,22 @@ OffsetT HybridMgmt::SendHostMap(const string tableName)
     // 先校验这个map是不是空的
     if ((!offsetMapToSend.empty()) && offsetMapToSend.count(tableName) > 0) {
         for (auto& it : offsetMapToSend.at(tableName)) {
+            offsetMap.push_back(it);
+        }
+    }
+    return offsetMap;
+#endif
+}
+
+/// 获取加载embedding文件时，本卡对应的文件行偏移offset，python侧调用
+/// \param tableName 表名
+/// \return 加载embedding文件的行偏移
+OffsetT HybridMgmt::SendLoadMap(const string tableName)
+{
+#ifndef GTEST
+    OffsetT offsetMap;
+    if ((!loadOffsetToSend.empty()) && loadOffsetToSend.count(tableName) > 0) {
+        for (auto& it : loadOffsetToSend.at(tableName)) {
             offsetMap.push_back(it);
         }
     }
@@ -1171,4 +1168,16 @@ int64_t HybridMgmt::GetTableCapacity(const string& embName) const
     LOG_WARN(MGMT + "no dynamic expansion mode, get emb:[{}] capacity failed", embName);
     return -1;
 #endif
+}
+
+/// 设置表的优化器信息
+/// \param embName 表名
+/// \param optimInfo 优化器信息
+/// \return
+void HybridMgmt::SetOptimizerInfo(const string& embName, OptimizerInfo optimInfo) const
+{
+    if (!isInitialized) {
+        throw runtime_error("HybridMgmt not initialized. Call Initialize first.");
+    }
+    EmbeddingMgmt::Instance()->SetOptimizerInfo(embName, optimInfo);
 }
