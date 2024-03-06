@@ -175,6 +175,8 @@ if __name__ == "__main__":
 
     use_mode = UseMode.mapping(os.getenv("USE_MODE"))
     clear_saved_model()
+    # 最大数据集生成数量
+    MAX_DATASET_GENERATE = 200
     # 最大训练的步数
     MAX_TRAIN_STEPS = 200
     # 训练多少步切换为评估
@@ -285,11 +287,11 @@ if __name__ == "__main__":
         train_iterator, train_model, train_batch = build_graph(table_list, is_train=True,
                                                                feature_spec_list=train_feature_spec_list,
                                                                config_dict=ACCESS_AND_EVICT,
-                                                               batch_number=MAX_TRAIN_STEPS * get_rank_size())
+                                                               batch_number=MAX_DATASET_GENERATE * get_rank_size())
     eval_iterator, eval_model, eval_batch = build_graph(table_list, is_train=False,
                                                         feature_spec_list=eval_feature_spec_list,
                                                         config_dict=ACCESS_AND_EVICT,
-                                                        batch_number=EVAL_STEPS * get_rank_size())
+                                                        batch_number=MAX_DATASET_GENERATE * get_rank_size())
     dense_variables, sparse_variables = get_dense_and_sparse_variable()
 
     params = {"train_batch": train_batch, "eval_batch": eval_batch, "use_one_shot": USE_ONE_SHOT}

@@ -125,6 +125,7 @@ class RunMode:
 
         self.session.run(tf.compat.v1.global_variables_initializer())
         self.saver = tf.compat.v1.train.Saver()
+        i = 0
         for i in range(1, self.max_train_steps + 1):
             logger.info("################    training at step %d    ################", i)
             try:
