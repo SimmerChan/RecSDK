@@ -53,7 +53,7 @@ class CustomizedGradientDescentByAddr(gradient_descent.GradientDescentOptimizer,
     name_counter = defaultdict(int)
 
     def __init__(self, learning_rate, weight_decay, use_locking=False, name="GradientDescentByAddr"):
-        self.optimizer_type = "gradient_descent_by_addr"
+        self.optimizer_type = "gradient_descent"
         self.weight_decay = weight_decay
         self.optim_param_list = []
         super(CustomizedGradientDescentByAddr, self)._get_name(name=name)

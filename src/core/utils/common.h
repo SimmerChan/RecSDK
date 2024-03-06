@@ -264,6 +264,30 @@ namespace MxRec {
         float randomMax;
     };
 
+    struct EmbeddingSizeInfo {
+        EmbeddingSizeInfo() = default;
+        EmbeddingSizeInfo(size_t embSize, size_t extendSize)
+        {
+            embeddingSize = embSize;
+            extendEmbSize = extendSize;
+        }
+
+        size_t embeddingSize;
+        size_t extendEmbSize;
+    };
+
+    struct OptimizerInfo {
+        OptimizerInfo() = default;
+        OptimizerInfo(std::string name, vector<std::string> params)
+        {
+            optimName = name;
+            optimParams = std::move(params);
+        }
+
+        std::string optimName;
+        vector<std::string> optimParams;
+    };
+
     struct ThresholdValue {
         ThresholdValue() = default;
         ThresholdValue(EmbNameT name, int countThre, int timeThre, int faaeCoef, bool isSum)

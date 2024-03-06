@@ -30,6 +30,8 @@ namespace {
 
     void GetRandomInfo(py::module_& m);
 
+    void GetOptimizerInfo(py::module_& m);
+
     void GetHybridMgmt(py::module_& m);
 
     void GetThresholdValue(pybind11::module_& m);
@@ -74,6 +76,8 @@ namespace {
         GetEmbInfo(m);
 
         GetRandomInfo(m);
+
+        GetOptimizerInfo(m);
 
         GetHybridMgmt(m);
 
@@ -150,6 +154,14 @@ namespace {
                 .def_readwrite("random_max", &RandomInfo::randomMax);
     }
 
+    void GetOptimizerInfo(pybind11::module_& m)
+    {
+        pybind11::class_<OptimizerInfo>(m, "OptimizerInfo")
+                .def(pybind11::init<std::string, vector<std::string>>())
+                .def_readwrite("name", &OptimizerInfo::optimName)
+                .def_readwrite("params", &OptimizerInfo::optimParams);
+    }
+
     void GetInitializeInfo(pybind11::module_ &m)
     {
         pybind11::class_<InitializeInfo>(m, "InitializeInfo")
@@ -196,12 +208,15 @@ namespace {
                 .def("destroy", &MxRec::HybridMgmt::Destroy)
                 .def("evict", &MxRec::HybridMgmt::Evict)
                 .def("send", &MxRec::HybridMgmt::SendHostMap, py::arg("table_name") = "")
+                .def("send_load_offset", &MxRec::HybridMgmt::SendLoadMap, py::arg("table_name") = "")
                 .def("receive", &MxRec::HybridMgmt::ReceiveHostMap, py::arg("key_offset_map"))
                 .def("block_notify_wake", &MxRec::HybridMgmt::NotifyBySessionRun, py::arg("channel_id"))
                 .def("block_count_steps", &MxRec::HybridMgmt::CountStepBySessionRun,
                      py::arg("channel_id"), py::arg("steps")=1)
                 .def("get_table_size", &MxRec::HybridMgmt::GetTableSize, py::arg("table_name"))
-                .def("get_table_capacity", &MxRec::HybridMgmt::GetTableCapacity, py::arg("table_name"));
+                .def("get_table_capacity", &MxRec::HybridMgmt::GetTableCapacity, py::arg("table_name"))
+                .def("set_optim_info", &MxRec::HybridMgmt::SetOptimizerInfo, py::arg("table_name"),
+                     py::arg("optimizer_info"));
     }
 
     void GetThresholdValue(pybind11::module_& m)
