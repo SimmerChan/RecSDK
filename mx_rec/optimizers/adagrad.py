@@ -34,7 +34,8 @@ from mx_rec.validator.validator import para_checker_decorator, StringValidator, 
 
 @para_checker_decorator(check_option_list=[
     ("learning_rate", FloatValidator, {"min_value": -MAX_INT32, "max_value": MAX_INT32}, ["check_value"]),
-    ("initial_accumulator_value", FloatValidator, {"min_value": 0, "max_value": MAX_INT32}, ["check_value"]),
+    ("initial_accumulator_value", FloatValidator, {"min_value": 0, "max_value": 1}, 
+        ["check_value_for_left_open_interval"]),
     ("use_locking", ClassValidator, {"classes": (bool, )}),
     ("name", StringValidator, {"min_len": 1, "max_len": 255}, ["check_string_length"])
 ])
