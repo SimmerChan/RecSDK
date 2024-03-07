@@ -37,7 +37,6 @@ class ConfigInitializer:
     _single_instance = None
 
     @para_checker_decorator(check_option_list=[
-        ("use_mpi", ClassValidator, {"classes": (bool,)}),
         ("train_steps", IntValidator, {"min_value": -1, "max_value": MAX_INT32}, ["check_value"]),
         ("eval_steps", IntValidator, {"min_value": -1, "max_value": MAX_INT32}, ["check_value"]),
         ("save_steps", IntValidator, {"min_value": -1, "max_value": MAX_INT32}, ["check_value"]),
