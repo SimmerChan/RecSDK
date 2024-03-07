@@ -1067,7 +1067,7 @@ void HybridMgmt::EvictSSDKeys(const string& embName, const vector<emb_key_t>& ke
 
 int HybridMgmt::GetStepFromPath(const string& loadPath) const
 {
-    regex pattern("sparse-model-\\d+-(\\d+)");
+    regex pattern("sparse-model-(\\d+)");
     smatch match;
     if (regex_search(loadPath, match, pattern)) {
         int res = 0;
