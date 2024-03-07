@@ -253,7 +253,6 @@ if __name__ == "__main__":
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
     warnings.filterwarnings("ignore")
 
-    use_mpi = bool(int(os.getenv("USE_MPI")))
     rank_id = int(os.getenv("RANK_ID")) if os.getenv("RANK_ID") else None
     rank_size = int(os.getenv("RANK_SIZE")) if os.getenv("RANK_SIZE") else None
     interval = int(os.getenv("INTERVAL")) if os.getenv("INTERVAL") else None
