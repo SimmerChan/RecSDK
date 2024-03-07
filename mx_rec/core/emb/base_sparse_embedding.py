@@ -363,6 +363,8 @@ class BaseSparseEmbedding(metaclass=abc.ABCMeta):
             lookup_result = self._lookup_forward(feature_spec, send_count, **kwargs)
             if spec_name not in self._lookup_result:
                 self._lookup_result[spec_name] = {}
+            if not kwargs.get("is_grad"):
+                lookup_result = tf.stop_gradient(lookup_result, name="stop_grad_lookup_result")
             self._lookup_result[spec_name][is_training] = lookup_result
             return lookup_result
 
