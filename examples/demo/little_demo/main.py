@@ -209,7 +209,7 @@ if __name__ == "__main__":
     IF_LOAD = False
     rank_id = get_rank_id()
 
-    file_list = glob(f"./saved-model/sparse-model-{rank_id}-*")
+    file_list = glob(f"./saved-model/sparse-model-*")
     if file_list:
         IF_LOAD = True
     # nbatch function needs to be used together with the prefetch and host_vocabulary_size != 0
