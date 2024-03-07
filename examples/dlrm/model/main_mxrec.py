@@ -275,7 +275,7 @@ if __name__ == "__main__":
          use_dynamic=use_dynamic, use_dynamic_expansion=use_dynamic_expansion)
     IF_LOAD = False
     rank_id = mxrec_util.communication.hccl_ops.get_rank_id()
-    filelist = glob(f"./saved-model/sparse-model-{rank_id}-0")
+    filelist = glob(f"./saved-model/sparse-model-0")
     if filelist:
         IF_LOAD = True
     ConfigInitializer.get_instance().if_load = IF_LOAD

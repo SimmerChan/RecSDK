@@ -192,7 +192,7 @@ if __name__ == '__main__':
          use_hot=use_hot,
          use_dynamic_expansion=use_dynamic_expansion)
 
-    args.model_dir = f"{args.model_ckpt_dir}_rank{get_rank_id()}"
+    args.model_dir = f"{args.model_ckpt_dir}_rank"
     args.modify_graph = MODIFY_GRAPH_FLAG
     args.use_timestamp = USE_TIMESTAMP
     args.use_multi_lookup = use_multi_lookup

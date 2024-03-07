@@ -142,7 +142,7 @@ class RunMode:
                     self.evaluate()
 
                 if i % saving_interval == 0:
-                    self.saver.save(self.session, f"./saved-model/model-{self.rank_id}", global_step=i)
+                    self.saver.save(self.session, f"./saved-model/model", global_step=i)
 
                 if self.is_faae and i == train_interval // 2:
                     logger.info("###############    set_threshold at step:%d   ################", i)
@@ -150,7 +150,7 @@ class RunMode:
 
         # save last step without duplication
         if i % saving_interval != 0:
-            self.saver.save(self.session, f"./saved-model/model-{self.rank_id}", global_step=i)
+            self.saver.save(self.session, f"./saved-model/model", global_step=i)
 
         logger.info("################    training end    ################")
 
@@ -165,12 +165,12 @@ class RunMode:
         import glob
         import re
 
-        model_file = glob.glob(f"./saved-model/sparse-model-{self.rank_id}-*")
+        model_file = glob.glob(f"./saved-model/sparse-model-*")
         if len(model_file) == 0:
             raise ValueError("model file not exit")
 
         # get the latest model
-        pattern = f".*sparse-model-{self.rank_id}-([0-9]+).*"
+        pattern = f".*sparse-model-([0-9]+).*"
         latest_step = -1
         for file_path in model_file:
             match = re.match(pattern, file_path)
@@ -183,7 +183,7 @@ class RunMode:
             raise RuntimeError("latest model not found")
 
         self.saver = tf.compat.v1.train.Saver()
-        self.saver.restore(self.session, f"./saved-model/model-{self.rank_id}-{latest_step}")
+        self.saver.restore(self.session, f"./saved-model/model-{latest_step}")
         self._infer()
         logger.info(f"###############    predict end    ################")
 
