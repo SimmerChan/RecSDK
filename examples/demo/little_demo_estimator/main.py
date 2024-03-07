@@ -157,7 +157,6 @@ if __name__ == '__main__':
     args, unknowns = parser.parse_known_args()
     # get init configuration
     try:
-        use_mpi = bool(int(os.getenv("USE_MPI", 1)))
         use_dynamic = bool(int(os.getenv("USE_DYNAMIC", 0)))
         use_hot = bool(int(os.getenv("USE_HOT", 0)))
         use_dynamic_expansion = bool(int(os.getenv("USE_DYNAMIC_EXPANSION", 0)))
@@ -185,8 +184,7 @@ if __name__ == '__main__':
         args.save_checkpoints_steps = args.train_steps
 
     # set init
-    init(use_mpi=use_mpi,
-         train_steps=args.train_steps,
+    init(train_steps=args.train_steps,
          eval_steps=args.eval_steps,
          use_dynamic=use_dynamic,
          use_hot=use_hot,

@@ -188,7 +188,6 @@ if __name__ == "__main__":
 
     # get init configuration
     try:
-        use_mpi = bool(int(os.getenv("USE_MPI", 1)))
         use_dynamic = bool(int(os.getenv("USE_DYNAMIC", 0)))
         use_hot = bool(int(os.getenv("USE_HOT", 0)))
         use_dynamic_expansion = bool(int(os.getenv("USE_DYNAMIC_EXPANSION", 0)))
@@ -213,8 +212,7 @@ if __name__ == "__main__":
     if file_list:
         IF_LOAD = True
     # nbatch function needs to be used together with the prefetch and host_vocabulary_size != 0
-    init(use_mpi=use_mpi,
-         train_steps=TRAIN_STEPS,
+    init(train_steps=TRAIN_STEPS,
          eval_steps=EVAL_STEPS,
          save_steps=SAVING_INTERVAL,
          use_dynamic=use_dynamic,
