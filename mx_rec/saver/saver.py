@@ -156,7 +156,10 @@ class Saver(object):
                 logger.info("checkpoints num %d > max_to_keep %d delete %s",
                             len(self._last_checkponts), self.max_to_keep,
                             self._last_checkponts[0])
-                tf.io.gfile.rmtree(self._last_checkponts.pop(0))
+                try:
+                    tf.io.gfile.rmtree(self._last_checkponts.pop(0))
+                except tf.errors.NotFoundError as e:
+                    logger.warning("oldest checkpoint file is not exist, maybe it has been deleted.")
 
         from mpi4py import MPI
         comm = MPI.COMM_WORLD
