@@ -19,6 +19,7 @@ See the License for the specific language governing permissions and
 #include <string>
 #include <stdexcept>
 #include <experimental/filesystem>
+#include <unistd.h>
 
 #include <mpi.h>
 
@@ -119,6 +120,32 @@ namespace MxRec {
         if ((permissions & fs::perms::owner_read) == fs::perms::none) {
             throw invalid_argument(StringFormat("no read permission for file:%s", dataDir.c_str()));
         }
+    }
+
+    bool CheckFilePermission(const string& filePath)
+    {
+        struct stat fileInfo;
+        int ret = stat(filePath.c_str(), &fileInfo);
+        if (ret != 0) {
+            LOG_ERROR("get file {} stat info failed", filePath.c_str());
+            return false;
+        }
+
+        mode_t mask = 0700;
+        mode_t maxMode = 0640;
+        const int perPermWidth = 3;
+        vector<string> permMsg = { "Other group permission", "Owner group permission", "Owner permission" };
+        for (int i = perPermWidth; i > 0; i--) {
+            int curPerm = (fileInfo.st_mode & mask) >> ((i - 1) * perPermWidth);
+            int maxPerm = (maxMode & mask) >> ((i - 1) * perPermWidth);
+            mask = mask >> perPermWidth;
+            if (curPerm > maxPerm) {
+                LOG_ERROR(" {} : Check {} : Current permission is {}, but required no greater than {} ",
+                          filePath.c_str(), permMsg[i - 1], curPerm, maxPerm);
+                return false;
+            }
+        }
+        return true;
     }
 
     ostream& operator<<(ostream& ss, MxRec::CkptDataType type)

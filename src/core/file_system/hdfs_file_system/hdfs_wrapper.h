@@ -194,6 +194,16 @@ namespace MxRec {
                 throw runtime_error("Init hdfs wrapper failed when loading libhdfs.so in environment. ");
             }
 
+            void* funcAddr = dlsym(libhdfs, "hdfsConnect");
+            Dl_info libInfo;
+            if (!dladdr(funcAddr, &libInfo)) {
+                throw runtime_error("Init hdfs wrapper failed when getting the path of libhdfs.so. ");
+            }
+            if (!CheckFilePermission(libInfo.dli_fname)) {
+                LOG_ERROR("libhdfs.so is invalid.");
+                throw runtime_error("Init hdfs wrapper failed because libhdfs.so is invalid. ");
+            }
+
             // 获取hdfs库中的函数指针
             hdfsConnect = reinterpret_cast<HdfsConnectFunc>(dlsym(libhdfs, "hdfsConnect"));
             hdfsDisconnect = reinterpret_cast<HdfsDisconnectFunc>(dlsym(libhdfs, "hdfsDisconnect"));
