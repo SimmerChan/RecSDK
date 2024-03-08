@@ -245,12 +245,13 @@ if __name__ == "__main__":
     # 如需验证DDR模式，请按照key数量、batch unique数量合理设置device与host表大小。
     # 验证DDR的配置参考：建议跑dynamic避免调参。数据集key总量大于device表，小于device+host；一个batch的unique key数量小于device表。
     # 验证SSD的配置参考：建议跑dynamic避免调参。数据集key总量大于device+host；一个batch的unique key数量小于device表。
-    hbm_test_cfg = {"device_vocabulary_size": cfg.user_vocab_size * 10 * get_rank_size(), "host_vocabulary_size": 0}
-    ddr_test_cfg = {"device_vocabulary_size": int(cfg.user_vocab_size * 0.5 * get_rank_size()),
-                    "host_vocabulary_size": cfg.user_vocab_size * 10 * get_rank_size()}
+    hbm_test_cfg = {"device_vocabulary_size": cfg.user_vocab_size, "host_vocabulary_size": 0}
+    ddr_test_cfg = {"device_vocabulary_size": int(cfg.user_vocab_size * 0.2),
+                    "host_vocabulary_size": int(cfg.user_vocab_size * 0.8)}
     ssd_test_cfg = {
-        "device_vocabulary_size": 60000 * get_rank_size(), "host_vocabulary_size": 60000 * get_rank_size(),
-        "ssd_vocabulary_size": 10000000, "ssd_data_path": _SSD_SAVE_PATH
+        "device_vocabulary_size": int(cfg.user_vocab_size * 0.1),
+        "host_vocabulary_size": int(cfg.user_vocab_size * 0.1),
+        "ssd_vocabulary_size": int(cfg.user_vocab_size * 0.8), "ssd_data_path": _SSD_SAVE_PATH
     }
     cache_mode_dict = {CacheModeEnum.HBM.value: hbm_test_cfg, CacheModeEnum.DDR.value: ddr_test_cfg,
                        CacheModeEnum.SSD.value: ssd_test_cfg}
