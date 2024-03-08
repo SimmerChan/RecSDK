@@ -196,7 +196,7 @@ namespace MxRec {
 
             void* funcAddr = dlsym(libhdfs, "hdfsConnect");
             Dl_info libInfo;
-            if (!dladdr(funcAddr, &libInfo)) {
+            if (dladdr(funcAddr, &libInfo) == 0) {
                 throw runtime_error("Init hdfs wrapper failed when getting the path of libhdfs.so. ");
             }
             if (!CheckFilePermission(libInfo.dli_fname)) {
