@@ -39,14 +39,15 @@ from mx_rec.validator.validator import para_checker_decorator, ClassValidator, N
 
 
 @para_checker_decorator(check_option_list=[
-    ("learning_rate", FloatValidator, {"min_value": -MAX_INT32, "max_value": MAX_INT32}, ["check_value"]),
-    ("initial_accumulator_value", FloatValidator, {"min_value": 0, "max_value": 1e4}, ["check_value"]),
+    ("learning_rate", FloatValidator, {"min_value": 0, "max_value": 10}, ["check_value"]),
+    ("initial_accumulator_value", FloatValidator, {"min_value": 0, "max_value": 1.0},
+     ["check_value_for_left_open_interval"]),
     ("learning_rate_power", FloatValidator, {"min_value": -MAX_INT32, "max_value": 0}, ["check_value"]),
     ("l1_regularization_strength", FloatValidator, {"min_value": 0, "max_value": 1e4}, ["check_value"]),
     ("l2_regularization_strength", FloatValidator, {"min_value": 0, "max_value": 1e4}, ["check_value"]),
     ("l2_shrinkage_regularization_strength", FloatValidator, {"min_value": 0, "max_value": 1e4}, ["check_value"]),
     ("use_locking", ClassValidator, {"classes": (bool,)}),
-    ("name", StringValidator, {"min_len": 1, "max_len": 255}, ["check_string_length"]),
+    ("name", StringValidator, {"min_len": 1, "max_len": 200}, ["check_string_length"]),
     ("accum_name", StringValidator, {"min_len": 1, "max_len": 255}, ["check_string_length"]),
     ("linear_name", StringValidator, {"min_len": 1, "max_len": 255}, ["check_string_length"])
 ])
