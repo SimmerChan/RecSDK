@@ -299,6 +299,7 @@ int EmbeddingDynamic::LoadKey(const string& savePath)
     // 此处的 newBlock -> first address;
     // 对key_offset map 进行一个恢复操作
     int64_t address = reinterpret_cast<int64_t>(newBlock);
+    memoryList_.push_back(newBlock);
     firstAddress = address;
     for (const auto& key : deviceKey) {
         keyOffsetMap[key] = address;
