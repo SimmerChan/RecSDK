@@ -33,11 +33,11 @@ from mx_rec.validator.validator import para_checker_decorator, StringValidator, 
 
 
 @para_checker_decorator(check_option_list=[
-    ("learning_rate", FloatValidator, {"min_value": -MAX_INT32, "max_value": MAX_INT32}, ["check_value"]),
-    ("beta1", FloatValidator, {"min_value": 0, "max_value": 1}, ["check_value"]),
-    ("beta2", FloatValidator, {"min_value": 0, "max_value": 1}, ["check_value"]),
-    ("epsilon", FloatValidator, {"min_value": 0, "max_value": 1}, ["check_value"]),
-    ("name", StringValidator, {"min_len": 1, "max_len": 255}, ["check_string_length"])
+    ("learning_rate", FloatValidator, {"min_value": 0, "max_value": 10}, ["check_value"]),
+    ("beta1", FloatValidator, {"min_value": 0, "max_value": 1.0}, ["check_value_for_open_interval"]),
+    ("beta2", FloatValidator, {"min_value": 0, "max_value": 1.0}, ["check_value"]),
+    ("epsilon", FloatValidator, {"min_value": 0, "max_value": 1.0}, ["check_value_for_left_open_interval"]),
+    ("name", StringValidator, {"min_len": 1, "max_len": 200}, ["check_string_length"])
 ])
 def create_hash_optimizer_by_address(learning_rate=0.001, beta1=0.9, beta2=0.999, epsilon=1e-8,
                                      name="LazyAdamByAddress"):
