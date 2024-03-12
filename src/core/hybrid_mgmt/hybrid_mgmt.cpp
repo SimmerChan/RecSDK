@@ -15,6 +15,14 @@ See the License for the specific language governing permissions and
 
 #include "hybrid_mgmt.h"
 
+#include <cstdlib>
+#include <memory>
+#include <mpi.h>
+#include <string>
+#include <thread>
+
+#include "hd_transfer/hd_transfer.h"
+#include "hybrid_mgmt/hybrid_mgmt_block.h"
 #include "utils/time_cost.h"
 #include "utils/logger.h"
 #include "utils/common.h"
@@ -26,6 +34,7 @@ See the License for the specific language governing permissions and
 
 using namespace MxRec;
 using namespace std;
+
 
 /// Openmpi通信域进程数设置、计算所有表host特征数量总数、设置训练模式（HBM/DDR）
 /// \param rankInfo
@@ -130,9 +139,10 @@ bool HybridMgmt::Initialize(RankInfo rankInfo, const vector<EmbInfo>& embInfos, 
                  info.name, info.devVocabSize, info.hostVocabSize, info.sendCount);
     }
     LOG_INFO(MGMT + "end initialize, isDDR:{}, maxStep:[{}, {}], rank:{}", rankInfo.isDDR,
-             rankInfo.maxStep.at(TRAIN_CHANNEL_ID), rankInfo.maxStep.at(EVAL_CHANNEL_ID), rankInfo.rankId);
+             rankInfo.ctrlSteps.at(TRAIN_CHANNEL_ID), rankInfo.ctrlSteps.at(EVAL_CHANNEL_ID), rankInfo.rankId);
 #endif
     isInitialized = true;
+
     return true;
 }
 
@@ -698,10 +708,6 @@ bool HybridMgmt::ParseKeysHBM(int channelId, int& batchId)
         LOG_INFO(MGMT + "channelId:{} batchId:{}, embName:{}, ParseKeys with HBM mode end.",
                  channelId, batchId, embInfo.name);
     }
-    if (KEY_PROCESS_INSTANCE->isNeedExit[channelId]) {
-        LOG_WARN(MGMT + "can not send data after eos, channelId:{} batchId:{}!", channelId, batchId);
-        return false;
-    }
     batchId++;
     return true;
 }
@@ -736,7 +742,7 @@ void HybridMgmt::SendUniqKeysAndRestoreVecHBM(int channelId, int &batchId, const
 /// \return
 bool HybridMgmt::EndBatch(int batchId, int channelId) const
 {
-    return (batchId % mgmtRankInfo.maxStep[channelId] == 0 && mgmtRankInfo.maxStep[channelId] != -1);
+    return (batchId % mgmtRankInfo.ctrlSteps[channelId] == 0 && mgmtRankInfo.ctrlSteps[channelId] != -1);
 }
 
 /// DDR模式下，发送key process线程已处理好的各类型向量到指定通道中
@@ -767,11 +773,6 @@ bool HybridMgmt::ParseKeys(int channelId, int& batchId)
     EmbHDTransWrap(channelId, batchId - 1, start);
     LOG_DEBUG(MGMT + "channelId:{} batchId:{}, ParseKeys end, parseKeyTC(ms):{}",
               channelId, batchId, parseKeyTC.ElapsedMS());
-
-    if (KEY_PROCESS_INSTANCE->isNeedExit[channelId]) {
-        LOG_WARN(MGMT + "can not send data after eos, channelId:{} batchId:{}!", channelId, batchId--);
-        return false;
-    }
 #endif
     return true;
 }
