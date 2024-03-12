@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 # Copyright 2024. Huawei Technologies Co.,Ltd. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -66,16 +67,21 @@ main()
 
     # 2. 生成输入数据和真值数据
     cd $CURRENT_DIR
-    python3 scripts/gen_data.py
+    python3 scripts/gen_lookup_data.py
     if [ $? -ne 0 ]; then
-        echo "ERROR: generate input data failed!"
+        echo "ERROR: generate lookup input data failed!"
+        return 1
+    fi
+    python3 scripts/gen_update_data.py
+    if [ $? -ne 0 ]; then
+        echo "ERROR: generate update input data failed!"
         return 1
     fi
     echo "INFO: generate input data success!"
 
     # 3. 编译acl可执行文件
     cd $CURRENT_DIR; rm -rf build; mkdir -p build; cd build
-    cmake ../src
+    cmake -DCMAKE_BUILD_TYPE=Debug ../src
     if [ $? -ne 0 ]; then
         echo "ERROR: cmake failed!"
         return 1
@@ -91,7 +97,7 @@ main()
     # 4. 运行可执行文件
     cd $CURRENT_DIR/output
     echo "INFO: execute op!"
-    ./execute_lookup_op
+    ./execute_op
 
     if [ $? -ne 0 ]; then
         echo "ERROR: acl executable run failed! please check your project!"
@@ -101,12 +107,19 @@ main()
 
     # 5. 比较真值文件
     cd $CURRENT_DIR
-    ret=$(python3 scripts/verify_result.py output/output_z.bin output/golden.bin)
-    echo $ret
-    if [ "x$ret" == "xtest pass" ]; then
+    python3 scripts/verify_result.py output/output_lookup_z.bin output/lookup_golden.bin
+    if [ $? -ne 255 ]; then
         echo ""
         echo "#####################################"
-        echo "INFO: you have passed the Precision!"
+        echo "INFO: you have passed the lookup Precision!"
+        echo "#####################################"
+        echo ""
+    fi
+    python3 scripts/verify_result.py output/output_update_z.bin output/update_golden.bin
+    if [ $? -ne 255 ]; then
+        echo ""
+        echo "#####################################"
+        echo "INFO: you have passed the update Precision!"
         echo "#####################################"
         echo ""
     fi
