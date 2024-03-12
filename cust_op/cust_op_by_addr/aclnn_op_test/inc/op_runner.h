@@ -41,6 +41,8 @@ public:
     * @brief Init op runner
     */
     bool Init();
+    bool InitInput();
+    bool InitOutput();
 
     /**
      * @brief Get number of inputs
@@ -166,8 +168,9 @@ public:
      * @return run result
      */
     bool RunOp();
+    virtual bool RunOpHelper(aclrtStream stream);
 
-private:
+protected:
     size_t numInputs_;
     size_t numOutputs_;
 

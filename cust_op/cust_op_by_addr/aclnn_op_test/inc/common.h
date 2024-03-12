@@ -24,13 +24,12 @@ See the License for the specific language governing permissions and
 
 #include "acl/acl.h"
 
-#define SUCCESS 0
-#define FAILED 1
-
 #define INFO_LOG(fmt, args...) fprintf(stdout, "[INFO]  " fmt "\n", ##args)
 #define WARN_LOG(fmt, args...) fprintf(stdout, "[WARN]  " fmt "\n", ##args)
 #define ERROR_LOG(fmt, args...) fprintf(stderr, "[ERROR]  " fmt "\n", ##args)
 
+constexpr int SUCCESS = 0;
+constexpr int FAILED = 1;
 /**
  * @brief Read data from file
  * @param [in] filePath: file path

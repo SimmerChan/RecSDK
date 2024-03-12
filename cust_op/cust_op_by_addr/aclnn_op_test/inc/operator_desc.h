@@ -28,7 +28,7 @@ struct OperatorDesc {
     /**
      * Constructor
      */
-    explicit OperatorDesc(int64_t embDim, int64_t embType);
+    explicit OperatorDesc();
 
     /**
      * Destructor
@@ -58,8 +58,6 @@ struct OperatorDesc {
     std::string opType;
     std::vector<aclTensorDesc *> inputDesc;
     std::vector<aclTensorDesc *> outputDesc;
-    int64_t embeddingDim;
-    int64_t embeddingType;
 };
 
 #endif // OPERATOR_DESC_H
