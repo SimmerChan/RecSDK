@@ -78,7 +78,7 @@ def model_forward(input_list, batch, is_train, modify_graph, config_dict=None):
         embedding = sparse_lookup(hash_table, feature, send_count, is_train=is_train,
                                   access_and_evict_config=access_and_evict_config, is_grad=is_grad,
                                   name=hash_table.table_name + "_lookup", modify_graph=modify_graph, batch=batch,
-                                  serving_default_value = tf.ones(shape=(dim), dtype=tf.float32) * 2)
+                                  serving_default_value=tf.ones(shape=(dim), dtype=tf.float32) * 2)
 
         reduced_embedding = tf.reduce_sum(embedding, axis=1, keepdims=False)
         embedding_list.append(reduced_embedding)
@@ -174,7 +174,6 @@ if __name__ == "__main__":
     warnings.filterwarnings("ignore")
 
     use_mode = UseMode.mapping(os.getenv("USE_MODE"))
-    clear_saved_model()
     # 最大数据集生成数量
     MAX_DATASET_GENERATE = 200
     # 最大训练的步数
@@ -211,6 +210,7 @@ if __name__ == "__main__":
     file_list = glob(f"./saved-model/sparse-model-*")
     if file_list:
         IF_LOAD = True
+
     # nbatch function needs to be used together with the prefetch and host_vocabulary_size != 0
     init(train_steps=TRAIN_STEPS,
          eval_steps=EVAL_STEPS,
@@ -308,7 +308,7 @@ if __name__ == "__main__":
         modify_graph_and_start_emb_cache(dump_graph=True)
 
     if use_mode == UseMode.TRAIN:
-        run_mode.train(TRAIN_STEPS, SAVING_INTERVAL)
+        run_mode.train(TRAIN_STEPS, SAVING_INTERVAL, if_load=IF_LOAD)
     elif use_mode == UseMode.PREDICT:
         run_mode.predict()
 

@@ -141,16 +141,19 @@ int EmbeddingStatic::LoadKey(const string &savePath)
     fileSystemPtr->Read(ss.str(), reinterpret_cast<char *>(buf), fileSize);
 
     size_t loadKeySize = fileSize / sizeof(int64_t);
-    if (loadKeySize >= devVocabSize) {
-        LOG_ERROR(": {load key size exceeds device vocab size}", strerror(errno));
-        return -1;
-    }
-
+    loadOffset.clear();
+    int keyCount = 0;
     for (int i = 0; i < loadKeySize; i = i + 1) {
         if (buf[i] % rankSize_ == rankId_) {
-            keyOffsetMap[buf[i]] = i;
+            keyOffsetMap[buf[i]] = keyCount;
             loadOffset.push_back(i);
+            keyCount++;
         }
+    }
+
+    if (loadOffset.size() > devVocabSize) {
+        LOG_ERROR("load key size exceeds device vocab size: {}", strerror(errno));
+        return -1;
     }
 
     free(static_cast<void*>(buf));

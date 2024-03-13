@@ -237,6 +237,7 @@ def save(self, sess, save_path, global_step=None, latest_filename=None, meta_gra
     if write_state:
         update_checkpoint_state(self, model_checkpoint_path, save_path_parent, latest_filename, meta_graph_suffix,
                                 save_path)
+
     if write_meta_graph:
         write_meta_graph_task(self, checkpoint_file=checkpoint_file, meta_graph_suffix=meta_graph_suffix, sess=sess,
                               strip_default_attrs=strip_default_attrs, save_debug_info=save_debug_info)
