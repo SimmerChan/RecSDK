@@ -66,7 +66,7 @@ class MockSparseEmbedConfig:
         pass
 
     @staticmethod
-    def insert_table_instance(name, key, instance):
+    def insert_table_instance(name, key, instance, eval_flag):
         pass
 
     def get_table_instance(self, var):
