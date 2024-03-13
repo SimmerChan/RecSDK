@@ -112,6 +112,8 @@ then
   echo "-----Done-----"
 fi
 
+echo "********build mxrec*********"
+
 if [ "$(uname -m)" = "aarch64" ]
 then
   echo "-----Build gen tar -----"
