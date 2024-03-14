@@ -132,12 +132,7 @@ def get_model_checkpoint_path(self, checkpoint_file, sess):
     if not context.executing_eagerly():
         model_checkpoint_path = sess.run(self.saver_def.save_tensor_name,
                                          {self.saver_def.filename_tensor_name: checkpoint_file})
-        # mxRec Patch
-        # save sparse model, only run when self.sparse_saver is not None
-        if self.sparse_saver:
-            self.sparse_saver.save(sess, save_path=checkpoint_file)
-
-        logger.info("Save model into dir %s", checkpoint_file)
+        logger.info("Save dense model into dir %s", checkpoint_file)
     else:
         self._build_eager(checkpoint_file, build_save=True, build_restore=False)
         model_checkpoint_path = self.saver_def.save_tensor_name
@@ -232,15 +227,25 @@ def save(self, sess, save_path, global_step=None, latest_filename=None, meta_gra
     if self._is_empty:
         return model_checkpoint_path
 
-    model_checkpoint_path = compat.as_str(get_model_checkpoint_path(self, checkpoint_file, sess))
+    # mxRec Patch
+    # save sparse model, only run when self.sparse_saver is not None
+    if not context.executing_eagerly() and self.sparse_saver:
+        self.sparse_saver.save(sess, save_path=checkpoint_file)
+        logger.info("Save sparse model into dir %s", checkpoint_file)
 
-    if write_state:
-        update_checkpoint_state(self, model_checkpoint_path, save_path_parent, latest_filename, meta_graph_suffix,
-                                save_path)
-
-    if write_meta_graph:
-        write_meta_graph_task(self, checkpoint_file=checkpoint_file, meta_graph_suffix=meta_graph_suffix, sess=sess,
-                              strip_default_attrs=strip_default_attrs, save_debug_info=save_debug_info)
+    from mpi4py import MPI
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    comm.Barrier()
+    if rank == 0:
+        model_checkpoint_path = compat.as_str(get_model_checkpoint_path(self, checkpoint_file, sess))
+        if write_state:
+            update_checkpoint_state(self, model_checkpoint_path, save_path_parent, latest_filename, meta_graph_suffix,
+                                    save_path)
+        if write_meta_graph:
+            write_meta_graph_task(self, checkpoint_file=checkpoint_file, meta_graph_suffix=meta_graph_suffix, sess=sess,
+                                  strip_default_attrs=strip_default_attrs, save_debug_info=save_debug_info)
+    comm.Barrier()
     return model_checkpoint_path
 
 
