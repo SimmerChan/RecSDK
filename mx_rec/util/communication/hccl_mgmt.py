@@ -77,11 +77,10 @@ def parse_hccl_json():
     return rank_to_device_dict
 
 
-def set_hccl_info_without_json():
+def set_hccl_info_without_json() -> dict:
     """
     Used for no rank table file configured training situation.
-    Now, only less than or equal 8p training job is supported.
-    :return:
+    :return: device_id and logic_id mapping.
     """
     visible_devices = global_env.ascend_visible_devices
     rank_size = global_env.cm_worker_size
@@ -91,10 +90,6 @@ def set_hccl_info_without_json():
     rank_size = int(rank_size)
 
     sorted_device_list = sorted(device_list)
-    local_rank_size = len(sorted_device_list)
-
-    if rank_size > local_rank_size:
-        raise ValueError(f"Rank size {rank_size} is larger than local available devices: {local_rank_size}.")
 
     if chief_device not in sorted_device_list:
         raise ValueError(f"The environment variable CM_CHIEF_DEVICE {chief_device} is not in the local device list. ")
