@@ -104,6 +104,13 @@ def saver_init(self, var_list=None, reshape=False, sharded=False, max_to_keep=5,
     # mt customed parameter
     self._fid_version = fid_version
 
+    # mxRec Patch
+    # create sparse saver only when sparse_var_list is not None
+    self.sparse_saver = None
+    sparse_var_list = get_sparse_vars(var_list)
+    if sparse_var_list:
+        self.sparse_saver = SparseSaver(var_list=sparse_var_list, max_to_keep=max_to_keep, prefix_name=filename)
+
     if self.saver_def:
         self._check_saver_def()
         self._write_version = self.saver_def.version
@@ -114,11 +121,6 @@ def saver_init(self, var_list=None, reshape=False, sharded=False, max_to_keep=5,
     elif not defer_build:
         self.build()
     self._object_restllore_saver = None
-    # mxRec Patch
-    # create sparse saver only when var_list is not None
-    self.sparse_saver = None
-    if get_sparse_vars(var_list):
-        self.sparse_saver = SparseSaver(var_list=var_list, max_to_keep=max_to_keep, prefix_name=filename)
 
 
 def save_check(latest_filename, sess):
