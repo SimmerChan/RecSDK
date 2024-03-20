@@ -87,6 +87,8 @@ mxRec所支持的使用环境、功能特性、API接口与使用样例请参考
 
 ## 参考设计
 
+mxrec框架基础镜像，基于TensorFlow 1.15.0、tensorflow2.6.5制作的基础镜像，安装mxrec后即可开始训练，以及样例使用介绍。
+
 1. https://ascendhub.huawei.com/#/detail/mxrec-tf1
 
 2. https://ascendhub.huawei.com/#/detail/mxrec-tf2
