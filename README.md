@@ -85,3 +85,8 @@ bash run.sh
 
 mxRec所支持的使用环境、功能特性、API接口与使用样例请参考昇腾开源社区MindX SDK产品文档。
 
+## 参考设计
+
+1. https://ascendhub.huawei.com/#/detail/mxrec-tf1
+
+2. https://ascendhub.huawei.com/#/detail/mxrec-tf2
