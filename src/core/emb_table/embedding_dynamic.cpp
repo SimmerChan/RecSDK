@@ -241,8 +241,9 @@ void EmbeddingDynamic::LoadEmbAndOptim(const string& savePath)
     for (const auto &param: optimParams) {
         stringstream paramStream;
         paramStream << ss.str() << "/" << optimName + "_" + param << "/slice.data";
-        fileSystemPtr->ReadEmbedding(paramStream.str(), embeddingSizeInfo,
-                                     firstAddress + optimIndex * embSize_ * sizeof(float), rankId_, loadOffset);
+        float* embPtr = reinterpret_cast<float*>(firstAddress);
+        int64_t optimFirstAddress = reinterpret_cast<int64_t>(embPtr + optimIndex * embSize_);
+        fileSystemPtr->ReadEmbedding(paramStream.str(), embeddingSizeInfo, optimFirstAddress, rankId_, loadOffset);
         optimIndex++;
     }
 }
@@ -298,12 +299,14 @@ int EmbeddingDynamic::LoadKey(const string& savePath)
     }
     // 此处的 newBlock -> first address;
     // 对key_offset map 进行一个恢复操作
-    int64_t address = reinterpret_cast<int64_t>(newBlock);
+    firstAddress = reinterpret_cast<int64_t>(newBlock);
     memoryList_.push_back(newBlock);
-    firstAddress = address;
+
+    float* embPtr = static_cast<float*>(newBlock);
+    size_t i = 0;
     for (const auto& key : deviceKey) {
-        keyOffsetMap[key] = address;
-        address = address + extEmbSize_*sizeof(float);
+        keyOffsetMap[key] = reinterpret_cast<int64_t>(embPtr + i * extEmbSize_);
+        i++;
     }
 
     free(static_cast<void*>(buf));
