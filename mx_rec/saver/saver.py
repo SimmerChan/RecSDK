@@ -451,7 +451,6 @@ def write_binary_data(writing_path, suffix, data, attributes=None):
         file.write(data)
 
 
-
 def read_binary_data(reading_path: str, data_name: str, table_name: str, load_offset) -> dict:
     """
     Read sparse origin data from binary file
