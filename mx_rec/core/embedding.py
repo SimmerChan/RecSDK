@@ -91,6 +91,7 @@ def create_table(key_dtype, dim, name, emb_initializer,
         hashtable_threshold: choose to implement based on hash table or linear layer
     """
     name = fix_invalid_table_name(name)
+    print("test")
 
     config = dict(key_dtype=key_dtype, embedding_size=dim, table_name=name, emb_initializer=emb_initializer,
                   device_vocabulary_size=device_vocabulary_size, host_vocabulary_size=host_vocabulary_size,
