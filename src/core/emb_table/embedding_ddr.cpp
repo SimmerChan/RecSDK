@@ -383,6 +383,8 @@ int EmbeddingDDR::LoadHashMap(const string& savePath)
         keyCount++;
     }
 
+    maxOffset = keyOffsetMap.size();
+
     free(static_cast<void*>(buf));
     return 0;
 }
