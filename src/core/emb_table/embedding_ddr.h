@@ -70,7 +70,7 @@ public:
 
     TableInfo GetTableInfo();
 
-    void RefreshFreqInfoAfterLoad()
+    void RefreshFreqInfoAfterLoad();
 
 GTEST_PRIVATE:
 
