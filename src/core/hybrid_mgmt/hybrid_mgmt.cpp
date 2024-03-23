@@ -335,7 +335,7 @@ bool HybridMgmt::Load(const string& loadPath)
             auto tb = EmbeddingMgmt::Instance()->GetTable(info.name);
             auto tbCast = reinterpret_pointer_cast<EmbeddingDDR>(tb);
             tbCast->RefreshFreqInfoAfterLoad();
-            tbCast->AddCacheManagerTraceLog;
+            tbCast->AddCacheManagerTraceLog();
         }
     }
 
