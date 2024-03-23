@@ -476,6 +476,9 @@ void CacheManager::Load(unordered_map<std::string, unordered_map<emb_key_t, freq
                         unordered_map<std::string, unordered_map<emb_key_t, freq_num_t>>& excludeDdrFreqInitMap,
                         int step, int rankSize, int rankId)
 {
+    if (rankSize <= 0) {
+        throw runtime_error("rank size must >= 0");
+    }
     // 加载CacheManager数据
     for (auto& it : ddrFreqInitMap) {
         auto& embTableName = it.first;

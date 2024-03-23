@@ -375,7 +375,7 @@ int EmbeddingDDR::LoadHashMap(const string& savePath)
             loadOffset.push_back(i);
             devOffset2Key[keyCount] = buf[i];
         } else {
-            hostLoadOffset.push_back(i);            
+            hostLoadOffset.push_back(i);
         }
         keyOffsetMap[buf[i]] = keyCount;
         keyCount++;
@@ -447,8 +447,10 @@ int EmbeddingDDR::SaveKey(const string& savePath)
     if (res == -1) {
         return -1;
     }
-    ssize_t res2 = fileSystemPtr->Write(ss.str(), reinterpret_cast<const char *>(deviceKey.data()),
-                                       static_cast<size_t>(deviceKey.size() * sizeof(int64_t)));
+    ssize_t res2 = fileSystemPtr->Write(
+        ss.str(), reinterpret_cast<const char *>(deviceKey.data()),
+        static_cast<size_t>(deviceKey.size() * sizeof(int64_t))
+    );
     if (res2 == -1) {
         return -1;
     }
