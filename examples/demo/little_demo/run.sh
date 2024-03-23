@@ -23,7 +23,7 @@ rm -rf ./export_graph/*
 export USE_MODE="train"
 if [ $USE_MODE = "train" ]; then
   echo "train mode: saved-model will be deleted"
-  rm -rf ./saved_model
+  rm -rf ./saved-model
 fi
 
 # cache mode support: HBM, DDR, SSD
