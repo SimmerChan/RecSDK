@@ -69,8 +69,12 @@ size_t HdfsFileSystem::GetFileSize(const string& filePath)
 ssize_t HdfsFileSystem::Write(const string& filePath, const char* fileContent, size_t dataSize)
 {
     hdfsFS fs = ConnectHdfs();
-
-    hdfsFile file = hdfs->OpenFile(fs, filePath.c_str(), O_WRONLY | O_CREAT, 0, 0, 0);
+    int flag = O_WRONLY | O_CREAT;
+    hdfsFileInfo* fileInfo = hdfs->GetPathInfo(fs, filePath.c_str());
+    if (fileInfo) {
+        flag = O_WRONLY | O_APPEND;
+    }
+    hdfsFile file = hdfs->OpenFile(fs, filePath.c_str(), flag, 0, 0, 0);
     if (!file) {
         hdfs->Disconnect(fs);
         throw runtime_error("Error writing to hdfs file.");

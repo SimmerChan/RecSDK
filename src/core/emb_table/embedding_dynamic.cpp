@@ -234,7 +234,7 @@ void EmbeddingDynamic::LoadEmbAndOptim(const string& savePath)
     stringstream embedStream;
     embedStream << ss.str() << "/" << "embedding/slice.data";
     EmbeddingSizeInfo embeddingSizeInfo = {embSize_, extEmbSize_};
-    fileSystemPtr->ReadEmbedding(savePath, embeddingSizeInfo, firstAddress, rankId_, loadOffset);
+    fileSystemPtr->ReadEmbedding(embedStream.str(), embeddingSizeInfo, firstAddress, rankId_, loadOffset);
 
     // 读optim
     int optimIndex = 1;
