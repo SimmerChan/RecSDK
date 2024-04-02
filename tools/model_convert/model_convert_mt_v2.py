@@ -7,6 +7,8 @@ from enum import Enum
 import tensorflow as tf
 import numpy as np
 
+from mx_rec.saver.patch import check_characters_is_valid
+
 parser = argparse.ArgumentParser()
 parser.add_argument('--input_path', type=str, required=True, help='path of the model file to be converted')
 parser.add_argument('--output_path', type=str, required=True, help='output path must be local path')
@@ -44,8 +46,13 @@ class ModelConverter:
         self.table_info_dict = {}
         self.sparse_file_list = []
 
+        if not check_characters_is_valid(self._input_path):
+            raise ValueError("input_model_path contains invalid characters such as newline, "
+                             "formfeed, carriage return, backspace, tab, vertical tab, and delete.")
+
         if not tf.io.gfile.exists(self._input_path):
             raise FileNotFoundError(f"the input path {self._input_path} does not exists. please check it.")
+
         if not tf.io.gfile.exists(self._output_path):
             tf.io.gfile.makedirs(self._output_path)
         self._build_input_model_list(self._is_estimator)

@@ -190,7 +190,7 @@ def _find_op_from_base_op(base_ops: tf.Operation, target_op_type: str) -> tf.Ope
 
 def _get_dataset_op(graph: tf.Graph, get_next_op: Operation) -> Operation:
     if get_next_op.type != AnchorIteratorOp.ITERATOR_GET_NEXT.value:
-        raise TypeError("Op '{get_next_op}' must be one instance of IteratorGetNext.")
+        raise TypeError(f"Op '{get_next_op}' must be one instance of IteratorGetNext.")
     # looking for the MakeIterator operator which corresponds to given batch_tensor
     base_op = modifier.find_make_iterator_op(get_next_op.outputs[0])
     # looking for the op which is the one before OptimizeDataset operator
