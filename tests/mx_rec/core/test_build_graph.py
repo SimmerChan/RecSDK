@@ -134,10 +134,14 @@ class TestGetIdOffsetsFunc(unittest.TestCase):
 
         with tf.Graph().as_default():
             mock_get_next.return_value = [0]
-            id_offsets, swap_pos, swap_len = get_id_offsets(self.max_lookup_vec_size, self.config)
+            id_offsets, swap_in_pos, swap_out_pos, swap_in_len, swap_out_len = (
+                get_id_offsets(self.max_lookup_vec_size, self.config)
+            )
             self.assertEqual(id_offsets, 0)
-            self.assertListEqual(swap_pos, [])
-            self.assertEqual(swap_len, 0)
+            self.assertListEqual(swap_in_pos, [])
+            self.assertEqual(swap_in_len, 0)
+            self.assertListEqual(swap_out_pos, [])
+            self.assertEqual(swap_out_len, 0)
 
     @mock.patch("mx_rec.core.asc.build_graph.npu_ops.gen_npu_ops.get_next")
     def test_get_id_offsets_case2(self, mock_get_next):
@@ -150,10 +154,14 @@ class TestGetIdOffsetsFunc(unittest.TestCase):
         with tf.Graph().as_default():
             self.config["use_dynamic_expansion"] = False
             mock_get_next.return_value = [0]
-            id_offsets, swap_pos, swap_len = get_id_offsets(self.max_lookup_vec_size, self.config)
+            id_offsets, swap_in_pos, swap_out_pos, swap_in_len, swap_out_len = (
+                get_id_offsets(self.max_lookup_vec_size, self.config)
+            )
             self.assertEqual(id_offsets, 0)
-            self.assertListEqual(swap_pos, [])
-            self.assertEqual(swap_len, 0)
+            self.assertListEqual(swap_in_pos, [])
+            self.assertEqual(swap_in_len, 0)
+            self.assertListEqual(swap_out_pos, [])
+            self.assertEqual(swap_out_len, 0)
 
 
 class TestGetAll2allArgsFunc(unittest.TestCase):
@@ -217,7 +225,7 @@ class TestGetPreProcessedTensorForAscFunc(unittest.TestCase):
 
     @mock.patch.multiple("mx_rec.core.asc.build_graph",
                          get_restore_vector=mock.MagicMock(return_value=[0, 0]),
-                         get_id_offsets=mock.MagicMock(return_value=[0, 0, 0]),
+                         get_id_offsets=mock.MagicMock(return_value=[0, [], [], 0, 0]),
                          get_all2all_args=mock.MagicMock(return_value=0))
     @mock.patch("mx_rec.core.asc.build_graph.ConfigInitializer")
     def test_get_preprocessed_tensor_for_asc_case1(self, build_graph_config_initializer):
@@ -236,7 +244,7 @@ class TestGetPreProcessedTensorForAscFunc(unittest.TestCase):
 
     @mock.patch.multiple("mx_rec.core.asc.build_graph",
                          get_restore_vector=mock.MagicMock(return_value=[0, 0]),
-                         get_id_offsets=mock.MagicMock(return_value=[0, 0, 0]),
+                         get_id_offsets=mock.MagicMock(return_value=[0, [], [], 0, 0]),
                          get_all2all_args=mock.MagicMock(return_value=0))
     @mock.patch("mx_rec.core.asc.build_graph.ConfigInitializer")
     def test_get_preprocessed_tensor_for_asc_case2(self, build_graph_config_initializer):
@@ -255,7 +263,7 @@ class TestGetPreProcessedTensorForAscFunc(unittest.TestCase):
 
     @mock.patch.multiple("mx_rec.core.asc.build_graph",
                          get_restore_vector=mock.MagicMock(return_value=[0, 0]),
-                         get_id_offsets=mock.MagicMock(return_value=[0, 0, 0]),
+                         get_id_offsets=mock.MagicMock(return_value=[0, [], [], 0, 0]),
                          get_all2all_args=mock.MagicMock(return_value=0))
     @mock.patch("mx_rec.core.asc.build_graph.ConfigInitializer")
     def test_get_preprocessed_tensor_for_asc_case3(self, build_graph_config_initializer):

@@ -15,7 +15,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from typing import Optional
+from typing import Optional, List, Dict, Union
 
 import tensorflow as tf
 
@@ -61,25 +61,30 @@ def get_restore_vector(config):
 def get_id_offsets(max_lookup_vec_size, config):
     logger.debug('Channel %s_lookup_%s was built for getnext', config.get("table_name"), config.get("channel_id"))
     # 自动扩容当前只支持HBM模式，默认没有换入换出
+    swap_in_pos = []
+    swap_out_pos = []
+    swap_in_len = 0
+    swap_out_len = 0
     with tf.compat.v1.variable_scope(config.get("table_name"), reuse=tf.compat.v1.AUTO_REUSE):
         if config.get("use_dynamic_expansion"):
             [id_offsets] = npu_ops.gen_npu_ops.get_next(
                 output_types=[tf.int64],
                 output_shapes=[[max_lookup_vec_size]],
                 channel_name=f'{config.get("table_name")}_lookup_{config.get("channel_id")}')
-            return id_offsets, [], 0
+            return id_offsets, swap_in_pos, swap_out_pos, swap_in_len, swap_out_len
 
         [id_offsets] = npu_ops.gen_npu_ops.get_next(
             output_types=[tf.int32],
             output_shapes=[[max_lookup_vec_size]],
             channel_name=f'{config.get("table_name")}_lookup_{config.get("channel_id")}')
         if config.get("is_hbm"):
-            return id_offsets, [], 0
-        swap_pos, swap_len = npu_ops.gen_npu_ops.get_next(
-            output_types=[tf.int32, tf.int32],
-            output_shapes=[[max_lookup_vec_size], []],
-            channel_name=f'{config.get("table_name")}_swap_{config.get("channel_id")}')
-    return id_offsets, swap_pos, swap_len
+            return id_offsets, swap_in_pos, swap_out_pos, swap_in_len, swap_out_len
+        swap_in_pos, swap_out_pos, swap_in_len, swap_out_len = npu_ops.gen_npu_ops.get_next(
+            output_types=[tf.int32, tf.int32, tf.int32, tf.int32],
+            output_shapes=[[max_lookup_vec_size], [max_lookup_vec_size], [], []],
+            channel_name=f'{config.get("table_name")}_swap_all')
+        logger.debug('Channel %s_swap_all was built for getnext', config.get("table_name"))
+    return id_offsets, swap_in_pos, swap_out_pos, swap_in_len, swap_out_len
 
 
 def get_all2all_args(use_static: bool, config: dict) -> Optional[list]:
@@ -115,13 +120,15 @@ def get_preprocessed_tensor_for_asc(table, config):
         restore_vector, hot_pos = get_restore_vector(config)
 
     with tf.compat.v1.variable_scope("id_offsets"):
-        id_offsets, swap_pos, swap_len = get_id_offsets(max_lookup_vec_size, config)
+        id_offsets, swap_in_pos, swap_out_pos, swap_in_len, swap_out_len = get_id_offsets(max_lookup_vec_size, config)
 
     if not config.get("is_hbm"):
         # 一表多查时，会多次进入get_preprocessed_tensor_for_asc，最后一次大查询替换map的key-value即可
         swap_args = SwapArgs()
+        
         swap_args.set_data(SwapDataType.CONFIG.value, var_name=config.get("table_name"),
-                           var_channel=config.get("channel_id"), config=config, swap_pos=swap_pos, swap_len=swap_len)
+                           var_channel=config.get("channel_id"), config=config, swap_in_len=swap_in_len, 
+                           swap_in_pos=swap_in_pos, swap_out_len=swap_out_len, swap_out_pos=swap_out_pos)
 
     all2all_args = get_all2all_args(use_static, config)
 
