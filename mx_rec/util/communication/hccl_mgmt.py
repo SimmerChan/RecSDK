@@ -23,7 +23,7 @@ from mx_rec.validator.validator import FileValidator
 from mx_rec.util.global_env_conf import global_env
 
 
-def parse_hccl_json() -> Dict[int: int]:
+def parse_hccl_json() -> Dict[int, int]:
     """
     Used for rank table file configured training situation.
     :return: rank_id to logic_id mapping dictionary.
@@ -77,7 +77,7 @@ def parse_hccl_json() -> Dict[int: int]:
     return rank_to_device_dict
 
 
-def set_hccl_info_without_json() -> Dict[int: int]:
+def set_hccl_info_without_json() -> Dict[int, int]:
     """
     Used for no rank table file configured training situation.
     :return: rank_id to logic_id mapping dictionary.
