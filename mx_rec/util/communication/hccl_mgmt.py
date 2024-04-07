@@ -93,7 +93,7 @@ def set_hccl_info_without_json() -> Dict[int, int]:
 
     rank_to_device_dict = {}
     chief_index = device_list.index(chief_device)
-    device_list = device_list[chief_index:] + device_list[0: chief_index]
+    device_list = device_list[chief_index:] + device_list[:chief_index]
     device_list = device_list[:rank_size]
 
     for rank_id, device_id in enumerate(device_list):
@@ -108,5 +108,5 @@ def get_device_list() -> List[int]:
     """
     import mxrec_pybind
     device_count = mxrec_pybind.get_device_count()
-    device_list = [i for i in range(0, device_count)]
+    device_list = [i for i in range(device_count)]
     return device_list
