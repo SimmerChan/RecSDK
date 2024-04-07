@@ -469,7 +469,7 @@ class BaseSparseEmbedding(metaclass=abc.ABCMeta):
 
             return array_ops.reshape(embeddings, dest_shape), grad
 
-        with tf.control_dependencies(result.get("swap_in")):
+        with tf.control_dependencies(result.get("swap_in_op")):
             return self._get_sparse_forward_result(sparse_forward, self._variable, result, is_training)
 
     def __initialize_variables(self):
