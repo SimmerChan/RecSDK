@@ -91,10 +91,6 @@ def set_hccl_info_without_json() -> Dict[int, int]:
     if chief_device not in device_list:
         raise ValueError(f"The environment variable CM_CHIEF_DEVICE {chief_device} is not in the local device list. ")
 
-    if rank_size > len(device_list):
-        raise ValueError(f"The number of devices in the current environment {len(device_list)} "
-                         f"is insufficient to execute a task of such a large rank size {rank_size}.")
-
     rank_to_device_dict = {}
     chief_index = device_list.index(chief_device)
     device_list = device_list[chief_index:] + device_list[0: chief_index]
