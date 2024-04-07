@@ -153,8 +153,11 @@ int EmbeddingStatic::LoadKey(const string &savePath)
 
     if (loadOffset.size() > devVocabSize) {
         LOG_ERROR("load key size exceeds device vocab size: {}", strerror(errno));
+        free(static_cast<void*>(buf));
         return -1;
     }
+
+    maxOffset = keyOffsetMap.size();
 
     free(static_cast<void*>(buf));
     return 0;

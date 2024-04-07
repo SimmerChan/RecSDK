@@ -30,6 +30,7 @@ See the License for the specific language governing permissions and
 #include "key_process/key_process.h"
 #include "key_process/feature_admit_and_evict.h"
 #include "emb_table/embedding_mgmt.h"
+#include "emb_table/embedding_ddr.h"
 
 
 using namespace MxRec;
@@ -156,7 +157,7 @@ void HybridMgmt::AddCacheManagerTraceLog(CkptData& saveData)
     auto& ddrKeyFreqMap = saveData.ddrKeyFreqMaps;
     for (auto& it : embHashMaps) {
         string embTableName = it.first;
-        auto& hostMap = it.second.hostHashMap;
+        auto& hostMap = EmbeddingMgmt::Instance()->GetTable(embTableName)->keyOffsetMap;
         auto& devSize = it.second.devVocabSize;
         auto& lfu = ddrKeyFreqMap[embTableName];
         size_t tableKeyInDdr = 0;
@@ -241,6 +242,7 @@ bool HybridMgmt::Save(const string savePath)
     Checkpoint saveCkpt;
     saveData.keyCountMap = KEY_PROCESS_INSTANCE->GetKeyCountMap();
 
+    EmbeddingMgmt::Instance()->LockSave();  // acquire lock here to prevent HybridMgmt modify keyOffsetMap
     EmbeddingMgmt::Instance()->Save(savePath);
     offsetMapToSend = EmbeddingMgmt::Instance()->GetDeviceOffsets();
 
@@ -255,6 +257,7 @@ bool HybridMgmt::Save(const string savePath)
         auto step = GetStepFromPath(savePath);
         cacheManager->SaveSSDEngine(step);
     }
+    EmbeddingMgmt::Instance()->UnLockSave();
 
     // 保存特征准入淘汰相关的数据
     FeatureAdmitAndEvict& featAdmitNEvict = KEY_PROCESS_INSTANCE->GetFeatAdmitAndEvict();
@@ -326,7 +329,13 @@ bool HybridMgmt::Load(const string& loadPath)
     if (isSSDEnabled) {
         LOG_DEBUG(MGMT + "Start host side load: ssd key freq map");
         auto step = GetStepFromPath(loadPath);
-        cacheManager->Load(loadData.ddrKeyFreqMaps, loadData.excludeDDRKeyFreqMaps, step);
+        cacheManager->Load(loadData.ddrKeyFreqMaps, loadData.excludeDDRKeyFreqMaps,
+                           step, mgmtRankInfo.rankSize, mgmtRankInfo.rankId);
+        for (auto info: mgmtEmbInfo) {
+            auto tb = EmbeddingMgmt::Instance()->GetTable(info.name);
+            auto tbCast = reinterpret_pointer_cast<EmbeddingDDR>(tb);
+            tbCast->RefreshFreqInfoAfterLoad();
+        }
     }
 
     LOG_DEBUG(MGMT + "Finish host side load process");
@@ -695,8 +704,7 @@ bool HybridMgmt::ParseKeysHBM(int channelId, int& batchId)
         LOG_DEBUG("channelId:{} batchId:{}, sendLookupSyncTC(ms):{}", channelId, batchId, sendLookupSyncTC.ElapsedMS());
 
         // 训练时，使用全局去重聚合梯度，发送全局去重的key和对应的恢复向量
-        if (GlobalEnv::applyGradientsStrategy == ApplyGradientsStrategyOptions::SUM_SAME_ID_GRADIENTS_AND_APPLY &&
-            channelId == TRAIN_CHANNEL_ID) {
+        if (mgmtRankInfo.useSumSameIdGradients && channelId == TRAIN_CHANNEL_ID) {
             SendUniqKeysAndRestoreVecHBM(channelId, batchId, embInfo, infoVecs);
         }
 
@@ -818,8 +826,7 @@ bool HybridMgmt::ProcessEmbInfo(const std::string& embName, int batchId, int cha
     auto lookupKeys = KEY_PROCESS_INSTANCE->GetLookupKeys(batchId, embName, channelId);
     if (lookupKeys.empty()) {
         remainBatchOut = false;
-        LOG_ERROR("channelId:{} batchId:{}, embName:{}, GetLookupKeys result is empty.",
-                  channelId, batchId, embName);
+        LOG_WARN("channelId:{} batchId:{}, embName:{}, GetLookupKeys result is empty.", channelId, batchId, embName);
         return false;
     }
     LOG_DEBUG("channelId:{} batchId:{}, embName:{}, GetLookupKeys end.", channelId, batchId, embName);
@@ -838,7 +845,9 @@ bool HybridMgmt::ProcessEmbInfo(const std::string& embName, int batchId, int cha
     LOG_DEBUG("channelId:{} batchId:{}, send restore end, sendRestoreSyncTC(ms):{}",
               channelId, batchId, sendRestoreSyncTC.ElapsedMS());
 
-    // 调用SSD cache缓存处理流程
+    // 调用SSD cache缓存处理流程，获取锁避免保存时修改keyOffsetMap
+    table->mutSave_.lock();
+    LOG_DEBUG("acquire save lock, table:{}", table->name);
     PrepareDDRData(table, lookupKeys, channelId, batchId);
 
     // 计算查询向量；记录需要被换出的HBM偏移
@@ -848,12 +857,13 @@ bool HybridMgmt::ProcessEmbInfo(const std::string& embName, int batchId, int cha
     TimeCost hostHashMapProcessTC;
 
     hostHashMaps->Process(embName, lookupKeys, ddrParam, channelId);
+    table->mutSave_.unlock();
+    LOG_DEBUG("release save lock, table:{}", table->name);
 
     LOG_DEBUG("channelId:{} batchId:{}, hostHashMapProcessTC(ms):{}",
               channelId, batchId, hostHashMapProcessTC.ElapsedMS());
 
-    if (GlobalEnv::applyGradientsStrategy == ApplyGradientsStrategyOptions::SUM_SAME_ID_GRADIENTS_AND_APPLY &&
-        channelId == TRAIN_CHANNEL_ID && remainBatchOut) {
+    if (mgmtRankInfo.useSumSameIdGradients && channelId == TRAIN_CHANNEL_ID && remainBatchOut) {
         SendUniqKeysAndRestoreVecDDR(embName, batchId, channelId, ddrParam);
     }
 
