@@ -139,9 +139,9 @@ bool LFUCache::Pop(emb_key_t key)
 
 /// 获取所有的key和次数信息
 /// \return 频次数据map<key, freq>
-std::unordered_map<emb_key_t, freq_num_t> LFUCache::GetFreqTable()
+std::unordered_map<emb_cache_key_t, freq_num_t> LFUCache::GetFreqTable()
 {
-    unordered_map<emb_key_t, freq_num_t> freqMap(keyTable.size());
+    unordered_map<emb_cache_key_t, freq_num_t> freqMap(keyTable.size());
     for (const auto& it :keyTable) {
         freqMap[it.first] = it.second->freq;
     }
