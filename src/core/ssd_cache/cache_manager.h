@@ -98,7 +98,7 @@ namespace MxRec {
 
         void EvictSSDEmbedding(const string& embTableName, vector<emb_key_t>& keys);
 
-        void EvictSSDEmbedding(const string& embTableName, vector<emb_cache_key_t>& keys);
+        void EvictSSDEmbedding(const string& embTableName, const vector<emb_cache_key_t>& keys);
 
         void PutKey(const string& embTableName, const emb_key_t& key, RecordType type);
 
