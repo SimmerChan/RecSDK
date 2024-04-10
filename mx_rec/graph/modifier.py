@@ -36,6 +36,7 @@ from mx_rec.graph.merge_lookup import do_merge_lookup
 from mx_rec.graph.utils import check_input_list, find_parent_op, check_cutting_points, record_ops_to_replace, \
     export_pb_graph, make_sorted_key_to_tensor_list
 from mx_rec.graph.graph_typing import AnchorRecord, ReplacementSpec
+from mx_rec.saver.patch import check_characters_is_valid
 from mx_rec.util.initialize import ConfigInitializer
 from mx_rec.util.log import logger
 from mx_rec.util.ops import import_host_pipeline_ops
@@ -69,6 +70,10 @@ def get_preprocessing_map_func(
         input_tensors = []
         if batch_tensor_names is not None:
             for tensor_name in batch_tensor_names:
+                if not check_characters_is_valid(tensor_name):
+                    raise ValueError("tensor_name contains invalid characters such as newline, formfeed,"
+                                     " carriage return, backspace, tab, vertical tab, and delete.")
+
                 tensor = batch.get(tensor_name)
                 if tensor is None:
                     raise ValueError(f"Given input_tensor_name '{tensor_name}' is invalid.")
@@ -214,7 +219,7 @@ def get_dataset_op(get_next_op: Operation) -> Operation:
     """
 
     if get_next_op.type != AnchorIteratorOp.ITERATOR_GET_NEXT.value:
-        raise TypeError("Op '{get_next_op}' must be one instance of IteratorGetNext.")
+        raise TypeError(f"Op '{get_next_op}' must be one instance of IteratorGetNext.")
 
     # looking for the MakeIterator operator which corresponds to given batch_tensor
     base_op = find_make_iterator_op(get_next_op.outputs[0])
