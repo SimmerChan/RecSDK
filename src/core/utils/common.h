@@ -571,7 +571,8 @@ namespace MxRec {
         FEAT_ADMIT_N_EVICT = 4,
         DDR_KEY_FREQ_MAP = 5,
         EXCLUDE_DDR_KEY_FREQ_MAP = 6,
-        KEY_COUNT_MAP = 7
+        KEY_COUNT_MAP = 7,
+        EMB_LOCAL_TABLE = 8
     };
 
     struct CkptData {
@@ -591,7 +592,6 @@ namespace MxRec {
     struct CkptTransData {
         std::vector<int64_t> int64Arr;
         std::vector<int64_t> addressArr;
-        std::vector<float*> floatArr;
         std::vector<int32_t> int32Arr;
         std::vector<trans_serialize_t> transDataset; // may all use this to transfer data
         std::vector<size_t> attribute; // may need to use other form for attributes
