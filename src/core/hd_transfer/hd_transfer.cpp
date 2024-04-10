@@ -50,7 +50,9 @@ int HDTransfer::Init(const vector<EmbInfo>& embInfos, uint32_t localRankId)
             CreateChannel(localRankId, embInfo.name, i);
         }
         // 创建acltdtDataset类型的数据，对等一个Vector<tensor>。同步接口。
-        aclDatasets[embInfo.name] = acltdtCreateDataset();
+        for (int j = 0; j < EMBEDDING_THREAD_NUM; j++) {
+            aclDatasets[embInfo.name][j] = acltdtCreateDataset();
+        }
     }
     running = true;
     LOG(INFO) << "hd_transfer init";
@@ -71,9 +73,11 @@ void HDTransfer::Destroy()
         }
         LOG_INFO(HD + "destroy channel:{}", c.first);
     }
-    for (auto& d: aclDatasets) {
-        if (acltdtDestroyDataset(d.second) != ACL_ERROR_NONE) {
-            throw runtime_error("Acl destroy tensor dataset failed.");
+    for (auto& datasetMap: aclDatasets) {
+        for (auto &d: datasetMap.second) {
+            if (acltdtDestroyDataset(d.second) != ACL_ERROR_NONE) {
+                throw runtime_error("Acl destroy tensor dataset failed.");
+            }
         }
     }
     aclFinalize();
@@ -90,16 +94,26 @@ void HDTransfer::CreateChannel(const uint32_t localRankId, const string& embName
     int channelSize = GlobalEnv::hdChannelSize;
     LOG_INFO("user config all2all restore lookup channel size:{}", channelSize);
     for (int c = static_cast<int>(TransferChannel::D2H); c != static_cast<int>(TransferChannel::INVALID); c++) {
+        if ((c == static_cast<int>(TransferChannel::SWAP) || c == static_cast<int>(TransferChannel::D2H) ||
+             c == static_cast<int>(TransferChannel::H2D)) && channelNum == EVAL_CHANNEL_ID) {
+            continue;
+        }
+
         auto channel = static_cast<TransferChannel>(c);
-        string sendName = StringFormat(
-            "%s_%s_%d", embName.c_str(), TransferChannel2Str(channel).c_str(), channelNum
-        );
+        std::string sendName;
+        if (c == static_cast<int>(TransferChannel::SWAP) || c == static_cast<int>(TransferChannel::D2H) ||
+            c == static_cast<int>(TransferChannel::H2D)) {
+            sendName = StringFormat("%s_%s_all", embName.c_str(), TransferChannel2Str(channel).c_str());
+        } else {
+            sendName = StringFormat("%s_%s_%d", embName.c_str(), TransferChannel2Str(channel).c_str(), channelNum);
+        }
         if (TransferChannel2Str(channel) == "all2all" ||
             TransferChannel2Str(channel) == "restore" ||
             TransferChannel2Str(channel) == "lookup"  ||
             TransferChannel2Str(channel) == "restore_second" ||
             TransferChannel2Str(channel) == "uniquekeys" ||
-            TransferChannel2Str(channel) == "evict"  /* for noDDR */
+            TransferChannel2Str(channel) == "evict" ||
+            TransferChannel2Str(channel) == "swap"
                 ) {
             transferChannels[sendName] = TDT_CREATE_CHANNEL(localRankId, sendName.c_str(), channelSize);
         } else {
@@ -128,7 +142,13 @@ void HDTransfer::Send(TransferChannel channel, const vector<Tensor> &tensors, in
     for (auto& t: tensors) {
         sizes.push_back(t.NumElements());
     }
-    string sendName = StringFormat("%s_%s_%d", embName.c_str(), TransferChannel2Str(channel).c_str(), channelId);
+
+    string sendName;
+    if (channel == TransferChannel::SWAP || channel == TransferChannel::D2H || channel == TransferChannel::H2D) {
+        sendName = StringFormat("%s_%s_all", embName.c_str(), TransferChannel2Str(channel).c_str());
+    } else {
+        sendName = StringFormat("%s_%s_%d", embName.c_str(), TransferChannel2Str(channel).c_str(), channelId);
+    }
 
     LOG_INFO(HD + "hd transfer send {}, send count is {}, size list:{}",
              sendName, sizes.size(), VectorToString(sizes));
@@ -172,9 +192,15 @@ vector<tensorflow::Tensor> HDTransfer::Recv(TransferChannel channel, int channel
 {
     EASY_FUNCTION()
 #ifndef GTEST
-    std::vector<tensorflow::Tensor> tensors;
-    string recvName = StringFormat("%s_%s_%d", embName.c_str(), TransferChannel2Str(channel).c_str(), channelId);
+    string recvName;
+    if (channel == TransferChannel::SWAP || channel == TransferChannel::D2H || channel == TransferChannel::H2D) {
+        recvName = StringFormat("%s_%s_all", embName.c_str(), TransferChannel2Str(channel).c_str());
+    } else {
+        recvName = StringFormat("%s_%s_%d", embName.c_str(), TransferChannel2Str(channel).c_str(), channelId);
+    }
+
     LOG_DEBUG("hd transfer try recv:{}", recvName);
+    std::vector<tensorflow::Tensor> tensors;
     TimeCost tc = TimeCost();
     tensorflow::Status status = tensorflow::RecvTensorByAcl(transferChannels[recvName], tensors);
     if (!running) {
@@ -199,26 +225,33 @@ vector<tensorflow::Tensor> HDTransfer::Recv(TransferChannel channel, int channel
 /// \param channelId 通道索引（训练/推理）
 /// \param embName 表名
 /// \return
-size_t HDTransfer::RecvAcl(TransferChannel channel, int channelId, const string& embName)
+size_t HDTransfer::RecvAcl(TransferChannel channel, int channelId, const string& embName,
+                           int embeddingThreadId, int batchId)
 {
     EASY_FUNCTION()
 #ifndef GTEST
-    std::vector<tensorflow::Tensor> tensors;
-    string recvName = StringFormat("%s_%s_%d", embName.c_str(), TransferChannel2Str(channel).c_str(), channelId);
-    LOG_DEBUG("hd transfer try recv:{}", recvName);
+    string recvName;
+    if (channel == TransferChannel::SWAP || channel == TransferChannel::D2H || channel == TransferChannel::H2D) {
+        recvName = StringFormat("%s_%s_all", embName.c_str(), TransferChannel2Str(channel).c_str());
+    } else {
+        recvName = StringFormat("%s_%s_%d", embName.c_str(), TransferChannel2Str(channel).c_str(), channelId);
+    }
+
+    LOG_DEBUG("hd transfer try recv:{}, batchId:{}", recvName, batchId);
     TimeCost tc = TimeCost();
-    if (aclDatasets[embName] == nullptr) {
+    if (aclDatasets[embName][embeddingThreadId] == nullptr) {
         throw runtime_error(StringFormat("Failed recv:%s.", recvName.c_str()).c_str());
     }
-    auto aclStatus = acltdtReceiveTensor(transferChannels[recvName], aclDatasets[embName], GlobalEnv::aclTimeout);
+    auto aclStatus = acltdtReceiveTensor(
+        transferChannels[recvName], aclDatasets[embName][embeddingThreadId], GlobalEnv::aclTimeout);
     if (!running) {
         return 0;
     }
     if (aclStatus != ACL_ERROR_NONE && aclStatus != ACL_ERROR_RT_QUEUE_EMPTY) {
         throw runtime_error(StringFormat("Failed receive data from acl channel, acl status:%d", aclStatus).c_str());
     }
-    LOG_INFO("hd transfer recv:{} cost:{}ms", recvName, tc.ElapsedMS());
-    return acltdtGetDatasetSize(aclDatasets[embName]);
+    LOG_INFO("hd transfer recv:{}, batchId:{}, cost:{}ms", recvName, batchId, tc.ElapsedMS());
+    return acltdtGetDatasetSize(aclDatasets[embName][embeddingThreadId]);
 #endif
 }
 
