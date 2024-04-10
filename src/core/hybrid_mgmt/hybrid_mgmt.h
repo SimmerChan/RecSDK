@@ -103,11 +103,11 @@ namespace MxRec {
 
         bool IsLoadDataMatches(const EmbMemT& loadHostEmbs, const EmbInfo& setupHostEmbs, size_t& embTableCount) const;
 
-        void EvictKeys(const string& embName, const vector<emb_key_t>& keys);
+        void EvictKeys(const string& embName, const vector<emb_cache_key_t>& keys);
 
         void InitRankInfo(RankInfo& rankInfo, const vector<EmbInfo>& embInfos) const;
 
-        void EvictSSDKeys(const string& embName, const vector<emb_key_t>& keys) const;
+        void EvictSSDKeys(const string& embName, const vector<emb_cache_key_t>& keys) const;
 
         void PrepareDDRData(std::shared_ptr<EmbeddingTable> table,
                             const vector<emb_key_t> &keys, int channelId, int batchId) const;
@@ -129,7 +129,7 @@ namespace MxRec {
         HostEmb* hostEmbs {};
         unique_ptr<EmbHashMap> hostHashMaps {};
         vector<std::unique_ptr<std::thread>> procThreads {};
-        map<std::string, std::vector<emb_key_t>> evictKeyMap {};
+        map<std::string, std::vector<emb_cache_key_t>> evictKeyMap {};
         HDTransfer *hdTransfer;
         OffsetMapT offsetMapToSend;
         OffsetMapT loadOffsetToSend;

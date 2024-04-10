@@ -85,7 +85,7 @@ KeyOffsetMemT EmbeddingMgmt::GetKeyOffsetMap()
     return keyOffsetMap;
 }
 
-void EmbeddingMgmt::EvictKeys(const string& name, const vector<emb_key_t>& keys)
+void EmbeddingMgmt::EvictKeys(const string& name, const vector<emb_cache_key_t>& keys)
 {
     LOG_ERROR("evict keys for {}", name);
     if (keys.size() != 0) {
@@ -94,7 +94,7 @@ void EmbeddingMgmt::EvictKeys(const string& name, const vector<emb_key_t>& keys)
     embeddings[name]->EvictInitDeviceEmb();
 }
 
-void EmbeddingMgmt::EvictKeysCombine(const vector<emb_key_t>& keys)
+void EmbeddingMgmt::EvictKeysCombine(const vector<emb_cache_key_t>& keys)
 {
     if (keys.size() != 0) {
         for (auto& table: embeddings) {

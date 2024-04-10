@@ -51,7 +51,7 @@ public:
      * 淘汰key,  配合GetEvictedKeys一起使用GetEvictedKeys
      * EvictKeys执行，通过GetEvictedKeys, GetEvictedKeys拿结果
      */
-    virtual void EvictKeys(const std::vector<emb_key_t>& keys);
+    virtual void EvictKeys(const std::vector<emb_cache_key_t>& keys);
 
     /**
      * 获取设备侧淘汰的key的偏移或者地址

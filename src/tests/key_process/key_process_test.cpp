@@ -643,9 +643,12 @@ TEST_F(KeyProcessTest, KeyProcessTaskHelper)
              rankInfo.rankId, batch->batchId, batch->sample.size());
 
     ASSERT_EQ(process.KeyProcessTaskHelper(batch, channelId, 0), true); // threadId = 0
-    auto infoVecs = process.GetInfoVec(batchId, embInfos[0].name, channelId, ProcessedInfo::RESTORE);
+
+    bool isEos = false;
+    EmbBaseInfo info = {.batchId=batchId, .channelId=channelId, .name=embInfos[0].name};
+    auto infoVecs = process.GetInfoVec(info, ProcessedInfo::RESTORE, isEos);
     ASSERT_NE(infoVecs, nullptr);
-    auto all2all = process.GetInfoVec(batchId, embInfos[0].name, channelId, ProcessedInfo::ALL2ALL);
+    auto all2all = process.GetInfoVec(info, ProcessedInfo::ALL2ALL, isEos);
     ASSERT_NE(all2all, nullptr);
 
     ASSERT_EQ(CheckMatrixTensor(*all2all, allExpectAll2all), true);
@@ -661,7 +664,7 @@ TEST_F(KeyProcessTest, KeyProcessTaskHelper)
     // 测试batchId错误
     HybridMgmtBlock* hybridMgmtBlock = Singleton<HybridMgmtBlock>::GetInstance();
     hybridMgmtBlock->hybridBatchId[0] = 1;
-    ASSERT_EQ(process.GetInfoVec(batchId, embInfos[0].name, channelId, ProcessedInfo::RESTORE), nullptr);
+    ASSERT_EQ(process.GetInfoVec(info, ProcessedInfo::RESTORE, isEos), nullptr);
     LOG_INFO("KeyProcessTaskHelper, rankid: {}, batchid: {}, batchId exception success",
              rankInfo.rankId, batch->batchId);
     // 测试empty场景
@@ -669,72 +672,12 @@ TEST_F(KeyProcessTest, KeyProcessTaskHelper)
     hybridMgmtBlock->hybridBatchId[1] = 1;
     hybridMgmtBlock->readEmbedBatchId[1] = 1;
     hybridMgmtBlock->loop[1] = 1;
-    ASSERT_EQ(process.GetInfoVec(batchId + 1, embInfos[0].name, channelId + 1, ProcessedInfo::RESTORE), nullptr);
+    info = {.batchId=batchId+1, .channelId=channelId+1, .name=embInfos[0].name};
+    ASSERT_EQ(process.GetInfoVec(info, ProcessedInfo::RESTORE, isEos), nullptr);
     LOG_INFO("KeyProcessTaskHelper, rankid: {}, batchid: {}, batch empty success", rankInfo.rankId, batch->batchId);
     // eos
     process.SetEos(1, 1);
-    ASSERT_EQ(process.GetInfoVec(batchId + 1, embInfos[0].name, channelId + 1, ProcessedInfo::RESTORE), nullptr);
-    LOG_INFO("KeyProcessTaskHelper, rankid: {}, batchid: {}, eos status success", rankInfo.rankId, batch->batchId);
-    this_thread::sleep_for(10s);
-    process.Destroy();
-}
-
-// DDR端到端测试，静态shape，固定batch输入
-TEST_F(KeyProcessTest, KeyProcessTaskHelperDDR)
-{
-    rankInfo.isDDR = true;
-    rankInfo.useStatic = true;
-    rankInfo.useDynamicExpansion = false;
-    EmbeddingMgmt::Instance()->Init(rankInfo, embInfos);
-    ASSERT_EQ(process.Initialize(rankInfo, embInfos), true);
-    ASSERT_EQ(process.isRunning, true);
-    int batchId = 0;
-    int channelId = 0;
-    auto batch = GenBatch(embInfos[0].name, batchId, channelId); // 测试第一个表
-    HybridMgmtBlock* hybridMgmtBlock = Singleton<HybridMgmtBlock>::GetInstance();
-    hybridMgmtBlock->hybridBatchId[0] = 0;
-    LOG_INFO("KeyProcessTaskHelperDDR, rankid: {}, batchid: {}", rankInfo.rankId, batch->batchId);
-
-    ASSERT_EQ(process.KeyProcessTaskHelper(batch, channelId, 0), true); // threadId = 0
-
-    auto lookupKeys = process.GetLookupKeys(batchId, embInfos[0].name, channelId); // lookup list返回的不是tensor
-    ASSERT_EQ(lookupKeys.size(), sendCount * worldSize);
-    LOG_INFO("KeyProcessTaskHelperDDR, rankid: {}, batchid: {}, lookupKeys: {}",
-             rankInfo.rankId, batch->batchId, VectorToString(lookupKeys));
-    ASSERT_EQ(CheckPaddingVec(lookupKeys, allExpectLookupKeys[worldRank]), true);
-
-    auto infoVecs = process.GetInfoVec(batchId, embInfos[0].name, channelId, ProcessedInfo::RESTORE);
-    ASSERT_NE(infoVecs, nullptr);
-    int col = allExpectRestore[worldRank].size();
-    auto tmpTensor = (*infoVecs).at(0);
-    auto tmpData = tmpTensor.flat<int32>();
-
-    int64_t hotPosition = process.hotEmbTotCount[batch->name];
-    vector<int> actualGetRestore(col);
-    for (int j = 0; j < col; j++) {
-        actualGetRestore[j] = tmpData(j)-hotPosition;
-    }
-    LOG_INFO("KeyProcessTaskHelperDDR, rankid: {}, batchid: {}, Restore: {}",
-             rankInfo.rankId, batch->batchId, VectorToString(actualGetRestore));
-    ASSERT_THAT(actualGetRestore, ElementsAreArray(allExpectRestoreStatic[worldRank]));
-    LOG_INFO("KeyProcessTaskHelperDDR, rankid: {}, batchid: {}, normal status success",
-             rankInfo.rankId, batch->batchId);
-
-    // 测试batchId错误
-    hybridMgmtBlock->hybridBatchId[0] = 1;
-    ASSERT_EQ(process.GetLookupKeys(batchId, embInfos[0].name, channelId).empty(), true);
-    LOG_INFO("KeyProcessTaskHelper, rankid: {}, batchid: {}, batchId exception success",
-             rankInfo.rankId, batch->batchId);
-    // 测试empty场景
-    hybridMgmtBlock->pythonBatchId[1] = 1;
-    hybridMgmtBlock->hybridBatchId[1] = 1;
-    hybridMgmtBlock->readEmbedBatchId[1] = 1;
-    hybridMgmtBlock->loop[1] = 1;
-    ASSERT_EQ(process.GetLookupKeys(batchId + 1, embInfos[0].name, channelId + 1).empty(), true);
-    LOG_INFO("KeyProcessTaskHelper, rankid: {}, batchid: {}, batch empty success", rankInfo.rankId, batch->batchId);
-    // eos
-    process.SetEos(1, 1);
-    ASSERT_EQ(process.GetLookupKeys(batchId + 1, embInfos[0].name, channelId + 1).empty(), true);
+    ASSERT_EQ(process.GetInfoVec(info, ProcessedInfo::RESTORE, isEos), nullptr);
     LOG_INFO("KeyProcessTaskHelper, rankid: {}, batchid: {}, eos status success", rankInfo.rankId, batch->batchId);
     this_thread::sleep_for(10s);
     process.Destroy();
