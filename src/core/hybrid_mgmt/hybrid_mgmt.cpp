@@ -624,14 +624,16 @@ void HybridMgmt::EvalTask(TaskType type)
 /// \return
 bool HybridMgmt::ParseKeysHBM(int channelId, int& batchId)
 {
-    LOG_INFO(MGMT + "nBatch:{} channelId:{} batchId:{}, ParseKeys with HBM mode start.",
-             mgmtRankInfo.nBatch, channelId, batchId);
+    LOG_INFO(MGMT + "channelId:{} batchId:{}, ParseKeys with HBM mode start", channelId, batchId);
+
 
     // 循环处理每个表的数据
+    bool isEos = false;
     for (const auto& embInfo: mgmtEmbInfo) {
         TimeCost parseKeysTc;
         // 获取各类向量，如果为空指针，退出当前函数
-        auto infoVecs = KEY_PROCESS_INSTANCE->GetInfoVec(batchId, embInfo.name, channelId, ProcessedInfo::RESTORE);
+        EmbBaseInfo info = {.batchId=batchId, .channelId=channelId, .name=embInfo.name};
+        auto infoVecs = KEY_PROCESS_INSTANCE->GetInfoVec(info, ProcessedInfo::RESTORE, isEos);
         if (infoVecs == nullptr) {
             LOG_INFO(MGMT + "channelId:{} batchId:{}, ParseKeys infoVecs empty !", channelId, batchId);
             return false;
@@ -642,7 +644,7 @@ bool HybridMgmt::ParseKeysHBM(int channelId, int& batchId)
         unique_ptr<vector<Tensor>> all2all = nullptr;
         if (!mgmtRankInfo.useStatic) {
             TimeCost getTensorsSyncTC;
-            all2all = KEY_PROCESS_INSTANCE->GetInfoVec(batchId, embInfo.name, channelId, ProcessedInfo::ALL2ALL);
+            all2all = KEY_PROCESS_INSTANCE->GetInfoVec(info, ProcessedInfo::ALL2ALL, isEos);
             LOG_DEBUG("channelId:{} batchId:{}, getTensorsSyncTC(ms):{}",
                       channelId, batchId, getTensorsSyncTC.ElapsedMS());
             if (all2all == nullptr) {
@@ -780,6 +782,8 @@ bool HybridMgmt::ProcessEmbInfo(const std::string& embName, int batchId, int cha
     // 计数初始化
     std::shared_ptr<EmbeddingTable> table = nullptr;
 
+    EmbBaseInfo info = {.batchId=batchId, .channelId=channelId, .name=embName};
+
     // 获取查询向量
     auto lookupKeys = KEY_PROCESS_INSTANCE->GetLookupKeys(batchId, embName, channelId);
     if (lookupKeys.empty()) {
@@ -789,8 +793,8 @@ bool HybridMgmt::ProcessEmbInfo(const std::string& embName, int batchId, int cha
     }
     LOG_DEBUG("channelId:{} batchId:{}, embName:{}, GetLookupKeys end.", channelId, batchId, embName);
     // 获取各类向量，如果为空指针，退出当前函数
-    unique_ptr<vector<Tensor>> infoVecs = KEY_PROCESS_INSTANCE->GetInfoVec(batchId, embName, channelId,
-                                                                           ProcessedInfo::RESTORE);
+    bool isEos = false;
+    unique_ptr<vector<Tensor>> infoVecs = KEY_PROCESS_INSTANCE->GetInfoVec(info, ProcessedInfo::RESTORE, isEos);
     if (infoVecs == nullptr) {
         LOG_ERROR("Information vector is nullptr!");
         return false;
@@ -828,8 +832,7 @@ bool HybridMgmt::ProcessEmbInfo(const std::string& embName, int batchId, int cha
     ddrParam.tmpDataOut.erase(ddrParam.tmpDataOut.cbegin());
     hdTransfer->Send(TransferChannel::SWAP, ddrParam.tmpDataOut, channelId, embName);
     if (!mgmtRankInfo.useStatic) {
-        unique_ptr<vector<Tensor>> all2all = KEY_PROCESS_INSTANCE->GetInfoVec(batchId, embName,
-                                                                              channelId, ProcessedInfo::ALL2ALL);
+        unique_ptr<vector<Tensor>> all2all = KEY_PROCESS_INSTANCE->GetInfoVec(info, ProcessedInfo::ALL2ALL, isEos);
         if (all2all == nullptr) {
             LOG_ERROR("Information vector is nullptr!");
             return false;
@@ -967,7 +970,7 @@ bool HybridMgmt::Evict()
 /// DDR模式下的淘汰：删除映射表、初始化host表、发送dev淘汰位置
 /// \param embName
 /// \param keys
-void HybridMgmt::EvictKeys(const string& embName, const vector<emb_key_t>& keys)
+void HybridMgmt::EvictKeys(const string& embName, const vector<emb_cache_key_t>& keys)
 {
     std::shared_ptr<EmbeddingTable> table = nullptr;
 
@@ -1017,7 +1020,7 @@ inline void HybridMgmt::PrepareDDRData(std::shared_ptr<EmbeddingTable> table,
               channelId, batchId, table->name, prepareDDRDataTc.ElapsedMS());
 }
 
-void HybridMgmt::EvictSSDKeys(const string& embName, const vector<emb_key_t>& keys) const
+void HybridMgmt::EvictSSDKeys(const string& embName, const vector<emb_cache_key_t>& keys) const
 {
     if (!isSSDEnabled) {
         return;

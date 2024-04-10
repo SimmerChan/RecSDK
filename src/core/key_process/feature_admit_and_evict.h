@@ -69,7 +69,7 @@ namespace MxRec {
             KeysT& splitKey, std::vector<uint32_t>& keyCount);
 
         // 特征淘汰接口
-        void FeatureEvict(map<std::string, std::vector<emb_key_t>>& evictKeyMap);
+        void FeatureEvict(map<std::string, std::vector<emb_cache_key_t>>& evictKeyMap);
         void ExecuteFeatureAdmit(
             const string& tableName, int channel, KeysT& splitKey, absl::flat_hash_map<int64_t, uint32_t>& mergeKeys);
 
@@ -105,7 +105,7 @@ namespace MxRec {
         std::vector<std::string> GetAllNeedEvictTableNames();
         FeatureAdmitType FeatureAdmitHelper(const int channel, const std::string& tableNameOrigin,
                                             const int64_t featureId, const uint32_t featureCnt);
-        void FeatureEvictHelper(const std::string& embName, std::vector<emb_key_t>& evictKey);
+        void FeatureEvictHelper(const std::string& embName, std::vector<emb_cache_key_t>& evictKey);
         void ResetAllRecords();
 
         bool m_isEnableFunction { true };                                    // “特征淘汰”的使能开关
