@@ -27,7 +27,6 @@ class SwapDataType(Enum):
 def singleton(cls):
     _instance = {}
 
-    @functools.wraps
     def inner():
         if cls not in _instance:
             _instance[cls] = cls()
