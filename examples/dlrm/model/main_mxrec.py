@@ -129,7 +129,7 @@ def model_forward(feature_list, hash_table_list, batch, is_train, modify_graph):
     elif len(embedding_list) > 1:
         emb = tf.reduce_sum(embedding_list, axis=0, keepdims=False)
     else:
-        raise ValueError("The length of embedding_list must be greater than or equal to 1.")
+        raise ValueError("the length of embedding_list must be greater than or equal to 1.")
     my_model = MyModel()
     model_output = my_model.build_model(embedding=emb,
                                         dense_feature=batch["dense_feature"],
