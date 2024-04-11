@@ -199,6 +199,7 @@ class BaseSparseEmbedding(metaclass=abc.ABCMeta):
         """
         pass
 
+
     @abc.abstractmethod
     def _set_slice_vocab_size(self):
         pass
