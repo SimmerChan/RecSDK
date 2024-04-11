@@ -120,8 +120,7 @@ class TestCreateTableFunc(unittest.TestCase):
                                       dim=8,
                                       name='test_table',
                                       emb_initializer=tf.compat.v1.truncated_normal_initializer(),
-                                      host_vocabulary_size=8,
-                                      optimizer_list=[create_hash_optimizer(learning_rate=0.01)])
+                                      host_vocabulary_size=8)
             self.assertIsInstance(test_table, ExternalStorageSparseEmbedding)
 
 
