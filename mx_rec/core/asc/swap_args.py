@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-
+import functools
 from collections import defaultdict
 from enum import Enum
 
@@ -27,6 +27,7 @@ class SwapDataType(Enum):
 def singleton(cls):
     _instance = {}
 
+    @functools.wraps
     def inner():
         if cls not in _instance:
             _instance[cls] = cls()

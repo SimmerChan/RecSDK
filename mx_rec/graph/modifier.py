@@ -382,7 +382,8 @@ def change_ext_emb_size_by_opt():
     if optimizer is None:
         raise ValueError("Optimizer should be set by create_hash_optimizer")
 
-    host_vocabulary_size = [table_instance.slice_host_vocabulary_size for table_instance in table_instance_dict.values()]
+    host_vocabulary_size = [table_instance.slice_host_vocabulary_size for table_instance in
+                            table_instance_dict.values()]
     total_host_voc_size = sum(host_vocabulary_size)
     for _, table_instance in ConfigInitializer.get_instance().sparse_embed_config.table_instance_dict.items():
         # When dynamic expansion mode, ext_emb_size is set by optimizer
@@ -642,6 +643,8 @@ def get_variable_and_slot_list(each_var, slot_num, table_name, channel_id):
             for slot_val in slot_dict.values():
                 variable_and_slot_list.append(slot_val)
 
+    return variable_and_slot_list
+
 
 def modify_graph_for_ddr(get_next_op_map):
     # 通过create_hash_optimizer创建optimizer_instance
@@ -669,6 +672,7 @@ def modify_graph_for_ddr(get_next_op_map):
                 raise ValueError("Missing Required key in modify_graph_for_asc: control_ops")
             control_ops = swap_control_dict['control_ops']
             replace_anchor_control(control_ops, swap_op)
+
 
 @performance("graph_modifier")
 def modify_graph_for_asc(dump_graph: bool = False, prefetch: int = 10):
