@@ -214,7 +214,7 @@ def get_dataset_op(get_next_op: Operation) -> Operation:
     """
 
     if get_next_op.type != AnchorIteratorOp.ITERATOR_GET_NEXT.value:
-        raise TypeError("Op '{get_next_op}' must be one instance of IteratorGetNext.")
+        raise TypeError(f"Op '{get_next_op}' must be one instance of IteratorGetNext.")
 
     # looking for the MakeIterator operator which corresponds to given batch_tensor
     base_op = find_make_iterator_op(get_next_op.outputs[0])
@@ -223,9 +223,9 @@ def get_dataset_op(get_next_op: Operation) -> Operation:
         optimize_dataset_op = find_target_dataset_op(base_op, AnchorDatasetOp.MODEL_DATASET.value)
         target_op = find_parent_op(optimize_dataset_op)
         if not target_op:
-            raise RuntimeError(f"The parent op for 'ModelDataset' op was not found.")
+            raise RuntimeError("The parent op for 'ModelDataset' op was not found.")
         if target_op[0].type != AnchorDatasetOp.OPTIMIZE_DATASET.value:
-            raise TypeError(f"Op OptimizeDataset was not found.")
+            raise TypeError("Op OptimizeDataset was not found.")
         target_op = target_op[0]
     else:
         # 'OptimizeDataset' is not available in TensorFlow2.X

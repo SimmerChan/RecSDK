@@ -261,8 +261,8 @@ if __name__ == "__main__":
         MODIFY_GRAPH_FLAG = bool(int(os.getenv("USE_MODIFY_GRAPH", 0)))
         use_faae = bool(int(os.getenv("USE_FAAE", 0)))
     except ValueError as err:
-        raise ValueError(f"please correctly config USE_DYNAMIC_EXPANSION or USE_MULTI_LOOKUP or USE_FAAE "
-                         f"or USE_MODIFY_GRAPH only 0 or 1 is supported.") from err
+        raise ValueError("please correctly config USE_DYNAMIC_EXPANSION or USE_MULTI_LOOKUP or USE_FAAE "
+                         "or USE_MODIFY_GRAPH only 0 or 1 is supported.") from err
 
     use_dynamic = bool(int(os.getenv("USE_DYNAMIC", 0)))
     logger.info(f"USE_DYNAMIC: {use_dynamic}")
@@ -270,7 +270,7 @@ if __name__ == "__main__":
          use_dynamic=use_dynamic, use_dynamic_expansion=use_dynamic_expansion)
     IF_LOAD = False
     rank_id = mxrec_util.communication.hccl_ops.get_rank_id()
-    filelist = glob(f"./saved-model/sparse-model-0")
+    filelist = glob("./saved-model/sparse-model-0")
     if filelist:
         IF_LOAD = True
     ConfigInitializer.get_instance().if_load = IF_LOAD
@@ -409,7 +409,7 @@ if __name__ == "__main__":
             lr = sess.run(cfg.learning_rate)
             global_step = sess.run(cfg.global_step)
         except tf.errors.OutOfRangeError:
-            logger.info(f"Encounter the end of Sequence for training.")
+            logger.info("Encounter the end of Sequence for training.")
             break
 
         end_time = time.time()

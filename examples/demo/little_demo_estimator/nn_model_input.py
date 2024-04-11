@@ -39,7 +39,7 @@ def get_model_fn(create_fs_params, cfg, access_and_evict_config_dict=None):
 
         loss_dict = {}
         if mode == tf.estimator.ModeKeys.TRAIN:
-            logger.info(f"use estimator train mode")
+            logger.info("use estimator train mode")
             loss_dict['loss'] = [['train_loss', loss]]
             return tf.estimator.EstimatorSpec(mode=mode,
                                               loss=loss,
