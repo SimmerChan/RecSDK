@@ -77,26 +77,6 @@ class CustomizedLazyAdam(adam.AdamOptimizer, CustomizedOptimizer):
     def slot_num(self):
         return self._slot_num
 
-    def initialize_slots(self, var, table_instance):
-        # Create slots for the first and second moments.
-        def creat_one_single_slot(var, op_name):
-            new_slot_variable = slot_creator.create_zeros_slot(var, op_name)
-            # make sure sparse optimizer statements will not be saved and restored within tf checkpoint.
-            return new_slot_variable
-
-        momentum = creat_one_single_slot(var, self._name + "/" + "momentum")
-        velocity = creat_one_single_slot(var, self._name + "/" + "velocity")
-        self.config_instance.sparse_embed_config.insert_removing_var_list(momentum.name)
-        self.config_instance.sparse_embed_config.insert_removing_var_list(velocity.name)
-        named_slot_key = (var.op.graph, var.op.name)
-        table_instance = self.config_instance.sparse_embed_config.get_table_instance(var)
-        ConfigInitializer.get_instance().optimizer_config.set_optimizer_for_table(table_instance.table_name,
-                                                                                  self.optimizer_type,
-                                                                                  {"momentum": momentum,
-                                                                                   "velocity": velocity})
-        return [{"slot": momentum, "named_slot_key": named_slot_key, "slot_name": "m", "optimizer": self},
-                {"slot": velocity, "named_slot_key": named_slot_key, "slot_name": "v", "optimizer": self}]
-
     def insert_slot(self, slot, named_slots_key, slot_name):
         named_slots = self._slot_dict(slot_name)
         if named_slots_key in named_slots:

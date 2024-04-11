@@ -35,9 +35,6 @@ class CustomizedOptimizer:
         self.unique_name = ""
         self.base_name = ""
 
-    def initialize_slots(self, var, table_instance):
-        raise NotImplementedError(f"Please define a specific realization on {self.__class__.__name__}")
-
     def insert_slot(self, slot, named_slots_key, slot_name):
         raise NotImplementedError(f"Please define a specific realization on {self.__class__.__name__}")
 

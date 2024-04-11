@@ -23,6 +23,7 @@ import tensorflow as tf
 
 from mx_rec.saver.saver import Saver
 from mx_rec.constants.constants import ASCEND_GLOBAL_HASHTABLE_COLLECTION
+from mx_rec.util.initialize import ConfigInitializer
 from tests.mx_rec.core.mock_class import MockConfigInitializer
 from tests.mx_rec.saver.sparse_embedding_mock import SparseEmbeddingMock
 
