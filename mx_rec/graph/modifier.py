@@ -620,7 +620,33 @@ def get_swap_info(table_instance: BaseSparseEmbedding, variable_and_slot_list: l
     return swap_in
 
 
+def get_variable_and_slot_list(each_var, slot_num, table_name, channel_id):
+    variable_and_slot_list = [each_var]
+    if slot_num == 0:
+        return variable_and_slot_list
+
+    # 通过apply_gradients创建optimizer
+    optimizer = ConfigInitializer.get_instance().optimizer_config.get_optimizer_by_table_name(table_name)
+    if optimizer is None and channel_id == 0:
+        raise RuntimeError("In training mode, table_instance should have been set_optimizer_for_table "
+                           "before modify_graph, please check whether apply_gradients is performed")
+
+    # predict不需要传优化器，但是ddr模式换入换出仍然需要维度ext_size的emb
+    if optimizer is None and channel_id == 1:
+        slot_place_holder = tf.zeros_like(each_var)
+        for i in range(slot_num):
+            variable_and_slot_list.append(slot_place_holder)
+    else:
+        # opt name to slot dict
+        for slot_dict in optimizer.values():
+            for slot_val in slot_dict.values():
+                variable_and_slot_list.append(slot_val)
+
+
 def modify_graph_for_ddr(get_next_op_map):
+    # 通过create_hash_optimizer创建optimizer_instance
+    optimizer_instance = ConfigInitializer.get_instance().optimizer_config.optimizer_instance
+    slot_num = optimizer_instance.slot_num
     for _, record in get_next_op_map.items():
         is_training = record.is_training
         sub_cutting_points = record.sub_cutting_points
@@ -628,30 +654,14 @@ def modify_graph_for_ddr(get_next_op_map):
         swap_args = SwapArgs()
         sparse_variables = tf.compat.v1.get_collection(
             ConfigInitializer.get_instance().train_params_config.ascend_global_hashtable_collection)
+
         for each_var in sparse_variables:
             table_instance = ConfigInitializer.get_instance().sparse_embed_config.get_table_instance(each_var)
             swap_args_dict = swap_args.swap_config_dict[table_instance.table_name][channel_id]
             swap_pos = swap_args_dict['swap_pos']
             swap_len = swap_args_dict['swap_len']
-            variable_and_slot_list = [each_var]
-            optimizer = ConfigInitializer.get_instance().optimizer_config.get_optimizer_by_table_name(
-                table_instance.table_name)
-            if optimizer is None and channel_id == 0:
-                raise RuntimeError("In training mode, table_instance should have been set_optimizer_for_table before "
-                                   "modify_graph, please check whether apply_gradients is performed")
-
-            # predict不需要传优化器，但是ddr模式换入换出仍然需要维度ext_size的emb
-            if optimizer is None and channel_id == 1:
-                optimizer = ConfigInitializer.get_instance().optimizer_config.optimizer_instance
-                slot_num = optimizer.slot_num
-                slot_place_holder = tf.zeros_like(each_var)
-                for i in range(slot_num):
-                    variable_and_slot_list.append(slot_place_holder)
-            else:
-                # opt name 2 slot dict
-                for slot_dict in optimizer.values():
-                    for slot_val in slot_dict.values():
-                        variable_and_slot_list.append(slot_val)
+            variable_and_slot_list = get_variable_and_slot_list(each_var, slot_num, table_instance.table_name,
+                                                                channel_id)
 
             swap_op = get_swap_info(table_instance, variable_and_slot_list, swap_len, swap_pos, channel_id)
             swap_control_dict = swap_args.swap_control_dict[table_instance.table_name][channel_id]
