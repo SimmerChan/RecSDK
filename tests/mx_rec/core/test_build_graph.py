@@ -346,15 +346,12 @@ class TestGetPreProcessedTensorForAscFunc(unittest.TestCase):
         self.config = dict(table_name="test_table", channel_id=0, is_hbm=True, emb_size=8, ext_emb_size=8,
                            feat_cnt=8, batch_size=32, rank_size=8, send_count=1, use_hot=True,
                            use_dynamic_expansion=True)
-        global_env.apply_gradients_strategy = "direct_apply"
 
     @mock.patch.multiple("mx_rec.core.asc.build_graph",
                          get_restore_vector=mock.MagicMock(return_value=[0, 0]),
                          get_id_offsets=mock.MagicMock(return_value=[0, 0, 0]),
                          get_all2all_args=mock.MagicMock(return_value=0),
-                         get_swap_info=mock.MagicMock(return_value=0),
-                         get_restore_vector_second=mock.MagicMock(return_value=0),
-                         get_unique_keys=mock.MagicMock(return_value=0))
+                         get_swap_info=mock.MagicMock(return_value=0))
     @mock.patch("mx_rec.core.asc.build_graph.ConfigInitializer")
     def test_get_preprocessed_tensor_for_asc_case1(self, build_graph_config_initializer):
         """
@@ -363,23 +360,18 @@ class TestGetPreProcessedTensorForAscFunc(unittest.TestCase):
 
         from mx_rec.core.asc.build_graph import get_preprocessed_tensor_for_asc
 
-        global_env.apply_gradients_strategy = "sum_same_id_gradients_and_apply"
         with tf.Graph().as_default():
             mock_config_initializer = MockConfigInitializer(use_static=True)
             build_graph_config_initializer.get_instance = mock.Mock(return_value=mock_config_initializer)
 
             result = get_preprocessed_tensor_for_asc(None, self.config)
             self.assertIsNotNone(result.get("restore_vector"))
-            self.assertIsNotNone(result.get("restore_vector_second"))
-            self.assertIsNotNone(result.get("unique_keys"))
 
     @mock.patch.multiple("mx_rec.core.asc.build_graph",
                          get_restore_vector=mock.MagicMock(return_value=[0, 0]),
                          get_id_offsets=mock.MagicMock(return_value=[0, 0, 0]),
                          get_all2all_args=mock.MagicMock(return_value=0),
-                         get_swap_info=mock.MagicMock(return_value=0),
-                         get_restore_vector_second=mock.MagicMock(return_value=0),
-                         get_unique_keys=mock.MagicMock(return_value=0))
+                         get_swap_info=mock.MagicMock(return_value=0))
     @mock.patch("mx_rec.core.asc.build_graph.ConfigInitializer")
     def test_get_preprocessed_tensor_for_asc_case2(self, build_graph_config_initializer):
         """
@@ -388,23 +380,18 @@ class TestGetPreProcessedTensorForAscFunc(unittest.TestCase):
 
         from mx_rec.core.asc.build_graph import get_preprocessed_tensor_for_asc
 
-        global_env.apply_gradients_strategy = "sum_same_id_gradients_and_apply"
         with tf.Graph().as_default():
             mock_config_initializer = MockConfigInitializer()
             build_graph_config_initializer.get_instance = mock.Mock(return_value=mock_config_initializer)
 
             result = get_preprocessed_tensor_for_asc(None, self.config)
             self.assertIsNotNone(result.get("restore_vector"))
-            self.assertIsNotNone(result.get("restore_vector_second"))
-            self.assertIsNotNone(result.get("unique_keys"))
 
     @mock.patch.multiple("mx_rec.core.asc.build_graph",
                          get_restore_vector=mock.MagicMock(return_value=[0, 0]),
                          get_id_offsets=mock.MagicMock(return_value=[0, 0, 0]),
                          get_all2all_args=mock.MagicMock(return_value=0),
-                         get_swap_info=mock.MagicMock(return_value=0),
-                         get_restore_vector_second=mock.MagicMock(return_value=0),
-                         get_unique_keys=mock.MagicMock(return_value=0))
+                         get_swap_info=mock.MagicMock(return_value=0))
     @mock.patch("mx_rec.core.asc.build_graph.ConfigInitializer")
     def test_get_preprocessed_tensor_for_asc_case3(self, build_graph_config_initializer):
         """
@@ -413,7 +400,6 @@ class TestGetPreProcessedTensorForAscFunc(unittest.TestCase):
 
         from mx_rec.core.asc.build_graph import get_preprocessed_tensor_for_asc
 
-        global_env.apply_gradients_strategy = "sum_same_id_gradients_and_apply"
         with tf.Graph().as_default():
             mock_config_initializer = MockConfigInitializer()
             build_graph_config_initializer.get_instance = mock.Mock(return_value=mock_config_initializer)
@@ -421,7 +407,6 @@ class TestGetPreProcessedTensorForAscFunc(unittest.TestCase):
             self.config["channel_id"] = 1
             result = get_preprocessed_tensor_for_asc(None, self.config)
             self.assertIsNotNone(result.get("restore_vector"))
-            self.assertIsNone(result.get("restore_vector_second"))
 
 
 if __name__ == '__main__':

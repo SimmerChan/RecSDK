@@ -206,6 +206,7 @@ class MockOptimizer:
 
     def __init__(self):
         self.slot_num = 2
+        self.derivative = 2
 
     def insert_slot(self, slot, named_slots_key, slot_name):
         pass
