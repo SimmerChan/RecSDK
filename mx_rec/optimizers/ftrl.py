@@ -90,14 +90,6 @@ class CustomizedFtrl(ftrl.FtrlOptimizer, CustomizedOptimizer):
     def derivative(self):
         return self._derivative
 
-    def insert_slot(self, slot, named_slots_key, slot_name):
-        named_slots = self._slot_dict(slot_name)
-        if named_slots_key in named_slots:
-            raise EnvironmentError(f"named_slots_key should be global unique, but it has been in use now, "
-                                   f"please double check.")
-
-        named_slots[named_slots_key] = slot
-
     def get_slot_init_values(self):
         # return state value list of ftrl that needs to initialize in ASC DDR.
         initial_linear_value = 0.0

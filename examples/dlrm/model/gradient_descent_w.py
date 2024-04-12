@@ -58,10 +58,6 @@ class CustomizedGradientDescentWithWeighDecay(gradient_descent.GradientDescentOp
     def derivative(self):
         return self._derivative
 
-    def insert_slot(self, slot, named_slots_key, slot_name):
-        logger.info("no slot for gradient descent")
-        return dict()
-
     def get_slot_init_values(self):
         logger.info("no slot for gradient descent")
         return []

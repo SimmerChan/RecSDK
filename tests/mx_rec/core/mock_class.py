@@ -208,9 +208,6 @@ class MockOptimizer:
         self.slot_num = 2
         self.derivative = 2
 
-    def insert_slot(self, slot, named_slots_key, slot_name):
-        pass
-
     def get_slot_init_values(self):
         initial_momentum_value = 0.0
         initial_velocity_value = 0.0
