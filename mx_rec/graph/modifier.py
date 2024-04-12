@@ -370,21 +370,7 @@ def get_dataset_tensor_count(dataset: DatasetV1Adapter) -> int:
     return len(src_sorted_keys)
 
 
-def change_ext_emb_size_by_opt():
-    # check whether DDR is enabled or disabled for all tables.
-    table_instance_dict = ConfigInitializer.get_instance().sparse_embed_config.table_instance_dict
-    is_hbm_list = [table_instance.is_hbm for table_instance in table_instance_dict.values()]
-    if len(set(is_hbm_list)) != 1:
-        raise ValueError(f"The DDR mode of all tables must be used or not used at the same time. However, is_hbm "
-                         f"of each table `{table_instance_dict.keys()}` is `{is_hbm_list}`.")
-
-    optimizer = ConfigInitializer.get_instance().optimizer_config.optimizer_instance
-    if optimizer is None:
-        raise ValueError("Optimizer should be set by create_hash_optimizer")
-
-    host_vocabulary_size = [table_instance.slice_host_vocabulary_size for table_instance in
-                            table_instance_dict.values()]
-    total_host_voc_size = sum(host_vocabulary_size)
+def change_ext_emb_size_by_opt(optimizer):
     for _, table_instance in ConfigInitializer.get_instance().sparse_embed_config.table_instance_dict.items():
         # When dynamic expansion mode, ext_emb_size is set by optimizer
         if ConfigInitializer.get_instance().use_dynamic_expansion or not table_instance.is_hbm:
@@ -648,6 +634,10 @@ def get_variable_and_slot_list(each_var, slot_num, table_name, channel_id):
 def modify_graph_for_ddr(get_next_op_map):
     # 通过create_hash_optimizer创建optimizer_instance
     optimizer_instance = ConfigInitializer.get_instance().optimizer_config.optimizer_instance
+    if optimizer_instance is None:
+        raise ValueError("Optimizer should be set by create_hash_optimizer")
+    # ddr和扩容需要在获取优化器后重置ext
+    change_ext_emb_size_by_opt(optimizer_instance)
     slot_num = optimizer_instance.slot_num
     for _, record in get_next_op_map.items():
         is_training = record.is_training
@@ -676,7 +666,6 @@ def modify_graph_for_ddr(get_next_op_map):
 
 @performance("graph_modifier")
 def modify_graph_for_asc(dump_graph: bool = False, prefetch: int = 10):
-    change_ext_emb_size_by_opt()
     cutting_point_list = tf.compat.v1.get_collection(ASCEND_SPARSE_LOOKUP_ENTRANCE)
     check_cutting_points(cutting_point_list)
     if not cutting_point_list:
