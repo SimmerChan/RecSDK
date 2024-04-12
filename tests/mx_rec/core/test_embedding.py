@@ -137,8 +137,7 @@ class TestSparseLookupFunc(unittest.TestCase):
     @mock.patch("mx_rec.core.embedding.ConfigInitializer")
     @mock.patch("mx_rec.core.emb.base_sparse_embedding.ConfigInitializer")
     @mock.patch("mx_rec.validator.emb_validator.ConfigInitializer")
-    @mock.patch("mx_rec.core.emb.sparse_embedding.ConfigInitializer")
-    def test_sparse_lookup_case1(self, embedding_config_initializer, base_sparse_embedding_config_initializer,
+    def test_sparse_lookup_case1(self, base_sparse_embedding_config_initializer,
                                  emb_validator_config_initializer, sparse_embedding_config_initializer,
                                  mock_get_preprocessed_tensor_for_asc):
         """
@@ -153,7 +152,6 @@ class TestSparseLookupFunc(unittest.TestCase):
             # mock
             mock_config_initializer = MockConfigInitializer(use_dynamic_expansion=False)
 
-            embedding_config_initializer.get_instance = mock.Mock(return_value=mock_config_initializer)
             base_sparse_embedding_config_initializer.get_instance = mock.Mock(return_value=mock_config_initializer)
             emb_validator_config_initializer.get_instance = mock.Mock(return_value=mock_config_initializer)
             sparse_embedding_config_initializer.get_instance = mock.Mock(return_value=mock_config_initializer)
@@ -190,8 +188,7 @@ class TestSparseLookupFunc(unittest.TestCase):
     @mock.patch("mx_rec.core.embedding.ConfigInitializer")
     @mock.patch("mx_rec.core.emb.base_sparse_embedding.ConfigInitializer")
     @mock.patch("mx_rec.validator.emb_validator.ConfigInitializer")
-    @mock.patch("mx_rec.core.emb.sparse_embedding.ConfigInitializer")
-    def test_sparse_lookup_case2(self, embedding_config_initializer, base_sparse_embedding_config_initializer,
+    def test_sparse_lookup_case2(self, base_sparse_embedding_config_initializer,
                                  emb_validator_config_initializer, sparse_embedding_config_initializer,
                                  mock_get_preprocessed_tensor_for_asc, feature_spec_config_initializer):
         """
@@ -206,7 +203,6 @@ class TestSparseLookupFunc(unittest.TestCase):
             # mock
             mock_config_initializer = MockConfigInitializer(use_dynamic_expansion=False)
 
-            embedding_config_initializer.get_instance = mock.Mock(return_value=mock_config_initializer)
             base_sparse_embedding_config_initializer.get_instance = mock.Mock(return_value=mock_config_initializer)
             emb_validator_config_initializer.get_instance = mock.Mock(return_value=mock_config_initializer)
             sparse_embedding_config_initializer.get_instance = mock.Mock(return_value=mock_config_initializer)
