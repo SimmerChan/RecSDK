@@ -303,6 +303,13 @@ class ModifyGraphForAscTest(TestCase):
         mock_ids = mock_batch.get("mock_ids")
         mock_cutting_point = tf.identity(mock_ids)
 
+        test_table = MockSparseEmbedding("test_table")
+        test_table.is_hbm = True
+        mock_config_initializer.get_instance().sparse_embed_config.table_instance_dict = dict(test_table=test_table)
+
+        mock_opt = MockOptimizer()
+        modifier_config_initializer.get_instance().optimizer_config.optimizer_instance = mock_opt
+
         tf.compat.v1.add_to_collection(ASCEND_SPARSE_LOOKUP_ENTRANCE, mock_cutting_point)
 
         modify_graph_for_asc()
