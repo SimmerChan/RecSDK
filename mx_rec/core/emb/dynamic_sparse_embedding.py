@@ -28,10 +28,6 @@ class DynamicSparseEmbedding(BaseSparseEmbedding):
         return ConfigInitializer.get_instance().hybrid_manager_config.asc_manager.get_table_capacity(self._table_name)
 
     @abc.abstractmethod
-    def _set_ext_emb_size(self):
-        pass
-
-    @abc.abstractmethod
     def _set_slice_vocab_size(self):
         pass
 

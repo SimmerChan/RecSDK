@@ -396,7 +396,6 @@ def change_ext_emb_size_by_opt():
     check_option_list=[("dump_graph", ClassValidator, {"classes": (bool,)})]
 )
 def modify_graph_and_start_emb_cache(dump_graph: bool = False):
-    change_ext_emb_size_by_opt()
     modify_graph_for_asc(dump_graph=dump_graph)
     start_asc_pipeline()
 
@@ -652,7 +651,6 @@ def modify_graph_for_ddr(get_next_op_map):
     slot_num = optimizer_instance.slot_num
     for _, record in get_next_op_map.items():
         is_training = record.is_training
-        sub_cutting_points = record.sub_cutting_points
         channel_id = 0 if is_training else 1
         swap_args = SwapArgs()
         sparse_variables = tf.compat.v1.get_collection(
@@ -660,6 +658,8 @@ def modify_graph_for_ddr(get_next_op_map):
 
         for each_var in sparse_variables:
             table_instance = ConfigInitializer.get_instance().sparse_embed_config.get_table_instance(each_var)
+            if table_instance.is_hbm:
+                continue
             swap_args_dict = swap_args.swap_config_dict[table_instance.table_name][channel_id]
             swap_pos = swap_args_dict['swap_pos']
             swap_len = swap_args_dict['swap_len']
@@ -676,6 +676,7 @@ def modify_graph_for_ddr(get_next_op_map):
 
 @performance("graph_modifier")
 def modify_graph_for_asc(dump_graph: bool = False, prefetch: int = 10):
+    change_ext_emb_size_by_opt()
     cutting_point_list = tf.compat.v1.get_collection(ASCEND_SPARSE_LOOKUP_ENTRANCE)
     check_cutting_points(cutting_point_list)
     if not cutting_point_list:

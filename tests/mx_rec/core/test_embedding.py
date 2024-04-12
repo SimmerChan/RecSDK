@@ -165,8 +165,6 @@ class TestSparseLookupFunc(unittest.TestCase):
             batch = {"case1_feat": tf.ones(shape=[8, 8], dtype=tf.int64)}
             mock_get_preprocessed_tensor_for_asc.return_value = {
                 "restore_vector": tf.ones(shape=[8, 8], dtype=tf.int64),
-                "restore_vector_second": tf.ones(shape=[8, ], dtype=tf.int64),
-                "unique_keys": tf.ones(shape=[8, ], dtype=tf.int64),
                 "hot_pos": tf.ones(shape=[8, ], dtype=tf.int64),
                 "id_offsets": tf.ones(shape=[8, ], dtype=tf.int64),
                 "all2all_args": tf.ones(shape=[8, 8], dtype=tf.int64),
@@ -218,8 +216,6 @@ class TestSparseLookupFunc(unittest.TestCase):
             case2_feat = tf.ones(shape=[8, 8], dtype=tf.int64)
             mock_get_preprocessed_tensor_for_asc.return_value = {
                 "restore_vector": tf.ones(shape=[8, 8], dtype=tf.int64),
-                "restore_vector_second": tf.ones(shape=[8, ], dtype=tf.int64),
-                "unique_keys": tf.ones(shape=[8, ], dtype=tf.int64),
                 "hot_pos": tf.ones(shape=[8, ], dtype=tf.int64),
                 "id_offsets": tf.ones(shape=[8, ], dtype=tf.int64),
                 "all2all_args": tf.ones(shape=[8, 8], dtype=tf.int64),
