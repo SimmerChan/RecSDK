@@ -261,7 +261,6 @@ class ModifyGraphForAscTest(TestCase):
                          should_skip=MagicMock(return_value=True),
                          check_dangling_table=MagicMock(return_value=["test_table"]))
     @patch("mx_rec.graph.modifier.ConfigInitializer")
-    @patch("mx_rec.core.asc.manager.ConfigInitializer")
     def test_ok_train_mode(self, modifier_config_initializer):
         mock_config_initializer = MockConfigInitializer(modify_graph=True, merged_multi_lookup=True)
         modifier_config_initializer.get_instance = Mock(return_value=mock_config_initializer)

@@ -166,8 +166,7 @@ class TestSparseLookupFunc(unittest.TestCase):
                 "restore_vector": tf.ones(shape=[8, 8], dtype=tf.int64),
                 "hot_pos": tf.ones(shape=[8, ], dtype=tf.int64),
                 "id_offsets": tf.ones(shape=[8, ], dtype=tf.int64),
-                "all2all_args": tf.ones(shape=[8, 8], dtype=tf.int64),
-                "swap_in": [tf.no_op()]
+                "all2all_args": tf.ones(shape=[8, 8], dtype=tf.int64)
             }
 
             # test
@@ -216,8 +215,7 @@ class TestSparseLookupFunc(unittest.TestCase):
                 "restore_vector": tf.ones(shape=[8, 8], dtype=tf.int64),
                 "hot_pos": tf.ones(shape=[8, ], dtype=tf.int64),
                 "id_offsets": tf.ones(shape=[8, ], dtype=tf.int64),
-                "all2all_args": tf.ones(shape=[8, 8], dtype=tf.int64),
-                "swap_in": [tf.no_op()]
+                "all2all_args": tf.ones(shape=[8, 8], dtype=tf.int64)
             }
 
             # test

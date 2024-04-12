@@ -218,8 +218,7 @@ class TestGetPreProcessedTensorForAscFunc(unittest.TestCase):
     @mock.patch.multiple("mx_rec.core.asc.build_graph",
                          get_restore_vector=mock.MagicMock(return_value=[0, 0]),
                          get_id_offsets=mock.MagicMock(return_value=[0, 0, 0]),
-                         get_all2all_args=mock.MagicMock(return_value=0),
-                         get_swap_info=mock.MagicMock(return_value=0))
+                         get_all2all_args=mock.MagicMock(return_value=0))
     @mock.patch("mx_rec.core.asc.build_graph.ConfigInitializer")
     def test_get_preprocessed_tensor_for_asc_case1(self, build_graph_config_initializer):
         """
@@ -238,8 +237,7 @@ class TestGetPreProcessedTensorForAscFunc(unittest.TestCase):
     @mock.patch.multiple("mx_rec.core.asc.build_graph",
                          get_restore_vector=mock.MagicMock(return_value=[0, 0]),
                          get_id_offsets=mock.MagicMock(return_value=[0, 0, 0]),
-                         get_all2all_args=mock.MagicMock(return_value=0),
-                         get_swap_info=mock.MagicMock(return_value=0))
+                         get_all2all_args=mock.MagicMock(return_value=0))
     @mock.patch("mx_rec.core.asc.build_graph.ConfigInitializer")
     def test_get_preprocessed_tensor_for_asc_case2(self, build_graph_config_initializer):
         """
@@ -258,8 +256,7 @@ class TestGetPreProcessedTensorForAscFunc(unittest.TestCase):
     @mock.patch.multiple("mx_rec.core.asc.build_graph",
                          get_restore_vector=mock.MagicMock(return_value=[0, 0]),
                          get_id_offsets=mock.MagicMock(return_value=[0, 0, 0]),
-                         get_all2all_args=mock.MagicMock(return_value=0),
-                         get_swap_info=mock.MagicMock(return_value=0))
+                         get_all2all_args=mock.MagicMock(return_value=0))
     @mock.patch("mx_rec.core.asc.build_graph.ConfigInitializer")
     def test_get_preprocessed_tensor_for_asc_case3(self, build_graph_config_initializer):
         """
