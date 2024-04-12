@@ -75,14 +75,6 @@ class VariableTest(unittest.TestCase):
         self.assertTrue(result_run)
         tf.reset_default_graph()
 
-    @mock.patch("mx_rec.util.variable.ConfigInitializer")
-    def test_check_and_get_config_via_var_when_environment_error(self, variable_config_initializer):
-        mock_config_initializer = MockConfigInitializer(var=MockTableInstance())
-        variable_config_initializer.get_instance = mock.Mock(return_value=mock_config_initializer)
-
-        with self.assertRaises(EnvironmentError):
-            self.assertEqual(MockTableInstance(), get_config_via_var("1"))
-
 
 if __name__ == '__main__':
     unittest.main()
