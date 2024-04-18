@@ -1417,7 +1417,7 @@ TEST_F(EmbCacheTest, DESERIALIZE)
 
     ASSERT_EQ(embCache->Deserialize(tooLongTableName, buffer), H_TABLE_NAME_TOO_LONG);
 
-    ASSERT_EQ(embCache->Deserialize(tableName, buffer), H_BUFFER_INVALID);
+    ASSERT_EQ(embCache->Deserialize(tableName, buffer), H_LOAD_ERROR);
 
     lookupKeys = { 0, 1, 2, 3, 4 };
     float *newEmb;
@@ -1430,7 +1430,7 @@ TEST_F(EmbCacheTest, DESERIALIZE)
     std::vector<char> buffer1;
     ASSERT_EQ(embCache->Serialize(tableName, buffer1), H_OK);
     buffer1.erase(buffer1.begin() + buffer1.size() / 2, buffer1.end());
-    ASSERT_EQ(embCache->Deserialize(tableName, buffer1), H_BUFFER_INVALID);
+    ASSERT_EQ(embCache->Deserialize(tableName, buffer1), H_LOAD_ERROR);
 
     CTRLog(CTRLogLevel::INFO, "===========DESERIALIZE end=============");
 }
@@ -1650,4 +1650,346 @@ TEST_F(EmbCacheTest, EmbeddingRemove)
     ASSERT_EQ(embCache->EmbeddingRemove(tableName, removeKeys), H_OK);
 
     CTRLog(CTRLogLevel::INFO, "===========EmbeddingRemove end=============");
+}
+
+TEST_F(EmbCacheTest, GET_EMB_TABLE_INFO)
+{
+    CTRLog(CTRLogLevel::INFO, "===========GET_EMB_TABLE_INFO start=============");
+    std::string tableName = "test_table";
+    uint64_t hostVocabSize = 5;
+    uint32_t embeddingSize = 13;
+    uint32_t extEmbeddingSize = 26;
+    uint64_t devVocabSize = 2;
+    embCache = SimpleCreateTable(tableName, hostVocabSize, embeddingSize, extEmbeddingSize, devVocabSize);
+
+    std::vector<uint64_t> lookupKeys;
+    lookupKeys = { 0, 1, 2, 3, 4 };
+    float *newEmb;
+    newEmb = (float *)malloc(lookupKeys.size() * extEmbeddingSize * sizeof(float));
+    for (uint32_t i = 0; i < lookupKeys.size() * extEmbeddingSize; i++) {
+        newEmb[i] = 0.01f * i;
+    }
+    ASSERT_EQ(embCache->EmbeddingUpdate(tableName, lookupKeys, newEmb), H_OK);
+    free(newEmb);
+
+    std::vector<uint64_t> keys;
+    std::vector<std::vector<float>> embeddings;
+    std::vector<std::vector<float>> optimizerSlots;
+
+    ASSERT_EQ(embCache->GetEmbTableInfos("Invalid_table_name", keys, embeddings, optimizerSlots), H_TABLE_NOT_EXIST);
+    ASSERT_EQ(embCache->GetEmbTableInfos(tooLongTableName, keys, embeddings, optimizerSlots), H_TABLE_NAME_TOO_LONG);
+    ASSERT_EQ(embCache->GetEmbTableInfos(tableName, keys, embeddings, optimizerSlots), H_OK);
+    bool ret = true;
+    if (keys.size() != 5) {
+        ret = false;
+    }
+    uint32_t optimizerSlotSize = extEmbeddingSize - embeddingSize;
+    for (auto key : keys) {
+        auto it = std::find(lookupKeys.begin(), lookupKeys.end(), key);
+        if (it == lookupKeys.end()) {
+            ret = false;
+            break;
+        }
+        uint32_t index = it - lookupKeys.begin();
+        for (uint32_t i = 0; i < embeddingSize; i++) {
+            if (fabs(embeddings[index][i] - 0.01f * (i + index * extEmbeddingSize)) > 0.0000001) {
+                ret = false;
+            }
+        }
+        for (uint32_t i = 0; i < optimizerSlotSize; i++) {
+            if (fabs(optimizerSlots[index][i] - 0.01f * (i + index * extEmbeddingSize + embeddingSize)) > 0.0000001) {
+                ret = false;
+            }
+        }
+    }
+    ASSERT_EQ(ret, true);
+
+    std::vector<uint64_t> keys2 = { 1, 2, 3 };
+    std::vector<std::vector<float>> embeddings2;
+    std::vector<std::vector<float>> optimizerSlots2;
+    ASSERT_EQ(embCache->GetEmbTableInfos(tableName, keys2, embeddings2, optimizerSlots2), H_ARG_NOT_EMPTY);
+
+    std::vector<uint64_t> keys3;
+    std::vector<std::vector<float>> embeddings3;
+    std::vector<std::vector<float>> optimizerSlots3;
+    embeddings3.emplace_back(std::vector<float>({ 0.1f, 0.2f }));
+    ASSERT_EQ(embCache->GetEmbTableInfos(tableName, keys3, embeddings3, optimizerSlots3), H_ARG_NOT_EMPTY);
+
+    std::vector<uint64_t> keys4;
+    std::vector<std::vector<float>> embeddings4;
+    std::vector<std::vector<float>> optimizerSlots4;
+    optimizerSlots4.emplace_back(std::vector<float>({ 0.1f, 0.2f }));
+    ASSERT_EQ(embCache->GetEmbTableInfos(tableName, keys4, embeddings4, optimizerSlots4), H_ARG_NOT_EMPTY);
+    embCache->Destroy();
+
+    hostVocabSize = 5;
+    embeddingSize = 13;
+    extEmbeddingSize = 13;
+    devVocabSize = 2;
+
+    embCache = SimpleCreateTable(tableName, hostVocabSize, embeddingSize, extEmbeddingSize, devVocabSize);
+    std::vector<uint64_t> lookupKeys2;
+    lookupKeys2 = { 0, 1, 2, 3, 4 };
+    float *newEmb2;
+    newEmb2 = (float *)malloc(lookupKeys2.size() * extEmbeddingSize * sizeof(float));
+    for (uint32_t i = 0; i < lookupKeys2.size() * extEmbeddingSize; i++) {
+        newEmb2[i] = 0.01f * i;
+    }
+    ASSERT_EQ(embCache->EmbeddingUpdate(tableName, lookupKeys2, newEmb2), H_OK);
+    free(newEmb2);
+
+    std::vector<uint64_t> keys5;
+    std::vector<std::vector<float>> embeddings5;
+    std::vector<std::vector<float>> optimizerSlots5;
+
+    ASSERT_EQ(embCache->GetEmbTableInfos(tableName, keys5, embeddings5, optimizerSlots5), H_OK);
+    bool ret2 = true;
+    if (keys.size() != 5) {
+        ret2 = false;
+    }
+    for (auto key : keys) {
+        auto it = std::find(lookupKeys2.begin(), lookupKeys2.end(), key);
+        if (it == lookupKeys2.end()) {
+            ret2 = false;
+            break;
+        }
+        uint32_t index = it - lookupKeys2.begin();
+        for (uint32_t i = 0; i < embeddingSize; i++) {
+            if (fabs(embeddings5[index][i] - 0.01f * (i + index * extEmbeddingSize)) > 0.0000001) {
+                ret2 = false;
+            }
+        }
+    }
+    if (!optimizerSlots5.empty()) {
+        ret2 = false;
+    }
+    ASSERT_EQ(ret2, true);
+
+    CTRLog(CTRLogLevel::INFO, "===========GET_EMB_TABLE_INFO end=============");
+}
+
+TEST_F(EmbCacheTest, LOAD_EMB_TABLE_INFO)
+{
+    CTRLog(CTRLogLevel::INFO, "===========LOAD_EMB_TABLE_INFO start=============");
+    std::string tableName = "test_table";
+    uint64_t hostVocabSize = 5;
+    uint32_t embeddingSize = 13;
+    uint32_t extEmbeddingSize = 26;
+    uint64_t devVocabSize = 2;
+    embCache = SimpleCreateTable(tableName, hostVocabSize, embeddingSize, extEmbeddingSize, devVocabSize);
+
+    std::vector<uint64_t> keys;
+    std::vector<std::vector<float>> embeddings;
+    std::vector<std::vector<float>> optimizerSlots;
+
+    keys = { 0, 1, 2, 3, 4 };
+    for (uint64_t i = 0; i < keys.size(); i++) {
+        std::vector<float> curEmbedding;
+        for (uint64_t j = 0; j < embeddingSize; j++) {
+            curEmbedding.emplace_back(0.01f * (i * extEmbeddingSize + j));
+        }
+        embeddings.emplace_back(curEmbedding);
+    }
+    uint32_t optimizerSlotSize = extEmbeddingSize - embeddingSize;
+    for (uint64_t i = 0; i < keys.size(); i++) {
+        std::vector<float> curOptimizerSlot;
+        for (uint64_t j = 0; j < optimizerSlotSize; j++) {
+            curOptimizerSlot.emplace_back(0.01f * (i * extEmbeddingSize + embeddingSize + j));
+        }
+        optimizerSlots.emplace_back(curOptimizerSlot);
+    }
+    ASSERT_EQ(embCache->LoadEmbTableInfos("Invalid_table_name", keys, embeddings, optimizerSlots), H_TABLE_NOT_EXIST);
+    ASSERT_EQ(embCache->LoadEmbTableInfos(tooLongTableName, keys, embeddings, optimizerSlots), H_TABLE_NAME_TOO_LONG);
+    ASSERT_EQ(embCache->LoadEmbTableInfos(tableName, keys, embeddings, optimizerSlots), H_OK);
+
+    std::vector<uint64_t> keys2;
+    std::vector<std::vector<float>> embeddings2;
+    std::vector<std::vector<float>> optimizerSlots2;
+    ASSERT_EQ(embCache->GetEmbTableInfos(tableName, keys2, embeddings2, optimizerSlots2), H_OK);
+
+    bool ret = true;
+    if (keys2.size() != 5) {
+        ret = false;
+    }
+    for (auto key : keys2) {
+        auto it = std::find(keys.begin(), keys.end(), key);
+        if (it == keys.end()) {
+            ret = false;
+            break;
+        }
+        uint32_t index = it - keys.begin();
+        for (uint32_t i = 0; i < embeddingSize; i++) {
+            if (fabs(embeddings2[index][i] - 0.01f * (i + index * extEmbeddingSize)) > 0.0000001) {
+                ret = false;
+            }
+        }
+        for (uint32_t i = 0; i < optimizerSlotSize; i++) {
+            if (fabs(optimizerSlots2[index][i] - 0.01f * (i + index * extEmbeddingSize + embeddingSize)) > 0.0000001) {
+                ret = false;
+            }
+        }
+    }
+    ASSERT_EQ(ret, true);
+
+    std::vector<uint64_t> keys3;
+    std::vector<std::vector<float>> embeddings3;
+    std::vector<std::vector<float>> optimizerSlots3;
+
+    keys3 = { 0, 1, 2, 3, 4 };
+    for (uint64_t i = 0; i < keys3.size() - 1; i++) {
+        std::vector<float> curEmbedding;
+        for (uint64_t j = 0; j < embeddingSize; j++) {
+            curEmbedding.emplace_back(0.01f * (i * extEmbeddingSize + j));
+        }
+        embeddings3.emplace_back(curEmbedding);
+    }
+    for (uint64_t i = 0; i < keys3.size(); i++) {
+        std::vector<float> curOptimizerSlot;
+        for (uint64_t j = 0; j < optimizerSlotSize; j++) {
+            curOptimizerSlot.emplace_back(0.01f * (i * extEmbeddingSize + embeddingSize + j));
+        }
+        optimizerSlots3.emplace_back(curOptimizerSlot);
+    }
+    // keys num != embeddings num
+    ASSERT_EQ(embCache->LoadEmbTableInfos(tableName, keys3, embeddings3, optimizerSlots3), H_LOAD_ERROR);
+
+    std::vector<uint64_t> keys4;
+    std::vector<std::vector<float>> embeddings4;
+    std::vector<std::vector<float>> optimizerSlots4;
+
+    keys4 = { 0, 1, 2, 3, 4 };
+    for (uint64_t i = 0; i < keys4.size(); i++) {
+        std::vector<float> curEmbedding;
+        for (uint64_t j = 0; j < embeddingSize; j++) {
+            curEmbedding.emplace_back(0.01f * (i * extEmbeddingSize + j));
+        }
+        embeddings4.emplace_back(curEmbedding);
+    }
+    for (uint64_t i = 0; i < keys4.size() - 1; i++) {
+        std::vector<float> curOptimizerSlot;
+        for (uint64_t j = 0; j < optimizerSlotSize; j++) {
+            curOptimizerSlot.emplace_back(0.01f * (i * extEmbeddingSize + embeddingSize + j));
+        }
+        optimizerSlots4.emplace_back(curOptimizerSlot);
+    }
+    // keys num != optimizerSlots num
+    ASSERT_EQ(embCache->LoadEmbTableInfos(tableName, keys4, embeddings4, optimizerSlots4), H_LOAD_ERROR);
+
+    std::vector<uint64_t> keys5;
+    std::vector<std::vector<float>> embeddings5;
+    std::vector<std::vector<float>> optimizerSlots5;
+
+    keys5 = { 0, 1, 2, 3, 4, 5 };
+    for (uint64_t i = 0; i < keys5.size(); i++) {
+        std::vector<float> curEmbedding;
+        for (uint64_t j = 0; j < embeddingSize; j++) {
+            curEmbedding.emplace_back(0.01f * (i * extEmbeddingSize + j));
+        }
+        embeddings5.emplace_back(curEmbedding);
+    }
+    for (uint64_t i = 0; i < keys5.size(); i++) {
+        std::vector<float> curOptimizerSlot;
+        for (uint64_t j = 0; j < optimizerSlotSize; j++) {
+            curOptimizerSlot.emplace_back(0.01f * (i * extEmbeddingSize + embeddingSize + j));
+        }
+        optimizerSlots5.emplace_back(curOptimizerSlot);
+    }
+    // loadKeys num > hostVocabSize
+    ASSERT_EQ(embCache->LoadEmbTableInfos(tableName, keys5, embeddings5, optimizerSlots5), H_LOAD_ERROR);
+
+    std::vector<uint64_t> keys6;
+    std::vector<std::vector<float>> embeddings6;
+    std::vector<std::vector<float>> optimizerSlots6;
+
+    keys6 = { 0, 1, 2, 3, 4 };
+    for (uint64_t i = 0; i < keys6.size(); i++) {
+        std::vector<float> curEmbedding;
+        for (uint64_t j = 0; j < embeddingSize - 1; j++) {
+            curEmbedding.emplace_back(0.01f * (i * extEmbeddingSize + j));
+        }
+        embeddings6.emplace_back(curEmbedding);
+    }
+    for (uint64_t i = 0; i < keys6.size(); i++) {
+        std::vector<float> curOptimizerSlot;
+        for (uint64_t j = 0; j < optimizerSlotSize; j++) {
+            curOptimizerSlot.emplace_back(0.01f * (i * extEmbeddingSize + embeddingSize + j));
+        }
+        optimizerSlots6.emplace_back(curOptimizerSlot);
+    }
+    // entering embeddingSize != table embeddingSize
+    ASSERT_EQ(embCache->LoadEmbTableInfos(tableName, keys6, embeddings6, optimizerSlots6), H_LOAD_ERROR);
+
+    std::vector<uint64_t> keys7;
+    std::vector<std::vector<float>> embeddings7;
+    std::vector<std::vector<float>> optimizerSlots7;
+
+    keys7 = { 0, 1, 2, 3, 4 };
+    for (uint64_t i = 0; i < keys7.size(); i++) {
+        std::vector<float> curEmbedding;
+        for (uint64_t j = 0; j < embeddingSize; j++) {
+            curEmbedding.emplace_back(0.01f * (i * extEmbeddingSize + j));
+        }
+        embeddings7.emplace_back(curEmbedding);
+    }
+    for (uint64_t i = 0; i < keys7.size(); i++) {
+        std::vector<float> curOptimizerSlot;
+        for (uint64_t j = 0; j < optimizerSlotSize - 1; j++) {
+            curOptimizerSlot.emplace_back(0.01f * (i * extEmbeddingSize + embeddingSize + j));
+        }
+        optimizerSlots7.emplace_back(curOptimizerSlot);
+    }
+    // entering optimizerSlotSize != table optimizerSlotSize
+    ASSERT_EQ(embCache->LoadEmbTableInfos(tableName, keys7, embeddings7, optimizerSlots7), H_LOAD_ERROR);
+    embCache->Destroy();
+
+    hostVocabSize = 5;
+    embeddingSize = 13;
+    extEmbeddingSize = 13;
+    devVocabSize = 2;
+
+    embCache = SimpleCreateTable(tableName, hostVocabSize, embeddingSize, extEmbeddingSize, devVocabSize);
+
+    std::vector<uint64_t> keys8;
+    std::vector<std::vector<float>> embeddings8;
+    std::vector<std::vector<float>> optimizerSlots8;
+
+    keys8 = { 0, 1, 2, 3, 4 };
+    for (uint64_t i = 0; i < keys8.size(); i++) {
+        std::vector<float> curEmbedding;
+        for (uint64_t j = 0; j < embeddingSize; j++) {
+            curEmbedding.emplace_back(0.01f * (i * extEmbeddingSize + j));
+        }
+        embeddings8.emplace_back(curEmbedding);
+    }
+
+    ASSERT_EQ(embCache->LoadEmbTableInfos(tableName, keys8, embeddings8, optimizerSlots8), H_OK);
+
+    std::vector<uint64_t> keys9;
+    std::vector<std::vector<float>> embeddings9;
+    std::vector<std::vector<float>> optimizerSlots9;
+    ASSERT_EQ(embCache->GetEmbTableInfos(tableName, keys9, embeddings9, optimizerSlots9), H_OK);
+
+    bool ret2 = true;
+    if (keys9.size() != 5) {
+        ret2 = false;
+    }
+    for (auto key : keys9) {
+        auto it = std::find(keys9.begin(), keys9.end(), key);
+        if (it == keys9.end()) {
+            ret2 = false;
+            break;
+        }
+        uint32_t index = it - keys9.begin();
+        for (uint32_t i = 0; i < embeddingSize; i++) {
+            if (fabs(embeddings9[index][i] - 0.01f * (i + index * extEmbeddingSize)) > 0.0000001) {
+                ret2 = false;
+            }
+        }
+    }
+    if (!optimizerSlots9.empty()) {
+        ret2 = false;
+    }
+    ASSERT_EQ(ret2, true);
+
+    CTRLog(CTRLogLevel::INFO, "===========LOAD_EMB_TABLE_INFO end=============");
 }
