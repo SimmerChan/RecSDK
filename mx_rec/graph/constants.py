@@ -15,14 +15,21 @@
 # limitations under the License.
 # ==============================================================================
 
-__all__ = [
-    "modify_graph_and_start_emb_cache",
-    "GraphModifierHook",
-    "run",
-    "LookupSubgraphSlicerHook",
-    "OrphanLookupKeySlicerHook",
-]
 
-from mx_rec.graph.modifier import GraphModifierHook, modify_graph_and_start_emb_cache
-from mx_rec.graph.patch import run
-from mx_rec.graph.hooks import LookupSubgraphSlicerHook, OrphanLookupKeySlicerHook
+import enum
+
+
+class TransDatasetField:
+    DEPRECATED_TRANS_DATASET = "DEPRECATED_TRANS_DATASET"
+
+
+class AnchorDatasetOp(enum.Enum):
+    MODEL_DATASET = "ModelDataset"
+    OPTIMIZE_DATASET = "OptimizeDataset"
+    PREFETCH_DATASET = "PrefetchDataset"
+
+
+class AnchorIteratorOp(enum.Enum):
+    ITERATOR_GET_NEXT = "IteratorGetNext"
+    MAKE_ITERATOR = "MakeIterator"
+    ONE_SHOT_ITERATOR = "OneShotIterator"
