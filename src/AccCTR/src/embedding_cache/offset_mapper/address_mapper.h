@@ -110,32 +110,21 @@ public:
         fullCv.notify_all();
     }
 
-    BeforePutFuncState GetNewValueToBeInserted(uint64_t &value, bool init = true, uint32_t maxRetry = 1000)
+    BeforePutFuncState GetNewValueToBeInserted(uint64_t &value, uint32_t maxRetry = 1000)
     {
-        if (init) {
-            for (uint32_t i = 0; i < maxRetry; i++) {
-                if (BufferBin.pop(value)) {
-                    producerCv.notify_one();
-                    return BeforePutFuncState::BEFORE_SUCCESS;
-                };
+        for (uint32_t i = 0; i < maxRetry; i++) {
+            if (BufferBin.pop(value)) {
                 producerCv.notify_one();
-                std::this_thread::sleep_for(std::chrono::milliseconds(1));
-            }
-            ock::ExternalLogger::PrintLog(ock::LogLevel::ERROR,
-                "Failed to get new address for embedding, it is likely due to refill thread memory allocation failure "
-                "or max retry has been reached. Please check for memory alloc error or increase refill thread num!");
-            return BeforePutFuncState::BEFORE_FAIL;
+                return BeforePutFuncState::BEFORE_SUCCESS;
+            };
+            producerCv.notify_one();
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
-
-        if (!recycleBin.pop(value)) {
-            if (!GetNewAddr(value)) {
-                ock::ExternalLogger::PrintLog(ock::LogLevel::ERROR, "Failed to get new address for embedding, "
-                    "memory allocation failure!");
-                return BeforePutFuncState::BEFORE_FAIL;
-            }
-        }
-
-        return BeforePutFuncState::BEFORE_SUCCESS;
+        ock::ExternalLogger::PrintLog(
+            ock::LogLevel::ERROR,
+            "Failed to get new address for embedding, it is likely due to refill thread memory allocation failure "
+            "or max retry has been reached. Please check for memory alloc error or increase refill thread num!");
+        return BeforePutFuncState::BEFORE_FAIL;
     }
 
     void GetValueToBeRecycled(uint64_t value)
@@ -261,14 +250,14 @@ public:
         });
     }
 
-    FkvState FindAndPutIfNotFound(uint64_t key, uint64_t &value, bool init = true)
+    FkvState FindAndPutIfNotFound(uint64_t key, uint64_t &value)
     {
         FkvState ret = MapperBase::FindAndPutIfNotFound(key, value, [&]() {
             if (HM_UNLIKELY(current_size.load() >= hostVocabSize)) {
                 ock::ExternalLogger::PrintLog(ock::LogLevel::ERROR, "host does not have enough space");
                 return BeforePutFuncState::BEFORE_NO_SPACE;
             }
-            return emExpendMemInfoPtr->GetNewValueToBeInserted(value, init);
+            return emExpendMemInfoPtr->GetNewValueToBeInserted(value);
         });
         if (ret == FkvState::FKV_FAIL) {
             ock::ExternalLogger::PrintLog(ock::LogLevel::ERROR, "FindAndPutIfNotFound failed!");
@@ -295,6 +284,10 @@ public:
             emExpendMemInfoPtr->GetValueToBeRecycled(value);
             return BeforeRemoveFuncState::BEFORE_SUCCESS;
         });
+    }
+
+    uint32_t GetUsage(){
+        return MapperBase::current_size;
     }
 
 private:

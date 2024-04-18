@@ -23,12 +23,15 @@ using namespace EmbCache;
 using namespace ock;
 using namespace ock::ctr;
 
-bool EmbLocalTable::Initialize(uint32_t extEmbeddingSize, uint32_t hostVocabSize, uint32_t reserve,
-    const std::vector<InitializerInfo> &initializerInfos, const EmbPoolParam &embPoolParam)
+bool EmbLocalTable::Initialize(const EmbCacheInfo &embCacheInfo, uint64_t reserve,
+                               const std::vector<InitializerInfo> &initializerInfos, const EmbPoolParam &embPoolParam)
 {
     emExpendMemInfo = make_shared<AutoRefillEmbeddingMemoryPool>(embPoolParam.prefillBufferSize, initializerInfos,
-        extEmbeddingSize, hostVocabSize, embPoolParam.refillThreadNum);
-    return embMap.Initialize(reserve, hostVocabSize, emExpendMemInfo);
+                                                                 embCacheInfo.extEmbeddingSize, embCacheInfo.vocabSize,
+                                                                 embPoolParam.refillThreadNum);
+    embeddingSize = embCacheInfo.embeddingSize;
+    extEmbeddingSize = embCacheInfo.extEmbeddingSize;
+    return embMap.Initialize(reserve, embCacheInfo.vocabSize, emExpendMemInfo);
 }
 
 void EmbLocalTable::UnInitialize()
@@ -36,9 +39,9 @@ void EmbLocalTable::UnInitialize()
     embMap.UnInitialize();
 }
 
-int EmbLocalTable::FindAndPutIfNotFound(uint64_t key, uint64_t &value, bool init)
+int EmbLocalTable::FindAndPutIfNotFound(uint64_t key, uint64_t &value)
 {
-    FkvState ret = embMap.FindAndPutIfNotFound(key, value, init);
+    FkvState ret = embMap.FindAndPutIfNotFound(key, value);
     if (ret == FkvState::FKV_FAIL) {
         return H_ERROR;
     }
@@ -376,7 +379,7 @@ bool EmbLocalTable::Deserialize(const vector<char> &buffer)
             return false;
         }
         uint64_t value = 0;
-        if (FindAndPutIfNotFound(key, value, false) != H_OK) {
+        if (FindAndPutIfNotFound(key, value) != H_OK) {
             ExternalLogger::PrintLog(LogLevel::ERROR, "FindAndPutIfNotFound failed!");
             return false;
         }
@@ -385,6 +388,80 @@ bool EmbLocalTable::Deserialize(const vector<char> &buffer)
         for (uint32_t j = 0; j < emExpendMemInfo->extEmbeddingSize; j++) {
             if (!getData(buffer, addr[j], i)) {
                 ExternalLogger::PrintLog(LogLevel::ERROR, "get data failed!");
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+uint32_t EmbLocalTable::GetUsage()
+{
+    return embMap.current_size;
+}
+
+void EmbLocalTable::GetEmbTableInfos(std::vector<uint64_t> &keys, std::vector<std::vector<float>> &embeddings,
+                                     std::vector<std::vector<float>> &optimizerSlots)
+{
+    vector<pair<uint64_t, uint64_t>> kvVec = ExportVec();
+
+    for (auto &p : kvVec) {
+        std::vector<float> curEmbedding;
+        keys.emplace_back(p.first);
+        auto *addr = reinterpret_cast<float *>(p.second);
+        curEmbedding.insert(curEmbedding.end(), reinterpret_cast<float *>(addr),
+                            reinterpret_cast<float *>((addr + embeddingSize)));
+        embeddings.emplace_back(curEmbedding);
+        if (extEmbeddingSize > embeddingSize) {
+            std::vector<float> curOptimizerSlot;
+            curOptimizerSlot.insert(curOptimizerSlot.end(), reinterpret_cast<float *>(addr + embeddingSize),
+                                    reinterpret_cast<float *>((addr + extEmbeddingSize)));
+            optimizerSlots.emplace_back(curOptimizerSlot);
+        }
+    }
+}
+
+bool EmbLocalTable::LoadEmbTableInfos(const std::vector<uint64_t> &keys,
+                                      const std::vector<std::vector<float>> &embeddings, const std::vector<std::vector<float>> &optimizerSlots)
+{
+    if (keys.size() != embeddings.size()) {
+        ExternalLogger::PrintLog(LogLevel::ERROR, "the size of keys and embeddings should be same!");
+        return false;
+    }
+    uint32_t optimizerSlotSize = extEmbeddingSize - embeddingSize;
+    if (optimizerSlotSize > 0) {
+        if (keys.size() != optimizerSlots.size()) {
+            ExternalLogger::PrintLog(LogLevel::ERROR, "the size of keys and optimizerSlots should be same!");
+            return false;
+        }
+    }
+    for (uint64_t i = 0; i < keys.size(); i++) {
+        uint64_t value = 0;
+        if (FindAndPutIfNotFound(keys[i], value) != H_OK) {
+            ExternalLogger::PrintLog(LogLevel::ERROR, "FindAndPutIfNotFound failed!");
+            return false;
+        }
+        if (embeddings[i].size() != embeddingSize) {
+            ExternalLogger::PrintLog(LogLevel::ERROR,
+                                     "The size of entering Embedding does not equals to embeddingSize");
+            return false;
+        }
+        auto *addr = reinterpret_cast<float *>(value);
+        auto rc = memcpy_s(addr, embeddingSize * sizeof(float), embeddings[i].data(), embeddingSize * sizeof(float));
+        if (rc != 0) {
+            ExternalLogger::PrintLog(LogLevel::ERROR, "embedding memcpy_s failed... ");
+            return false;
+        }
+        if (optimizerSlotSize > 0) {
+            if (optimizerSlots[i].size() != optimizerSlotSize) {
+                ExternalLogger::PrintLog(LogLevel::ERROR,
+                                         "The size of entering optimizerSlot does not equals to extEmbeddingSize - embeddingSize");
+                return false;
+            }
+            auto rc2 = memcpy_s(reinterpret_cast<float *>(addr + embeddingSize), optimizerSlotSize * sizeof(float),
+                                optimizerSlots[i].data(), optimizerSlotSize * sizeof(float));
+            if (rc2 != 0) {
+                ExternalLogger::PrintLog(LogLevel::ERROR, "optimizerSlot memcpy_s failed... ");
                 return false;
             }
         }

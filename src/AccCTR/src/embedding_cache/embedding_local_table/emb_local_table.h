@@ -32,12 +32,12 @@ public:
 
     ~EmbLocalTable() = default;
 
-    bool Initialize(uint32_t extEmbeddingSize, uint32_t hostVocabSize, uint32_t reserve,
+    bool Initialize(const EmbCacheInfo &embCacheInfo, uint64_t reserve,
         const std::vector<InitializerInfo> &initializerInfos, const EmbPoolParam &embPoolParam);
 
     void UnInitialize();
 
-    int FindAndPutIfNotFound(uint64_t key, uint64_t &value, bool init = true);
+    int FindAndPutIfNotFound(uint64_t key, uint64_t &value);
 
     bool Remove(uint64_t key);
 
@@ -59,10 +59,22 @@ public:
 
     bool Deserialize(const std::vector<char> &buffer);
 
+    uint32_t GetUsage();
+
+    void GetEmbTableInfos(std::vector<uint64_t> &keys, std::vector<std::vector<float>> &embeddings,
+                          std::vector<std::vector<float>> &optimizerSlots);
+
+    bool LoadEmbTableInfos(const std::vector<uint64_t> &keys, const std::vector<std::vector<float>> &embeddings,
+                           const std::vector<std::vector<float>> &optimizerSlots);
+
 private:
     std::shared_ptr<AutoRefillEmbeddingMemoryPool> emExpendMemInfo;
     AddressMapper embMap;
+    uint32_t embeddingSize;
+    uint32_t extEmbeddingSize;
+
     template <class T> void insertData(std::vector<char> &buffer, T &data);
+
     template <class T> bool getData(const std::vector<char> &buffer, T &data, uint64_t &i);
 };
 }

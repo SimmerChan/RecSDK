@@ -79,8 +79,7 @@ int EmbCacheManagerImpl::CreateCacheForTable(const EmbCacheInfo& embCacheInfo,
 
     EmbPoolParam embPoolParam{prefillBufferSize, refillThreadNum};
 
-    if (!embTables[embCacheInfo.tableName].Initialize(embCacheInfo.extEmbeddingSize, embCacheInfo.vocabSize, reserve,
-                                                      initializerInfos, embPoolParam)) {
+    if (!embTables[embCacheInfo.tableName].Initialize(embCacheInfo, reserve, initializerInfos, embPoolParam)) {
         offsetMappers.erase(embCacheInfo.tableName);
         embTables.erase(embCacheInfo.tableName);
         return H_MEMORY_ALLOC_ERROR;
@@ -273,7 +272,43 @@ int EmbCacheManagerImpl::Deserialize(const std::string& tableName, const std::ve
         return checkTableNameRet;
     }
     if (!embTables[tableName].Deserialize(buffer)) {
-        return H_BUFFER_INVALID;
+        return H_LOAD_ERROR;
+    }
+    return H_OK;
+}
+
+int EmbCacheManagerImpl::GetEmbTableInfos(std::string tableName, std::vector<uint64_t> &keys,
+                                          std::vector<std::vector<float>> &embeddings, std::vector<std::vector<float>> &optimizerSlots)
+{
+    int checkTableNameRet = CheckValidTableName(tableName);
+    if (checkTableNameRet != H_OK) {
+        return checkTableNameRet;
+    }
+    if (!keys.empty()) {
+        ExternalLogger::PrintLog(LogLevel::ERROR, "keys should be empty");
+        return H_ARG_NOT_EMPTY;
+    }
+    if (!embeddings.empty()) {
+        ExternalLogger::PrintLog(LogLevel::ERROR, "embeddings should be empty");
+        return H_ARG_NOT_EMPTY;
+    }
+    if (!optimizerSlots.empty()) {
+        ExternalLogger::PrintLog(LogLevel::ERROR, "optimizerSlots should be empty");
+        return H_ARG_NOT_EMPTY;
+    }
+    embTables[tableName].GetEmbTableInfos(keys, embeddings, optimizerSlots);
+    return H_OK;
+}
+
+int EmbCacheManagerImpl::LoadEmbTableInfos(std::string tableName, const std::vector<uint64_t> &keys,
+                                           const std::vector<std::vector<float>> &embeddings, const std::vector<std::vector<float>> &optimizerSlots)
+{
+    int checkTableNameRet = CheckValidTableName(tableName);
+    if (checkTableNameRet != H_OK) {
+        return checkTableNameRet;
+    }
+    if (!embTables[tableName].LoadEmbTableInfos(keys, embeddings, optimizerSlots)) {
+        return H_LOAD_ERROR;
     }
     return H_OK;
 }
@@ -380,5 +415,5 @@ int EmbCacheManagerImpl::CheckCreateTableName(const std::string& tableName)
 
 uint32_t EmbCacheManagerImpl::GetUsage(const std::string& tableName)
 {
-    return offsetMappers[tableName].GetUsage();
+    return embTables[tableName].GetUsage();
 }
