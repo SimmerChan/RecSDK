@@ -64,8 +64,10 @@ def main(params, config):
         hooks_list = [ACGPushOpsToDatasetHook(dump_graph=True), GraphModifierHook(modify_graph=params.modify_graph)]
 
     if params.use_timestamp:
-        config_for_user_table = dict(access_threshold=config.access_threshold, eviction_threshold=config.eviction_threshold)
-        config_for_item_table = dict(access_threshold=config.access_threshold, eviction_threshold=config.eviction_threshold)
+        config_for_user_table = dict(access_threshold=config.access_threshold,
+                                     eviction_threshold=config.eviction_threshold)
+        config_for_item_table = dict(access_threshold=config.access_threshold,
+                                     eviction_threshold=config.eviction_threshold)
         access_and_evict = dict(user_table=config_for_user_table, item_table=config_for_item_table)
 
         evict_hook = EvictHook(evict_enable=True, evict_time_interval=10)

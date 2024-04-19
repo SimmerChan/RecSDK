@@ -89,7 +89,8 @@ class CriteoStatsDict():
         for i, cat in enumerate(cat_list):
             map_cat_count(i, cat)
 
-    def save_dict(self, output_file_path, hist_map, prefix=""):
+    @staticmethod
+    def save_dict(output_file_path, hist_map, prefix=""):
         with open(os.path.join(output_file_path, "{}hist_map.pkl".format(prefix)), "wb") as file_wrt:
             pickle.dump(hist_map, file_wrt)
 
@@ -125,6 +126,7 @@ class CriteoStatsDict():
 
 
         return dense_list, cat_list
+
 
 def statsdata_multiprocess(proc_num, proc_id, data_file_path, output_file_path, criteo_stats_data):
     start_time = time.time()
@@ -229,8 +231,8 @@ def make_example(label_list, dense_feat_list, sparse_feat_list):
 
     return example
 
-def convert_input2tfrd_multiprocess(proc_num, proc_id, in_file_path, output_file_path, criteo_stats_dict, line_per_sample=1024,
-                            part_rows=2000000, mode="train_"):
+def convert_input2tfrd_multiprocess(proc_num, proc_id, in_file_path, output_file_path, criteo_stats_dict,
+                                    line_per_sample=1024, part_rows=2000000):
     start_time = time.time()
     print("----------" * 10 + "\n" * 2)
 
