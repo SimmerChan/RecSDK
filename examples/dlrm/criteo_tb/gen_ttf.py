@@ -231,6 +231,7 @@ def make_example(label_list, dense_feat_list, sparse_feat_list):
 
     return example
 
+
 def convert_input2tfrd_multiprocess(proc_num, proc_id, in_file_path, output_file_path, criteo_stats_dict,
                                     line_per_sample=1024, part_rows=2000000):
     start_time = time.time()
