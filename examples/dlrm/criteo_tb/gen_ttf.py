@@ -364,7 +364,7 @@ if __name__ == "__main__":
     if len(train_data_files) == 0:
         raise ValueError(f'file not exist in train_data_dir:{train_data_dir}')
     if process_num % len(train_data_files) == 0:
-        raise ValueError(f'process_num {process_num} must exact div length of data_files {len(data_files)}')
+        raise ValueError(f'process_num {process_num} must exact div length of train_data_files {len(train_data_files)}')
 
     for process_id in range(process_num):
         sub_process_num = process_num // len(train_data_files)
@@ -385,8 +385,10 @@ if __name__ == "__main__":
     mkdir_path(save_tfrecord_path)
     processs = []
     process_num = args.test_process_num
+    if len(test_data_files) == 0:
+        raise ValueError(f'file not exist in test_data_dir:{test_data_dir}')
     if process_num % len(test_data_files) == 0:
-        raise ValueError(f'process_num {process_num} must exact div length of data_files {len(data_files)}')
+        raise ValueError(f'process_num {process_num} must exact div length of test_data_files {len(test_data_files)}')
 
     for process_id in range(process_num):
         sub_process_num = process_num // len(test_data_files)
