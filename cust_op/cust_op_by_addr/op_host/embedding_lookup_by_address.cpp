@@ -14,8 +14,13 @@ See the License for the specific language governing permissions and
 ==============================================================================*/
 
 #include "embedding_lookup_by_address_tiling.h"
-#include "embedding_update_by_address.cpp"
 #include "register/op_def_registry.h"
+
+namespace {
+    constexpr int32_t EMBEDDING_TYPE_FLOAT16 = 2;
+    constexpr int32_t EMBEDDING_TYPE_INT32 = 0;
+    constexpr int32_t EMBEDDING_TYPE_FLOAT32 = 1;
+}
 
 namespace optiling
 {

@@ -26,7 +26,7 @@ namespace MxRec {
     // The following parameters are not named in large camel case to adapt to native HDFS interfaces.
     // Including: TObjectKind, tPort, tSize, tTime, tOffset, hdfs_internal, hdfsFS, hdfsFile_internal,
     //            hdfsFile, HdfsFileInfo
-   enum class TObjectKind {
+    enum class TObjectKind {
         FILE = 'F',
         DIRECTORY = 'D',
     };
