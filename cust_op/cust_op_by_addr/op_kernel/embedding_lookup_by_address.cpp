@@ -73,8 +73,7 @@ public:
 
     if (loopCount > 0)
     {
-        for (int32_t i = 0; i < loopCount; i++)
-        {
+        for (int32_t i = 0; i < loopCount; i++) {
             DataCopy(srcAddrLocal, srcAddrGlobal[i * addrNumPerLoop], addrNumPerLoop);
             MoveProcess(srcAddrLocal, i, addrNumPerLoop);
         }
@@ -83,7 +82,7 @@ public:
     int unProcess = (needComputeAddrLen / sizeof(int64_t)) % addrNumPerLoop;
     if (unProcess)
     {
-        int unProcessAligned = (unProcess + 3) & (~3); // 处理 addressList 不对齐32b的情况
+        int unProcessAligned = ((unsigned int)unProcess + 3) & (~3U); // 处理 addressList 不对齐32b的情况
         // 地址列表访问越界，对齐考虑无问题，会自动多申请一部分，兼容
         DataCopy(srcAddrLocal, srcAddrGlobal[loopCount * addrNumPerLoop], unProcessAligned);
         MoveProcess(srcAddrLocal, loopCount, unProcess);
@@ -108,23 +107,19 @@ private:
             dataLocal = isFull ? inQueue.AllocTensor<T>() : dataLocal;
             int64_t address = srcAddrLocal.GetValue(i);
 
-            if (address != 0)
-            {
+            if (address != 0) {
                 srcDataBufferGm.SetGlobalBuffer((__gm__ T *)(address), embDimAligned);
                 DataCopy(dataLocal[embDimAligned * nums], srcDataBufferGm, embDimAligned);
-            }
-            else
-            {
-                for (int j = 0; j < times; j++)
-                {
-                    Duplicate(dataLocal[embDimAligned * nums + j * PADDING_ZERO_NUM_PER_TIME], (T)0, PADDING_ZERO_NUM_PER_TIME);
+            } else {
+                for (int j = 0; j < times; j++) {
+                    Duplicate(dataLocal[embDimAligned * nums + j * PADDING_ZERO_NUM_PER_TIME],
+                              (T)0, PADDING_ZERO_NUM_PER_TIME);
                 }
             }
 
             nums++;
             isFull = (i == tmpCache || i == addrNum - 1); // cache满了，或者最后一个地址
-            if (isFull)
-            {
+            if (isFull) {
                 inQueue.EnQue(dataLocal);
                 Compute(nums);
                 CopyOut(outIndex, turns, nums);
@@ -154,17 +149,15 @@ private:
     {
         LocalTensor<T> dstLocal = outQueue.DeQue<T>();
 
-        int offset = block_idx * dim * singleCoreAddrLen / sizeof(int64_t) + (turns * addrNumPerLoop * dim) + dim * index;
+        int offset = block_idx * dim * singleCoreAddrLen /
+                sizeof(int64_t) + (turns * addrNumPerLoop * dim) + dim * index;
 #if defined(__DAV_C220_VEC__)
-        if (typeSize == SIZE_OF_FLOAT_OR_INT)
-        {
-            copy_ubuf_to_gm_align_b32((__gm__ T *)dstDataGm[offset].GetPhyAddr(), (__ubuf__ T *)dstLocal.GetPhyAddr(), 0,
-                                      nums, dim * sizeof(T), 0, 0, 0, 0);
-        }
-        else if (typeSize == SIZE_OF_HALF)
-        {
-            copy_ubuf_to_gm_align_b16((__gm__ T *)dstDataGm[offset].GetPhyAddr(), (__ubuf__ T *)dstLocal.GetPhyAddr(), 0,
-                                      nums, dim * sizeof(T), 0, 0, 0, 0);
+        if (typeSize == SIZE_OF_FLOAT_OR_INT) {
+            copy_ubuf_to_gm_align_b32((__gm__ T *)dstDataGm[offset].GetPhyAddr(),
+                                      (__ubuf__ T *)dstLocal.GetPhyAddr(), 0, nums, dim * sizeof(T), 0, 0, 0, 0);
+        } else if (typeSize == SIZE_OF_HALF) {
+            copy_ubuf_to_gm_align_b16((__gm__ T *)dstDataGm[offset].GetPhyAddr(),
+                                      (__ubuf__ T *)dstLocal.GetPhyAddr(), 0, nums, dim * sizeof(T), 0, 0, 0, 0);
         }
 #else
 

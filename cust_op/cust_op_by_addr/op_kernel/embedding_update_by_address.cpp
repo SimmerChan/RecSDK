@@ -72,8 +72,7 @@ public:
 
     if (loopCount > 0)
     {
-        for (int32_t i = 0; i < loopCount; i++)
-        {
+        for (int32_t i = 0; i < loopCount; i++) {
             DataCopy(srcAddrLocal, srcAddrGlobal[i * addrNumPerLoop], addrNumPerLoop);
             MoveProcess(srcAddrLocal, i, addrNumPerLoop);
         }
@@ -82,7 +81,7 @@ public:
     int unProcess = (needComputeAddrLen / sizeof(int64_t)) % addrNumPerLoop;
     if (unProcess)
     {
-        int unProcessAligned = (unProcess + 3) & (~3); // 处理 addressList 不对齐32b的情况
+        int unProcessAligned = ((unsigned int)unProcess + 3) & (~3U); // 处理 addressList 不对齐32b的情况
         DataCopy(srcAddrLocal, srcAddrGlobal[loopCount * addrNumPerLoop], unProcessAligned);
         MoveProcess(srcAddrLocal, loopCount, unProcess);
     }
@@ -105,29 +104,22 @@ private:
             Compute(addrNum); // 只有copyOut的管道支持拷贝到gm上
 
             LocalTensor<T> dstLocal = outQueue.DeQue<T>();
-            if (updateType == 0)
-            {
+            if (updateType == 0) {
                 SetAtomicAdd<T>();
             }
-            for (int i = 0; i < addrNum; i++)
-            {
+            for (int i = 0; i < addrNum; i++) {
                 address = srcAddrLocal.GetValue(i);
-                if (address != 0)
-                {
+                if (address != 0) {
                     dstDataGm.SetGlobalBuffer((__gm__ T*)(address));
                     DataCopy(dstDataGm, dstLocal[i * inputDimAligned], inputDimAligned);
                 }
             }
-            if (updateType == 0)
-            {
+            if (updateType == 0) {
                 SetAtomicNone();
             }
             outQueue.FreeTensor(dstLocal);
-        }
-        else
-        {
-            for (int i = 0; i < addrNum; i++)
-            {
+        } else {
+            for (int i = 0; i < addrNum; i++) {
                 dataLocal = inQueue.AllocTensor<T>();
                 DataCopy(dataLocal, srcDataBufferGm[i * dim + turns * addrNumPerLoop * dim], inputDimAligned);
                 inQueue.EnQue<T>(dataLocal);
@@ -155,23 +147,18 @@ private:
     {
         LocalTensor<T> dstLocal = outQueue.DeQue<T>();
 
-        if (address != 0)
-        {
+        if (address != 0) {
             dstDataGm.SetGlobalBuffer((__gm__ T *)(address));
 
-            if (updateType == 0)
-            {
+            if (updateType == 0) {
                 SetAtomicAdd<T>();
             }
 
 #if defined(__DAV_C220_VEC__)
-            if (typeSize == SIZE_OF_FLOAT_OR_INT)
-            {
+            if (typeSize == SIZE_OF_FLOAT_OR_INT) {
                 copy_ubuf_to_gm_align_b32((__gm__ T *)dstDataGm.GetPhyAddr(), (__ubuf__ T *)dstLocal.GetPhyAddr(), 0,
                                           1, dim * sizeof(T), 0, 0, 0, 0);
-            }
-            else if (typeSize == SIZE_OF_HALF)
-            {
+            } else if (typeSize == SIZE_OF_HALF) {
                 copy_ubuf_to_gm_align_b16((__gm__ T *)dstDataGm.GetPhyAddr(), (__ubuf__ T *)dstLocal.GetPhyAddr(), 0,
                                           1, dim * sizeof(T), 0, 0, 0, 0);
             }
@@ -179,8 +166,7 @@ private:
             DataCopy(dstDataGm, dstLocal, inputDimAligned);
 #endif
         }
-        if (updateType == 0)
-        {
+        if (updateType == 0) {
             SetAtomicNone();
         }
         outQueue.FreeTensor(dstLocal);

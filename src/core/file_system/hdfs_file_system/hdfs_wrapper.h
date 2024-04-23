@@ -26,11 +26,10 @@ namespace MxRec {
     // The following parameters are not named in large camel case to adapt to native HDFS interfaces.
     // Including: TObjectKind, tPort, tSize, tTime, tOffset, hdfs_internal, hdfsFS, hdfsFile_internal,
     //            hdfsFile, HdfsFileInfo
-    enum TObjectKind {
-        K_OBJECT_KIND_FILE = 'F',
-        K_OBJECT_KIND_DIRECTORY = 'D',
+   enum class TObjectKind {
+        FILE = 'F',
+        DIRECTORY = 'D',
     };
-
     using tPort = uint16_t;
     using tSize = int32_t;
     using tTime = time_t;
@@ -109,12 +108,12 @@ namespace MxRec {
             return hdfsGetPathInfo(fs, path);
         }
 
-        void FreeFileInfo(HdfsFileInfo *HdfsFileInfo, int numEntries) const
+        void FreeFileInfo(HdfsFileInfo *hdfsFileInfo, int numEntries) const
         {
             if (hdfsFreeFileInfo == nullptr) {
                 throw runtime_error("Failed to obtain the pointer of the function hdfsFreeFileInfo from the libhdfs.");
             }
-            return hdfsFreeFileInfo(HdfsFileInfo, numEntries);
+            return hdfsFreeFileInfo(hdfsFileInfo, numEntries);
         }
 
         hdfsFile OpenFile(hdfsFS fs, const char* path, int flags, int bufferSize, short replication,
@@ -165,7 +164,7 @@ namespace MxRec {
         using HdfsDisconnectFunc = int (*)(hdfsFS);
         using HdfsCreateDirectoryFunc = int (*)(hdfsFS fs, const char* path);
         using HdfsListDirectoryFunc = HdfsFileInfo* (*)(hdfsFS fs, const char* path, int *numEntries);
-        using HdfsFreeFileInfoFunc = void (*)(HdfsFileInfo *HdfsFileInfo, int numEntries);
+        using HdfsFreeFileInfoFunc = void (*)(HdfsFileInfo *hdfsFileInfo, int numEntries);
         using HdfsGetPathInfoFunc = HdfsFileInfo* (*)(hdfsFS fs, const char* path);
         using HdfsOpenFileFunc = hdfsFile (*)(hdfsFS, const char*, int, int, short, tSize);
         using HdfsCloseFileFunc = int (*)(hdfsFS, hdfsFile);

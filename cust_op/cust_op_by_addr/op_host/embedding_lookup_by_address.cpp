@@ -93,7 +93,8 @@ namespace optiling
         int32_t occupyAddressBytesNum =
                 sizeof(int64_t) + typeSize * embeddingDimAligned * PING_PONG_NUM * 2;
         // 一轮计算中最多计算多少个addr，由于地址也要搬到ub，所以需要对齐32,
-        int32_t addrPerLoop = static_cast<int32_t>((static_cast<uint32_t>(UB_LIMIT) / static_cast<uint32_t>(occupyAddressBytesNum)) & (~3u)); //  & (~3u)，保证地址数是4的倍数
+        int32_t addrPerLoop = static_cast<int32_t>((static_cast<uint32_t>(UB_LIMIT) /
+                static_cast<uint32_t>(occupyAddressBytesNum)) & (~3u)); //  & (~3u)，保证地址数是4的倍数
         if (addrPerLoop <= 0) {
             return ge::GRAPH_FAILED;
         }
