@@ -32,14 +32,12 @@ class TestGetRestoreVectorFunc(unittest.TestCase):
     def setUp(self):
         # 默认动态扩容、hot emb、HBM
         self.config = dict(table_name="test_table", channel_id=0, is_hbm=True, emb_size=8, ext_emb_size=8,
-                           feat_cnt=8, batch_size=32, rank_size=8, send_count=1, use_hot=True,
-                           use_dynamic_expansion=True)
+                           feat_cnt=8, batch_size=32, rank_size=8, send_count=1, use_dynamic_expansion=True)
 
     def tearDown(self):
         # 恢复config
         self.config = dict(table_name="test_table", channel_id=0, is_hbm=True, emb_size=8, ext_emb_size=8,
-                           feat_cnt=8, batch_size=32, rank_size=8, send_count=1, use_hot=True,
-                           use_dynamic_expansion=True)
+                           feat_cnt=8, batch_size=32, rank_size=8, send_count=1, use_dynamic_expansion=True)
 
     def test_get_restore_vector_case1(self):
         """
@@ -114,15 +112,13 @@ class TestGetIdOffsetsFunc(unittest.TestCase):
     def setUp(self):
         # 默认动态扩容、hot emb、HBM
         self.config = dict(table_name="test_table", channel_id=0, is_hbm=True, emb_size=8, ext_emb_size=8,
-                           feat_cnt=8, batch_size=32, rank_size=8, send_count=1, use_hot=True,
-                           use_dynamic_expansion=True)
+                           feat_cnt=8, batch_size=32, rank_size=8, send_count=1, use_dynamic_expansion=True)
         self.max_lookup_vec_size = self.config.get("send_count") * self.config.get("rank_size")
 
     def tearDown(self):
         # 恢复config
         self.config = dict(table_name="test_table", channel_id=0, is_hbm=True, emb_size=8, ext_emb_size=8,
-                           feat_cnt=8, batch_size=32, rank_size=8, send_count=1, use_hot=True,
-                           use_dynamic_expansion=True)
+                           feat_cnt=8, batch_size=32, rank_size=8, send_count=1, use_dynamic_expansion=True)
 
     @mock.patch("mx_rec.core.asc.build_graph.npu_ops.gen_npu_ops.get_next")
     def test_get_id_offsets_case1(self, mock_get_next):
@@ -164,14 +160,12 @@ class TestGetAll2allArgsFunc(unittest.TestCase):
     def setUp(self):
         # 默认动态扩容、hot emb、HBM
         self.config = dict(table_name="test_table", channel_id=0, is_hbm=True, emb_size=8, ext_emb_size=8,
-                           feat_cnt=8, batch_size=32, rank_size=8, send_count=1, use_hot=True,
-                           use_dynamic_expansion=True)
+                           feat_cnt=8, batch_size=32, rank_size=8, send_count=1, use_dynamic_expansion=True)
 
     def tearDown(self):
         # 恢复config
         self.config = dict(table_name="test_table", channel_id=0, is_hbm=True, emb_size=8, ext_emb_size=8,
-                           feat_cnt=8, batch_size=32, rank_size=8, send_count=1, use_hot=True,
-                           use_dynamic_expansion=True)
+                           feat_cnt=8, batch_size=32, rank_size=8, send_count=1, use_dynamic_expansion=True)
 
     def test_get_all2all_args_case1(self):
         """
@@ -206,14 +200,12 @@ class TestGetPreProcessedTensorForAscFunc(unittest.TestCase):
     def setUp(self):
         # 默认动态扩容、hot emb、HBM
         self.config = dict(table_name="test_table", channel_id=0, is_hbm=True, emb_size=8, ext_emb_size=8,
-                           feat_cnt=8, batch_size=32, rank_size=8, send_count=1, use_hot=True,
-                           use_dynamic_expansion=True)
+                           feat_cnt=8, batch_size=32, rank_size=8, send_count=1, use_dynamic_expansion=True)
 
     def tearDown(self):
         # 恢复config
         self.config = dict(table_name="test_table", channel_id=0, is_hbm=True, emb_size=8, ext_emb_size=8,
-                           feat_cnt=8, batch_size=32, rank_size=8, send_count=1, use_hot=True,
-                           use_dynamic_expansion=True)
+                           feat_cnt=8, batch_size=32, rank_size=8, send_count=1, use_dynamic_expansion=True)
 
     @mock.patch.multiple("mx_rec.core.asc.build_graph",
                          get_restore_vector=mock.MagicMock(return_value=[0, 0]),
@@ -246,12 +238,15 @@ class TestGetPreProcessedTensorForAscFunc(unittest.TestCase):
 
         from mx_rec.core.asc.build_graph import get_preprocessed_tensor_for_asc
 
+        global_env.apply_gradients_strategy = "sum_same_id_gradients_and_apply"
         with tf.Graph().as_default():
             mock_config_initializer = MockConfigInitializer()
             build_graph_config_initializer.get_instance = mock.Mock(return_value=mock_config_initializer)
 
             result = get_preprocessed_tensor_for_asc(None, self.config)
             self.assertIsNotNone(result.get("restore_vector"))
+            self.assertIsNotNone(result.get("restore_vector_second"))
+            self.assertIsNotNone(result.get("unique_keys"))
 
     @mock.patch.multiple("mx_rec.core.asc.build_graph",
                          get_restore_vector=mock.MagicMock(return_value=[0, 0]),

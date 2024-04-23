@@ -76,16 +76,6 @@ class CustomizedAdagrad(adagrad.AdagradOptimizer, CustomizedOptimizer):
                                                 initial_accumulator_value=initial_accumulator_value,
                                                 use_locking=use_locking,
                                                 name=self.unique_name)
-        self._slot_num = 1
-        self._derivative = 2
-
-    @property
-    def slot_num(self):
-        return self._slot_num
-
-    @property
-    def derivative(self):
-        return self._derivative
 
     def get_slot_init_values(self):
         # return state value list of adagrad that needs to initialize in ASC DDR.
@@ -107,11 +97,10 @@ class CustomizedAdagrad(adagrad.AdagradOptimizer, CustomizedOptimizer):
 
     def _apply_sparse(self, grad, var):
         acc = self.get_slot(var, "acc")
-        unique_local_grad, unique_keys = self.sum_same_id_gradients(grad=grad.values, var=var, is_expansion=False)
         return training_ops.sparse_apply_adagrad(
             var, acc, math_ops.cast(self._learning_rate_tensor, var.dtype.base_dtype),
-            unique_local_grad,
-            unique_keys,
+            grad.values,
+            grad.indices,
             use_locking=self._use_locking)
 
     def _resource_apply_sparse(self, grad, var, indices):

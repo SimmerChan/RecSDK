@@ -119,7 +119,6 @@ class MockConfigInitializer:
     def __init__(self, **kwargs):
         self.use_dynamic_expansion = kwargs.get("use_dynamic_expansion", False)
         self.use_static = kwargs.get("use_static", False)
-        self.use_hot = kwargs.get("use_static", True)
         self.modify_graph = kwargs.get("modify_graph", True)
         self.max_steps = kwargs.get("max_steps", -1)
         self.train_steps = kwargs.get("get_train_steps", -1)
@@ -206,7 +205,6 @@ class MockOptimizer:
 
     def __init__(self):
         self.slot_num = 2
-        self.derivative = 2
 
     def get_slot_init_values(self):
         initial_momentum_value = 0.0
