@@ -205,6 +205,7 @@ class MockOptimizer:
 
     def __init__(self):
         self.slot_num = 2
+        self.derivative = 2
 
     def get_slot_init_values(self):
         initial_momentum_value = 0.0
