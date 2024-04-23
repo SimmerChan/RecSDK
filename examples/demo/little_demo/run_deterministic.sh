@@ -15,8 +15,8 @@
 # ==============================================================================
 
 deterministic_patch(){
-    #sed -i "s/allow_mix_precision/must_keep_origin_dtype/g" config.py
-    #sed -i '/must_keep_origin_dtype/a\    custom_op.parameter_map["deterministic"].i = 1' config.py
+    sed -i "s/allow_mix_precision/must_keep_origin_dtype/g" config.py
+    sed -i '/must_keep_origin_dtype/a\    custom_op.parameter_map["deterministic"].i = 1' config.py
 
     sed -i "/tf.compat.v1.disable_eager_execution()/a\np.random.seed(128)" main.py
     sed -i "/tf.compat.v1.disable_eager_execution()/a\tf.random.set_random_seed(128)" main.py
@@ -24,8 +24,8 @@ deterministic_patch(){
 
     sed -i "s/tf.compat.v1.truncated_normal_initializer()/tf.compat.v1.constant_initializer(0)/g" main.py
 
-    #sed -i "s/self.session.run(\[self.train_ops, self.train_model.loss_list\])/_,loss=self.session.run(\[self.train_ops, self.train_model.loss_list\])/g" run_mode.py
-    #sed -i '/self.session.run(\[self.train_ops, self.train_model.loss_list\])/a\                logger.info(f"deterministic_loss: {loss\[0\]}")' run_mode.py
+    sed -i "s/self.session.run(\[self.train_ops, self.train_model.loss_list\])/_,loss=self.session.run(\[self.train_ops, self.train_model.loss_list\])/g" run_mode.py
+    sed -i '/self.session.run(\[self.train_ops, self.train_model.loss_list\])/a\                logger.info(f"deterministic_loss: {loss\[0\]}")' run_mode.py
 }
 
 if [ ! -e deterministic_patch_file ];then
@@ -46,7 +46,6 @@ if [ ! -e $loss_file ];then
     echo "$loss_file file does not exist"
     exit
 fi
-
 
 diff $loss_file loss
 
