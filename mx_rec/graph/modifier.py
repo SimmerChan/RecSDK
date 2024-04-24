@@ -617,7 +617,7 @@ def get_variable_and_slot_list(each_var, slot_num, table_name, channel_id):
         raise RuntimeError("In training mode, table_instance should have been set_optimizer_for_table "
                            "before modify_graph, please check whether apply_gradients is performed")
 
-    # predict不需要传优化器，但是ddr模式换入换出仍然需要维度ext_size的emb
+    # predict不需要传优化器，但是如果客户创建了优化器，ddr模式加载的是维度ext_size的emb用作换入换出，所以需要给slot零值占位
     if optimizer is None and channel_id == 1:
         slot_place_holder = tf.zeros_like(each_var)
         for i in range(slot_num):
@@ -634,14 +634,18 @@ def get_variable_and_slot_list(each_var, slot_num, table_name, channel_id):
 def modify_graph_for_ddr(get_next_op_map):
     # 通过create_hash_optimizer创建optimizer_instance
     optimizer_instance = ConfigInitializer.get_instance().optimizer_config.optimizer_instance
+    # predict
     if optimizer_instance is None:
-        raise ValueError("Optimizer should be set by create_hash_optimizer")
-    # ddr和扩容需要在获取优化器后重置ext
-    change_ext_emb_size_by_opt(optimizer_instance)
-    slot_num = optimizer_instance.slot_num
+        slot_num = 0
+    else:
+        # ddr和扩容需要在获取优化器后重置ext
+        change_ext_emb_size_by_opt(optimizer_instance)
+        slot_num = optimizer_instance.slot_num
+
     for _, record in get_next_op_map.items():
         is_training = record.is_training
         channel_id = 0 if is_training else 1
+
         swap_args = SwapArgs()
         sparse_variables = tf.compat.v1.get_collection(
             ConfigInitializer.get_instance().train_params_config.ascend_global_hashtable_collection)
