@@ -44,6 +44,7 @@ loss_file=deterministic_loss/$soc_name
 
 if [ ! -e $loss_file ];then
     echo "$loss_file file does not exist"
+    rm -f loss
     exit
 fi
 
