@@ -82,7 +82,8 @@ public:
     int unProcess = (needComputeAddrLen / sizeof(int64_t)) % addrNumPerLoop;
     if (unProcess)
     {
-        int unProcessAligned = static_cast<int>((static_cast<unsigned int>(unProcess) + 3) & (~3U)); // 处理 addressList 不对齐32b的情况
+        int unProcessAligned = static_cast<int>
+                ((static_cast<unsigned int>(unProcess) + 3) & (~3U)); // 处理 addressList 不对齐32b的情况
         // 地址列表访问越界，对齐考虑无问题，会自动多申请一部分，兼容
         DataCopy(srcAddrLocal, srcAddrGlobal[loopCount * addrNumPerLoop], unProcessAligned);
         MoveProcess(srcAddrLocal, loopCount, unProcess);
