@@ -54,3 +54,5 @@ if [ $? -eq 0 ]; then
 else
   echo "deterministic loss check failed"
 fi
+
+rm -f loss
