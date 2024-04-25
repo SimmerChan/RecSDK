@@ -42,9 +42,9 @@ vector<string> HdfsFileSystem::ListDir(const string& dirName)
     hdfsFS fs = ConnectHdfs();
 
     int numEntries = 0;
-    HdfsFileInfo* subDirs = hdfs->ListDirectory(fs, dirName.c_str(), &numEntries);
+    hdfsFileInfo* subDirs = hdfs->ListDirectory(fs, dirName.c_str(), &numEntries);
     for (int i = 0; i < numEntries; ++i) {
-        if (subDirs[i].mKind == TObjectKind::DIRECTORY) {
+        if (subDirs[i].mKind == tObjectKind::DIRECTORY) {
             dirs.emplace_back(subDirs[i].mName);
         }
     }
@@ -57,7 +57,7 @@ vector<string> HdfsFileSystem::ListDir(const string& dirName)
 size_t HdfsFileSystem::GetFileSize(const string& filePath)
 {
     hdfsFS fs = ConnectHdfs();
-    HdfsFileInfo* fileInfo = hdfs->GetPathInfo(fs, filePath.c_str());
+    hdfsFileInfo* fileInfo = hdfs->GetPathInfo(fs, filePath.c_str());
     hdfs->Disconnect(fs);
     if (fileInfo == nullptr) {
         return 0;

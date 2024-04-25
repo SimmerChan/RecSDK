@@ -242,7 +242,7 @@ namespace MxRec {
             std::shared_ptr <model::Node> CreateNode(
                     IteratorContext *ctx, model::Node::Args args) const override
                     {
-                return model::MakeKnownRatioNode(std::move(args), 1); /* ratio = 1 */
+                return model::MakeKnownRatioNode(std::move(args), 1); // ratio = 1
             }
 
 #if defined(TF_VERSION_TF2)

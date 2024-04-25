@@ -29,7 +29,7 @@ void MockHdfs()
 {
     hdfsFS ConnectFs;
     hdfsFile hdfsFileHandler;
-    HdfsFileInfo* fileInfo;
+    hdfsFileInfo* fileInfo;
     EMOCK(&HdfsWrapper::LoadHdfsLib).stubs().will(ignoreReturnValue());
     EMOCK(&HdfsWrapper::CloseHdfsLib).stubs().will(ignoreReturnValue());
     EMOCK(&HdfsWrapper::Connect).stubs().will(returnValue(ConnectFs));
@@ -78,7 +78,7 @@ TEST_F(HdfsFileSystemTest, CreateDirFailed)
 
 TEST_F(HdfsFileSystemTest, GetFileSize)
 {
-    HdfsFileInfo* fileInfo;
+    hdfsFileInfo* fileInfo;
     EMOCK(&HdfsWrapper::GetPathInfo).stubs().will(returnValue(fileInfo));
     string filePath = "hdfs://master:9000/test_dir/";
     auto fileSystemHandler = make_unique<FileSystemHandler>();
