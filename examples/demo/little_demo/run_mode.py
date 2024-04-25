@@ -45,7 +45,8 @@ class RunMode:
         self.is_modify_graph = is_modify_graph
         self.is_faae = is_faae
         self.use_deterministic = params.get("use_deterministic")
-        self.session = tf.compat.v1.Session(config=sess_config(dump_data=False, use_deterministic=self.use_deterministic))
+        self.session = tf.compat.v1.Session(
+            config=sess_config(dump_data=False, use_deterministic=self.use_deterministic))
         self.train_model = train_model
         self.train_iterator = train_iterator
         self.eval_model = eval_model
