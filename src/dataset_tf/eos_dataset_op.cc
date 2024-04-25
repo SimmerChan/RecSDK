@@ -77,12 +77,12 @@ public:
     explicit Dataset(OpKernelContext *ctx, const DatasetBase *input, int32_t channelId,
                      int32_t maxTrainSteps,
                      int32_t maxEvalSteps)
-            : DatasetBase(DatasetContext(ctx)),
-              input_(input),
-              channelId_(channelId),
-              maxTrainSteps_(maxTrainSteps),
-              maxEvalSteps_(maxEvalSteps),
-              id_(g_datasetId[channelId]) {
+        : DatasetBase(DatasetContext(ctx)),
+          input_(input),
+          channelId_(channelId),
+          maxTrainSteps_(maxTrainSteps),
+          maxEvalSteps_(maxEvalSteps),
+          id_(g_datasetId[channelId]) {
         input_->Ref();
         auto os_input = input->output_shapes();
         output_shapes_ = os_input;
@@ -101,12 +101,14 @@ public:
 
     Dataset &operator=(const Dataset &) = delete;
 
-    ~Dataset() override {
+    ~Dataset() override
+    {
         LOG_DEBUG("EosDataset: {} for channel: {} has been destroied!", id_, channelId_);
         input_->Unref();
     }
 
-    std::unique_ptr <IteratorBase> MakeIteratorInternal(const string &prefix) const override {
+    std::unique_ptr <IteratorBase> MakeIteratorInternal(const string &prefix) const override
+    {
 #if defined(TF_VERSION_TF2)
         string prefix_para = name_utils::IteratorPrefix(kDatasetType, prefix);
 #else
@@ -116,15 +118,18 @@ public:
                 this, prefix_para});
     }
 
-    const DataTypeVector &output_dtypes() const override {
+    const DataTypeVector &output_dtypes() const override
+    {
         return input_->output_dtypes();
     }
 
-    const std::vector <PartialTensorShape> &output_shapes() const override {
+    const std::vector <PartialTensorShape> &output_shapes() const override
+    {
         return output_shapes_;
     }
 
-    string DebugString() const override {
+    string DebugString() const override
+    {
 #if defined(TF_VERSION_TF2)
         return name_utils::DatasetDebugString(kDatasetType);
 #else
@@ -132,18 +137,21 @@ public:
 #endif
     }
 
-    int64 Cardinality() const override {
+    int64 Cardinality() const override
+    {
         return input_->Cardinality();
     }
 
-    Status CheckExternalState() const override {
+    Status CheckExternalState() const override
+    {
         return input_->CheckExternalState();
     }
 
 protected:
     Status
     AsGraphDefInternal(SerializationContext *ctx, DatasetGraphDefBuilder *b,
-                       Node **output) const override {
+                       Node **output) const override
+                       {
         Node *input_graph = nullptr;
         TF_RETURN_IF_ERROR(b->AddInputDataset(ctx, input_, &input_graph));
         Node *channel_id_x = nullptr;
@@ -153,7 +161,7 @@ protected:
         Node *max_eval_steps_x = nullptr;
         TF_RETURN_IF_ERROR(b->AddScalar(maxEvalSteps_, &max_eval_steps_x));
         TF_RETURN_IF_ERROR(
-                b->AddDataset(this, {input_graph, channel_id_x, max_train_steps_x, max_eval_steps_x},
+            b->AddDataset(this, {input_graph, channel_id_x, max_train_steps_x, max_eval_steps_x},
                               output));
         return Status::OK();
     }
@@ -172,7 +180,8 @@ private:
         }
 #else
 
-        Status Initialize(IteratorContext *ctx) override {
+        Status Initialize(IteratorContext *ctx) override
+        {
             return dataset()->input_->MakeIterator(ctx, prefix(), &input_impl_);
         }
 
@@ -180,7 +189,8 @@ private:
 
         Status
         GetNextInternal(IteratorContext *ctx, std::vector <Tensor> *out_tensors,
-                        bool *end_of_sequence) override {
+                        bool *end_of_sequence) override
+                        {
             mutex_lock l(mu_);
             if (!input_impl_) {
                 *end_of_sequence = true;
@@ -224,7 +234,7 @@ private:
                 *end_of_sequence = true;
                 keyProcess->SetEos(1, dataset()->channelId_);
                 LOG_DEBUG(
-                        "[PASSIVE] GetNext eos was triggered passively, channel: {}, iter: {}, sum: {}",
+                    "[PASSIVE] GetNext eos was triggered passively, channel: {}, iter: {}, sum: {}",
                         dataset()->channelId_, iter_times_, getNextStatus);
 
                 input_impl_.reset();
@@ -237,7 +247,8 @@ private:
 
     protected:
         std::shared_ptr <model::Node> CreateNode(
-                IteratorContext *ctx, model::Node::Args args) const override {
+                IteratorContext *ctx, model::Node::Args args) const override
+                {
             return model::MakeKnownRatioNode(std::move(args), 1); // ratio = 1
         }
 
@@ -249,7 +260,8 @@ private:
         }
 #else
 
-        Status SaveInternal(IteratorStateWriter *writer) override {
+        Status SaveInternal(IteratorStateWriter *writer) override
+        {
             TF_RETURN_IF_ERROR(SaveInput(writer, input_impl_));
             return Status::OK();
         }
@@ -257,7 +269,8 @@ private:
 #endif
 
         Status RestoreInternal(IteratorContext *ctx,
-                               IteratorStateReader *reader) override {
+                               IteratorStateReader *reader) override
+                               {
             mutex_lock l(mu_);
             TF_RETURN_IF_ERROR(RestoreInput(ctx, reader, input_impl_));
             return Status::OK();
