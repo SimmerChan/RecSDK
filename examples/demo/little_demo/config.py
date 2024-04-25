@@ -113,7 +113,6 @@ def sess_config(dump_data=False, dump_path="./dump_output", dump_steps="0|1|2", 
         custom_op.parameter_map["deterministic"].i = 1
     else:
         custom_op.parameter_map["precision_mode"].s = tf.compat.as_bytes("allow_mix_precision")
-    custom_op.parameter_map["precision_mode"].s = tf.compat.as_bytes("allow_mix_precision")
     custom_op.parameter_map["hcom_parallel"].b = False
     custom_op.parameter_map["op_precision_mode"].s = tf.compat.as_bytes("op_impl_mode.ini")
     custom_op.parameter_map["op_execute_timeout"].i = 2000
