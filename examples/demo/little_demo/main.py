@@ -193,7 +193,7 @@ if __name__ == "__main__":
         MODIFY_GRAPH_FLAG = bool(int(os.getenv("USE_MODIFY_GRAPH", 0)))
         USE_TIMESTAMP = bool(int(os.getenv("USE_TIMESTAMP", 0)))
         USE_ONE_SHOT = bool(int(os.getenv("USE_ONE_SHOT", 0)))
-        USE_DETERMINISTIC = bool(int(os.getenv("USE_DETERMINISTIC",0)))
+        USE_DETERMINISTIC = bool(int(os.getenv("USE_DETERMINISTIC", 0)))
     except ValueError as err:
         raise ValueError("please correctly config USE_MPI or USE_DYNAMIC or USE_DYNAMIC_EXPANSION or "
                          "USE_MULTI_LOOKUP or USE_MODIFY_GRAPH or USE_TIMESTAMP or USE_ONE_SHOT or USE_DETERMINISTIC"
@@ -300,7 +300,8 @@ if __name__ == "__main__":
                                                         batch_number=MAX_DATASET_GENERATE * get_rank_size())
     dense_variables, sparse_variables = get_dense_and_sparse_variable()
 
-    params = {"train_batch": train_batch, "eval_batch": eval_batch, "use_one_shot": USE_ONE_SHOT, "use_deterministic": USE_DETERMINISTIC}
+    params = {"train_batch": train_batch, "eval_batch": eval_batch, "use_one_shot": USE_ONE_SHOT, 
+              "use_deterministic": USE_DETERMINISTIC}
     run_mode = RunMode(
         MODIFY_GRAPH_FLAG, USE_TIMESTAMP, table_list, optimizer_list, train_model, eval_model, train_iterator,
         eval_iterator, MAX_TRAIN_STEPS, EVAL_STEPS, params
