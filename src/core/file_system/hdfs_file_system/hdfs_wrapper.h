@@ -30,6 +30,7 @@ namespace MxRec {
         kObjectKindFile = 'F',
         kObjectKindDirectory = 'D',
     };
+
     using tPort = uint16_t;
     using tSize = int32_t;
     using tTime = time_t;

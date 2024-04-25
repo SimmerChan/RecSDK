@@ -44,7 +44,7 @@ vector<string> HdfsFileSystem::ListDir(const string& dirName)
     int numEntries = 0;
     hdfsFileInfo* subDirs = hdfs->ListDirectory(fs, dirName.c_str(), &numEntries);
     for (int i = 0; i < numEntries; ++i) {
-        if (subDirs[i].mKind == tObjectKind::DIRECTORY) {
+        if (subDirs[i].mKind == kObjectKindDirectory) {
             dirs.emplace_back(subDirs[i].mName);
         }
     }
