@@ -14,39 +14,25 @@
 # limitations under the License.
 # ==============================================================================
 
-deterministic_patch(){
-    sed -i "s/allow_mix_precision/must_keep_origin_dtype/g" config.py
-    sed -i '/must_keep_origin_dtype/a\    custom_op.parameter_map["deterministic"].i = 1' config.py
-
-    sed -i "/tf.compat.v1.disable_eager_execution()/a\np.random.seed(128)" main.py
-    sed -i "/tf.compat.v1.disable_eager_execution()/a\tf.random.set_random_seed(128)" main.py
-    sed -i "/tf.compat.v1.disable_eager_execution()/a\import numpy as np" main.py
-
-    sed -i "s/tf.compat.v1.truncated_normal_initializer()/tf.compat.v1.constant_initializer(0)/g" main.py
-
-    sed -i "s/self.session.run(\[self.train_ops, self.train_model.loss_list\])/_,loss=self.session.run(\[self.train_ops, self.train_model.loss_list\])/g" run_mode.py
-    sed -i '/self.session.run(\[self.train_ops, self.train_model.loss_list\])/a\                logger.info(f"deterministic_loss: {loss\[0\]}")' run_mode.py
-}
-
-if [ ! -e deterministic_patch_file ];then
-    deterministic_patch
-    touch deterministic_patch_file
-fi
+export USE_DETERMINISTIC=1
 
 sh run.sh main.py | tee log
 
 grep -rn "loss" log | grep "1,0" | awk '{print $NF}'> loss
 
+rm -f log
+
 soc_name=`python3 -c 'import acl;print(acl.get_soc_name())'`
 echo "soc_name: $soc_name"
 
-loss_file=deterministic_loss/$soc_name
+loss_file=deterministic_loss/loss${soc_name:10:1}
 
 if [ ! -e $loss_file ];then
     echo "$loss_file file does not exist"
     rm -f loss
     exit
 fi
+
 
 diff $loss_file loss
 
