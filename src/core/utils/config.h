@@ -35,12 +35,12 @@ namespace MxRec {
     };
 
     namespace ApplyGradientsStrategyOptions {
-        extern const std::string DIRECT_APPLY;
-        extern const std::string SUM_SAME_ID_GRADIENTS_AND_APPLY;
+        extern const char* DIRECT_APPLY;
+        extern const char* SUM_SAME_ID_GRADIENTS_AND_APPLY;
     };
 
     struct GlobalEnv {
-        static std::string applyGradientsStrategy;
+        static const char* applyGradientsStrategy;
         static int aclTimeout;
         static int hdChannelSize;
         static int keyProcessThreadNum;
