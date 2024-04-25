@@ -162,7 +162,7 @@ protected:
         TF_RETURN_IF_ERROR(b->AddScalar(maxEvalSteps_, &max_eval_steps_x));
         TF_RETURN_IF_ERROR(
             b->AddDataset(this, {input_graph, channel_id_x, max_train_steps_x, max_eval_steps_x},
-                              output));
+                output));
         return Status::OK();
     }
 
@@ -235,7 +235,7 @@ private:
                 keyProcess->SetEos(1, dataset()->channelId_);
                 LOG_DEBUG(
                     "[PASSIVE] GetNext eos was triggered passively, channel: {}, iter: {}, sum: {}",
-                        dataset()->channelId_, iter_times_, getNextStatus);
+                dataset()->channelId_, iter_times_, getNextStatus);
 
                 input_impl_.reset();
                 return Status::OK();
