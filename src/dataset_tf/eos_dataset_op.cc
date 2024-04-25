@@ -235,7 +235,7 @@ private:
                 keyProcess->SetEos(1, dataset()->channelId_);
                 LOG_DEBUG(
                     "[PASSIVE] GetNext eos was triggered passively, channel: {}, iter: {}, sum: {}",
-                dataset()->channelId_, iter_times_, getNextStatus);
+                    dataset()->channelId_, iter_times_, getNextStatus);
 
                 input_impl_.reset();
                 return Status::OK();
