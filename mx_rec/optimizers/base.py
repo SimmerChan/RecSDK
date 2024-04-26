@@ -96,26 +96,25 @@ class CustomizedOptimizer:
 
     @staticmethod
     def sum_same_id_gradients(grad, var, is_expansion):
-        send_count = 0
-        rank_size = get_rank_size()
-
         if isinstance(var, ops.Tensor):
             # 扩容模式从scope获取表名,偏移是-2
             table_name = var.op.name.split('/')[-2]
+            table_instance = ConfigInitializer.get_instance().sparse_embed_config.get_table_instance_by_name(table_name)
         else:
             table_instance = ConfigInitializer.get_instance().sparse_embed_config.get_table_instance(var)
             table_name = table_instance.table_name
-            send_count = table_instance.send_count
 
         max_lookup_vec_size = None
         use_static = ConfigInitializer.get_instance().use_static
         if use_static:
-            max_lookup_vec_size = None if send_count == 0 else send_count * rank_size
+            send_count = table_instance.send_count
+            rank_size = get_rank_size()
+            max_lookup_vec_size = send_count * rank_size if send_count > 0 else None
 
-        with tf.compat.v1.variable_scope(ASCAnchorAttr.RESTORE_VECTOR_SECOND):
+        with tf.compat.v1.variable_scope(str(ASCAnchorAttr.RESTORE_VECTOR_SECOND)):
             restore_vector_second = get_restore_vector_second(table_name, max_lookup_vec_size)
 
-        with tf.compat.v1.variable_scope(ASCAnchorAttr.UNIQUE_KEYS):
+        with tf.compat.v1.variable_scope(str(ASCAnchorAttr.UNIQUE_KEYS)):
             unique_keys = get_unique_keys(table_name, max_lookup_vec_size, is_expansion)
 
         unique_local_grad = tf.compat.v1.unsorted_segment_sum(grad,
