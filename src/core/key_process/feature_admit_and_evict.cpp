@@ -18,8 +18,8 @@ See the License for the specific language governing permissions and
 
 using namespace MxRec;
 
-std::vector<ThresholdValue> FeatureAdmitAndEvict::m_cfgThresholds {};
-absl::flat_hash_map<std::string, SingleEmbTableStatus> FeatureAdmitAndEvict::m_embStatus {};
+static std::vector<ThresholdValue> FeatureAdmitAndEvict::m_cfgThresholds {};
+static absl::flat_hash_map<std::string, SingleEmbTableStatus> FeatureAdmitAndEvict::m_embStatus {};
 
 FeatureAdmitAndEvict::FeatureAdmitAndEvict(int recordsInitSize) : m_recordsInitSize(recordsInitSize) {}
 

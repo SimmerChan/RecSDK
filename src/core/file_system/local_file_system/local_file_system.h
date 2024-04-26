@@ -46,7 +46,7 @@ namespace MxRec {
         void WriterFn(BufferQueue& queue, int fd, ssize_t& writerBytesNum);
         void FillToBuffer(BufferQueue& queue, const char* data, size_t dataSize);
         void CalculateMapSize(off_t fileSize, size_t& mapByteSize, size_t& mapRowNum, size_t onceReadByteSize) const;
-        void HandleMappedData(char* mappedData, size_t mapRowNum, size_t onceReadByteSize,
+        void HandleMappedData(const string* mappedData, size_t mapRowNum, size_t onceReadByteSize,
                                                vector<vector<float>>& dst, size_t cnt) const;
 
     private:

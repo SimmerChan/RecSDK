@@ -28,7 +28,7 @@ namespace optiling
     constexpr int32_t SIZE_OF_HALF = 2;
     constexpr int32_t SIZE_OF_FLOAT_OR_INT = 4;
     constexpr int32_t MIN_BLOCK_SIZE = 32; // ub空间的数据都要按照32对齐
-    constexpr int32_t UB_LIMIT = 175 * 1024;
+    constexpr uint32_t UB_LIMIT = 175 * 1024;
     constexpr int32_t USR_SIZE = 256;
     constexpr int32_t SYS_WORKSPACE_SIZE = 16 * 1024 * 1024;
     constexpr int32_t PING_PONG_NUM = 1;
@@ -84,7 +84,7 @@ namespace optiling
         }
 
         const int32_t inputShapeTmp = (inputShape > 0) ? inputShape : 1;
-        int64_t inputDim = static_cast<int64_t>(inputTensor1->GetShapeSize()) / inputShapeTmp;
+        int64_t inputDim = static_cast<int64_t>(inputTensor1->GetShapeSize() / inputShapeTmp);
         if (CheckPositiveInt(inputDim, "inputDim") != ge::GRAPH_SUCCESS) {
             return ge::GRAPH_FAILED;
         }
@@ -122,7 +122,7 @@ namespace optiling
         int32_t occupyAddressBytesNum =
                 sizeof(int64_t) + typeSize * inputDimAligned * PING_PONG_NUM * 2;
         // 一轮计算中最多计算多少个addr，由于地址也要搬到ub，所以需要对齐32
-        int32_t addrPerLoop = static_cast<int32_t>((static_cast<unsigned int>(UB_LIMIT) /
+        int32_t addrPerLoop = static_cast<int32_t>((UB_LIMIT /
                 occupyAddressBytesNum) & (~3U)); // & (~3U)，保证地址数是4的倍数
         if (CheckPositiveInt(addrPerLoop, "addrPerLoop") != ge::GRAPH_SUCCESS) {
             return ge::GRAPH_FAILED;
