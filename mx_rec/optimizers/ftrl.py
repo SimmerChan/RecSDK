@@ -29,7 +29,6 @@ from tensorflow.python.ops import control_flow_ops
 from tensorflow.python.ops import math_ops
 from tensorflow.python.ops import gen_state_ops
 from tensorflow.python.training import ftrl
-from tensorflow.python.training import slot_creator
 
 from mx_rec.optimizers.base import CustomizedOptimizer
 from mx_rec.util.initialize import ConfigInitializer
