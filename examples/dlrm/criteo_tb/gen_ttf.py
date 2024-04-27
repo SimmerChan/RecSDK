@@ -370,9 +370,8 @@ if __name__ == "__main__":
         sub_process_num = process_num // len(train_data_files)
         data_file = train_data_files[process_id // sub_process_num]
         output_path = f'{save_tfrecord_path}/{process_id:04}_'
-        p = Process(target=convert_input2tfrd_multiprocess, args=(sub_process_num, process_id % sub_process_num, data_file, output_path,
-                                                                  criteo_stats, spe_num,
-                                                                  5000000))
+        p = Process(target=convert_input2tfrd_multiprocess, args=(sub_process_num, process_id % sub_process_num,
+                                                                  data_file, output_path, criteo_stats, spe_num, 5000000))
         processs.append(p)
     for p in processs:
         p.start()
@@ -394,9 +393,8 @@ if __name__ == "__main__":
         sub_process_num = process_num // len(test_data_files)
         data_file = test_data_files[process_id // sub_process_num]
         output_path = f'{save_tfrecord_path}/{process_id:04}_'
-        p = Process(target=convert_input2tfrd_multiprocess, args=(sub_process_num, process_id % sub_process_num, data_file, output_path,
-                                                                  criteo_stats, spe_num,
-                                                                  5000000))
+        p = Process(target=convert_input2tfrd_multiprocess, args=(sub_process_num, process_id % sub_process_num,
+                                                                  data_file, output_path, criteo_stats, spe_num, 5000000))
         processs.append(p)
     for p in processs:
         p.start()
