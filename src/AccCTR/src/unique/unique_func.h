@@ -171,7 +171,7 @@ public:
                 if (idCountEnable_) {
                     idCount[total] = bucket->idCount[j];
                 }
-                out[total++] = static_cast<typename Map<DataType>::type>(bucket->data[j]);
+                out[total++] = static_cast<typename Map<DataType::INT64>::type>(bucket->data[j]);
             }
             replaceOffset += bucket->count;
         }
