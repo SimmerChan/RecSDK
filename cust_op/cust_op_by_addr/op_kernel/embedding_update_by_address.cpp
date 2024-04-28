@@ -41,7 +41,8 @@ public:
 
     // get start index for current core, core parallel block_indx block_dim
     srcAddrGlobal.SetGlobalBuffer((__gm__ int64_t *)(address + block_idx * singleCoreAddrLen));
-    srcDataBufferGm.SetGlobalBuffer((__gm__ T *)(embedding + block_idx * singleCoreAddrLen / sizeof(int64_t) * sizeof(T) * dim));
+    srcDataBufferGm.SetGlobalBuffer((__gm__ T *)(embedding + block_idx * singleCoreAddrLen
+    / sizeof(int64_t) * sizeof(T) * dim));
     outDataGm.SetGlobalBuffer((__gm__ T *)(y));
   }
 
