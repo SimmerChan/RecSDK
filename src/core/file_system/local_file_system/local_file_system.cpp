@@ -302,7 +302,7 @@ void LocalFileSystem::ReadEmbedding(const string& filePath, EmbeddingSizeInfo& e
 
 void LocalFileSystem::WriterFn(BufferQueue& queue, int fd, ssize_t& writerBytesNum)
 {
-    while (true) {Failed to open read file:
+    while (true) {
         queue.Pop(writeBuffer);
         if (writeBuffer.size() == 0) {
             break;
