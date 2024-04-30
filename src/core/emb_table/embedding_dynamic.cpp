@@ -289,7 +289,9 @@ int EmbeddingDynamic::LoadKey(const string& savePath)
     void *newBlock = nullptr;
     aclError ret = aclrtMalloc(&newBlock, static_cast<int>(datasetSize), ACL_MEM_MALLOC_HUGE_FIRST);
     if (ret != ACL_SUCCESS) {
-        throw runtime_error(StringFormat("aclrtMalloc failed, ret=%d", ret).c_str());
+        std::ostringstream oss;
+        oss << "aclrtMalloc failed, ret=" << ret;
+        throw std::runtime_error(oss.str());
     }
     // 此处的 newBlock -> first address;
     // 对key_offset map 进行一个恢复操作

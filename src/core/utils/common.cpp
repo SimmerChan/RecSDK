@@ -91,7 +91,9 @@ namespace MxRec {
             return ss.str();
         }
 
-        throw std::runtime_error("dsmi_get_chip_info failed, ret = " + to_string(ret));
+        std::ostringstream errMsg;
+        errMsg << "dsmi_get_chip_info failed, ret = " << ret;
+        throw std::runtime_error(errMsg.str());
     }
 
     int GetThreadNumEnv()

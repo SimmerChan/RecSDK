@@ -133,8 +133,8 @@ int EmbeddingStatic::LoadKey(const string &savePath)
         return -1;
     }
 
-    int64_t* buf = static_cast<int64_t *>(malloc(fileSize));
-    if (buf == nullptr) {
+    unique_ptr<int64_t[]> buf(static_cast<int64_t *>(malloc(fileSize)));
+    if (!buf) {
         LOG_ERROR("malloc failed: {}", strerror(errno));
         return -1;
     }
@@ -158,7 +158,6 @@ int EmbeddingStatic::LoadKey(const string &savePath)
 
     maxOffset = keyOffsetMap.size();
 
-    free(static_cast<void*>(buf));
     return 0;
 }
 
