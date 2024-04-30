@@ -138,7 +138,7 @@ int EmbeddingStatic::LoadKey(const string &savePath)
         LOG_ERROR("malloc failed: {}", strerror(errno));
         return -1;
     }
-    fileSystemPtr->Read(ss.str(), reinterpret_cast<char *>(buf), fileSize);
+    fileSystemPtr->Read(ss.str(), reinterpret_cast<char *>(buf.get()), fileSize);
 
     size_t loadKeySize = fileSize / sizeof(int64_t);
     loadOffset.clear();
