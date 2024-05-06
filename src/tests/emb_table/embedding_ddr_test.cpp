@@ -24,7 +24,6 @@ See the License for the specific language governing permissions and
 #include "utils/common.h"
 #include "emb_table/emb_table.h"
 #include "emb_table/embedding_ddr.h"
-#include "host_emb/host_emb.h"
 
 using namespace std;
 using namespace MxRec;
