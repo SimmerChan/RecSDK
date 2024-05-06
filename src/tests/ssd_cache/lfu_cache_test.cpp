@@ -120,5 +120,5 @@ TEST(LFUCache, BaseCacheTest)
     cache.Put(9);
     ASSERT_EQ(cache.Get(9), 1);
     cache.Put(9);
-    ASSERT_EQ(cache.minFreq, 2);
+    ASSERT_EQ(cache.minFreq, 1);
 }

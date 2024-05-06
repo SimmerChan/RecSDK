@@ -43,8 +43,10 @@ void LFUCache::GetAndDeleteLeastFreqKeyInfo(uint64_t num, const vector<emb_cache
 {
     freq_num_t tempMinFreq = minFreq;
     unordered_set<emb_cache_key_t> retainedKeySet(keys.begin(), keys.end());
-    int64_t counter = 0;
+    uint64_t counter = 0;
     const size_t freqSize = freqTable.size();
+    LOG_DEBUG("table:{}, num:{}, freqTable.size:{}, keys.size:{}, ddrSwapOutKeys.size:{}, ddrSwapOutCounts.size:{}",
+              name, num, freqTable.size(), keys.size(), ddrSwapOutKeys.size(), ddrSwapOutCounts.size());
     // 遍历freqTable<次数，keyList>时，次数可能不连续，要实际使用了1个keyList后才自增，手动增加计数器
     for (size_t i = 0; i < freqSize;) {
         auto nodesIter = freqTable.find(tempMinFreq);
@@ -95,8 +97,10 @@ void LFUCache::Put(emb_cache_key_t key)
     freqTable[freq].erase(node);
     if (freqTable[freq].empty()) {
         freqTable.erase(freq);
+        if (minFreq == freq) {
+            minFreq += 1;
+        }
     }
-    if (minFreq == freq) { minFreq += 1; }
     freqTable[freq + 1].emplace_front(key, freq + 1);
     keyTable[key] = freqTable[freq + 1].begin();
 }
@@ -147,6 +151,14 @@ std::unordered_map<emb_cache_key_t, freq_num_t> LFUCache::GetFreqTable()
         freqMap[it.first] = it.second->freq;
     }
     return freqMap;
+}
+
+LFUCache::LFUCache(const string& cacheName)
+{
+    name = cacheName;
+    minFreq = 0;
+    keyTable.clear();
+    freqTable.clear();
 }
 
 LFUCache::LFUCache()

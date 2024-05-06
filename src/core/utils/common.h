@@ -491,45 +491,6 @@ namespace MxRec {
         std::vector<std::vector<float>> embData;
     };
 
-    struct EmbHashMapInfo {
-        absl::flat_hash_map<emb_key_t, int64_t> hostHashMap; // key在HBM中的偏移
-        std::vector<int> devOffset2Batch; // has -1
-        std::vector<emb_key_t> devOffset2Key;
-        size_t currentUpdatePos;
-        size_t currentUpdatePosStart;
-        size_t hostVocabSize;
-        size_t devVocabSize;
-        size_t freeSize;
-        std::vector<int32_t> lookUpVec;
-        std::vector<size_t> missingKeysHostPos; // 用于记录当前batch在host上需要换出的偏移
-        std::vector<size_t> swapPos; // 记录从HBM换出到DDR的offset
-        /*
-         * 取值范围：[0,devVocabSize+hostVocabSize);
-         * [0,devVocabSize-1]时存储在HBM, [devVocabSize,devVocabSize+hostVocabSize)存储在DDR
-         */
-        size_t maxOffset { 0 };
-        /*
-         * 记录DDR内淘汰列表，其值为相对HBM+DDR大表的；hostHashMap可直接使用；操作ddr内emb时需减掉devVocabSize
-         * 例如：HBM表大小20(offset:0~19)，DDR表大小为100（offset:0~99）；
-         * 若DDR内0位置被淘汰，记录到evictPos的值为0+20=20
-         */
-        std::vector<size_t> evictPos;
-        std::vector<size_t> evictDevPos; // 记录HBM内淘汰列表
-        size_t maxOffsetOld { 0 };
-        std::vector<size_t> evictPosChange;
-        std::vector<size_t> evictDevPosChange;
-        std::vector<std::pair<int, emb_key_t>> devOffset2KeyOld;
-        std::vector<std::pair<emb_key_t, emb_key_t>> oldSwap; // (old on dev, old on host)
-        /*
-         * HBM与DDR换入换出时,已存在于DDR且要转移到HBM的key(不包含新key); 用于SSD模式
-         * (区别于oldSwap: pair.second为已存在于DDR key + 换入换出前映射到DDR的新key)
-         */
-        std::vector<emb_key_t> ddr2HbmKeys;
-        void SetStartCount();
-
-        bool HasFree(size_t i) const;
-    };
-
     struct All2AllInfo {
         KeysT keyRecv;
         vector<int> scAll;
@@ -554,7 +515,6 @@ namespace MxRec {
     };
 
     using EmbMemT = absl::flat_hash_map<std::string, HostEmbTable>;
-    using EmbHashMemT = absl::flat_hash_map<std::string, EmbHashMapInfo>;
     using OffsetMemT = std::map<EmbNameT, size_t>;
     using KeyOffsetMemT = std::map<EmbNameT, absl::flat_hash_map<emb_key_t, int64_t>>;
     using KeyCountMemT = std::map<EmbNameT, absl::flat_hash_map<emb_key_t, size_t>>;
@@ -580,7 +540,6 @@ namespace MxRec {
 
     struct CkptData {
         EmbMemT* hostEmbs = nullptr;
-        EmbHashMemT embHashMaps;
         OffsetMemT maxOffset;
         KeyOffsetMemT keyOffsetMap;
         OffsetMapT offsetMap;
@@ -619,7 +578,7 @@ namespace MxRec {
         KEY_COUNT_MAP = 13
     };
 
-    enum CTRLogLevel {
+    enum CTRLogLevel {  // can't use enum class due to compatibility for AccCTR
         DEBUG = 0,
         INFO,
         WARN,

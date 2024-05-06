@@ -340,7 +340,7 @@ TEST_F(KeyProcessTest, Start)
     ASSERT_EQ(process.Start(), 0);
     setenv("keyProcessThreadNum", "abc", 1);
     ASSERT_EQ(process.Start(), 0);
-    CTRLog(0, "key process start successful");
+    LOG_INFO("key process start successful");
     process.Destroy();
 }
 
@@ -581,7 +581,6 @@ TEST_F(KeyProcessTest, KeyProcessTaskHelper)
 
     LOG_INFO("KeyProcessTaskHelper, rankid: {}, batchid: {}, batchSize: {}",
              rankInfo.rankId, batch->batchId, batch->sample.size());
-
     ASSERT_EQ(process.KeyProcessTaskHelper(batch, channelId, 0), true); // threadId = 0
 
     bool isEos = false;
@@ -590,7 +589,6 @@ TEST_F(KeyProcessTest, KeyProcessTaskHelper)
     ASSERT_NE(infoVecs, nullptr);
     auto all2all = process.GetInfoVec(info, ProcessedInfo::ALL2ALL, isEos);
     ASSERT_NE(all2all, nullptr);
-
     ASSERT_EQ(CheckMatrixTensor(*all2all, allExpectAll2all), true);
     ASSERT_EQ(CheckFlatTensor({infoVecs->back()}, allExpectOffset[worldRank]), true);
     infoVecs->pop_back();
