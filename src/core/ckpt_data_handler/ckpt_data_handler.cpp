@@ -33,7 +33,6 @@ void CkptDataHandler::CleanTransfer()
 {
     transferData.int64Arr.clear();
     transferData.int32Arr.clear();
-    transferData.floatArr.clear();
     transferData.attribute.clear();
     transferData.datasetSize = 0;
     transferData.attributeSize = 0;
