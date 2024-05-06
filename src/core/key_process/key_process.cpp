@@ -82,7 +82,7 @@ bool KeyProcess::Initialize(const RankInfo& rInfo, const vector<EmbInfo>& eInfos
     if (GlobalEnv::fastUnique) {
         int result = ock::ctr::Factory::Create(factory);
         if (result != 0) {
-            throw runtime_error("create fast factory failed, error code: " + std::to_string(result));
+            throw runtime_error(Logger::Format("create fast factory failed, error code:{}", result));
         }
     }
 
@@ -245,9 +245,7 @@ void KeyProcess::InitializeUnique(ock::ctr::UniqueConf& uniqueConf, size_t& preB
 
         int ret = unique->Initialize(uniqueConf);
         if (ret != ock::ctr::H_OK) {
-            std::ostringstream oss;
-            oss << "fast unique init failed, code:" << ret;
-            throw std::runtime_error(oss.str());
+            throw runtime_error(Logger::Format("fast unique init failed, code:{}", ret));
         }
         uniqueInitialize = true;
     }
@@ -263,7 +261,7 @@ void KeyProcess::KeyProcessTaskWithFastUnique(int channel, int threadId)
 
     int ret = factory->CreateUnique(unique);
     if (ret != ock::ctr::H_OK) {
-        throw runtime_error("create fast unique failed, error code: " + std::to_string(ret));
+        throw runtime_error(Logger::Format("create fast unique failed, error code:{}", ret));
     }
     GetUniqueConfig(uniqueConf);
 
@@ -616,9 +614,7 @@ void KeyProcess::ProcessBatchWithFastUnique(const unique_ptr<EmbBatchT> &batch, 
 
     int ret = unique->DoEnhancedUnique(uniqueIn, uniqueOut);
     if (ret != ock::ctr::H_OK) {
-        std::ostringstream oss;
-        oss << "fast unique DoEnhancedUnique failed, code:" << ret;
-        throw std::runtime_error(oss.str());
+        throw runtime_error(StringFormat("fast unique DoEnhancedUnique failed, code:%d", ret));
     }
     EASY_END_BLOCK
     LOG_DEBUG("FastUniqueCompute(ms):{}, ret:{}", uniqueTC.ElapsedMS(), ret);

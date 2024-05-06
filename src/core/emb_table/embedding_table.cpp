@@ -107,9 +107,9 @@ void EmbeddingTable::EvictInitDeviceEmb()
     if (evictDevPos.size() > devVocabSize) {
         LOG_ERROR("{} overflow! init evict dev, evictOffset size {} bigger than dev vocabSize {}",
             name, evictDevPos.size(), devVocabSize);
-        throw runtime_error(name + " overflow! init evict dev, evictOffset size " +
-        std::to_string(evictDevPos.size()) + " bigger than dev vocabSize " +
-        std::to_string(devVocabSize));
+        throw runtime_error(
+            Logger::Format("{} overflow! init evict dev, evictOffset size {} bigger than dev vocabSize {}",
+                name, evictDevPos.size(), devVocabSize).c_str());
     }
 
     vector<Tensor> tmpDataOut;

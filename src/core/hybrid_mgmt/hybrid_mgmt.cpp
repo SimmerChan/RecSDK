@@ -1089,9 +1089,9 @@ int HybridMgmt::GetStepFromPath(const string& loadPath) const
         try {
             res = stoi(match[1]);
         } catch (const std::invalid_argument& e) {
-            LOG_ERROR("Invalid argument exception occurred: {}", e.what());
+            LOG_ERROR(e.what());
         } catch (const std::out_of_range& e) {
-            LOG_ERROR("Out of range exception occurred: {}", e.what());
+            LOG_ERROR(e.what());
         }
         return res;
     }

@@ -208,14 +208,14 @@ size_t HDTransfer::RecvAcl(TransferChannel channel, int channelId, const string&
     LOG_DEBUG("hd transfer try recv:{}", recvName);
     TimeCost tc = TimeCost();
     if (aclDatasets[embName] == nullptr) {
-        throw runtime_error("Failed recv: " + recvName);
+        throw runtime_error(StringFormat("Failed recv:%s.", recvName.c_str()).c_str());
     }
     auto aclStatus = acltdtReceiveTensor(transferChannels[recvName], aclDatasets[embName], GlobalEnv::aclTimeout);
     if (!running) {
         return 0;
     }
     if (aclStatus != ACL_ERROR_NONE && aclStatus != ACL_ERROR_RT_QUEUE_EMPTY) {
-        throw runtime_error("Failed receive data from acl channel, acl status: " + std::to_string(aclStatus));
+        throw runtime_error(StringFormat("Failed receive data from acl channel, acl status:%d", aclStatus).c_str());
     }
     LOG_INFO("hd transfer recv:{} cost:{}ms", recvName, tc.ElapsedMS());
     return acltdtGetDatasetSize(aclDatasets[embName]);

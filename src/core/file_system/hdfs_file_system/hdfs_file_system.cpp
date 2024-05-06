@@ -281,9 +281,7 @@ void HdfsFileSystem::ReadEmbedding(const string& filePath, EmbeddingSizeInfo& em
         } catch (std::exception& e) {
             hdfs->CloseFile(fs, file);
             hdfs->Disconnect(fs);
-            std::ostringstream oss;
-            oss << "error happen when acl memory copy from host to device: " << e.what();
-            throw std::runtime_error(oss.str());
+            throw runtime_error(StringFormat("error happen when acl memory copy from host to device: %s", e.what()));
         }
         i++;
     }

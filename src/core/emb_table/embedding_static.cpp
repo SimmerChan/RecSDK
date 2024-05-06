@@ -133,12 +133,12 @@ int EmbeddingStatic::LoadKey(const string &savePath)
         return -1;
     }
 
-    unique_ptr<int64_t[]> buf(static_cast<int64_t *>(malloc(fileSize)));
-    if (!buf) {
+    int64_t* buf = static_cast<int64_t *>(malloc(fileSize));
+    if (buf == nullptr) {
         LOG_ERROR("malloc failed: {}", strerror(errno));
         return -1;
     }
-    fileSystemPtr->Read(ss.str(), reinterpret_cast<char *>(buf.get()), fileSize);
+    fileSystemPtr->Read(ss.str(), reinterpret_cast<char *>(buf), fileSize);
 
     size_t loadKeySize = fileSize / sizeof(int64_t);
     loadOffset.clear();
@@ -153,11 +153,13 @@ int EmbeddingStatic::LoadKey(const string &savePath)
 
     if (loadOffset.size() > devVocabSize) {
         LOG_ERROR("load key size exceeds device vocab size: {}", strerror(errno));
+        free(static_cast<void*>(buf));
         return -1;
     }
 
     maxOffset = keyOffsetMap.size();
 
+    free(static_cast<void*>(buf));
     return 0;
 }
 

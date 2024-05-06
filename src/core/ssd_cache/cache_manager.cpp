@@ -443,12 +443,12 @@ void CacheManager::CreateSSDTableIfNotExist(const std::string& embTableName)
         ssdEngine->CreateTable(embTableName, embBaseInfos[embTableName].savePath,
                                embBaseInfos[embTableName].maxTableSize);
         embBaseInfos[embTableName].isExist = true;
-        LOG_INFO("create ssd table end, embTableName: %s", embTableName.c_str());
+        LOG_INFO("create ssd table end, embTableName:" + embTableName);
         return;
     }
     // 续训场景：embBaseInfos 没有保存，不会初始化；SSD表会初始化，此时表已存在
     embBaseInfos[embTableName].isExist = true;
-    LOG_INFO("ssd table is exist, embTableName: %s", embTableName.c_str());
+    LOG_INFO("ssd table is exist, embTableName:" + embTableName);
 }
 
 void CacheManager::RestoreLeastFreqInfo(const std::string& embTableName, vector<emb_key_t>& ddrSwapOutKeys,
