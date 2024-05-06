@@ -12,8 +12,10 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
         limitations under the License.
 ==============================================================================*/
-
 #include "emb_table/embedding_mgmt.h"
+
+#include <future>
+
 #include "emb_table/embedding_static.h"
 #include "emb_table/embedding_dynamic.h"
 #include "emb_table/embedding_ddr.h"
@@ -25,8 +27,7 @@ EmbeddingMgmt::EmbeddingMgmt()
 {
 }
 
-void EmbeddingMgmt::Init(const RankInfo& rInfo, const vector<EmbInfo>& eInfos,
-    const vector<ThresholdValue>& thresholdValues, int seed)
+void EmbeddingMgmt::Init(const RankInfo& rInfo, const vector<EmbInfo>& eInfos, int seed)
 {
     for (size_t i = 0; i < eInfos.size(); ++i) {
         if (rInfo.isDDR) {
@@ -54,17 +55,7 @@ void EmbeddingMgmt::Key2Offset(const std::string& name, std::vector<emb_key_t>& 
 
 size_t EmbeddingMgmt::GetMaxOffset(const std::string& name)
 {
-    embeddings[name]->GetMaxOffset();
-}
-
-void EmbeddingMgmt::LoadMaxOffset(OffsetMemT& loadData)
-{
-    LOG_ERROR("load max offset");
-}
-
-void EmbeddingMgmt::LoadKeyOffsetMap(KeyOffsetMemT& loadData)
-{
-    LOG_ERROR("load key offset");
+    return embeddings[name]->GetMaxOffset();
 }
 
 std::map<EmbNameT, size_t> EmbeddingMgmt::GetMaxOffset()
@@ -117,31 +108,6 @@ int64_t EmbeddingMgmt::GetCapacity(const std::string &name)
     return embeddings[name]->capacity();
 }
 
-void EmbeddingMgmt::FindOffset(const std::string& name, const vector<emb_key_t>& keys,
-                               size_t currentBatchId, size_t keepBatchId, int channel)
-{
-    return embeddings[name]->FindOffset(keys, currentBatchId, keepBatchId, channel);
-}
-
-const std::vector<size_t>& EmbeddingMgmt::GetMissingKeys(const std::string& name)
-{
-    return embeddings[name]->GetMissingKeys();
-}
-
-void EmbeddingMgmt::ClearMissingKeys(const std::string& name)
-{
-    return embeddings[name]->ClearMissingKeys();
-}
-
-std::shared_ptr<EmbeddingTable> EmbeddingMgmt::GetTable(const string& name)
-{
-    auto it = embeddings.find(name);
-    if (it == embeddings.end()) {
-        LOG_ERROR("table not found");
-    }
-    return std::dynamic_pointer_cast<EmbeddingTable>(it->second);
-}
-
 void EmbeddingMgmt::Load(const string& filePath)
 {
     for (auto& tablePair: embeddings) {
@@ -156,8 +122,13 @@ void EmbeddingMgmt::Save(const string& name, const string& filePath)
 
 void EmbeddingMgmt::Save(const string& filePath)
 {
+    // use multi-thread to prevent receiving save_d2h blocked when table order different between cpp and python
+    vector<future<void>> futures;
     for (auto& tablePair: embeddings) {
-        tablePair.second->Save(filePath);
+        futures.emplace_back(std::async(std::launch::async, [&] { tablePair.second->Save(filePath); }));
+    }
+    for (auto& f: futures) {
+        f.get();  // get() will repost exception if happened
     }
 }
 
@@ -173,18 +144,6 @@ OffsetMapT EmbeddingMgmt::GetDeviceOffsets()
 void EmbeddingMgmt::SetOptimizerInfo(const string& name, OptimizerInfo& optimizerInfo)
 {
     embeddings[name]->SetOptimizerInfo(optimizerInfo);
-}
-
-EmbHashMemT EmbeddingMgmt::GetEmbHashMaps()
-{
-    EmbHashMemT EmbHashMaps;
-    for (auto& tablePair: embeddings) {
-        EmbHashMaps[tablePair.first].hostHashMap = tablePair.second ->GetKeyOffsetMap();
-        EmbHashMaps[tablePair.first].devVocabSize = tablePair.second ->GetDevVocabSize();
-        EmbHashMaps[tablePair.first].hostVocabSize = tablePair.second ->GetHostVocabSize();
-        EmbHashMaps[tablePair.first].maxOffset = tablePair.second ->GetMaxOffset();
-    }
-    return EmbHashMaps;
 }
 
 OffsetMapT EmbeddingMgmt::GetLoadOffsets()
@@ -203,25 +162,16 @@ void EmbeddingMgmt::SetCacheManagerForEmbTable(CacheManager* cacheManager)
     }
 }
 
-void EmbeddingMgmt::EnableSSD()
+void EmbeddingMgmt::SetHDTransferForEmbTable(HDTransfer* hdTransfer)
 {
     for (auto& table: embeddings) {
-        table.second->EnableSSD();
+        table.second->SetHDTransfer(hdTransfer);
     }
 }
 
-void EmbeddingMgmt::LockSave()
+void EmbeddingMgmt::SetEmbCacheForEmbTable(const ock::ctr::EmbCacheManagerPtr& embCache)
 {
     for (auto& table: embeddings) {
-        table.second->mutSave_.lock();
+        table.second->SetEmbCache(embCache);
     }
-    LOG_DEBUG("LockSave");
-}
-
-void EmbeddingMgmt::UnLockSave()
-{
-    for (auto& table: embeddings) {
-        table.second->mutSave_.unlock();
-    }
-    LOG_DEBUG("UnLockSave");
 }
