@@ -35,13 +35,13 @@ if __name__ == '__main__':
     partition_to_first_heavy_load = False
     #########################################################
 
-    out_filepath = os.path.join(args.output_path, args.output_filename)
+    output_filepath = os.path.join(args.output_path, args.output_filename)
 
     print("Try to load model from {}...".format(args.model_path))
 
     with tf.compat.v1.Session() as sess:
         try:
-            meta_gragh = tf.compat.v1.saved_model.loader.load(sess, ["serve"], args.model_path)
+            meta_graph = tf.compat.v1.saved_model.loader.load(sess, ["serve"], args.model_path)
 
         except Exception as e:
             print("Error when try to load model, will try to partition graph anyway!", e)
@@ -52,25 +52,25 @@ if __name__ == '__main__':
         graph_partitioner = GraphPartitioner()
 
         graph_partitioner.graph = sess.graph
-        graph_partitioner.signature_def = meta_gragh.signature_def.get(signature_def)
-        graph_partitioner.set_emedding_lookup_op_type(embedding_lookup_op_type)
+        graph_partitioner.signature_def = meta_graph.signature_def.get(signature_def)
+        graph_partitioner.set_embedding_lookup_op_type(embedding_lookup_op_type)
 
         inputs, outputs = graph_partitioner.get_sub_graph()
 
         print("Sub graph is generated!")
 
     # 这里后续根据输出文件生成subs
-    print("Generation cfg file...")
+    print("Generating cfg file...")
     print(inputs, outputs)
 
     res_string = "[[" + inputs + "," + outputs + "]]"
 
     output = template.replace("#value@in_out_pair#", res_string)
-    if os.path.exists(out_filepath):
-        os.remove(out_filepath)
+    if os.path.exists(output_filepath):
+        os.remove(output_filepath)
 
     # open text file
-    text_file = open(out_filepath, "w")
+    text_file = open(output_filepath, "w")
 
     # write string to file
     n = text_file.write(output)
