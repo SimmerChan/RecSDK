@@ -64,6 +64,15 @@ public:
 
     void Destroy() override;
 
+    int GetEmbTableInfos(std::string tableName, std::vector<uint64_t> &keys,
+                         std::vector<std::vector<float>> &embeddings,
+                         std::vector<std::vector<float>> &optimizerSlots) override;
+
+    int LoadEmbTableInfos(std::string tableName, const std::vector<uint64_t> &keys,
+                          const std::vector<std::vector<float>> &embeddings,
+                          const std::vector<std::vector<float>> &optimizerSlots) override;
+
+
     uint32_t GetUsage(const std::string &tableName) override;
 
 private:

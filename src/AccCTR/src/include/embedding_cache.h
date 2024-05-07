@@ -289,6 +289,30 @@ public:
      * @Return 当前表的使用量
      */
     virtual uint32_t GetUsage(const std::string &tableName) = 0;
+
+    /* *
+     * 获取当前host侧所存储的所有keys及其对应的embeddings和优化器参数
+     * @Param tableName: 需要获取信息的table名字
+     * @Param keys: 输入参数，输入空vector，获取的存储的所有keys会赋到该vector中
+     * @Param embeddings: 输入参数，输入空vector，获取的存储的所有embeddings会赋到该vector中
+     * @Param optimizerSlots: 输入参数，输入空vector，获取的存储的所有optimizerSlots会赋到该vector中
+     * @Return errorCode
+     */
+    virtual int GetEmbTableInfos(std::string tableName, std::vector<uint64_t> &keys,
+                                 std::vector<std::vector<float>> &embeddings,
+                                 std::vector<std::vector<float>> &optimizerSlots) = 0;
+
+    /* *
+     * 将所需存储的keys及其对应的embeddings和优化器参数传入，来装载LocalEmbeddingTable
+     * @Param tableName: 需要加载信息的table名字
+     * @Param keys: 输入参数，需要加载的所有keys
+     * @Param embeddings: 输入参数，需要加载的所有embeddings
+     * @Param optimizerSlots: 输入参数，需要加载的所有optimizerSlots
+     * @Return errorCode
+     */
+    virtual int LoadEmbTableInfos(std::string tableName, const std::vector<uint64_t> &keys,
+                                  const std::vector<std::vector<float>> &embeddings,
+                                  const std::vector<std::vector<float>> &optimizerSlots) = 0;
 };
 }
 
