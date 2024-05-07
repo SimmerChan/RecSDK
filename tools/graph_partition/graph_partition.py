@@ -24,11 +24,11 @@ class GraphPartitioner:
     def set_embedding_lookup_op_type(self,s):
         self.embedding_lookup_op_type = s
 
-    def has_gary_downstreams(self, op):
-        gary_list = ["DynamicPartition"]
+    def has_gray_downstreams(self, op):
+        gray_list = ["DynamicPartition"]
         down_ops = ge.get_forward_walk_ops([op])
         for op in down_ops:
-            if op.type  in gary_list:
+            if op.type  in gray_list:
                 return True
         return False
 
@@ -57,7 +57,7 @@ class GraphPartitioner:
         check_ops = self.sparse_lookup_ops
         self.sparse_lookup_ops = []
         for op in check_ops:
-            if not self.has_gary_downstreams(op):
+            if not self.has_gray_downstreams(op):
                 self.sparse_lookup_ops.append(op)
                 self.sparse_lookup_tensors.extend(op.outputs)
 
