@@ -20,19 +20,9 @@ See the License for the specific language governing permissions and
 #include "host_emb/host_emb.h"
 #include "file_system/file_system_handler.h"
 #include "ssd_cache/cache_manager.h"
+#include "emb_table/embedding_mgmt.h"
 
 using namespace MxRec;
-
-constexpr int ELEMENT_NUM = 4;
-constexpr int CURRENT_UPDATE_IDX = 0;
-constexpr int HOST_VOCAB_SIZE_IDX = 1;
-constexpr int DEV_VOCAB_SIZE_IDX = 2;
-constexpr int MAX_OFFSET_IDX = 3;
-
-constexpr int EMB_INFO_ELEMENT_NUM = 3;
-constexpr int EMB_INFO_EXT_SIZE_IDX = 0;
-constexpr int EMB_INFO_DEV_VOCAB_SIZE_IDX = 1;
-constexpr int EMB_INFO_HOST_VOCAB_SIZE_IDX = 2;
 
 EmbeddingDDR::EmbeddingDDR()
 {
@@ -110,7 +100,7 @@ emb_key_t EmbeddingDDR::FindOffsetHelper(const emb_key_t& key, int channelId)
     if (iter != keyOffsetMap.end()) {
         offset = iter->second;
         LOG_TRACE("devVocabSize, {} , offset , {}", devVocabSize, offset);
-        if (offset >= devVocabSize) {
+        if (isSSDEnabled_ && offset >= devVocabSize) {
             ddr2HbmKeys.emplace_back(key);
         }
         return offset;
@@ -355,33 +345,36 @@ int EmbeddingDDR::LoadHashMap(const string& savePath)
         LOG_ERROR("malloc failed: {}", strerror(errno));
         return -1;
     }
-    fileSystemPtr->Read(ss.str(), reinterpret_cast<char*>(buf), fileSize);
+    ssize_t result = fileSystemPtr->Read(ss.str(), reinterpret_cast<char*>(buf), fileSize);
+    if (result == -1) {
+        free(static_cast<void*>(buf));
+        return -1;
+    }
 
     size_t loadKeySize = fileSize / sizeof(int64_t);
 
-    // 先拿到所有属于自己的key
-
+    // key优先加载至device
     loadOffset.clear();
     hostLoadOffset.clear();
     int keyCount = 0;
-    int deviceCount = 0;
     for (int i = 0; i < loadKeySize; i = i + 1) {
         if (buf[i] % rankSize_ != rankId_) {
             continue;
         }
         if (keyCount > devVocabSize + hostVocabSize) {
             LOG_ERROR("load key size exceeds the sum of device vocab size and host vocab size: {}", strerror(errno));
+            free(static_cast<void*>(buf));
             return -1;
-        } else if (keyCount < hostVocabSize) {
-            keyOffsetMap[buf[i]] = keyCount + devVocabSize;
-            hostLoadOffset.push_back(i);
-        } else {
-            keyOffsetMap[buf[i]] = deviceCount;
+        } else if (keyCount < devVocabSize) {
             loadOffset.push_back(i);
-            deviceCount++;
+            devOffset2Key[keyCount] = buf[i];
+        } else {
+            hostLoadOffset.push_back(i);
         }
+        keyOffsetMap[buf[i]] = keyCount;
         keyCount++;
     }
+    maxOffset = keyOffsetMap.size();
 
     free(static_cast<void*>(buf));
     return 0;
@@ -443,10 +436,16 @@ int EmbeddingDDR::SaveKey(const string& savePath)
         }
     }
 
-    hostKey.insert(hostKey.end(), deviceKey.begin(), deviceKey.end());
     ssize_t res = fileSystemPtr->Write(ss.str(), reinterpret_cast<const char *>(hostKey.data()),
                                        static_cast<size_t>(hostKey.size() * sizeof(int64_t)));
     if (res == -1) {
+        return -1;
+    }
+    ssize_t res2 = fileSystemPtr->Write(
+        ss.str(), reinterpret_cast<const char *>(deviceKey.data()),
+        static_cast<size_t>(deviceKey.size() * sizeof(int64_t))
+    );
+    if (res2 == -1) {
         return -1;
     }
     return 0;
@@ -537,7 +536,7 @@ void EmbeddingDDR::RefreshFreqInfoWithSwap()
         return;
     }
     // 换入换出key列表，元素为pair: pair<oldKey, key> oldKey为从HBM移出的key, key为从DDR移出的key
-    LOG_DEBUG("RefreshFreqInfoWithSwap:oldSwap Size:{}", oldSwap.size());
+    LOG_DEBUG("RefreshFreqInfoWithSwap, table:{}, oldSwap Size:{}", name, oldSwap.size());
     vector<emb_key_t> enterDDRKeys;
     for (auto keyPair : oldSwap) {
         enterDDRKeys.emplace_back(keyPair.first);
@@ -583,8 +582,8 @@ void EmbeddingDDR::AddCacheManagerTraceLog() const
     std::string ddrKeysString = VectorToString(ddrKeys);
     std::string lfuKeysString = VectorToString(lfuKeys);
     if (ddrKeysString != lfuKeysString) {
-        LOG_ERROR("swap HBM with DDR step error, key string not equal, ddrKeysString:{}, lfuKeysString:{}",
-                  ddrKeysString, lfuKeysString);
+        LOG_ERROR("swap HBM with DDR step error, key string not equal, table:{}, ddrKeysString:{}, lfuKeysString:{}",
+                  name, ddrKeysString, lfuKeysString);
     } else {
         LOG_INFO("swap HBM with DDR step OK, table:{}, ddrKeysString == lfuKeysString, string length:{}",
                  name, lfuKeysString.length());
@@ -606,4 +605,38 @@ TableInfo EmbeddingDDR::GetTableInfo()
         .evictHostPos=evictHostPos,
     };
     return ti;
+}
+
+void EmbeddingDDR::RefreshFreqInfoAfterLoad()
+{
+    vector<emb_key_t> h2d;
+    vector<emb_key_t> d2h;
+
+    for (const auto& it: cacheManager_->ddrKeyFreqMap[name].keyTable) {
+        auto key = it.first;
+        auto iter = keyOffsetMap.find(key);
+        if (iter == keyOffsetMap.end()) {
+            throw runtime_error("ddrKeyFreqMap key not in keyOffsetMap");
+        }
+        auto offset = iter->second;
+        if (offset < devVocabSize) {
+            d2h.emplace_back(key);
+        }
+    }
+    for (const auto& it: cacheManager_->excludeDDRKeyCountMap[name]) {
+        auto key = it.first;
+        auto iter = keyOffsetMap.find(key);
+        if (iter == keyOffsetMap.end()) {
+            continue;
+        }
+        auto offset = iter->second;
+        if (offset >= devVocabSize) {
+            h2d.emplace_back(key);
+        }
+    }
+
+    cacheManager_->RefreshFreqInfoCommon(name, h2d, TransferType::HBM_2_DDR);
+    cacheManager_->RefreshFreqInfoCommon(name, d2h, TransferType::DDR_2_HBM);
+
+    LOG_DEBUG("RefreshFreqInfoAfterLoad done");
 }

@@ -19,10 +19,22 @@ rm -rf /root/ascend/log/*
 rm -rf ./kernel*
 rm -rf ./export_graph/*
 
-export USE_MODE="train" # 支持[train, predict]
+# 支持[train, load_and_train, predict]
+export USE_MODE="train"
+if [ $USE_MODE = "train" ]; then
+  echo "train mode: saved-model will be deleted"
+  rm -rf ./saved-model
+fi
 
 # cache mode support: HBM, DDR, SSD
 export CACHE_MODE="HBM"
+if [ $CACHE_MODE = "SSD" ] && [ $USE_MODE = "train" ]; then
+  echo "SSD train mode not allow file exist in directory when training a model from stratch in case overwrite,
+        deleting directory ssd_data then create for this use case"
+  rm -rf ssd_data
+  mkdir ssd_data
+fi
+
 
 # 获取输入参数：py、ip
 if [ $# -ge 1 ]; then
@@ -88,11 +100,9 @@ export TF_CPP_MIN_LOG_LEVEL=3 # tensorflow日志级别,3对应FATAL
 # 设置应用类日志的全局日志级别及各模块日志级别，具体请参考昇腾官网CANN文档
 export ASCEND_GLOBAL_LOG_LEVEL=3 # “设置日志级别”章节0:debug, 1:info, 2:warning, 3:error, 4:NULL
 export MXREC_MODE="ASC"
-export USE_MPI=1
 
 ################# 参数配置 ######################
 export USE_DYNAMIC=1            # 0：静态shape；1：动态shape
-export USE_HOT=0                # 0：关闭hot emb；1: 开启hot emb
 export USE_DYNAMIC_EXPANSION=0  # 0：关闭动态扩容；1: 开启动态扩容
 export USE_MULTI_LOOKUP=1       # 0：一表一查；1：一表多查
 export MULTI_LOOKUP_TIMES=2     # 一表多查次数：默认2，上限127（因为一表已经有一查）；仅当export USE_MULTI_LOOKUP=1时生效
@@ -141,7 +151,7 @@ else
       echo "ip: $ip available."
       echo "The ranktable solution is removed."
       export CM_CHIEF_IP=$ip  # 主节点ip
-      export CM_CHIEF_PORT=6000  # 主节点监听端口
+      export CM_CHIEF_PORT=60001  # 主节点监听端口
       export CM_CHIEF_DEVICE=0  # 主节点device id
       export CM_WORKER_IP=$ip  # 当前节点ip
       export CM_WORKER_SIZE=$num_process  # 参与集群训练的device数量
@@ -150,7 +160,6 @@ else
       echo "CM_CHIEF_DEVICE=$CM_CHIEF_DEVICE"
       echo "CM_WORKER_IP=$CM_WORKER_IP"
       echo "CM_WORKER_SIZE=$CM_WORKER_SIZE"
-      echo "ASCEND_VISIBLE_DEVICES=$ASCEND_VISIBLE_DEVICES"
       #########################################################
     else
       echo "ip: $ip not available!" # 使用ranktable方案

@@ -447,12 +447,8 @@ def write_binary_data(writing_path, suffix, data, attributes=None):
     target_data_dir = os.path.join(writing_path, data_file)
 
     with tf.io.gfile.GFile(target_data_dir, "ab") as file:
-        if check_file_system_is_hdfs(target_data_dir):
-            data = data.tostring()
-            file.write(data)
-        else:
-            data.astype(np.float32)
-            data.tofile(target_data_dir)
+        data = data.tostring()
+        file.write(data)
 
 
 def read_binary_data(reading_path: str, data_name: str, table_name: str, load_offset) -> dict:
@@ -603,7 +599,7 @@ def merge_multi_files(upper_dir: str):
 
     Returns: None
     """
-    data_files = [file for file in os.listdir(upper_dir) if file.endswith(".data")]
+    data_files = [file for file in tf.io.gfile.listdir(upper_dir) if file.startswith("slice_")]
     data_files = sorted(data_files, key=os.path.basename)
     outfile_path = os.path.join(upper_dir, "slice.data")
     with tf.io.gfile.GFile(outfile_path, "wb") as outfile:

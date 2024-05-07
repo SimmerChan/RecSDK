@@ -21,6 +21,7 @@ import shutil
 import warnings
 from glob import glob
 
+import numpy as np
 import tensorflow as tf
 
 from mx_rec.constants.constants import ASCEND_TIMESTAMP
@@ -29,8 +30,7 @@ from mx_rec.core.asc.helper import get_asc_insert_func
 from mx_rec.core.asc.manager import start_asc_pipeline
 from mx_rec.core.embedding import create_table, sparse_lookup
 from mx_rec.graph.modifier import modify_graph_and_start_emb_cache
-from mx_rec.util.communication.hccl_ops import get_rank_id, get_rank_size
-from mx_rec.util.initialize import ConfigInitializer
+from mx_rec.util.communication.hccl_ops import get_rank_size
 from mx_rec.util.initialize import init, terminate_config_initializer
 from mx_rec.util.log import logger
 from mx_rec.util.variable import get_dense_and_sparse_variable
@@ -43,7 +43,7 @@ from run_mode import RunMode, UseMode
 
 tf.compat.v1.disable_eager_execution()
 
-_SSD_SAVE_PATH = ["ssd_data"]
+_SSD_SAVE_PATH = ["ssd_data"]  # user should make sure directory exist and clean before training
 
 
 class CacheModeEnum(enum.Enum):
@@ -188,37 +188,43 @@ if __name__ == "__main__":
     # get init configuration
     try:
         use_dynamic = bool(int(os.getenv("USE_DYNAMIC", 0)))
-        use_hot = bool(int(os.getenv("USE_HOT", 0)))
         use_dynamic_expansion = bool(int(os.getenv("USE_DYNAMIC_EXPANSION", 0)))
         use_multi_lookup = bool(int(os.getenv("USE_MULTI_LOOKUP", 1)))
         MODIFY_GRAPH_FLAG = bool(int(os.getenv("USE_MODIFY_GRAPH", 0)))
         USE_TIMESTAMP = bool(int(os.getenv("USE_TIMESTAMP", 0)))
         USE_ONE_SHOT = bool(int(os.getenv("USE_ONE_SHOT", 0)))
+        USE_DETERMINISTIC = bool(int(os.getenv("USE_DETERMINISTIC", 0)))
     except ValueError as err:
-        raise ValueError(f"please correctly config USE_MPI or USE_DYNAMIC or USE_HOT or USE_DYNAMIC_EXPANSION or "
-                         f"USE_MULTI_LOOKUP or USE_MODIFY_GRAPH or USE_TIMESTAMP or USE_ONE_SHOT "
-                         f"only 0 or 1 is supported.") from err
+        raise ValueError("please correctly config USE_MPI or USE_DYNAMIC or USE_DYNAMIC_EXPANSION or "
+                         "USE_MULTI_LOOKUP or USE_MODIFY_GRAPH or USE_TIMESTAMP or USE_ONE_SHOT or USE_DETERMINISTIC"
+                         "only 0 or 1 is supported.") from err
 
     try:
         MULTI_LOOKUP_TIMES = int(os.getenv("MULTI_LOOKUP_TIMES", 2))
     except ValueError as err:
-        raise ValueError(f"please correctly config MULTI_LOOKUP_TIMES only int is supported.") from err
+        raise ValueError("please correctly config MULTI_LOOKUP_TIMES only int is supported.") from err
 
-    IF_LOAD = False
-    rank_id = get_rank_id()
+    if USE_DETERMINISTIC:
+        np.random.seed(128)
+        tf.random.set_random_seed(128)
 
-    file_list = glob(f"./saved-model/sparse-model-*")
-    if file_list:
-        IF_LOAD = True
-
+    if_load = False
+    save_path = "./saved-model"
+    model_file = []
+    if use_mode in [UseMode.PREDICT, UseMode.LOAD_AND_TRAIN]:
+        load_path_pattern = os.path.join(save_path, "sparse-model-*")
+        model_file = glob(load_path_pattern)
+        if len(model_file) == 0:
+            raise ValueError(f"get USE_MODE:{use_mode}, but no model file exist at:{load_path_pattern}")
+        if_load = True
+    
     # nbatch function needs to be used together with the prefetch and host_vocabulary_size != 0
     init(train_steps=TRAIN_STEPS,
          eval_steps=EVAL_STEPS,
          save_steps=SAVING_INTERVAL,
          use_dynamic=use_dynamic,
-         use_hot=use_hot,
          use_dynamic_expansion=use_dynamic_expansion,
-         if_load=IF_LOAD)
+         if_load=if_load)
 
     cfg = Config()
     # multi lookup config, batch size: 32 * 128 = 4096
@@ -261,11 +267,12 @@ if __name__ == "__main__":
         raise ValueError(f"cache mode must in {list(cache_mode_dict.keys())}, get:{cache_mode}")
     if cache_mode in ["DDR", "SSD"] and not use_dynamic:
         logger.warning("when cache_mode in [DDR, SSD], suggest use_dynamic=true to avoid tuning size parameter")
-
+    emb_initializer = tf.compat.v1.constant_initializer(0) if USE_DETERMINISTIC \
+                      else tf.compat.v1.truncated_normal_initializer()
     user_hashtable = create_table(key_dtype=tf.int64,
                                   dim=tf.TensorShape([cfg.user_hashtable_dim]),
                                   name='user_table',
-                                  emb_initializer=tf.compat.v1.truncated_normal_initializer(),
+                                  emb_initializer=emb_initializer,
                                   optimizer_list=sparse_optimizer_list,
                                   all2all_gradients_op="sum_gradients_and_div_by_ranksize",
                                   **cache_mode_dict[cache_mode])
@@ -273,7 +280,7 @@ if __name__ == "__main__":
     item_hashtable = create_table(key_dtype=tf.int64,
                                   dim=tf.TensorShape([cfg.item_hashtable_dim]),
                                   name='item_table',
-                                  emb_initializer=tf.compat.v1.truncated_normal_initializer(),
+                                  emb_initializer=emb_initializer,
                                   optimizer_list=sparse_optimizer_list,
                                   **cache_mode_dict[cache_mode])
 
@@ -282,7 +289,7 @@ if __name__ == "__main__":
     train_model = None
     train_batch = None
     table_list = [user_hashtable, item_hashtable]
-    if use_mode == UseMode.TRAIN:
+    if use_mode in [UseMode.TRAIN, UseMode.LOAD_AND_TRAIN]:
         train_iterator, train_model, train_batch = build_graph(table_list, is_train=True,
                                                                feature_spec_list=train_feature_spec_list,
                                                                config_dict=ACCESS_AND_EVICT,
@@ -293,7 +300,8 @@ if __name__ == "__main__":
                                                         batch_number=MAX_DATASET_GENERATE * get_rank_size())
     dense_variables, sparse_variables = get_dense_and_sparse_variable()
 
-    params = {"train_batch": train_batch, "eval_batch": eval_batch, "use_one_shot": USE_ONE_SHOT}
+    params = {"train_batch": train_batch, "eval_batch": eval_batch, "use_one_shot": USE_ONE_SHOT, 
+              "use_deterministic": USE_DETERMINISTIC}
     run_mode = RunMode(
         MODIFY_GRAPH_FLAG, USE_TIMESTAMP, table_list, optimizer_list, train_model, eval_model, train_iterator,
         eval_iterator, MAX_TRAIN_STEPS, EVAL_STEPS, params
@@ -303,14 +311,14 @@ if __name__ == "__main__":
     if not MODIFY_GRAPH_FLAG:
         start_asc_pipeline()
     # start modify graph
-    if MODIFY_GRAPH_FLAG and use_mode != UseMode.TRAIN:
+    if MODIFY_GRAPH_FLAG and use_mode not in [UseMode.TRAIN, UseMode.LOAD_AND_TRAIN]:
         logger.info("start to modifying graph")
         modify_graph_and_start_emb_cache(dump_graph=True)
 
-    if use_mode == UseMode.TRAIN:
-        run_mode.train(TRAIN_STEPS, SAVING_INTERVAL, if_load=IF_LOAD)
+    if use_mode in [UseMode.TRAIN, UseMode.LOAD_AND_TRAIN]:
+        run_mode.train(TRAIN_STEPS, SAVING_INTERVAL, if_load, model_file)
     elif use_mode == UseMode.PREDICT:
-        run_mode.predict()
+        run_mode.predict(model_file)
 
     terminate_config_initializer()
     logger.info("Demo done!")
