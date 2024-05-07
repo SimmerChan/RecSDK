@@ -1,20 +1,21 @@
 import tensorflow as tf
-import tensorflow_serving.apis import predict_pb2
-import tensorflow_serving.apis import prediction_service_pb2_grpc
+from tensorflow_serving.apis import predict_pb2
+from tensorflow_serving.apis import prediction_service_pb2_grpc
 import grpc
 import numpy as np
+import os
 import time
 class PredictModelGrpc(object):
     def __init__(self, model_name, inputs, input_types, output_name, socket='xxx.xxx.xxx.xxx:8500'):
         self.socket = socket
         self.model_name = model_name
         self.inputs =inputs
-        self.inputs_types = input_types
+        self.input_types = input_types
         self.output_name = output_name
         self.request, self.stub = self.__get_request()
 
     def __get_request(self):
-        channel = grpc.insecure_channel(self.socket, options=[('grpc.max_send_length', 1024 * 1024 * 1024),
+        channel = grpc.insecure_channel(self.socket, options=[('grpc.max_send_message_length', 1024 * 1024 * 1024),
                                                               ('grpc.max_receive_message_length',1024 * 1024 * 1024)])
         stub = prediction_service_pb2_grpc.PredictionServiceStub(channel)
         request = predict_pb2.PredictRequest()
@@ -27,16 +28,16 @@ class PredictModelGrpc(object):
 
         t0 = time.time()
         for name in self.inputs:
-            self.request.inputs[name].CopyFrom(tf.make_tensor_proto(self.inputs[name], dtype=self.inputs_types[name]))
+            self.request.inputs[name].CopyFrom(tf.make_tensor_proto(self.inputs[name], dtype=self.input_types[name]))
         t1 = time.time()
         print("request.inputs={:.3f} ms".format((t1 - t0) * 1000))
 
         for i in range(100):
-            request = self.stub.Predict.future(self.request, 1000.0)
-            request.result()
+            result = self.stub.Predict.future(self.request, 1000.0)
+            result.result()
             t2 = time.time()
             print("request serving time cost: {:.3f} ms".format((t2 - t1) * 1000))
-            t1 - t2
+            t1 = t2
 
         res = []
 
