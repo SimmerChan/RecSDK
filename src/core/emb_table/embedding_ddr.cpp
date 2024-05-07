@@ -24,17 +24,6 @@ See the License for the specific language governing permissions and
 
 using namespace MxRec;
 
-constexpr int ELEMENT_NUM = 4;
-constexpr int CURRENT_UPDATE_IDX = 0;
-constexpr int HOST_VOCAB_SIZE_IDX = 1;
-constexpr int DEV_VOCAB_SIZE_IDX = 2;
-constexpr int MAX_OFFSET_IDX = 3;
-
-constexpr int EMB_INFO_ELEMENT_NUM = 3;
-constexpr int EMB_INFO_EXT_SIZE_IDX = 0;
-constexpr int EMB_INFO_DEV_VOCAB_SIZE_IDX = 1;
-constexpr int EMB_INFO_HOST_VOCAB_SIZE_IDX = 2;
-
 EmbeddingDDR::EmbeddingDDR()
 {
 }
@@ -356,7 +345,11 @@ int EmbeddingDDR::LoadHashMap(const string& savePath)
         LOG_ERROR("malloc failed: {}", strerror(errno));
         return -1;
     }
-    fileSystemPtr->Read(ss.str(), reinterpret_cast<char*>(buf), fileSize);
+    ssize_t result = fileSystemPtr->Read(ss.str(), reinterpret_cast<char*>(buf), fileSize);
+    if (result == -1) {
+        free(static_cast<void*>(buf));
+        return -1;
+    }
 
     size_t loadKeySize = fileSize / sizeof(int64_t);
 
@@ -370,6 +363,7 @@ int EmbeddingDDR::LoadHashMap(const string& savePath)
         }
         if (keyCount > devVocabSize + hostVocabSize) {
             LOG_ERROR("load key size exceeds the sum of device vocab size and host vocab size: {}", strerror(errno));
+            free(static_cast<void*>(buf));
             return -1;
         } else if (keyCount < devVocabSize) {
             loadOffset.push_back(i);

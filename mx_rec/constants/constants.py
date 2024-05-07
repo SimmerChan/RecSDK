@@ -43,6 +43,11 @@ DEFAULT_HD_CHANNEL_SIZE = 40
 MAX_HD_CHANNEL_SIZE = 8192
 MIN_HD_CHANNEL_SIZE = 2
 
+# CM_WORKER_SIZE集群节点数
+DEFAULT_CM_WORKER_SIZE = 0
+MAX_CM_WORKER_SIZE = 512
+MIN_CM_WORKER_SIZE = 0
+
 # key process线程数
 DEFAULT_KP_THREAD_NUM = 6
 MIN_KP_THREAD_NUM = 1
@@ -116,7 +121,6 @@ class BaseEnum(Enum):
 class EnvOption(Enum):
     MXREC_LOG_LEVEL = "MXREC_LOG_LEVEL"
     RANK_TABLE_FILE = "RANK_TABLE_FILE"
-    ASCEND_VISIBLE_DEVICES = "ASCEND_VISIBLE_DEVICES"
     CM_CHIEF_DEVICE = "CM_CHIEF_DEVICE"
     CM_WORKER_SIZE = "CM_WORKER_SIZE"
     TF_DEVICE = "TF_DEVICE"
@@ -212,16 +216,3 @@ class TFDevice(Enum):
 class Flag(Enum):
     TRUE = "1"
     FALSE = "0"
-
-
-class AnchorDatasetOp(Enum):
-    MODEL_DATASET = "ModelDataset"
-    OPTIMIZE_DATASET = "OptimizeDataset"
-    PREFETCH_DATASET = "PrefetchDataset"
-
-
-class AnchorIteratorOp(Enum):
-    ITERATOR_GET_NEXT = "IteratorGetNext"
-    MAKE_ITERATOR = "MakeIterator"
-    ONE_SHOT_ITERATOR = "OneShotIterator"
-
