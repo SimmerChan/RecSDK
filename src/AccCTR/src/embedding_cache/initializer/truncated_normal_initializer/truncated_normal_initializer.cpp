@@ -65,9 +65,15 @@ TruncatedNormalInitializer::TruncatedNormalInitializer(uint32_t start, uint32_t 
 }
 
 
-void TruncatedNormalInitializer::GenerateData(float * const emb)
+void TruncatedNormalInitializer::GenerateData(float* emb, int embSize)
 {
     if (len == 0) {
+        return;
+    }
+    if (embSize < (start + len)) {
+        ExternalLogger::PrintLog(LogLevel::WARN,
+                                 "InitializeInfo start " + std::to_string(start) + " + len " + std::to_string(len) +
+                                 " is larger than embedding size " + std::to_string(embSize));
         return;
     }
     std::generate_n(emb + start, len, [this]() {

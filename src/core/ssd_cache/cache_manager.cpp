@@ -472,8 +472,8 @@ CacheManager::~CacheManager()
 /// \param ddrFreqInitMap ddr内key频次数据
 /// \param excludeDdrFreqInitMap 非DDR key频次数据
 /// \param step 加载SSDEngine传入步数
-void CacheManager::Load(unordered_map<std::string, unordered_map<emb_key_t, freq_num_t>>& ddrFreqInitMap,
-                        unordered_map<std::string, unordered_map<emb_key_t, freq_num_t>>& excludeDdrFreqInitMap,
+void CacheManager::Load(unordered_map<std::string, unordered_map<emb_cache_key_t, freq_num_t>>& ddrFreqInitMap,
+                        unordered_map<std::string, unordered_map<emb_cache_key_t, freq_num_t>>& excludeDdrFreqInitMap,
                         int step, int rankSize, int rankId)
 {
     if (rankSize <= 0) {

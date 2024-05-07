@@ -1,16 +1,17 @@
-/* Copyright (c) Huawei Technologies Co., Ltd. 2022-2024. All rights reserved.
+/* Copyright 2024. Huawei Technologies Co.,Ltd. All rights reserved.
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-http://www.apache.org/licenses/LICENSE-2.0
+        http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.s
 See the License for the specific language governing permissions and
-limitations under the License.
- ==============================================================================*/
+        limitations under the License.
+==============================================================================*/
 
 #ifndef EMBEDDING_CACHE_H
 #define EMBEDDING_CACHE_H
@@ -33,8 +34,8 @@ public:
      * @Param emb embedding的首地址
      */
     virtual void GenerateData(float* emb, int embSize) = 0;
-    uint32_t start{};      // 起始位置
-    uint32_t len{};        // 初始化的长度
+    uint32_t start = 0;      // 起始位置
+    uint32_t len = 0;        // 初始化的长度
     float initParam = 1.0; // 初始化器生成的初始值均需要乘以initParam
 };
 
@@ -50,7 +51,7 @@ struct ConstantInitializerInfo {
 
     explicit ConstantInitializerInfo(float constantValue, float initK);
 
-    float constantValue{}; // 常量值
+    float constantValue = 0; // 常量值
     float initK = 1.0;     // 初始化出来的值需乘以initK
 };
 
@@ -59,9 +60,9 @@ struct NormalInitializerInfo {
 
     NormalInitializerInfo(float mean, float stddev, uint32_t seed, float initK);
 
-    float mean{};      // 平均值
-    float stddev{};    // 标准差
-    uint32_t seed{};   // 随机数种子
+    float mean = 0;      // 平均值
+    float stddev = 0;    // 标准差
+    uint32_t seed = 0;   // 随机数种子
     float initK = 1.0; // 初始化出来的值需乘以initK
 };
 
@@ -75,9 +76,9 @@ public:
 
     void GenerateData(float* emb, int embSize) override;
 
-    uint32_t start{};      // 起始位置
-    uint32_t len{};        // 初始化的长度
-    float constantValue{}; // 常量值
+    uint32_t start = 0;      // 起始位置
+    uint32_t len = 0;        // 初始化的长度
+    float constantValue = 0; // 常量值
 };
 
 class RandomNormalInitializer : public Initializer {
@@ -89,11 +90,11 @@ public:
 
     void GenerateData(float* emb, int embSize) override;
 
-    uint32_t start{}; // 起始位置
-    uint32_t len{};   // 初始化的长度
-    float mean{};     // 平均值
-    float stddev{};   // 标准差
-    uint32_t seed{};  // 随机数种子
+    uint32_t start = 0; // 起始位置
+    uint32_t len = 0;   // 初始化的长度
+    float mean = 0;     // 平均值
+    float stddev = 0;   // 标准差
+    uint32_t seed = 0;  // 随机数种子
 
     std::default_random_engine generator;         // 随机数生成器
     std::normal_distribution<float> distribution; // 正态分布
@@ -111,11 +112,11 @@ public:
 
     int boundNum = 2;
 
-    uint32_t start{}; // 起始位置
-    uint32_t len{};   // 初始化的长度
-    float mean{};     // 平均值
-    float stddev{};   // 标准差
-    uint32_t seed{};  // 随机数种子
+    uint32_t start = 0; // 起始位置
+    uint32_t len = 0;   // 初始化的长度
+    float mean = 0;     // 平均值
+    float stddev = 0;   // 标准差
+    uint32_t seed = 0;  // 随机数种子
 
     std::default_random_engine generator; // 随机数生成器
     std::normal_distribution<float> distribution;
@@ -130,9 +131,9 @@ struct InitializerInfo {
 
     InitializerInfo(std::string &name, uint32_t start, uint32_t len, NormalInitializerInfo normalInitializerInfo);
 
-    std::string name; // 初始化器的名称
-    uint32_t start{}; // 初始化开始的位置
-    uint32_t len{};   // 待初始化的长度
+    std::string name = ""; // 初始化器的名称
+    uint32_t start = 0; // 初始化开始的位置
+    uint32_t len = 0;   // 待初始化的长度
     InitializerType initializerType = InitializerType::INVALID;
 
     ConstantInitializerInfo constantInitializerInfo;
@@ -150,11 +151,11 @@ struct EmbCacheInfo {
           extEmbeddingSize(extEmbeddingSize),
           maxCacheSize(maxCacheSize)
     {}
-    std::string tableName;
-    uint32_t vocabSize; // host侧的容量(能存多少条embedding)
-    uint32_t embeddingSize;
-    uint32_t extEmbeddingSize; // 包含embedding和优化器信息的embedding长度
-    uint32_t maxCacheSize;     // device侧的容量(能存多少条embedding)
+    std::string tableName = "";
+    uint32_t vocabSize = 0; // host侧的容量(能存多少条embedding)
+    uint32_t embeddingSize = 0;
+    uint32_t extEmbeddingSize = 0; // 包含embedding和优化器信息的embedding长度
+    uint32_t maxCacheSize = 0;     // device侧的容量(能存多少条embedding)
 };
 
 class EmbCacheManager {
