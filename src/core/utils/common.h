@@ -232,12 +232,17 @@ namespace MxRec {
         int localRankSize {};
         bool useStatic { false };
         uint32_t option {};
-        int nBatch {};
         bool isDDR { false };
         bool isSSDEnabled { false };
         bool useDynamicExpansion {false};
         bool useSumSameIdGradients {true};
         std::vector<int> ctrlSteps; // 包含4个步数: train_steps, eval_steps, save_steps, max_train_steps
+    };
+
+    struct EmbBaseInfo {
+        int batchId;
+        int channelId;
+        string name;
     };
 
     enum TensorIndex : uint32_t {
