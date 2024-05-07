@@ -20,7 +20,7 @@ a. 在“tf_adapter”文件夹下，执行如下命令。
 >vim CMakeLists.txt<br>
 
 b. 写入如下内容保存。
->file(TOUCH ${CMAKE_CURRENT_BINARY_DIR}/stub.c)<br>
+>file(TOUCH \${CMAKE_CURRENT_BINARY_DIR}/stub.c)<br>
 add_library(_pywrap_tensorflow_internal SHARED ${CMAKE_CURRENT_BINARY_DIR}/stub.c)<br>
 add_library(tensorflow_framework SHARED ${CMAKE_CURRENT_BINARY_DIR}/stub.c)<br>
 
