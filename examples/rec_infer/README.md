@@ -95,7 +95,7 @@ server.sh/client.sh
 执行脚本：sh client.sh
 推理成功会打印端到端时延
 
-# 使用切图哦工具
+# 使用切图工具
 1.进入目录：graph_patition,修改gen_config.py中的模型目录
 2.执行 python3 gen_config.py，使用生成的test1.cfg文件启动模型，使用方法如下：
 > python3 gen_config.py --output_path . --output_filename test1.cfg --model_path savedmodel_path<br>
