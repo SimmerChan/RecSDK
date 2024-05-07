@@ -4,20 +4,64 @@ from graph_partition import GraphPartitioner
 import tensorflow as tf
 
 template = \
-    '''
-    platform_configs {
+platform_configs {
     key: "tensorflow"
-      value {
-          source_adapter_config {
+    value {
+        source_adapter_config {
             [type.googleapis.com/tensorflow.serving.SaveModelBundleSourceAdapterConfig] {
-              legacy_config {
-    
-        }
-        }
-        }
-      }
-    }
-    '''
+                legacy_config {
+                    session_config {
+                        graph_options {
+                            rewrite_options {
+                                custom_optimizers {
+                                    name: "NpuOptimizer"
+                                    parameter_map: {
+                                        key:"use_off_line"
+                                        value:{
+                                            b:true
+                                        }
+                                    }
+                                    parameter_map: {
+                                        key:"mix_compile_mode"
+                                        value:{
+                                            b:true
+                                        }
+                                    }
+                                    parameter_map: {
+                                        key:"variable_placement"
+                                        value:{
+                                            s："Host"
+                                        }
+                                    }
+                                    parameter_map: {
+                                        key:"graph_run_mode"
+                                        value:{
+                                            i:0
+                                        }
+                                    }
+                                    parameter_map: {
+                                        key:"precision_mode"
+                                        value:{
+                                            s:"must_keep_origin_dtype"
+                                        }
+                                    }
+                                    parameter_map: {
+                                        key:"in_out_pair"
+                                        value:{
+                                            s:"#value@in_out_pair#"
+                                        }
+                                    }
+                                }
+                                remapping: OFF   
+                            }
+                            }
+                        }
+                    }
+                    }
+                    }
+                }
+                }
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='')
