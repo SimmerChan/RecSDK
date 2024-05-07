@@ -103,7 +103,8 @@ def record_control_to_replace(src_op: Operation) -> DefaultDict[Tensor, List[Tup
     return replacement_specs
 
 
-def replace_control_anchor(replacement_specs: DefaultDict[Tensor, List[Tuple[int, Operation]]], new_tensor_list: List[Tensor]):
+def replace_control_anchor(replacement_specs: DefaultDict[Tensor, List[Tuple[int, Operation]]],
+                           new_tensor_list: List[Tensor]):
 
     for tensor_idx, (old_tensor, items) in enumerate(replacement_specs.items()):
         for _, operator in items:
@@ -211,6 +212,7 @@ def replace_anchor_control(place_holder_control: tf.Operation, real_anchor: Tens
     replacement_specs_for_anchor_vec = record_control_to_replace(place_holder_control)
     # replace anchor_vec with anchor
     replace_control_anchor(replacement_specs_for_anchor_vec, real_anchor)
+
 
 def mark_orphan_lookup_key(lookup_key: Tensor) -> Tensor:
     graph_def = tf.compat.v1.get_default_graph().as_graph_def()

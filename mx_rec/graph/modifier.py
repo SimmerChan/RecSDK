@@ -467,6 +467,9 @@ def get_src_dataset(get_next_op: Operation, is_training: bool) -> DatasetV1Adapt
         elif is_training and len(dataset_op_list) == 2:
             prefetch_dataset_op_list = sorted(dataset_op_list, key=lambda op: op.name)
             target_op = prefetch_dataset_op_list[0]
+        elif not is_training and len(dataset_op_list) == 2:
+            prefetch_dataset_op_list = sorted(dataset_op_list, key=lambda op: op.name)
+            target_op = prefetch_dataset_op_list[1]
         elif not is_training and len(dataset_op_list) == 3:
             prefetch_dataset_op_list = sorted(dataset_op_list, key=lambda op: op.name)
             target_op = prefetch_dataset_op_list[1]
