@@ -25,7 +25,7 @@ using namespace MxRec;
 /// 仅获取当前key的频次，不增加频次；key不存在时返回-1
 /// \param key key
 /// \return key的频次
-freq_num_t LFUCache::Get(emb_key_t key)
+freq_num_t LFUCache::Get(emb_cache_key_t key)
 {
     auto it = keyTable.find(key);
     if (it == keyTable.end()) { return -1; }
@@ -37,11 +37,12 @@ freq_num_t LFUCache::Get(emb_key_t key)
 /// \param keys 要返回的最低频次key不能在该列表内
 /// \param ddrSwapOutKeys 记录最低频次key
 /// \param ddrSwapOutCounts 记录最低频次key对应次数
-void LFUCache::GetAndDeleteLeastFreqKeyInfo(int64_t num, const vector<emb_key_t>& keys,
-                                            vector<emb_key_t>& ddrSwapOutKeys, vector<freq_num_t>& ddrSwapOutCounts)
+void LFUCache::GetAndDeleteLeastFreqKeyInfo(uint64_t num, const vector<emb_cache_key_t>& keys,
+                                            vector<emb_cache_key_t>& ddrSwapOutKeys,
+                                            vector<freq_num_t>& ddrSwapOutCounts)
 {
     freq_num_t tempMinFreq = minFreq;
-    unordered_set<emb_key_t> retainedKeySet(keys.begin(), keys.end());
+    unordered_set<emb_cache_key_t> retainedKeySet(keys.begin(), keys.end());
     int64_t counter = 0;
     const size_t freqSize = freqTable.size();
     // 遍历freqTable<次数，keyList>时，次数可能不连续，要实际使用了1个keyList后才自增，手动增加计数器
@@ -53,7 +54,7 @@ void LFUCache::GetAndDeleteLeastFreqKeyInfo(int64_t num, const vector<emb_key_t>
         }
         auto nodeIt = freqTable[tempMinFreq].begin();
         while (nodeIt != freqTable[tempMinFreq].end() && !freqTable[tempMinFreq].empty() && counter < num) {
-            emb_key_t currentKey = nodeIt->key;
+            emb_cache_key_t currentKey = nodeIt->key;
             if (retainedKeySet.find(currentKey) != retainedKeySet.end()) {
                 // 当前key在指定的集合中，不满足
                 nodeIt++;
@@ -80,7 +81,7 @@ void LFUCache::GetAndDeleteLeastFreqKeyInfo(int64_t num, const vector<emb_key_t>
 
 /// 放入key，新增/更新(次数+1)次数
 /// \param key key
-void LFUCache::Put(emb_key_t key)
+void LFUCache::Put(emb_cache_key_t key)
 {
     auto it = keyTable.find(key);
     if (it == keyTable.end()) {
@@ -103,7 +104,7 @@ void LFUCache::Put(emb_key_t key)
 /// 直接放入指定次数；用于初始化场景
 /// \param key key
 /// \param freq 频次
-void LFUCache::PutWithInit(emb_key_t key, freq_num_t freq)
+void LFUCache::PutWithInit(emb_cache_key_t key, freq_num_t freq)
 {
     if (keyTable.find(key) != keyTable.end()) {
         // 一般初始化时，key应该不存在已经被插入的情况；此处替换就的key频次信息
@@ -120,7 +121,7 @@ void LFUCache::PutWithInit(emb_key_t key, freq_num_t freq)
 }
 
 /// 删除指定key
-bool LFUCache::Pop(emb_key_t key)
+bool LFUCache::Pop(emb_cache_key_t key)
 {
     auto it = keyTable.find(key);
     if (it == keyTable.end()) {
