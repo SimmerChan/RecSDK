@@ -39,7 +39,7 @@ def get_restore_vector(config):
             raise TypeError("ext_emb_size must be a int")
         if config.get("ext_emb_size") < 1:
             raise ValueError("ext_emb_size is less than 1")
-        emb_size = config.get("ext_emb_size")
+        emb_size = config.get("emb_size")
 
     if ConfigInitializer.get_instance().use_static:
         restore_size = config.get("batch_size") * config.get("feat_cnt")
