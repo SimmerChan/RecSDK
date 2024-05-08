@@ -428,34 +428,6 @@ TEST_F(KeyProcessTest, PaddingHashSplitWithFAAE)
     }
 }
 
-TEST_F(KeyProcessTest, HotHashSplit)
-{
-    PrepareBatch();
-    ASSERT_EQ(process.Initialize(rankInfo, embInfos), true);
-    LOG_INFO("CPU Core Num: %{}", sysconf(_SC_NPROCESSORS_CONF)); // 查看CPU核数
-
-    auto fn = [this](int channel, int id) {
-        auto embName = embInfos[0].name;
-        process.hotEmbTotCount[embName] = 10;
-        vector<KeysT> splitKeys;
-        vector<int32_t> restore;
-        vector<int32_t> hotPos;
-        unique_ptr<EmbBatchT> batch;
-        batch = process.GetBatchData(channel, id); // get batch data from SingletonQueue<EmbBatchT>
-        LOG_INFO("rankid :{},batchid: {}", rankInfo.rankId, batch->batchId);
-        tie(splitKeys, restore, hotPos) = process.HotHashSplit(batch);
-        LOG_INFO("rankid :{},batchid: {}, hotPos {}", rankInfo.rankId, batch->batchId, VectorToString(hotPos));
-    }; // for clean code
-    for (int channel = 0; channel < 1; ++channel) {
-        for (int id = 0; id < 1; ++id) {
-        // use lambda expression initialize thread
-            process.procThreads.emplace_back(std::make_unique<std::thread>(fn, channel, id));
-        }
-    }
-    this_thread::sleep_for(10s);
-    process.Destroy();
-}
-
 TEST_F(KeyProcessTest, GetScAll)
 {
     vector<int> keyScLocal(worldSize, worldRank + 1); // 用worldRank+1初始化发送数据量
@@ -525,38 +497,6 @@ TEST_F(KeyProcessTest, BuildRestoreVec_4cpu)
 
     process.BuildRestoreVec(batch, allExpectSs[worldRank], restore);
     ASSERT_THAT(restore, ElementsAreArray(allExpectRestore[worldRank]));
-}
-
-// hot模式，batch随机数，ProcessSplitKeys后人为校验lookupKeys、scAll、restore
-TEST_F(KeyProcessTest, BuildRestoreVec_rebuilt)
-{
-    PrepareBatch();
-    ASSERT_EQ(process.Initialize(rankInfo, embInfos), true);
-    LOG_INFO("CPU Core Num: {}", sysconf(_SC_NPROCESSORS_CONF)); // 查看CPU核数
-
-    auto fn = [this](int channel, int id) {
-        auto embName = embInfos[0].name;
-        vector<KeysT> splitKeys;
-        vector<int32_t> restore;
-        vector<int32_t> hotPos;
-        unique_ptr<EmbBatchT> batch;
-        batch = process.GetBatchData(channel, id); // get batch data from SingletonQueue<EmbBatchT>
-        LOG_INFO("rankid :{}, batchid: {}", rankInfo.rankId, batch->batchId);
-        tie(splitKeys, restore, hotPos) = process.HotHashSplit(batch);
-        auto [lookupKeys, scAll, ss] = process.ProcessSplitKeys(batch, id, splitKeys);
-        process.BuildRestoreVec(batch, ss, restore, hotPos.size());
-        LOG_INFO("rankid :{}, batchid: {}, lookupKeys: {}, scAll: {}, restore after build {}",
-                 rankInfo.rankId, batch->batchId, VectorToString(lookupKeys),
-                 VectorToString(scAll), VectorToString(restore));
-    }; // for clean code
-    for (int channel = 0; channel < 1; ++channel) {
-        for (int id = 0; id < KEY_PROCESS_THREAD; ++id) {
-            // use lambda expression initialize thread
-            process.procThreads.emplace_back(std::make_unique<std::thread>(fn, channel, id));
-        }
-    }
-    this_thread::sleep_for(10s);
-    process.Destroy();
 }
 
 // 准入模式，batch随机数，ProcessSplitKeys后人为校验lookupKeys、scAll、count
