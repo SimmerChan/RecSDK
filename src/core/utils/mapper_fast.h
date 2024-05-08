@@ -9,20 +9,20 @@
 #include <mutex>
 #include <algorithm>
 #include <functional>
+#include <cmath>
 #include <string.h>
+#include <iostream>
 
 namespace RecMapper {
-    constexpr int BUCKCAPACITY = 3;
+    constexpr size_t BUCKCAPACITY = 3;
+
     enum BuckStatus{
+        BUCK_POS_0 = 0,
+        BUCK_POS_1,
+        BUCK_POS_2,
         BUCK_EXIST,
         BUCK_NOEXIST,
         BUCK_ERROR
-    };
-
-    enum MapperStatus{
-        MAPPER_ERROR,
-        MAPPER_INVALID,
-        MAPPER_OK
     };
 
     class SpinLock {
@@ -43,54 +43,487 @@ namespace RecMapper {
         std::atomic_flag f;
     };
 
+    template<class K, class V>
     struct InnerBuck{
-        std::atomic<uint64_t> keys_[BUCKCAPACITY]{};
-        int64_t  values_[BUCKCAPACITY]{};
+        std::pair<std::atomic<K>, V> datas_[BUCKCAPACITY];
         InnerBuck* next_ = nullptr;
         SpinLock spin;
 
-        BuckStatus Insert(uint64_t, uint64_t&, std::function<bool()>);
-        BuckStatus Find(uint64_t, uint64_t&);
-        BuckStatus Remove(uint64_t);
+        BuckStatus Insert(K key, V& value, std::function<bool()> ValueSet) {
+            for (size_t i = 0; i < BUCKCAPACITY; ++i){
+                K old_key = 0;
+                if (datas_[i].first.load(std::memory_order_relaxed) == 0 && datas_[i].first.compare_exchange_strong(old_key, key)){
+                    bool ret = ValueSet();
+                    if (!ret){
+                        datas_[i].first.store(0);
+                        return BuckStatus::BUCK_ERROR;
+                    }
+                    datas_[i].second = value;
+                    if (i == 0){
+                        return BuckStatus::BUCK_POS_0;
+                    } else if (i == 1){
+                        return BuckStatus::BUCK_POS_1;
+                    } else if(i == 2){
+                        return BuckStatus::BUCK_POS_2;
+                    };
+                }
+            }
+            return BuckStatus::BUCK_ERROR;
+        }
 
+        BuckStatus Find(K key) {
+            for (size_t i = 0; i < BUCKCAPACITY; ++i){
+                if (datas_[i].first.load(std::memory_order_relaxed) == key){
+                    if (i == 0){
+                        return BuckStatus::BUCK_POS_0;
+                    } else if (i == 1){
+                        return BuckStatus::BUCK_POS_1;
+                    } else if(i == 2){
+                        return BuckStatus::BUCK_POS_2;
+                    };
+
+                }
+            }
+            return BuckStatus::BUCK_NOEXIST;
+        }
+
+        BuckStatus Remove(K key) {
+            for (size_t i = 0; i < BUCKCAPACITY; ++i) {
+                K oldkey = key;
+                if (datas_[i].first.load(std::memory_order_relaxed) == key){
+                    if (datas_[i].first.compare_exchange_strong(oldkey, 0)){
+                        datas_[i].second = 0;
+                        return BuckStatus::BUCK_EXIST;
+                    }
+                }
+            }
+            return BUCK_ERROR;
+        }
     };
 
-    class MapperFast {
+    template<class K, class T>
+    class FasterMapper;
+
+    template<class K, class V, class T, class Ref, class Ptr>
+    class Iterator{
+        template<class k, class v>
+        friend class FasterMapper;
     public:
-        MapperFast(uint64_t cap, uint64_t res) : capacity_(cap), reserve_(res) {};
+        typedef Iterator<K, V, T, Ref, Ptr> Self;
 
-        ~MapperFast() = default;
+        Iterator(InnerBuck<K, V>* node, size_t pos, FasterMapper<K, V>* map): node_(node), pos_(pos), map_(map){}
+        Iterator(InnerBuck<K, V>* node, size_t pos, const FasterMapper<K, V>* map):node_(node), pos_(pos), map_(map){}
+        Iterator(const Iterator& other):node_(other.node_), pos_(other.pos_), map_(other.map_){}
 
-        bool InitializeBuck();
-        void UnInitializeBuck();
+        Ref operator*(){
+            return node_->datas_[pos_];
+        }
 
-        MapperStatus Put(uint64_t key, uint64_t& value);
+        Ptr operator->(){
+            return &node_->datas_[pos_];
+        }
 
-        MapperStatus Find(uint64_t key, uint64_t& value);
+        Self operator++(){
+            if(map_->use_spec_buck && IsSpecBuck()) {
+                InnerBuck<K, V>* temp_buck = nullptr;
+                size_t temp_pos = 0;
+                if (FindNextBuck(0, 0, temp_buck, temp_pos)) {
+                    node_ = temp_buck;
+                    pos_ = temp_pos;
+                    return *this;
+                }
+                node_ = nullptr;
+                pos_ = 0;
+                return *this;
+            }
 
-        MapperStatus Remove(uint64_t key);
+            size_t temp_pos = pos_ + 1;
+            while(temp_pos < BUCKCAPACITY){
+                if (node_->datas_[temp_pos].first.load(std::memory_order_relaxed) != 0){
+                    pos_ = temp_pos;
+                    return  *this;
+                }
+                temp_pos++;
+            }
+            while (node_->next_ != nullptr){
+                for (size_t i = 0; i < BUCKCAPACITY; ++i){
+                    if (node_->next_->datas_[i].first.load(std::memory_order_relaxed) != 0){
+                        pos_ = i;
+                        node_ = node_->next_;
+                        return *this;
+                    }
+                }
+            }
+            size_t map_index = node_->datas_[pos_].first.load(std::memory_order_relaxed) % map_->sub_map_count_;
+            size_t buck_index = node_->datas_[pos_].first.load(std::memory_order_relaxed) % map_->buck_count_;
 
-        MapperStatus ToVector(std::vector<std::pair<uint64_t, uint64_t>>& vec);
+            GetNextIndex(map_index, buck_index);
 
-        uint64_t Size() {
-            return size_.load();
+            InnerBuck<K, V>* temp_buck = nullptr;
+            temp_pos = 0;
+            if (FindNextBuck(map_index, buck_index, temp_buck, temp_pos)) {
+                node_ = temp_buck;
+                pos_ = temp_pos;
+                return *this;
+            }
+
+            node_ = nullptr;
+            pos_ = 0;
+            return *this;
+        }
+
+        bool operator==(const Self& other){
+            return node_ == other.node_;
+        }
+
+        bool operator!=(const Self& other){
+            return node_ != other.node_;
         }
 
     private:
-        void FreeBuckMaps();
-        void FreeBuckExpend();
+        InnerBuck<K, V>* node_;
+        size_t pos_;
+        const FasterMapper<K, V>* map_;
+        bool enter_spec = false;
 
-        std::atomic<uint64_t> size_{ 0 };
-        std::atomic<uint64_t> offset_{ 0 };
-        uint64_t capacity_;
-        uint64_t reserve_;
-        uint32_t buck_count_;
+        void GetNextIndex(size_t& map_index, size_t& buck_index){
+            map_index = (buck_index == (map_->buck_count_ - 1) ? ++map_index : map_index);
+            buck_index = buck_index % (map_->buck_count_ - 1) + (buck_index ==  (map_->buck_count_ - 1) ? 0 : 1);
+        }
 
-        static constexpr uint32_t sub_map_count = 5;
-        static constexpr uint32_t prime_max = 32;
+        bool IsSpecBuck(){
+            return node_ == map_->spec_buck;
+        }
 
-        InnerBuck* buck_maps_[sub_map_count] {};
-        InnerBuck* spec_buck = nullptr;
+        bool FindNextBuck(size_t map_index, size_t buck_index, InnerBuck<K, V>*& buck, size_t& pos){
+            for(; map_index < map_->sub_map_count_; map_index++){
+                if (map_->buck_maps_[map_index] == nullptr) {
+                    return false;
+                }
+                for(; buck_index < map_->buck_count_; buck_index++){
+                    InnerBuck<K, V>* temp_buck = &map_->buck_maps_[map_index][buck_index];
+                    for (size_t i = 0; i < BUCKCAPACITY; ++i) {
+                        if (temp_buck->datas_[i].first.load(std::memory_order_relaxed) != 0) {
+                            pos = i;
+                            buck = temp_buck;
+                            return true;
+                        }
+                    }
+                }
+                buck_index = 0;
+            }
+            return false;
+        }
+    };
+
+    template<class K, class V>
+    class FasterMapper {
+    public:
+        typedef std::pair<std::atomic<K>, V> T;
+
+        typedef Iterator<K, V, T, T&, T*> iterator;
+        typedef Iterator<K, V, T, const T&, const T*> const_iterator;
+
+        FasterMapper(size_t cap, size_t res) : capacity_(cap), reserve_(res) {};
+
+        ~FasterMapper() = default;
+
+        bool InitializeBuck(){
+            size_t i = 0;
+
+            while(i <= prime_max_){
+                if (pow(2, i) < reserve_){
+                    i++;
+                    continue;
+                }
+                break;
+            }
+            buck_count_ = i < 7 ? 128 : pow(2, i);
+
+            for(auto &buck_map : buck_maps_){
+                InnerBuck<K, V>* buck_map_temp = new (std::nothrow) InnerBuck<K, V>[buck_count_];
+                if (buck_map_temp == nullptr) {
+                    FreeBuckMaps();
+                    return false;
+                }
+                memset(buck_map_temp, 0, sizeof(InnerBuck<K ,V>) * buck_count_);
+                buck_map = buck_map_temp;
+            }
+            return true;
+        }
+
+        void UnInitializeBuck(){
+            FreeBuckExpend();
+            FreeBuckMaps();
+        }
+
+        std::pair<iterator, bool> Put(const K& key, V& value) {
+            if (size_.load() == capacity_){
+                return std::pair(iterator(nullptr, 0, this), false);
+            }
+
+            if(key == 0){
+                if (spec_buck != nullptr) {
+                    return std::pair(iterator(spec_buck, 0, this), true);
+                }
+                spec_buck =  new (std::nothrow) InnerBuck<K, V>;
+                memset(spec_buck, 0, sizeof(InnerBuck<K, V>));
+
+                spec_buck->spin.lock();
+                spec_buck->datas_[0].first.store(key);
+                value = offset_.fetch_add(1);
+                spec_buck->datas_[0].second = value;
+                size_.fetch_add(1);
+                spec_buck->spin.unlock();
+
+                use_spec_buck = true;
+                return std::pair(iterator(spec_buck, 0, this), true);
+            }
+            InnerBuck<K, V>* temp_buck = &(buck_maps_[key % sub_map_count_][key % buck_count_]);
+            //first，find key if exist in buck
+            while(temp_buck != nullptr){
+                temp_buck->spin.lock();
+                auto status = temp_buck->Find(key);
+                value = temp_buck->datas_[static_cast<size_t>(status)].second;
+                if(status != BuckStatus::BUCK_NOEXIST){
+                    temp_buck->spin.unlock();
+                    return std::pair(iterator(temp_buck, static_cast<size_t>(status), this), true);
+                }
+                temp_buck->spin.unlock();
+
+                if(temp_buck->next_ != nullptr){
+                    temp_buck = temp_buck->next_;
+                } else{
+                    break;
+                }
+            }
+
+            //if not find,
+            for (int i = 0; i < 8192; ++i){
+                // insert exist buck
+                while(temp_buck != nullptr){
+                    temp_buck->spin.lock();
+                    auto value_func = [&]() ->bool {
+                        value = offset_.fetch_add(1);
+                        return true;};
+                    BuckStatus ret = temp_buck->Insert(key, value, value_func);
+                    temp_buck->spin.unlock();
+
+                    if (ret == BuckStatus::BUCK_ERROR) {
+                        return std::pair(iterator(nullptr, 0, this), false);
+                    } else if (ret != BuckStatus::BUCK_ERROR) {
+                        size_.fetch_add(1);
+                        return std::pair(iterator(temp_buck, static_cast<size_t>(ret), this), true);
+                    }
+
+                    if (temp_buck->next_ != nullptr) {
+                        temp_buck = temp_buck->next_;
+                    } else {
+                        break;
+                    }
+                }
+
+                //insert not exist buck
+                auto& old_spin = temp_buck->spin;
+                old_spin.lock();
+                if (temp_buck->next_ != nullptr) {
+                    temp_buck = temp_buck->next_;
+                    old_spin.unlock();
+                    continue;
+                }
+
+                InnerBuck<K, V>* new_buck =  new (std::nothrow) InnerBuck<K, V>;
+                memset(new_buck, 0, sizeof(InnerBuck<K, V>));
+                temp_buck->next_ = new_buck;
+                temp_buck = new_buck;
+                old_spin.unlock();
+            }
+            return std::pair(iterator(nullptr, 0, this), false);
+        }
+
+        iterator Find(const K& key){
+            if(key == 0) {
+                if (spec_buck != nullptr) {
+                    return iterator(spec_buck, 0, this);
+                }
+                return iterator(nullptr, 0, this);
+            }
+            InnerBuck<K, V>* temp_buck = &(buck_maps_[key % sub_map_count_][key % buck_count_]);
+            if (temp_buck == nullptr) {
+                return iterator(nullptr, 0, this);
+            }
+            auto status = temp_buck->Find(key);
+            if (status == BuckStatus::BUCK_NOEXIST) {
+                return  iterator(nullptr, 0, this);
+            } else {
+                return iterator(temp_buck, static_cast<size_t>(status), this);
+            }
+        }
+
+        bool Remove(const K& key){
+            if(key == 0) {
+                if (spec_buck != nullptr) {
+                    delete spec_buck;
+                    spec_buck = nullptr;
+                    size_.fetch_sub(1);
+                    use_spec_buck = false;
+                    return true;
+                }
+                return false;
+            }
+            InnerBuck<K, V>* temp_buck = &(buck_maps_[key % sub_map_count_][key % buck_count_]);
+            while(temp_buck != nullptr) {
+                if (temp_buck->Find(key) == BuckStatus::BUCK_NOEXIST) {
+                    return false;
+                }
+                temp_buck->spin.lock();
+                if (temp_buck->Remove(key) == BuckStatus::BUCK_EXIST){
+                    temp_buck->spin.unlock();
+                    size_.fetch_sub(1);
+                    return true;
+                }
+                temp_buck->spin.unlock();
+                temp_buck = temp_buck->next_;
+            }
+            return false;
+        }
+
+        bool ToVector(std::vector<std::pair<K, V>>& vec){
+            if (spec_buck != nullptr) {
+                vec.push_back(std::make_pair(spec_buck->datas_[0].first.load(), spec_buck->datas_[0].second));
+            }
+            for (auto& sub_map : buck_maps_){
+                if (sub_map == nullptr){
+                    continue;
+                }
+                for(size_t i = 0; i < buck_count_; ++i){
+                    InnerBuck<K, V>* temp_buck = &sub_map[i];
+                    while(temp_buck) {
+                        for (size_t j = 0; j < BUCKCAPACITY; ++j){
+                            if (temp_buck->datas_[j].first == 0) {
+                                continue;
+                            }
+                            vec.push_back(std::make_pair(temp_buck->datas_[j].first.load(), temp_buck->datas_[j].second));
+                        }
+                        temp_buck = temp_buck->next_;
+                    }
+                }
+            }
+            return true;
+        }
+
+        iterator begin(){
+            if (spec_buck != nullptr) {
+                return iterator(spec_buck, 0, this);
+            }
+            for (auto &sub_map: buck_maps_) {
+                if (sub_map == nullptr) {
+                    continue;
+                }
+                for (size_t i = 0; i < buck_count_; ++i) {
+                    InnerBuck<K, V> *buck = &sub_map[i];
+                    while (buck) {
+                        for (size_t j = 0; j < BUCKCAPACITY; ++j) {
+                            if (buck->datas_[0].first == 0) {
+                                continue;
+                            }
+                            return iterator(buck, j, this);
+                        }
+                        buck = buck->next_;
+                    }
+                }
+            }
+            return iterator(nullptr, 0, this);
+        }
+
+        iterator end(){
+            return iterator(nullptr, 0, this);
+        }
+
+        const_iterator begin() const{
+            if (spec_buck != nullptr) {
+                return iterator(spec_buck, 0, this);
+            }
+            for (auto &sub_map: buck_maps_) {
+                if (sub_map == nullptr) {
+                    continue;
+                }
+                for (size_t i = 0; i < buck_count_; ++i) {
+                    InnerBuck<K, V> *buck = &sub_map[i];
+                    while (buck) {
+                        for (size_t j = 0; j < BUCKCAPACITY; ++j) {
+                            if (buck->datas_[0].first == 0) {
+                                continue;
+                            }
+                            return iterator(buck, j, this);
+                        }
+                        buck = buck->next_;
+                    }
+                }
+            }
+            return iterator(nullptr, 0, this);
+        }
+
+        const_iterator  end() const{
+            return iterator(nullptr, 0, this);
+        }
+
+        size_t Size(){
+            return size_.load();
+        }
+
+        size_t Capacity() {
+	        return capacity_;
+	    }
+
+        void FreeBuckMaps() {
+            for (auto &buck_map : buck_maps_){
+                if (buck_map != nullptr){
+                    delete[] buck_map;
+                    buck_map = nullptr;
+                }
+            }
+	        if (spec_buck != nullptr){
+	            delete spec_buck;
+		        spec_buck = nullptr;
+	        }
+	        offset_.store(0);
+	        size_.store(0);
+	        reserve_ = 0;
+	        buck_count_ = 0;
+	        capacity_ = 0;
+        }
+
+        void FreeBuckExpend(){
+            for (auto &buck_map : buck_maps_ ){
+                if (buck_map == nullptr){
+                    continue;
+                }
+                for (size_t i = 0; i < buck_count_; ++i){
+                    InnerBuck<K, V>* buck_attch = buck_map[i].next_;
+                    while (buck_attch != nullptr){
+                        InnerBuck<K, V>* buck_attch_temp = buck_attch->next_;
+                        delete buck_attch;
+                        buck_attch = buck_attch_temp;
+                    }
+                }
+            }
+        }
+
+        std::atomic<size_t> offset_{ 0 };
+        std::atomic<size_t> size_{ 0 };
+
+        size_t reserve_;
+        size_t buck_count_;
+        size_t  capacity_;
+
+        static constexpr size_t sub_map_count_ = 5;
+        static constexpr size_t prime_max_ = 32;
+
+        InnerBuck<K, V>* buck_maps_[sub_map_count_] {};
+        InnerBuck<K ,V>* spec_buck = nullptr;
+
+        bool use_spec_buck = false;
     };
 }
 
