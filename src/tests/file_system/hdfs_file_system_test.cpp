@@ -17,7 +17,6 @@ See the License for the specific language governing permissions and
 #include <emock/emock.hpp>
 
 #include "file_system/file_system_handler.h"
-#include "file_system/hdfs_file_system/hdfs_file_system.h"
 #include "file_system/hdfs_file_system/hdfs_wrapper.h"
 
 using namespace std;
@@ -100,8 +99,10 @@ TEST_F(HdfsFileSystemTest, testCase)
     size_t testDataSize = writeData.size() * sizeof(int64_t);
     EXPECT_NO_THROW(fileSystemPtr->Write(filePath, reinterpret_cast<const char *>(writeData.data()), testDataSize));
     float p[5] = {1.1, 2.2, 3.3, 4.4, 5.5};
-    vector<float*> writeData1 = {p, p+1, p+2, p+3, p+4};
-    EXPECT_NO_THROW(fileSystemPtr->Write(filePath, writeData1, sizeof(float)));
+    vector<float> writeData1 = {1.1, 2.2, 3.3, 4.4, 5.5};
+    vector<vector<float>> writeData2 = {writeData1};
+
+    EXPECT_NO_THROW(fileSystemPtr->Write(filePath, writeData2, sizeof(float)));
 
     vector<int64_t> readData = {};
     EXPECT_NO_THROW(fileSystemPtr->Read(filePath, reinterpret_cast<char*>(readData.data()), 1));

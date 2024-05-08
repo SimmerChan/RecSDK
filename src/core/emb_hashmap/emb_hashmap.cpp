@@ -60,60 +60,7 @@ void EmbHashMap::ClearLookupAndSwapOffset(EmbHashMapInfo& embHashMap) const
 void EmbHashMap::Process(const string& embName, vector<emb_key_t>& keys, DDRParam& ddrParam, int channelId)
 {
 #ifndef GTEST
-    EASY_FUNCTION(profiler::colors::Pink)
-    TimeCost swapTimeCost;
-    std::shared_ptr<EmbeddingTable> table = EmbeddingMgmt::Instance()->GetTable(embName);
-
-    int32_t keepBatch = swapId; // 处理batch的次数，多个预取一起处理算一次
-    vector<size_t> swapPos;
-    vector<int32_t> lookUpVec = table->FindOffset(keys, swapId, channelId, swapPos);
-
-    table->RefreshFreqInfoWithSwap();
-
-    EASY_BLOCK("hostHashMaps->tdt")
-
-    std::copy(lookUpVec.begin(), lookUpVec.end(), std::back_inserter(ddrParam.offsetsOut));
-
-    // 构造查询向量tensor
-    int lookUpVecSize = static_cast<int>(lookUpVec.size());
-    ddrParam.tmpDataOut.emplace_back(Tensor(tensorflow::DT_INT32, { lookUpVecSize }));
-
-    auto lookupTensorData = ddrParam.tmpDataOut.back().flat<int32>();
-    for (int i = 0; i < lookUpVecSize; i++) {
-        lookupTensorData(i) = static_cast<int32_t>(lookUpVec[i]);
-    }
-    LOG_TRACE("lookupTensor, {}", VectorToString(lookUpVec));
-
-    // 构造交换向量tensor
-    int swapSize = static_cast<int>(swapPos.size());
-    ddrParam.tmpDataOut.emplace_back(Tensor(tensorflow::DT_INT32, { swapSize }));
-
-    auto swapTensorData = ddrParam.tmpDataOut.back().flat<int32>();
-    for (int i = 0; i < swapSize; i++) {
-        swapTensorData(i) = static_cast<int>(swapPos[i]);
-    }
-    if (swapSize > 0) {
-        LOG_DEBUG("swap num: {}", swapSize);
-    }
-
-    LOG_TRACE("swapTensor, {}", VectorToString(swapPos));
-    // 清空本次记录的查询偏移和交换偏移
-    table->ClearLookupAndSwapOffset();
-
-    LOG_INFO("current ddr emb:{}, usage:{}/[{}+{}]", embName, table->GetMaxOffset(),
-             table->GetDevVocabSize(), table->GetHostVocabSize());
-
-    ddrParam.tmpDataOut.emplace_back(Tensor(tensorflow::DT_INT32, { 1 }));
-    auto swapLen = ddrParam.tmpDataOut.back().flat<int32>();
-    swapLen(0) = swapSize;
-
-    if (GlogConfig::gStatOn) {
-        LOG_INFO(STAT_INFO "channel_id {} batch_id {} rank_id {} swap_key_size {} swap_time_cost {}",
-            channelId, swapId, rankInfo.rankId, swapSize, swapTimeCost.ElapsedMS());
-    }
-
     swapId++;
-    EASY_END_BLOCK
 #endif
 }
 
