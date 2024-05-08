@@ -89,8 +89,6 @@ namespace MxRec {
 
         vector<int32_t> GetRestoreVecSec(const EmbBaseInfo& info);
 
-        KeysT GetLookupKeys(int batch, const string& embName, int channel);
-
         int GetMaxStep(int channelId) const;
 
         OffsetMemT GetMaxOffset();

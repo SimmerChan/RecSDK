@@ -327,7 +327,7 @@ void CacheManager::EvictSSDEmbedding(const string& embTableName, vector<emb_key_
 /// 淘汰SSD中Emb信息
 /// \param embTableName emb表名
 /// \param keys 淘汰key列表
-void CacheManager::EvictSSDEmbedding(const string& embTableName, vector<emb_cache_key_t>& keys)
+void CacheManager::EvictSSDEmbedding(const string& embTableName, const vector<emb_cache_key_t>& keys)
 {
     if (keys.empty()) {
         return;

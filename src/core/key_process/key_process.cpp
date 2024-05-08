@@ -1316,56 +1316,6 @@ std::vector<int32_t> KeyProcess::GetRestoreVecSec(const EmbBaseInfo& info)
     }
 }
 
-/// DDR模式下，从list中获取查询tensor向量
-/// \param batch 已处理的batch数
-/// \param embName 表名
-/// \param channel 通道索引（训练/推理）
-/// \return
-KeysT KeyProcess::GetLookupKeys(int batch, const string& embName, int channel)
-{
-    TimeCost tc = TimeCost();
-    // 循环尝试获取list中的数据；如果key process线程退出或者处理数据超时，返回空vector
-    EmbBaseInfo info = {.batchId=batch, .channelId=channel, .name=embName};
-    bool sendAllChannel = false;
-    while (true) {
-        if (!isRunning) {
-            return {};
-        }
-        // 判断此时的batch id是否已经过期，即通道已经刷新
-        HybridMgmtBlock* hybridMgmtBlock = Singleton<HybridMgmtBlock>::GetInstance();
-        if (batch != hybridMgmtBlock->hybridBatchId[channel]) {
-            LOG_DEBUG(KEY_PROCESS "Detected that the batch has expired at this time, exiting the loop! {}[{}]:{}",
-                      embName, channel, batch);
-            return {};
-        }
-        if (batch != 0 && channel != 0 && tc.ElapsedSec() > KEY_PROCESS_TIMEOUT) {
-            LOG_WARN(KEY_PROCESS "getting lookup keys timeout! {}[{}]:{}", embName, channel, batch);
-            return {};
-        }
-        try {
-            auto ret = GetInfo(lookupKeysList, info);
-            return get<KeysT>(ret);
-        } catch (EmptyList&) {
-            unique_lock<mutex> lockEosGuard(eosMutex);
-            // readEmbKey真实的次数是readEmbedBatchId减1
-            int readEmbKeyBatchId = hybridMgmtBlock->readEmbedBatchId[channel] - 1;
-            // 避免eos在keyProcess还未处理完数据时插队到通道前面
-            if (isNeedSendEos[channel] && readEmbKeyBatchId < batch) {
-                LOG_INFO("channelId:{} batchId:{}, GetLookupKeys eos.", channel, batch);
-                unique_lock<mutex> lockDestroyGuard(destroyMutex);
-                SendEos(embName, batch, channel, sendAllChannel);
-                return {};
-            }
-            LOG_TRACE("getting info failed {}[{}], list is empty, and mgmt batchId: {}, readEmbKey batchId: {}.",
-                      embName, channel, batch, readEmbKeyBatchId);
-            this_thread::sleep_for(1ms);
-        } catch (WrongListTop&) {
-            LOG_TRACE("getting info failed {}[{}]:{} wrong top", embName, channel, batch);
-            this_thread::sleep_for(1ms);
-        }
-    }
-}
-
 /// 当数据列表为空，且eos标志位为true时，主动发送eos
 /// \param embName 表名
 /// \param batchId 已处理的batch数
