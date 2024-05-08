@@ -25,7 +25,6 @@ See the License for the specific language governing permissions and
 #include <mutex>
 #include <string>
 #include "absl/container/flat_hash_map.h"
-#include "host_emb/host_emb.h"
 #include "utils/common.h"
 #include "utils/safe_queue.h"
 #include "utils/singleton.h"

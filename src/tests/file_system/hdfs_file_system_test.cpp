@@ -98,7 +98,6 @@ TEST_F(HdfsFileSystemTest, testCase)
     vector<int64_t> writeData = {0, 1, 2, 3, 4, 5};
     size_t testDataSize = writeData.size() * sizeof(int64_t);
     EXPECT_NO_THROW(fileSystemPtr->Write(filePath, reinterpret_cast<const char *>(writeData.data()), testDataSize));
-    float p[5] = {1.1, 2.2, 3.3, 4.4, 5.5};
     vector<float> writeData1 = {1.1, 2.2, 3.3, 4.4, 5.5};
     vector<vector<float>> writeData2 = {writeData1};
 
