@@ -40,14 +40,14 @@ TEST(InnerBuck, BuckCase)
     buck->spin.lock();
     std::vector<uint64_t> keys = {1, 2, 3, 1, 4};
     std::vector<uint64_t> values = {1, 2, 3, 4};
-    auto value_func = [&]() ->bool {return true;};
-    BuckStatus ret_status = buck->Insert(keys[0], values[0], value_func);
+    auto func = []() ->bool {return true;};
+    BuckStatus ret_status = buck->Insert(keys[0], values[0], func);
     ASSERT_EQ(ret_status, BuckStatus::BUCK_POS_0);
-    ret_status = buck->Insert(keys[1], values[1], value_func);
+    ret_status = buck->Insert(keys[1], values[1], func);
     ASSERT_EQ(ret_status, BuckStatus::BUCK_POS_1);
-    ret_status = buck->Insert(keys[2], values[2], value_func);
+    ret_status = buck->Insert(keys[2], values[2], func);
     ASSERT_EQ(ret_status, BuckStatus::BUCK_POS_2);
-    ret_status = buck->Insert(keys[3], values[3], value_func);
+    ret_status = buck->Insert(keys[3], values[3], func);
     ASSERT_EQ(ret_status, BuckStatus::BUCK_ERROR);
     buck->spin.unlock();
 
@@ -66,31 +66,29 @@ TEST(InnerBuck, BuckCase)
     buck->spin.unlock();
 }
 
-vector<int64_t> getRandom(size_t total, size_t use)
+void getRandom(vector<int64_t>& keys, size_t total, size_t use)
 {
     if (total <= 0) {
-        return {};
+        return;
     }
     std::default_random_engine e;
-    e.seed(time(0));
     std::vector<int64_t> input;
     for (size_t i = 0; i < total; i++) {
         input.push_back(i);
     }
-    vector<int64_t> output;
     int end = total;
-    for (size_t i = 0; i < total && output.size() < use; i++) {
+    for (size_t i = 0; i < total && keys.size() < use; i++) {
         vector<int64_t>::iterator iter = input.begin();
         int64_t num = e() % end;
         iter = iter + num;
-        output.push_back(*iter);
+        keys.push_back(*iter);
         input.erase(iter);
         end--;
     }
-    return output;
+    return;
 }
 
-void GenerateKeys(vector<int64_t>& keys1, int64_t& key_start, std::vector<int>& total_ids_num,
+void GenerateKeys(vector<int64_t>& keys, int64_t& key_start, std::vector<int>& total_ids_num,
                   std::vector<int>& look_ids_num, int i)
 {
     std::random_device rd;
@@ -98,19 +96,19 @@ void GenerateKeys(vector<int64_t>& keys1, int64_t& key_start, std::vector<int>& 
     int new_ids_num =  (i > 0) ? (total_ids_num[i] - total_ids_num[i - 1]) : total_ids_num[i];
     int old_ids_num = look_ids_num[i] - new_ids_num;
     // old
-    keys1 = getRandom(key_start, old_ids_num);;
+    getRandom(keys, key_start, old_ids_num);;
     // new
     for (int j = 0; j < new_ids_num; ++j) {
-        keys1.push_back(j + key_start);
+        keys.push_back(j + key_start);
     }
-    std::shuffle(keys1.begin(), keys1.end(), g);
+    std::shuffle(keys.begin(), keys.end(), g);
     key_start += new_ids_num;
 }
 
 void parallelGetInsert(FasterMapper<::uint64_t, ::uint64_t>* map, const std::vector<uint64_t>& ids)
 {
     uint64_t failed_num = 0;
-    for (uint64_t i =0; i < ids.size(); i++) {
+    for (uint64_t i = 0; i < ids.size(); i++) {
         uint64_t value;
         auto ret = map->Put(ids[i], value);
         if (ret.second == false) {
@@ -120,7 +118,8 @@ void parallelGetInsert(FasterMapper<::uint64_t, ::uint64_t>* map, const std::vec
     ASSERT_EQ(failed_num, 0);
 }
 
-TEST(FasterMapper, PutCase){
+TEST(FasterMapper, PutCase)
+{
     FasterMapper<::uint64_t, ::uint64_t> tMap(TempVal::MAPPER_INSERT_CAP,
                                               TempVal::MAPPER_INSERT_CAP / TempVal::RESERVE_SPLIT);
     bool ret = tMap.InitializeBuck();
@@ -181,9 +180,9 @@ TEST(FasterMapper, FindAndRemoveCase)
     auto put_ret = tMap.Put(TempVal::MAPPER_CAP + 1, error_value);
     ASSERT_EQ(put_ret.second, false);
     
-    for(auto it = tMap.begin(); it != tMap.end(); ++it) {
+    for (auto it = tMap.begin(); it != tMap.end(); ++it) {
         ::uint64_t val = it->second;
-        auto iter = std::find(val_insert.begin(), val_insert.end(), val); 
+        auto iter = std::find(val_insert.begin(), val_insert.end(), val);
         ASSERT_NE(iter, val_insert.end());
     }
 

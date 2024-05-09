@@ -10,8 +10,8 @@
 #include <algorithm>
 #include <functional>
 #include <cmath>
-#include "securec.h"
 #include <iostream>
+#include "securec.h"
 
 namespace RecMapper {
     constexpr size_t BUCKCAPACITY = 3;
@@ -33,7 +33,7 @@ namespace RecMapper {
 
         void lock()
         {
-            while(f.test_and_set(std::memory_order_acquire)) {};
+            while (f.test_and_set(std::memory_order_acquire)) {};
         }
 
         void unlock()
@@ -120,15 +120,18 @@ namespace RecMapper {
         Iterator(InnerBuck<K, V>* node, size_t pos, const FasterMapper<K, V>* map):node_(node), pos_(pos), map_(map) {}
         Iterator(const Iterator& other):node_(other.node_), pos_(other.pos_), map_(other.map_) {}
 
-        Ref operator*() {
+        Ref operator*()
+        {
             return node_->datas_[pos_];
         }
 
-        Ptr operator->() {
+        Ptr operator->()
+        {
             return &node_->datas_[pos_];
         }
 
-        Self operator++() {
+        Self operator++()
+        {
             if (map_->use_spec_buck && IsSpecBuck()) {
                 InnerBuck<K, V>* temp_buck = nullptr;
                 size_t temp_pos = 0;
@@ -253,8 +256,8 @@ namespace RecMapper {
                     FreeBuckMaps();
                     return false;
                 }
-                memset_s(buck_map_temp, sizeof(InnerBuck<K ,V>) * buck_count_, 0,
-                         sizeof(InnerBuck<K ,V>) * buck_count_);
+                memset_s(buck_map_temp, sizeof(InnerBuck<K, V>) * buck_count_, 0,
+                         sizeof(InnerBuck<K, V>) * buck_count_);
                 buck_map = buck_map_temp;
             }
             return true;
@@ -266,14 +269,16 @@ namespace RecMapper {
             FreeBuckMaps();
         }
 
-        std::pair<iterator, bool> PutNotFind(InnerBuck<K, V>* buck, const K& key, V& value){
+        std::pair<iterator, bool> PutNotFind(InnerBuck<K, V>* buck, const K& key, V& value)
+        {
             for (int i = 0; i < loop_max_; ++i) {
                 // insert exist buck
                 while (buck != nullptr) {
                     buck->spin.lock();
                     auto value_func = [&]() ->bool {
                         value = offset_.fetch_add(1);
-                        return true;};
+                        return true;
+                    };
                     BuckStatus ret = buck->Insert(key, value, value_func);
                     buck->spin.unlock();
 
@@ -309,7 +314,8 @@ namespace RecMapper {
             return std::pair(iterator(nullptr, 0, this), false);
         }
 
-        std::pair<iterator, bool> PutFind(InnerBuck<K, V>* buck, const K& key, V& value){
+        std::pair<iterator, bool> PutFind(InnerBuck<K, V>* buck, const K& key, V& value)
+        {
             while (buck != nullptr) {
                 buck->spin.lock();
                 auto status = buck->Find(key);
@@ -340,7 +346,7 @@ namespace RecMapper {
                     return std::pair(iterator(spec_buck, 0, this), true);
                 }
                 spec_buck =  new (std::nothrow) InnerBuck<K, V>;
-                memset(spec_buck, sizeof(InnerBuck<K, V>), 0, sizeof(InnerBuck<K, V>));
+                memset_s(spec_buck, sizeof(InnerBuck<K, V>), 0, sizeof(InnerBuck<K, V>));
 
                 spec_buck->spin.lock();
                 spec_buck->datas_[0].first.store(key);
@@ -354,14 +360,14 @@ namespace RecMapper {
             }
             InnerBuck<K, V>* temp_buck = &(buck_maps_[key % sub_map_count_][key % buck_count_]);
             // first，find key if exist in buck
-            std::pair<iterator, bool> put_ret = PutFind(temp_buck, key ,value);
-            if (put_ret.second = true){
+            std::pair<iterator, bool> put_ret = PutFind(temp_buck, key, value);
+            if (put_ret.second = true) {
                 return put_ret;
             }
 
             // if not find,
-            put_ret = PutNotFind(temp_buck, key ,value);
-            if (put_ret.second = true){
+            put_ret = PutNotFind(temp_buck, key, value);
+            if (put_ret.second = true) {
                 return put_ret;
             }
             return std::pair(iterator(nullptr, 0, this), false);
@@ -488,7 +494,8 @@ namespace RecMapper {
             return iterator(nullptr, 0, this);
         }
 
-        const_iterator  end() const{
+        const_iterator  end() const
+        {
             return iterator(nullptr, 0, this);
         }
 
@@ -500,7 +507,7 @@ namespace RecMapper {
         size_t Capacity()
         {
             return capacity_;
-	    }
+        }
 
         void FreeBuckMaps()
         {
@@ -510,20 +517,21 @@ namespace RecMapper {
                     buck_map = nullptr;
                 }
             }
-	        if (spec_buck != nullptr) {
-	            delete spec_buck;
-		        spec_buck = nullptr;
-	        }
-	        offset_.store(0);
-	        size_.store(0);
-	        reserve_ = 0;
-	        buck_count_ = 0;
-	        capacity_ = 0;
+            if (spec_buck != nullptr) {
+                delete spec_buck;
+                spec_buck = nullptr;
+            }
+            offset_.store(0);
+            size_.store(0);
+            reserve_ = 0;
+            buck_count_ = 0;
+            capacity_ = 0;
         }
 
-        void FreeBuckExpend(){
-            for (auto &buck_map : buck_maps_ ) {
-                if (buck_map == nullptr){
+        void FreeBuckExpend()
+        {
+            for (auto &buck_map : buck_maps_) {
+                if (buck_map == nullptr) {
                     continue;
                 }
                 for (size_t i = 0; i < buck_count_; ++i) {
