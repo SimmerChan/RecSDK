@@ -364,13 +364,13 @@ namespace RecMapper {
             InnerBuck<K, V>* temp_buck = &(buck_maps_[key % sub_map_count_][key % buck_count_]);
             // first，find key if exist in buck
             std::pair<iterator, bool> put_ret = PutFind(temp_buck, key, value);
-            if (put_ret.second = true) {
+            if (put_ret.second == true) {
                 return put_ret;
             }
 
             // if not find,
             put_ret = PutNotFind(temp_buck, key, value);
-            if (put_ret.second = true) {
+            if (put_ret.second == true) {
                 return put_ret;
             }
             return std::pair(iterator(nullptr, 0, this), false);
@@ -559,7 +559,7 @@ namespace RecMapper {
         static constexpr size_t prime_max_ = 32;
         static constexpr int pow_base_ = 2;
         static constexpr int min_buck_num_ = 128;
-        static constexpr int loop_max_ = 8192
+        static constexpr int loop_max_ = 8192;
 
         InnerBuck<K, V>* buck_maps_[sub_map_count_] {};
         InnerBuck<K, V>* spec_buck = nullptr;
