@@ -66,26 +66,27 @@ TEST(InnerBuck, BuckCase)
     buck->spin.unlock();
 }
 
-void getRandom(vector<int64_t>& keys, size_t total, size_t use)
+vector<int64_t> getRandom(size_t total, size_t use)
 {
     if (total <= 0) {
-        return;
+        return {};
     }
     std::default_random_engine e;
     std::vector<int64_t> input;
     for (size_t i = 0; i < total; i++) {
         input.push_back(i);
     }
+    vector<int64_t> output;
     int end = total;
-    for (size_t i = 0; i < total && keys.size() < use; i++) {
+    for (size_t i = 0; i < total && output.size() < use; i++) {
         vector<int64_t>::iterator iter = input.begin();
         int64_t num = e() % end;
         iter = iter + num;
-        keys.push_back(*iter);
+        output.push_back(*iter);
         input.erase(iter);
         end--;
     }
-    return;
+    return output;
 }
 
 void GenerateKeys(vector<int64_t>& keys, int64_t& key_start, std::vector<int>& total_ids_num,
@@ -96,7 +97,7 @@ void GenerateKeys(vector<int64_t>& keys, int64_t& key_start, std::vector<int>& t
     int new_ids_num =  (i > 0) ? (total_ids_num[i] - total_ids_num[i - 1]) : total_ids_num[i];
     int old_ids_num = look_ids_num[i] - new_ids_num;
     // old
-    getRandom(keys, key_start, old_ids_num);
+    keys = getRandom(key_start, old_ids_num);
     // new
     for (int j = 0; j < new_ids_num; ++j) {
         keys.push_back(j + key_start);
