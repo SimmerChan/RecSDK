@@ -250,10 +250,10 @@ namespace RecMapper {
                 break;
             }
             buck_count_ = std::max(min_buck_num_, static_cast<int>(pow(pow_base_, i)));
+            if (buck_count_ == 0 || buck_count_ > pow(pow_base_, prime_max_)) {
+                return false;
+            }
             for (auto &buck_map : buck_maps_) {
-                if (buck_count_ == 0) {
-                    return false;
-                }
                 InnerBuck<K, V>* buck_map_temp = new (std::nothrow) InnerBuck<K, V>[buck_count_];
                 if (buck_map_temp == nullptr) {
                     FreeBuckMaps();
