@@ -96,7 +96,7 @@ void GenerateKeys(vector<int64_t>& keys, int64_t& key_start, std::vector<int>& t
     int new_ids_num =  (i > 0) ? (total_ids_num[i] - total_ids_num[i - 1]) : total_ids_num[i];
     int old_ids_num = look_ids_num[i] - new_ids_num;
     // old
-    getRandom(keys, key_start, old_ids_num);;
+    getRandom(keys, key_start, old_ids_num);
     // new
     for (int j = 0; j < new_ids_num; ++j) {
         keys.push_back(j + key_start);
