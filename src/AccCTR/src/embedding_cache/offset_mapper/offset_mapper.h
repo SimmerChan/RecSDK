@@ -85,7 +85,8 @@ public:
         return maxCacheSize - useLength + evictSize;
     }
 
-    int GetSwapPairsAndKey2Offset(std::vector<uint64_t> &keys, KeyOffsetPair &swapInKoPair, KeyOffsetPair &swapOutKoPair) 
+    int GetSwapPairsAndKey2Offset(std::vector<uint64_t>& keys, KeyOffsetPair& swapInKoPair,
+                                  KeyOffsetPair& swapOutKoPair)
     {
         std::vector<uint64_t> swapInKeysID = FilterKeys(keys, swapInKoPair);
 

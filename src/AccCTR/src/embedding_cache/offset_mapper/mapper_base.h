@@ -805,7 +805,6 @@ private:
             buck = buck->next;
         }
     }
-
 };
 }
 #endif // MXREC_MAPPER_BASE_H

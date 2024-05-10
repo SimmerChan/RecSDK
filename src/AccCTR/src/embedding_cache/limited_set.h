@@ -114,6 +114,5 @@ private:
     std::vector<Node *> nodes;
 };
 
-
 }
 #endif // MXREC_LIMITED_SET_H
