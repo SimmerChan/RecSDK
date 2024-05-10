@@ -15,16 +15,16 @@ limitations under the License.
 #ifndef CTR_EMB_CACHE_TEST_H
 #define CTR_EMB_CACHE_TEST_H
 
-#include <gtest/gtest.h>
 #include <vector>
 #include <unordered_set>
 #include <map>
-#include "factory.h"
+
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
 
-using namespace std;
-using namespace ock::ctr;
+#include "factory.h"
+#include "embedding_cache.h"
+
 
 class EmbCacheTest : public testing::Test {
 protected:
@@ -38,11 +38,11 @@ protected:
 
     void TearDown() override;
 
-    static EmbCacheManagerPtr SimpleCreateTable(std::string tableName, uint32_t hostVocabSize, uint32_t embeddingSize,
-        uint32_t extEmbeddingSize, uint32_t devVocabSize, pair<float, float> normalPara = { 0, 0.05 },
+    static ock::ctr::EmbCacheManagerPtr SimpleCreateTable(std::string tableName, uint32_t hostVocabSize, uint32_t embeddingSize,
+        uint32_t extEmbeddingSize, uint32_t devVocabSize, std::pair<float, float> normalPara = { 0, 0.05 },
         float constPara = 0.233);
 
-    static EmbCacheManagerPtr ConstZeroCreateTable(std::string tableName, uint32_t hostVocabSize,
+    static ock::ctr::EmbCacheManagerPtr ConstZeroCreateTable(std::string tableName, uint32_t hostVocabSize,
         uint32_t embeddingSize, uint32_t extEmbeddingSize, uint32_t devVocabSize, uint64_t prefillBufferSize = 50000,
         uint8_t prefillThreadNum = 1);
 

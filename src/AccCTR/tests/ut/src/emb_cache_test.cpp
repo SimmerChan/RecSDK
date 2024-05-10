@@ -19,6 +19,9 @@ limitations under the License.
 #include "emb_cache_test.h"
 #include "common.h"
 
+using namespace std;
+using namespace ock::ctr;
+
 FactoryPtr factory;
 EmbCacheManagerPtr embCache = nullptr;
 

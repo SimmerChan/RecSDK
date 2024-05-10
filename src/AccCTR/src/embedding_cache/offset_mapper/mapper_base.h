@@ -37,6 +37,12 @@ namespace EmbCache {
 static constexpr size_t K_ALIGNMENT = 64;
 static constexpr size_t K_KVNUMINBUCKET = 3;
 
+enum BucketIdx {
+    first,
+    second,
+    third
+};
+
 class NetHeapAllocator {
 public:
     void *Allocate(uint32_t size)
@@ -94,17 +100,17 @@ struct alignas(K_ALIGNMENT)NetHashBucket {
     {
         /* don't put them into loop, flat code is faster than loop */
         uint64_t oldKey = 0;
-        if (keys[0].load(std::memory_order_relaxed) == 0 && keys[0].compare_exchange_strong(oldKey, key)) {
+        if (keys[BucketIdx::first].load(std::memory_order_relaxed) == 0 && keys[BucketIdx::first].compare_exchange_strong(oldKey, key)) {
             BeforePutFuncState ret = beforePutFunc();
             if (HM_UNLIKELY(ret == BeforePutFuncState::BEFORE_FAIL)) {
-                keys[0] = 0;
+                keys[BucketIdx::first] = 0;
                 return FkvState::FKV_BEFORE_PUT_FUNC_FAIL;
             }
             if (HM_UNLIKELY(ret == BeforePutFuncState::BEFORE_NO_SPACE)) {
-                keys[0] = 0;
+                keys[BucketIdx::first] = 0;
                 return FkvState::FKV_NO_SPACE;
             }
-            values[0] = value;
+            values[BucketIdx::first] = value;
             return FkvState::FKV_NOT_EXIST;
         }
 
@@ -113,17 +119,17 @@ struct alignas(K_ALIGNMENT)NetHashBucket {
         }
 
         oldKey = 0;
-        if (keys[1].load(std::memory_order_relaxed) == 0 && keys[1].compare_exchange_strong(oldKey, key)) {
+        if (keys[BucketIdx::second].load(std::memory_order_relaxed) == 0 && keys[BucketIdx::second].compare_exchange_strong(oldKey, key)) {
             BeforePutFuncState ret = beforePutFunc();
             if (HM_UNLIKELY(ret == BeforePutFuncState::BEFORE_FAIL)) {
-                keys[1] = 0;
+                keys[BucketIdx::second] = 0;
                 return FkvState::FKV_BEFORE_PUT_FUNC_FAIL;
             }
             if (HM_UNLIKELY(ret == BeforePutFuncState::BEFORE_NO_SPACE)) {
-                keys[1] = 0;
+                keys[BucketIdx::second] = 0;
                 return FkvState::FKV_NO_SPACE;
             }
-            values[1] = value;
+            values[BucketIdx::second] = value;
             return FkvState::FKV_NOT_EXIST;
         }
 
@@ -132,17 +138,17 @@ struct alignas(K_ALIGNMENT)NetHashBucket {
         }
 
         oldKey = 0;
-        if (keys[2].load(std::memory_order_relaxed) == 0 && keys[2].compare_exchange_strong(oldKey, key)) {
+        if (keys[BucketIdx::third].load(std::memory_order_relaxed) == 0 && keys[BucketIdx::third].compare_exchange_strong(oldKey, key)) {
             BeforePutFuncState ret = beforePutFunc();
             if (HM_UNLIKELY(ret == BeforePutFuncState::BEFORE_FAIL)) {
-                keys[2] = 0;
+                keys[BucketIdx::third] = 0;
                 return FkvState::FKV_BEFORE_PUT_FUNC_FAIL;
             }
             if (HM_UNLIKELY(ret == BeforePutFuncState::BEFORE_NO_SPACE)) {
-                keys[2] = 0;
+                keys[BucketIdx::third] = 0;
                 return FkvState::FKV_NO_SPACE;
             }
-            values[2] = value;
+            values[BucketIdx::third] = value;
             return FkvState::FKV_NOT_EXIST;
         }
 
@@ -161,18 +167,18 @@ struct alignas(K_ALIGNMENT)NetHashBucket {
         /*
          * expand the loop, instead of put them into a for/while loop for performance
          */
-        if (key == keys[0].load(std::memory_order_relaxed)) {
-            value = values[0];
+        if (key == keys[BucketIdx::first].load(std::memory_order_relaxed)) {
+            value = values[BucketIdx::first];
             return true;
         }
 
-        if (key == keys[1].load(std::memory_order_relaxed)) {
-            value = values[1];
+        if (key == keys[BucketIdx::second].load(std::memory_order_relaxed)) {
+            value = values[BucketIdx::second];
             return true;
         }
 
-        if (key == keys[2].load(std::memory_order_relaxed)) {
-            value = values[2];
+        if (key == keys[BucketIdx::third].load(std::memory_order_relaxed)) {
+            value = values[BucketIdx::third];
             return true;
         }
 
@@ -183,8 +189,8 @@ struct alignas(K_ALIGNMENT)NetHashBucket {
     {
         /* don't put them into loop, flat code is faster than loop */
         uint64_t oldValue = key;
-        if (keys[0].load(std::memory_order_relaxed) == key && keys[0].compare_exchange_strong(oldValue, 0)) {
-            values[0] = 0;
+        if (keys[BucketIdx::first].load(std::memory_order_relaxed) == key && keys[BucketIdx::first].compare_exchange_strong(oldValue, 0)) {
+            values[BucketIdx::first] = 0;
             return FkvState::FKV_EXIST;
         }
         if (HM_UNLIKELY(oldValue == 0)) {
@@ -192,8 +198,8 @@ struct alignas(K_ALIGNMENT)NetHashBucket {
         }
         oldValue = key;
 
-        if (keys[1].load(std::memory_order_relaxed) == key && keys[1].compare_exchange_strong(oldValue, 0)) {
-            values[1] = 0;
+        if (keys[BucketIdx::second].load(std::memory_order_relaxed) == key && keys[BucketIdx::second].compare_exchange_strong(oldValue, 0)) {
+            values[BucketIdx::second] = 0;
             return FkvState::FKV_EXIST;
         }
         if (HM_UNLIKELY(oldValue == 0)) {
@@ -201,8 +207,8 @@ struct alignas(K_ALIGNMENT)NetHashBucket {
         }
         oldValue = key;
 
-        if (keys[2].load(std::memory_order_relaxed) == key && keys[2].compare_exchange_strong(oldValue, 0)) {
-            values[2] = 0;
+        if (keys[BucketIdx::third].load(std::memory_order_relaxed) == key && keys[BucketIdx::third].compare_exchange_strong(oldValue, 0)) {
+            values[BucketIdx::third] = 0;
             return FkvState::FKV_EXIST;
         }
         if (HM_UNLIKELY(oldValue == 0)) {
@@ -216,12 +222,12 @@ struct alignas(K_ALIGNMENT)NetHashBucket {
     {
         /* don't put them into loop, flat code is faster than loop */
         uint64_t oldValue = key;
-        if (keys[0].load(std::memory_order_relaxed) == key && keys[0].compare_exchange_strong(oldValue, 0)) {
-            if (HM_UNLIKELY(beforeRemoveFunc(values[0]) == BeforeRemoveFuncState::BEFORE_FAIL)) {
+        if (keys[BucketIdx::first].load(std::memory_order_relaxed) == key && keys[BucketIdx::first].compare_exchange_strong(oldValue, 0)) {
+            if (HM_UNLIKELY(beforeRemoveFunc(values[BucketIdx::first]) == BeforeRemoveFuncState::BEFORE_FAIL)) {
                 return FkvState::FKV_BEFORE_REMOVE_FUNC_FAIL;
             }
 
-            values[0] = 0;
+            values[BucketIdx::first] = 0;
             return FkvState::FKV_EXIST;
         }
         if (HM_UNLIKELY(oldValue == 0)) {
@@ -229,12 +235,12 @@ struct alignas(K_ALIGNMENT)NetHashBucket {
         }
         oldValue = key;
 
-        if (keys[1].load(std::memory_order_relaxed) == key && keys[1].compare_exchange_strong(oldValue, 0)) {
-            if (HM_UNLIKELY(beforeRemoveFunc(values[1]) == BeforeRemoveFuncState::BEFORE_FAIL)) {
+        if (keys[BucketIdx::second].load(std::memory_order_relaxed) == key && keys[BucketIdx::second].compare_exchange_strong(oldValue, 0)) {
+            if (HM_UNLIKELY(beforeRemoveFunc(values[BucketIdx::second]) == BeforeRemoveFuncState::BEFORE_FAIL)) {
                 return FkvState::FKV_BEFORE_REMOVE_FUNC_FAIL;
             }
 
-            values[1] = 0;
+            values[BucketIdx::second] = 0;
             return FkvState::FKV_EXIST;
         }
         if (HM_UNLIKELY(oldValue == 0)) {
@@ -242,12 +248,12 @@ struct alignas(K_ALIGNMENT)NetHashBucket {
         }
         oldValue = key;
 
-        if (keys[2].load(std::memory_order_relaxed) == key && keys[2].compare_exchange_strong(oldValue, 0)) {
-            if (HM_UNLIKELY(beforeRemoveFunc(values[2]) == BeforeRemoveFuncState::BEFORE_FAIL)) {
+        if (keys[BucketIdx::third].load(std::memory_order_relaxed) == key && keys[BucketIdx::third].compare_exchange_strong(oldValue, 0)) {
+            if (HM_UNLIKELY(beforeRemoveFunc(values[BucketIdx::third]) == BeforeRemoveFuncState::BEFORE_FAIL)) {
                 return FkvState::FKV_BEFORE_REMOVE_FUNC_FAIL;
             }
 
-            values[2] = 0;
+            values[BucketIdx::third] = 0;
             return FkvState::FKV_EXIST;
         }
         if (HM_UNLIKELY(oldValue == 0)) {
@@ -681,7 +687,7 @@ public:
             for (uint32_t j = 0; j < mBucketCount; j++) {
                 auto buck = &mSubMap[j];
                 while (buck) {
-                    for (int k = 0; k < 3; k++) {
+                    for (size_t k = 0; k < K_KVNUMINBUCKET; k++) {
                         if (buck->keys[k] == 0) {
                             continue;
                         }

@@ -54,6 +54,8 @@ public:
     {
         delete validPos;
         delete evictPos;
+        validPos = nullptr;
+        evictPos = nullptr;
         MapperBase::UnInitialize();
     }
 
