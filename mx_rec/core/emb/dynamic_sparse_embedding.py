@@ -50,7 +50,8 @@ class DynamicSparseEmbedding(BaseSparseEmbedding):
                      self._table_name, ASCEND_TABLE_NAME_MUST_CONTAIN)
         if not add_collection_condition:
             return sparse_forward_fn(local_embeddings)
-
+        ConfigInitializer.get_instance().sparse_embed_config.insert_table_instance_for_expansion(
+            result.get("id_offsets"), self)
         tf.compat.v1.add_to_collection(ASCEND_SPARSE_LOOKUP_LOCAL_EMB, local_embeddings)
         tf.compat.v1.add_to_collection(ASCEND_SPARSE_LOOKUP_ID_OFFSET, result.get("id_offsets"))
         return sparse_forward_fn(local_embeddings)

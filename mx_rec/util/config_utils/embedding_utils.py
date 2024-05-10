@@ -3,6 +3,7 @@
 # Copyright (c) Huawei Technologies Co., Ltd. 2023. All rights reserved.
 from typing import Optional
 
+from tensorflow.python.framework import ops
 from tensorflow import Variable
 
 from mx_rec.util.log import logger
@@ -72,6 +73,12 @@ class SparseEmbedConfig:
         logger.debug("Record one hash table, with name: %s, key: %s.", name, key)
         self._table_name_set.add(name)
         self._name_to_var_dict[name] = key
+        self._table_instance_dict[key] = instance
+
+    def insert_table_instance_for_expansion(self, key: ops.Tensor, instance: object) -> None:
+        if key in self._table_instance_dict:
+            raise KeyError(f"Given key {key} has been used.")
+        logger.debug("Record one hash table for expansion, with key: %s.", key)
         self._table_instance_dict[key] = instance
 
     def export_table_num(self) -> int:
