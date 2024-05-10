@@ -23,10 +23,11 @@ set(OUTPUT                          ${PROJECT_SOURCE_DIR}/output)
 set(OCK_CTR_PLATFORM_UTIL_DIR       ${PROJECT_SOURCE_DIR}/../../../opensource)
 set(OCK_CTR_UTIL_INSTALL_DIR        ${PROJECT_SOURCE_DIR}/install)
 
-add_compile_options(-D_GLIBCXX_USE_CXX11_ABI=0)  # must set this option otherwise pybind will not find embCache symbol
 if (${BUILD_MODE} MATCHES "ut")
     add_compile_options(-ftest-coverage -fprofile-arcs)
     link_libraries(gcov)
+else()
+    add_compile_options(-D_GLIBCXX_USE_CXX11_ABI=0)  # must set this option otherwise pybind will not find embCache symbol
 endif (${BUILD_MODE} MATCHES "ut")
 
 if (${BUILD_MODE} MATCHES "fuzz")

@@ -96,8 +96,7 @@ int EmbCacheManagerImpl::GetSwapPairsAndKey2Offset(std::string tableName, std::v
     if (checkRet != H_OK) {
         return checkRet;
     }
-    return offsetMappers[tableName].GetSwapPairsAndKey2Offset(keys, swapInKoPair.first, swapInKoPair.second,
-        swapOutKoPair.first, swapOutKoPair.second);
+    return offsetMappers[tableName].GetSwapPairsAndKey2Offset(keys, swapInKoPair, swapOutKoPair);
 }
 
 int EmbCacheManagerImpl::EmbeddingLookup(std::string tableName, const std::vector<uint64_t> &keys, float *embAddr,

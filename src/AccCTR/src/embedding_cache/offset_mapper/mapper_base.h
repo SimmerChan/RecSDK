@@ -100,7 +100,8 @@ struct alignas(K_ALIGNMENT)NetHashBucket {
     {
         /* don't put them into loop, flat code is faster than loop */
         uint64_t oldKey = 0;
-        if (keys[BucketIdx::first].load(std::memory_order_relaxed) == 0 && keys[BucketIdx::first].compare_exchange_strong(oldKey, key)) {
+        if (keys[BucketIdx::first].load(std::memory_order_relaxed) == 0 &&
+            keys[BucketIdx::first].compare_exchange_strong(oldKey, key)) {
             BeforePutFuncState ret = beforePutFunc();
             if (HM_UNLIKELY(ret == BeforePutFuncState::BEFORE_FAIL)) {
                 keys[BucketIdx::first] = 0;
@@ -119,7 +120,8 @@ struct alignas(K_ALIGNMENT)NetHashBucket {
         }
 
         oldKey = 0;
-        if (keys[BucketIdx::second].load(std::memory_order_relaxed) == 0 && keys[BucketIdx::second].compare_exchange_strong(oldKey, key)) {
+        if (keys[BucketIdx::second].load(std::memory_order_relaxed) == 0 &&
+            keys[BucketIdx::second].compare_exchange_strong(oldKey, key)) {
             BeforePutFuncState ret = beforePutFunc();
             if (HM_UNLIKELY(ret == BeforePutFuncState::BEFORE_FAIL)) {
                 keys[BucketIdx::second] = 0;
@@ -138,7 +140,8 @@ struct alignas(K_ALIGNMENT)NetHashBucket {
         }
 
         oldKey = 0;
-        if (keys[BucketIdx::third].load(std::memory_order_relaxed) == 0 && keys[BucketIdx::third].compare_exchange_strong(oldKey, key)) {
+        if (keys[BucketIdx::third].load(std::memory_order_relaxed) == 0 &&
+            keys[BucketIdx::third].compare_exchange_strong(oldKey, key)) {
             BeforePutFuncState ret = beforePutFunc();
             if (HM_UNLIKELY(ret == BeforePutFuncState::BEFORE_FAIL)) {
                 keys[BucketIdx::third] = 0;
@@ -189,7 +192,8 @@ struct alignas(K_ALIGNMENT)NetHashBucket {
     {
         /* don't put them into loop, flat code is faster than loop */
         uint64_t oldValue = key;
-        if (keys[BucketIdx::first].load(std::memory_order_relaxed) == key && keys[BucketIdx::first].compare_exchange_strong(oldValue, 0)) {
+        if (keys[BucketIdx::first].load(std::memory_order_relaxed) == key &&
+            keys[BucketIdx::first].compare_exchange_strong(oldValue, 0)) {
             values[BucketIdx::first] = 0;
             return FkvState::FKV_EXIST;
         }
@@ -198,7 +202,8 @@ struct alignas(K_ALIGNMENT)NetHashBucket {
         }
         oldValue = key;
 
-        if (keys[BucketIdx::second].load(std::memory_order_relaxed) == key && keys[BucketIdx::second].compare_exchange_strong(oldValue, 0)) {
+        if (keys[BucketIdx::second].load(std::memory_order_relaxed) == key &&
+            keys[BucketIdx::second].compare_exchange_strong(oldValue, 0)) {
             values[BucketIdx::second] = 0;
             return FkvState::FKV_EXIST;
         }
@@ -207,7 +212,8 @@ struct alignas(K_ALIGNMENT)NetHashBucket {
         }
         oldValue = key;
 
-        if (keys[BucketIdx::third].load(std::memory_order_relaxed) == key && keys[BucketIdx::third].compare_exchange_strong(oldValue, 0)) {
+        if (keys[BucketIdx::third].load(std::memory_order_relaxed) == key &&
+            keys[BucketIdx::third].compare_exchange_strong(oldValue, 0)) {
             values[BucketIdx::third] = 0;
             return FkvState::FKV_EXIST;
         }
@@ -222,7 +228,8 @@ struct alignas(K_ALIGNMENT)NetHashBucket {
     {
         /* don't put them into loop, flat code is faster than loop */
         uint64_t oldValue = key;
-        if (keys[BucketIdx::first].load(std::memory_order_relaxed) == key && keys[BucketIdx::first].compare_exchange_strong(oldValue, 0)) {
+        if (keys[BucketIdx::first].load(std::memory_order_relaxed) == key &&
+            keys[BucketIdx::first].compare_exchange_strong(oldValue, 0)) {
             if (HM_UNLIKELY(beforeRemoveFunc(values[BucketIdx::first]) == BeforeRemoveFuncState::BEFORE_FAIL)) {
                 return FkvState::FKV_BEFORE_REMOVE_FUNC_FAIL;
             }
@@ -235,7 +242,8 @@ struct alignas(K_ALIGNMENT)NetHashBucket {
         }
         oldValue = key;
 
-        if (keys[BucketIdx::second].load(std::memory_order_relaxed) == key && keys[BucketIdx::second].compare_exchange_strong(oldValue, 0)) {
+        if (keys[BucketIdx::second].load(std::memory_order_relaxed) == key &&
+            keys[BucketIdx::second].compare_exchange_strong(oldValue, 0)) {
             if (HM_UNLIKELY(beforeRemoveFunc(values[BucketIdx::second]) == BeforeRemoveFuncState::BEFORE_FAIL)) {
                 return FkvState::FKV_BEFORE_REMOVE_FUNC_FAIL;
             }
@@ -248,7 +256,8 @@ struct alignas(K_ALIGNMENT)NetHashBucket {
         }
         oldValue = key;
 
-        if (keys[BucketIdx::third].load(std::memory_order_relaxed) == key && keys[BucketIdx::third].compare_exchange_strong(oldValue, 0)) {
+        if (keys[BucketIdx::third].load(std::memory_order_relaxed) == key &&
+            keys[BucketIdx::third].compare_exchange_strong(oldValue, 0)) {
             if (HM_UNLIKELY(beforeRemoveFunc(values[BucketIdx::third]) == BeforeRemoveFuncState::BEFORE_FAIL)) {
                 return FkvState::FKV_BEFORE_REMOVE_FUNC_FAIL;
             }
@@ -391,75 +400,7 @@ public:
         }
 
         // did not find, now do put. continue from the last bucket in find
-
-        /* try 8192 times */
-        for (uint16_t i = 0; i < 8192; i++) {
-            /* loop all buckets linked */
-            while (buck != nullptr) {
-                /* if there is an entry to put, just break */
-                buck->spinLock.Lock();
-                FkvState putRet = buck->Put(key, value, beforePutFunc);
-                buck->spinLock.UnLock();
-                if (putRet == FkvState::FKV_NOT_EXIST) {
-                    current_size++;
-                    return FkvState::FKV_NOT_EXIST;
-                }
-
-                if (HM_UNLIKELY(putRet == FkvState::FKV_KEY_CONFLICT)) {
-                    return FkvState::FKV_KEY_CONFLICT;
-                }
-
-                if (HM_UNLIKELY(putRet == FkvState::FKV_BEFORE_PUT_FUNC_FAIL)) {
-                    return FkvState::FKV_BEFORE_PUT_FUNC_FAIL;
-                }
-
-                if (HM_UNLIKELY(putRet == FkvState::FKV_NO_SPACE)) {
-                    return FkvState::FKV_NO_SPACE;
-                }
-
-                /*
-                 * if no next bucket exist, just for break,
-                 * else move to next bucket linked
-                 */
-                if (buck->next == nullptr) {
-                    break;
-                } else {
-                    buck = buck->next;
-                }
-            }
-
-            /*
-             * if not put successfully in existing buckets, allocate a new one
-             *
-             * NOTES: just allocate memory, don't access new bucket in the spin lock scope,
-             * if access new bucket, which could trigger physical memory allocation which
-             * could trigger page fault, that is quite slow. In this case, spin lock
-             * could occupy too much CPU
-             */
-            auto &lock = buck->spinLock;
-            lock.Lock();
-            /* if other thread allocated new buck already, unlock and continue */
-            if (buck->next != nullptr) {
-                buck = buck->next;
-                lock.UnLock();
-                continue;
-            }
-
-            /* firstly entered thread allocate new bucket */
-            auto newBuck = static_cast<NetHashBucket *>(mOverflowEntryAlloc->Allocate(sizeof(NetHashBucket)));
-            if (HM_UNLIKELY(newBuck == nullptr)) {
-                lock.UnLock();
-                ock::ExternalLogger::PrintLog(ock::LogLevel::ERROR, "Failed to allocate new bucket");
-                return FkvState::FKV_FAIL;
-            }
-            /* link to current buck, set buck to new buck */
-            buck->next = newBuck;
-            buck = newBuck;
-
-            /* unlock */
-            lock.UnLock();
-        }
-        return FkvState::FKV_FAIL;
+        return PutKeyValue(key, value, buck, beforePutFunc);
     }
 
     FkvState Remove(uint64_t key)
@@ -496,18 +437,18 @@ public:
     FkvState Remove(uint64_t key, const std::function<BeforeRemoveFuncState(uint64_t)> &beforeRemoveFunc)
     {
         if (HM_UNLIKELY(key == 0)) {
-            if (zeroInside) {
-                if (__sync_bool_compare_and_swap(&zeroInside, true, false)) {
-                    auto ret = beforeRemoveFunc(zeroValue);
-                    if (HM_UNLIKELY(ret == BeforeRemoveFuncState::BEFORE_FAIL)) {
-                        return FkvState::FKV_BEFORE_REMOVE_FUNC_FAIL;
-                    }
-                    zeroValue = 0;
-                    current_size--;
-                }
-                return FkvState::FKV_EXIST;
+            if (!zeroInside) {
+                return FkvState::FKV_NOT_EXIST;
             }
-            return FkvState::FKV_NOT_EXIST;
+            if (__sync_bool_compare_and_swap(&zeroInside, true, false)) {
+                auto ret = beforeRemoveFunc(zeroValue);
+                if (HM_UNLIKELY(ret == BeforeRemoveFuncState::BEFORE_FAIL)) {
+                    return FkvState::FKV_BEFORE_REMOVE_FUNC_FAIL;
+                }
+                zeroValue = 0;
+                current_size--;
+            }
+            return FkvState::FKV_EXIST;
         }
 
         /* get bucket */
@@ -643,20 +584,20 @@ public:
         const std::function<BeforeRemoveFuncState(uint64_t)> &beforeRemoveFunc)
     {
         if (HM_UNLIKELY(key == 0)) {
-            if (zeroInside) {
-                value = zeroValue;
-                if (__sync_bool_compare_and_swap(&zeroInside, true, false)) {
-                    auto ret = beforeRemoveFunc(zeroValue);
-                    if (HM_UNLIKELY(ret == BeforeRemoveFuncState::BEFORE_FAIL)) {
-                        return FkvState::FKV_BEFORE_REMOVE_FUNC_FAIL;
-                    }
-                    zeroValue = 0;
-                    current_size--;
-                }
-
-                return FkvState::FKV_EXIST;
+            if (!zeroInside) {
+                return FkvState::FKV_NOT_EXIST;
             }
-            return FkvState::FKV_NOT_EXIST;
+            value = zeroValue;
+            if (__sync_bool_compare_and_swap(&zeroInside, true, false)) {
+                auto ret = beforeRemoveFunc(zeroValue);
+                if (HM_UNLIKELY(ret == BeforeRemoveFuncState::BEFORE_FAIL)) {
+                    return FkvState::FKV_BEFORE_REMOVE_FUNC_FAIL;
+                }
+                zeroValue = 0;
+                current_size--;
+            }
+
+            return FkvState::FKV_EXIST;
         }
         /* get bucket */
         auto buck = &(mSubMaps[key % gSubMapCount][key % mBucketCount]);
@@ -686,15 +627,7 @@ public:
         for (auto &mSubMap : mSubMaps) {
             for (uint32_t j = 0; j < mBucketCount; j++) {
                 auto buck = &mSubMap[j];
-                while (buck) {
-                    for (size_t k = 0; k < K_KVNUMINBUCKET; k++) {
-                        if (buck->keys[k] == 0) {
-                            continue;
-                        }
-                        kvVec.emplace_back(buck->keys[k].load(), buck->values[k]);
-                    }
-                    buck = buck->next;
-                }
+                ExtractKeyValInBuck(buck, kvVec);
             }
         }
         return kvVec;
@@ -786,6 +719,93 @@ private:
             }
         }
     }
+
+    FkvState PutKeyValue(uint64_t key, uint64_t& value, EmbCache::NetHashBucket *buck,
+                    const std::function<BeforePutFuncState()>& beforePutFunc)
+    {
+         /* try 8192 times */
+        for (uint16_t i = 0; i < 8192; i++) {
+            /* loop all buckets linked */
+            while (buck != nullptr) {
+                /* if there is an entry to put, just break */
+                buck->spinLock.Lock();
+                FkvState putRet = buck->Put(key, value, beforePutFunc);
+                buck->spinLock.UnLock();
+                if (putRet == FkvState::FKV_NOT_EXIST) {
+                    current_size++;
+                    return FkvState::FKV_NOT_EXIST;
+                }
+
+                if (HM_UNLIKELY(putRet == FkvState::FKV_KEY_CONFLICT)) {
+                    return FkvState::FKV_KEY_CONFLICT;
+                }
+
+                if (HM_UNLIKELY(putRet == FkvState::FKV_BEFORE_PUT_FUNC_FAIL)) {
+                    return FkvState::FKV_BEFORE_PUT_FUNC_FAIL;
+                }
+
+                if (HM_UNLIKELY(putRet == FkvState::FKV_NO_SPACE)) {
+                    return FkvState::FKV_NO_SPACE;
+                }
+
+                /*
+                 * if no next bucket exist, just for break,
+                 * else move to next bucket linked
+                 */
+                if (buck->next == nullptr) {
+                    break;
+                } else {
+                    buck = buck->next;
+                }
+            }
+
+            /*
+             * if not put successfully in existing buckets, allocate a new one
+             *
+             * NOTES: just allocate memory, don't access new bucket in the spin lock scope,
+             * if access new bucket, which could trigger physical memory allocation which
+             * could trigger page fault, that is quite slow. In this case, spin lock
+             * could occupy too much CPU
+             */
+            auto &lock = buck->spinLock;
+            lock.Lock();
+            /* if other thread allocated new buck already, unlock and continue */
+            if (buck->next != nullptr) {
+                buck = buck->next;
+                lock.UnLock();
+                continue;
+            }
+
+            /* firstly entered thread allocate new bucket */
+            auto newBuck = static_cast<NetHashBucket *>(mOverflowEntryAlloc->Allocate(sizeof(NetHashBucket)));
+            if (HM_UNLIKELY(newBuck == nullptr)) {
+                lock.UnLock();
+                ock::ExternalLogger::PrintLog(ock::LogLevel::ERROR, "Failed to allocate new bucket");
+                return FkvState::FKV_FAIL;
+            }
+            /* link to current buck, set buck to new buck */
+            buck->next = newBuck;
+            buck = newBuck;
+
+            /* unlock */
+            lock.UnLock();
+        }
+        return FkvState::FKV_FAIL;
+    }
+
+    void ExtractKeyValInBuck(EmbCache::NetHashBucket *buck, std::vector<std::pair<uint64_t, uint64_t>>& kvVec)
+    {
+        while (buck) {
+            for (size_t k = 0; k < K_KVNUMINBUCKET; k++) {
+                if (buck->keys[k] == 0) {
+                    continue;
+                }
+                kvVec.emplace_back(buck->keys[k].load(), buck->values[k]);
+            }
+            buck = buck->next;
+        }
+    }
+
 };
 }
 #endif // MXREC_MAPPER_BASE_H

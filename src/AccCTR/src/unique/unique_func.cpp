@@ -195,6 +195,10 @@ int ShardedDedup::HandleIdCountFill(std::vector<std::atomic<int32_t>> &idCount, 
     } else {
         uint32_t memSize = idCount.size() * sizeof(int32_t);
         auto rc = memcpy_s(uniqueOut.idCnt, memSize, (int32_t *)(idCount.data()), memSize);
+        if (rc != 0) {
+            return rc;
+        }
+
         int ret = PrintMemCpyLog(rc, memSize, "[TileAndFill/idCnt]");
         if (ret != 0) {
             return ret;

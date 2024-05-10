@@ -85,34 +85,62 @@ public:
         return maxCacheSize - useLength + evictSize;
     }
 
-    int GetSwapPairsAndKey2Offset(std::vector<uint64_t> &keys, std::vector<uint64_t> &swapInKeys,
-        std::vector<uint64_t> &swapInPos, std::vector<uint64_t> &swapOutKeys, std::vector<uint64_t> &swapOutPos)
+    int GetSwapPairsAndKey2Offset(std::vector<uint64_t> &keys, KeyOffsetPair &swapInKoPair, KeyOffsetPair &swapOutKoPair) 
     {
-        std::vector<uint64_t> swapInKeysID;
+        std::vector<uint64_t> swapInKeysID = FilterKeys(keys, swapInKoPair);
 
-        for (uint64_t i = 0; i < keys.size(); i++) {
-            // Invalid key 不考虑
-            if (HM_UNLIKELY(keys[i] == static_cast<uint64_t>(INVALID_KEY))) {
-                continue;
-            }
-            // 在HBM中的key, 原地替换为pos后从validPos中移除
-            // 不在HBM中的key，加入swapInKeys，并记录在keys中的下标，用于后续key->offset
-            if (Find(keys[i], keys[i])) {
-                validPos->remove(keys[i]);
-            } else {
-                swapInKeys.push_back(keys[i]);
-                swapInKeysID.push_back(i);
-            }
+        uint64_t swapInCnt = 0;
+        int ret = FindInUsedPos(keys, swapInCnt, swapInKeysID, swapInKoPair, swapOutKoPair);
+        if (ret != ock::ctr::H_OK) {
+            return ret;
         }
 
-        swapInPos.resize(swapInKeys.size());
+        // 剩下的Key从om中分配位置
+        ret = FindInOffsetMapper(keys, swapInKoPair, swapInCnt, swapInKeysID);
+        if (ret != ock::ctr::H_OK) {
+            return ret;
+        }
+
+        // 上个batch中的pos可被换出，加入validPos中
+        for (uint64_t pos : lastBatchPos) {
+            if (HM_UNLIKELY(pos == static_cast<uint64_t>(INVALID_KEY))) {
+                continue;
+            }
+            validPos->insert(pos);
+        }
+
+        // 这里keys都已被替换成offset，这个batch使用的pos在下个batch不能被换出，移出validPos
+        for (uint64_t pos : keys) {
+            if (HM_UNLIKELY(pos == static_cast<uint64_t>(INVALID_KEY))) {
+                continue;
+            }
+            validPos->remove(pos);
+            evictPos->remove(pos);
+        }
+
+        lastBatchPos = keys;
+        return ock::ctr::H_OK;
+    }
+
+    uint32_t GetUsage()
+    {
+        return useLength - evictSize;
+    }
+
+    uint64_t FindInUsedPos(std::vector<uint64_t>& keys, uint64_t& swapInCnt, std::vector<uint64_t>& swapInKeysID,
+                            KeyOffsetPair& swapInKoPair, KeyOffsetPair& swapOutKoPair)
+    {
+        std::vector<uint64_t> &swapInKeys = swapInKoPair.first;
+        std::vector<uint64_t> &swapInPos = swapInKoPair.second;
+        std::vector<uint64_t> &swapOutKeys = swapOutKoPair.first;
+        std::vector<uint64_t> &swapOutPos = swapOutKoPair.second;
+
         // 换出量 = 换入量 - 剩余空间
         uint64_t swapOutNum = swapInKeys.size() <= GetFreeLength() ? 0 : swapInKeys.size() - GetFreeLength();
         swapOutKeys.resize(swapOutNum);
         swapOutPos.resize(swapOutNum);
 
         // 空间不足，前swapOutNum个Key从evictPos中拿可换出位置
-        uint64_t swapInCnt = 0;
         for (uint64_t pos : *evictPos) {
             if (swapInCnt == swapInKeys.size()) {
                 break;
@@ -157,7 +185,15 @@ public:
             return ock::ctr::H_MAX_CACHESIZE_TOO_SMALL;
         }
 
-        // 剩下的Key从om中分配位置
+        return ock::ctr::H_OK;
+    }
+
+    int FindInOffsetMapper(std::vector<uint64_t>& keys, KeyOffsetPair& swapInKoPair, uint64_t swapInCnt,
+                           std::vector<uint64_t>& swapInKeysID)
+    {
+        std::vector<uint64_t> &swapInKeys = swapInKoPair.first;
+        std::vector<uint64_t> &swapInPos = swapInKoPair.second;
+
         for (uint64_t i = swapInCnt; i < swapInKeys.size(); i++) {
             swapInPos[i] = useLength++;
             if (HM_UNLIKELY(swapInPos[i] >= maxCacheSize)) {
@@ -171,31 +207,31 @@ public:
             // key->offset
             keys[swapInKeysID[i]] = swapInPos[i];
         }
-
-        // 上个batch中的pos可被换出，加入validPos中
-        for (uint64_t pos : lastBatchPos) {
-            if (HM_UNLIKELY(pos == static_cast<uint64_t>(INVALID_KEY))) {
-                continue;
-            }
-            validPos->insert(pos);
-        }
-
-        // 这里keys都已被替换成offset，这个batch使用的pos在下个batch不能被换出，移出validPos
-        for (uint64_t pos : keys) {
-            if (HM_UNLIKELY(pos == static_cast<uint64_t>(INVALID_KEY))) {
-                continue;
-            }
-            validPos->remove(pos);
-            evictPos->remove(pos);
-        }
-
-        lastBatchPos = keys;
         return ock::ctr::H_OK;
     }
 
-    uint32_t GetUsage()
+    std::vector<uint64_t> FilterKeys(std::vector<uint64_t>& keys, KeyOffsetPair &swapInKoPair)
     {
-        return useLength - evictSize;
+        std::vector<uint64_t> &swapInKeys = swapInKoPair.first;
+        std::vector<uint64_t> &swapInPos = swapInKoPair.second;
+
+        std::vector<uint64_t> swapInKeysID;
+        for (uint64_t i = 0; i < keys.size(); i++) {
+            // Invalid key 不考虑
+            if (HM_UNLIKELY(keys[i] == static_cast<uint64_t>(INVALID_KEY))) {
+                continue;
+            }
+            // 在HBM中的key, 原地替换为pos后从validPos中移除
+            // 不在HBM中的key，加入swapInKeys，并记录在keys中的下标，用于后续key->offset
+            if (Find(keys[i], keys[i])) {
+                validPos->remove(keys[i]);
+            } else {
+                swapInKeys.push_back(keys[i]);
+                swapInKeysID.push_back(i);
+            }
+        }
+        swapInPos.resize(swapInKeys.size());
+        return swapInKeysID;
     }
 
 private:
