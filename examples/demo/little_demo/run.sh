@@ -82,6 +82,11 @@ cur_path=`pwd`
 python_bin_path=$(dirname $(readlink -f $(which python3.7)))
 mx_rec_package_path="$python_bin_path/../lib/python3.7/site-packages/mx_rec"
 so_path=${mx_rec_package_path}/libasc
+# 检查路径是否存在
+if [ ! -e "$so_path" ]; then
+    echo "路径 $so_path 不存在, 请检查是否已安装mxrec"
+    exit 1
+fi
 # GLOG_stderrthreshold -2:TRACE -1:DEBUG 0:INFO 1:WARN 2.ERROR, 默认为INFO
 mpi_args='-x BIND_INFO="0:12 12:48 60:48" -x GLOG_stderrthreshold=0 -x GLOG_logtostderr=true -bind-to none -x NCCL_SOCKET_IFNAME=docker0 -mca btl_tcp_if_exclude docker0'
 interface="lo"
