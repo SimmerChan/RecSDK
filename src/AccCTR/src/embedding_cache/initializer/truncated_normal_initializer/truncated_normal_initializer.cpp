@@ -35,6 +35,7 @@ TruncatedNormalInitializer::TruncatedNormalInitializer(uint32_t start, uint32_t 
     } else {
         mean = initInfo.mean;
     }
+
     if (initInfo.stddev > NORMAL_STDDEV_MAX) {
         ExternalLogger::PrintLog(LogLevel::WARN, "truncated normal stddev param is greater than " +
             std::to_string(NORMAL_STDDEV_MAX) + ", and will use " + std::to_string(NORMAL_STDDEV_MAX) + ".");
@@ -46,6 +47,13 @@ TruncatedNormalInitializer::TruncatedNormalInitializer(uint32_t start, uint32_t 
     } else {
         stddev = initInfo.stddev;
     }
+
+    if (abs(stddev) < std::numeric_limits<float>::epsilon()) {
+        ExternalLogger::PrintLog(
+            LogLevel::WARN,
+            "truncated normal stddev param is zero, initialization can be slow, suggest using constant initializer");
+    }
+
     if (initInfo.initK > INIT_K_MAX) {
         ExternalLogger::PrintLog(LogLevel::WARN, "truncated normal initK is greater than " +
             std::to_string(INIT_K_MAX) + ", and will use " + std::to_string(INIT_K_MAX) + ".");

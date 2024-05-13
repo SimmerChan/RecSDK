@@ -60,7 +60,9 @@ int EmbLocalTable::RemoveByKeys(const std::vector<uint64_t> &keys, uint32_t thre
 {
     if (threadNum == 1) {
         for (uint64_t key : keys) {
-            Remove(key);
+            if(!Remove(key)){
+                return H_ERROR;
+            }
         }
         return H_OK;
     }
@@ -76,16 +78,22 @@ int EmbLocalTable::RemoveByKeys(const std::vector<uint64_t> &keys, uint32_t thre
         start[threadId] = (keys.size() / threadNum) * threadId + m;
     }
 
-    vector<thread> threads(threadNum);
+    vector<future<ock::ctr::CTRCode>> threads(threadNum);
     for (uint32_t threadId = 0; threadId < threadNum; threadId++) {
-        threads[threadId] = thread([&, threadId] {
+        threads[threadId] = std::async(std::launch::async, [&, threadId]() {
             for (uint64_t i = start[threadId]; i < start[threadId + 1]; i++) {
-                Remove(keys[i]);
+                if (!Remove(keys[i])) {
+                    return H_ERROR;
+                }
             }
+            return H_OK;
         });
     }
     for (auto &t : threads) {
-        t.join();
+        auto res = t.get();
+        if (res != H_OK) {
+            return res;
+        }
     }
     return H_OK;
 }

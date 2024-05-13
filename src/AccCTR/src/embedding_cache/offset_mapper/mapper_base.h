@@ -315,7 +315,7 @@ public:
             /* make physical page and set to zero */
             auto ret = memset_s(tmp, sizeof(NetHashBucket) * bucketCount, 0, sizeof(NetHashBucket) * bucketCount);
             if (ret != 0) {
-                ock::ExternalLogger::ExternalLogger::PrintLog(ock::LogLevel::ERROR,
+                ock::ExternalLogger::PrintLog(ock::LogLevel::ERROR,
                     "memset_s failed... size: " + std::to_string(sizeof(NetHashBucket) * bucketCount));
                 return false;
             }
