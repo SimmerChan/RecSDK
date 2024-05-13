@@ -182,7 +182,7 @@ public:
      * @Param swapOutKoPair: 输出参数，需要换出的Key-offset pair
      * @Return errorCode
      */
-    virtual int GetSwapPairsAndKey2Offset(std::string tableName, std::vector<uint64_t> &keys,
+    virtual int GetSwapPairsAndKey2Offset(const std::string& tableName, std::vector<uint64_t> &keys,
         KeyOffsetPair &swapInKoPair, KeyOffsetPair &swapOutKoPair) = 0;
 
     /* *
@@ -193,7 +193,7 @@ public:
      * @Param threadNum: 线程数
      * @Return errorCode
      */
-    virtual int EmbeddingLookup(std::string tableName, const std::vector<uint64_t> &keys, float *embAddr,
+    virtual int EmbeddingLookup(const std::string& tableName, const std::vector<uint64_t> &keys, float *embAddr,
         uint32_t threadNum = 4) = 0;
 
     /* *
@@ -204,7 +204,7 @@ public:
      * @Param threadNum: 线程数
      * @Return errorCode
      */
-    virtual int EmbeddingLookupAddrs(std::string tableName, const std::vector<uint64_t> &keys,
+    virtual int EmbeddingLookupAddrs(const std::string& tableName, const std::vector<uint64_t> &keys,
         std::vector<float *> &addrs, uint32_t threadNum = 4) = 0;
 
     /* *
@@ -216,8 +216,8 @@ public:
      * @Param threadNum: 线程数
      * @Return errorCode
      */
-    virtual int EmbeddingLookupAndRemove(std::string tableName, const std::vector<uint64_t> &keys, float *embAddr,
-        uint32_t threadNum = 4) = 0;
+    virtual int EmbeddingLookupAndRemove(const std::string& tableName, const std::vector<uint64_t>& keys,
+                                         float* embAddr, uint32_t threadNum = 4) = 0;
 
     /* *
      * 更新Embedding
@@ -227,7 +227,7 @@ public:
      * @Param threadNum: 线程数
      * @Return errorCode
      */
-    virtual int EmbeddingUpdate(std::string tableName, const std::vector<uint64_t> &keys, float *embAddr,
+    virtual int EmbeddingUpdate(const std::string& tableName, const std::vector<uint64_t> &keys, float *embAddr,
         uint32_t threadNum = 4) = 0;
 
     /* *
@@ -236,7 +236,8 @@ public:
      * @Param keys: 待移除的keys
      * @Return errorCode
      */
-    virtual int EmbeddingRemove(std::string tableName, const std::vector<uint64_t> &keys, uint32_t threadNum = 4) = 0;
+    virtual int EmbeddingRemove(const std::string& tableName, const std::vector<uint64_t>& keys,
+                                uint32_t threadNum = 4) = 0;
 
     /* *
      * 将需要被淘汰的keys从offsetMapper的记录中移除，同时也在EmbLocalTable中移除，并将存储其embedding的内存位置记为可复用
@@ -244,7 +245,7 @@ public:
      * @Param keys: 待淘汰的keys
      * @Return errorCode
      */
-    virtual int RemoveEmbsByKeys(std::string tableName, const std::vector<uint64_t> &keys) = 0;
+    virtual int RemoveEmbsByKeys(const std::string& tableName, const std::vector<uint64_t> &keys) = 0;
 
     /* *
      * 获取所有table names
@@ -259,7 +260,7 @@ public:
      * koVec: 输出参数
      * @Return errorCode
      */
-    virtual int ExportDeviceKeyOffsetPairs(std::string tableName,
+    virtual int ExportDeviceKeyOffsetPairs(const std::string& tableName,
         std::vector<std::pair<uint64_t, uint64_t>> &koVec) = 0;
 
     /* *
@@ -268,7 +269,7 @@ public:
      * @Param buffer: 输出参数，存储序列化之后的信息
      * @Return errorCode
      */
-    virtual int Serialize(std::string tableName, std::vector<char> &buffer) = 0;
+    virtual int Serialize(const std::string& tableName, std::vector<char> &buffer) = 0;
 
     /* *
      * 将当前table的序列化信息进行反序列化
@@ -276,7 +277,7 @@ public:
      * @Param buffer: 输入参数，将buffer中的内容进行反序列化
      * @Return errorCode
      */
-    virtual int Deserialize(std::string tableName, const std::vector<char> &buffer) = 0;
+    virtual int Deserialize(const std::string& tableName, const std::vector<char> &buffer) = 0;
 
     /* *
      * 析构所有embCache，释放内存

@@ -60,7 +60,7 @@ public:
     {
         std::lock_guard<std::mutex> lock(taskMutex);
 
-        auto pt = std::make_unique<std::packaged_task<int()>>(f);
+        auto pt = std::make_unique<std::packaged_task<int()>>(std::forward<F>(f));
         auto fut = pt->get_future();
         tasks.emplace(std::move(pt));
         taskCv.notify_one();
@@ -72,7 +72,7 @@ private:
     std::queue<std::unique_ptr<std::packaged_task<int()>>> tasks;
     std::mutex taskMutex;
     std::condition_variable taskCv;
-    volatile bool stop = false;
+    std::atomic<bool> stop = false;
 
     void WorkerThread()
     {

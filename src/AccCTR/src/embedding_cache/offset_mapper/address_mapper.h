@@ -220,13 +220,15 @@ private:
     {
         std::unique_lock<std::mutex> lock(producerMutex);
         while (!stop) {
-            if (BufferBin.GetLength() < maxBufferSize && !full) {
-                Produce();
-            } else if (!full) {
-                producerCv.wait(lock);
-            } else {
+            if (full) {
                 fullCv.wait(lock);
+                continue;
             }
+            if (BufferBin.GetLength() < maxBufferSize) {
+                Produce();
+                continue;
+            }
+            producerCv.wait(lock);
         }
     }
 };

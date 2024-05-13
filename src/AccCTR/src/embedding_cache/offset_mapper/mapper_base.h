@@ -291,7 +291,7 @@ public:
         }
 
         /* get proper bucket count */
-        uint32_t bucketCount = reserve < 128 ? 128 : reserve;
+        uint32_t bucketCount = std::max(reserve, uint32_t(128));
         if (bucketCount > gPrimes[gPrimesCount - 1]) {
             bucketCount = gPrimes[gPrimesCount - 1];
         } else {

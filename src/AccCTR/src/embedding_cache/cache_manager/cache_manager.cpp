@@ -91,7 +91,7 @@ int EmbCacheManagerImpl::CreateCacheForTable(const EmbCacheInfo& embCacheInfo,
     return H_OK;
 }
 
-int EmbCacheManagerImpl::GetSwapPairsAndKey2Offset(std::string tableName, std::vector<uint64_t>& keys,
+int EmbCacheManagerImpl::GetSwapPairsAndKey2Offset(const std::string& tableName, std::vector<uint64_t>& keys,
                                                    KeyOffsetPair& swapInKoPair, KeyOffsetPair& swapOutKoPair)
 {
     int checkRet = CheckGetSwapPairsAndKey2Offset(tableName, swapInKoPair, swapOutKoPair);
@@ -101,8 +101,8 @@ int EmbCacheManagerImpl::GetSwapPairsAndKey2Offset(std::string tableName, std::v
     return offsetMappers[tableName].GetSwapPairsAndKey2Offset(keys, swapInKoPair, swapOutKoPair);
 }
 
-int EmbCacheManagerImpl::EmbeddingLookup(std::string tableName, const std::vector<uint64_t>& keys, float* embAddr,
-                                         uint32_t threadNum)
+int EmbCacheManagerImpl::EmbeddingLookup(const std::string& tableName, const std::vector<uint64_t>& keys,
+                                         float* embAddr, uint32_t threadNum)
 {
     int checkTableNameRet = CheckValidTableName(tableName);
     if (checkTableNameRet != H_OK) {
@@ -125,7 +125,7 @@ int EmbCacheManagerImpl::EmbeddingLookup(std::string tableName, const std::vecto
     return embTables[tableName].Gather(reinterpret_cast<uint64_t>(embAddr), keys, threadNum);
 }
 
-int EmbCacheManagerImpl::EmbeddingLookupAddrs(std::string tableName, const std::vector<uint64_t>& keys,
+int EmbCacheManagerImpl::EmbeddingLookupAddrs(const std::string& tableName, const std::vector<uint64_t>& keys,
                                               std::vector<float*>& addrs, uint32_t threadNum)
 {
     int checkTableNameRet = CheckValidTableName(tableName);
@@ -145,7 +145,7 @@ int EmbCacheManagerImpl::EmbeddingLookupAddrs(std::string tableName, const std::
 }
 
 // 如果多线程使用，严格保证传入的key线程间不会重复(unique key)，否则可能出现未定义结果
-int EmbCacheManagerImpl::EmbeddingLookupAndRemove(std::string tableName, const std::vector<uint64_t>& keys,
+int EmbCacheManagerImpl::EmbeddingLookupAndRemove(const std::string& tableName, const std::vector<uint64_t>& keys,
                                                   float* embAddr, uint32_t threadNum)
 {
     int checkTableNameRet = CheckValidTableName(tableName);
@@ -169,8 +169,8 @@ int EmbCacheManagerImpl::EmbeddingLookupAndRemove(std::string tableName, const s
     return embTables[tableName].GatherAndRemove(reinterpret_cast<uint64_t>(embAddr), keys, threadNum);
 }
 
-int EmbCacheManagerImpl::EmbeddingUpdate(std::string tableName, const std::vector<uint64_t>& keys, float* embAddr,
-                                         uint32_t threadNum)
+int EmbCacheManagerImpl::EmbeddingUpdate(const std::string& tableName, const std::vector<uint64_t>& keys,
+                                         float* embAddr, uint32_t threadNum)
 {
     int checkTableNameRet = CheckValidTableName(tableName);
     if (checkTableNameRet != H_OK) {
@@ -193,7 +193,8 @@ int EmbCacheManagerImpl::EmbeddingUpdate(std::string tableName, const std::vecto
     return embTables[tableName].Scatter(reinterpret_cast<uint64_t>(embAddr), keys, threadNum);
 }
 
-int EmbCacheManagerImpl::EmbeddingRemove(std::string tableName, const std::vector<uint64_t>& keys, uint32_t threadNum)
+int EmbCacheManagerImpl::EmbeddingRemove(const std::string& tableName, const std::vector<uint64_t>& keys,
+                                         uint32_t threadNum)
 {
     int checkTableNameRet = CheckValidTableName(tableName);
     if (checkTableNameRet != H_OK) {
@@ -211,14 +212,14 @@ int EmbCacheManagerImpl::EmbeddingRemove(std::string tableName, const std::vecto
     return embTables[tableName].RemoveByKeys(keys, threadNum);
 }
 
-int EmbCacheManagerImpl::RemoveEmbsByKeys(std::string tableName, const std::vector<uint64_t>& keys)
+int EmbCacheManagerImpl::RemoveEmbsByKeys(const std::string& tableName, const std::vector<uint64_t>& keys)
 {
     int checkTableNameRet = CheckValidTableName(tableName);
     if (checkTableNameRet != H_OK) {
         return checkTableNameRet;
     }
-    auto om = offsetMappers.find(tableName);
-    auto embTable = embTables.find(tableName);
+    const auto& om = offsetMappers.find(tableName);
+    const auto& embTable = embTables.find(tableName);
     for (auto key : keys) {
         if (key == static_cast<uint64_t>(INVALID_KEY)) {
             ExternalLogger::PrintLog(LogLevel::WARN, "Try to evict invalid key");
@@ -243,7 +244,7 @@ int EmbCacheManagerImpl::GetEmbTableNames(std::vector<std::string>& allTableName
     return H_OK;
 }
 
-int EmbCacheManagerImpl::ExportDeviceKeyOffsetPairs(std::string tableName,
+int EmbCacheManagerImpl::ExportDeviceKeyOffsetPairs(const std::string& tableName,
                                                     std::vector<std::pair<uint64_t, uint64_t>>& koVec)
 {
     int checkTableNameRet = CheckValidTableName(tableName);
@@ -255,7 +256,7 @@ int EmbCacheManagerImpl::ExportDeviceKeyOffsetPairs(std::string tableName,
     return H_OK;
 }
 
-int EmbCacheManagerImpl::Serialize(std::string tableName, std::vector<char>& buffer)
+int EmbCacheManagerImpl::Serialize(const std::string& tableName, std::vector<char>& buffer)
 {
     int checkTableNameRet = CheckValidTableName(tableName);
     if (checkTableNameRet != H_OK) {
@@ -265,7 +266,7 @@ int EmbCacheManagerImpl::Serialize(std::string tableName, std::vector<char>& buf
     return H_OK;
 }
 
-int EmbCacheManagerImpl::Deserialize(std::string tableName, const std::vector<char>& buffer)
+int EmbCacheManagerImpl::Deserialize(const std::string& tableName, const std::vector<char>& buffer)
 {
     int checkTableNameRet = CheckValidTableName(tableName);
     if (checkTableNameRet != H_OK) {
@@ -290,7 +291,7 @@ void EmbCacheManagerImpl::Destroy()
     embTables.clear();
 }
 
-int EmbCacheManagerImpl::CheckValidTableName(std::string tableName)
+int EmbCacheManagerImpl::CheckValidTableName(const std::string& tableName)
 {
     if (tableName.size() > TABLE_NAME_MAX_SIZE) {
         ExternalLogger::PrintLog(LogLevel::ERROR,
@@ -345,7 +346,7 @@ bool EmbCacheManagerImpl::CheckValidThreadNum(uint32_t threadNum)
     return true;
 }
 
-int EmbCacheManagerImpl::CheckGetSwapPairsAndKey2Offset(std::string tableName, const KeyOffsetPair& swapInKoPair,
+int EmbCacheManagerImpl::CheckGetSwapPairsAndKey2Offset(const std::string& tableName, const KeyOffsetPair& swapInKoPair,
                                                         const KeyOffsetPair& swapOutKoPair)
 {
     if (!swapInKoPair.first.empty() || !swapInKoPair.second.empty() || !swapOutKoPair.first.empty() ||
