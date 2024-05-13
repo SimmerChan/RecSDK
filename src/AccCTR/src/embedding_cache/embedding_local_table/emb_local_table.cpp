@@ -60,7 +60,7 @@ int EmbLocalTable::RemoveByKeys(const std::vector<uint64_t> &keys, uint32_t thre
 {
     if (threadNum == 1) {
         for (uint64_t key : keys) {
-            if(!Remove(key)){
+            if (!Remove(key)) {
                 return H_ERROR;
             }
         }
