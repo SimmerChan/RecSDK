@@ -55,7 +55,8 @@ def create_hash_optimizer_by_address(learning_rate=0.001, initial_accumulator_va
     """
     if not ConfigInitializer.get_instance().use_dynamic_expansion:
         raise ValueError(
-            "dynamic expansion mode is not compatible with the optimizer, please config dynamic expansion mode and optimizer correctly"
+            "dynamic expansion mode is not compatible with the optimizer, please config dynamic "
+            "expansion mode and optimizer correctly"
         )
     optimizer = CustomizedAdagradByAddress(
         learning_rate=learning_rate,
