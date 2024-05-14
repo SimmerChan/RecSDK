@@ -51,7 +51,12 @@ int HDTransfer::Init(const vector<EmbInfo>& embInfos, uint32_t localRankId)
         }
         // 创建acltdtDataset类型的数据，对等一个Vector<tensor>。同步接口。
         for (int j = 0; j < EMBEDDING_THREAD_NUM; j++) {
-            aclDatasets[embInfo.name][j] = acltdtCreateDataset();
+            acltdtDataset* dataset = acltdtCreateDataset();
+            if (dataset == nullptr) {
+                LOG_ERROR("create acltdtDataset failed, table:{}, threadId:{}", embName, j);
+                throw runtime_error("create acltdtDataset failed");
+            }
+            aclDatasets[embInfo.name][j] = dataset;
         }
     }
     running = true;
