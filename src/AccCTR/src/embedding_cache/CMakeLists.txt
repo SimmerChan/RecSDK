@@ -1,4 +1,4 @@
-# Copyright (c) Huawei Technologies Co., Ltd. 2022-2024. All rights reserved.
+# Copyright (c) Huawei Technologies Co., Ltd. 2023-2024. All rights reserved.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -12,8 +12,16 @@
 # limitations under the License.
 # ==============================================================================
 
-set(INCLUDE_HEADERS factory.h ock_ctr_common_def.h unique.h embedding_cache.h)
+file(GLOB_RECURSE SRCS *.cpp *.h)
 
-set(TARGET_INSTALL_INCLUDE ${OUTPUT}/ock_ctr_common/include)
+add_library(embedding_cache OBJECT ${SRCS})
 
-install(FILES ${INCLUDE_HEADERS} DESTINATION ${TARGET_INSTALL_INCLUDE} PERMISSIONS OWNER_WRITE OWNER_READ GROUP_READ WORLD_READ)
+target_link_libraries(embedding_cache
+        -Wl,--start-group
+        -Wl,--end-group
+        )
+
+target_include_directories(embedding_cache
+        PUBLIC
+        ${PROJECT_SOURCE_DIR}/src/common/util
+        ${PROJECT_SOURCE_DIR}/src/include)

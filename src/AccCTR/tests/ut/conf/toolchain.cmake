@@ -1,4 +1,4 @@
-# Copyright (c) Huawei Technologies Co., Ltd. 2022-2024. All rights reserved.
+# Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -12,8 +12,13 @@
 # limitations under the License.
 # ==============================================================================
 
-set(INCLUDE_HEADERS factory.h ock_ctr_common_def.h unique.h embedding_cache.h)
+# 添加编译选项
+option(USE32BIT "Use 32-Bit" OFF)
+if(USE32BIT)
+    add_compile_options(-m32)
+    add_link_options(-m32)
+endif()
 
-set(TARGET_INSTALL_INCLUDE ${OUTPUT}/ock_ctr_common/include)
-
-install(FILES ${INCLUDE_HEADERS} DESTINATION ${TARGET_INSTALL_INCLUDE} PERMISSIONS OWNER_WRITE OWNER_READ GROUP_READ WORLD_READ)
+add_compile_options(-Wall)
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_CXX_STANDARD 11)
