@@ -118,7 +118,7 @@ class GraphModifier:
             logger.warning("Nothing to revise.")
             return
 
-        export_pb_graph("old_graph.pb", self._dump_graph)
+        export_pb_graph("old_graph.pbtxt", self._dump_graph, graph_def=self._full_graph.as_graph_def())
         get_next_op_map = self.generate_get_next_op_specs(cutting_point_list)
         logger.debug(
             "In modify_graph_for_asc function, get_next_op_map.len: %d, get_next_op_map.key: %s.",
@@ -144,10 +144,10 @@ class GraphModifier:
                 timestamp_index=timestamp_index,
             )
             record.input_indexs = input_index_list
-            tgt_dataset = self.get_tgt_dataset(src_dataset, sub_cutting_points, record, prefetch=prefetch)
 
-            # update the batch of dataset
-            self.update_iterator_getnext(get_next_op, tgt_dataset, is_training, record)
+            with self._full_graph.as_default():
+                tgt_dataset = self.get_tgt_dataset(src_dataset, sub_cutting_points, record, prefetch=prefetch)
+                self.update_iterator_getnext(get_next_op, tgt_dataset, is_training, record)
 
             # In eval mode, backward is not required. In addition, compute gradients is not executed when
             # only eval is used. Therefore, `do_merge_lookup` needs to be invoked during modify graph.
@@ -166,7 +166,7 @@ class GraphModifier:
         self.modify_graph_for_ddr(get_next_op_map)
 
         logger.info("Graph has been revised.")
-        export_pb_graph("new_graph.pb", self._dump_graph)
+        export_pb_graph("new_graph.pbtxt", self._dump_graph, graph_def=self._full_graph.as_graph_def())
 
     def modify_graph_for_ddr(self, get_next_op_map: Dict[Tensor, AnchorRecord]):
         # 通过create_hash_optimizer创建optimizer_instance
@@ -233,7 +233,7 @@ class GraphModifier:
                 )
                 get_next_op_map[get_next_op] = record
 
-                export_pb_graph(f"cut_graph_{get_next_op.name}.pb", self._dump_graph, graph_def=sub_graph_def)
+                export_pb_graph(f"cut_graph_{get_next_op.name}.pbtxt", self._dump_graph, graph_def=sub_graph_def)
 
         return get_next_op_map
 
