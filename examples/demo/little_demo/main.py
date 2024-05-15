@@ -289,10 +289,12 @@ if __name__ == "__main__":
     train_batch = None
     table_list = [user_hashtable, item_hashtable]
     if use_mode in [UseMode.TRAIN, UseMode.LOAD_AND_TRAIN]:
-        train_iterator, train_model, train_batch = build_graph(table_list, is_train=True,
-                                                               feature_spec_list=train_feature_spec_list,
-                                                               config_dict=ACCESS_AND_EVICT,
-                                                               batch_number=MAX_DATASET_GENERATE_TRAIN * get_rank_size())
+        train_iterator, train_model, train_batch = build_graph(
+            table_list, is_train=True,
+            feature_spec_list=train_feature_spec_list,
+            config_dict=ACCESS_AND_EVICT,
+            batch_number=MAX_DATASET_GENERATE_TRAIN * get_rank_size()
+        )
     eval_iterator, eval_model, eval_batch = build_graph(table_list, is_train=False,
                                                         feature_spec_list=eval_feature_spec_list,
                                                         config_dict=ACCESS_AND_EVICT,
