@@ -65,10 +65,10 @@ namespace MxRec {
 
         void EmbDataGenerator(const vector<EmbCache::InitializerInfo>& initializeInfos, int seed, int vocabSize,
                               int embeddingSize, vector<vector<float>>& embData) const;
-        void EmbPartGenerator(const vector<EmbCache::InitializerInfo> &initializeInfos, vector<vector<float>> &embData,
+        void EmbPartGenerator(const vector<EmbCache::InitializerInfo>& initializeInfos, vector<vector<float>>& embData,
                               const vector<size_t>& offset) const;
 
-        void EmbPartGenerator(const vector<EmbCache::InitializerInfo> &initializeInfos, vector<vector<float>> &embData,
+        void EmbPartGenerator(const vector<EmbCache::InitializerInfo>& initializeInfos, vector<vector<float>>& embData,
                               const vector<int64_t>& offset) const;
     };
 }
