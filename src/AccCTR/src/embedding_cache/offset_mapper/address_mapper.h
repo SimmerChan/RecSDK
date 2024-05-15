@@ -212,7 +212,7 @@ private:
     {
         auto *embAddr = reinterpret_cast<float *>(addr);
         for (const auto &initializerInfo : initializerInfos) {
-            initializerInfo.initializer->GenerateData(embAddr, 0);
+            initializerInfo.initializer->GenerateData(embAddr, -1);
         }
     }
 

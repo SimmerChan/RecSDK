@@ -230,7 +230,7 @@ int EmbLocalTable::GatherAndRemove(uint64_t startAddr, const vector<uint64_t> &k
             if (ret == FkvState::FKV_NOT_EXIST) { // 没找到key，给一个新的初始化值并且不需要存入key
                 auto *embAddr = reinterpret_cast<float *>(addr);
                 for (const auto &initializerInfo : emExpendMemInfo->initializerInfos) {
-                    initializerInfo.initializer->GenerateData(embAddr, 0);
+                    initializerInfo.initializer->GenerateData(embAddr, -1);
                 }
             } else if (ret == FkvState::FKV_BEFORE_REMOVE_FUNC_FAIL) {
                 ExternalLogger::PrintLog(LogLevel::ERROR, "memcpy_s failed... dstSize: " + std::to_string(memSize));
@@ -263,7 +263,7 @@ int EmbLocalTable::GatherAndRemove(uint64_t startAddr, const vector<uint64_t> &k
                 if (ret == FkvState::FKV_NOT_EXIST) { // 没找到key，给一个新的初始化值并且不需要存入key
                     auto *embAddr = reinterpret_cast<float *>(addr);
                     for (const auto &initializerInfo : emExpendMemInfo->initializerInfos) {
-                        initializerInfo.initializer->GenerateData(embAddr, 0);
+                        initializerInfo.initializer->GenerateData(embAddr, -1);
                     }
                 } else if (ret == FkvState::FKV_BEFORE_REMOVE_FUNC_FAIL) {
                     ExternalLogger::PrintLog(LogLevel::ERROR, "memcpy_s failed... dstSize: " + std::to_string(memSize));

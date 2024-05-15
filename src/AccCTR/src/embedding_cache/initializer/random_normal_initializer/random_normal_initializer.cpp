@@ -68,7 +68,7 @@ void RandomNormalInitializer::GenerateData(float* emb, int embSize)
     if (len == 0) {
         return;
     }
-    if (embSize < (start + len)) {
+    if (embSize != -1 && embSize < static_cast<int>(start + len)) {
         ExternalLogger::PrintLog(LogLevel::WARN,
                                  "InitializeInfo start " + std::to_string(start) + " + len " + std::to_string(len) +
                                  " is larger than embedding size " + std::to_string(embSize));
