@@ -48,7 +48,7 @@ enum class InitializerType {
 struct ConstantInitializerInfo {
     ConstantInitializerInfo() = default;
 
-    explicit ConstantInitializerInfo(float constantValue, float initK);
+    ConstantInitializerInfo(float constantValue, float initK);
 
     float constantValue{}; // 常量值
     float initK = 1.0;     // 初始化出来的值需乘以initK
