@@ -147,7 +147,7 @@ void HostEmb::UpdateEmbV2(const vector<size_t>& missingKeysHostPos, int channelI
             auto hdTransfer = Singleton<MxRec::HDTransfer>::GetInstance();
             TransferChannel transferName = TransferChannel::D2H;
             LOG_INFO(HOSTEMB + "wait D2H embs, channelId:{}", channelId);
-            auto size = hdTransfer->RecvAcl(transferName, channelId, embName);
+            auto size = hdTransfer->RecvAcl(transferName, channelId, embName, 0, 0);
             if (size == 0) {
                 LOG_WARN(HOSTEMB + "recv empty data");
                 return;
@@ -157,7 +157,7 @@ void HostEmb::UpdateEmbV2(const vector<size_t>& missingKeysHostPos, int channelI
             EASY_BLOCK("Update")
             auto& embData = hostEmbs[embName].embData;
             auto embeddingSize = hostEmbs[embName].hostEmbInfo.extEmbeddingSize;
-            auto aclData = acltdtGetDataItem(hdTransfer->aclDatasets[embName], 0);
+            auto aclData = acltdtGetDataItem(hdTransfer->aclDatasets[embName][0], 0);
             if (aclData == nullptr) {
                 throw runtime_error("Acl get tensor data from dataset failed.");
             }
