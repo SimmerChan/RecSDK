@@ -1,24 +1,25 @@
-/* Copyright (c) Huawei Technologies Co., Ltd. 2022-2024. All rights reserved.
+/* Copyright 2024. Huawei Technologies Co.,Ltd. All rights reserved.
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-http://www.apache.org/licenses/LICENSE-2.0
+        http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.s
 See the License for the specific language governing permissions and
-limitations under the License.
- ==============================================================================*/
+        limitations under the License.
+==============================================================================*/
 
 #ifndef EMBEDDING_CACHE_H
 #define EMBEDDING_CACHE_H
 
+#include <memory>
+#include <random>
 #include <string>
 #include <vector>
-#include <random>
-#include <memory>
 
 namespace EmbCache {
 using KeyOffsetPair = std::pair<std::vector<uint64_t>, std::vector<uint64_t>>;
@@ -33,9 +34,9 @@ public:
      * @Param emb embedding的首地址
      */
     virtual void GenerateData(float* emb, int embSize) = 0;
-    uint32_t start{};      // 起始位置
-    uint32_t len{};        // 初始化的长度
-    float initParam = 1.0; // 初始化器生成的初始值均需要乘以initParam
+    uint32_t start = 0;     // 起始位置
+    uint32_t len = 0;       // 初始化的长度
+    float initParam = 1.0;  // 初始化器生成的初始值均需要乘以initParam
 };
 
 enum class InitializerType {
@@ -50,8 +51,8 @@ struct ConstantInitializerInfo {
 
     ConstantInitializerInfo(float constantValue, float initK);
 
-    float constantValue{}; // 常量值
-    float initK = 1.0;     // 初始化出来的值需乘以initK
+    float constantValue = 0;  // 常量值
+    float initK = 1.0;        // 初始化出来的值需乘以initK
 };
 
 struct NormalInitializerInfo {
@@ -59,10 +60,10 @@ struct NormalInitializerInfo {
 
     NormalInitializerInfo(float mean, float stddev, uint32_t seed, float initK);
 
-    float mean{};      // 平均值
-    float stddev{};    // 标准差
-    uint32_t seed{};   // 随机数种子
-    float initK = 1.0; // 初始化出来的值需乘以initK
+    float mean = 0;     // 平均值
+    float stddev = 0;   // 标准差
+    uint32_t seed = 0;  // 随机数种子
+    float initK = 1.0;  // 初始化出来的值需乘以initK
 };
 
 class ConstantInitializer : public Initializer {
@@ -75,35 +76,35 @@ public:
 
     void GenerateData(float* emb, int embSize) override;
 
-    uint32_t start{};      // 起始位置
-    uint32_t len{};        // 初始化的长度
-    float constantValue{}; // 常量值
+    uint32_t start = 0;       // 起始位置
+    uint32_t len = 0;         // 初始化的长度
+    float constantValue = 0;  // 常量值
 };
 
 class RandomNormalInitializer : public Initializer {
 public:
     RandomNormalInitializer() = default;
-    RandomNormalInitializer(uint32_t start, uint32_t len, NormalInitializerInfo &initInfo);
+    RandomNormalInitializer(uint32_t start, uint32_t len, NormalInitializerInfo& initInfo);
 
     ~RandomNormalInitializer() override = default;
 
     void GenerateData(float* emb, int embSize) override;
 
-    uint32_t start{}; // 起始位置
-    uint32_t len{};   // 初始化的长度
-    float mean{};     // 平均值
-    float stddev{};   // 标准差
-    uint32_t seed{};  // 随机数种子
+    uint32_t start = 0;  // 起始位置
+    uint32_t len = 0;    // 初始化的长度
+    float mean = 0;      // 平均值
+    float stddev = 0;    // 标准差
+    uint32_t seed = 0;   // 随机数种子
 
-    std::default_random_engine generator;         // 随机数生成器
-    std::normal_distribution<float> distribution; // 正态分布
+    std::default_random_engine generator;          // 随机数生成器
+    std::normal_distribution<float> distribution;  // 正态分布
 };
 
 class TruncatedNormalInitializer : public Initializer {
 public:
     TruncatedNormalInitializer() = default;
 
-    TruncatedNormalInitializer(uint32_t start, uint32_t len, NormalInitializerInfo &initInfo);
+    TruncatedNormalInitializer(uint32_t start, uint32_t len, NormalInitializerInfo& initInfo);
 
     ~TruncatedNormalInitializer() override = default;
 
@@ -111,28 +112,28 @@ public:
 
     int boundNum = 2;
 
-    uint32_t start{}; // 起始位置
-    uint32_t len{};   // 初始化的长度
-    float mean{};     // 平均值
-    float stddev{};   // 标准差
-    uint32_t seed{};  // 随机数种子
+    uint32_t start = 0;  // 起始位置
+    uint32_t len = 0;    // 初始化的长度
+    float mean = 0;      // 平均值
+    float stddev = 0;    // 标准差
+    uint32_t seed = 0;   // 随机数种子
 
-    std::default_random_engine generator; // 随机数生成器
+    std::default_random_engine generator;  // 随机数生成器
     std::normal_distribution<float> distribution;
-    float minBound = 0; // 下界
-    float maxBound = 0; // 上界
+    float minBound = 0;  // 下界
+    float maxBound = 0;  // 上界
 };
 
 struct InitializerInfo {
     InitializerInfo() = default;
 
-    InitializerInfo(std::string &name, uint32_t start, uint32_t len, ConstantInitializerInfo constantInitializerInfo);
+    InitializerInfo(std::string& name, uint32_t start, uint32_t len, ConstantInitializerInfo constantInitializerInfo);
 
-    InitializerInfo(std::string &name, uint32_t start, uint32_t len, NormalInitializerInfo normalInitializerInfo);
+    InitializerInfo(std::string& name, uint32_t start, uint32_t len, NormalInitializerInfo normalInitializerInfo);
 
-    std::string name; // 初始化器的名称
-    uint32_t start{}; // 初始化开始的位置
-    uint32_t len{};   // 待初始化的长度
+    std::string name = "";  // 初始化器的名称
+    uint32_t start = 0;     // 初始化开始的位置
+    uint32_t len = 0;       // 待初始化的长度
     InitializerType initializerType = InitializerType::INVALID;
 
     ConstantInitializerInfo constantInitializerInfo;
@@ -143,18 +144,19 @@ struct InitializerInfo {
 
 struct EmbCacheInfo {
     EmbCacheInfo(std::string tableName, uint32_t vocabSize, uint32_t embeddingSize, uint32_t extEmbeddingSize,
-        uint32_t maxCacheSize)
+                 uint32_t maxCacheSize)
         : tableName(tableName),
           vocabSize(vocabSize),
           embeddingSize(embeddingSize),
           extEmbeddingSize(extEmbeddingSize),
           maxCacheSize(maxCacheSize)
-    {}
-    std::string tableName;
-    uint32_t vocabSize; // host侧的容量(能存多少条embedding)
-    uint32_t embeddingSize;
-    uint32_t extEmbeddingSize; // 包含embedding和优化器信息的embedding长度
-    uint32_t maxCacheSize;     // device侧的容量(能存多少条embedding)
+    {
+    }
+    std::string tableName = "";
+    uint32_t vocabSize = 0;  // host侧的容量(能存多少条embedding)
+    uint32_t embeddingSize = 0;
+    uint32_t extEmbeddingSize = 0;  // 包含embedding和优化器信息的embedding长度
+    uint32_t maxCacheSize = 0;      // device侧的容量(能存多少条embedding)
 };
 
 class EmbCacheManager {
@@ -169,9 +171,9 @@ public:
      * @Param uint32_t refillThreadNum emb内存池自动填充线程数
      * @Return errorCode
      */
-    virtual int CreateCacheForTable(const EmbCacheInfo &embCacheInfo,
-        const std::vector<InitializerInfo> &initializerInfos, int64_t invalidKey = -1,
-        uint64_t prefillBufferSize = 500000, uint32_t refillThreadNum = 1) = 0;
+    virtual int CreateCacheForTable(const EmbCacheInfo& embCacheInfo,
+                                    const std::vector<InitializerInfo>& initializerInfos, int64_t invalidKey = -1,
+                                    uint64_t prefillBufferSize = 500000, uint32_t refillThreadNum = 1) = 0;
 
     /* *
      * 查找当前keys对应的offsets并将本不存在与offsetMapper中的keys插入到offsetMapper中并得到其偏移值offsets，
@@ -182,8 +184,8 @@ public:
      * @Param swapOutKoPair: 输出参数，需要换出的Key-offset pair
      * @Return errorCode
      */
-    virtual int GetSwapPairsAndKey2Offset(const std::string& tableName, std::vector<uint64_t> &keys,
-        KeyOffsetPair &swapInKoPair, KeyOffsetPair &swapOutKoPair) = 0;
+    virtual int GetSwapPairsAndKey2Offset(std::string tableName, std::vector<uint64_t>& keys,
+                                          KeyOffsetPair& swapInKoPair, KeyOffsetPair& swapOutKoPair) = 0;
 
     /* *
      * 查询Embedding
@@ -193,8 +195,8 @@ public:
      * @Param threadNum: 线程数
      * @Return errorCode
      */
-    virtual int EmbeddingLookup(const std::string& tableName, const std::vector<uint64_t> &keys, float *embAddr,
-        uint32_t threadNum = 4) = 0;
+    virtual int EmbeddingLookup(std::string tableName, const std::vector<uint64_t>& keys, float* embAddr,
+                                uint32_t threadNum = 4) = 0;
 
     /* *
      * 查询Embedding的地址
@@ -204,8 +206,8 @@ public:
      * @Param threadNum: 线程数
      * @Return errorCode
      */
-    virtual int EmbeddingLookupAddrs(const std::string& tableName, const std::vector<uint64_t> &keys,
-        std::vector<float *> &addrs, uint32_t threadNum = 4) = 0;
+    virtual int EmbeddingLookupAddrs(std::string tableName, const std::vector<uint64_t>& keys,
+                                     std::vector<float*>& addrs, uint32_t threadNum = 4) = 0;
 
     /* *
      * 查询Embedding并且在查询完成之后删除embedding对应的key。如果多线程使用，严格保证传入的key线程间不会重复(unique
@@ -216,8 +218,8 @@ public:
      * @Param threadNum: 线程数
      * @Return errorCode
      */
-    virtual int EmbeddingLookupAndRemove(const std::string& tableName, const std::vector<uint64_t>& keys,
-                                         float* embAddr, uint32_t threadNum = 4) = 0;
+    virtual int EmbeddingLookupAndRemove(std::string tableName, const std::vector<uint64_t>& keys, float* embAddr,
+                                         uint32_t threadNum = 4) = 0;
 
     /* *
      * 更新Embedding
@@ -227,8 +229,8 @@ public:
      * @Param threadNum: 线程数
      * @Return errorCode
      */
-    virtual int EmbeddingUpdate(const std::string& tableName, const std::vector<uint64_t> &keys, float *embAddr,
-        uint32_t threadNum = 4) = 0;
+    virtual int EmbeddingUpdate(std::string tableName, const std::vector<uint64_t>& keys, float* embAddr,
+                                uint32_t threadNum = 4) = 0;
 
     /* *
      * 在EmbLocalTable中移除keys，并将存储其embedding的内存位置记为可复用
@@ -236,8 +238,7 @@ public:
      * @Param keys: 待移除的keys
      * @Return errorCode
      */
-    virtual int EmbeddingRemove(const std::string& tableName, const std::vector<uint64_t>& keys,
-                                uint32_t threadNum = 4) = 0;
+    virtual int EmbeddingRemove(std::string tableName, const std::vector<uint64_t>& keys, uint32_t threadNum = 4) = 0;
 
     /* *
      * 将需要被淘汰的keys从offsetMapper的记录中移除，同时也在EmbLocalTable中移除，并将存储其embedding的内存位置记为可复用
@@ -245,14 +246,14 @@ public:
      * @Param keys: 待淘汰的keys
      * @Return errorCode
      */
-    virtual int RemoveEmbsByKeys(const std::string& tableName, const std::vector<uint64_t> &keys) = 0;
+    virtual int RemoveEmbsByKeys(std::string tableName, const std::vector<uint64_t>& keys) = 0;
 
     /* *
      * 获取所有table names
      * @Param allTableNames: 输出参数，用于存放所有的table names
      * @Return errorCode
      */
-    virtual int GetEmbTableNames(std::vector<std::string> &allTableNames) = 0;
+    virtual int GetEmbTableNames(std::vector<std::string>& allTableNames) = 0;
 
     /* *
      * 获取以values为增序排列的当前记录在offsetMapper中所有的keys和values的pairs
@@ -260,8 +261,8 @@ public:
      * koVec: 输出参数
      * @Return errorCode
      */
-    virtual int ExportDeviceKeyOffsetPairs(const std::string& tableName,
-        std::vector<std::pair<uint64_t, uint64_t>> &koVec) = 0;
+    virtual int ExportDeviceKeyOffsetPairs(std::string tableName,
+                                           std::vector<std::pair<uint64_t, uint64_t>>& koVec) = 0;
 
     /* *
      * 获取当前table的序列化信息
@@ -269,7 +270,7 @@ public:
      * @Param buffer: 输出参数，存储序列化之后的信息
      * @Return errorCode
      */
-    virtual int Serialize(const std::string& tableName, std::vector<char> &buffer) = 0;
+    virtual int Serialize(std::string tableName, std::vector<char>& buffer) = 0;
 
     /* *
      * 将当前table的序列化信息进行反序列化
@@ -277,7 +278,7 @@ public:
      * @Param buffer: 输入参数，将buffer中的内容进行反序列化
      * @Return errorCode
      */
-    virtual int Deserialize(const std::string& tableName, const std::vector<char> &buffer) = 0;
+    virtual int Deserialize(std::string tableName, const std::vector<char>& buffer) = 0;
 
     /* *
      * 析构所有embCache，释放内存
@@ -289,8 +290,8 @@ public:
      * @Param tableName: 要查询的表
      * @Return 当前表的使用量
      */
-    virtual uint32_t GetUsage(const std::string &tableName) = 0;
+    virtual uint32_t GetUsage(const std::string& tableName) = 0;
 };
-}
+}  // namespace EmbCache
 
-#endif // EMBEDDING_CACHE_H
+#endif  // EMBEDDING_CACHE_H

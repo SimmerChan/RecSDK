@@ -35,7 +35,7 @@ protected:
     {
         struct EmbInfoParams embParam(string("test1"), 0, 1000, 2000, true, true);
         std::vector<size_t> vocabsize = {100};
-        std::vector<InitializeInfo> initializeInfos = {};
+        vector<EmbCache::InitializerInfo> initializeInfos = {};
         std::vector<std::string> ssdDataPath = {""};
         vector<int> maxStep = {1000};
         embInfo_ = EmbInfo(embParam, vocabsize, initializeInfos, ssdDataPath);

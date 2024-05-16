@@ -138,7 +138,7 @@ namespace {
     {
         pybind11::class_<EmbInfo>(m, "EmbInfo")
                 .def(pybind11::init<const EmbInfoParams&, std::vector<size_t>,
-                     std::vector<InitializeInfo>&, std::vector<std::string>&>(),
+                     std::vector<EmbCache::InitializerInfo>&, std::vector<std::string>&>(),
                      py::arg("embInfoParams"),
                      py::arg("vocab_size"),
                      py::arg("initialize_infos"),

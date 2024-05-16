@@ -54,7 +54,7 @@ namespace MxRec {
 
         void PutWithInit(emb_key_t key, freq_num_t freq);
 
-        std::unordered_map<emb_key_t, freq_num_t> GetFreqTable();
+        std::unordered_map<emb_cache_key_t, freq_num_t> GetFreqTable();
         // 最小频次
         freq_num_t minFreq = 0;
         // 次数, 该次数对应的key列表(key, freq)
