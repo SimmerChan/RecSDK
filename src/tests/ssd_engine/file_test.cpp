@@ -142,3 +142,40 @@ TEST(File, SaveAndLoad)
 
     fs::remove_all(fileDir);
 }
+
+TEST(File, WriteByAddrAndRead)
+{
+    int rankId;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rankId);
+    GlogConfig::gRankId = to_string(rankId);
+
+    string savePath = GlogConfig::gRankId;
+    auto f = make_shared<File>(0, savePath);
+
+    vector<emb_cache_key_t> keys;
+    vector<float*> embeddings;
+    uint64_t extEmbeddingSize = 1;
+    for (emb_cache_key_t k = 0; k < 10; k++) {
+        keys.emplace_back(k);
+        float* emb = new float;
+        *emb = static_cast<float>(k + 0.1);
+        embeddings.emplace_back(emb);
+    }
+
+    f->InsertEmbeddingsByAddr(keys, embeddings, extEmbeddingSize);
+    auto ret = f->FetchEmbeddings(keys);
+    for (int i = 0; i < 10; i++) {
+        if (std::abs(ret[i][0] - *embeddings[i]) > std::numeric_limits<float>::epsilon()) {
+            FAIL() << "embedding result not equal to input";
+        }
+    }
+
+    for (auto emb : embeddings)
+    {
+        delete emb;
+        emb = nullptr;
+    }
+    
+
+    fs::remove_all(savePath);
+}
