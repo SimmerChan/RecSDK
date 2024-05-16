@@ -277,8 +277,9 @@ int EmbCacheManagerImpl::Deserialize(const std::string& tableName, const std::ve
     return H_OK;
 }
 
-int EmbCacheManagerImpl::GetEmbTableInfos(std::string tableName, std::vector<uint64_t> &keys,
-                                          std::vector<std::vector<float>> &embeddings, std::vector<std::vector<float>> &optimizerSlots)
+int EmbCacheManagerImpl::GetEmbTableInfos(std::string tableName, std::vector<uint64_t>& keys,
+                                          std::vector<std::vector<float>>& embeddings,
+                                          std::vector<std::vector<float>>& optimizerSlots)
 {
     int checkTableNameRet = CheckValidTableName(tableName);
     if (checkTableNameRet != H_OK) {
@@ -300,8 +301,9 @@ int EmbCacheManagerImpl::GetEmbTableInfos(std::string tableName, std::vector<uin
     return H_OK;
 }
 
-int EmbCacheManagerImpl::LoadEmbTableInfos(std::string tableName, const std::vector<uint64_t> &keys,
-                                           const std::vector<std::vector<float>> &embeddings, const std::vector<std::vector<float>> &optimizerSlots)
+int EmbCacheManagerImpl::LoadEmbTableInfos(std::string tableName, const std::vector<uint64_t>& keys,
+                                           const std::vector<std::vector<float>>& embeddings,
+                                           const std::vector<std::vector<float>>& optimizerSlots)
 {
     int checkTableNameRet = CheckValidTableName(tableName);
     if (checkTableNameRet != H_OK) {

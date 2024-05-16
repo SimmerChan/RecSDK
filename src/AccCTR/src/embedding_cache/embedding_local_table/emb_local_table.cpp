@@ -13,18 +13,20 @@ limitations under the License.
  ==============================================================================*/
 
 #include "emb_local_table.h"
-#include <thread>
+
 #include <algorithm>
-#include "securec.h"
+#include <thread>
+
 #include "error_code.h"
+#include "securec.h"
 
 using namespace std;
 using namespace EmbCache;
 using namespace ock;
 using namespace ock::ctr;
 
-bool EmbLocalTable::Initialize(const EmbCacheInfo &embCacheInfo, uint64_t reserve,
-                               const std::vector<InitializerInfo> &initializerInfos, const EmbPoolParam &embPoolParam)
+bool EmbLocalTable::Initialize(const EmbCacheInfo& embCacheInfo, uint64_t reserve,
+                               const std::vector<InitializerInfo>& initializerInfos, const EmbPoolParam& embPoolParam)
 {
     emExpendMemInfo = make_shared<AutoRefillEmbeddingMemoryPool>(embPoolParam.prefillBufferSize, initializerInfos,
                                                                  embCacheInfo.extEmbeddingSize, embCacheInfo.vocabSize,
@@ -39,7 +41,7 @@ void EmbLocalTable::UnInitialize()
     embMap.UnInitialize();
 }
 
-int EmbLocalTable::FindAndPutIfNotFound(uint64_t key, uint64_t &value)
+int EmbLocalTable::FindAndPutIfNotFound(uint64_t key, uint64_t& value)
 {
     FkvState ret = embMap.FindAndPutIfNotFound(key, value);
     if (ret == FkvState::FKV_FAIL) {
@@ -59,7 +61,7 @@ bool EmbLocalTable::Remove(uint64_t key)
     return embMap.Remove(key) != FkvState::FKV_BEFORE_REMOVE_FUNC_FAIL;
 }
 
-int EmbLocalTable::RemoveByKeys(const std::vector<uint64_t> &keys, uint32_t threadNum)
+int EmbLocalTable::RemoveByKeys(const std::vector<uint64_t>& keys, uint32_t threadNum)
 {
     if (threadNum == 1) {
         for (uint64_t key : keys) {
@@ -92,7 +94,7 @@ int EmbLocalTable::RemoveByKeys(const std::vector<uint64_t> &keys, uint32_t thre
             return H_OK;
         });
     }
-    for (auto &t : threads) {
+    for (auto& t : threads) {
         auto res = t.get();
         if (res != H_OK) {
             return res;
@@ -101,7 +103,7 @@ int EmbLocalTable::RemoveByKeys(const std::vector<uint64_t> &keys, uint32_t thre
     return H_OK;
 }
 
-int EmbLocalTable::OneThreadHandle(uint64_t startAddr, const std::vector<uint64_t> &keys, bool isGather)
+int EmbLocalTable::OneThreadHandle(uint64_t startAddr, const std::vector<uint64_t>& keys, bool isGather)
 {
     for (uint64_t i = 0; i < keys.size(); i++) {
         uint64_t embAddr;
@@ -112,18 +114,18 @@ int EmbLocalTable::OneThreadHandle(uint64_t startAddr, const std::vector<uint64_
         uint64_t memSize = emExpendMemInfo->extEmbeddingSize * sizeof(float);
         auto addr = startAddr + i * memSize;
         if (isGather) {
-            auto rc = memcpy_s(reinterpret_cast<void *>(addr), memSize, reinterpret_cast<void *>(embAddr), memSize);
+            auto rc = memcpy_s(reinterpret_cast<void*>(addr), memSize, reinterpret_cast<void*>(embAddr), memSize);
             if (rc != 0) {
                 ExternalLogger::PrintLog(LogLevel::ERROR,
-                    "gather memcpy_s failed... dstSize: " + std::to_string(memSize));
+                                         "gather memcpy_s failed... dstSize: " + std::to_string(memSize));
                 return H_COPY_ERROR;
             }
         } else {
-            auto rc = memcpy_s(reinterpret_cast<void *>(embAddr), memSize, // 按顺序把新的embedding拷贝到对应地址中
-                reinterpret_cast<void *>(addr), memSize);
+            auto rc = memcpy_s(reinterpret_cast<void*>(embAddr), memSize,  // 按顺序把新的embedding拷贝到对应地址中
+                               reinterpret_cast<void*>(addr), memSize);
             if (rc != 0) {
                 ExternalLogger::PrintLog(LogLevel::ERROR,
-                    "scatter memcpy_s failed... dstSize: " + std::to_string(memSize));
+                                         "scatter memcpy_s failed... dstSize: " + std::to_string(memSize));
                 return H_COPY_ERROR;
             }
         }
@@ -132,7 +134,7 @@ int EmbLocalTable::OneThreadHandle(uint64_t startAddr, const std::vector<uint64_
     return H_OK;
 }
 
-int EmbLocalTable::Gather(uint64_t startAddr, const vector<uint64_t> &keys, uint32_t threadNum)
+int EmbLocalTable::Gather(uint64_t startAddr, const vector<uint64_t>& keys, uint32_t threadNum)
 {
     if (threadNum == 1) {
         return OneThreadHandle(startAddr, keys, true);
@@ -163,7 +165,7 @@ int EmbLocalTable::Gather(uint64_t startAddr, const vector<uint64_t> &keys, uint
                 }
                 uint64_t memSize = emExpendMemInfo->extEmbeddingSize * sizeof(float);
                 auto addr = startAddr + i * memSize;
-                auto rc = memcpy_s(reinterpret_cast<void *>(addr), memSize, reinterpret_cast<void *>(embAddr), memSize);
+                auto rc = memcpy_s(reinterpret_cast<void*>(addr), memSize, reinterpret_cast<void*>(embAddr), memSize);
                 if (rc != 0) {
                     ExternalLogger::PrintLog(LogLevel::ERROR, "memcpy_s failed... dstSize: " + std::to_string(memSize));
                     ret = H_COPY_ERROR;
@@ -172,18 +174,18 @@ int EmbLocalTable::Gather(uint64_t startAddr, const vector<uint64_t> &keys, uint
             }
         });
     }
-    for (auto &t : threads) {
+    for (auto& t : threads) {
         t.join();
     }
     return ret;
 }
 
-int EmbLocalTable::GatherAddrs(const std::vector<uint64_t> &keys, std::vector<float *> &addrs, uint32_t threadNum)
+int EmbLocalTable::GatherAddrs(const std::vector<uint64_t>& keys, std::vector<float*>& addrs, uint32_t threadNum)
 {
     if (threadNum == 1) {
         addrs.resize(keys.size());
         for (uint64_t i = 0; i < keys.size(); i++) {
-            int temp_ret = FindAndPutIfNotFound(keys[i], reinterpret_cast<uint64_t &>(addrs[i]));
+            int temp_ret = FindAndPutIfNotFound(keys[i], reinterpret_cast<uint64_t&>(addrs[i]));
             if (temp_ret != H_OK) {
                 return temp_ret;
             }
@@ -208,7 +210,7 @@ int EmbLocalTable::GatherAddrs(const std::vector<uint64_t> &keys, std::vector<fl
     for (uint32_t threadId = 0; threadId < threadNum; threadId++) {
         threads[threadId] = thread([&, threadId] {
             for (uint64_t i = start[threadId]; i < start[threadId + 1]; i++) {
-                int temp_ret = FindAndPutIfNotFound(keys[i], reinterpret_cast<uint64_t &>(addrs[i]));
+                int temp_ret = FindAndPutIfNotFound(keys[i], reinterpret_cast<uint64_t&>(addrs[i]));
                 if (temp_ret != H_OK) {
                     ret = temp_ret;
                     return;
@@ -216,23 +218,23 @@ int EmbLocalTable::GatherAddrs(const std::vector<uint64_t> &keys, std::vector<fl
             }
         });
     }
-    for (auto &t : threads) {
+    for (auto& t : threads) {
         t.join();
     }
     return ret;
 }
 
 // 如果多线程使用，严格保证传入的key线程间不会重复(unique key)，否则可能出现未定义结果
-int EmbLocalTable::GatherAndRemove(uint64_t startAddr, const vector<uint64_t> &keys, uint32_t threadNum)
+int EmbLocalTable::GatherAndRemove(uint64_t startAddr, const vector<uint64_t>& keys, uint32_t threadNum)
 {
     if (threadNum == 1) {
         for (uint64_t i = 0; i < keys.size(); i++) {
             uint64_t memSize = emExpendMemInfo->extEmbeddingSize * sizeof(float);
             auto addr = startAddr + i * memSize;
-            auto ret = embMap.FindAndRemoveIfFound(keys[i], addr); // 如果找到了就拷贝出来然后把key删了
-            if (ret == FkvState::FKV_NOT_EXIST) { // 没找到key，给一个新的初始化值并且不需要存入key
-                auto *embAddr = reinterpret_cast<float *>(addr);
-                for (const auto &initializerInfo : emExpendMemInfo->initializerInfos) {
+            auto ret = embMap.FindAndRemoveIfFound(keys[i], addr);  // 如果找到了就拷贝出来然后把key删了
+            if (ret == FkvState::FKV_NOT_EXIST) {  // 没找到key，给一个新的初始化值并且不需要存入key
+                auto* embAddr = reinterpret_cast<float*>(addr);
+                for (const auto& initializerInfo : emExpendMemInfo->initializerInfos) {
                     initializerInfo.initializer->GenerateData(embAddr, INVALID_EMB_SIZE);
                 }
             } else if (ret == FkvState::FKV_BEFORE_REMOVE_FUNC_FAIL) {
@@ -262,10 +264,10 @@ int EmbLocalTable::GatherAndRemove(uint64_t startAddr, const vector<uint64_t> &k
             for (uint64_t i = start[threadId]; i < start[threadId + 1]; i++) {
                 uint64_t memSize = emExpendMemInfo->extEmbeddingSize * sizeof(float);
                 auto addr = startAddr + i * memSize;
-                auto ret = embMap.FindAndRemoveIfFound(keys[i], addr); // 如果找到了就拷贝出来然后把key删了
-                if (ret == FkvState::FKV_NOT_EXIST) { // 没找到key，给一个新的初始化值并且不需要存入key
-                    auto *embAddr = reinterpret_cast<float *>(addr);
-                    for (const auto &initializerInfo : emExpendMemInfo->initializerInfos) {
+                auto ret = embMap.FindAndRemoveIfFound(keys[i], addr);  // 如果找到了就拷贝出来然后把key删了
+                if (ret == FkvState::FKV_NOT_EXIST) {  // 没找到key，给一个新的初始化值并且不需要存入key
+                    auto* embAddr = reinterpret_cast<float*>(addr);
+                    for (const auto& initializerInfo : emExpendMemInfo->initializerInfos) {
                         initializerInfo.initializer->GenerateData(embAddr, INVALID_EMB_SIZE);
                     }
                 } else if (ret == FkvState::FKV_BEFORE_REMOVE_FUNC_FAIL) {
@@ -276,15 +278,15 @@ int EmbLocalTable::GatherAndRemove(uint64_t startAddr, const vector<uint64_t> &k
             }
         });
     }
-    for (auto &t : threads) {
+    for (auto& t : threads) {
         t.join();
     }
     return retVal;
 }
 
-int EmbLocalTable::Scatter(const uint64_t startAddr, const vector<uint64_t> &keys, uint32_t threadNum)
+int EmbLocalTable::Scatter(const uint64_t startAddr, const vector<uint64_t>& keys, uint32_t threadNum)
 {
-    if (threadNum == 1) { // 单线程版本
+    if (threadNum == 1) {  // 单线程版本
         return OneThreadHandle(startAddr, keys, false);
     }
 
@@ -307,15 +309,15 @@ int EmbLocalTable::Scatter(const uint64_t startAddr, const vector<uint64_t> &key
         threads[threadId] = thread([&, threadId] {
             for (uint64_t i = start[threadId]; i < start[threadId + 1]; i++) {
                 uint64_t embAddr;
-                int temp_ret = FindAndPutIfNotFound(keys[i], embAddr); // 获取每个key的embedding对应首地址
+                int temp_ret = FindAndPutIfNotFound(keys[i], embAddr);  // 获取每个key的embedding对应首地址
                 if (temp_ret != H_OK) {
                     ret = temp_ret;
                     return;
                 }
                 uint64_t memSize = emExpendMemInfo->extEmbeddingSize * sizeof(float);
                 auto addr = startAddr + i * memSize;
-                auto rc = memcpy_s(reinterpret_cast<void *>(embAddr), memSize, // 按顺序把新的embedding拷贝到对应地址中
-                    reinterpret_cast<void *>(addr), memSize);
+                auto rc = memcpy_s(reinterpret_cast<void*>(embAddr), memSize,  // 按顺序把新的embedding拷贝到对应地址中
+                                   reinterpret_cast<void*>(addr), memSize);
                 if (rc != 0) {
                     ExternalLogger::PrintLog(LogLevel::ERROR, "memcpy_s failed... dstSize: " + std::to_string(memSize));
                     ret = H_COPY_ERROR;
@@ -324,7 +326,7 @@ int EmbLocalTable::Scatter(const uint64_t startAddr, const vector<uint64_t> &key
             }
         });
     }
-    for (auto &t : threads) {
+    for (auto& t : threads) {
         t.join();
     }
     return ret;
@@ -336,17 +338,19 @@ vector<pair<uint64_t, uint64_t>> EmbLocalTable::ExportVec()
     return embMap.ExportVec();
 }
 
-template <class T> void EmbLocalTable::insertData(vector<char> &buffer, T &data)
+template <class T>
+void EmbLocalTable::insertData(vector<char>& buffer, T& data)
 {
-    buffer.insert(buffer.end(), (char *)&data, (char *)&data + sizeof(data));
+    buffer.insert(buffer.end(), (char*)&data, (char*)&data + sizeof(data));
 }
 
-template <class T> bool EmbLocalTable::getData(const vector<char> &buffer, T &data, uint64_t &i)
+template <class T>
+bool EmbLocalTable::getData(const vector<char>& buffer, T& data, uint64_t& i)
 {
     if (i + sizeof(T) > buffer.size()) {
         return false;
     }
-    data = *reinterpret_cast<const T *>(&buffer[i]);
+    data = *reinterpret_cast<const T*>(&buffer[i]);
     i += sizeof(T);
     return true;
 }
@@ -357,19 +361,19 @@ vector<char> EmbLocalTable::Serialize()
     vector<char> buffer;
     vector<pair<uint64_t, uint64_t>> kvVec = ExportVec();
 
-    for (auto &p : kvVec) {
+    for (auto& p : kvVec) {
         uint64_t key = p.first;
         uint64_t value = p.second;
         insertData(buffer, key);
-        auto *addr = reinterpret_cast<float *>(value);
-        buffer.insert(buffer.end(), reinterpret_cast<char *>(addr),
-            reinterpret_cast<char *>((addr + emExpendMemInfo->extEmbeddingSize)));
+        auto* addr = reinterpret_cast<float*>(value);
+        buffer.insert(buffer.end(), reinterpret_cast<char*>(addr),
+                      reinterpret_cast<char*>((addr + emExpendMemInfo->extEmbeddingSize)));
     }
     return buffer;
 }
 
 // 反序列化key-embedding，存进map
-bool EmbLocalTable::Deserialize(const vector<char> &buffer)
+bool EmbLocalTable::Deserialize(const vector<char>& buffer)
 {
     uint64_t i = 0;
     while (i < buffer.size()) {
@@ -384,7 +388,7 @@ bool EmbLocalTable::Deserialize(const vector<char> &buffer)
             return false;
         }
 
-        auto *addr = reinterpret_cast<float *>(value);
+        auto* addr = reinterpret_cast<float*>(value);
         for (uint32_t j = 0; j < emExpendMemInfo->extEmbeddingSize; j++) {
             if (!getData(buffer, addr[j], i)) {
                 ExternalLogger::PrintLog(LogLevel::ERROR, "get data failed!");
@@ -400,29 +404,30 @@ uint32_t EmbLocalTable::GetUsage()
     return embMap.current_size;
 }
 
-void EmbLocalTable::GetEmbTableInfos(std::vector<uint64_t> &keys, std::vector<std::vector<float>> &embeddings,
-                                     std::vector<std::vector<float>> &optimizerSlots)
+void EmbLocalTable::GetEmbTableInfos(std::vector<uint64_t>& keys, std::vector<std::vector<float>>& embeddings,
+                                     std::vector<std::vector<float>>& optimizerSlots)
 {
     vector<pair<uint64_t, uint64_t>> kvVec = ExportVec();
 
-    for (auto &p : kvVec) {
+    for (auto& p : kvVec) {
         std::vector<float> curEmbedding;
         keys.emplace_back(p.first);
-        auto *addr = reinterpret_cast<float *>(p.second);
-        curEmbedding.insert(curEmbedding.end(), reinterpret_cast<float *>(addr),
-                            reinterpret_cast<float *>((addr + embeddingSize)));
+        auto* addr = reinterpret_cast<float*>(p.second);
+        curEmbedding.insert(curEmbedding.end(), reinterpret_cast<float*>(addr),
+                            reinterpret_cast<float*>((addr + embeddingSize)));
         embeddings.emplace_back(curEmbedding);
         if (extEmbeddingSize > embeddingSize) {
             std::vector<float> curOptimizerSlot;
-            curOptimizerSlot.insert(curOptimizerSlot.end(), reinterpret_cast<float *>(addr + embeddingSize),
-                                    reinterpret_cast<float *>((addr + extEmbeddingSize)));
+            curOptimizerSlot.insert(curOptimizerSlot.end(), reinterpret_cast<float*>(addr + embeddingSize),
+                                    reinterpret_cast<float*>((addr + extEmbeddingSize)));
             optimizerSlots.emplace_back(curOptimizerSlot);
         }
     }
 }
 
-bool EmbLocalTable::LoadEmbTableInfos(const std::vector<uint64_t> &keys,
-                                      const std::vector<std::vector<float>> &embeddings, const std::vector<std::vector<float>> &optimizerSlots)
+bool EmbLocalTable::LoadEmbTableInfos(const std::vector<uint64_t>& keys,
+                                      const std::vector<std::vector<float>>& embeddings,
+                                      const std::vector<std::vector<float>>& optimizerSlots)
 {
     if (keys.size() != embeddings.size()) {
         ExternalLogger::PrintLog(LogLevel::ERROR, "the size of keys and embeddings should be same!");
@@ -446,7 +451,7 @@ bool EmbLocalTable::LoadEmbTableInfos(const std::vector<uint64_t> &keys,
                                      "The size of entering Embedding does not equals to embeddingSize");
             return false;
         }
-        auto *addr = reinterpret_cast<float *>(value);
+        auto* addr = reinterpret_cast<float*>(value);
         auto rc = memcpy_s(addr, embeddingSize * sizeof(float), embeddings[i].data(), embeddingSize * sizeof(float));
         if (rc != 0) {
             ExternalLogger::PrintLog(LogLevel::ERROR, "embedding memcpy_s failed... ");
@@ -454,11 +459,12 @@ bool EmbLocalTable::LoadEmbTableInfos(const std::vector<uint64_t> &keys,
         }
         if (optimizerSlotSize > 0) {
             if (optimizerSlots[i].size() != optimizerSlotSize) {
-                ExternalLogger::PrintLog(LogLevel::ERROR,
-                                         "The size of entering optimizerSlot does not equals to extEmbeddingSize - embeddingSize");
+                ExternalLogger::PrintLog(
+                    LogLevel::ERROR,
+                    "The size of entering optimizerSlot does not equals to extEmbeddingSize - embeddingSize");
                 return false;
             }
-            auto rc2 = memcpy_s(reinterpret_cast<float *>(addr + embeddingSize), optimizerSlotSize * sizeof(float),
+            auto rc2 = memcpy_s(reinterpret_cast<float*>(addr + embeddingSize), optimizerSlotSize * sizeof(float),
                                 optimizerSlots[i].data(), optimizerSlotSize * sizeof(float));
             if (rc2 != 0) {
                 ExternalLogger::PrintLog(LogLevel::ERROR, "optimizerSlot memcpy_s failed... ");

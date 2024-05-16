@@ -16,16 +16,16 @@ limitations under the License.
 #define MXREC_FASTER_QUERY_H
 
 #include <algorithm>
-#include <queue>
+#include <chrono>
 #include <functional>
 #include <memory>
-#include <chrono>
+#include <queue>
 #include <thread>
 #include <utility>
 
-#include "securec.h"
 #include "embedding_cache.h"
 #include "offset_mapper/mapper_base.h"
+#include "securec.h"
 
 namespace EmbCache {
 using EmExpandMemUint = struct em_expand_memory_uint_ {
@@ -38,9 +38,10 @@ using EmExpandMemUint = struct em_expand_memory_uint_ {
     em_expand_memory_uint_(uint64_t a, uint64_t c) : address(a), capacity(c), leftCapacity(c) {}
 };
 
-template <typename T> class QWithLock {
+template <typename T>
+class QWithLock {
 public:
-    bool pop(T &ele)
+    bool pop(T& ele)
     {
         std::lock_guard<std::mutex> lk(mut);
         if (dataQ.empty()) {
@@ -51,7 +52,7 @@ public:
         return true;
     }
 
-    void push(const T &ele)
+    void push(const T& ele)
     {
         std::lock_guard<std::mutex> lk(mut);
         dataQ.push(ele);
@@ -75,7 +76,7 @@ public:
     std::vector<InitializerInfo> initializerInfos;
 
     AutoRefillEmbeddingMemoryPool(uint64_t bufferSize, std::vector<InitializerInfo> initInfos, uint32_t extEmbSize,
-        uint64_t hostVocabSize, uint32_t refillThreadNum = 1)
+                                  uint64_t hostVocabSize, uint32_t refillThreadNum = 1)
         : extEmbeddingSize(extEmbSize),
           initializerInfos(std::move(initInfos)),
           maxBufferSize(bufferSize),
@@ -97,7 +98,7 @@ public:
         }
         producerCv.notify_all();
         fullCv.notify_all();
-        for (auto &t : producerThreads) {
+        for (auto& t : producerThreads) {
             t.join();
         }
     }
@@ -110,7 +111,7 @@ public:
         fullCv.notify_all();
     }
 
-    BeforePutFuncState GetNewValueToBeInserted(uint64_t &value, uint32_t maxRetry = 1000)
+    BeforePutFuncState GetNewValueToBeInserted(uint64_t& value, uint32_t maxRetry = 1000)
     {
         for (uint32_t i = 0; i < maxRetry; i++) {
             if (BufferBin.pop(value)) {
@@ -139,7 +140,7 @@ private:
     uint64_t maxBufferSize;
     uint64_t totalLeftVocabSize;
     uint32_t numThreads;
-    std::atomic<uint64_t> currBufferSize{ 0 };
+    std::atomic<uint64_t> currBufferSize{0};
     volatile bool stop = false;
     volatile std::atomic<bool> full = false;
     std::mutex producerMutex;
@@ -154,15 +155,15 @@ private:
     uint64_t maxExpandSize;
     uint64_t itemSize;
 
-    bool GetNewAddr(uint64_t &newAddr)
+    bool GetNewAddr(uint64_t& newAddr)
     {
         std::lock_guard<std::mutex> lg(getAddrMutex);
         if (HM_UNLIKELY(currentMemoryUint.leftCapacity <= 0)) {
             /* need to expand memory */
             uint64_t maxSize = std::min(maxExpandSize, totalLeftVocabSize * itemSize);
-            uint64_t newSize = currentMemoryUint.capacity ?
-                std::min(currentMemoryUint.capacity * dynamicExpandRatio, maxSize) :
-                itemSize;
+            uint64_t newSize = currentMemoryUint.capacity
+                                   ? std::min(currentMemoryUint.capacity * dynamicExpandRatio, maxSize)
+                                   : itemSize;
             if (newSize == 0) {
                 if (recycleBin.GetLength() == 0) {
                     full = true;
@@ -197,10 +198,10 @@ private:
         BufferBin.push(newAddr);
     }
 
-    void GenerateData(const uint64_t &addr)
+    void GenerateData(const uint64_t& addr)
     {
-        auto *embAddr = reinterpret_cast<float *>(addr);
-        for (const auto &initializerInfo : initializerInfos) {
+        auto* embAddr = reinterpret_cast<float*>(addr);
+        for (const auto& initializerInfo : initializerInfos) {
             initializerInfo.initializer->GenerateData(embAddr, INVALID_EMB_SIZE);
         }
     }
@@ -250,7 +251,7 @@ public:
         });
     }
 
-    FkvState FindAndPutIfNotFound(uint64_t key, uint64_t &value)
+    FkvState FindAndPutIfNotFound(uint64_t key, uint64_t& value)
     {
         FkvState ret = MapperBase::FindAndPutIfNotFound(key, value, [&]() {
             if (HM_UNLIKELY(current_size.load() >= hostVocabSize)) {
@@ -275,10 +276,10 @@ public:
     {
         return MapperBase::Remove(key, [&](uint64_t value) {
             uint64_t memSize = emExpendMemInfoPtr->extEmbeddingSize * sizeof(float);
-            auto rc = memcpy_s(reinterpret_cast<void *>(startAddr), memSize, reinterpret_cast<void *>(value), memSize);
+            auto rc = memcpy_s(reinterpret_cast<void*>(startAddr), memSize, reinterpret_cast<void*>(value), memSize);
             if (rc != 0) {
                 ock::ExternalLogger::PrintLog(ock::LogLevel::ERROR,
-                    "memcpy_s failed... dstSize: " + std::to_string(memSize));
+                                              "memcpy_s failed... dstSize: " + std::to_string(memSize));
                 return BeforeRemoveFuncState::BEFORE_FAIL;
             }
             emExpendMemInfoPtr->GetValueToBeRecycled(value);
@@ -286,15 +287,16 @@ public:
         });
     }
 
-    uint32_t GetUsage(){
+    uint32_t GetUsage()
+    {
         return MapperBase::current_size;
     }
 
 private:
     void FreeExpandedMemory()
     {
-        for (auto &memUint : emExpendMemInfoPtr->expandedMemory) {
-            free(reinterpret_cast<float *>(memUint.address));
+        for (auto& memUint : emExpendMemInfoPtr->expandedMemory) {
+            free(reinterpret_cast<float*>(memUint.address));
         }
     }
 
@@ -302,5 +304,5 @@ private:
     uint32_t hostVocabSize;
     std::shared_ptr<AutoRefillEmbeddingMemoryPool> emExpendMemInfoPtr;
 };
-}
-#endif // MXREC_FASTER_QUERY_H
+}  // namespace EmbCache
+#endif  // MXREC_FASTER_QUERY_H
