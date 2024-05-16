@@ -615,13 +615,16 @@ int64_t CacheManager::GetTableEmbeddingSize(const string& tableName)
     return ssdEngine->GetTableEmbeddingSize(tableName);
 }
 
-void CacheManager::ProcessSwapOutKeys(const string& tableName, const vector<emb_cache_key_t> &swapOutKeys,
-                                      vector<emb_cache_key_t> &swapOutDDRKeys,
-                                      vector<emb_cache_key_t> &swapOutDDRAddrOffs,
-                                      vector<emb_cache_key_t> &swapOutSSDKeys,
-                                      vector<emb_cache_key_t> &swapOutSSDAddrOffs) {
+void CacheManager::ProcessSwapOutKeys(const string& tableName, const vector<emb_cache_key_t>& swapOutKeys,
+                                      const SwapOutInfo& info)
+{
+    auto& swapOutDDRKeys = info.swapOutDDRKeys;
+    auto& swapOutDDRAddrOffs = info.swapOutDDRAddrOffs;
+    auto& swapOutSSDKeys = info.swapOutSSDKeys;
+    auto& swapOutSSDAddrOffs = info.swapOutSSDAddrOffs;
+
     // 处理一下没见过的key，看是更新到DDR还是SSD中
-    auto &keyMapper = preProcessMapper[tableName];
+    auto& keyMapper = preProcessMapper[tableName];
     size_t availableDDRSize = keyMapper.DDRAvailableSize();
     for (size_t i = 0; i < swapOutKeys.size(); ++i) {
         emb_cache_key_t key = swapOutKeys[i];
@@ -646,13 +649,13 @@ void CacheManager::ProcessSwapOutKeys(const string& tableName, const vector<emb_
     }
 }
 
-void CacheManager::ProcessSwapInKeys(const string& tableName, const vector<emb_cache_key_t> &swapInKeys,
-                                     vector<emb_cache_key_t> &DDRToSSDKeys,
-                                     vector<emb_cache_key_t> &SSDToDDRKeys) {
-    auto &keyMapper = preProcessMapper[tableName];
+void CacheManager::ProcessSwapInKeys(const string& tableName, const vector<emb_cache_key_t>& swapInKeys,
+                                     vector<emb_cache_key_t>& DDRToSSDKeys, vector<emb_cache_key_t>& SSDToDDRKeys)
+{
+    auto& keyMapper = preProcessMapper[tableName];
     size_t externalDDRSize = 0;
     std::vector<emb_cache_key_t> firstSeenKeys;
-    for (emb_cache_key_t key: swapInKeys) {
+    for (emb_cache_key_t key : swapInKeys) {
         if (keyMapper.IsDDRKeyExist(key)) {
             continue;
         }
@@ -665,7 +668,7 @@ void CacheManager::ProcessSwapInKeys(const string& tableName, const vector<emb_c
     }
 
     auto ddrAvailableSize = keyMapper.DDRAvailableSize();
-    if (externalDDRSize > ddrAvailableSize) { // 需要DDR--->SSD
+    if (externalDDRSize > ddrAvailableSize) {  // 需要DDR--->SSD
         size_t transNum = externalDDRSize - ddrAvailableSize;
 
         if (transNum > keyMapper.SSDAvailableSize()) {
@@ -676,42 +679,45 @@ void CacheManager::ProcessSwapInKeys(const string& tableName, const vector<emb_c
     }
 
     // SSD--->DDR
-    for (uint64_t key: SSDToDDRKeys) {
+    for (uint64_t key : SSDToDDRKeys) {
         keyMapper.InsertDDRKey(key);
         keyMapper.RemoveSSDKey(key);
     }
-    for (uint64_t key: firstSeenKeys) {
+    for (uint64_t key : firstSeenKeys) {
         keyMapper.InsertDDRKey(key);
     }
     preProcessStep++;
 }
 
-void CacheManager::UpdateSSDEmb(string tableName, float *embPtr, uint32_t extEmbeddingSize,
-                                vector<emb_cache_key_t> &keys, const vector<uint64_t> &swapOutSSDddrOffs) {
-    vector<float *> embeddingsAddr(keys.size());
+void CacheManager::UpdateSSDEmb(string tableName, float* embPtr, uint32_t extEmbeddingSize,
+                                vector<emb_cache_key_t>& keys, const vector<uint64_t>& swapOutSSDddrOffs)
+{
+    vector<float*> embeddingsAddr(keys.size());
     for (uint64_t i = 0; i < swapOutSSDddrOffs.size(); i++) {
         embeddingsAddr[i] = embPtr + swapOutSSDddrOffs[i] * extEmbeddingSize;
     }
     ssdEngine->InsertEmbeddingsByAddr(tableName, keys, embeddingsAddr, extEmbeddingSize);
 }
 
-void CacheManager::TransferDDR2SSD(string tableName, uint32_t extEmbeddingSize, vector<emb_cache_key_t> &keys,
-                                   vector<float *> &addrs) {
+void CacheManager::TransferDDR2SSD(string tableName, uint32_t extEmbeddingSize, vector<emb_cache_key_t>& keys,
+                                   vector<float*>& addrs)
+{
     CreateSSDTableIfNotExist(tableName);
     ssdEngine->InsertEmbeddingsByAddr(tableName, keys, addrs, extEmbeddingSize);
-    for (auto addr: addrs) {
+    for (auto addr : addrs) {
         free(addr);
     }
 }
 
-void CacheManager::FetchSSDEmb2DDR(string tableName, uint32_t extEmbeddingSize, vector<emb_cache_key_t> &keys,
-                                   const vector<float *> &addrs) {
+void CacheManager::FetchSSDEmb2DDR(string tableName, uint32_t extEmbeddingSize, vector<emb_cache_key_t>& keys,
+                                   const vector<float*>& addrs)
+{
     auto embeddings = ssdEngine->FetchEmbeddings(tableName, keys);
     for (uint64_t i = 0; i < embeddings.size(); i++) {
         int rc = memcpy_s(embeddings[i].data(), extEmbeddingSize * sizeof(float), addrs[i],
                           extEmbeddingSize * sizeof(float));
         if (rc != 0) {
-            throw runtime_error("memcpy_s failed, rc: "+to_string(rc));
+            throw runtime_error("memcpy_s failed, rc: " + to_string(rc));
         }
     }
     ssdEngine->DeleteEmbeddings(tableName, keys);

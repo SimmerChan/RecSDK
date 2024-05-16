@@ -80,8 +80,8 @@ namespace MxRec {
             return ssdAvailableSize - excludeDDRKeyCountMap.size();
         }
 
-        void GetAndDeleteLeastFreqDDRKey2SSD(uint64_t transNum, const std::vector<uint64_t> &keys,
-                                             std::vector<uint64_t> &DDRSwapOutKeys)
+        void GetAndDeleteLeastFreqDDRKey2SSD(uint64_t transNum, const std::vector<uint64_t>& keys,
+                                             std::vector<uint64_t>& DDRSwapOutKeys)
         {
             std::vector<freq_num_t> DDRSwapOutCounts;
             lfuCache.GetAndDeleteLeastFreqKeyInfo(transNum, keys, DDRSwapOutKeys, DDRSwapOutCounts);
@@ -89,7 +89,8 @@ namespace MxRec {
                 excludeDDRKeyCountMap[DDRSwapOutKeys[i]] = DDRSwapOutCounts[i];
             }
             if (DDRSwapOutCounts.size() != transNum) {
-                throw std::invalid_argument("GetAndDeleteLeastFreqDDRKey2SSD failed! DDRSwapOutCounts.size()!=transNum");
+                throw std::invalid_argument(
+                    "GetAndDeleteLeastFreqDDRKey2SSD failed! DDRSwapOutCounts.size()!=transNum");
             }
         }
 

@@ -42,6 +42,13 @@ namespace MxRec {
         std::vector<int64_t>& evictHostPos; // 记录Host内淘汰列表
     };
 
+    struct SwapOutInfo {
+        vector<emb_cache_key_t>& swapOutDDRKeys;
+        vector<emb_cache_key_t>& swapOutDDRAddrOffs;
+        vector<emb_cache_key_t>& swapOutSSDKeys;
+        vector<emb_cache_key_t>& swapOutSSDAddrOffs;
+    };
+
     enum class TransferRet {
         TRANSFER_OK = 0, // 转移成功或无需处理
         TRANSFER_ERROR,
@@ -98,10 +105,7 @@ namespace MxRec {
         void PutKey(const string& embTableName, const emb_key_t& key, RecordType type);
 
         void ProcessSwapOutKeys(const string& tableName, const vector<emb_cache_key_t> &swapOutKeys,
-                                vector<emb_cache_key_t> &swapOutDDRKeys,
-                                vector<emb_cache_key_t> &swapOutDDRAddrOffs,
-                                vector<emb_cache_key_t> &swapOutSSDKeys,
-                                vector<emb_cache_key_t> &swapOutSSDAddrOffs);
+                                const SwapOutInfo& info);
 
         void ProcessSwapInKeys(const string& tableName, const vector<emb_cache_key_t> &swapInKeys,
                                vector<emb_cache_key_t> &DDRToSSDKeys, vector<emb_cache_key_t> &SSDToDDRKeys);

@@ -441,13 +441,14 @@ void Table::CreateTableDir(const string &path)
     LOG_DEBUG("create table dir:{}", path);
 }
 
-void Table::InsertEmbeddingsByAddr(vector<emb_cache_key_t> &keys, vector<float*> &embeddingsAddr,
-                                   uint32_t extEmbeddingSize) {
+void Table::InsertEmbeddingsByAddr(vector<emb_cache_key_t>& keys, vector<float*>& embeddingsAddr,
+                                   uint32_t extEmbeddingSize)
+{
     lock_guard<mutex> guard(rwLock);
     InsertEmbeddingsByAddrInner(keys, embeddingsAddr, extEmbeddingSize);
 }
 
-void Table::InsertEmbeddingsByAddrInner(vector<emb_cache_key_t> &keys, vector<float*> &embeddingsAddr,
+void Table::InsertEmbeddingsByAddrInner(vector<emb_cache_key_t>& keys, vector<float*>& embeddingsAddr,
                                         uint64_t extEmbeddingSize)
 {
     if (totalKeyCnt > maxTableSize) {
@@ -462,7 +463,7 @@ void Table::InsertEmbeddingsByAddrInner(vector<emb_cache_key_t> &keys, vector<fl
         curMaxFileID++;
     }
 
-    for (emb_cache_key_t k: keys) {
+    for (emb_cache_key_t k : keys) {
         auto it = keyToFile.find(k);
         if (it != keyToFile.end()) {
             it->second->DeleteEmbedding(k);
@@ -475,7 +476,8 @@ void Table::InsertEmbeddingsByAddrInner(vector<emb_cache_key_t> &keys, vector<fl
     totalKeyCnt += keys.size();
 }
 
-vector<emb_cache_key_t> Table::ExportKeys() {
+vector<emb_cache_key_t> Table::ExportKeys()
+{
     vector<emb_cache_key_t> vec;
     for (const auto& p : keyToFile) {
         vec.push_back(p.first);

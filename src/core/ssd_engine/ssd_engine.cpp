@@ -54,7 +54,8 @@ void SSDEngine::CreateTable(const string &tableName, vector<string> savePaths, u
     tableMap[tableName] = make_shared<Table>(tableName, savePaths, maxTableSize, compactThreshold);
 }
 
-void SSDEngine::InsertEmbeddings(const string &tableName, vector<emb_cache_key_t> &keys, vector<vector<float>> &embeddings)
+void SSDEngine::InsertEmbeddings(const string& tableName, vector<emb_cache_key_t>& keys,
+                                 vector<vector<float>>& embeddings)
 {
     if (!isRunning) {
         throw runtime_error("SSDEngine not running");
@@ -210,8 +211,8 @@ int64_t SSDEngine::GetTableEmbeddingSize(const string &tableName)
     return static_cast<int64_t>(it->second->GetTableUsage());
 }
 
-void SSDEngine::InsertEmbeddingsByAddr(const string &tableName, vector<emb_cache_key_t> &keys,
-                                       vector<float*> &embeddingsAddr, uint64_t extEmbeddingSize)
+void SSDEngine::InsertEmbeddingsByAddr(const string& tableName, vector<emb_cache_key_t>& keys,
+                                       vector<float*>& embeddingsAddr, uint64_t extEmbeddingSize)
 {
     if (!isRunning) {
         throw runtime_error("SSDEngine not running");
@@ -228,9 +229,10 @@ void SSDEngine::InsertEmbeddingsByAddr(const string &tableName, vector<emb_cache
     it->second->InsertEmbeddingsByAddr(keys, embeddingsAddr, extEmbeddingSize);
 }
 
-vector<pair<string, vector<emb_cache_key_t>>> SSDEngine::ExportTableKey() {
+vector<pair<string, vector<emb_cache_key_t>>> SSDEngine::ExportTableKey()
+{
     vector<pair<string, vector<emb_cache_key_t>>> tableKeysVec;
-    for (const auto &p : tableMap) {
+    for (const auto& p : tableMap) {
         tableKeysVec.emplace_back(p.first, p.second->ExportKeys());
     }
     return tableKeysVec;
