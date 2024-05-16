@@ -46,8 +46,8 @@ void HostEmb::Initialize(const vector<EmbInfo>& embInfos, int seed)
 /// \param vocabSize host表大小
 /// \param embeddingSize emb维度
 /// \param embData emb数据
-void HostEmb::EmbDataGenerator(const vector<InitializeInfo> &initializeInfos, int seed, int vocabSize,
-    int embeddingSize, vector<vector<float>> &embData) const
+void HostEmb::EmbDataGenerator(const vector<EmbCache::InitializerInfo>& initializeInfos, int seed, int vocabSize,
+                               int embeddingSize, vector<vector<float>>& embData) const
 {
 #ifndef GTEST
     LOG_INFO(HOSTEMB + "GenerateEmbData Start, seed:{}, initializer num: {}", seed, initializeInfos.size());
@@ -231,7 +231,7 @@ auto HostEmb::GetHostEmbs() -> absl::flat_hash_map<string, HostEmbTable>*
 /// \param initializeInfos emb初始化信息列表
 /// \param embData emb数据
 /// \param offset 偏移列表
-void HostEmb::EmbPartGenerator(const vector<InitializeInfo> &initializeInfos, vector<vector<float>> &embData,
+void HostEmb::EmbPartGenerator(const vector<EmbCache::InitializerInfo>& initializeInfos, vector<vector<float>>& embData,
                                const vector<size_t>& offset) const
 {
     for (auto initializeInfo: initializeInfos) {
@@ -243,7 +243,7 @@ void HostEmb::EmbPartGenerator(const vector<InitializeInfo> &initializeInfos, ve
     }
 }
 
-void HostEmb::EmbPartGenerator(const vector<InitializeInfo> &initializeInfos, vector<vector<float>> &embData,
+void HostEmb::EmbPartGenerator(const vector<EmbCache::InitializerInfo>& initializeInfos, vector<vector<float>>& embData,
                                const vector<int64_t>& offset) const
 {
     for (auto initializeInfo: initializeInfos) {

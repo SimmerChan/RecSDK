@@ -94,7 +94,7 @@ protected:
         LFUCache cache2;
         cacheManager.ddrKeyFreqMap[embTableName2] = cache2;
         PutKeyInfo(cacheManager.ddrKeyFreqMap[embTableName2], input_keys);
-        unordered_map<emb_key_t, freq_num_t> excludeDDRKeyFreq;
+        unordered_map<emb_cache_key_t, freq_num_t> excludeDDRKeyFreq;
         excludeDDRKeyFreq[27] = 10;
         excludeDDRKeyFreq[30] = 10;
         cacheManager.excludeDDRKeyCountMap[embTableName] = excludeDDRKeyFreq;
@@ -388,9 +388,9 @@ TEST_F(CacheManagerTest, LoadTest)
 {
     cacheManager.ddrKeyFreqMap.clear();
     cacheManager.excludeDDRKeyCountMap.clear();
-    unordered_map<std::string, unordered_map<emb_key_t, freq_num_t>> ddrMap;
+    unordered_map<std::string, unordered_map<emb_cache_key_t, freq_num_t>> ddrMap;
     string embTableName = "table1";
-    unordered_map<emb_key_t, freq_num_t> ddrTableMap;
+    unordered_map<emb_cache_key_t, freq_num_t> ddrTableMap;
     ddrTableMap.emplace(1, 3);
     ddrTableMap.emplace(2, 3);
     ddrTableMap.emplace(3, 3);
@@ -399,8 +399,8 @@ TEST_F(CacheManagerTest, LoadTest)
     ddrTableMap.emplace(8, 1);
     ddrTableMap.emplace(9, 1);
     ddrMap.emplace(embTableName, ddrTableMap);
-    unordered_map<std::string, unordered_map<emb_key_t, freq_num_t>> excludeDdrMap;
-    unordered_map<emb_key_t, freq_num_t> excludeDdrTableMap;
+    unordered_map<std::string, unordered_map<emb_cache_key_t, freq_num_t>> excludeDdrMap;
+    unordered_map<emb_cache_key_t, freq_num_t> excludeDdrTableMap;
     excludeDdrTableMap.emplace(15, 1);
     excludeDdrTableMap.emplace(25, 5);
     excludeDdrMap.emplace(embTableName, excludeDdrTableMap);
