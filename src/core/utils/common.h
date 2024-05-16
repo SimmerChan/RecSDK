@@ -35,6 +35,8 @@ See the License for the specific language governing permissions and
 #include "initializer/constant_initializer/constant_initializer.h"
 #include "initializer/truncated_normal_initializer/truncated_normal_initializer.h"
 #include "initializer/random_normal_initializer/random_normal_initializer.h"
+#include "ock_ctr_common/include/factory.h"
+#include "ock_ctr_common/include/embedding_cache.h"
 
 #if defined(BUILD_WITH_EASY_PROFILER)
     #include <easy/profiler.h>
@@ -53,6 +55,7 @@ namespace MxRec {
 #define MGMT_CPY_THREADS 4
 #define PROFILING
     using namespace tensorflow;
+    extern ock::ctr::FactoryPtr factory;
     constexpr int TRAIN_CHANNEL_ID = 0;
     constexpr int EVAL_CHANNEL_ID = 1;
 
@@ -112,10 +115,13 @@ namespace MxRec {
     const string COMBINE_HISTORY_NAME = "combine_table_history";
 
     using emb_key_t = int64_t;
+    using emb_cache_key_t = uint64_t;
     using freq_num_t = int64_t;
     using EmbNameT= std::string;
     using KeysT = std::vector<emb_key_t>;
     using LookupKeyT = std::tuple<int, EmbNameT, KeysT>;             // batch_id quarry_lable keys_vector
+    using UinqueKeyT = std::tuple<int, EmbNameT, std::vector<uint64_t>>;
+    using RestoreVecSecT = std::tuple<int, EmbNameT, std::vector<int32_t>>;
     using TensorInfoT = std::tuple<int, EmbNameT, std::list<std::unique_ptr<std::vector<Tensor>>>::iterator>;
 
     namespace HybridOption {
@@ -234,7 +240,7 @@ namespace MxRec {
         bool isSSDEnabled { false };
         bool useDynamicExpansion {false};
         bool useSumSameIdGradients {true};
-        std::vector<int> ctrlSteps; // 包含三个步数: train_steps, eval_steps, save_steps
+        std::vector<int> ctrlSteps; // 包含4个步数: train_steps, eval_steps, save_steps, max_train_steps
     };
 
     enum TensorIndex : uint32_t {
@@ -446,7 +452,7 @@ namespace MxRec {
 
         EmbInfo(const EmbInfoParams& embInfoParams,
                 std::vector<size_t> vocabsize,
-                std::vector<InitializeInfo> initializeInfos,
+                std::vector<EmbCache::InitializerInfo> initializeInfos,
                 std::vector<std::string> ssdDataPath)
             : name(embInfoParams.name),
               sendCount(embInfoParams.sendCount),
@@ -457,7 +463,7 @@ namespace MxRec {
               devVocabSize(vocabsize[0]),
               hostVocabSize(vocabsize[1]),
               ssdVocabSize(vocabsize[SSD_SIZE_INDEX]),
-              initializeInfos(initializeInfos),
+              initializeInfos(std::move(initializeInfos)),
               ssdDataPath(std::move(ssdDataPath))
         {
         }
@@ -471,7 +477,7 @@ namespace MxRec {
         size_t devVocabSize;
         size_t hostVocabSize;
         size_t ssdVocabSize;
-        std::vector<InitializeInfo> initializeInfos;
+        std::vector<EmbCache::InitializerInfo> initializeInfos;
         std::vector<std::string> ssdDataPath;
     };
 
@@ -552,7 +558,8 @@ namespace MxRec {
     using OffsetMapT = std::map<EmbNameT, std::vector<int64_t>>;
     using OffsetT = std::vector<int64_t>;
     using AllKeyOffsetMapT = std::map<std::string, std::map<int64_t, int64_t>>;
-    using KeyFreqMemT = unordered_map<std::string, unordered_map<emb_key_t, freq_num_t>>;
+    using KeyFreqMemT = unordered_map<std::string, unordered_map<emb_cache_key_t, freq_num_t>>;
+    using EmbLocalTableT = EmbCache::EmbCacheManager;
 
     enum class CkptFeatureType {
         HOST_EMB = 0,
@@ -606,6 +613,33 @@ namespace MxRec {
         EVICT_POS = 12,
         KEY_COUNT_MAP = 13
     };
+
+    enum CTRLogLevel {
+        DEBUG = 0,
+        INFO,
+        WARN,
+        ERROR,
+    };
+
+    static void CTRLog(int level, const char *msg)
+    {
+        switch (level) {
+            case CTRLogLevel::DEBUG:
+                LOG_DEBUG(msg);
+                break;
+            case CTRLogLevel::INFO:
+                LOG_INFO(msg);
+                break;
+            case CTRLogLevel::WARN:
+                LOG_WARN(msg);
+                break;
+            case CTRLogLevel::ERROR:
+                LOG_ERROR(msg);
+                break;
+            default:
+                break;
+        }
+    }
 
     ostream& operator<<(ostream& ss, MxRec::CkptDataType type);
     bool CheckFilePermission(const string& filePath);

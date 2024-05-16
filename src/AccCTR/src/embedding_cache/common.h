@@ -60,5 +60,6 @@ constexpr float CONSTANT_VALUE_MAX = 1e9;
 constexpr float CONSTANT_VALUE_MIN = -1e9;
 constexpr float INIT_K_MAX = 10000;
 constexpr float INIT_K_MIN = -10000;
+const int INVALID_EMB_SIZE = -1;
 }
 #endif // MXREC_COMMON_H
