@@ -1,7 +1,8 @@
-import tensorflow as tf
-from tensorflow.core.protobuf.rewriter_config_pb2 import RewriterConfig
 from dataclasses import dataclass
 
+import tensorflow as tf
+from tensorflow.core.protobuf.config_pb2 import ConfigProto
+from tensorflow.core.protobuf.rewriter_config_pb2 import RewriterConfig
 
 if tf.__version__.startswith("1"):
     from npu_bridge.hccl import hccl_ops
@@ -10,21 +11,23 @@ else:
 
 
 @dataclass
-class ModelConfig:
+class GlobalConfig:
     user_range: int = 1e5
     item_range: int = 1e5
 
-    user_feat_cnt: int = 16
-    item_feat_cnt: int = 16
+    user_feat_cnt: int = 1
+    item_feat_cnt: int = 1
 
-    user_table_dim: int = 128
-    item_table_dim: int = 128
+    user_table_dim: int = 64
+    item_table_dim: int = 64
 
     batch_size: int = 1024
     learning_rate: float = 1e-3
 
 
-def get_sess_config(dump_data=False, dump_path="./dump_output", dump_steps="0|1|2", use_deterministic=0):
+def get_sess_config(
+    dump_data: bool = False, dump_path: str = "./dump_output", dump_steps: str = "0|1|2", use_deterministic: int = 0
+) -> ConfigProto:
     session_config = tf.compat.v1.ConfigProto(allow_soft_placement=False, log_device_placement=False)
 
     session_config.gpu_options.allow_growth = True

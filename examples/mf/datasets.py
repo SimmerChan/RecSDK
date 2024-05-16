@@ -5,10 +5,10 @@ import tensorflow as tf
 from tensorflow.python.data.ops.dataset_ops import DatasetV1Adapter
 from mx_rec.util.communication import hccl_ops
 
-from utils import ModelConfig
+from utils import GlobalConfig
 
 
-def gen_tf_dataset(cfg: ModelConfig, batch_number: int = 100) -> DatasetV1Adapter:
+def gen_tf_dataset(cfg: GlobalConfig, batch_number: int = 100) -> DatasetV1Adapter:
     dataset = tf.compat.v1.data.Dataset.from_generator(
         generator=_gen_rand_data(cfg, batch_number=batch_number),
         output_types={"item_ids": tf.int32, "user_ids": tf.int32, "labels": tf.int32},
@@ -27,7 +27,7 @@ def gen_tf_dataset(cfg: ModelConfig, batch_number: int = 100) -> DatasetV1Adapte
     return dataset
 
 
-def _gen_rand_data(cfg: ModelConfig, batch_number: int) -> Callable[[], Dict[str, np.ndarray]]:
+def _gen_rand_data(cfg: GlobalConfig, batch_number: int) -> Callable[[], Dict[str, np.ndarray]]:
     def data_generator():
         i = 0
         while i < batch_number:

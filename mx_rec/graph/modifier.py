@@ -152,7 +152,8 @@ class GraphModifier:
             # In eval mode, backward is not required. In addition, compute gradients is not executed when
             # only eval is used. Therefore, `do_merge_lookup` needs to be invoked during modify graph.
             if not is_training:
-                do_merge_lookup(is_train=False)
+                with self._full_graph.as_default():
+                    do_merge_lookup(is_train=False)
                 if "evaluate" in ConfigInitializer.get_instance().train_params_config.bool_gauge_set:
                     logger.debug("In estimator mode, eval re-creates graph each time, so the flag needs to be cleared.")
                     ConfigInitializer.get_instance().train_params_config.insert_merged_multi_lookup(is_training, False)

@@ -14,27 +14,17 @@
 # limitations under the License.
 # ==============================================================================
 
-kill -9 `ps -ef | grep python | grep -v grep | awk '{print $2}'` > /dev/null 2>&1
 rm -rf /root/ascend/log/*
 rm -rf ./kernel*
 rm -rf ./export_graph/*
 
-# 支持[train, load_and_train, predict]
-export USE_MODE="train"
+# 支持[train, infer]
+# export USE_MODE="train"
+export USE_MODE="infer"
 if [ $USE_MODE = "train" ]; then
-  echo "train mode: saved-model will be deleted"
-  rm -rf ./saved-model
+  echo "In training mode, checkpoints will be deleted!"
+  rm -rf ./ckpts
 fi
-
-# cache mode support: HBM, DDR, SSD
-export CACHE_MODE="HBM"
-if [ $CACHE_MODE = "SSD" ] && [ $USE_MODE = "train" ]; then
-  echo "SSD train mode not allow file exist in directory when training a model from stratch in case overwrite,
-        deleting directory ssd_data then create for this use case"
-  rm -rf ssd_data
-  mkdir ssd_data
-fi
-
 
 # 获取输入参数：py、ip
 if [ $# -ge 1 ]; then
@@ -162,4 +152,4 @@ yes | cp /home/ztx/Projects/work/mxrec/mx_rec/graph/modifier.py $mx_rec_package_
 echo "use horovod to start tasks"
 DATE=$(date +%Y-%m-%d-%H-%M-%S)
 horovodrun --network-interface ${interface} -np ${num_process} --mpi-args "${mpi_args}" --mpi -H localhost:${local_rank_size} \
-python3.7 ${py} 2>&1 | tee "temp_${local_rank_size}p_${KEY_PROCESS_THREAD_NUM}t_${USE_MODE}_${CACHE_MODE}_${DATE}.log"
+python3.7 ${py} 2>&1 | tee "temp_${local_rank_size}p_${USE_MODE}_${DATE}.log"

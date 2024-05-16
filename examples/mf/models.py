@@ -11,11 +11,11 @@ from mx_rec.optimizers.gradient_descent_by_addr import create_hash_optimizer_by_
 from mx_rec.util.variable import get_dense_and_sparse_variable
 from mx_rec.util.communication.hccl_ops import get_rank_size
 
-from utils import ModelConfig, hccl_ops
+from utils import GlobalConfig, hccl_ops
 
 
 class BaseModel(metaclass=ABCMeta):
-    def __init__(self, cfg: ModelConfig, iterator: Iterator) -> None:
+    def __init__(self, cfg: GlobalConfig, iterator: Iterator) -> None:
         self.user_feat_cnt = cfg.user_feat_cnt
         self.item_feat_cnt = cfg.item_feat_cnt
 
@@ -35,12 +35,12 @@ class BaseModel(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def backward(self, loss: Tensor) -> any:
+    def backward(self, loss: Tensor) -> List[Operation]:
         pass
 
 
 class MatrixFactorization(BaseModel):
-    def __init__(self, cfg: ModelConfig, iterator: Iterator) -> None:
+    def __init__(self, cfg: GlobalConfig, iterator: Iterator) -> None:
         super().__init__(cfg, iterator)
 
     def _build_tables(self) -> Tuple[BaseSparseEmbedding, BaseSparseEmbedding]:
