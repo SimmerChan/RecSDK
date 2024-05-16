@@ -17,11 +17,12 @@
 
 from __future__ import absolute_import, division, print_function
 
-from collections import defaultdict
+from typing import List
 
 import tensorflow as tf
 from tensorflow.python.ops import math_ops
 from tensorflow.python.training import adagrad
+from tensorflow.python.training.optimizer import Optimizer
 
 from mx_rec.optimizers.base import CustomizedOptimizer
 from mx_rec.util.initialize import ConfigInitializer
@@ -45,13 +46,19 @@ from mx_rec.validator.validator import (
         ("name", StringValidator, {"min_len": 1, "max_len": 200}, ["check_string_length"]),
     ]
 )
-def create_hash_optimizer_by_address(learning_rate=0.001, initial_accumulator_value=0.9, name="Adagrad"):
-    """
-    Create an instance of adagrad hash optimizer
-    :param learning_rate: A `Tensor` or a floating point value.  The learning rate.
-    :param initial_accumulator_value:  A floating point value. Starting value for the accumulators, must be positive.
-    :param name: Optional name prefix for the operations created when applying gradients.  Defaults to "Adagrad".
-    :return: adagrad hash optimizer instance
+def create_hash_optimizer_by_address(learning_rate=0.001, initial_accumulator_value=0.9, name="Adagrad") -> Optimizer:
+    """Create an instance of adagrad hash optimizer.
+
+    Args:
+        learning_rate: A `Tensor` or a floating point value. The learning rate.
+        initial_accumulator_value: A floating point value. Starting value for the accumulators, must be positive.
+        name: Optional name prefix for the operations created when applying gradients. Defaults to "Adagrad".
+
+    Returns:
+        Adagrad hash optimizer instance
+
+    Raises:
+        ValueError: If `use_dynamic_expansion` was not set.
     """
     if not ConfigInitializer.get_instance().use_dynamic_expansion:
         raise ValueError(
@@ -68,8 +75,6 @@ def create_hash_optimizer_by_address(learning_rate=0.001, initial_accumulator_va
 
 
 class CustomizedAdagradByAddress(adagrad.AdagradOptimizer, CustomizedOptimizer):
-    name_counter = defaultdict(int)
-
     def __init__(
         self,
         learning_rate: float,
@@ -88,19 +93,19 @@ class CustomizedAdagradByAddress(adagrad.AdagradOptimizer, CustomizedOptimizer):
         self._slot_num = 1
         self._derivative = 2
 
-    def get_slot_init_values(self):
+    def get_slot_init_values(self) -> List[float]:
         # return state value list of adagrad that needs to initialize in ASC DDR.
         return [self._initial_accumulator_value]
 
-    def _apply_sparse(self, grad, var):
-        grad, addr = self.sum_same_id_gradients(grad=grad, var=var, is_expansion=True)
+    def _apply_sparse(self, grad: tf.Tensor, var: tf.Tensor) -> tf.Operation:
+        grad, var = self.sum_same_id_gradients(grad=grad, var=var, is_expansion=True)
         learning_rate_tensor = math_ops.cast(self._learning_rate_tensor, grad.dtype.base_dtype)
         epsilon = math_ops.cast(self._epsilon, grad.dtype.base_dtype)
 
         host_pipeline_ops = import_host_pipeline_ops()
         dim = grad.shape.as_list()[-1]
 
-        combined_tensor = host_pipeline_ops.embedding_lookup_by_address(addr, embedding_dim=2 * dim, embedding_type=1)
+        combined_tensor = host_pipeline_ops.embedding_lookup_by_address(var, embedding_dim=2 * dim, embedding_type=1)
         split_length = [dim] + [dim]
         split_tensors = tf.split(combined_tensor, split_length, axis=1)
 
@@ -111,10 +116,10 @@ class CustomizedAdagradByAddress(adagrad.AdagradOptimizer, CustomizedOptimizer):
 
         update_list = [tf.divide(-learning_rate_tensor * grad, denominator_slice)] + [s_t_slice - old_s_slice]
         update_tensor = tf.concat(update_list, axis=1)
-        var_update_op = host_pipeline_ops.embedding_update_by_address(addr, update_tensor, update_type=0)
+        var_update_op = host_pipeline_ops.embedding_update_by_address(var, update_tensor, update_type=0)
 
         return var_update_op
 
-    def _create_slots(self, var_list):
+    def _create_slots(self, var_list: List[tf.Variable]):
         # slot变量由lookup算子控制 跳过父类的实现
         pass
