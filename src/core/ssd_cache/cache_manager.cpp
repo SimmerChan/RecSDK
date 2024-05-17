@@ -279,6 +279,7 @@ void CacheManager::RefreshFreqInfoCommon(const string& embTableName, vector<emb_
 
 void CacheManager::Init(HostEmb* hostEmbPtr, vector<EmbInfo>& mgmtEmbInfo)
 {
+    LOG_INFO("CacheManager Init method begin");
     this->hostEmbs = hostEmbPtr;
     for (auto& emb : mgmtEmbInfo) {
         EmbBaseInfo baseInfo {emb.ssdVocabSize, emb.ssdDataPath, false};
@@ -287,11 +288,12 @@ void CacheManager::Init(HostEmb* hostEmbPtr, vector<EmbInfo>& mgmtEmbInfo)
         excludeDDRKeyCountMap[emb.name];
     }
     ssdEngine->Start();
-    LOG_INFO("CacheManager Init method end.");
+    LOG_INFO("CacheManager Init method end");
 }
 
 void CacheManager::Init(ock::ctr::EmbCacheManagerPtr embCachePtr, vector<EmbInfo>& mgmtEmbInfo)
 {
+    LOG_INFO("CacheManager Init method begin");
     this->embCache = std::move(embCachePtr);
     for (auto& emb : mgmtEmbInfo) {
         EmbBaseInfo baseInfo {emb.ssdVocabSize, emb.ssdDataPath, false};
@@ -299,7 +301,7 @@ void CacheManager::Init(ock::ctr::EmbCacheManagerPtr embCachePtr, vector<EmbInfo
         preProcessMapper[emb.name].Initialize(emb.hostVocabSize, emb.ssdVocabSize);
     }
     ssdEngine->Start();
-    LOG_INFO("CacheManager Init method end.");
+    LOG_INFO("CacheManager Init method end");
 }
 
 bool CacheManager::IsKeyInSSD(const string& embTableName, emb_key_t key)
@@ -334,8 +336,8 @@ void CacheManager::EvictSSDEmbedding(const string& embTableName, vector<emb_cach
     }
 
     int keyStep = preProcessStep;
-    auto &ssdMap = preProcessMapper[embTableName].excludeDDRKeyCountMap;
-    auto &ddrLfu = preProcessMapper[embTableName].lfuCache;
+    unordered_map<emb_cache_key_t, freq_num_t>& ssdMap = preProcessMapper[embTableName].excludeDDRKeyCountMap;
+    LFUCache& ddrLfu = preProcessMapper[embTableName].lfuCache;
     std::vector<emb_cache_key_t> ssdKeysToBeDeleted;
     // 1 删除缓存中记录的key的次数
     for (auto &key: keys) {
@@ -706,6 +708,7 @@ void CacheManager::TransferDDR2SSD(string tableName, uint32_t extEmbeddingSize, 
     ssdEngine->InsertEmbeddingsByAddr(tableName, keys, addrs, extEmbeddingSize);
     for (auto addr : addrs) {
         free(addr);
+        addr = nullptr;
     }
 }
 

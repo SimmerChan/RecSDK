@@ -33,28 +33,29 @@ namespace MxRec {
     using offset_t = uint32_t;
 
     class File {
-        static const uint64_t keyDataLen = sizeof(emb_cache_key_t);
-        static const uint64_t offsetDataLen = sizeof(offset_t);
+        static constexpr uint64_t keyDataLen = sizeof(emb_cache_key_t);
+        static constexpr uint64_t offsetDataLen = sizeof(offset_t);
 
     public:
-        File(uint64_t fileID, string &fileDir);
+        File(uint64_t fileID, string& fileDir);
 
-        File(uint64_t fileID, string &fileDir, string &loadDir, int step); // initialize with loading specific step data
+        File(uint64_t fileID, string& fileDir, string& loadDir,
+             int step);  // initialize with loading specific step data
 
         File(const File&) = delete;
         File& operator=(const File&) = delete;
 
         ~File();
 
-        bool IsKeyExist(emb_cache_key_t key);
+        bool IsKeyExist(emb_cache_key_t key) const;
 
-        void InsertEmbeddings(vector<emb_cache_key_t> &keys, vector<vector<float>> &embeddings);
+        void InsertEmbeddings(vector<emb_cache_key_t>& keys, vector<vector<float>>& embeddings);
 
-        vector<vector<float>> FetchEmbeddings(vector<emb_cache_key_t> &keys);
+        vector<vector<float>> FetchEmbeddings(vector<emb_cache_key_t>& keys);
 
         void DeleteEmbedding(emb_cache_key_t key);
 
-        void Save(const string &saveDir, int step);
+        void Save(const string& saveDir, int step);
 
         vector<emb_cache_key_t> GetKeys();
 
@@ -64,8 +65,8 @@ namespace MxRec {
 
         uint64_t GetStaleDataCnt() const;
 
-        void InsertEmbeddingsByAddr(
-            vector<emb_cache_key_t> &keys, vector<float*> &embeddingsAddr, uint64_t extEmbeddingSize);
+        void InsertEmbeddingsByAddr(vector<emb_cache_key_t>& keys, vector<float*>& embeddingsAddr,
+                                    uint64_t extEmbeddingSize);
 
     private:
         uint64_t fileID;  // init by constructor

@@ -12,10 +12,10 @@
 #include "lfu_cache.h"
 
 namespace MxRec {
-/*
- * 专供keys处理的线程使用，每一个emb_local_table就有一个DDRPreProcessMapper
- * MapperBase中的桶存储k-v对，在这里value统一赋值为0
- */
+    /*
+    * 专供keys处理的线程使用，每一个emb_local_table就有一个DDRPreProcessMapper
+    * MapperBase中的桶存储k-v对，在这里value统一赋值为0
+    */
     class PreProcessMapper {
     public:
         void Initialize(uint32_t vocabSize, uint32_t ssdVocabSize)
@@ -48,7 +48,7 @@ namespace MxRec {
         bool InsertSSDKey(uint64_t key)
         {
             if (IsSSDKeyExist(key)) {
-                throw std::invalid_argument("InsertDDRKey failed! key already exist");
+                throw std::invalid_argument("InsertSSDKey failed! key already exist");
             }
 
             excludeDDRKeyCountMap[key] = 1;
