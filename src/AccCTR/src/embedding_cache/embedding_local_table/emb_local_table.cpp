@@ -413,8 +413,7 @@ void EmbLocalTable::GetEmbTableInfos(std::vector<uint64_t>& keys, std::vector<st
         std::vector<float> curEmbedding;
         keys.emplace_back(p.first);
         auto* addr = reinterpret_cast<float*>(p.second);
-        curEmbedding.insert(curEmbedding.end(), reinterpret_cast<float*>(addr),
-                            reinterpret_cast<float*>((addr + embeddingSize)));
+        curEmbedding.insert(curEmbedding.end(), addr, reinterpret_cast<float*>((addr + embeddingSize)));
         embeddings.emplace_back(curEmbedding);
         if (extEmbeddingSize > embeddingSize) {
             std::vector<float> curOptimizerSlot;
