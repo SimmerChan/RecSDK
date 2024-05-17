@@ -27,9 +27,8 @@ from tensorflow.python.framework.errors_impl import InvalidArgumentError
 from tensorflow.python.ops import control_flow_ops
 
 from mx_rec.graph.constants import AnchorDatasetOp, AnchorIteratorOp
-from mx_rec.constants.constants import ASCAnchorAttr, DUMP_MIDIFY_GRAPH_FILE_MODE, ORPHAN_LOOKUP_KEY_PREFIX
+from mx_rec.constants.constants import ASCAnchorAttr, DUMP_MIDIFY_GRAPH_FILE_MODE
 from mx_rec.core.embedding import BaseSparseEmbedding
-from mx_rec.core.asc.swap_args import SwapArgs, SwapDataType
 from mx_rec.util.log import logger
 
 
@@ -67,8 +66,11 @@ def find_make_iterator_op(graph: Graph, batch_tensor: Tensor) -> Operation:
     operations = graph.get_operations()
     for each_op in operations:
         for input_tensor in batch_tensor.op.inputs:
-            if input_tensor.op.outputs and input_tensor.op.outputs[0] in list(
-                    each_op.inputs) and each_op.type == AnchorIteratorOp.MAKE_ITERATOR.value:
+            if (
+                input_tensor.op.outputs
+                and input_tensor.op.outputs[0] in list(each_op.inputs)
+                and each_op.type == AnchorIteratorOp.MAKE_ITERATOR.value
+            ):
                 logger.debug("Op MakeIterator '%s' was found.", each_op.name)
                 return each_op
 
@@ -109,8 +111,10 @@ def find_target_instance_dataset(graph: Graph, variant_tensor: Tensor) -> Datase
                 ins = ins._input_dataset
             logger.debug("Find target instance '%s', whose variant_tensor is '%s'.", ins, variant_tensor)
             if not isinstance(ins.element_spec, dict) and not (
-                    isinstance(ins.element_spec, (list, tuple)) and len(ins.element_spec) == 2 and isinstance(
-                ins.element_spec[0], dict)):
+                isinstance(ins.element_spec, (list, tuple))
+                and len(ins.element_spec) == 2
+                and isinstance(ins.element_spec[0], dict)
+            ):
                 raise NotImplementedError("the found dataset does not return a valid layout.")
 
             return ins
@@ -154,18 +158,24 @@ def record_ops_to_replace(graph: Graph, src_op: Operation) -> DefaultDict[Tensor
 
 def replace_anchor(replacement_specs: DefaultDict[Tensor, List[Tuple[int, Operation]]], new_tensor_list: List[Tensor]):
     if len(replacement_specs) != len(new_tensor_list):
-        raise ValueError(f"Given replacement_specs and new_tensor_list must have the same length. "
-                         f"replacement_specs: {replacement_specs}, new_tensor_list: {new_tensor_list}")
+        raise ValueError(
+            f"Given replacement_specs and new_tensor_list must have the same length. "
+            f"replacement_specs: {replacement_specs}, new_tensor_list: {new_tensor_list}"
+        )
 
     for tensor_idx, (old_tensor, items) in enumerate(replacement_specs.items()):
         for input_idx, operator in items:
             try:
                 operator._update_input(input_idx, new_tensor_list[tensor_idx])
             except InvalidArgumentError as err:
-                logger.info("The replacement specs keys (old batch) is: %s. \n\t\t The new_tensor_list is: %s.",
-                            replacement_specs.keys(), new_tensor_list)
-                raise RuntimeError(f"Cannot update edge, old tensor: {old_tensor}, "
-                                   f"new tensor: {new_tensor_list[tensor_idx]}.") from err
+                logger.info(
+                    "The replacement specs keys (old batch) is: %s. \n\t\t The new_tensor_list is: %s.",
+                    replacement_specs.keys(),
+                    new_tensor_list,
+                )
+                raise RuntimeError(
+                    f"Cannot update edge, old tensor: {old_tensor}, " f"new tensor: {new_tensor_list[tensor_idx]}."
+                ) from err
 
 
 def replace_anchor_control(graph: Graph, place_holder_control: tf.Operation, real_anchor: Tensor):
@@ -181,8 +191,10 @@ def replace_anchor_control(graph: Graph, place_holder_control: tf.Operation, rea
     """
 
     if place_holder_control is None:
-        raise RuntimeError(f"Node place_holder_control does not exist. Check whether the sparse lookup interface "
-                           f"is correctly invoked.")
+        raise RuntimeError(
+            f"Node place_holder_control does not exist. Check whether the sparse lookup interface "
+            f"is correctly invoked."
+        )
     # find the op with stub node as the input
     replacement_specs_for_anchor_vec = record_control_to_replace(graph, place_holder_control)
     # replace anchor_vec with anchor
@@ -200,8 +212,9 @@ def record_control_to_replace(graph: Graph, src_op: Operation) -> DefaultDict[Te
     return replacement_specs
 
 
-def replace_control_anchor(replacement_specs: DefaultDict[Tensor, List[Tuple[int, Operation]]],
-                           new_tensor_list: List[Tensor]):
+def replace_control_anchor(
+    replacement_specs: DefaultDict[Tensor, List[Tuple[int, Operation]]], new_tensor_list: List[Tensor]
+):
 
     for tensor_idx, (old_tensor, items) in enumerate(replacement_specs.items()):
         for _, operator in items:
@@ -209,10 +222,14 @@ def replace_control_anchor(replacement_specs: DefaultDict[Tensor, List[Tuple[int
                 control_op = control_flow_ops.group(new_tensor_list)
                 operator._add_control_input(control_op)
             except InvalidArgumentError as err:
-                logger.info("The replacement control specs keys (old batch) is: %s. \n\t\t The new_tensor_list is: %s.",
-                            replacement_specs.keys(), new_tensor_list)
-                raise RuntimeError(f"Cannot update edge, old tensor: {old_tensor}, "
-                                   f"new tensor: {new_tensor_list[tensor_idx]}.") from err
+                logger.info(
+                    "The replacement control specs keys (old batch) is: %s. \n\t\t The new_tensor_list is: %s.",
+                    replacement_specs.keys(),
+                    new_tensor_list,
+                )
+                raise RuntimeError(
+                    f"Cannot update edge, old tensor: {old_tensor}, " f"new tensor: {new_tensor_list[tensor_idx]}."
+                ) from err
 
 
 def replace_anchor_vec(graph: Graph, cutting_point: Tensor, attribute: ASCAnchorAttr, anchor: Tensor):
@@ -231,8 +248,10 @@ def replace_anchor_vec(graph: Graph, cutting_point: Tensor, attribute: ASCAnchor
     # get stub node
     anchor_vec = BaseSparseEmbedding.get_anchor_attribute(cutting_point, attribute)
     if anchor_vec is None:
-        raise RuntimeError(f"Node `{attribute.value}` does not exist. Check whether the sparse lookup interface "
-                           f"is correctly invoked.")
+        raise RuntimeError(
+            f"Node `{attribute.value}` does not exist. Check whether the sparse lookup interface "
+            f"is correctly invoked."
+        )
     # find the op with stub node as the input
     replacement_specs_for_anchor_vec = record_ops_to_replace(graph, anchor_vec.op)
     # replace anchor_vec with anchor
@@ -240,14 +259,11 @@ def replace_anchor_vec(graph: Graph, cutting_point: Tensor, attribute: ASCAnchor
 
 
 def make_sorted_key_to_tensor_list(
-    element_spec: List[Dict[str, Tensor]],
-    sorted_keys: List[str],
-    prefix: str = ""
+    element_spec: List[Dict[str, Tensor]], sorted_keys: List[str], prefix: str = ""
 ) -> List[str]:
     if isinstance(element_spec, tf.TensorSpec):
         sorted_keys.append(prefix)
         return sorted_keys
-
     elif isinstance(element_spec, dict):
         for key, item in element_spec.items():
             if not isinstance(key, str):
@@ -268,11 +284,13 @@ def make_sorted_key_to_tensor_list(
     raise TypeError(f"Given element_spec, whose type is {type(element_spec)}, is invalid.")
 
 
-def export_pb_graph(file_name: str,
-                    dump_graph: bool = False,
-                    graph_def: GraphDef = None,
-                    export_path: str = "./export_graph",
-                    as_text: bool = True):
+def export_pb_graph(
+    file_name: str,
+    dump_graph: bool = False,
+    graph_def: GraphDef = None,
+    export_path: str = "./export_graph",
+    as_text: bool = True,
+):
     """
     Save tensorflow graph before and after modifier graph
     :param file_name: FileName of the graph

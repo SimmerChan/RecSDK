@@ -48,20 +48,7 @@ from mx_rec.util.log import logger
 from mx_rec.util.ops import import_host_pipeline_ops
 from mx_rec.util.perf import performance
 from mx_rec.util.tf_version_adapter import npu_ops
-from mx_rec.validator.validator import OptionValidator, para_checker_decorator, ClassValidator
-
-
-@dataclasses.dataclass
-class AnchorRecord:
-    replacement_spec: DefaultDict[Tensor, List[Tuple[int, Operation]]]
-    passing_tensors: List[Tensor]
-    batch_tensor_indexs: List[int]
-    sub_cutting_points: List[Tensor]
-    sub_graph_def: GraphDef
-    input_names: List[str]
-    output_names: List[str]
-    is_training: bool
-    input_indexs: List[int] = None
+from mx_rec.validator.validator import para_checker_decorator, ClassValidator
 
 
 class GraphModifierHook(tf.estimator.SessionRunHook):
@@ -97,7 +84,20 @@ class GraphModifierHook(tf.estimator.SessionRunHook):
             session.run(tf.compat.v1.get_collection(ASCEND_CUTTING_POINT_INITIALIZER))
 
 
-class GraphModifier:
+@dataclasses.dataclass
+class _AnchorRecord:
+    replacement_spec: DefaultDict[Tensor, List[Tuple[int, Operation]]]
+    passing_tensors: List[Tensor]
+    batch_tensor_indexs: List[int]
+    sub_cutting_points: List[Tensor]
+    sub_graph_def: GraphDef
+    input_names: List[str]
+    output_names: List[str]
+    is_training: bool
+    input_indexs: List[int] = None
+
+
+class _GraphModifier:
     @para_checker_decorator(
         check_option_list=[
             ("dump_graph", ClassValidator, {"classes": (bool,)}),
@@ -110,6 +110,58 @@ class GraphModifier:
         self._full_graph = full_graph
         self._dump_graph = dump_graph
 
+    @staticmethod
+    def _get_preprocessing_map_func(
+        graph_def: GraphDef,
+        input_names: List[str],
+        output_names: List[str],
+        batch_tensor_names: List[str] = None,
+        pipeline_input_indexes: List[int] = None,
+    ) -> Callable:
+        input_names = check_and_force_list(input_names, str)
+        output_names = check_and_force_list(output_names, str)
+        batch_tensor_names = check_and_force_list(batch_tensor_names, str)
+        pipeline_input_indexes = check_and_force_list(pipeline_input_indexes, int)
+        both_is_none = batch_tensor_names is None and pipeline_input_indexes is None
+        both_not_none = batch_tensor_names is not None and pipeline_input_indexes is not None
+        if both_is_none or both_not_none:
+            raise ValueError(
+                "It is legal when and only when one of the parameters 'batch_tensor_names' and "
+                "'pipeline_input_indexes' was given."
+            )
+
+        def map_func(*args):
+            logger.debug("In get_preprocessing_map_func, the old batch is: %s.", args)
+            batch = dict()
+            _parse_batch(args, batch, key=None)
+            logger.debug("In get_preprocessing_map_func, the parse batch is: %s.", batch)
+
+            input_tensors = []
+            if batch_tensor_names is not None:
+                for tensor_name in batch_tensor_names:
+                    tensor = batch.get(tensor_name)
+                    if tensor is None:
+                        raise ValueError(f"Given input_tensor_name '{tensor_name}' is invalid.")
+
+                    input_tensors.append(tensor)
+
+            else:
+                graph = tf.compat.v1.get_default_graph()
+                for index in pipeline_input_indexes:
+                    tensor = graph.get_tensor_by_name("args_%d:0" % index)
+                    input_tensors.append(tensor)
+
+            # 以tf.import_graph_def()作为read emb key的输入，保证数据读取到传入lookup的ids过程中的特征处理关系能够保留在子图中。
+            output_list = tf.import_graph_def(
+                graph_def, input_map=dict(zip(input_names, input_tensors)), return_elements=output_names
+            )
+
+            output_batch = [batch, tuple(output_list)]
+            logger.debug("In get_preprocessing_map_func, the output batch is: %s.", output_batch)
+            return tuple(output_batch)
+
+        return map_func
+
     @performance("graph_modifier")
     def modify_graph_for_asc(self, prefetch: int = 10):
         cutting_point_list = self._full_graph.get_collection(ASCEND_SPARSE_LOOKUP_ENTRANCE)
@@ -119,7 +171,7 @@ class GraphModifier:
             return
 
         export_pb_graph("old_graph.pbtxt", self._dump_graph, graph_def=self._full_graph.as_graph_def())
-        get_next_op_map = self.generate_get_next_op_specs(cutting_point_list)
+        get_next_op_map = self._generate_get_next_op_specs(cutting_point_list)
         logger.debug(
             "In modify_graph_for_asc function, get_next_op_map.len: %d, get_next_op_map.key: %s.",
             len(get_next_op_map),
@@ -130,13 +182,13 @@ class GraphModifier:
             is_training = record.is_training
 
             # get source dataset
-            src_dataset = self.get_src_dataset(get_next_op, is_training)
+            src_dataset = self._get_src_dataset(get_next_op, is_training)
 
             # generate target dataset
-            timestamp_index = get_timestamp_index(self._full_graph, get_next_op, is_training)
-            original_batch_tensor_count = get_dataset_tensor_count(src_dataset)
+            timestamp_index = _get_timestamp_index(self._full_graph, get_next_op, is_training)
+            original_batch_tensor_count = _get_dataset_tensor_count(src_dataset)
             sub_cutting_points = record.sub_cutting_points
-            input_index_list = get_input_index_list(
+            input_index_list = _get_input_index_list(
                 sub_cutting_points,
                 record.replacement_spec,
                 record.output_names,
@@ -146,8 +198,8 @@ class GraphModifier:
             record.input_indexs = input_index_list
 
             with self._full_graph.as_default():
-                tgt_dataset = self.get_tgt_dataset(src_dataset, sub_cutting_points, record, prefetch=prefetch)
-                self.update_iterator_getnext(get_next_op, tgt_dataset, is_training, record)
+                tgt_dataset = self._get_tgt_dataset(src_dataset, sub_cutting_points, record, prefetch=prefetch)
+                self._update_iterator_getnext(get_next_op, tgt_dataset, is_training, record)
 
             # In eval mode, backward is not required. In addition, compute gradients is not executed when
             # only eval is used. Therefore, `do_merge_lookup` needs to be invoked during modify graph.
@@ -164,12 +216,12 @@ class GraphModifier:
                     "phase. Please check whether compute gradients is performed."
                 )
 
-        self.modify_graph_for_ddr(get_next_op_map)
+        self._modify_graph_for_ddr(get_next_op_map)
 
         logger.info("Graph has been revised.")
         export_pb_graph("new_graph.pbtxt", self._dump_graph, graph_def=self._full_graph.as_graph_def())
 
-    def modify_graph_for_ddr(self, get_next_op_map: Dict[Tensor, AnchorRecord]):
+    def _modify_graph_for_ddr(self, get_next_op_map: Dict[Tensor, _AnchorRecord]):
         # 通过create_hash_optimizer创建optimizer_instance
         optimizer_instance = ConfigInitializer.get_instance().optimizer_config.optimizer_instance
         # Predict mode
@@ -177,7 +229,7 @@ class GraphModifier:
             slot_num = 0
         else:
             # DDR和扩容需要在获取优化器后重置ext
-            change_ext_emb_size_by_opt(optimizer_instance)
+            _change_ext_emb_size_by_opt(optimizer_instance)
             slot_num = optimizer_instance.slot_num
 
         for _, record in get_next_op_map.items():
@@ -196,18 +248,18 @@ class GraphModifier:
                 swap_args_dict = swap_args.swap_config_dict[table_instance.table_name][channel_id]
                 swap_pos = swap_args_dict["swap_pos"]
                 swap_len = swap_args_dict["swap_len"]
-                variable_and_slot_list = get_variable_and_slot_list(
+                variable_and_slot_list = _get_variable_and_slot_list(
                     each_var, slot_num, table_instance.table_name, channel_id
                 )
 
-                swap_op = get_swap_info(table_instance, variable_and_slot_list, swap_len, swap_pos, channel_id)
+                swap_op = _get_swap_info(table_instance, variable_and_slot_list, swap_len, swap_pos, channel_id)
                 swap_control_dict = swap_args.swap_control_dict[table_instance.table_name][channel_id]
                 if "control_ops" not in swap_control_dict:
                     raise ValueError("Missing Required key in modify_graph_for_asc: control_ops")
                 control_ops = swap_control_dict["control_ops"]
                 utils.replace_anchor_control(self._full_graph, control_ops, swap_op)
 
-    def generate_get_next_op_specs(self, cutting_point_list: List[Tensor]) -> Dict[Tensor, AnchorRecord]:
+    def _generate_get_next_op_specs(self, cutting_point_list: List[Tensor]) -> Dict[Tensor, _AnchorRecord]:
         get_next_op_map = defaultdict(dict)
 
         for input_tensor in cutting_point_list:
@@ -216,13 +268,13 @@ class GraphModifier:
                 logger.debug("find a new get_next_op named '%s'", get_next_op.name)
 
                 replacement_specs = utils.record_ops_to_replace(self._full_graph, get_next_op)
-                passing_tensors, batch_tensor_indexs, sub_cutting_points = get_passing_tensor_list(
+                passing_tensors, batch_tensor_indexs, sub_cutting_points = _get_passing_tensor_list(
                     cutting_point_list, get_next_op
                 )
-                sub_graph_def, input_names, output_names = self.get_sub_graph(passing_tensors, sub_cutting_points)
+                sub_graph_def, input_names, output_names = self._get_sub_graph(passing_tensors, sub_cutting_points)
                 is_training = BaseSparseEmbedding.get_anchor_attribute(input_tensor, ASCAnchorAttr.IS_TRAINING)
 
-                record = AnchorRecord(
+                record = _AnchorRecord(
                     replacement_specs,
                     passing_tensors,
                     batch_tensor_indexs,
@@ -238,7 +290,7 @@ class GraphModifier:
 
         return get_next_op_map
 
-    def get_sub_graph(
+    def _get_sub_graph(
         self, input_tensors: List[Tensor], output_tensors: List[Tensor]
     ) -> Tuple[GraphDef, List[str], List[str]]:
         input_tensors = check_and_force_list(input_tensors, tf.Tensor)
@@ -265,7 +317,7 @@ class GraphModifier:
 
         return sub_graph_def, input_name_list, output_name_list
 
-    def get_src_dataset(self, get_next_op: Operation, is_training: bool) -> DatasetV1Adapter:
+    def _get_src_dataset(self, get_next_op: Operation, is_training: bool) -> DatasetV1Adapter:
         """
         根据`IteratorGetNext`算子在计算图中找出原始dataset.
 
@@ -278,7 +330,7 @@ class GraphModifier:
         """
 
         try:
-            target_op = utils.find_trans_dataset(get_next_op)
+            target_op = utils.find_trans_dataset(self._full_graph, get_next_op)
         except (ValueError, TypeError, RuntimeError) as err:
             logger.warning("The dataset op was not found, the error is `%s`. Start to traverse the operations.", err)
             graph = self._full_graph
@@ -321,11 +373,11 @@ class GraphModifier:
         src_dataset = utils.find_target_instance_dataset(self._full_graph, target_op.outputs[0])
         return src_dataset
 
-    def get_tgt_dataset(
+    def _get_tgt_dataset(
         self,
         src_dataset: DatasetV1Adapter,
         sub_cutting_point_list: List[Tensor],
-        record: AnchorRecord,
+        record: _AnchorRecord,
         prefetch: int = 10,
     ) -> DatasetV1Adapter:
         """
@@ -352,7 +404,7 @@ class GraphModifier:
         src_dataset = src_dataset.eos_map(librec, channel_id, max_train_steps, max_eval_steps)
 
         tgt_dataset = src_dataset.map(
-            self.get_preprocessing_map_func(
+            self._get_preprocessing_map_func(
                 record.sub_graph_def,
                 record.input_names,
                 record.output_names,
@@ -381,60 +433,8 @@ class GraphModifier:
         tgt_dataset = tgt_dataset.prefetch(prefetch)
         return tgt_dataset
 
-    def get_preprocessing_map_func(
-        self,
-        graph_def: GraphDef,
-        input_names: List[str],
-        output_names: List[str],
-        batch_tensor_names: List[str] = None,
-        pipeline_input_indexes: List[int] = None,
-    ) -> Callable:
-        input_names = check_and_force_list(input_names, str)
-        output_names = check_and_force_list(output_names, str)
-        batch_tensor_names = check_and_force_list(batch_tensor_names, str)
-        pipeline_input_indexes = check_and_force_list(pipeline_input_indexes, int)
-        both_is_none = batch_tensor_names is None and pipeline_input_indexes is None
-        both_not_none = batch_tensor_names is not None and pipeline_input_indexes is not None
-        if both_is_none or both_not_none:
-            raise ValueError(
-                "It is legal when and only when one of the parameters 'batch_tensor_names' and "
-                "'pipeline_input_indexes' was given."
-            )
-
-        def map_func(*args):
-            logger.debug("In get_preprocessing_map_func, the old batch is: %s.", args)
-            batch = dict()
-            parse_batch(args, batch, key=None)
-            logger.debug("In get_preprocessing_map_func, the parse batch is: %s.", batch)
-
-            input_tensors = []
-            if batch_tensor_names is not None:
-                for tensor_name in batch_tensor_names:
-                    tensor = batch.get(tensor_name)
-                    if tensor is None:
-                        raise ValueError(f"Given input_tensor_name '{tensor_name}' is invalid.")
-
-                    input_tensors.append(tensor)
-
-            else:
-                graph = tf.compat.v1.get_default_graph()
-                for index in pipeline_input_indexes:
-                    tensor = graph.get_tensor_by_name("args_%d:0" % index)
-                    input_tensors.append(tensor)
-
-            # 以tf.import_graph_def()作为read emb key的输入，保证数据读取到传入lookup的ids过程中的特征处理关系能够保留在子图中。
-            output_list = tf.import_graph_def(
-                graph_def, input_map=dict(zip(input_names, input_tensors)), return_elements=output_names
-            )
-
-            output_batch = [batch, tuple(output_list)]
-            logger.debug("In get_preprocessing_map_func, the output batch is: %s.", output_batch)
-            return tuple(output_batch)
-
-        return map_func
-
-    def update_iterator_getnext(
-        self, get_next_op: Operation, tgt_dataset: DatasetV1Adapter, is_training: bool, record: AnchorRecord
+    def _update_iterator_getnext(
+        self, get_next_op: Operation, tgt_dataset: DatasetV1Adapter, is_training: bool, record: _AnchorRecord
     ) -> None:
         """
         用新数据集中的`IteratorGetNext`算子替换计算图中原始数据集的`IteratorGetNext`算子，即用新数据集的batch替换原始数据集的batch.
@@ -477,9 +477,9 @@ class GraphModifier:
         except IndexError as err:
             raise IndexError("Cannot find a tensor from given batch.") from err
         new_get_next_op_name = utils.upward_bfs_op(new_batch_tensor.op, AnchorIteratorOp.ITERATOR_GET_NEXT.value).name
-        self.update_input_tensor_with_new_batch(record.replacement_spec, new_get_next_op_name, new_batch)
+        self._update_input_tensor_with_new_batch(record.replacement_spec, new_get_next_op_name, new_batch)
 
-    def update_input_tensor_with_new_batch(
+    def _update_input_tensor_with_new_batch(
         self,
         replacement_specs: DefaultDict[Tensor, List[Tuple[int, Operation]]],
         new_get_next_op_name: str,
@@ -522,12 +522,12 @@ class GraphModifier:
     ]
 )
 def modify_graph_and_start_emb_cache(full_graph: Graph = None, dump_graph: bool = False):
-    modifier = GraphModifier(full_graph=full_graph, dump_graph=dump_graph)
+    modifier = _GraphModifier(full_graph=full_graph, dump_graph=dump_graph)
     modifier.modify_graph_for_asc()
     start_asc_pipeline()
 
 
-def parse_batch(data_args: Any, data_batch: dict, key: str = None):
+def _parse_batch(data_args: Any, data_batch: dict, key: str = None):
     """
     解析原始数据集中的batch，并将非dict格式的batch转为dict格式.
     Args:
@@ -561,11 +561,11 @@ def parse_batch(data_args: Any, data_batch: dict, key: str = None):
     # 开始解析old batch
     if isinstance(data_args, dict):
         for key, data_tensor in data_args.items():
-            parse_batch(data_tensor, data_batch, key)
+            _parse_batch(data_tensor, data_batch, key)
         return
     if isinstance(data_args, (list, tuple)):
         for data_arg in data_args:
-            parse_batch(data_arg, data_batch, key)
+            _parse_batch(data_arg, data_batch, key)
         return
     if isinstance(data_args, Tensor):
         # 将old batch中的tensor加入到dict中
@@ -575,7 +575,7 @@ def parse_batch(data_args: Any, data_batch: dict, key: str = None):
     raise ValueError(f"Invalid batch type, expected: (dict, list, tuple, Tensor), got: {type(data_args)}.")
 
 
-def get_input_index_list(
+def _get_input_index_list(
     cutting_point_list: List[Tensor],
     replacement_specs: DefaultDict[Tensor, List[Tuple[int, Operation]]],
     mapping_name_list: List[str],
@@ -599,7 +599,7 @@ def get_input_index_list(
     return input_index_list
 
 
-def get_passing_tensor_list(
+def _get_passing_tensor_list(
     src_tensors: List[Tensor], target_op: Operation
 ) -> Tuple[List[Tensor], List[int], List[Tensor]]:
     def get_passing_tensors(src_tensor):
@@ -639,7 +639,7 @@ def get_passing_tensor_list(
     return passing_tensor_list, output_index_list, sub_src_tensors
 
 
-def get_dataset_tensor_count(dataset: DatasetV1Adapter) -> int:
+def _get_dataset_tensor_count(dataset: DatasetV1Adapter) -> int:
     """
     获取数据集中batch的tensor数量.
 
@@ -658,7 +658,7 @@ def get_dataset_tensor_count(dataset: DatasetV1Adapter) -> int:
     return len(src_sorted_keys)
 
 
-def get_timestamp_index(graph: Graph, get_next_op: Operation, is_training: bool) -> int:
+def _get_timestamp_index(graph: Graph, get_next_op: Operation, is_training: bool) -> int:
     timestamp_tensor_list = graph.get_collection(ASCEND_TIMESTAMP)
     timestamp_index = None
     for timestamp in timestamp_tensor_list:
@@ -683,7 +683,7 @@ def get_timestamp_index(graph: Graph, get_next_op: Operation, is_training: bool)
     return timestamp_index
 
 
-def change_ext_emb_size_by_opt(optimizer):
+def _change_ext_emb_size_by_opt(optimizer):
     for _, table_instance in ConfigInitializer.get_instance().sparse_embed_config.table_instance_dict.items():
         # When dynamic expansion mode, ext_emb_size is set by optimizer
         if ConfigInitializer.get_instance().use_dynamic_expansion or not table_instance.is_hbm:
@@ -691,7 +691,7 @@ def change_ext_emb_size_by_opt(optimizer):
             logger.info("ext_emb_size is reset to be %s in change_ext_emb_size_by_opt", table_instance.ext_emb_size)
 
 
-def get_variable_and_slot_list(each_var, slot_num, table_name, channel_id):
+def _get_variable_and_slot_list(each_var, slot_num, table_name, channel_id):
     variable_and_slot_list = [each_var]
     if slot_num == 0:
         return variable_and_slot_list
@@ -718,7 +718,7 @@ def get_variable_and_slot_list(each_var, slot_num, table_name, channel_id):
     return variable_and_slot_list
 
 
-def get_swap_info(
+def _get_swap_info(
     table_instance: BaseSparseEmbedding, variable_and_slot_list: list, swap_len: int, swap_pos: list, channel_id: int
 ) -> list:
     """

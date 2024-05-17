@@ -373,7 +373,7 @@ class NoGradSubgraphSlicer(metaclass=abc.ABCMeta):
 
         old_get_next = utils.upward_bfs_op(sliceable_ops, AnchorIteratorOp.ITERATOR_GET_NEXT.value)
 
-        tf.compat.v1.add_to_collection(DeprecatedOp.DEPRECATED_ITERATOR_GET_NEXT, old_get_next)
+        self._full_graph.add_to_collection(DeprecatedOp.DEPRECATED_ITERATOR_GET_NEXT, old_get_next)
         logger.info("Old 'IteratorGetNext' operation has been deprecated now.")
 
         return old_get_next
@@ -397,7 +397,7 @@ class NoGradSubgraphSlicer(metaclass=abc.ABCMeta):
 
         tgt_trans_dataset = None
         try:
-            tgt_trans_dataset = utils.find_trans_dataset(get_next)
+            tgt_trans_dataset = utils.find_trans_dataset(self._full_graph, get_next)
         except (ValueError, TypeError, RuntimeError) as err:
             trans_datasets = [
                 op for op in self._full_graph.get_operations() if AnchorDatasetOp.PREFETCH_DATASET.value in op.name
@@ -841,7 +841,7 @@ class OrphanLookupKeySlicer(NoGradSubgraphSlicer):
         ]
         alive_get_nexts = list(
             filter(
-                lambda op: op not in tf.compat.v1.get_collection(DeprecatedOp.DEPRECATED_ITERATOR_GET_NEXT),
+                lambda op: op not in self._full_graph.get_collection(DeprecatedOp.DEPRECATED_ITERATOR_GET_NEXT),
                 all_get_nexts,
             )
         )
