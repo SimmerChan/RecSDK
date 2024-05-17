@@ -32,18 +32,18 @@ namespace MxRec {
 
     class Table {
     public:
-        Table(const string &name, vector<string> &savePaths, uint64_t maxTableSize, double compactThreshold);
+        Table(const string& name, vector<string>& savePaths, uint64_t maxTableSize, double compactThreshold);
 
         // initialize with loading specific step data
-        Table(const string &name, vector<string> &saveDirs, uint64_t maxTableSize, double compactThreshold, int step);
+        Table(const string& name, vector<string>& saveDirs, uint64_t maxTableSize, double compactThreshold, int step);
 
         bool IsKeyExist(emb_cache_key_t key);
 
-        void InsertEmbeddings(vector<emb_cache_key_t> &keys, vector<vector<float>> &embeddings);
+        void InsertEmbeddings(vector<emb_cache_key_t>& keys, vector<vector<float>>& embeddings);
 
-        vector<vector<float>> FetchEmbeddings(vector<emb_cache_key_t> &keys);
+        vector<vector<float>> FetchEmbeddings(vector<emb_cache_key_t>& keys);
 
-        void DeleteEmbeddings(vector<emb_cache_key_t> &keys);
+        void DeleteEmbeddings(vector<emb_cache_key_t>& keys);
 
         void Save(int step);
 
@@ -53,7 +53,7 @@ namespace MxRec {
 
         uint64_t GetTableUsage();
 
-        void InsertEmbeddingsByAddr(vector<emb_cache_key_t> &keys, vector<float*> &embeddingsAddr,
+        void InsertEmbeddingsByAddr(vector<emb_cache_key_t>& keys, vector<float*>& embeddingsAddr,
                                     uint32_t extEmbeddingSize);
 
         vector<emb_cache_key_t> ExportKeys();
@@ -63,17 +63,17 @@ namespace MxRec {
 
         void Load(const string& metaFilePath, int step);
 
-        void InsertEmbeddingsInner(vector<emb_cache_key_t> &keys, vector<vector<float>> &embeddings);
+        void InsertEmbeddingsInner(vector<emb_cache_key_t>& keys, vector<vector<float>>& embeddings);
 
-        void DeleteEmbeddingsInner(vector<emb_cache_key_t> &keys);
+        void DeleteEmbeddingsInner(vector<emb_cache_key_t>& keys);
 
-        vector<vector<float>> FetchEmbeddingsInner(vector<emb_cache_key_t> &keys);
+        vector<vector<float>> FetchEmbeddingsInner(vector<emb_cache_key_t>& keys);
 
         void LoadDataFileSet(const shared_ptr<fstream>& metaFile, int step);
 
         void SetTablePathToDiskWithSpace();
 
-        void InsertEmbeddingsByAddrInner(vector<emb_cache_key_t> &keys, vector<float*> &embeddingsAddr,
+        void InsertEmbeddingsByAddrInner(vector<emb_cache_key_t>& keys, vector<float*>& embeddingsAddr,
                                          uint64_t extEmbeddingSize);
 
         string name;  // init by constructor

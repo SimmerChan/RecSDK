@@ -89,12 +89,10 @@ namespace MxRec {
         void SaveSSDEngine(int step);
 
         // 转换DDR和SSD数据
-        TransferRet TransferDDREmbWithSSD(TableInfo& table,
-                                          const vector<emb_key_t>& originalKeys, int channelId);
+        TransferRet TransferDDREmbWithSSD(TableInfo& table, const vector<emb_key_t>& originalKeys, int channelId);
 
         /* HBM与DDR换入换出时刷新频次信息 */
-        void RefreshFreqInfoCommon(const string& embTableName, vector<emb_key_t>& keys,
-                                   TransferType type);
+        void RefreshFreqInfoCommon(const string& embTableName, vector<emb_key_t>& keys, TransferType type);
 
         bool IsKeyInSSD(const string& embTableName, emb_key_t key);
 
@@ -104,20 +102,20 @@ namespace MxRec {
 
         void PutKey(const string& embTableName, const emb_key_t& key, RecordType type);
 
-        void ProcessSwapOutKeys(const string& tableName, const vector<emb_cache_key_t> &swapOutKeys,
+        void ProcessSwapOutKeys(const string& tableName, const vector<emb_cache_key_t>& swapOutKeys,
                                 const SwapOutInfo& info);
 
-        void ProcessSwapInKeys(const string& tableName, const vector<emb_cache_key_t> &swapInKeys,
-                               vector<emb_cache_key_t> &DDRToSSDKeys, vector<emb_cache_key_t> &SSDToDDRKeys);
+        void ProcessSwapInKeys(const string& tableName, const vector<emb_cache_key_t>& swapInKeys,
+                               vector<emb_cache_key_t>& DDRToSSDKeys, vector<emb_cache_key_t>& SSDToDDRKeys);
 
-        void UpdateSSDEmb(string tableName, float *embPtr, uint32_t extEmbeddingSize,
-                          vector<emb_cache_key_t> &keys, const vector<uint64_t> &swapOutSSDAddrOffs);
+        void UpdateSSDEmb(string tableName, float* embPtr, uint32_t extEmbeddingSize, vector<emb_cache_key_t>& keys,
+                          const vector<uint64_t>& swapOutSSDAddrOffs);
 
-        void TransferDDR2SSD(string tableName, uint32_t extEmbeddingSize, vector<emb_cache_key_t> &keys,
-                             vector<float *> &addrs);
+        void TransferDDR2SSD(string tableName, uint32_t extEmbeddingSize, vector<emb_cache_key_t>& keys,
+                             vector<float*>& addrs);
 
-        void FetchSSDEmb2DDR(string tableName, uint32_t extEmbeddingSize, vector<emb_cache_key_t> &keys,
-                             const vector<float *> &addrs);
+        void FetchSSDEmb2DDR(string tableName, uint32_t extEmbeddingSize, vector<emb_cache_key_t>& keys,
+                             const vector<float*>& addrs);
 
         int64_t GetTableEmbeddingSize(const string& tableName);
 
@@ -176,9 +174,9 @@ namespace MxRec {
         static void HandleDDRTransferPos(vector<size_t>& ddrTransferPos, vector<emb_cache_key_t>& externalSSDKeys,
                                          TableInfo& table);
 
-        inline void GetExternalKeys(const absl::flat_hash_map<emb_key_t, int64_t> &keyOffsetMap,
-                                    vector<emb_key_t>& externalKeys,
-                                    vector<emb_cache_key_t>& internalKeys, const vector<emb_key_t>& keys) const;
+        inline void GetExternalKeys(const absl::flat_hash_map<emb_key_t, int64_t>& keyOffsetMap,
+                                    vector<emb_key_t>& externalKeys, vector<emb_cache_key_t>& internalKeys,
+                                    const vector<emb_key_t>& keys) const;
 
         void AddDebugAndTraceLog(size_t batchKeySize, vector<emb_key_t>& externalKeys,
                                  vector<emb_cache_key_t>& externalSSDKeys) const;
