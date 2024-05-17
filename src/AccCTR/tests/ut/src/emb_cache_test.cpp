@@ -1972,6 +1972,7 @@ TEST_F(EmbCacheTest, LOAD_EMB_TABLE_INFO)
     std::vector<std::vector<float>> optimizerSlots9;
     ASSERT_EQ(embCache->GetEmbTableInfos(tableName, keys9, embeddings9, optimizerSlots9), H_OK);
 
+    double eps = 0.0000001;
     bool ret2 = true;
     if (keys9.size() != 5) {
         ret2 = false;
@@ -1984,7 +1985,7 @@ TEST_F(EmbCacheTest, LOAD_EMB_TABLE_INFO)
         }
         uint32_t index = it - keys9.begin();
         for (uint32_t i = 0; i < embeddingSize; i++) {
-            if (fabs(embeddings9[index][i] - 0.01f * (i + index * extEmbeddingSize)) > 0.0000001) {
+            if (fabs(embeddings9[index][i] - 0.01f * (i + index * extEmbeddingSize)) > eps) {
                 ret2 = false;
             }
         }
