@@ -39,7 +39,7 @@ void InitSSDEngine(CacheManager& manager, string embTableName, uint64_t ssdSize)
     manager.ssdEngine->SetCompactPeriod(period);
     manager.ssdEngine->SetCompactThreshold(1);
     manager.ssdEngine->CreateTable(embTableName, {SSD_SAVE_PATH}, ssdSize);
-    vector<emb_key_t> ssdKeys = {15, 25}; // 预设15， 25存储在SSD
+    vector<emb_cache_key_t> ssdKeys = {15, 25}; // 预设15， 25存储在SSD
     std::vector<std::vector<float>> ssdEmbData = {{15.0f},
                                                   {25.0f}};
     auto& excludeMap = manager.excludeDDRKeyCountMap[embTableName];
