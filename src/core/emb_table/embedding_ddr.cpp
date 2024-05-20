@@ -312,7 +312,7 @@ void EmbeddingDDR::SaveOptimizerSlot(const string& savePath, vector<vector<float
 
 vector<int64_t> EmbeddingDDR::GetDeviceOffset()
 {
-    return {};
+    throw runtime_error("GetDeviceOffset deprecated in ddr/ssd mode");
 }
 
 void EmbeddingDDR::SetOptimizerInfo(OptimizerInfo& optimizerInfo)
