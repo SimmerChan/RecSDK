@@ -108,6 +108,11 @@ void EmbeddingDDR::LoadKey(const string &savePath, vector<emb_cache_key_t> &keys
         string errMsg = StringFormat("read buffer failed, error code:%d", strerror(errno));
         throw runtime_error(errMsg);
     }
+    if (result != fileSize) {
+        free(static_cast<void*>(buf));
+        throw runtime_error(StringFormat("Error: Load keys failed. Expected to read {} bytes, "
+                                         "but actually read {} bytes to file {}.", fileSize, result, ss.str()));
+    }
 
     hostLoadOffset.clear();
     size_t loadKeySize = fileSize / sizeof(int64_t);
@@ -217,17 +222,10 @@ void EmbeddingDDR::SyncLatestEmbedding()
         }
     } else {
         // 在保存之前先更新ddr和ssd的embedding
-        vector<uint64_t> swapOutDDRKeys;
-        vector<uint64_t> swapOutDDRAddrOffs;
-        vector<uint64_t> swapOutSSDKeys;
-        vector<uint64_t> swapOutSSDAddrOffs;
-        SwapOutInfo info = {.swapOutDDRKeys = swapOutDDRKeys,
-                            .swapOutDDRAddrOffs = swapOutDDRAddrOffs,
-                            .swapOutSSDKeys = swapOutSSDKeys,
-                            .swapOutSSDAddrOffs = swapOutDDRAddrOffs};
+        SwapOutInfo info;
         cacheManager_->ProcessSwapOutKeys(name, swapOutKeys, info);
         vector<float*> swapOutAddrs;
-        rc = embCache->EmbeddingLookupAddrs(name, swapOutDDRKeys, swapOutAddrs);
+        rc = embCache->EmbeddingLookupAddrs(name, info.swapOutDDRKeys, swapOutAddrs);
         if (rc != ock::ctr::H_OK) {
             string errMsg = StringFormat("EmbeddingLookupAddrs failed, table:%s, error code:%d", name.c_str(), rc);
             throw std::invalid_argument(errMsg);
@@ -236,15 +234,16 @@ void EmbeddingDDR::SyncLatestEmbedding()
         uint32_t memSize = extEmbeddingSize * sizeof(float);
         // DDR更新
 #pragma omp parallel for num_threads(MGMT_CPY_THREADS) default(none) \
-    shared(swapOutAddrs, swapOutDDRAddrOffs, ptr, extEmbeddingSize, memSize)
+    shared(swapOutAddrs, info, ptr, extEmbeddingSize, memSize)
         for (uint64_t i = 0; i < swapOutAddrs.size(); i++) {
-            int errCode = memcpy_s(swapOutAddrs[i], memSize, ptr + swapOutDDRAddrOffs[i] * extEmbeddingSize, memSize);
+            int errCode = memcpy_s(
+                swapOutAddrs[i], memSize, ptr + info.swapOutDDRAddrOffs[i] * extEmbeddingSize, memSize);
             if (errCode != 0) {
                 string errMsg = StringFormat("memcpy_s failed, table:%s, error code:%d", name.c_str(), errCode);
                 throw std::invalid_argument(errMsg);
             }
         }
-        cacheManager_->UpdateSSDEmb(name, ptr, embInfo_.extEmbeddingSize, swapOutSSDKeys, swapOutSSDAddrOffs);
+        cacheManager_->UpdateSSDEmb(name, ptr, embInfo_.extEmbeddingSize, info.swapOutSSDKeys, info.swapOutSSDAddrOffs);
     }
 }
 

@@ -104,8 +104,6 @@ ssize_t HdfsFileSystem::Write(const string& filePath, vector<vector<float>>& fil
         throw runtime_error(StringFormat("Error: Unable to open hdfs file : {}.", filePath.c_str()));
     }
 
-
-
     tSize writeBytesNum = 0;
     size_t loops = fileContent.size();
     for (size_t i = 0; i < loops; i++) {
