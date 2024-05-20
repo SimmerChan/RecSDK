@@ -221,7 +221,6 @@ bool HybridMgmt::Save(const string savePath)
         }
         saveData.excludeDDRKeyFreqMaps = cacheManager->excludeDDRKeyCountMap;
         RestoreFreq4Save(saveData);
-        AddCacheManagerTraceLog(saveData);
         auto step = GetStepFromPath(savePath);
         cacheManager->SaveSSDEngine(step);
     }

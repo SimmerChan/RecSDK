@@ -50,7 +50,7 @@ struct ConstantInitializerInfo {
 
     ConstantInitializerInfo(float constantValue, float initK);
 
-    float constantValue{};  // 常量值
+    float constantValue = 0;  // 常量值
     float initK = 1.0;      // 初始化出来的值需乘以initK
 };
 
@@ -59,9 +59,9 @@ struct NormalInitializerInfo {
 
     NormalInitializerInfo(float mean, float stddev, uint32_t seed, float initK);
 
-    float mean{};       // 平均值
-    float stddev{};     // 标准差
-    uint32_t seed{};    // 随机数种子
+    float mean = 0;       // 平均值
+    float stddev = 0;     // 标准差
+    uint32_t seed = 0;    // 随机数种子
     float initK = 1.0;  // 初始化出来的值需乘以initK
 };
 
@@ -75,9 +75,9 @@ public:
 
     void GenerateData(float* emb, int embSize) override;
 
-    uint32_t start{};       // 起始位置
-    uint32_t len{};         // 初始化的长度
-    float constantValue{};  // 常量值
+    uint32_t start = 0;       // 起始位置
+    uint32_t len = 0;         // 初始化的长度
+    float constantValue = 0;  // 常量值
 };
 
 class RandomNormalInitializer : public Initializer {
@@ -89,11 +89,11 @@ public:
 
     void GenerateData(float* emb, int embSize) override;
 
-    uint32_t start{};  // 起始位置
-    uint32_t len{};    // 初始化的长度
-    float mean{};      // 平均值
-    float stddev{};    // 标准差
-    uint32_t seed{};   // 随机数种子
+    uint32_t start = 0;  // 起始位置
+    uint32_t len = 0;    // 初始化的长度
+    float mean = 0;      // 平均值
+    float stddev = 0;    // 标准差
+    uint32_t seed = 0;   // 随机数种子
 
     std::default_random_engine generator;          // 随机数生成器
     std::normal_distribution<float> distribution;  // 正态分布
@@ -111,11 +111,11 @@ public:
 
     int boundNum = 2;
 
-    uint32_t start{};  // 起始位置
-    uint32_t len{};    // 初始化的长度
-    float mean{};      // 平均值
-    float stddev{};    // 标准差
-    uint32_t seed{};   // 随机数种子
+    uint32_t start = 0;  // 起始位置
+    uint32_t len = 0;    // 初始化的长度
+    float mean = 0;      // 平均值
+    float stddev = 0;    // 标准差
+    uint32_t seed = 0;   // 随机数种子
 
     std::default_random_engine generator;  // 随机数生成器
     std::normal_distribution<float> distribution;
@@ -130,9 +130,9 @@ struct InitializerInfo {
 
     InitializerInfo(std::string& name, uint32_t start, uint32_t len, NormalInitializerInfo normalInitializerInfo);
 
-    std::string name;  // 初始化器的名称
-    uint32_t start{};  // 初始化开始的位置
-    uint32_t len{};    // 待初始化的长度
+    std::string name = "";  // 初始化器的名称
+    uint32_t start = 0;  // 初始化开始的位置
+    uint32_t len = 0;    // 待初始化的长度
     InitializerType initializerType = InitializerType::INVALID;
 
     ConstantInitializerInfo constantInitializerInfo;
@@ -151,11 +151,11 @@ struct EmbCacheInfo {
           maxCacheSize(maxCacheSize)
     {
     }
-    std::string tableName;
-    uint32_t vocabSize;  // host侧的容量(能存多少条embedding)
-    uint32_t embeddingSize;
-    uint32_t extEmbeddingSize;  // 包含embedding和优化器信息的embedding长度
-    uint32_t maxCacheSize;      // device侧的容量(能存多少条embedding)
+    std::string tableName = "";
+    uint32_t vocabSize = 0;  // host侧的容量(能存多少条embedding)
+    uint32_t embeddingSize = 0;
+    uint32_t extEmbeddingSize = 0;  // 包含embedding和优化器信息的embedding长度
+    uint32_t maxCacheSize = 0;      // device侧的容量(能存多少条embedding)
 };
 
 class EmbCacheManager {
