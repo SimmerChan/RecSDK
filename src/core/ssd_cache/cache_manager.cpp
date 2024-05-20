@@ -618,7 +618,7 @@ int64_t CacheManager::GetTableEmbeddingSize(const string& tableName)
 }
 
 void CacheManager::ProcessSwapOutKeys(const string& tableName, const vector<emb_cache_key_t>& swapOutKeys,
-                                      const SwapOutInfo& info)
+                                      SwapOutInfo& info)
 {
     auto& swapOutDDRKeys = info.swapOutDDRKeys;
     auto& swapOutDDRAddrOffs = info.swapOutDDRAddrOffs;

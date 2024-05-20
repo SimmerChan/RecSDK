@@ -155,8 +155,8 @@ void HDTransfer::Send(TransferChannel channel, const vector<Tensor> &tensors, in
         sendName = StringFormat("%s_%s_%d", embName.c_str(), TransferChannel2Str(channel).c_str(), channelId);
     }
 
-    LOG_INFO(HD + "hd transfer send {}, send count is {}, size list:{}",
-             sendName, sizes.size(), VectorToString(sizes));
+    LOG_INFO(HD + "hd transfer send:{}, batchId:{}, send count:{}, size list:{}",
+             sendName, batchId, sizes.size(), VectorToString(sizes));
 
     if (sizes.size() == 0) {
         LOG_WARN("tensors num can not be zero");
@@ -196,6 +196,7 @@ void HDTransfer::Send(TransferChannel channel, const vector<Tensor> &tensors, in
 vector<tensorflow::Tensor> HDTransfer::Recv(TransferChannel channel, int channelId, const string& embName)
 {
     EASY_FUNCTION()
+    vector<tensorflow::Tensor> tensors;
 #ifndef GTEST
     string recvName;
     if (channel == TransferChannel::SWAP || channel == TransferChannel::D2H || channel == TransferChannel::H2D) {
@@ -205,7 +206,6 @@ vector<tensorflow::Tensor> HDTransfer::Recv(TransferChannel channel, int channel
     }
 
     LOG_DEBUG("hd transfer try recv:{}", recvName);
-    std::vector<tensorflow::Tensor> tensors;
     TimeCost tc = TimeCost();
     tensorflow::Status status = tensorflow::RecvTensorByAcl(transferChannels[recvName], tensors);
     if (!running) {
@@ -221,8 +221,8 @@ vector<tensorflow::Tensor> HDTransfer::Recv(TransferChannel channel, int channel
         sizes.push_back(t.NumElements());
     }
     LOG_INFO("hd transfer recv:{}, size:{} cost:{}ms", recvName, VectorToString(sizes), tc.ElapsedMS());
-    return tensors;
 #endif
+    return tensors;
 }
 
 /// 接收从device发送过来的数据（D2H）, updateEmbV2函数使用；使用原生的aclTDT接口
@@ -234,6 +234,7 @@ size_t HDTransfer::RecvAcl(TransferChannel channel, int channelId, const string&
                            int embeddingThreadId, int batchId)
 {
     EASY_FUNCTION()
+    size_t ret = 0;
 #ifndef GTEST
     string recvName;
     if (channel == TransferChannel::SWAP || channel == TransferChannel::D2H || channel == TransferChannel::H2D) {
@@ -256,8 +257,9 @@ size_t HDTransfer::RecvAcl(TransferChannel channel, int channelId, const string&
         throw runtime_error(StringFormat("Failed receive data from acl channel, acl status:%d", aclStatus).c_str());
     }
     LOG_INFO("hd transfer recv:{}, batchId:{}, cost:{}ms", recvName, batchId, tc.ElapsedMS());
-    return acltdtGetDatasetSize(aclDatasets[embName][embeddingThreadId]);
+    ret =  acltdtGetDatasetSize(aclDatasets[embName][embeddingThreadId]);
 #endif
+    return ret;
 }
 
 std::unordered_map<std::string, acltdtChannelHandle*> HDTransfer::GetTransChannel()
