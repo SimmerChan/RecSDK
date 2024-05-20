@@ -114,8 +114,6 @@ namespace MxRec {
 
         int GetStepFromPath(const string& loadPath) const;
 
-        static void AddCacheManagerTraceLog(CkptData& saveData);
-
         void RestoreFreq4Save(CkptData& saveData) const;
     private:
         int currentBatchId;

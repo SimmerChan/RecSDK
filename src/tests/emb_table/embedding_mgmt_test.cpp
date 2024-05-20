@@ -75,7 +75,7 @@ TEST_F(EmbeddingMgmtTest, Init)
     ThresholdValue thvalue(tableName, 0, 0, 0, false);
     vector<EmbInfo> embInfos = {embInfo_};
     vector<ThresholdValue> thresholds = {thvalue};
-    EmbeddingMgmt::Instance()->Init(rankInfo_, embInfos, thresholds, 0);
+    EmbeddingMgmt::Instance()->Init(rankInfo_, embInfos, 0);
 
     constexpr int testNum = 100;
     vector<emb_key_t> testKeys;
@@ -95,7 +95,7 @@ TEST_F(EmbeddingMgmtTest, GetAttributes)
     ThresholdValue thvalue(tableName, 0, 0, 0, false);
     vector<EmbInfo> embInfos = {embInfo_};
     vector<ThresholdValue> thresholds = {thvalue};
-    EmbeddingMgmt::Instance()->Init(rankInfo_, embInfos, thresholds, 0);
+    EmbeddingMgmt::Instance()->Init(rankInfo_, embInfos, 0);
 
     constexpr int testNum = 100;
     vector<emb_key_t> testKeys;

@@ -34,8 +34,7 @@ public:
      * @param[in] rInfo 从python侧传过了的rank信息
      * @param[in] eInfos 从python侧传过了的embedding表信息
      */
-    void Init(const RankInfo& rInfo, const vector<EmbInfo>& eInfos,
-              const vector<ThresholdValue>& thresholdValues = {}, int seed = 0);
+    void Init(const RankInfo& rInfo, const vector<EmbInfo>& eInfos, int seed = 0);
 
     /**
      * 从embedding表中查批量查找key
@@ -44,9 +43,6 @@ public:
      * @param[in] channel 数据通道，主要区分train和eval
      */
     void Key2Offset(const std::string& name, std::vector<emb_key_t>& keys, int channel);
-
-    void FindOffset(const std::string& name, const vector<emb_key_t>& keys,
-                    size_t currentBatchId, size_t keepBatchId, int channel);
 
     /**
      * 在指定的embedding表中淘汰key
@@ -61,14 +57,6 @@ public:
      */
     void EvictKeysCombine(const vector<emb_key_t>& keys);
 
-    const std::vector<size_t>& GetMissingKeys(const std::string& name);
-
-    void ClearMissingKeys(const std::string& name);
-
-    void LoadMaxOffset(OffsetMemT& loadData);
-
-    void LoadKeyOffsetMap(KeyOffsetMemT& loadData);
-
     size_t GetMaxOffset(const std::string& name);
 
     int64_t GetSize(const std::string &name);
@@ -80,13 +68,6 @@ public:
     KeyOffsetMemT GetKeyOffsetMap();
 
     static EmbeddingMgmt* Instance();
-
-    std::shared_ptr<EmbeddingTable> GetTable(const string& name);
-
-     /**
-     * 加载单个表
-     */
-    void Load(const string& name, const string& filePath);
 
     /**
      * 加载所有表
@@ -113,8 +94,6 @@ public:
     */
     OffsetMapT GetLoadOffsets();
 
-    EmbHashMemT GetEmbHashMaps();
-
     /**
     * 设置某张表的优化器信息
     */
@@ -122,11 +101,9 @@ public:
 
     void SetCacheManagerForEmbTable(CacheManager* cacheManager);
 
-    void EnableSSD();
+    void SetHDTransferForEmbTable(HDTransfer* hdTransfer);
 
-    void LockSave();
-
-    void UnLockSave();
+    void SetEmbCacheForEmbTable(const ock::ctr::EmbCacheManagerPtr& embCache);
 private:
 
     EmbeddingMgmt();
