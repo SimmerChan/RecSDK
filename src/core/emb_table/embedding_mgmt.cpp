@@ -125,7 +125,8 @@ void EmbeddingMgmt::Save(const string& filePath)
     // use multi-thread to prevent receiving save_d2h blocked when table order different between cpp and python
     vector<future<void>> futures;
     for (auto& tablePair: embeddings) {
-        futures.emplace_back(std::async(std::launch::async, [&] { tablePair.second->Save(filePath); }));
+        futures.emplace_back(
+            std::async(std::launch::async, [table = tablePair.second, filePath] { table->Save(filePath); }));
     }
     for (auto& f: futures) {
         f.get();  // get() will repost exception if happened
