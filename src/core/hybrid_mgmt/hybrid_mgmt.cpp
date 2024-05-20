@@ -1074,7 +1074,7 @@ void HybridMgmt::EvictSSDKeys(const string& embName, const vector<emb_key_t>& ke
     if (!isSSDEnabled) {
         return;
     }
-    vector<emb_key_t> ssdKeys;
+    vector<emb_cache_key_t> ssdKeys;
     for (auto& key : keys) {
         if (cacheManager->IsKeyInSSD(embName, key)) {
             ssdKeys.emplace_back(key);
