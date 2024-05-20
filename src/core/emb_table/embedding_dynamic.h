@@ -74,6 +74,7 @@ private:
     std::string optimName;
     std::vector<std::string> optimParams;
     std::map<std::string, vector<int64_t>> optimAddressMap;
+    int deviceId = -1;
 
     int64_t firstAddress;
 };

@@ -90,7 +90,7 @@ bool HybridMgmt::Initialize(RankInfo rankInfo, const vector<EmbInfo>& embInfos, 
     }
 
     InitRankInfo(rankInfo, embInfos);
-    EmbeddingMgmt::Instance()->Init(rankInfo, embInfos, thresholdValues, seed);
+    EmbeddingMgmt::Instance()->Init(rankInfo, embInfos, seed);
     GlogConfig::gStatOn = GlobalEnv::statOn;
 
     LOG_INFO(MGMT + "begin initialize, localRankSize:{}, localRankId:{}, rank:{}",
@@ -127,7 +127,6 @@ bool HybridMgmt::Initialize(RankInfo rankInfo, const vector<EmbInfo>& embInfos, 
         hostHashMaps->isSSDEnabled = this->isSSDEnabled;
         hostHashMaps->cacheManager = this->cacheManager;
         // 启用SSD时，EmbeddingDDR依赖cacheManager
-        EmbeddingMgmt::Instance()->EnableSSD();
         EmbeddingMgmt::Instance()->SetCacheManagerForEmbTable(this->cacheManager);
     }
     isLoad = ifLoad;
@@ -145,36 +144,6 @@ bool HybridMgmt::Initialize(RankInfo rankInfo, const vector<EmbInfo>& embInfos, 
     isInitialized = true;
 
     return true;
-}
-
-// 比较hostHashMap和cacheManager的数据是否一致
-void HybridMgmt::AddCacheManagerTraceLog(CkptData& saveData)
-{
-    if (Logger::GetLevel() != Logger::TRACE) {
-        return;
-    }
-    auto& embHashMaps = saveData.embHashMaps;
-    auto& ddrKeyFreqMap = saveData.ddrKeyFreqMaps;
-    for (auto& it : embHashMaps) {
-        string embTableName = it.first;
-        auto& hostMap = EmbeddingMgmt::Instance()->GetTable(embTableName)->keyOffsetMap;
-        auto& devSize = it.second.devVocabSize;
-        auto& lfu = ddrKeyFreqMap[embTableName];
-        size_t tableKeyInDdr = 0;
-        for (const auto& item : hostMap) {
-            if (item.second < devSize) {
-                continue;
-            }
-            ++tableKeyInDdr;
-            auto cuKey = item.first;
-            if (lfu.find(cuKey) == lfu.end()) {
-                LOG_ERROR("save step error, ddr key:{}, not exist in lfu, hostHashMap offset:",
-                          cuKey, item.second);
-            }
-        }
-        LOG_INFO("save step end, table:{}, tableKeyInDdr:{}, tableKeyInLfu:{}",
-                 embTableName, tableKeyInDdr, lfu.size());
-    }
 }
 
 /// 保存CacheManager时恢复数据(与恢复hostHashMap类似，仅恢复保存数据,不修改源数据)
@@ -242,7 +211,6 @@ bool HybridMgmt::Save(const string savePath)
     Checkpoint saveCkpt;
     saveData.keyCountMap = KEY_PROCESS_INSTANCE->GetKeyCountMap();
 
-    EmbeddingMgmt::Instance()->LockSave();  // acquire lock here to prevent HybridMgmt modify keyOffsetMap
     EmbeddingMgmt::Instance()->Save(savePath);
     offsetMapToSend = EmbeddingMgmt::Instance()->GetDeviceOffsets();
 
@@ -253,11 +221,9 @@ bool HybridMgmt::Save(const string savePath)
         }
         saveData.excludeDDRKeyFreqMaps = cacheManager->excludeDDRKeyCountMap;
         RestoreFreq4Save(saveData);
-        AddCacheManagerTraceLog(saveData);
         auto step = GetStepFromPath(savePath);
         cacheManager->SaveSSDEngine(step);
     }
-    EmbeddingMgmt::Instance()->UnLockSave();
 
     // 保存特征准入淘汰相关的数据
     FeatureAdmitAndEvict& featAdmitNEvict = KEY_PROCESS_INSTANCE->GetFeatAdmitAndEvict();
@@ -306,9 +272,7 @@ bool HybridMgmt::Load(const string& loadPath)
     if (mgmtRankInfo.isDDR) {
         // DDR模式 将加载的hash map进行赋值
         LOG_DEBUG(MGMT + "Start host side load: ddr mode hashmap");
-        auto GetEmbHashMaps = EmbeddingMgmt::Instance()->GetEmbHashMaps();
         LOG_DEBUG(MGMT + "over over Start host side load: ddr mode hashmap");
-        hostHashMaps->LoadHashMap(GetEmbHashMaps);
     } else {
         // HBM模式 将加载的最大偏移（真正使用了多少vocab容量）、特征到偏移的映射，进行赋值
         LOG_DEBUG(MGMT + "Start host side load: no ddr mode hashmap");
@@ -331,11 +295,6 @@ bool HybridMgmt::Load(const string& loadPath)
         auto step = GetStepFromPath(loadPath);
         cacheManager->Load(loadData.ddrKeyFreqMaps, loadData.excludeDDRKeyFreqMaps,
                            step, mgmtRankInfo.rankSize, mgmtRankInfo.rankId);
-        for (auto info: mgmtEmbInfo) {
-            auto tb = EmbeddingMgmt::Instance()->GetTable(info.name);
-            auto tbCast = reinterpret_pointer_cast<EmbeddingDDR>(tb);
-            tbCast->RefreshFreqInfoAfterLoad();
-        }
     }
 
     LOG_DEBUG(MGMT + "Finish host side load process");
@@ -819,8 +778,7 @@ bool HybridMgmt::ProcessEmbInfo(const std::string& embName, int batchId, int cha
 
     auto& embHashMap = hostHashMaps->embHashMaps.at(embName);
     // 计数初始化
-    std::shared_ptr<EmbeddingTable> table = EmbeddingMgmt::Instance()->GetTable(embName);
-    table->SetStartCount();
+    std::shared_ptr<EmbeddingTable> table = nullptr;
 
     // 获取查询向量
     auto lookupKeys = KEY_PROCESS_INSTANCE->GetLookupKeys(batchId, embName, channelId);
@@ -846,7 +804,6 @@ bool HybridMgmt::ProcessEmbInfo(const std::string& embName, int batchId, int cha
               channelId, batchId, sendRestoreSyncTC.ElapsedMS());
 
     // 调用SSD cache缓存处理流程，获取锁避免保存时修改keyOffsetMap
-    table->mutSave_.lock();
     LOG_DEBUG("acquire save lock, table:{}", table->name);
     PrepareDDRData(table, lookupKeys, channelId, batchId);
 
@@ -857,7 +814,6 @@ bool HybridMgmt::ProcessEmbInfo(const std::string& embName, int batchId, int cha
     TimeCost hostHashMapProcessTC;
 
     hostHashMaps->Process(embName, lookupKeys, ddrParam, channelId);
-    table->mutSave_.unlock();
     LOG_DEBUG("release save lock, table:{}", table->name);
 
     LOG_DEBUG("channelId:{} batchId:{}, hostHashMapProcessTC(ms):{}",
@@ -941,7 +897,7 @@ void HybridMgmt::EmbHDTrans(const int channelId, const int batchId)
     TimeCost h2dTC;
     // 发送host需要换出的emb
     for (const auto& embInfo: mgmtEmbInfo) {
-        const auto& missingKeys = EmbeddingMgmt::Instance()->GetMissingKeys(embInfo.name);
+        vector<size_t> missingKeys;
         vector<Tensor> h2dEmb;
         hostEmbs->GetH2DEmb(missingKeys, embInfo.name, h2dEmb); // order!
         hdTransfer->Send(TransferChannel::H2D, h2dEmb, channelId, embInfo.name, batchId);
@@ -951,9 +907,8 @@ void HybridMgmt::EmbHDTrans(const int channelId, const int batchId)
     TimeCost d2hTC;
     // 接收device换出的emb，并更新到host上
     for (const auto& embInfo: mgmtEmbInfo) {
-        const auto& missingKeys = EmbeddingMgmt::Instance()->GetMissingKeys(embInfo.name);
+        vector<size_t> missingKeys;
         hostEmbs->UpdateEmbV2(missingKeys, channelId, embInfo.name); // order!
-        EmbeddingMgmt::Instance()->ClearMissingKeys(embInfo.name);
     }
     LOG_DEBUG("channelId:{} batchId:{}, EmbHDTrans d2h end, d2hTC(ms):{}", channelId, batchId, d2hTC.ElapsedMS());
 }
@@ -1014,7 +969,7 @@ bool HybridMgmt::Evict()
 /// \param keys
 void HybridMgmt::EvictKeys(const string& embName, const vector<emb_key_t>& keys)
 {
-    std::shared_ptr<EmbeddingTable> table = EmbeddingMgmt::Instance()->GetTable(embName);
+    std::shared_ptr<EmbeddingTable> table = nullptr;
 
     table->EvictKeys(keys);
 
@@ -1023,7 +978,7 @@ void HybridMgmt::EvictKeys(const string& embName, const vector<emb_key_t>& keys)
 
     vector<int64_t> evictOffsetHostx(evictOffsetHost);
 
-    size_t devVocabSize = table->GetDevVocabSize();
+    size_t devVocabSize = 0;
     for (int64_t& key: evictOffsetHostx) {
         key -= static_cast<int64_t>(devVocabSize);
     };
