@@ -15,9 +15,10 @@ limitations under the License.
 #ifndef EMB_LOCAL_TABLE_H
 #define EMB_LOCAL_TABLE_H
 
+#include <memory>
 #include <string>
 #include <vector>
-#include <memory>
+
 #include "offset_mapper/address_mapper.h"
 
 namespace EmbCache {
@@ -32,38 +33,52 @@ public:
 
     ~EmbLocalTable() = default;
 
-    bool Initialize(uint32_t extEmbeddingSize, uint32_t hostVocabSize, uint32_t reserve,
-        const std::vector<InitializerInfo> &initializerInfos, const EmbPoolParam &embPoolParam);
+    bool Initialize(const EmbCacheInfo& embCacheInfo, uint64_t reserve,
+                    const std::vector<InitializerInfo>& initializerInfos, const EmbPoolParam& embPoolParam);
 
     void UnInitialize();
 
-    int FindAndPutIfNotFound(uint64_t key, uint64_t &value, bool init = true);
+    int FindAndPutIfNotFound(uint64_t key, uint64_t& value);
 
     bool Remove(uint64_t key);
 
-    int RemoveByKeys(const std::vector<uint64_t> &keys, uint32_t threadNum);
+    int RemoveByKeys(const std::vector<uint64_t>& keys, uint32_t threadNum);
 
-    int Gather(uint64_t startAddr, const std::vector<uint64_t> &keys, uint32_t threadNum);
+    int Gather(uint64_t startAddr, const std::vector<uint64_t>& keys, uint32_t threadNum);
 
-    int GatherAddrs(const std::vector<uint64_t> &keys, std::vector<float *> &addrs, uint32_t threadNum);
+    int GatherAddrs(const std::vector<uint64_t>& keys, std::vector<float*>& addrs, uint32_t threadNum);
 
-    int Scatter(uint64_t startAddr, const std::vector<uint64_t> &keys, uint32_t threadNum);
+    int Scatter(uint64_t startAddr, const std::vector<uint64_t>& keys, uint32_t threadNum);
 
-    int OneThreadHandle(uint64_t startAddr, const std::vector<uint64_t> &keys, bool isGather);
+    int OneThreadHandle(uint64_t startAddr, const std::vector<uint64_t>& keys, bool isGather);
 
-    int GatherAndRemove(uint64_t startAddr, const std::vector<uint64_t> &keys, uint32_t threadNum);
+    int GatherAndRemove(uint64_t startAddr, const std::vector<uint64_t>& keys, uint32_t threadNum);
 
     std::vector<std::pair<uint64_t, uint64_t>> ExportVec();
 
     std::vector<char> Serialize();
 
-    bool Deserialize(const std::vector<char> &buffer);
+    bool Deserialize(const std::vector<char>& buffer);
+
+    uint32_t GetUsage();
+
+    void GetEmbTableInfos(std::vector<uint64_t>& keys, std::vector<std::vector<float>>& embeddings,
+                          std::vector<std::vector<float>>& optimizerSlots);
+
+    bool LoadEmbTableInfos(const std::vector<uint64_t>& keys, const std::vector<std::vector<float>>& embeddings,
+                           const std::vector<std::vector<float>>& optimizerSlots);
 
 private:
     std::shared_ptr<AutoRefillEmbeddingMemoryPool> emExpendMemInfo;
     AddressMapper embMap;
-    template <class T> void insertData(std::vector<char> &buffer, T &data);
-    template <class T> bool getData(const std::vector<char> &buffer, T &data, uint64_t &i);
+    uint32_t embeddingSize;
+    uint32_t extEmbeddingSize;
+
+    template <class T>
+    void insertData(std::vector<char>& buffer, T& data);
+
+    template <class T>
+    bool getData(const std::vector<char>& buffer, T& data, uint64_t& i);
 };
-}
-#endif // EMB_LOCAL_TABLE_H
+}  // namespace EmbCache
+#endif  // EMB_LOCAL_TABLE_H
