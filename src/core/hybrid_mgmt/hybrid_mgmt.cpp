@@ -1410,9 +1410,9 @@ void HybridMgmt::HandleEosCase(const EmbBaseInfo& info, bool &remainBatchOut)
             // 2. eval step n遇到eos结束
             // 3. 开始save，完成后唤醒train的ProcessEmbInfoDDR，所以需要在此之前改变specialProcessStatus
             LOG_DEBUG("eval encounter eos and need save after this step"
-                        "send pos change specialProcessStatus, current status:{}, modify to status:{}",
-                        ProcessStatus2Str(specialProcessStatus[info.name]),
-                        ProcessStatus2Str(ProcessStatus::AFTER_SWITCH_FIRST_BATCH));
+                      "send pos change specialProcessStatus, current status:{}, modify to status:{}",
+                      ProcessStatus2Str(specialProcessStatus[info.name]),
+                      ProcessStatus2Str(ProcessStatus::AFTER_SWITCH_FIRST_BATCH));
             vector<uint64_t> emptySwapOutPos;
             SendTensorForSwap(info, lastSwapInPosMap[info.name], emptySwapOutPos);
             specialProcessStatus[info.name] = ProcessStatus::AFTER_SWITCH_FIRST_BATCH;
@@ -1421,7 +1421,7 @@ void HybridMgmt::HandleEosCase(const EmbBaseInfo& info, bool &remainBatchOut)
             // 交给train的ProcessEmbInfoDDR启动最后n-1步eval
             // train发送pos让eval step n-1跑完，到eval step n时各channel遇到eos后结束（train、eval共享的channel除外）
             LOG_INFO("GetUniqueKeys get eos, skip send pos for eval channel, table:{}, batchId:{}",
-                        info.name, info.batchId);
+                     info.name, info.batchId);
         }
     }
     KEY_PROCESS_INSTANCE->SendEos(info.name, info.batchId, info.channelId, sendAllChannel);

@@ -1235,26 +1235,10 @@ vector<uint64_t> KeyProcess::GetUniqueKeys(const EmbBaseInfo& info, bool& isEos,
             break;
         } catch (EmptyList&) {
             unique_lock<mutex> lockEosGuard(eosMutex);
-            // readEmbKey真实的次数是readEmbedBatchId减1
-            int readEmbKeyBatchId = hybridMgmtBlock->readEmbedBatchId[info.channelId] - 1;
-            // 避免eos在keyProcess还未处理完数据时插队到通道前面
-            std::chrono::duration<double> elapsedTime = endTime - startTime;
-            if (info.batchId != 0 && elapsedTime.count() >= timeoutGetUniqueKeysEmpty) {
-                LOG_DEBUG("table:{}, channelId:{}, isNeedSendEos:{}, readEmbKeyBatchId:{}, batch:{}, h2dNextBatchId:{},"
-                          " lookUpSwapInAddrsPushId:{}", info.name, info.channelId, isNeedSendEos[info.channelId],
-                          readEmbKeyBatchId, info.batchId, hybridMgmtBlock->h2dNextBatchId[info.name],
-                          lookUpSwapInAddrsPushId[info.name]);
-                startTime = std::chrono::system_clock::now();
-            }
-            if (isNeedSendEos[info.channelId] && readEmbKeyBatchId < info.batchId &&
-                hybridMgmtBlock->h2dNextBatchId[info.name] == lookUpSwapInAddrsPushId[info.name]) {
-                LOG_INFO("table:{}, channelId:{} batchId:{}, GetUniqueKeys eos",
-                         info.name, info.channelId, info.batchId);
-                isEos = true;
+            isEos = IsGetUniqueKeysEos(info, startTime, lookUpSwapInAddrsPushId);
+            if (isEos) {
                 break;
             }
-            LOG_TRACE("getting info failed table:{}, channel:{}, mgmt batchId:{}, readEmbKey batchId:{}, list is empty",
-                      info.name, info.channelId, info.batchId, readEmbKeyBatchId);
             this_thread::sleep_for(1ms);
         } catch (WrongListTop&) {
             LOG_TRACE("getting info failed table:{}, channel:{}, mgmt batchId:{}, wrong top",
@@ -1267,6 +1251,34 @@ vector<uint64_t> KeyProcess::GetUniqueKeys(const EmbBaseInfo& info, bool& isEos,
         timeoutMonitor.join();
     }
     return ret;
+}
+
+bool KeyProcess::IsGetUniqueKeysEos(const EmbBaseInfo& info, std::chrono::_V2::system_clock::time_point& startTime,
+                                    map<string, int>& lookUpSwapInAddrsPushId)
+{
+    HybridMgmtBlock* hybridMgmtBlock = Singleton<HybridMgmtBlock>::GetInstance();
+    auto endTime = std::chrono::system_clock::now();
+    
+    // readEmbKey真实的次数是readEmbedBatchId减1
+    int readEmbKeyBatchId = hybridMgmtBlock->readEmbedBatchId[info.channelId] - 1;
+    // 避免eos在keyProcess还未处理完数据时插队到通道前面
+    std::chrono::duration<double> elapsedTime = endTime - startTime;
+    if (info.batchId != 0 && elapsedTime.count() >= timeoutGetUniqueKeysEmpty) {
+        LOG_DEBUG("table:{}, channelId:{}, isNeedSendEos:{}, readEmbKeyBatchId:{}, batch:{}, h2dNextBatchId:{},"
+                  " lookUpSwapInAddrsPushId:{}", info.name, info.channelId, isNeedSendEos[info.channelId],
+                  readEmbKeyBatchId, info.batchId, hybridMgmtBlock->h2dNextBatchId[info.name],
+                  lookUpSwapInAddrsPushId[info.name]);
+        startTime = std::chrono::system_clock::now();
+    }
+    if (isNeedSendEos[info.channelId] && readEmbKeyBatchId < info.batchId &&
+        hybridMgmtBlock->h2dNextBatchId[info.name] == lookUpSwapInAddrsPushId[info.name]) {
+        LOG_INFO("table:{}, channelId:{} batchId:{}, GetUniqueKeys eos",
+                 info.name, info.channelId, info.batchId);
+        return true;
+    }
+    LOG_TRACE("getting uniqueKeys failed, table:{}, channel:{}, mgmt batchId:{}, readEmbKey batchId:{}, list is empty",
+              info.name, info.channelId, info.batchId, readEmbKeyBatchId);
+    return false;    
 }
 
 std::vector<int32_t> KeyProcess::GetRestoreVecSec(const EmbBaseInfo& info)
@@ -1331,13 +1343,6 @@ void KeyProcess::SendEos(const std::string& embName, int batchId, int channel, b
     LOG_INFO("table:{}, channelId:{} batchId:{}, SendEos start, acquiring destroyMutex", embName, channel, batchId);
     destroyMutex.lock();
 
-    auto trans = Singleton<HDTransfer>::GetInstance();
-    unordered_map<std::string, acltdtChannelHandle*> transChannels = trans->GetTransChannel();
-    std::set<std::string> usedChannelNames = trans->GetUsedTransChannel()[channel];
-
-    vector<Tensor> tensors;
-    bool isNeedResend = true;
-
     LOG_INFO("table:{}, channelId:{} batchId:{}, SendEos start", embName, channel, batchId);
     if (!isRunning) {
         LOG_INFO("other table trigger eos ahead, keyProcess already destroyed. skip sending eos for table:{}", embName);
@@ -1345,33 +1350,7 @@ void KeyProcess::SendEos(const std::string& embName, int batchId, int channel, b
         destroyMutex.unlock();
         return;
     }
-    string sendName;
-    for (const string& transName : usedChannelNames) {
-        if (transName == TransferChannel2Str(TransferChannel::SAVE_D2H) ||
-            transName == TransferChannel2Str(TransferChannel::SAVE_H2D)) {
-            // do nothing on save channel, it's independent to train, eval and predict channel;
-            continue;
-        }
-
-        if (transName == TransferChannel2Str(TransferChannel::SWAP) ||
-            transName == TransferChannel2Str(TransferChannel::H2D)) {
-            sendName = StringFormat("%s_%s_all", embName.c_str(), transName.c_str());
-            if (channel == EVAL_CHANNEL_ID && !sendAllChannel) {
-                LOG_INFO("skip send eos for share channel:{}, channel id:{}", sendName, channel);
-                LOG_INFO("check if train ProcessEmbInfo run and let it decide eos or not");
-                continue;
-            }
-        } else {
-            sendName = StringFormat("%s_%s_%d", embName.c_str(), transName.c_str(), channel);
-        }
-
-        size_t channelSize = 0;
-        acltdtQueryChannelSize(transChannels[sendName], &channelSize);
-        LOG_INFO("[EOS] Before send eos, channel:{}, size:{}.", sendName, channelSize);
-        SendTensorsByAcl(transChannels[sendName], ACL_TENSOR_DATA_END_OF_SEQUENCE, tensors, isNeedResend);
-        acltdtQueryChannelSize(transChannels[sendName], &channelSize);
-        LOG_INFO("[EOS] After send eos, channel:{}, size:{}.", sendName, channelSize);
-    }
+    SendEosTensor(embName, channel, sendAllChannel);
     destroyMutex.unlock();
     LOG_INFO("channelId:{} batchId:{}, the embName:{} SendEos end, release destroyMutex", channel, batchId, embName);
 
@@ -1381,7 +1360,7 @@ void KeyProcess::SendEos(const std::string& embName, int batchId, int channel, b
     while (finishSendEosCnt[channel] != static_cast<int>(embInfos.size())) {
         LOG_DEBUG("table:{}, channelId:{} batchId:{}, finishSendEosCnt:{}, waiting other table finish SendEos",
                   embName, channel, batchId, finishSendEosCnt[channel]);
-        this_thread::sleep_for(1000ms);
+        this_thread::sleep_for(1ms);
     }
     readySendEosCnt[channel].store(0);
     isNeedSendEos[channel] = false;
@@ -1642,3 +1621,39 @@ std::thread KeyProcess::StartEosMonitorThread(const EmbBaseInfo &info, bool &can
     });
 }
 
+void KeyProcess::SendEosTensor(const std::string& embName, int channel, bool sendAllChannel)
+{
+    auto trans = Singleton<HDTransfer>::GetInstance();
+    unordered_map<std::string, acltdtChannelHandle*> transChannels = trans->GetTransChannel();
+    std::set<std::string> usedChannelNames = trans->GetUsedTransChannel()[channel];
+
+    vector<Tensor> tensors;
+    bool isNeedResend = true;
+    string sendName;
+    for (const string& transName : usedChannelNames) {
+        if (transName == TransferChannel2Str(TransferChannel::SAVE_D2H) ||
+            transName == TransferChannel2Str(TransferChannel::SAVE_H2D)) {
+            // do nothing on save channel, it's independent to train, eval and predict channel;
+            continue;
+        }
+
+        if (transName == TransferChannel2Str(TransferChannel::SWAP) ||
+            transName == TransferChannel2Str(TransferChannel::H2D)) {
+            sendName = StringFormat("%s_%s_all", embName.c_str(), transName.c_str());
+            if (channel == EVAL_CHANNEL_ID && !sendAllChannel) {
+                LOG_INFO("skip send eos for share channel:{}, channel id:{}", sendName, channel);
+                LOG_INFO("check if train ProcessEmbInfo run and let it decide eos or not");
+                continue;
+            }
+        } else {
+            sendName = StringFormat("%s_%s_%d", embName.c_str(), transName.c_str(), channel);
+        }
+
+        size_t channelSize = 0;
+        acltdtQueryChannelSize(transChannels[sendName], &channelSize);
+        LOG_INFO("[EOS] Before send eos, channel:{}, size:{}.", sendName, channelSize);
+        SendTensorsByAcl(transChannels[sendName], ACL_TENSOR_DATA_END_OF_SEQUENCE, tensors, isNeedResend);
+        acltdtQueryChannelSize(transChannels[sendName], &channelSize);
+        LOG_INFO("[EOS] After send eos, channel:{}, size:{}.", sendName, channelSize);
+    }
+}
