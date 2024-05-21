@@ -1623,6 +1623,7 @@ std::thread KeyProcess::StartEosMonitorThread(const EmbBaseInfo &info, bool &can
 
 void KeyProcess::SendEosTensor(const std::string& embName, int channel, bool sendAllChannel)
 {
+#ifndef GTEST
     auto trans = Singleton<HDTransfer>::GetInstance();
     unordered_map<std::string, acltdtChannelHandle*> transChannels = trans->GetTransChannel();
     std::set<std::string> usedChannelNames = trans->GetUsedTransChannel()[channel];
@@ -1656,4 +1657,5 @@ void KeyProcess::SendEosTensor(const std::string& embName, int channel, bool sen
         acltdtQueryChannelSize(transChannels[sendName], &channelSize);
         LOG_INFO("[EOS] After send eos, channel:{}, size:{}.", sendName, channelSize);
     }
+#endif
 }
