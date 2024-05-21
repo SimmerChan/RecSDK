@@ -1240,7 +1240,7 @@ vector<uint64_t> KeyProcess::GetUniqueKeys(const EmbBaseInfo& info, bool& isEos,
             // 避免eos在keyProcess还未处理完数据时插队到通道前面
             std::chrono::duration<double> elapsedTime = endTime - startTime;
             if (info.batchId != 0 && elapsedTime.count() >= timeoutGetUniqueKeysEmpty) {
-                LOG_INFO("table:{}, channelId:{}, isNeedSendEos:{}, readEmbKeyBatchId:{}, batch:{}, h2dNextBatchId:{},"
+                LOG_DEBUG("table:{}, channelId:{}, isNeedSendEos:{}, readEmbKeyBatchId:{}, batch:{}, h2dNextBatchId:{},"
                          " lookUpSwapInAddrsPushId:{}", info.name, info.channelId, isNeedSendEos[info.channelId],
                          readEmbKeyBatchId, info.batchId, hybridMgmtBlock->h2dNextBatchId[info.name],
                          lookUpSwapInAddrsPushId[info.name]);
@@ -1633,7 +1633,7 @@ std::thread KeyProcess::StartEosMonitorThread(const EmbBaseInfo &info, bool &can
         }
         if (!cancelMonitor) {
             this->SetEos(1, info.channelId);
-            LOG_DEBUG("table:{}, channel:{}, batchId:{}, timeout:{}(s) monitor empty data, set eos",
+            LOG_INFO("table:{}, channel:{}, batchId:{}, timeout:{}(s) monitor empty data, set eos",
                       info.name, info.channelId, info.batchId, timeoutGetUniqueKeys);
         } else {
             LOG_DEBUG("table:{}, channel:{}, batchId:{}, timeout monitor canceled",

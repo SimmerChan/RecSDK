@@ -699,7 +699,7 @@ void HybridMgmt::ProcessEmbInfoDDR(const EmbBaseInfo& info, bool& remainBatchOut
 
     SendGlobalUniqueVec(info, uniqueKeys, restoreVecSec);
 
-    if ((info.channelId == TRAIN_CHANNEL_ID) && (info.batchId == 0)) {
+    if (info.batchId == 0) {
         HandleFirstBatchCaseDDR(info, getAndSendTensorsTC, swapInKoPair, swapOutKoPair);
         return;
     }
@@ -1213,7 +1213,7 @@ void HybridMgmt::ProcessEmbInfoSSD(const EmbBaseInfo& info, bool& remainBatchOut
     lastSwapInPosMap[info.name] = swapInPos; // 暂存待下一步发送
 
     // 下发swaptensor
-    if (!((info.channelId == TRAIN_CHANNEL_ID) && (info.batchId == 0))) {
+    if (info.batchId != 0) {
         SendTensorForSwap(info, lastSwapInPos, swapOutPos);
     }
 
@@ -1799,7 +1799,7 @@ void HybridMgmt::HandleFirstBatchCaseDDR(const EmbBaseInfo &info, TimeCost& getA
     lastSwapInPosMap[info.name] = swapInPos;
     alreadyTrainOnce = true;
 
-    if (mgmtRankInfo.ctrlSteps[TRAIN_CHANNEL_ID] == 1) {
+    if (mgmtRankInfo.ctrlSteps[info.channelId] == 1) {
         LOG_DEBUG("ProcessEmbInfoDDR special case, user only train once, table:{} batchId:{}",
                   info.name, info.batchId);
         std::vector<uint64_t> emptySwapOutPos;
@@ -1807,8 +1807,9 @@ void HybridMgmt::HandleFirstBatchCaseDDR(const EmbBaseInfo &info, TimeCost& getA
         specialProcessStatus[info.name] = ProcessStatus::AFTER_SWITCH_FIRST_BATCH;
     }
 
-    LOG_DEBUG("ProcessEmbInfoDDR end, table:{} batchId:{} swapProcessTC(ms):{} getAndSendTensorsTC(ms):{}",
-              info.name, info.batchId, swapProcessTC.ElapsedMS(), getAndSendTensorsTC.ElapsedMS());
+    LOG_DEBUG(
+        "ProcessEmbInfoDDR end, table:{}, channelId:{}, batchId:{} swapProcessTC(ms):{} getAndSendTensorsTC(ms):{}",
+        info.name, info.channelId, info.batchId, swapProcessTC.ElapsedMS(), getAndSendTensorsTC.ElapsedMS());
 }
 
 void HybridMgmt::HandleFirstBatchCaseSSD(const EmbBaseInfo& info,
@@ -2079,6 +2080,7 @@ bool HybridMgmt::HandleSpecialProcessStatusSSD(const EmbBaseInfo &info, TimeCost
                                                pair<vector<uint64_t>, vector<uint64_t>> &swapOutKoPair)
 {
     TimeCost swapProcessTC;
+    auto &swapInPos = swapInKoPair.second;
     auto &swapOutKeys = swapOutKoPair.first;
     auto &swapOutPos = swapOutKoPair.second;
 
@@ -2087,6 +2089,12 @@ bool HybridMgmt::HandleSpecialProcessStatusSSD(const EmbBaseInfo &info, TimeCost
         HandleFirstBatchCaseSSD(info, swapInKoPair, swapOutKoPair);
         LOG_DEBUG("handle channel switch case:afterSwitchFirstBatch, table:{}, channelId:{}, batchId:{}",
                   info.name, info.channelId, info.batchId);
+        if (mgmtRankInfo.ctrlSteps[info.channelId] == 1) {
+            vector<uint64_t> emptySwapOutPos;
+            SendTensorForSwap(info, swapInPos, emptySwapOutPos);
+            LOG_DEBUG("ProcessEmbInfoSSD special case, user only run one step, table:{}, channelId:{}, batchId:{}",
+                      info.name, info.channelId, info.batchId);
+        }
         LOG_DEBUG("ProcessEmbInfoSSD end, table:{}, batchId:{}, swapProcessTC(ms):{}, getAndSendTensorsTC(ms):{}",
                   info.name, info.batchId, swapProcessTC.ElapsedMS(), getAndSendTensorsTC.ElapsedMS());
         return true;
