@@ -32,6 +32,7 @@ from mx_rec.core.asc.feature_spec import FeatureSpec
 from mx_rec.core.asc.helper import get_asc_insert_func
 from mx_rec.core.asc.manager import start_asc_pipeline
 from mx_rec.core.asc.swap_args import SwapArgs
+from mx_rec.core.asc.build_graph import SwapInfo
 from mx_rec.core.emb.base_sparse_embedding import BaseSparseEmbedding
 from mx_rec.graph.merge_lookup import do_merge_lookup
 from mx_rec.graph.utils import check_input_list, find_parent_op, check_cutting_points, record_ops_to_replace, \
@@ -56,14 +57,6 @@ class AnchorRecord:
     output_names: List[str]
     is_training: bool
     input_indexs: List[int] = None
-
-
-@dataclasses.dataclass
-class SwapInfo:
-    swap_in_len: int
-    swap_in_pos: List[Tensor]
-    swap_out_len: int
-    swap_out_pos: List[Tensor]
 
 
 def get_preprocessing_map_func(
@@ -695,12 +688,7 @@ def modify_graph_for_ddr(get_next_op_map):
                                                                 channel_id)
             
             swap_args_dict = swap_args.swap_config_dict[table_instance.table_name][channel_id]
-            swap_info = SwapInfo(
-                swap_in_len=swap_args_dict['swap_in_len'], swap_in_pos=swap_args_dict['swap_in_pos'],
-                swap_out_len=swap_args_dict['swap_out_len'], swap_out_pos=swap_args_dict['swap_out_pos']
-            )
-            
-            swap_op = get_swap_op(table_instance, variable_and_slot_list, swap_info, channel_id)
+            swap_op = get_swap_op(table_instance, variable_and_slot_list, swap_args_dict["swap_info"], channel_id)
             swap_control_dict = swap_args.swap_control_dict[table_instance.table_name][channel_id]
             if "control_ops" not in swap_control_dict:
                 raise ValueError("Missing Required key in modify_graph_for_asc: control_ops")
