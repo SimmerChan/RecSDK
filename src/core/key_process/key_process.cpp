@@ -1278,7 +1278,7 @@ bool KeyProcess::IsGetUniqueKeysEos(const EmbBaseInfo& info, std::chrono::_V2::s
     }
     LOG_TRACE("getting uniqueKeys failed, table:{}, channel:{}, mgmt batchId:{}, readEmbKey batchId:{}, list is empty",
               info.name, info.channelId, info.batchId, readEmbKeyBatchId);
-    return false;    
+    return false;
 }
 
 std::vector<int32_t> KeyProcess::GetRestoreVecSec(const EmbBaseInfo& info)
