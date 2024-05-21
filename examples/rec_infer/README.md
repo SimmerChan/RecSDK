@@ -1,4 +1,23 @@
 # 推理环境部署
+一、安装依赖包：</p>
+安装开发套件包Ascend-cann-toolkil_{version}linux-{arch}.run</p>
+安装框架插件包Ascend-cann-tfplugin{version}_linux-{arch}.run</p>
+安装其他依赖包：</p>
+|依赖包   |  版本限制|
+|:---|:---:|
+|gcc,g++|8.4及以上版本|
+|zip,unzip,libtool,automake|无特定版本要求|
+|python|3.7.5|
+|TensorFlow| 1.15.0|
+|tensoflow-serving-api|1.15.0|
+|future|无特定版本要求|
+|bazel|0.24.1|
+|camke|3.14.0|
+|swig|若操作系统加我狗为"aarch64"，软件安装版本需求大于或等于3.0.12。若操作系统架构为"X86_64"，软件安装版本需大于或等于4.0.1|
+|java|jdk-1|
+|||
+
+二、编译serving
 1. 下载TF-serving源码：https://github.com/tensorflow/serving/archive/1.15.0.zip
 2. 解压后进入目录源码
 3. 添加TF-serving第三方依赖
@@ -72,7 +91,7 @@ name = "tensorflow_model_server",<br>
 
 7. 编译TF Serving。,在TF Serving安装目录“serving-1.15.0”下执行如下命令，编译TF Serving。
 
-> bazel --output_user_root=/opt/tf_serving build -c opt --cxxopt="-D_GLIBCXX_USE_CXX11_ABI=0" tensorflow_serving/model_servers:tensorflow_model_server<br>
+> bazel --output_user_root=/opt/tf_serving build -c opt --distdir=../depends --cxxopt="-D_GLIBCXX_USE_CXX11_ABI=0" tensorflow_serving/model_servers:tensorflow_model_server<br>
 
 
 8. 建立软连接。
@@ -87,7 +106,9 @@ server.sh/client.sh
 
 1. 启动tf-serving server方法
 进入目录 tf_serving_inerence
-更改server.sh中模型路径model_base_path为导出的savedModel路径，并执行命令
+> 更改server.sh中模型路径model_base_path为导出的savedModel路径，<br>
+> 将编译tf_serving的第三方依赖tf_adapter路径加入环境变量,export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/xxx/xxx/serving-1.15.0/third_party/tf_adapter/,<br>
+> source /usr/local/Ascend/ascend-toolkit/set_env.sh<br>
 > sh server.sh<br>
 
 若日志中显示Running gRPC ModelServer at 0.0.0.0:xxxx则表示启动成功
@@ -99,4 +120,5 @@ server.sh/client.sh
 1.进入目录：graph_patition,修改gen_config.py中的模型目录
 2.执行 python3 gen_config.py，使用生成的test1.cfg文件启动模型，使用方法如下：
 > python3 gen_config.py --output_path . --output_filename test1.cfg --model_path savedmodel_path<br>
-+ 参数解释：output_path(输出路径),output_filename(输出文件名),model_path(输入模型路径)
++ 参数解释：output_path(输出路径),output_filename(输出文件名),model_path(输入模型路径)<br>
++ 得到输出文件后，替换服务启动脚本中--platform_config_file参数选项即可生效
