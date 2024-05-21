@@ -136,7 +136,8 @@ TEST_F(EmbeddingStaticTest, Key2OffsetEvict)
     }
     table->Key2Offset(testData, TRAIN_CHANNEL_ID);
     // 全部淘汰
-    table->EvictKeys(testData);
+    vector<emb_cache_key_t> testDataAdapt(testData.cbegin(), testData.cend());
+    table->EvictKeys(testDataAdapt);
 
     vector<emb_key_t> new_data;
     for (size_t i = 0; i < testNum; ++i) {

@@ -42,6 +42,8 @@ namespace MxRec {
     public:
         LFUCache();
 
+        explicit LFUCache(const string& cacheName);
+
         freq_num_t Get(emb_cache_key_t key);
 
         void GetAndDeleteLeastFreqKeyInfo(uint64_t num, const vector<emb_cache_key_t>& keys,
@@ -61,6 +63,8 @@ namespace MxRec {
         std::unordered_map<freq_num_t, std::list<LFUCacheNode>> freqTable;
         // key, key所属node在freqTable的节点列表中的存储位置地址
         std::unordered_map<emb_cache_key_t, std::list<LFUCacheNode>::iterator> keyTable;
+    private:
+        string name;
     };
 }
 
