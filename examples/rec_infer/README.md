@@ -9,17 +9,17 @@
 |zip,unzip,libtool,automake|无特定版本要求|
 |python|3.7.5|
 |TensorFlow| 1.15.0|
-|tensoflow-serving-api|1.15.0|
+|tensorflow-serving-api|1.15.0|
 |future|无特定版本要求|
 |bazel|0.24.1|
-|camke|3.14.0|
-|swig|若操作系统加我狗为"aarch64"，软件安装版本需求大于或等于3.0.12。若操作系统架构为"X86_64"，软件安装版本需大于或等于4.0.1|
-|java|jdk-1|
+|camake|3.14.0|
+|swig|若操作系统为"aarch64"，软件安装版本需大于或等于3.0.12。若操作系统架构为"X86_64"，软件安装版本需大于或等于4.0.1|
+|java|jdk-11|
 |||
 
 二、编译serving
 1. 下载TF-serving源码：https://github.com/tensorflow/serving/archive/1.15.0.zip
-2. 解压后进入目录源码
+2. 解压后进入源码目录
 3. 添加TF-serving第三方依赖
 
 a)执行如下命令，在“serving-1.15.0/third_party”目录下创建“tf_adapter”文件夹并进入。
@@ -92,7 +92,7 @@ name = "tensorflow_model_server",<br>
 7. 编译TF Serving。,在TF Serving安装目录“serving-1.15.0”下执行如下命令，编译TF Serving。
 
 > bazel --output_user_root=/opt/tf_serving build -c opt --distdir=../depends --cxxopt="-D_GLIBCXX_USE_CXX11_ABI=0" tensorflow_serving/model_servers:tensorflow_model_server<br>
-
+如果编译过程中遇到依赖包下载失败问题，可手动下载，TF serving编译依赖包(https://www.hiascend.com/document/detail/zh/canncommercial/80RC1/developmentguide/moddevg/onlineinfer1/atlastfserv_26_0011.html)
 
 8. 建立软连接。
 > ln -s /opt/tf_serving/{tf_serving_ID}/execroot/tf_serving/bazel-out/xxx-opt/bin/tensorflow_serving/model_servers/tensorflow_model_server /usr/local/bin/tensorflow_model_server<br>
