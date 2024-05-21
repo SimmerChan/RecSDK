@@ -49,13 +49,13 @@ public:
      * @param[in] name embedding表名
      * @param[in] keys 待淘汰的key
      */
-    void EvictKeys(const std::string& name, const vector<emb_key_t>& keys);
+    void EvictKeys(const std::string& name, const vector<emb_cache_key_t>& keys);
 
     /**
      * 在全部的embedding表中淘汰key
      * @param[in] keys 待淘汰的key
      */
-    void EvictKeysCombine(const vector<emb_key_t>& keys);
+    void EvictKeysCombine(const vector<emb_cache_key_t>& keys);
 
     size_t GetMaxOffset(const std::string& name);
 

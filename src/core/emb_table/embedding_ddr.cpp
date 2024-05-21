@@ -335,8 +335,6 @@ TableInfo EmbeddingDDR::GetTableInfo()
         .devVocabSize=devVocabSize,
         .maxOffset=maxOffset,
         .keyOffsetMap=keyOffsetMap,
-        .evictDevPos=evictDevPos,
-        .evictHostPos=evictHostPos,
     };
     return ti;
 }

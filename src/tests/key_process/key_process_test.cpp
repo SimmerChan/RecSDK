@@ -340,7 +340,7 @@ TEST_F(KeyProcessTest, Start)
     ASSERT_EQ(process.Start(), 0);
     setenv("keyProcessThreadNum", "abc", 1);
     ASSERT_EQ(process.Start(), 0);
-    CTRLog(0, "key process start successful");
+    LOG_INFO("key process start successful");
     process.Destroy();
 }
 

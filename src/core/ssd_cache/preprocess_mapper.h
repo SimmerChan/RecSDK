@@ -18,8 +18,10 @@ namespace MxRec {
     */
     class PreProcessMapper {
     public:
-        void Initialize(uint32_t vocabSize, uint32_t ssdVocabSize)
+        void Initialize(const string& embName, uint32_t vocabSize, uint32_t ssdVocabSize)
         {
+            tableName = embName;
+            lfuCache = LFUCache(embName);
             ddrAvailableSize = vocabSize;
             ssdAvailableSize = ssdVocabSize;
         }
@@ -75,7 +77,7 @@ namespace MxRec {
         size_t SSDAvailableSize()
         {
             if (ssdAvailableSize < excludeDDRKeyCountMap.size()) {
-                throw std::invalid_argument("ddrAvailableSize < existKeys.size()");
+                throw std::invalid_argument("ssdAvailableSize < existKeys.size()");
             }
             return ssdAvailableSize - excludeDDRKeyCountMap.size();
         }
@@ -83,6 +85,7 @@ namespace MxRec {
         void GetAndDeleteLeastFreqDDRKey2SSD(uint64_t transNum, const std::vector<uint64_t>& keys,
                                              std::vector<uint64_t>& DDRSwapOutKeys)
         {
+            LOG_DEBUG("start GetAndDeleteLeastFreqDDRKey2SSD, table:{}", tableName);
             std::vector<freq_num_t> DDRSwapOutCounts;
             lfuCache.GetAndDeleteLeastFreqKeyInfo(transNum, keys, DDRSwapOutKeys, DDRSwapOutCounts);
             for (uint64_t i = 0; i < DDRSwapOutKeys.size(); i++) {
@@ -94,6 +97,7 @@ namespace MxRec {
             }
         }
 
+        string tableName;
         uint64_t ddrAvailableSize = 0;
         uint64_t ssdAvailableSize = 0;
         LFUCache lfuCache;

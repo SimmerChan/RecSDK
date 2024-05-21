@@ -221,6 +221,7 @@ namespace {
                 .def("load", &MxRec::HybridMgmt::Load, py::arg("load_path") = "")
                 .def("destroy", &MxRec::HybridMgmt::Destroy)
                 .def("evict", &MxRec::HybridMgmt::Evict)
+                .def("fetch_device_emb", &MxRec::HybridMgmt::FetchDeviceEmb)
                 .def("send", &MxRec::HybridMgmt::SendHostMap, py::arg("table_name") = "")
                 .def("send_load_offset", &MxRec::HybridMgmt::SendLoadMap, py::arg("table_name") = "")
                 .def("receive", &MxRec::HybridMgmt::ReceiveHostMap, py::arg("key_offset_map"))
