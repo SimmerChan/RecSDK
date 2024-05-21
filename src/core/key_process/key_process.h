@@ -170,7 +170,6 @@ namespace MxRec {
             return embInfos.find(embName) != embInfos.end();
         };
 
-        bool isNeedSendEos[2] = {false, false}; // 表示各表通道0、1的eos状态
     GTEST_PRIVATE:
 
         int Start();
@@ -203,6 +202,7 @@ namespace MxRec {
         bool isWithFAAE;
 
         // for end-of-sequence case
+        bool isNeedSendEos[2] = {false, false}; // 表示各表通道0、1的eos状态
         atomic<int> readySendEosCnt[2];
         atomic<int> finishSendEosCnt[2];
         const double timeoutGetUniqueKeys = 10.0;  // 如果超时仍未获取到数据将触发EOS

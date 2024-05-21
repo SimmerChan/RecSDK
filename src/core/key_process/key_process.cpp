@@ -1241,9 +1241,9 @@ vector<uint64_t> KeyProcess::GetUniqueKeys(const EmbBaseInfo& info, bool& isEos,
             std::chrono::duration<double> elapsedTime = endTime - startTime;
             if (info.batchId != 0 && elapsedTime.count() >= timeoutGetUniqueKeysEmpty) {
                 LOG_DEBUG("table:{}, channelId:{}, isNeedSendEos:{}, readEmbKeyBatchId:{}, batch:{}, h2dNextBatchId:{},"
-                         " lookUpSwapInAddrsPushId:{}", info.name, info.channelId, isNeedSendEos[info.channelId],
-                         readEmbKeyBatchId, info.batchId, hybridMgmtBlock->h2dNextBatchId[info.name],
-                         lookUpSwapInAddrsPushId[info.name]);
+                          " lookUpSwapInAddrsPushId:{}", info.name, info.channelId, isNeedSendEos[info.channelId],
+                          readEmbKeyBatchId, info.batchId, hybridMgmtBlock->h2dNextBatchId[info.name],
+                          lookUpSwapInAddrsPushId[info.name]);
                 startTime = std::chrono::system_clock::now();
             }
             if (isNeedSendEos[info.channelId] && readEmbKeyBatchId < info.batchId &&
@@ -1634,7 +1634,7 @@ std::thread KeyProcess::StartEosMonitorThread(const EmbBaseInfo &info, bool &can
         if (!cancelMonitor) {
             this->SetEos(1, info.channelId);
             LOG_INFO("table:{}, channel:{}, batchId:{}, timeout:{}(s) monitor empty data, set eos",
-                      info.name, info.channelId, info.batchId, timeoutGetUniqueKeys);
+                     info.name, info.channelId, info.batchId, timeoutGetUniqueKeys);
         } else {
             LOG_DEBUG("table:{}, channel:{}, batchId:{}, timeout monitor canceled",
                       info.name, info.channelId, info.batchId);

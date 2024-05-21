@@ -1069,6 +1069,7 @@ void HybridMgmt::EmbeddingLookUpAndSendDDR(int batchId, int index, const EmbInfo
 
     auto isSuccess = EmbeddingLookUpDDR(info, h2dEmb);
     if (!isSuccess) {
+        LOG_INFO("HybridMgmt is not running");
         return;
     }
 
@@ -1118,6 +1119,7 @@ void HybridMgmt::EmbeddingLookUpAndSendSSD(int batchId, int index, const EmbInfo
 
     auto isSuccess = EmbeddingLookUpSSD(info, h2dEmb);
     if (!isSuccess) {
+        LOG_INFO("HybridMgmt is not running");
         return;
     }
 
@@ -1313,7 +1315,7 @@ void HybridMgmt::InitEmbeddingCache(const vector<EmbInfo>& embInfos)
         EmbCache::EmbCacheInfo embCacheInfo(embInfo.name, embInfo.hostVocabSize, embInfo.embeddingSize,
                                             embInfo.extEmbeddingSize, embInfo.devVocabSize);
         int ret = embCache->CreateCacheForTable(
-            embCacheInfo, embInfo.initializeInfos, -1, embInfo.hostVocabSize, 2);
+            embCacheInfo, embInfo.initializeInfos, INVALID_KEY_VALUE, embInfo.hostVocabSize, EMBEDDING_THREAD_NUM);
         if (ret != H_OK) {
             throw runtime_error(embInfo.name + "create cache for table failed, error code: " + std::to_string(ret));
         }
@@ -1387,36 +1389,39 @@ void HybridMgmt::HandleEosCase(const EmbBaseInfo& info, bool &remainBatchOut)
         vector<uint64_t> emptySwapOutPos;
         SendTensorForSwap(info, lastSwapInPosMap[info.name], emptySwapOutPos);
         LOG_INFO("GetUniqueKeys get eos, send pos for train channel, table:{}, batchId:{}", info.name, info.batchId);
+        KEY_PROCESS_INSTANCE->SendEos(info.name, info.batchId, info.channelId, sendAllChannel);
+        remainBatchOut = false;
+        return;
+    }
+
+    if (!alreadyTrainOnce) {
+        // predict场景
+        LOG_INFO("ProcessEmbInfoDDR first run in eval channel, assume as predict mode, start handle eos");
+        std::vector<uint64_t> emptySwapOutPos;
+        SendTensorForSwap(info, lastSwapInPosMap[info.name], emptySwapOutPos);
+        sendAllChannel = true;
     } else {
-        if (!alreadyTrainOnce) {
-            // predict场景
-            LOG_INFO("ProcessEmbInfoDDR first run in eval channel, assume as predict mode, start handle eos");
-            std::vector<uint64_t> emptySwapOutPos;
+        hybridMgmtBlock->SetBlockStatus(EVAL_CHANNEL_ID, true);
+        LOG_INFO("GetUniqueKeys get eos from eval channel, SetBlockStatus=true");
+        if (hybridMgmtBlock->IsNeedWaitSave()) {
+            // train+eval+save场景
+            // 当前step n之后需要save，涉及save到train的状态切换。需要：
+            // 1. 补发pos以启动eval step n-1并完成。
+            // 2. eval step n遇到eos结束
+            // 3. 开始save，完成后唤醒train的ProcessEmbInfoDDR，所以需要在此之前改变specialProcessStatus
+            LOG_DEBUG("eval encounter eos and need save after this step"
+                        "send pos change specialProcessStatus, current status:{}, modify to status:{}",
+                        ProcessStatus2Str(specialProcessStatus[info.name]),
+                        ProcessStatus2Str(ProcessStatus::AFTER_SWITCH_FIRST_BATCH));
+            vector<uint64_t> emptySwapOutPos;
             SendTensorForSwap(info, lastSwapInPosMap[info.name], emptySwapOutPos);
-            sendAllChannel = true;
+            specialProcessStatus[info.name] = ProcessStatus::AFTER_SWITCH_FIRST_BATCH;
         } else {
-            hybridMgmtBlock->SetBlockStatus(EVAL_CHANNEL_ID, true);
-            LOG_INFO("GetUniqueKeys get eos from eval channel, SetBlockStatus=true");
-            if (hybridMgmtBlock->IsNeedWaitSave()) {
-                // train+eval+save场景
-                // 当前step n之后需要save，涉及save到train的状态切换。需要：
-                // 1. 补发pos以启动eval step n-1并完成。
-                // 2. eval step n遇到eos结束
-                // 3. 开始save，完成后唤醒train的ProcessEmbInfoDDR，所以需要在此之前改变specialProcessStatus
-                LOG_DEBUG("eval encounter eos and need save after this step"
-                          "send pos change specialProcessStatus, current status:{}, modify to status:{}",
-                          ProcessStatus2Str(specialProcessStatus[info.name]),
-                          ProcessStatus2Str(ProcessStatus::AFTER_SWITCH_FIRST_BATCH));
-                vector<uint64_t> emptySwapOutPos;
-                SendTensorForSwap(info, lastSwapInPosMap[info.name], emptySwapOutPos);
-                specialProcessStatus[info.name] = ProcessStatus::AFTER_SWITCH_FIRST_BATCH;
-            } else {
-                // train+eval+train场景
-                // 交给train的ProcessEmbInfoDDR启动最后n-1步eval
-                // train发送pos让eval step n-1跑完，到eval step n时各channel遇到eos后结束（train、eval共享的channel除外）
-                LOG_INFO("GetUniqueKeys get eos, skip send pos for eval channel, table:{}, batchId:{}",
-                         info.name, info.batchId);
-            }
+            // train+eval+train场景
+            // 交给train的ProcessEmbInfoDDR启动最后n-1步eval
+            // train发送pos让eval step n-1跑完，到eval step n时各channel遇到eos后结束（train、eval共享的channel除外）
+            LOG_INFO("GetUniqueKeys get eos, skip send pos for eval channel, table:{}, batchId:{}",
+                        info.name, info.batchId);
         }
     }
     KEY_PROCESS_INSTANCE->SendEos(info.name, info.batchId, info.channelId, sendAllChannel);
@@ -1486,7 +1491,10 @@ void HybridMgmt::EmbeddingUpdateDDR(const EmbTaskInfo& info, const float* embPtr
 # pragma omp parallel for num_threads(MGMT_CPY_THREADS) default(none) \
                 shared(swapOutAddrs, embPtr, extEmbeddingSize, memSize)
     for (uint64_t i = 0; i < swapOutAddrs.size(); i++) {
-        memcpy_s(swapOutAddrs[i], memSize, embPtr + i * extEmbeddingSize, memSize);
+        auto rc = memcpy_s(swapOutAddrs[i], memSize, embPtr + i * extEmbeddingSize, memSize);
+        if (rc != 0) {
+            throw runtime_error("memcpy_s failed, error code:" + to_string(rc));
+        }
     }
     LOG_DEBUG("table:{}, batchId:{}, thread:{}, EmbeddingUpdateTC(ms):{}",
               info.name, info.batchId, info.threadIdx, EmbeddingUpdateTC.ElapsedMS());
@@ -1513,7 +1521,10 @@ bool HybridMgmt::EmbeddingLookUpDDR(const EmbTaskInfo &info, vector<Tensor>& h2d
         return false;
     }
 
-    BuildH2DEmbedding(info, h2dEmb);
+    bool isSuccess = BuildH2DEmbedding(info, h2dEmb);
+    if (!isSuccess) {
+        return false;
+    }
 
     lastLookUpFinishStepMap[info.name]++;
     cvLastLookUpFinishMap[info.name][info.cvNotifyIndex].notify_all();
@@ -1541,6 +1552,7 @@ void HybridMgmt::EmbeddingSendDDR(const EmbTaskInfo &info, vector<Tensor>& h2dEm
 
 void HybridMgmt::CreateEmbeddingLookUpAndSendThread(int index, const EmbInfo& embInfo)
 {
+    lookUpAndSendTableBatchMap[embInfo.name] = 0;
     EmbeddingLookUpAndSendThreadPool.emplace_back([index, embInfo, this]() {
         while (true) {
             lookUpAndSendBatchIdMtx.lock();
@@ -1653,7 +1665,10 @@ void HybridMgmt::EmbeddingUpdateSSD(const EmbTaskInfo& info, float *embPtr,
 # pragma omp parallel for num_threads(MGMT_CPY_THREADS) default(none) \
                 shared(swapOutAddrs, swapOutDDRAddrOffs, embPtr, extEmbeddingSize, memSize)
     for (uint64_t i = 0; i < swapOutAddrs.size(); i++) {
-        memcpy_s(swapOutAddrs[i], memSize, embPtr + swapOutDDRAddrOffs[i] * extEmbeddingSize, memSize);
+        auto rc = memcpy_s(swapOutAddrs[i], memSize, embPtr + swapOutDDRAddrOffs[i] * extEmbeddingSize, memSize);
+        if (rc != 0) {
+            throw runtime_error("memcpy_s failed, error code:" + to_string(rc));
+        }
     }
     LOG_DEBUG("table:{}, batchId:{}, thread:{}, EmbeddingUpdateTC(ms):{}",
               info.name.c_str(), info.batchId, info.threadIdx, EmbeddingUpdateTC.ElapsedMS());
@@ -1717,7 +1732,10 @@ bool HybridMgmt::EmbeddingLookUpSSD(const EmbTaskInfo& info, vector<Tensor>& h2d
     LOG_DEBUG("table:{}, thread:{}, fetchSSDEmb2DDRTC(ms):{}",
               info.name.c_str(), info.threadIdx, fetchSSDEmb2DDRTC.ElapsedMS());
 
-    BuildH2DEmbedding(info, h2dEmb);
+    bool isSuccess = BuildH2DEmbedding(info, h2dEmb);
+    if (!isSuccess) {
+        return false;
+    }
 
     lastLookUpFinishStepMap[info.name]++;
     cvLastLookUpFinishMap[info.name][info.cvNotifyIndex].notify_all();
@@ -1910,17 +1928,21 @@ bool HybridMgmt::BuildH2DEmbedding(const EmbTaskInfo &info, vector<Tensor> &h2dE
     if (!isRunning) {
         return false;
     }
-    uint64_t memSize = info.extEmbeddingSize * sizeof(float);
     h2dEmb.emplace_back(Tensor(tensorflow::DT_FLOAT, {
         int(swapInAddrs.size()), static_cast<long long>(info.extEmbeddingSize)
     }));
     auto &tmpTensor = h2dEmb.back();
     float *h2dEmbAddr = tmpTensor.flat<float>().data();
     TimeCost embeddingLookupTC = TimeCost();
+
+    uint64_t memSize = info.extEmbeddingSize * sizeof(float);
 # pragma omp parallel for num_threads(MGMT_CPY_THREADS) default(none) \
                 shared(swapInAddrs, h2dEmbAddr, info, memSize)
     for (uint64_t i = 0; i < swapInAddrs.size(); i++) {
-        memcpy_s(h2dEmbAddr + i * info.extEmbeddingSize, memSize, swapInAddrs[i], memSize);
+        auto rc = memcpy_s(h2dEmbAddr + i * info.extEmbeddingSize, memSize, swapInAddrs[i], memSize);
+        if (rc != 0) {
+            throw runtime_error("memcpy_s failed, error code:" + to_string(rc));
+        }
     }
     LOG_DEBUG("table:{}, thread:{}, embeddingLookupTC(ms):{}",
               info.name.c_str(), info.threadIdx, embeddingLookupTC.ElapsedMS());
@@ -1978,7 +2000,7 @@ void HybridMgmt::SendAll2AllVec(const EmbBaseInfo &info, bool &remainBatchOut)
         TimeCost getAll2AllTC;
         unique_ptr<vector<Tensor>> all2all = KEY_PROCESS_INSTANCE->GetInfoVec(
             info, ProcessedInfo::ALL2ALL, isEos);
-        LOG_DEBUG("table:{}, channelId:{} batchId:{}, GetInfoVec all2all end, GetAll2AllTC(ms):{}",
+        LOG_DEBUG("table:{}, channelId:{}, batchId:{}, GetInfoVec all2all end, GetAll2AllTC(ms):{}",
                   info.name, info.channelId, info.batchId, getAll2AllTC.ElapsedMS());
         if (all2all == nullptr) {
             remainBatchOut = false;
@@ -1995,6 +2017,7 @@ void HybridMgmt::SendAll2AllVec(const EmbBaseInfo &info, bool &remainBatchOut)
 void HybridMgmt::SendRestoreVec(const EmbBaseInfo &info, bool &remainBatchOut)
 {
     bool isEos = false;  // useless, adapt to HBM mode
+    TimeCost getRestoreTC;
     unique_ptr<vector<Tensor>> infoVecs = KEY_PROCESS_INSTANCE->GetInfoVec(
         info, ProcessedInfo::RESTORE, isEos);
     if (infoVecs == nullptr) {
@@ -2002,6 +2025,8 @@ void HybridMgmt::SendRestoreVec(const EmbBaseInfo &info, bool &remainBatchOut)
         LOG_ERROR("Information vector is nullptr!");
         return;
     }
+    LOG_DEBUG("table:{}, channelId:{}, batchId:{}, get restore end, getRestoreTC(ms):{}",
+              info.name, info.channelId, info.batchId, getRestoreTC.ElapsedMS());
 
     TimeCost sendRestoreSyncTC;
     hdTransfer->Send(TransferChannel::RESTORE, *infoVecs, info.channelId, info.name);

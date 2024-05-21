@@ -591,7 +591,7 @@ def update_iterator_getnext(get_next_op: Operation,
 def get_swap_op(table_instance: BaseSparseEmbedding, variable_and_slot_list: list, 
                 swap_info: SwapInfo, channel_id: int) -> list:    
     """
-    Get swap info if threshold is configured.
+    Get swap op.
     :param table_instance: BaseSparseEmbedding
     :param variable_and_slot_list: [var + slots]
     :param swap_info: swap in/out length and position
@@ -601,7 +601,7 @@ def get_swap_op(table_instance: BaseSparseEmbedding, variable_and_slot_list: lis
     if table_instance.is_hbm:
         return [tf.no_op()]
     
-    if not isinstance(variable_and_slot_list, list):
+    if len(variable_and_slot_list) == 0:
         raise RuntimeError("When enable emb_transfer, optimizer should have slots")
     
     use_static = ConfigInitializer.get_instance().use_static

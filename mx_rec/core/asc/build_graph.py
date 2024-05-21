@@ -58,7 +58,7 @@ def get_restore_vector(config):
     return restore_vector, hot_pos
 
 
-def get_id_offsets(max_lookup_vec_size, config):
+def get_id_offsets(max_lookup_vec_size: int, config: dict) -> tuple[int, list, list, int, int]:
     logger.debug('Channel %s_lookup_%s was built for getnext', config.get("table_name"), config.get("channel_id"))
     # 自动扩容当前只支持HBM模式，默认没有换入换出
     swap_in_pos = []
