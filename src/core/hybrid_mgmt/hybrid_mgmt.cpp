@@ -1798,7 +1798,7 @@ void HybridMgmt::HandleEndBatchCase(const EmbBaseInfo& info, vector<uint64_t>& s
     if (info.channelId == EVAL_CHANNEL_ID && IsEvalEndBatch(info.batchId)) {
         // 当前step之后eval结束，需要设置处理状态
         // 因为eval、predict最后1个batch之后不会像train那样再往后跑，所以必须放这里补发
-        LOG_DEBUG("reach max eval step, send emptySwapOutPos tensopipr for last step to finish eval, "
+        LOG_DEBUG("reach max eval step, send emptySwapOutPos tensor for last step to finish eval, "
                   "change ProcessStatus to {}, table:{}, batchId:{}",
                   ProcessStatus2Str(ProcessStatus::AFTER_SWITCH_FIRST_BATCH), info.name, info.batchId);
         std::vector<uint64_t> emptySwapOutPos;
@@ -2078,15 +2078,25 @@ bool HybridMgmt::HandleSpecialProcessStatusDDR(const EmbBaseInfo &info, TimeCost
 {
     TimeCost swapProcessTC;
     auto &swapInKeys = swapInKoPair.first;
+    auto &swapInPos = swapInKoPair.second;
     auto &swapOutKeys = swapOutKoPair.first;
     auto &swapOutPos = swapOutKoPair.second;
 
     if (specialProcessStatus[info.name] == ProcessStatus::AFTER_SWITCH_FIRST_BATCH) {
         // 发现train、save、eval切换，先保存状态，发emptySwapOutKeys以对应上一步的emptySwapOutPos
-        std::vector<std::vector<uint64_t>> tempStore = {swapOutKeys, swapOutPos};
         std::vector<uint64_t> emptySwapOutKeys;
         HBMSwapKeyQue[info.name + SWAP_OUT_STR].Pushv(emptySwapOutKeys);
         HBMSwapKeyQue[info.name + SWAP_IN_STR].Pushv(swapInKeys);
+        
+        if (mgmtRankInfo.ctrlSteps[info.channelId] == 1) {
+            vector<uint64_t> emptySwapOutPos;
+            SendTensorForSwap(info, swapInPos, emptySwapOutPos);
+            LOG_DEBUG("ProcessEmbInfoDDR special case, user only train one step, table:{}, channelId:{}, batchId:{}",
+                      info.name, info.channelId, info.batchId);
+            return true;
+        }
+
+        vector<vector<uint64_t>> tempStore = {swapOutKeys, swapOutPos};
         trainTestSwitchInfoStore[info.name] = tempStore;
         specialProcessStatus[info.name] = ProcessStatus::AFTER_SWITCH_SECOND_BATCH;
         LOG_DEBUG("handle channel switch case:afterSwitchFirstBatch, table:{}, channelId:{}, batchId:{}",
