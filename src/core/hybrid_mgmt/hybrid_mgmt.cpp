@@ -1317,6 +1317,8 @@ void HybridMgmt::InitEmbeddingCache(const vector<EmbInfo>& embInfos)
             InitDataPipelineForDDR(embInfo.name);
         }
 
+        specialProcessStatus[embInfo.name] = ProcessStatus::NORMAL;
+
         // 初始化embedding cache
         LOG_INFO("create cache for table:{}, hostVocabSize:{}, embSize:{}, maxCacheSize:{}",
                  embInfo.name, embInfo.hostVocabSize, embInfo.extEmbeddingSize, embInfo.devVocabSize);
