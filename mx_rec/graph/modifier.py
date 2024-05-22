@@ -518,6 +518,7 @@ class _GraphModifier:
 
 @para_checker_decorator(
     check_option_list=[
+        ("full_graph", ClassValidator, {"classes": (Graph, type(None))}),
         ("dump_graph", ClassValidator, {"classes": (bool,)}),
     ]
 )
@@ -747,10 +748,12 @@ def _get_swap_info(table_instance: BaseSparseEmbedding, variable_and_slot_list: 
             channel_name=f'{table_instance.table_name}_h2d_all')[0]
     logger.debug("h2d_emb shape: %s", h2d_emb)
     
+    swap_out_pos = swap_info.swap_out_pos
+    swap_in_pos = swap_info.swap_in_pos
     if use_static:
-        swap_out_pos = swap_info.swap_out_pos[:swap_info.swap_out_len]
+        swap_out_pos = swap_out_pos[:swap_info.swap_out_len]
         h2d_emb = h2d_emb[:swap_info.swap_in_len, :]
-        swap_in_pos = swap_info.swap_in_pos[:swap_info.swap_in_len]
+        swap_in_pos = swap_in_pos[:swap_info.swap_in_len]
     swap_outs = [tf.gather(one_table, swap_out_pos) for one_table in variable_and_slot_list]
     swap_out = tf.concat(swap_outs, axis=1)
     logger.debug('Channel %s_d2h_all was built for op outfeed.', table_instance.table_name)

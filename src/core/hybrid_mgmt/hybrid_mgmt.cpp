@@ -706,7 +706,7 @@ void HybridMgmt::ProcessEmbInfoDDR(const EmbBaseInfo& info, bool& remainBatchOut
 
     SendGlobalUniqueVec(info, uniqueKeys, restoreVecSec);
 
-    if (info.batchId == 0) {
+    if (info.channelId == TRAIN_CHANNEL_ID && info.batchId == 0) {
         HandleFirstBatchCaseDDR(info, getAndSendTensorsTC, swapInKoPair, swapOutKoPair);
         return;
     }
@@ -1102,6 +1102,7 @@ void HybridMgmt::EmbeddingReceiveAndUpdateDDR(int batchId, int index, const EmbI
     vector<float*> swapOutAddrs;
     auto isSuccess = EmbeddingReceiveDDR(info, ptr, swapOutAddrs);
     if (!isSuccess) {
+        LOG_INFO("HybridMgmt is not running");
         return;
     }
 
@@ -1559,7 +1560,6 @@ void HybridMgmt::EmbeddingSendDDR(const EmbTaskInfo &info, vector<Tensor>& h2dEm
 
 void HybridMgmt::CreateEmbeddingLookUpAndSendThread(int index, const EmbInfo& embInfo)
 {
-    lookUpAndSendTableBatchMap[embInfo.name] = 0;
     EmbeddingLookUpAndSendThreadPool.emplace_back([index, embInfo, this]() {
         while (true) {
             lookUpAndSendBatchIdMtx.lock();

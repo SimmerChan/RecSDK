@@ -270,7 +270,6 @@ class Saver(object):
             for var in self.var_list:
                 table_instance = self.config_instance.sparse_embed_config.get_table_instance(var)
                 table_name = table_instance.table_name
-                optimizer_slot_info_list = table_instance.emb_optimizer.optimizer_slot_info_list
 
                 use_static = ConfigInitializer.get_instance().use_static
                 max_lookup_vec_size = None
@@ -282,7 +281,10 @@ class Saver(object):
                     channel_name=f'{table_name}_save_h2d_{TRAIN_CHANNEL_ID}')
                 if use_static:
                     swap_out_pos = swap_out_pos[:swap_out_len]
-                table = [var] + [slot_info.get("slot") for slot_info in optimizer_slot_info_list]
+                    
+                optimizer = ConfigInitializer.get_instance().optimizer_config.get_optimizer_by_table_name(table_name)
+                table = [var] + [slot_var for slots in optimizer.values() for slot_var in slots.values()]
+
                 swap_outs = [tf.gather(one_table, swap_out_pos) for one_table in table]
                 swap_out = tf.concat(swap_outs, axis=1)
                 channel_name = f'{table_name}_save_d2h_{TRAIN_CHANNEL_ID}'
