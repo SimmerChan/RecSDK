@@ -1,0 +1,85 @@
+From 0a965b1ad7fde1bbf45df688ad7ecfbe7d422d8b Mon Sep 17 00:00:00 2001
+From: liangrenhao <francking@189.cn>
+Date: Thu, 23 May 2024 11:06:44 +0800
+Subject: [PATCH] Performance optimization referrence
+
+1.link libstringlib.so
+2.link jemalloc.so
+3.add SyncServerOption config
+
+Signed-off-by: liangrenhao <francking@189.cn>
+---
+ tensorflow_serving/model_servers/BUILD     | 1 +
+ tensorflow_serving/model_servers/main.cc   | 7 ++++++-
+ tensorflow_serving/model_servers/server.cc | 7 +++++++
+ tensorflow_serving/model_servers/server.h  | 6 ++++++
+ 4 files changed, 20 insertions(+), 1 deletion(-)
+
+diff --git a/tensorflow_serving/model_servers/BUILD b/tensorflow_serving/model_servers/BUILD
+index 68e808a..7768ad9 100644
+--- a/tensorflow_serving/model_servers/BUILD
++++ b/tensorflow_serving/model_servers/BUILD
+@@ -376,6 +376,7 @@ cc_binary(
+         "//third_party/tf_adapter:tf_python",
+         "@org_tensorflow//tensorflow/compiler/jit:xla_cpu_jit",
+     ],
++    linkops = ["-L/usr/local/lib -lstringlib", "-L/usr/local/lib -ljemalloc"]
+ )
+ 
+ py_test(
+diff --git a/tensorflow_serving/model_servers/main.cc b/tensorflow_serving/model_servers/main.cc
+index 2b83500..5921ca1 100644
+--- a/tensorflow_serving/model_servers/main.cc
++++ b/tensorflow_serving/model_servers/main.cc
+@@ -192,7 +192,12 @@ int main(int argc, char** argv) {
+                        "EXPERIMENTAL; CAN BE REMOVED ANYTIME! Load and use "
+                        "TensorFlow Lite model from `model.tflite` file in "
+                        "SavedModel directory instead of the TensorFlow model "
+-                       "from `saved_model.pb` file.")};
++                       "from `saved_model.pb` file."),
++      tensorflow::Flag("set_SyncServerOption_flag", &options.set_SyncServerOption_flag, "if true,the server will config SyncServerOption"),
++      tensorflow::Flag("NUM_CQS", &options.NUM_CQS, "config NUM_CQS"),
++      tensorflow::Flag("MIN_POLLERS", &options.MIN_POLLERS, "config MIN_POLLERS"),
++      tensorflow::Flag("MAX_POLLERS", &options.MAX_POLLERS, "config MAX_POLLERS"),
++      };
+ 
+   const auto& usage = tensorflow::Flags::Usage(argv[0], flag_list);
+   if (!tensorflow::Flags::Parse(&argc, argv, flag_list)) {
+diff --git a/tensorflow_serving/model_servers/server.cc b/tensorflow_serving/model_servers/server.cc
+index 9808f9a..73208ef 100644
+--- a/tensorflow_serving/model_servers/server.cc
++++ b/tensorflow_serving/model_servers/server.cc
+@@ -333,6 +333,13 @@ Status Server::BuildAndStart(const Options& server_options) {
+   builder.RegisterService(model_service_.get());
+   builder.RegisterService(prediction_service_.get());
+   builder.SetMaxMessageSize(tensorflow::kint32max);
++
++  if (server_options.set_SyncServerOption_flag) {
++    builder.SetSyncServerOption(::grpc::ServerBuilder::SyncServerOption.NUM_CQS, server_options.NUM_CQS);
++    builder.SetSyncServerOption(::grpc::ServerBuilder::SyncServerOption.MIN_POLLERS, server_options.MIN_POLLERS);
++    builder.SetSyncServerOption(::grpc::ServerBuilder::SyncServerOption.MAX_POLLERS, server_options.MAX_POLLERS);
++  }
++
+   const std::vector<GrpcChannelArgument> channel_arguments =
+       parseGrpcChannelArgs(server_options.grpc_channel_arguments);
+   for (GrpcChannelArgument channel_argument : channel_arguments) {
+diff --git a/tensorflow_serving/model_servers/server.h b/tensorflow_serving/model_servers/server.h
+index 7738f29..0a59105 100644
+--- a/tensorflow_serving/model_servers/server.h
++++ b/tensorflow_serving/model_servers/server.h
+@@ -84,6 +84,12 @@ class Server {
+     bool remove_unused_fields_from_bundle_metagraph = true;
+     bool use_tflite_model = false;
+ 
++    // SyncServerOption config
++    bool set_SyncServerOption_flag = false;
++    tensorflow::int32 NUM_CQS = 3;
++    tensorflow::int32 MIN_POLLERS = 6;
++    tensorflow::int32 MAX_POLLERS = 12;
++
+     Options();
+   };
+ 
+-- 
+2.43.0.windows.1
+

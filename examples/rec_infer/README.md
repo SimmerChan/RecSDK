@@ -122,3 +122,6 @@ server.sh/client.sh
 > python3 gen_config.py --output_path . --output_filename test1.cfg --model_path savedmodel_path<br>
 + 参数解释：output_path(输出路径),output_filename(输出文件名),model_path(输入模型路径)<br>
 + 得到输出文件后，替换服务启动脚本中--platform_config_file参数选项即可生效
+
+#性能优化
+1. 具体参考optimize目录下的文件
