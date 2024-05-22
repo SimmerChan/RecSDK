@@ -108,6 +108,11 @@ int64_t EmbeddingMgmt::GetCapacity(const std::string &name)
     return embeddings[name]->capacity();
 }
 
+void EmbeddingMgmt::Load(const string& name, const string& filePath)
+{
+    return embeddings[name]->Load(filePath);
+}
+
 void EmbeddingMgmt::Load(const string& filePath)
 {
     for (auto& tablePair: embeddings) {

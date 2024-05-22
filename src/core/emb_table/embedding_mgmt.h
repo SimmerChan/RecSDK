@@ -70,6 +70,11 @@ public:
     static EmbeddingMgmt* Instance();
 
     /**
+     * 加载单个表
+     */
+    void Load(const string& name, const string& filePath);
+
+    /**
      * 加载所有表
      */
     void Load(const string& filePath);
