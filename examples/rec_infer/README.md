@@ -58,36 +58,40 @@ e.配置环境命令。
 > export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$(pwd)<br>
 
 5. 在“tf_adapter”文件夹下创建BUILD文件。 写入如下内容。
->licenses(["notice"])  # BSD/MIT.<br>
-<br>
->cc_import(<br>
-    name = "tf_adapter",<br>
-    shared_library = "lib_tf_adapter.so",<br>
-    visibility = ["//visibility:public"]<br> 
-)<br>
-<br>
->cc_import(<br>
-    name = "tf_python",<br>
-    shared_library = "libpython3.7m.so",<br>
-    visibility = ["//visibility:public"]<br>
-)<br>
+```text
+licenses(["notice"])  # BSD/MIT.
 
+cc_import(
+    name = "tf_adapter",
+    shared_library = "lib_tf_adapter.so",
+    visibility = ["//visibility:public"]
+)
+
+cc_import(
+    name = "tf_python",
+    shared_library = "libpython3.7m.so",
+    visibility = ["//visibility:public"]
+)
+```
 
 6. 修改“serving-1.15.0/tensorflow_serving/model_servers/”路径下的BUILD文件，在“cc_binary”中添加如下加粗内容。
-> cc_binary( <br>
-name = "tensorflow_model_server",<br>
-    stamp = 1,<br>
-    visibility = [<br>
-        ":testing",<br>
-        "//tensorflow_serving:internal",<br>
-    ],<br>
-    deps = [<br>
-        ":tensorflow_model_server_main_lib",<br>
-        "//third_party/tf_adapter:tf_adapter",<br>
-        "//third_party/tf_adapter:tf_python",<br>
-        "@org_tensorflow//tensorflow/compiler/jit:xla_cpu_jit",<br>
-    ],<br>
-)<br>
+```text
+cc_binary(
+name = "tensorflow_model_server",
+    stamp = 1,
+    visibility = [
+        ":testing",
+        "//tensorflow_serving:internal",
+    ],
+    deps = [
+        ":tensorflow_model_server_main_lib",
+        "//third_party/tf_adapter:tf_adapter",
+        "//third_party/tf_adapter:tf_python",
+        "@org_tensorflow//tensorflow/compiler/jit:xla_cpu_jit",
+    ],
+)
+```
+
 
 7. 编译TF Serving。,在TF Serving安装目录“serving-1.15.0”下执行如下命令，编译TF Serving。
 
