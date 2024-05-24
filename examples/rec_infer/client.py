@@ -1,10 +1,11 @@
-import tensorflow as tf
-from tensorflow_serving.apis import predict_pb2
-from tensorflow_serving.apis import prediction_service_pb2_grpc
 import grpc
 import numpy as np
 import os
 import time
+
+import tensorflow as tf
+from tensorflow_serving.apis import predict_pb2
+from tensorflow_serving.apis import prediction_service_pb2_grpc
 class PredictModelGrpc(object):
     def __init__(self, model_name, inputs, input_types, output_name, socket='xxx.xxx.xxx.xxx:8500'):
         self.socket = socket
@@ -25,7 +26,6 @@ class PredictModelGrpc(object):
         return request, stub
 
     def inference(self):
-
         t0 = time.time()
         for name in self.inputs:
             self.request.inputs[name].CopyFrom(tf.make_tensor_proto(self.inputs[name], dtype=self.input_types[name]))
@@ -41,7 +41,6 @@ class PredictModelGrpc(object):
 
         res = []
 
-        t3 = time.time()
         return res
 
 def gen_inputs():

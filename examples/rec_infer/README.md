@@ -1,7 +1,7 @@
 # 推理环境部署
 一、安装依赖包：</p>
-安装开发套件包Ascend-cann-toolkil_{version}linux-{arch}.run</p>
-安装框架插件包Ascend-cann-tfplugin{version}_linux-{arch}.run</p>
+安装开发套件包Ascend-cann-toolkit_{version}_linux-{arch}.run</p>
+安装框架插件包Ascend-cann-tfplugin_{version}_linux-{arch}.run</p>
 安装其他依赖包：</p>
 |依赖包   |  版本限制|
 |:---|:---:|
@@ -75,25 +75,23 @@ cc_import(
 ```
 
 6. 修改“serving-1.15.0/tensorflow_serving/model_servers/”路径下的BUILD文件，在“cc_binary”中添加如下加粗内容。
-```text
-cc_binary(
-name = "tensorflow_model_server",
-    stamp = 1,
-    visibility = [
-        ":testing",
-        "//tensorflow_serving:internal",
-    ],
-    deps = [
-        ":tensorflow_model_server_main_lib",
-        "//third_party/tf_adapter:tf_adapter",
-        "//third_party/tf_adapter:tf_python",
-        "@org_tensorflow//tensorflow/compiler/jit:xla_cpu_jit",
-    ],
-)
-```
 
+>cc_binary(<br>
+name = "tensorflow_model_server",<br>
+&nbsp;&nbsp;&nbsp;&nbsp; stamp = 1,<br>
+&nbsp;&nbsp;&nbsp;&nbsp; visibility = [<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ":testing",<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; "//tensorflow_serving:internal",<br>
+&nbsp;&nbsp;&nbsp;&nbsp; ],<br>
+&nbsp;&nbsp;&nbsp;&nbsp; deps = [<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ":tensorflow_model_server_main_lib",<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; __"//third_party/tf_adapter:tf_adapter",__<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; __"//third_party/tf_adapter:tf_python",__<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; __"@org_tensorflow//tensorflow/compiler/jit:xla_cpu_jit",__<br>
+&nbsp;&nbsp;&nbsp;&nbsp; ],<br>
+)<br>
 
-7. 编译TF Serving。,在TF Serving安装目录“serving-1.15.0”下执行如下命令，编译TF Serving。
+7. TF Serving,在TF Serving安装目录“serving-1.15.0”下执行如下命令，编译TF Serving。
 
 > bazel --output_user_root=/opt/tf_serving build -c opt --distdir=../depends --cxxopt="-D_GLIBCXX_USE_CXX11_ABI=0" tensorflow_serving/model_servers:tensorflow_model_server<br>
 如果编译过程中遇到依赖包下载失败问题，可手动下载，TF serving编译依赖包(https://www.hiascend.com/document/detail/zh/canncommercial/80RC1/developmentguide/moddevg/onlineinfer1/atlastfserv_26_0011.html)
