@@ -1360,7 +1360,7 @@ void KeyProcess::SendEos(const std::string& embName, int batchId, int channel, b
     while (finishSendEosCnt[channel] != static_cast<int>(embInfos.size())) {
         LOG_DEBUG("table:{}, channelId:{} batchId:{}, finishSendEosCnt:{}, waiting other table finish SendEos",
                   embName, channel, batchId, finishSendEosCnt[channel]);
-        this_thread::sleep_for(1ms);
+        this_thread::sleep_for(1000ms);
     }
     readySendEosCnt[channel].store(0);
     isNeedSendEos[channel] = false;
