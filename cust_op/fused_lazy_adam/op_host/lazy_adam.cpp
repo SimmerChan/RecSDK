@@ -54,7 +54,6 @@ static ge::graphStatus LazyAdamTilingFunc(gert::TilingContext* context)
     ge::DataType indicesDtype = context->GetInputDesc(1)->GetDataType();
     int indicesDtypeSize = ge::GetSizeByDataType(indicesDtype);
 
-    tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
     auto attrs = context->GetAttrs();
 
