@@ -75,7 +75,8 @@ namespace MxRec {
 
         void Init(ock::ctr::EmbCacheManagerPtr embCachePtr, vector<EmbInfo>& mgmtEmbInfo);
 
-        void Load(const std::vector<EmbInfo> &mgmtEmbInfo, int step);
+        void Load(const std::vector<EmbInfo>& mgmtEmbInfo, int step,
+                  map<string, unordered_set<emb_cache_key_t>>& trainKeySet);
 
         void SaveSSDEngine(int step);
 

@@ -277,7 +277,7 @@ namespace MxRec {
 
         void CreateEmbeddingReceiveAndUpdateThread(int index, const EmbInfo& embInfo);
 
-        void HandleFirstBatchCaseDDR(const EmbBaseInfo& info, TimeCost& getAndSendTensorsTC,
+        void HandleFirstBatchCaseDDR(const EmbBaseInfo& info,
                                      std::pair<vector<uint64_t>, vector<uint64_t>>& swapInKoPair,
                                      std::pair<vector<uint64_t>, vector<uint64_t>>& swapOutKoPair);
 
@@ -303,8 +303,8 @@ namespace MxRec {
         void SendGlobalUniqueVec(const EmbBaseInfo& info, vector<uint64_t>& uniqueKeys, vector<int32_t>& restoreVecSec);
 
         bool HandleSpecialProcessStatusDDR(const EmbBaseInfo& info, TimeCost& getAndSendTensorsTC,
-                                        std::pair<vector<uint64_t>, vector<uint64_t>>& swapInKoPair,
-                                        std::pair<vector<uint64_t>, vector<uint64_t>>& swapOutKoPair);
+                                           std::pair<vector<uint64_t>, vector<uint64_t>>& swapInKoPair,
+                                           std::pair<vector<uint64_t>, vector<uint64_t>>& swapOutKoPair);
 
         bool HandleSpecialProcessStatusSSD(const EmbBaseInfo& info, TimeCost& getAndSendTensorsTC,
                                            std::pair<vector<uint64_t>, vector<uint64_t>>& swapInKoPair,
@@ -318,9 +318,9 @@ namespace MxRec {
                                        std::pair<vector<uint64_t>, vector<uint64_t>>& swapInKoPair,
                                        std::pair<vector<uint64_t>, vector<uint64_t>>& swapOutKoPair);
 
-        void EnqueueAndSendSwapInfo(const EmbBaseInfo& info,
-                                    std::pair<vector<uint64_t>, vector<uint64_t>>& swapInKoPair,
-                                    std::pair<vector<uint64_t>, vector<uint64_t>>& swapOutKoPair);
+        void EnqueueSwapInfo(const EmbBaseInfo& info,
+                             std::pair<vector<uint64_t>, vector<uint64_t>>& swapInKoPair,
+                             std::pair<vector<uint64_t>, vector<uint64_t>>& swapOutKoPair);
     };
 }
 #endif // MX_REC_EMB_MGMT_H

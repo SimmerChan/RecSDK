@@ -63,7 +63,7 @@ void EmbeddingDDR::EvictKeys(const vector<emb_key_t>& keys)
 {
 }
 
-void EmbeddingDDR::Load(const string& savePath)
+void EmbeddingDDR::Load(const string& savePath, map<string, unordered_set<emb_cache_key_t>>& trainKeySet)
 {
     vector<emb_cache_key_t> keys;
     vector<vector<float>> embeddings;
@@ -73,7 +73,12 @@ void EmbeddingDDR::Load(const string& savePath)
     LoadEmbedding(savePath, embeddings);
     LoadOptimizerSlot(savePath, optimizerSlots);
 
-    embCache->LoadEmbTableInfos(name, keys, embeddings, optimizerSlots);
+    auto rc = embCache->LoadEmbTableInfos(name, keys, embeddings, optimizerSlots);
+    if (rc != 0) {
+        throw runtime_error("embCache->LoadEmbTableInfos failed, err code:" + to_string(rc));
+    }
+
+    trainKeySet[name].insert(keys.cbegin(), keys.cend());
 }
 
 void EmbeddingDDR::LoadKey(const string &savePath, vector<emb_cache_key_t> &keys)
@@ -277,7 +282,13 @@ void EmbeddingDDR::SaveEmbedding(const string& savePath, vector<vector<float>>& 
     unique_ptr<FileSystemHandler> fileSystemHandler = make_unique<FileSystemHandler>();
     unique_ptr<FileSystem> fileSystemPtr = fileSystemHandler->Create(ss.str());
 
-    fileSystemPtr->Write(ss.str(), embeddings, embSize_);
+    ssize_t writeBytesNum = fileSystemPtr->Write(ss.str(), embeddings, embSize_);
+    ssize_t expectWriteBytes = embeddings.size() * embSize_ * sizeof(float);
+    if (writeBytesNum != expectWriteBytes) {
+        string errMsg = StringFormat("save embedding failed, write expect:%d, actual:%d, path:%s",
+                                     expectWriteBytes, writeBytesNum, savePath.c_str());
+        throw runtime_error(errMsg);
+    }
 }
 
 void EmbeddingDDR::SaveOptimizerSlot(const string& savePath, vector<vector<float>>& optimizerSlots, size_t keySize)
@@ -304,7 +315,13 @@ void EmbeddingDDR::SaveOptimizerSlot(const string& savePath, vector<vector<float
             vector<float> tmp(data.cbegin() + slotIdx * embSize_, data.cbegin() + (slotIdx+1) * embSize_);
             slotData.emplace_back(tmp);
         }
-        fileSystemPtr->Write(ss.str(), slotData, embSize_);
+        ssize_t writeBytesNum = fileSystemPtr->Write(ss.str(), slotData, embSize_);
+        ssize_t expectWriteBytes = slotData.size() * embSize_ * sizeof(float);
+        if (writeBytesNum != expectWriteBytes) {
+            string errMsg = StringFormat("save optimizer slot failed, write expect:%d, actual:%d, path:%s",
+                                         expectWriteBytes, writeBytesNum, savePath.c_str());
+            throw runtime_error(errMsg);
+        }
 
         slotIdx++;
     }

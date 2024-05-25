@@ -65,7 +65,7 @@ public:
 
     absl::flat_hash_map<emb_key_t, int64_t> GetKeyOffsetMap();
 
-    virtual void Load(const string& savePath);
+    virtual void Load(const string& savePath, map<string, unordered_set<emb_cache_key_t>>& trainKeySet);
 
     virtual void Save(const string& savePath);
 

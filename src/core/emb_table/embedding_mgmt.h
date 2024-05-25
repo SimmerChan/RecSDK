@@ -72,12 +72,12 @@ public:
     /**
      * 加载单个表
      */
-    void Load(const string& name, const string& filePath);
+    void Load(const string& name, const string& filePath, map<string, unordered_set<emb_cache_key_t>>& trainKeySet);
 
     /**
      * 加载所有表
      */
-    void Load(const string& filePath);
+    void Load(const string& filePath, map<string, unordered_set<emb_cache_key_t>>& trainKeySet);
 
     /**
      * 保存单个表

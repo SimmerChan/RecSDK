@@ -108,15 +108,16 @@ int64_t EmbeddingMgmt::GetCapacity(const std::string &name)
     return embeddings[name]->capacity();
 }
 
-void EmbeddingMgmt::Load(const string& name, const string& filePath)
+void EmbeddingMgmt::Load(const string& name, const string& filePath,
+                         map<string, unordered_set<emb_cache_key_t>>& trainKeySet)
 {
-    return embeddings[name]->Load(filePath);
+    return embeddings[name]->Load(filePath, trainKeySet);
 }
 
-void EmbeddingMgmt::Load(const string& filePath)
+void EmbeddingMgmt::Load(const string& filePath, map<string, unordered_set<emb_cache_key_t>>& trainKeySet)
 {
     for (auto& tablePair: embeddings) {
-        tablePair.second->Load(filePath);
+        tablePair.second->Load(filePath, trainKeySet);
     }
 }
 

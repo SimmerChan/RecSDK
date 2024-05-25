@@ -215,10 +215,10 @@ bool HybridMgmt::Load(const string& loadPath, vector<string> warmStartTables)
     SetFeatureTypeForLoad(loadFeatures);
 
     if (warmStartTables.size() == 0) {
-        EmbeddingMgmt::Instance()->Load(loadPath);
+        EmbeddingMgmt::Instance()->Load(loadPath, trainKeysSet);
     } else {
         for (auto& tableName: warmStartTables) {
-            EmbeddingMgmt::Instance()->Load(tableName, loadPath);
+            EmbeddingMgmt::Instance()->Load(tableName, loadPath, trainKeysSet);
         }
     }
 
@@ -251,7 +251,7 @@ bool HybridMgmt::Load(const string& loadPath, vector<string> warmStartTables)
     if (isSSDEnabled) {
         LOG_DEBUG(MGMT + "Start host side load: ssd key freq map");
         auto step = GetStepFromPath(loadPath);
-        cacheManager->Load(mgmtEmbInfo, step);
+        cacheManager->Load(mgmtEmbInfo, step, trainKeysSet);
     }
 
     LOG_DEBUG(MGMT + "Finish host side load process");
@@ -706,21 +706,29 @@ void HybridMgmt::ProcessEmbInfoDDR(const EmbBaseInfo& info, bool& remainBatchOut
 
     SendGlobalUniqueVec(info, uniqueKeys, restoreVecSec);
 
-    if (info.channelId == TRAIN_CHANNEL_ID && info.batchId == 0) {
-        HandleFirstBatchCaseDDR(info, getAndSendTensorsTC, swapInKoPair, swapOutKoPair);
-        return;
-    }
-
     auto isNeedReturn = HandleSpecialProcessStatusDDR(info, getAndSendTensorsTC, swapInKoPair, swapOutKoPair);
     if (isNeedReturn) {
         return;
     }
 
     TimeCost swapProcessTC;
-    EnqueueAndSendSwapInfo(info, swapInKoPair, swapOutKoPair);
+    EnqueueSwapInfo(info, swapInKoPair, swapOutKoPair);
 
     auto &swapInPos = swapInKoPair.second;
+    auto &swapOutPos = swapOutKoPair.second;
+    auto lastSwapInPos = lastSwapInPosMap[info.name];
+    lastSwapInPosMap[info.name] = swapInPos; // 暂存待下一步发送
+
+    // 下发swaptensor
+    if (info.batchId != 0) {
+        SendTensorForSwap(info, lastSwapInPos, swapOutPos);
+    }
+
     HandleEndBatchCase(info, swapInPos);
+
+    if (info.channelId == TRAIN_CHANNEL_ID) {
+        alreadyTrainOnce = true;
+    }
 
     LOG_DEBUG("ProcessEmbInfoDDR end, table:{}, channel:{}, batchId:{} swapProcessTC(ms):{} getAndSendTensorsTC(ms):{}",
               info.name, info.channelId, info.batchId, swapProcessTC.ElapsedMS(), getAndSendTensorsTC.ElapsedMS());
@@ -1809,34 +1817,26 @@ void HybridMgmt::HandleEndBatchCase(const EmbBaseInfo& info, vector<uint64_t>& s
     }
 }
 
-void HybridMgmt::HandleFirstBatchCaseDDR(const EmbBaseInfo &info, TimeCost& getAndSendTensorsTC,
-                                         pair<vector<uint64_t>, vector<uint64_t>> &swapInKoPair,
-                                         pair<vector<uint64_t>, vector<uint64_t>> &swapOutKoPair)
+void HybridMgmt::HandleFirstBatchCaseDDR(const EmbBaseInfo& info,
+                                         pair<vector<uint64_t>, vector<uint64_t>>& swapInKoPair,
+                                         pair<vector<uint64_t>, vector<uint64_t>>& swapOutKoPair)
 {
     TimeCost swapProcessTC;
     auto &swapInKeys = swapInKoPair.first;
     auto &swapInPos = swapInKoPair.second;
     auto &swapOutKeys = swapOutKoPair.first;
+    auto &swapOutPos = swapOutKoPair.second;
 
-    LOG_DEBUG("handle train batchId:0 case, delay sending swapInPos, table:{}", info.name);
+    vector<uint64_t> emptySwapOutKeys;
+    LOG_DEBUG("table:{}, batchId:{}, channelId:{}, swapInSize:{}, swapOutSize:{}",
+              info.name, info.batchId, info.channelId, swapInKoPair.first.size(), emptySwapOutKeys.size());
+    trainTestSwitchInfoStore[info.name] = {swapOutKeys, swapOutPos};
+
+    LOG_DEBUG("handle first batch case, delay sending swapInPos, table:{}", info.name);
     LOG_DEBUG("enqueue HBMSwapKeyQue table:{}, batchId:{}, channelId:{}, swapInSize:{}, swapOutSize:{}",
-              info.name, info.batchId, info.channelId, swapInKeys.size(), swapOutKeys.size());
-    HBMSwapKeyQue[info.name + SWAP_OUT_STR].Pushv(swapOutKeys);
+              info.name, info.batchId, info.channelId, swapInKeys.size(), emptySwapOutKeys.size());
+    HBMSwapKeyQue[info.name + SWAP_OUT_STR].Pushv(emptySwapOutKeys);
     HBMSwapKeyQue[info.name + SWAP_IN_STR].Pushv(swapInKeys);
-    lastSwapInPosMap[info.name] = swapInPos;
-    alreadyTrainOnce = true;
-
-    if (mgmtRankInfo.ctrlSteps[info.channelId] == 1) {
-        LOG_DEBUG("ProcessEmbInfoDDR special case, user only train once, table:{} batchId:{}",
-                  info.name, info.batchId);
-        std::vector<uint64_t> emptySwapOutPos;
-        SendTensorForSwap(info, swapInPos, emptySwapOutPos);
-        specialProcessStatus[info.name] = ProcessStatus::AFTER_SWITCH_FIRST_BATCH;
-    }
-
-    LOG_DEBUG(
-        "ProcessEmbInfoDDR end, table:{}, channelId:{}, batchId:{} swapProcessTC(ms):{} getAndSendTensorsTC(ms):{}",
-        info.name, info.channelId, info.batchId, swapProcessTC.ElapsedMS(), getAndSendTensorsTC.ElapsedMS());
 }
 
 void HybridMgmt::HandleFirstBatchCaseSSD(const EmbBaseInfo& info,
@@ -1886,7 +1886,6 @@ void HybridMgmt::HandleFirstBatchCaseSSD(const EmbBaseInfo& info,
     // HBM->SSD
     SwapOut2SSDKeyQue[info.name + SWAP_OUT_STR].Pushv(emptySwapOutSSDKeys);
     SwapOut2SSDKeyQue[info.name + ADDR_STR].Pushv(emptySwapOutSSDAddrOff);
-    specialProcessStatus[info.name] = ProcessStatus::AFTER_SWITCH_SECOND_BATCH;
 }
 
 void HybridMgmt::HandleDataSwapForSSD(const EmbBaseInfo& info,
@@ -1981,6 +1980,7 @@ vector<uint64_t> HybridMgmt::GetUniqueKeys(const EmbBaseInfo &info, bool &remain
         for (auto &key : uniqueKeys) {
             if (trainKeysSet[info.name].find(key) == trainKeysSet[info.name].end()) {
                 key = INVALID_KEY_VALUE;
+                LOG_TRACE("find key not train before, set as invalid key");
             }
         }
     }
@@ -2079,30 +2079,25 @@ bool HybridMgmt::HandleSpecialProcessStatusDDR(const EmbBaseInfo &info, TimeCost
                                                pair<vector<uint64_t>, vector<uint64_t>> &swapOutKoPair)
 {
     TimeCost swapProcessTC;
-    auto &swapInKeys = swapInKoPair.first;
     auto &swapInPos = swapInKoPair.second;
     auto &swapOutKeys = swapOutKoPair.first;
     auto &swapOutPos = swapOutKoPair.second;
 
     if (specialProcessStatus[info.name] == ProcessStatus::AFTER_SWITCH_FIRST_BATCH) {
         // 发现train、save、eval切换，先保存状态，发emptySwapOutKeys以对应上一步的emptySwapOutPos
-        std::vector<uint64_t> emptySwapOutKeys;
-        HBMSwapKeyQue[info.name + SWAP_OUT_STR].Pushv(emptySwapOutKeys);
-        HBMSwapKeyQue[info.name + SWAP_IN_STR].Pushv(swapInKeys);
-        
+        HandleFirstBatchCaseDDR(info, swapInKoPair, swapOutKoPair);
+        LOG_DEBUG("handle channel switch case:afterSwitchFirstBatch, table:{}, channelId:{}, batchId:{}",
+                  info.name, info.channelId, info.batchId);
+
         if (mgmtRankInfo.ctrlSteps[info.channelId] == 1) {
             vector<uint64_t> emptySwapOutPos;
             SendTensorForSwap(info, swapInPos, emptySwapOutPos);
-            LOG_DEBUG("ProcessEmbInfoDDR special case, user only train one step, table:{}, channelId:{}, batchId:{}",
+            LOG_DEBUG("ProcessEmbInfoDDR special case, user only run one step, table:{}, channelId:{}, batchId:{}",
                       info.name, info.channelId, info.batchId);
             return true;
         }
 
-        vector<vector<uint64_t>> tempStore = {swapOutKeys, swapOutPos};
-        trainTestSwitchInfoStore[info.name] = tempStore;
         specialProcessStatus[info.name] = ProcessStatus::AFTER_SWITCH_SECOND_BATCH;
-        LOG_DEBUG("handle channel switch case:afterSwitchFirstBatch, table:{}, channelId:{}, batchId:{}",
-                  info.name, info.channelId, info.batchId);
         LOG_DEBUG("ProcessEmbInfoDDR end, table:{}, batchId:{}, swapProcessTC(ms):{}, getAndSendTensorsTC(ms):{}",
                   info.name, info.batchId, swapProcessTC.ElapsedMS(), getAndSendTensorsTC.ElapsedMS());
         return true;
@@ -2133,12 +2128,15 @@ bool HybridMgmt::HandleSpecialProcessStatusSSD(const EmbBaseInfo &info, TimeCost
         HandleFirstBatchCaseSSD(info, swapInKoPair, swapOutKoPair);
         LOG_DEBUG("handle channel switch case:afterSwitchFirstBatch, table:{}, channelId:{}, batchId:{}",
                   info.name, info.channelId, info.batchId);
+
         if (mgmtRankInfo.ctrlSteps[info.channelId] == 1) {
             vector<uint64_t> emptySwapOutPos;
             SendTensorForSwap(info, swapInPos, emptySwapOutPos);
             LOG_DEBUG("ProcessEmbInfoSSD special case, user only run one step, table:{}, channelId:{}, batchId:{}",
                       info.name, info.channelId, info.batchId);
         }
+
+        specialProcessStatus[info.name] = ProcessStatus::AFTER_SWITCH_SECOND_BATCH;
         LOG_DEBUG("ProcessEmbInfoSSD end, table:{}, batchId:{}, swapProcessTC(ms):{}, getAndSendTensorsTC(ms):{}",
                   info.name, info.batchId, swapProcessTC.ElapsedMS(), getAndSendTensorsTC.ElapsedMS());
         return true;
@@ -2193,17 +2191,12 @@ void HybridMgmt::GetSwapPairsAndKey2Offset(const EmbBaseInfo &info, vector<uint6
               info.name, info.channelId, info.batchId, GetSwapPairsAndKey2OffsetTC.ElapsedMS());
 }
 
-void HybridMgmt::EnqueueAndSendSwapInfo(const EmbBaseInfo &info,
-                                        pair<vector<uint64_t>, vector<uint64_t>> &swapInKoPair,
-                                        pair<vector<uint64_t>, vector<uint64_t>> &swapOutKoPair)
+void HybridMgmt::EnqueueSwapInfo(const EmbBaseInfo &info,
+                                 pair<vector<uint64_t>, vector<uint64_t>>& swapInKoPair,
+                                 pair<vector<uint64_t>, vector<uint64_t>>& swapOutKoPair)
 {
     auto &swapInKeys = swapInKoPair.first;
-    auto &swapInPos = swapInKoPair.second;
     auto &swapOutKeys = swapOutKoPair.first;
-    auto &swapOutPos = swapOutKoPair.second;
-
-    auto lastSwapInPos = lastSwapInPosMap[info.name];
-    lastSwapInPosMap[info.name] = swapInPos;
 
     LOG_DEBUG("enqueue HBMSwapKeyQue table:{}, batchId:{}, channelId:{}, swapInSize:{}, swapOutSize:{}",
               info.name, info.batchId, info.channelId, swapInKeys.size(), swapOutKeys.size());
@@ -2211,6 +2204,4 @@ void HybridMgmt::EnqueueAndSendSwapInfo(const EmbBaseInfo &info,
     HBMSwapKeyQue[info.name + SWAP_IN_STR].Pushv(swapInKeys);
 
     CheckLookupAddrSuccessDDR();
-
-    SendTensorForSwap(info, lastSwapInPos, swapOutPos);
 }

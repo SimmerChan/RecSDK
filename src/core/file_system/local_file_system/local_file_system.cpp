@@ -119,42 +119,16 @@ ssize_t LocalFileSystem::Write(const string& filePath, vector<vector<float>>& fi
         throw runtime_error(StringFormat("open file %s to write failed.", filePath.c_str()));
     }
 
-    buffer.reserve(BUFFER_SIZE);
-    BufferQueue queue;
-    ssize_t writeBytesNum = 0;
-    std::thread writer(&LocalFileSystem::WriterFn, this, std::ref(queue), fd, std::ref(writeBytesNum));
-
     vector<float> flattenContent;
-    for (auto &vec: fileContent) {
+    for (auto& vec : fileContent) {
         flattenContent.insert(flattenContent.cend(), vec.cbegin(), vec.cend());
     }
 
-    size_t loops = flattenContent.size();
-    for (size_t i = 0; i < loops; i++) {
-        size_t idx = 0;
-        size_t writeSize = 0;
-        size_t dataCol = dataSize;
-        while (dataCol != 0) {
-            if (dataCol > oneTimeReadWriteLen) {
-                writeSize = oneTimeReadWriteLen;
-            } else {
-                writeSize = dataCol;
-            }
-            FillToBuffer(queue, reinterpret_cast<const char *>(&flattenContent[i]) + idx, writeSize);
-            dataCol -= writeSize;
-            idx += writeSize;
-        }
-    }
+    ssize_t writeBytesNum =
+        write(fd, reinterpret_cast<const char*>(flattenContent.data()), flattenContent.size() * sizeof(float));
 
-    // After all data has been processed, check if there is any data left in the buffer
-    if (!buffer.empty()) {
-        queue.Push(std::move(buffer));
-        buffer.clear();
-    }
-
-    queue.Push(std::vector<char>());
-    writer.join();
     close(fd);
+
     return writeBytesNum;
 }
 

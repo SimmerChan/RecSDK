@@ -124,7 +124,8 @@ CacheManager::~CacheManager()
 /// \param ddrFreqInitMap ddr内key频次数据
 /// \param excludeDdrFreqInitMap 非DDR key频次数据
 /// \param step 加载SSDEngine传入步数
-void CacheManager::Load(const std::vector<EmbInfo> &mgmtEmbInfo, int step)
+void CacheManager::Load(const std::vector<EmbInfo> &mgmtEmbInfo, int step,
+                        map<string, unordered_set<emb_cache_key_t>>& trainKeySet)
 {
     // 加载SSDEngine数据
 #ifndef GTEST
@@ -139,6 +140,7 @@ void CacheManager::Load(const std::vector<EmbInfo> &mgmtEmbInfo, int step)
         auto &keys = it.second;
         for (auto key: keys) {
             preProcessMapper[embTableName].excludeDDRKeyCountMap[key] = 1;
+            trainKeySet[embTableName].insert(key);
         }
     }
     for (const auto &embInfo: mgmtEmbInfo) {
