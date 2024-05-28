@@ -19,6 +19,9 @@ from delay_loss_scale import DenseLossScaleOptimizer, SparseLossScaleOptimizer
 
 from mx_rec.util.initialize import ConfigInitializer
 from mx_rec.optimizers.gradient_descent_by_addr import create_hash_optimizer_by_addr
+from mx_rec.optimizers import lazy_adam
+
+from gradient_descent_w import create_hash_optimizer
 
 
 def get_dense_and_sparse_optimizer(cfg):
@@ -28,15 +31,13 @@ def get_dense_and_sparse_optimizer(cfg):
             raise RuntimeError("model is incompatible with dynamic_expansion when use lazy_adam optimizer.")
         # use lazy_adam optimizer
         dense_optimizer = tf.compat.v1.train.AdamOptimizer(learning_rate=cfg.learning_rate[0])
-        from mx_rec.optimizers.lazy_adam import create_hash_optimizer
-        sparse_optimizer = create_hash_optimizer(learning_rate=cfg.learning_rate[1])
+        sparse_optimizer = lazy_adam.create_hash_optimizer(learning_rate=cfg.learning_rate[1])
     else:
         # use SGD optimizer
-        dense_optimizer = tf.train.GradientDescentOptimizer(learning_rate=cfg.learning_rate[0])
+        dense_optimizer = tf.compat.v1.train.GradientDescentOptimizer(learning_rate=cfg.learning_rate[0])
         if use_dynamic_expansion:
             sparse_optimizer = create_hash_optimizer_by_addr(learning_rate=cfg.learning_rate[1], weight_decay=0.0001)
         else:
-            from gradient_descent_w import create_hash_optimizer
             sparse_optimizer = create_hash_optimizer(learning_rate=cfg.learning_rate[1], weight_decay=0.0001)
 
     sparse_optimizer = SparseLossScaleOptimizer(sparse_optimizer, 1024, cfg)

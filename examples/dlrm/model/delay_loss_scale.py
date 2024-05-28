@@ -51,7 +51,7 @@ class SparseLossScaleOptimizer:
 
 
 def _divide_optim_by_loss_scale(opt, cfg, loss_scale):
-    if loss_scale == 0:
+    if loss_scale <= 0:
         raise RuntimeError("the loss_scale must be greater than zero.")
     loss_scale = tf.convert_to_tensor(loss_scale, tf.float32)
     if cfg.use_lazy_adam_optimizer:
