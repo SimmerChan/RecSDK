@@ -26,7 +26,7 @@ class DenseLossScaleOptimizer:
             raise ValueError('"opt" must be an instance of Optimizer, but got: %s' % type(opt))
         self._optimizer = opt
         self._loss_scale = tf.convert_to_tensor(loss_scale, tf.float32)
-        _divide_optim_by_loss_scale(self._optimizer, cfg, self._loss_scale)
+        _divide_optim_by_loss_scale(self._optimizer, cfg, loss_scale)
 
     def compute_gradients(self, loss, var_list=None):
         return self._optimizer.compute_gradients(loss * self._loss_scale, var_list=var_list)
@@ -41,7 +41,7 @@ class SparseLossScaleOptimizer:
             raise ValueError('"opt" must be an instance of Optimizer, but got: %s' % type(opt))
         self._optimizer = opt
         self._loss_scale = tf.convert_to_tensor(loss_scale, tf.float32)
-        _divide_optim_by_loss_scale(self._optimizer, cfg, self._loss_scale)
+        _divide_optim_by_loss_scale(self._optimizer, cfg, loss_scale)
 
     def compute_gradients(self, loss, var_list=None):
         return tf.gradients(loss * self._loss_scale, var_list)
@@ -51,6 +51,9 @@ class SparseLossScaleOptimizer:
 
 
 def _divide_optim_by_loss_scale(opt, cfg, loss_scale):
+    if loss_scale == 0:
+        raise RuntimeError("the loss_scale must be greater than zero.")
+    loss_scale = tf.convert_to_tensor(loss_scale, tf.float32)
     if cfg.use_lazy_adam_optimizer:
         # lazy_adam optimizer
         opt._lr = opt._lr / loss_scale
