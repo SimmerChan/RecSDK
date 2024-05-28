@@ -15,13 +15,12 @@
 # ==============================================================================
 
 import tensorflow as tf
-from delay_loss_scale import DenseLossScaleOptimizer, SparseLossScaleOptimizer
 
+from delay_loss_scale import DenseLossScaleOptimizer, SparseLossScaleOptimizer
+from gradient_descent_w import create_hash_optimizer
 from mx_rec.util.initialize import ConfigInitializer
 from mx_rec.optimizers.gradient_descent_by_addr import create_hash_optimizer_by_addr
 from mx_rec.optimizers import lazy_adam
-
-from gradient_descent_w import create_hash_optimizer
 
 
 def get_dense_and_sparse_optimizer(cfg):
