@@ -27,7 +27,7 @@ def get_dense_and_sparse_optimizer(cfg):
         if use_dynamic_expansion:
             raise RuntimeError("model is incompatible with dynamic_expansion when use lazy_adam optimizer.")
         # use lazy_adam optimizer
-        dense_optimizer = tf.compact.v1.train.AdamOptimizer(learning_rate=cfg.learning_rate[0])
+        dense_optimizer = tf.compat.v1.train.AdamOptimizer(learning_rate=cfg.learning_rate[0])
         from mx_rec.optimizers.lazy_adam import create_hash_optimizer
         sparse_optimizer = create_hash_optimizer(learning_rate=cfg.learning_rate[1])
     else:
