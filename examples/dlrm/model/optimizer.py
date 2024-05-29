@@ -31,6 +31,7 @@ def get_dense_and_sparse_optimizer(cfg):
         # use lazy_adam optimizer
         dense_optimizer = tf.compat.v1.train.AdamOptimizer(learning_rate=cfg.learning_rate[0])
         sparse_optimizer = lazy_adam.create_hash_optimizer(learning_rate=cfg.learning_rate[1])
+        loss_scale = 65536
     else:
         # use SGD optimizer
         dense_optimizer = tf.compat.v1.train.GradientDescentOptimizer(learning_rate=cfg.learning_rate[0])
@@ -38,8 +39,8 @@ def get_dense_and_sparse_optimizer(cfg):
             sparse_optimizer = create_hash_optimizer_by_addr(learning_rate=cfg.learning_rate[1], weight_decay=0.0001)
         else:
             sparse_optimizer = create_hash_optimizer(learning_rate=cfg.learning_rate[1], weight_decay=0.0001)
-
-    sparse_optimizer = SparseLossScaleOptimizer(sparse_optimizer, 1024, cfg)
-    dense_optimizer = DenseLossScaleOptimizer(dense_optimizer, 1024, cfg)
+        loss_scale = 1024
+    sparse_optimizer = SparseLossScaleOptimizer(sparse_optimizer, loss_scale, cfg)
+    dense_optimizer = DenseLossScaleOptimizer(dense_optimizer, loss_scale, cfg)
 
     return dense_optimizer, sparse_optimizer
