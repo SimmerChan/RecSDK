@@ -21,7 +21,7 @@ from tensorflow.compat.v1.train import Optimizer
 class DenseLossScaleOptimizer:
     def __init__(self, opt, loss_scale):
         if not isinstance(opt, Optimizer):
-            raise ValueError('"opt" must be an instance of Optimizer, but got: %s' % type(opt))
+            raise ValueError("`opt` must be an instance of Optimizer, but got: %s" % type(opt))
         self._optimizer = opt
         self._loss_scale = tf.convert_to_tensor(loss_scale, tf.float32)
         _scale_learning_rate(self._optimizer, loss_scale)
@@ -36,7 +36,7 @@ class DenseLossScaleOptimizer:
 class SparseLossScaleOptimizer:
     def __init__(self, opt, loss_scale):
         if not isinstance(opt, Optimizer):
-            raise ValueError('"opt" must be an instance of Optimizer, but got: %s' % type(opt))
+            raise ValueError("`opt` must be an instance of Optimizer, but got: %s" % type(opt))
         self._optimizer = opt
         self._loss_scale = tf.convert_to_tensor(loss_scale, tf.float32)
         _scale_learning_rate(self._optimizer, loss_scale)
@@ -48,9 +48,9 @@ class SparseLossScaleOptimizer:
         return self._optimizer.apply_gradients(grads_and_vars)
 
 
-def _scale_learning_rate(opt: Optimizer, loss_scale: float):
+def _scale_learning_rate(opt: Optimizer, loss_scale: float) -> None:
     if loss_scale == 0:
-        raise ValueError('"loss_scale" can not be zero')
+        raise ValueError("`loss_scale` can not be zero")
     if hasattr(opt, "_learning_rate"):
         # `SGD` or `Adagrad`
         opt._learning_rate = opt._learning_rate / tf.convert_to_tensor(loss_scale, tf.float32)
@@ -58,4 +58,4 @@ def _scale_learning_rate(opt: Optimizer, loss_scale: float):
         # `Adam`
         opt._lr = opt._lr / tf.convert_to_tensor(loss_scale, tf.float32)
     else:
-        raise ValueError('"opt" should have a _learning_rate or _lr named filed')
+        raise ValueError("`opt` should have a `_learning_rate` or `_lr` named field")
