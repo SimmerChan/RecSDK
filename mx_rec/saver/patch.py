@@ -30,6 +30,7 @@ from tensorflow.python.client import session
 from tensorflow.python.eager import context
 from tensorflow.python.framework import errors
 from tensorflow.python.framework import ops
+from tensorflow.python.framework import graph_io
 from tensorflow.python.ops import variables
 from tensorflow.python.ops import io_ops
 from tensorflow.python.platform import gfile
@@ -445,6 +446,17 @@ class BulkSaverBuilder(BaseSaverBuilder):
         tensor_names, tensor_slices, tensor_dtypes = zip(*restore_specs)
         with ops.device("cpu:0"):
             return io_ops.restore_v2(filename_tensor, tensor_names, tensor_slices, tensor_dtypes)
+
+
+def patch_for_write_graph_func(func):
+    def wrapper(*args, **kwargs):
+        from mpi4py import MPI
+        comm = MPI.COMM_WORLD
+        rank = comm.Get_rank()
+        # In the case of multiple processes, choose one process to write graph.
+        if rank == 0:
+            return func(*args, **kwargs)
+    return wrapper
 
 
 def patch_for_saver():
