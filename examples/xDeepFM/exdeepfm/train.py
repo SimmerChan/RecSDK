@@ -211,15 +211,7 @@ def train(hparams, scope=None, target_session=""):
     else:
         raise ValueError("model type should be cccfnet, deepFM, deepWide, dnn, fm, lr, ipnn, opnn, din")
 
-    # 创建session，如果原始网络中使用了tf.device相关代码，则需要增加session配置“allow_soft_placement=True”，允许TensorFlow自动分配设备。
-    config = tf.ConfigProto(allow_soft_placement=True)
-    custom_op = config.graph_options.rewrite_options.custom_optimizers.add()
-    custom_op.name = "NpuOptimizer"
-    # 必须显式关闭TensorFlow的remapping、memory_optimization功能，避免与NPU中的功能冲突。
-    config.graph_options.rewrite_options.remapping = RewriterConfig.OFF  # 显式关闭
-    config.graph_options.rewrite_options.memory_optimization = RewriterConfig.OFF  # 显式关闭
-
-    # define train,eval,infer graph
+   # define train,eval,infer graph
     # define train session, eval session, infer session
     train_model = create_train_model(model_creator, hparams, scope)
     gpuconfig = tf.ConfigProto()

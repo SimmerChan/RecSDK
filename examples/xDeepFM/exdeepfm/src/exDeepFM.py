@@ -351,9 +351,6 @@ class ExtremeDeepFMModel(BaseModel):
             b_nn_output = tf.get_variable(name='b_nn_output',
                                               shape=[1],
                                               dtype=tf.float32,
-
-
-
                                               initializer=tf.zeros_initializer())
             self.layer_params.append(w_nn_output)
             self.layer_params.append(b_nn_output)

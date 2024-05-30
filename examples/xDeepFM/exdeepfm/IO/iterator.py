@@ -160,8 +160,8 @@ class CCCFNetIterator(BaseIterator):
         # src_dataset = src_dataset.shuffle(buffer_size=BUFFER_SIZE)
         iterator = src_dataset.make_initializable_iterator()
         _labels, _userIds, _itemIds, \
-            _user_profiles_indices, _user_profiles_values, _user_profiles_weights, _user_profiles_shape, \
-            _item_profiles_indices, _item_profiles_values, _item_profiles_weights, _item_profiles_shape = iterator.get_next()
+        _user_profiles_indices, _user_profiles_values, _user_profiles_weights, _user_profiles_shape, \
+        _item_profiles_indices, _item_profiles_values, _item_profiles_weights, _item_profiles_shape = iterator.get_next()
         self.initializer = iterator.initializer
         self.labels = _labels
         self.userIds = _userIds
@@ -205,5 +205,5 @@ class CCCFNetIterator(BaseIterator):
         item_profiles_shape = parsed['item_profiles_shape']
 
         return labels, userIds, itemIds, \
-            user_profiles_indices, user_profiles_values, user_profiles_weights, user_profiles_shape, \
-            item_profiles_indices, item_profiles_values, item_profiles_weights, item_profiles_shape
+               user_profiles_indices, user_profiles_values, user_profiles_weights, user_profiles_shape, \
+               item_profiles_indices, item_profiles_values, item_profiles_weights, item_profiles_shape
