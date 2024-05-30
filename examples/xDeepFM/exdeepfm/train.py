@@ -18,7 +18,6 @@ from IO.ffm_cache import FfmCache
 #from src.cccfnet import CCCFModel
 #from src.deepcross import DeepCrossModel
 from src.exDeepFM import ExtremeDeepFMModel
-from src.CIN import CINModel
 #from src.cross import CrossModel
 import utils.util as util
 import utils.metric as metric
@@ -208,9 +207,6 @@ def train(hparams, scope=None, target_session=""):
     elif hparams.model_type == 'cross':
         print("run extreme cross model!")
         model_creator = CrossModel
-    elif hparams.model_type == 'CIN':
-        print("run extreme cin model!")
-        model_creator = CINModel
 
     else:
         raise ValueError("model type should be cccfnet, deepFM, deepWide, dnn, fm, lr, ipnn, opnn, din")
