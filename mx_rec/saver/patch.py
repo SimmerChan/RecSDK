@@ -466,3 +466,4 @@ def patch_for_saver():
     dense_saver.restore = restore
     dense_saver.build = build
     logger.debug("Class tf.train.Saver has been patched.")
+    training_util.write_graph = patch_for_write_graph_func(graph_io.write_graph)
