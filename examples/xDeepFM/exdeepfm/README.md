@@ -7,6 +7,7 @@
 2. Commits on Oct 15, 2018，提交的SHA-1 hash值（提交ID）：114c4c45b1cb6144b2540f92a2b357c3f445e98e
 
 3. 只保留执行所需要的代码及文件，其他已删除。
+4. config/network.yaml配置文件，data/dnn/infer.userid.txt、res/infer.userid.txt等数据文件由用户从开源链接下载导入
 
 ## 迁移NPU
 
@@ -81,14 +82,152 @@
         return sess.run([self.loss, self.data_loss, self.pred, eval_label], \
 ```
 
-3、修改src/base_model.py。把embedding初始化值设成tf.zeros_initializer()，把84行
+3、修改src/exDeepFM.py。在第6行添加
 ```python
-        return tf.truncated_normal_initializer(stddev=hparams.init_value)
+from mx_rec.core.embedding import create_table
+from mx_rec.core.embedding import sparse_lookup
+```
+` ` ` `把40~43行
+```python
+        w_fm_nn_input_orgin = tf.nn.embedding_lookup_sparse(self.embedding,
+                                                            fm_sparse_index,
+                                                            fm_sparse_weight,
+                                                            combiner="sum")
 ```
 ` ` ` `改为：
 ```python
-        return tf.zeros_initializer()
+        dense_indices = tf.sparse.to_dense(fm_sparse_index, default_value=0)
+        dense_weights = tf.sparse.to_dense(fm_sparse_weight, default_value=0)
+        
+        sparse_hashtable = create_table(key_dtype=tf.int32,
+                                        dim=tf.TensorShape([hparams.dim]),
+                                        name='sparse_embeddings_table',
+                                        emb_initializer=tf.zeros_initializer(),
+                                        device_vocabulary_size=hparams.FEATURE_COUNT,
+                                        host_vocabulary_size=0
+                                        )
+        embedded_values = sparse_lookup(sparse_hashtable,
+                                        dense_indices,
+                                        is_train=True,
+                                        name="sparse_embeddings",
+                                        modify_graph=True)
+        w_fm_nn_input_orgin = tf.reduce_sum(embedded_values * tf.expand_dims(dense_weights, axis=-1), axis=1)
 ```
+
+4、修改main.py。在第176行添加
+```python
+    # init
+    from mx_rec.util.initialize import init
+    init(use_dynamic=True,
+         use_dynamic_expansion=False)
+```
+
+5、修改train.py。把第35~57行
+```python
+    graph = tf.Graph()
+with graph.as_default():
+    # feed train file name, valid file name, or test file name
+    filenames = tf.placeholder(tf.string, shape=[None])
+    #src_dataset = tf.contrib.data.TFRecordDataset(filenames)
+    src_dataset = tf.data.TFRecordDataset(filenames)
+
+    if hparams.data_format == 'ffm':
+        batch_input = FfmIterator(src_dataset)
+    elif hparams.data_format == 'din':
+        batch_input = DinIterator(src_dataset)
+    elif hparams.data_format == 'cccfnet':
+        batch_input = CCCFNetIterator(src_dataset)
+    else:
+        raise ValueError("not support {0} format data".format(hparams.data_format))
+    # build model
+    model = model_creator(
+        hparams,
+        iterator=batch_input,
+        scope=scope)
+
+return TrainModel(
+    graph=graph,
+```
+` ` ` `改为：
+```python
+    # feed train file name, valid file name, or test file name
+filenames = tf.placeholder(tf.string, shape=[None])
+# src_dataset = tf.contrib.data.TFRecordDataset(filenames)
+src_dataset = tf.data.TFRecordDataset(filenames)
+
+if hparams.data_format == 'ffm':
+    batch_input = FfmIterator(src_dataset)
+elif hparams.data_format == 'din':
+    batch_input = DinIterator(src_dataset)
+elif hparams.data_format == 'cccfnet':
+    batch_input = CCCFNetIterator(src_dataset)
+else:
+    raise ValueError("not support {0} format data".format(hparams.data_format))
+# build model
+model = model_creator(
+    hparams,
+    iterator=batch_input,
+    scope=scope)
+
+return TrainModel(
+    graph=tf.get_default_graph(),
+```
+` ` ` `把第68~73行
+```python
+    load_sess.run(load_model.iterator.initializer, feed_dict={load_model.filenames: [filename]})
+    preds = []
+    labels = []
+    while True:
+        try:
+            _, _, step_pred, step_labels = load_model.model.eval(load_sess)
+```
+` ` ` `改为：
+```python
+    from mx_rec.util.initialize import ConfigInitializer
+    eval_label = ConfigInitializer.get_instance().train_params_config.get_target_batch(True).get("labels")
+    initializer = ConfigInitializer.get_instance().train_params_config.get_initializer(True)
+    load_sess.run(initializer, feed_dict={load_model.filenames: [filename]})
+    preds = []
+    labels = []
+    while True:
+        try:
+            _, _, step_pred, step_labels = load_model.model.eval(load_sess, eval_label)
+```
+
+
+## 适配其他代码
+
+1、修改utils/util.py。把第63行
+
+
+```python
+            config = yaml.load(f)
+```
+` ` ` `改为：
+```python
+             config = yaml.safe_load(f)
+```
+
+2、由于去掉了无关代码src/CIN.py，修改main.py适配。把第156~158行
+
+```python
+                                             'opnn', 'fm', 'lr', 'din', 'cccfnet', 'deepcross', 'exDeepFM', "cross", "CIN"]:
+raise ValueError(
+    "model type must be cccfnet, deepFM, deepWide, dnn, ipnn, opnn, fm, lr, din, deepcross, exDeepFM, cross, CIN but you set is {0}".format(
+```
+` ` ` `改为：
+```python
+                                             'opnn', 'fm', 'lr', 'din', 'cccfnet', 'deepcross', 'exDeepFM', "cross"]:
+raise ValueError(
+    "model type must be cccfnet, deepFM, deepWide, dnn, ipnn, opnn, fm, lr, din, deepcross, exDeepFM, cross, but you set is {0}".format(
+```
+
+3、由于去掉了无关代码src/CIN.py，修改train.py适配。删除第21行代码
+```python
+from src.CIN import CINModel
+```
+
+
 
 
 ### 二进制包安装
