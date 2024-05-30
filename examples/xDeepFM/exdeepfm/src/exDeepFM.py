@@ -210,8 +210,8 @@ class ExtremeDeepFMModel(BaseModel):
                     filters = tf.transpose(filters_o, perm=[0, 2, 1])
                 else:
                     filters = tf.get_variable(name="f_"+str(idx),
-                                              shape=[1, field_nums[-1]*field_nums[0], layer_size],
-                                              dtype=tf.float32)
+                                         shape=[1, field_nums[-1]*field_nums[0], layer_size],
+                                         dtype=tf.float32)
                 # dot_result = tf.transpose(dot_result, perm=[0, 2, 1])
                 curr_out = tf.nn.conv1d(dot_result, filters=filters, stride=1, padding='VALID')
 
@@ -219,9 +219,9 @@ class ExtremeDeepFMModel(BaseModel):
                 if bias:
                     hparams.logger.info("bias")
                     b = tf.get_variable(name="f_b" + str(idx),
-                                        shape=[layer_size],
-                                        dtype=tf.float32,
-                                        initializer=tf.zeros_initializer())
+                                    shape=[layer_size],
+                                    dtype=tf.float32,
+                                    initializer=tf.zeros_initializer())
                     curr_out = tf.nn.bias_add(curr_out, b)
                     self.cross_params.append(b)
                     self.layer_params.append(b)
@@ -317,8 +317,8 @@ class ExtremeDeepFMModel(BaseModel):
                 dot_result = tf.transpose(dot_result_o, perm=[1, 0, 2])
 
                 filters = tf.get_variable(name="f_"+str(idx),
-                                          shape=[1, field_nums[-1]*field_nums[0], layer_size],
-                                          dtype=tf.float32)
+                                         shape=[1, field_nums[-1]*field_nums[0], layer_size],
+                                         dtype=tf.float32)
                 # dot_result = tf.transpose(dot_result, perm=[0, 2, 1])
                 curr_out = tf.nn.conv1d(dot_result, filters=filters, stride=1, padding='VALID')
 
@@ -346,12 +346,15 @@ class ExtremeDeepFMModel(BaseModel):
 
             hparams.logger.info("no residual network")
             w_nn_output = tf.get_variable(name='w_nn_output',
-                                          shape=[final_len, 1],
-                                          dtype=tf.float32)
+                                              shape=[final_len, 1],
+                                              dtype=tf.float32)
             b_nn_output = tf.get_variable(name='b_nn_output',
-                                          shape=[1],
-                                          dtype=tf.float32,
-                                          initializer=tf.zeros_initializer())
+                                              shape=[1],
+                                              dtype=tf.float32,
+
+
+
+                                              initializer=tf.zeros_initializer())
             self.layer_params.append(w_nn_output)
             self.layer_params.append(b_nn_output)
             exFM_out = tf.nn.xw_plus_b(result, w_nn_output, b_nn_output)
