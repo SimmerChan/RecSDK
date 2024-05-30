@@ -25,6 +25,7 @@ class FfmIterator(BaseIterator):
 
     def get_iterator(self, src_dataset):
         src_dataset = src_dataset.map(self.parser)
+        # src_dataset = src_dataset.shuffle(buffer_size=BUFFER_SIZE)
         iterator = src_dataset.make_initializable_iterator()
 
         batch = iterator.get_next()
