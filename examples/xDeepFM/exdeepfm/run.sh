@@ -1,10 +1,5 @@
 kill -9 `ps -ef | grep python | grep -v grep | awk '{print $2}'` > /dev/null 2>&1
 
-export USE_MODE="train" # 支持[train, predict]
-
-# cache mode support: HBM, DDR, SSD
-export CACHE_MODE="HBM"
-
 # 获取输入参数：py、ip
 if [ $# -ge 1 ]; then
   py=$1
@@ -59,13 +54,12 @@ num_process=$((${num_server} * ${local_rank_size})) # 训练总的进程数，�
 
 export HCCL_CONNECT_TIMEOUT=1200 # HCCL集合通信 建链超时时间，取值范围[120,7200]
 export PYTHONPATH=${so_path}:$PYTHONPATH # 环境python安装路径
-#export LD_PRELOAD=/usr/lib64/libgomp.so.1 # GNU OpenMP动态库路径. 不应该使用LD_PRELOAD这种方式加载！
 export LD_PRELOAD=/usr/lib64/libgomp.so.1:/usr/local/python3.7.5/lib/python3.7/site-packages/scikit_learn.libs/libgomp-d22c30c5.so.1.0.0
 export LD_LIBRARY_PATH=${so_path}:/usr/local/lib:$LD_LIBRARY_PATH
 # 集合通信文件，格式请参考昇腾官网CANN文档，“准备资源配置文件”章节。
 export JOB_ID=10086
 # 训练任务使用的NPU卡数总数
-export MXREC_LOG_LEVEL="DEBUG" # 框架日志等级
+export MXREC_LOG_LEVEL="ERROR" # 框架日志等级
 export TF_CPP_MIN_LOG_LEVEL=3 # tensorflow日志级别,3对应FATAL
 # 设置应用类日志的全局日志级别及各模块日志级别，具体请参考昇腾官网CANN文档
 export ASCEND_GLOBAL_LOG_LEVEL=3 # “设置日志级别”章节0:debug, 1:info, 2:warning, 3:error, 4:NULL
@@ -76,23 +70,6 @@ export USE_MPI=1
 apply_gradient_strategy="sum_same_id_gradients_and_apply"
 #apply_gradient_strategy="direct_apply"
 export APPLY_GRADIENTS_STRATEGY=${apply_gradient_strategy}
-
-################# 参数配置 ######################
-export USE_DYNAMIC=1
-export USE_HOT=0
-export USE_DYNAMIC_EXPANSION=0
-export USE_MULTI_LOOKUP=1
-export MULTI_LOOKUP_TIMES=2
-export USE_MODIFY_GRAPH=1
-export USE_TIMESTAMP=0
-export USE_ONE_SHOT=0
-export UpdateEmb_V2=1
-export USE_COMBINE_FAAE=0
-################# 性能调优相关 ####################
-export KEY_PROCESS_THREAD_NUM=6
-export FAST_UNIQUE=0
-export MGMT_HBM_TASK_MODE=0
-################################################
 
 # 帮助信息，不需要修改
 if [[ $1 == --help || $1 == -h ]];then
@@ -155,4 +132,4 @@ fi
 echo "use horovod to start tasks"
 DATE=$(date +%Y-%m-%d-%H-%M-%S)
 horovodrun --network-interface ${interface} -np ${num_process} --mpi-args "${mpi_args}" --mpi -H localhost:${local_rank_size} \
-python3.7 ${py} 2>&1 | tee "temp_${local_rank_size}p_${KEY_PROCESS_THREAD_NUM}t_${USE_MODE}_${CACHE_MODE}_${DATE}.log"
+python3.7 ${py} 2>&1 | tee "temp_${local_rank_size}p_t_${DATE}.log"

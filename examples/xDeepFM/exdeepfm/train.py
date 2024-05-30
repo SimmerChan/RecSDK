@@ -298,7 +298,7 @@ def train(hparams, scope=None, target_session=""):
         print('at epoch {0:d} , train time: {1:.1f} eval time: {2:.1f}'.format(epoch, train_time, eval_time))
 
         hparams.logger.info('at epoch {0:d} , train time: {1:.1f} eval time: {2:.1f}' \
-                            .format(epoch, train_time, eval_time))
+                    .format(epoch, train_time, eval_time))
         hparams.logger.info('\n')
 
         if eval_res["auc"] - last_eval < - 0.003:

@@ -21,45 +21,45 @@
 
 ```python
         _fm_feat_indices, _fm_feat_values,
-        _fm_feat_shape, _labels, _dnn_feat_indices,
-        _dnn_feat_values, _dnn_feat_weights, _dnn_feat_shape = iterator.get_next()
-        self.initializer = iterator.initializer
-        self.fm_feat_indices = _fm_feat_indices
-        self.fm_feat_values = _fm_feat_values
-        self.fm_feat_shape = _fm_feat_shape
-        self.labels = _labels
-        self.dnn_feat_indices = _dnn_feat_indices
-        self.dnn_feat_values = _dnn_feat_values
-        self.dnn_feat_weights = _dnn_feat_weights
-        self.dnn_feat_shape = _dnn_feat_shape
+_fm_feat_shape, _labels, _dnn_feat_indices,
+_dnn_feat_values, _dnn_feat_weights, _dnn_feat_shape = iterator.get_next()
+self.initializer = iterator.initializer
+self.fm_feat_indices = _fm_feat_indices
+self.fm_feat_values = _fm_feat_values
+self.fm_feat_shape = _fm_feat_shape
+self.labels = _labels
+self.dnn_feat_indices = _dnn_feat_indices
+self.dnn_feat_values = _dnn_feat_values
+self.dnn_feat_weights = _dnn_feat_weights
+self.dnn_feat_shape = _dnn_feat_shape
 ```
 ` ` ` `改为：
 ```python
         batch = iterator.get_next()
-        self.initializer = iterator.initializer
-        self.fm_feat_indices = batch.get('fm_feat_indices')
-        self.fm_feat_values = batch.get('fm_feat_values')
-        self.fm_feat_shape = batch.get('fm_feat_shape')
-        self.labels = batch.get('labels')
-        self.dnn_feat_indices = batch.get('dnn_feat_indices')
-        self.dnn_feat_values = batch.get('dnn_feat_values')
-        self.dnn_feat_weights = batch.get('dnn_feat_weights')
-        self.dnn_feat_shape = batch.get('dnn_feat_shape')
+self.initializer = iterator.initializer
+self.fm_feat_indices = batch.get('fm_feat_indices')
+self.fm_feat_values = batch.get('fm_feat_values')
+self.fm_feat_shape = batch.get('fm_feat_shape')
+self.labels = batch.get('labels')
+self.dnn_feat_indices = batch.get('dnn_feat_indices')
+self.dnn_feat_values = batch.get('dnn_feat_values')
+self.dnn_feat_weights = batch.get('dnn_feat_weights')
+self.dnn_feat_shape = batch.get('dnn_feat_shape')
 ```
 
 ` ` ` `第63~65行
 ```python
         return fm_feat_indices, fm_feat_values,
-        fm_feat_shape, labels, dnn_feat_indices,
-        dnn_feat_values, dnn_feat_weights, dnn_feat_shape
+fm_feat_shape, labels, dnn_feat_indices,
+dnn_feat_values, dnn_feat_weights, dnn_feat_shape
 ```
 ` ` ` `改为：
 ```python
         return {
-            'fm_feat_indices': fm_feat_indices, 'fm_feat_values': fm_feat_values, 'fm_feat_shape': fm_feat_shape,
-            'labels': labels, 'dnn_feat_indices': dnn_feat_indices, 'dnn_feat_values': dnn_feat_values,
-            'dnn_feat_weights': dnn_feat_weights, 'dnn_feat_shape': dnn_feat_shape
-        }
+    'fm_feat_indices': fm_feat_indices, 'fm_feat_values': fm_feat_values, 'fm_feat_shape': fm_feat_shape,
+    'labels': labels, 'dnn_feat_indices': dnn_feat_indices, 'dnn_feat_values': dnn_feat_values,
+    'dnn_feat_weights': dnn_feat_weights, 'dnn_feat_shape': dnn_feat_shape
+}
 ```
 
 2、修改src/base_model.py。把embedding初始化值设成tf.zeros_initializer()，把84行
@@ -74,12 +74,12 @@
 ` ` ` `更新自动改图模式下生成新数据集中batch的label记录，把188~189行
 ```python
     def eval(self, sess):
-        return sess.run([self.loss, self.data_loss, self.pred, self.iterator.labels], \
+    return sess.run([self.loss, self.data_loss, self.pred, self.iterator.labels], \
 ```
 ` ` ` `改为：
 ```python
     def eval(self, sess, eval_label):
-        return sess.run([self.loss, self.data_loss, self.pred, eval_label], \
+    return sess.run([self.loss, self.data_loss, self.pred, eval_label], \
 ```
 
 3、修改src/exDeepFM.py。在第6行添加
@@ -97,29 +97,29 @@ from mx_rec.core.embedding import sparse_lookup
 ` ` ` `改为：
 ```python
         dense_indices = tf.sparse.to_dense(fm_sparse_index, default_value=0)
-        dense_weights = tf.sparse.to_dense(fm_sparse_weight, default_value=0)
-        
-        sparse_hashtable = create_table(key_dtype=tf.int32,
-                                        dim=tf.TensorShape([hparams.dim]),
-                                        name='sparse_embeddings_table',
-                                        emb_initializer=tf.zeros_initializer(),
-                                        device_vocabulary_size=hparams.FEATURE_COUNT,
-                                        host_vocabulary_size=0
-                                        )
-        embedded_values = sparse_lookup(sparse_hashtable,
-                                        dense_indices,
-                                        is_train=True,
-                                        name="sparse_embeddings",
-                                        modify_graph=True)
-        w_fm_nn_input_orgin = tf.reduce_sum(embedded_values * tf.expand_dims(dense_weights, axis=-1), axis=1)
+dense_weights = tf.sparse.to_dense(fm_sparse_weight, default_value=0)
+
+sparse_hashtable = create_table(key_dtype=tf.int32,
+                                dim=tf.TensorShape([hparams.dim]),
+                                name='sparse_embeddings_table',
+                                emb_initializer=tf.zeros_initializer(),
+                                device_vocabulary_size=hparams.FEATURE_COUNT,
+                                host_vocabulary_size=0
+                                )
+embedded_values = sparse_lookup(sparse_hashtable,
+                                dense_indices,
+                                is_train=True,
+                                name="sparse_embeddings",
+                                modify_graph=True)
+w_fm_nn_input_orgin = tf.reduce_sum(embedded_values * tf.expand_dims(dense_weights, axis=-1), axis=1)
 ```
 
 4、修改main.py。在第176行添加
 ```python
     # init
-    from mx_rec.util.initialize import init
-    init(use_dynamic=True,
-         use_dynamic_expansion=False)
+from mx_rec.util.initialize import init
+init(use_dynamic=True,
+     use_dynamic_expansion=False)
 ```
 
 5、修改train.py。把第35~57行
@@ -175,23 +175,41 @@ return TrainModel(
 ` ` ` `把第68~73行
 ```python
     load_sess.run(load_model.iterator.initializer, feed_dict={load_model.filenames: [filename]})
-    preds = []
-    labels = []
-    while True:
-        try:
-            _, _, step_pred, step_labels = load_model.model.eval(load_sess)
+preds = []
+labels = []
+while True:
+    try:
+        _, _, step_pred, step_labels = load_model.model.eval(load_sess)
 ```
 ` ` ` `改为：
 ```python
     from mx_rec.util.initialize import ConfigInitializer
-    eval_label = ConfigInitializer.get_instance().train_params_config.get_target_batch(True).get("labels")
-    initializer = ConfigInitializer.get_instance().train_params_config.get_initializer(True)
-    load_sess.run(initializer, feed_dict={load_model.filenames: [filename]})
-    preds = []
-    labels = []
-    while True:
-        try:
-            _, _, step_pred, step_labels = load_model.model.eval(load_sess, eval_label)
+eval_label = ConfigInitializer.get_instance().train_params_config.get_target_batch(True).get("labels")
+initializer = ConfigInitializer.get_instance().train_params_config.get_initializer(True)
+load_sess.run(initializer, feed_dict={load_model.filenames: [filename]})
+preds = []
+labels = []
+while True:
+    try:
+        _, _, step_pred, step_labels = load_model.model.eval(load_sess, eval_label)
+```
+
+` ` ` `在第223行添加
+```python
+    from mx_rec.graph.modifier import modify_graph_and_start_emb_cache
+    MODIFY_GRAPH_FLAG = True
+    if MODIFY_GRAPH_FLAG:
+        modify_graph_and_start_emb_cache(dump_graph=True)
+```
+` ` ` `把第239行
+```python
+        train_sess.run(train_model.iterator.initializer, feed_dict={train_model.filenames: [hparams.train_file_cache]})
+```
+` ` ` `改为：
+```python
+        from mx_rec.util.initialize import ConfigInitializer
+        initializer = ConfigInitializer.get_instance().train_params_config.get_initializer(True)
+        train_sess.run(initializer, feed_dict={train_model.filenames: [hparams.train_file_cache]})
 ```
 
 
@@ -222,9 +240,16 @@ raise ValueError(
     "model type must be cccfnet, deepFM, deepWide, dnn, ipnn, opnn, fm, lr, din, deepcross, exDeepFM, cross, but you set is {0}".format(
 ```
 
-3、由于去掉了无关代码src/CIN.py，修改train.py适配。删除第21行代码
+` ` ` `修改train.py适配。删除第21行代码
 ```python
 from src.CIN import CINModel
+```
+
+` ` ` `删除第210~212行代码
+```python
+    elif hparams.model_type == 'CIN':
+print("run extreme cin model!")
+model_creator = CINModel
 ```
 
 
