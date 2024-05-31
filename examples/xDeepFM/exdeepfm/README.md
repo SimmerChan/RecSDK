@@ -50,8 +50,8 @@
 ` ` ` `第63~65行
 ```python
         return fm_feat_indices, fm_feat_values,
-            fm_feat_shape, labels, dnn_feat_indices,
-            dnn_feat_values, dnn_feat_weights, dnn_feat_shape
+               fm_feat_shape, labels, dnn_feat_indices,
+               dnn_feat_values, dnn_feat_weights, dnn_feat_shape
 ```
 ` ` ` `改为：
 ```python
