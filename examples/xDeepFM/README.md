@@ -66,7 +66,7 @@
 ```python
         return tf.truncated_normal_initializer(stddev=hparams.init_value)
 ```
-` ` ` `改为：
+` ` ` `改为（为了对比CPU，xDeepFM源代码这里也要一起修改）：
 ```python
         return tf.zeros_initializer()
 ```
@@ -221,7 +221,7 @@ from mx_rec.core.embedding import sparse_lookup
 ```python
             config = yaml.load(f)
 ```
-` ` ` `改为：
+` ` ` `改为（为了xDeepFM源代码在CPU上能跑通，这里也要一起修改）：
 ```python
              config = yaml.safe_load(f)
 ```
