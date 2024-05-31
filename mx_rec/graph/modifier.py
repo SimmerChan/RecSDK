@@ -262,7 +262,7 @@ class _GraphModifier:
 
                 # gather for slot need to be executed after swap_op
                 slot_control_dict = swap_args.slot_control_dict[table_instance.variable]
-                if "control_ops" not in swap_control_dict:
+                if "control_ops" not in slot_control_dict:
                     raise ValueError("Slot control missing key [control_ops] in modify_graph_for_asc")
                 slot_control_ops = slot_control_dict["control_ops"]
                 utils.replace_anchor_control(self._full_graph, slot_control_ops, swap_op)
