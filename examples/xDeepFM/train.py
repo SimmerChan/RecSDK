@@ -211,7 +211,7 @@ def train(hparams, scope=None, target_session=""):
     else:
         raise ValueError("model type should be cccfnet, deepFM, deepWide, dnn, fm, lr, ipnn, opnn, din")
 
-   # define train,eval,infer graph
+    # define train,eval,infer graph
     # define train session, eval session, infer session
     train_model = create_train_model(model_creator, hparams, scope)
     gpuconfig = tf.ConfigProto()
