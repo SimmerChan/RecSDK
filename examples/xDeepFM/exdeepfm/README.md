@@ -253,6 +253,7 @@ model_creator = CINModel
 ```
 
 ## 运行命令
+为了适配mxRec运行环境，添加了run.sh。
 ```shell
 bash run.sh main.py 10.10.10.10
 ```
