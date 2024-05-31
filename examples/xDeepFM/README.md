@@ -240,7 +240,7 @@ from mx_rec.core.embedding import sparse_lookup
             "model type must be cccfnet, deepFM, deepWide, dnn, ipnn, opnn, fm, lr, din, deepcross, exDeepFM, cross, but you set is {0}".format(
 ```
 
-` ` ` `修改train.py适配。删除第21行代码
+` ` ` `删除第21行代码
 ```python
 from src.CIN import CINModel
 ```
