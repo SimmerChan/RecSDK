@@ -40,7 +40,7 @@ def get_dense_and_sparse_optimizer(cfg):
         else:
             sparse_optimizer = create_hash_optimizer(learning_rate=cfg.learning_rate[1], weight_decay=0.0001)
         loss_scale = 1024
-    sparse_optimizer = SparseLossScaleOptimizer(sparse_optimizer, loss_scale, cfg)
-    dense_optimizer = DenseLossScaleOptimizer(dense_optimizer, loss_scale, cfg)
+    sparse_optimizer = SparseLossScaleOptimizer(sparse_optimizer, loss_scale)
+    dense_optimizer = DenseLossScaleOptimizer(dense_optimizer, loss_scale)
 
     return dense_optimizer, sparse_optimizer
