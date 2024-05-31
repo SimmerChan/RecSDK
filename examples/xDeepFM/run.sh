@@ -66,11 +66,6 @@ export ASCEND_GLOBAL_LOG_LEVEL=3 # “设置日志级别”章节0:debug, 1:info
 export MXREC_MODE="ASC"
 export USE_MPI=1
 
-# 配置梯度策略
-apply_gradient_strategy="sum_same_id_gradients_and_apply"
-#apply_gradient_strategy="direct_apply"
-export APPLY_GRADIENTS_STRATEGY=${apply_gradient_strategy}
-
 # 帮助信息，不需要修改
 if [[ $1 == --help || $1 == -h ]];then
     echo "Usage: ./run.sh [OPTION]... [IP]..."
