@@ -219,8 +219,8 @@ def train(hparams, scope=None, target_session=""):
     tf.set_random_seed(1234)
 
     from mx_rec.graph.modifier import modify_graph_and_start_emb_cache
-    MODIFY_GRAPH_FLAG = True
-    if MODIFY_GRAPH_FLAG:
+    modify_graph_flag = True
+    if modify_graph_flag:
         modify_graph_and_start_emb_cache(dump_graph=True)
 
     train_sess = tf.Session(target=target_session, graph=train_model.graph, config=npu_config_proto(config_proto=gpuconfig))

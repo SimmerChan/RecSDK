@@ -197,8 +197,8 @@ from mx_rec.core.embedding import sparse_lookup
 ` ` ` `在第223行添加
 ```python
     from mx_rec.graph.modifier import modify_graph_and_start_emb_cache
-    MODIFY_GRAPH_FLAG = True
-    if MODIFY_GRAPH_FLAG:
+    modify_graph_flag = True
+    if modify_graph_flag:
         modify_graph_and_start_emb_cache(dump_graph=True)
 ```
 ` ` ` `把第239行
