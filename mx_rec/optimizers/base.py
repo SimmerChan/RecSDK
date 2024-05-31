@@ -146,7 +146,7 @@ def custom_update_op(self, opt, grad):
 
 def control_update_op_decorator(apply_sparse):
     def wrapper(*args, **kwargs):
-        second_arg = args[1] if len(args) > 1 else None  # second input must be var
+        second_arg = args[2] if len(args) > 2 else None  # index 2 input must be var
         slot_control_ops = tf.no_op(name="place_holder_slot_control_op")
         swap_args = SwapArgs()
         swap_args.set_slot_control(var_name=second_arg, control_ops=slot_control_ops)
