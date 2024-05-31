@@ -19,4 +19,3 @@ class Log(object):
         formatter = logging.Formatter('%(message)s')
         handler.setFormatter(formatter)
         self.logger.addHandler(handler)
-
