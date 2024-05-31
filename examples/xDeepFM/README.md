@@ -237,7 +237,8 @@ from mx_rec.core.embedding import sparse_lookup
 ```python
                                              'opnn', 'fm', 'lr', 'din', 'cccfnet', 'deepcross', 'exDeepFM', "cross"]:
         raise ValueError(
-            "model type must be cccfnet, deepFM, deepWide, dnn, ipnn, opnn, fm, lr, din, deepcross, exDeepFM, cross, but you set is {0}".format(
+            "model type must be cccfnet, deepFM, deepWide, dnn, ipnn, opnn, fm, lr, din, deepcross, exDeepFM, "
+            "cross, but you set is {0}".format(config['model']['model_type']))
 ```
 
 ` ` ` `修改train.py适配。删除第21行代码
