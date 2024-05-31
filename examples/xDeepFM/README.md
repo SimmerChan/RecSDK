@@ -240,7 +240,7 @@ from mx_rec.core.embedding import sparse_lookup
             "model type must be cccfnet, deepFM, deepWide, dnn, ipnn, opnn, fm, lr, din, deepcross, exDeepFM, cross, but you set is {0}".format(
 ```
 
-` ` ` `删除第21行代码
+` ` ` `修改train.py适配。删除第21行代码
 ```python
 from src.CIN import CINModel
 ```
@@ -248,8 +248,8 @@ from src.CIN import CINModel
 ` ` ` `删除第210~212行代码
 ```python
     elif hparams.model_type == 'CIN':
-print("run extreme cin model!")
-model_creator = CINModel
+        print("run extreme cin model!")
+        model_creator = CINModel
 ```
 
 ## 运行命令
