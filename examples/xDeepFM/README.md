@@ -117,20 +117,44 @@ from mx_rec.core.embedding import sparse_lookup
 4、修改main.py。在第176行添加
 ```python
     # init
-from mx_rec.util.initialize import init
-init(use_dynamic=True,
-     use_dynamic_expansion=False)
+    from mx_rec.util.initialize import init
+    init(use_dynamic=True,
+         use_dynamic_expansion=False)
 ```
 
 5、修改train.py。把第35~57行
 ```python
     graph = tf.Graph()
-with graph.as_default():
+    with graph.as_default():
+        # feed train file name, valid file name, or test file name
+        filenames = tf.placeholder(tf.string, shape=[None])
+        #src_dataset = tf.contrib.data.TFRecordDataset(filenames)
+        src_dataset = tf.data.TFRecordDataset(filenames)
+    
+        if hparams.data_format == 'ffm':
+            batch_input = FfmIterator(src_dataset)
+        elif hparams.data_format == 'din':
+            batch_input = DinIterator(src_dataset)
+        elif hparams.data_format == 'cccfnet':
+            batch_input = CCCFNetIterator(src_dataset)
+        else:
+            raise ValueError("not support {0} format data".format(hparams.data_format))
+        # build model
+        model = model_creator(
+            hparams,
+            iterator=batch_input,
+            scope=scope)
+    
+    return TrainModel(
+        graph=graph,
+```
+` ` ` `改为：
+```python
     # feed train file name, valid file name, or test file name
     filenames = tf.placeholder(tf.string, shape=[None])
-    #src_dataset = tf.contrib.data.TFRecordDataset(filenames)
+    # src_dataset = tf.contrib.data.TFRecordDataset(filenames)
     src_dataset = tf.data.TFRecordDataset(filenames)
-
+    
     if hparams.data_format == 'ffm':
         batch_input = FfmIterator(src_dataset)
     elif hparams.data_format == 'din':
@@ -144,33 +168,9 @@ with graph.as_default():
         hparams,
         iterator=batch_input,
         scope=scope)
-
-return TrainModel(
-    graph=graph,
-```
-` ` ` `改为：
-```python
-    # feed train file name, valid file name, or test file name
-filenames = tf.placeholder(tf.string, shape=[None])
-# src_dataset = tf.contrib.data.TFRecordDataset(filenames)
-src_dataset = tf.data.TFRecordDataset(filenames)
-
-if hparams.data_format == 'ffm':
-    batch_input = FfmIterator(src_dataset)
-elif hparams.data_format == 'din':
-    batch_input = DinIterator(src_dataset)
-elif hparams.data_format == 'cccfnet':
-    batch_input = CCCFNetIterator(src_dataset)
-else:
-    raise ValueError("not support {0} format data".format(hparams.data_format))
-# build model
-model = model_creator(
-    hparams,
-    iterator=batch_input,
-    scope=scope)
-
-return TrainModel(
-    graph=tf.get_default_graph(),
+    
+    return TrainModel(
+        graph=tf.get_default_graph(),
 ```
 ` ` ` `把第68~73行
 ```python
@@ -230,14 +230,14 @@ return TrainModel(
 
 ```python
                                              'opnn', 'fm', 'lr', 'din', 'cccfnet', 'deepcross', 'exDeepFM', "cross", "CIN"]:
-raise ValueError(
-    "model type must be cccfnet, deepFM, deepWide, dnn, ipnn, opnn, fm, lr, din, deepcross, exDeepFM, cross, CIN but you set is {0}".format(
+        raise ValueError(
+            "model type must be cccfnet, deepFM, deepWide, dnn, ipnn, opnn, fm, lr, din, deepcross, exDeepFM, cross, CIN but you set is {0}".format(
 ```
 ` ` ` `改为：
 ```python
                                              'opnn', 'fm', 'lr', 'din', 'cccfnet', 'deepcross', 'exDeepFM', "cross"]:
-raise ValueError(
-    "model type must be cccfnet, deepFM, deepWide, dnn, ipnn, opnn, fm, lr, din, deepcross, exDeepFM, cross, but you set is {0}".format(
+        raise ValueError(
+            "model type must be cccfnet, deepFM, deepWide, dnn, ipnn, opnn, fm, lr, din, deepcross, exDeepFM, cross, but you set is {0}".format(
 ```
 
 ` ` ` `修改train.py适配。删除第21行代码

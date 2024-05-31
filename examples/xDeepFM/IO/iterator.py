@@ -27,7 +27,6 @@ class FfmIterator(BaseIterator):
         src_dataset = src_dataset.map(self.parser)
         # src_dataset = src_dataset.shuffle(buffer_size=BUFFER_SIZE)
         iterator = src_dataset.make_initializable_iterator()
-
         batch = iterator.get_next()
         self.initializer = iterator.initializer
         self.fm_feat_indices = batch.get('fm_feat_indices')
