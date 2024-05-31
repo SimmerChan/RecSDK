@@ -96,3 +96,4 @@ def cal_group_auc(labels, preds, impression_id_list):
     group_auc = float(total_auc) / impression_total
     group_auc = round(group_auc, 4)
     return group_auc
+

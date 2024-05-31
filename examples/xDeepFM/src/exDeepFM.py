@@ -422,3 +422,4 @@ class ExtremeDeepFMModel(BaseModel):
             self.layer_params.append(b_nn_output)
             nn_output = tf.nn.xw_plus_b(hidden_nn_layers[-1], w_nn_output, b_nn_output)
             return nn_output
+

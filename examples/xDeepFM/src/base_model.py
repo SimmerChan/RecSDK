@@ -192,3 +192,4 @@ class BaseModel(object):
     def infer(self, sess):
         return sess.run([self.pred], \
                         feed_dict={self.layer_keeps: self.keep_prob_test})
+

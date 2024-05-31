@@ -161,3 +161,4 @@ class FfmCache(BaseCache):
             for item in sort_feature_cnt:
                 f.write(str(item[0]) + ',' + str(item[1]) + '\n')
         return sample_num, impression_id_list
+

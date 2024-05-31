@@ -309,3 +309,4 @@ def train(hparams, scope=None, target_session=""):
     # after train,run infer
     if hparams.infer_file is not None:
         run_infer(train_model, train_sess, hparams.infer_file_cache, hparams, util.INFER_NUM)
+

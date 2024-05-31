@@ -12,3 +12,4 @@ class BaseCache(object):
     def write_tfrecord(self, infile, outfile, hparams):
         """Subclass must implement this."""
         pass
+
