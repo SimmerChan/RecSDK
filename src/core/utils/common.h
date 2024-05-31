@@ -373,16 +373,7 @@ namespace MxRec {
         return ss.str();
     }
 
-    std::string FloatPtrToLimitStr(float* ptr, const size_t& prtSize)
-    {
-        constexpr size_t maxDispLen = 10; // max display number
-        int maxLen = static_cast<int>(std::min(prtSize, maxDispLen));
-        std::string s;
-        for (int i = 0; i < maxLen; i++) {
-            s += std::to_string(*(ptr + i)) + " ";
-        }
-        return s;
-    }
+    std::string FloatPtrToLimitStr(float* ptr, const size_t& prtSize);
 
     template<typename T>
     class VecToLimitStr
