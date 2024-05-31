@@ -211,7 +211,7 @@ from mx_rec.core.embedding import sparse_lookup
         initializer = ConfigInitializer.get_instance().train_params_config.get_initializer(True)
         train_sess.run(initializer, feed_dict={train_model.filenames: [hparams.train_file_cache]})
 ```
-
+6、为了适配mxRec运行环境，添加了run.sh。
 
 ## 适配其他代码
 
@@ -253,7 +253,6 @@ from src.CIN import CINModel
 ```
 
 ## 运行命令
-为了适配mxRec运行环境，添加了run.sh。
 ```shell
 bash run.sh main.py 10.10.10.10
 ```
