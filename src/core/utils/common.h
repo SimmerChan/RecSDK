@@ -361,9 +361,12 @@ namespace MxRec {
     template<typename T>
     std::string VectorToString(const std::vector<T>& vec)
     {
+        constexpr size_t maxDispLen = 20; // max display number
+        int maxLen = static_cast<int>(std::min(vec.size(), maxDispLen));
+
         std::stringstream ss;
         ss << "[";
-        for (size_t i = 0; i < vec.size(); ++i) {
+        for (size_t i = 0; i < maxLen; ++i) {
             ss << vec[i];
             if (i != vec.size() - 1) {
                 ss << ", ";
@@ -374,23 +377,6 @@ namespace MxRec {
     }
 
     std::string FloatPtrToLimitStr(float* ptr, const size_t& prtSize);
-
-    template<typename T>
-    class VecToLimitStr
-    {
-        static_assert(std::is_arithmetic_v<T>, "T must be numeric type");
-    public:
-        std::string operator()(const std::vector<T>& v)
-        {
-            constexpr size_t maxDispLen = 10; // max display number
-            int maxLen = static_cast<int>(std::min(v.size(), maxDispLen));
-            std::string s;
-            for (int i = 0; i < maxLen; i++) {
-                s += std::to_string(v[i]) + " ";
-            }
-            return s;
-        }
-    };
 
     template<typename K, typename V>
     std::string MapToString(const std::map<K, V>& map)

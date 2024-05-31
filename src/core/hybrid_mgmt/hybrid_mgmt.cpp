@@ -2193,10 +2193,11 @@ void HybridMgmt::GetSwapPairsAndKey2Offset(const EmbBaseInfo &info, vector<uint6
     }
     LOG_DEBUG("table:{}, channel:{}, batchId:{}, GetSwapPairsAndKey2OffsetTC(ms):{}",
               info.name, info.channelId, info.batchId, GetSwapPairsAndKey2OffsetTC.ElapsedMS());
-    VecToLimitStr<uint64_t> converter;
+
     LOG_DEBUG("table:{}, channel:{}, batchId:{}, swapIn keys:{}, swapIn pos:{}, swapOut keys:{}, swapOut pos:{}",
-              info.name, info.channelId, info.batchId, converter(swapInKoPair.first),
-              converter(swapInKoPair.second), converter(swapOutKoPair.first), converter(swapOutKoPair.second));
+              info.name, info.channelId, info.batchId, VectorToString(swapInKoPair.first),
+              VectorToString(swapInKoPair.second), VectorToString(swapOutKoPair.first),
+              VectorToString(swapOutKoPair.second));
 }
 
 void HybridMgmt::EnqueueSwapInfo(const EmbBaseInfo &info,
