@@ -24,7 +24,7 @@ class DenseLossScaleOptimizer:
             raise ValueError('"opt" must be an instance of Optimizer, but got: %s' % type(opt))
         self._optimizer = opt
         self._loss_scale = tf.convert_to_tensor(loss_scale, tf.float32)
-        self._optimizer._learning_rate = self._optimizer._learning_rate / self._loss_scale
+        self._optimizer._learning_rate = self._optimizer._lr / self._loss_scale
 
     def compute_gradients(self, loss, var_list=None):
         return self._optimizer.compute_gradients(loss*self._loss_scale, var_list=var_list)
@@ -39,7 +39,7 @@ class SparseLossScaleOptimizer:
             raise ValueError('"opt" must be an instance of Optimizer, but got: %s' % type(opt))
         self._optimizer = opt
         self._loss_scale = tf.convert_to_tensor(loss_scale, tf.float32)
-        self._optimizer._learning_rate = self._optimizer._learning_rate / self._loss_scale
+        self._optimizer._learning_rate = self._optimizer._lr / self._loss_scale
 
     def compute_gradients(self, loss, var_list=None):
         return tf.gradients(loss*self._loss_scale, var_list)
