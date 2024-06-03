@@ -1514,10 +1514,16 @@ void HybridMgmt::EmbeddingUpdateDDR(const EmbTaskInfo& info, const float* embPtr
             throw runtime_error("memcpy_s failed, error code:" + to_string(rc));
         }
     }
-    LOG_DEBUG("table:{}, batchId:{}, thread:{}, receive d2hEmb, ext emb:{}, emb size:{}, emb samples:{}, "
-              "EmbeddingUpdateTC(ms):{}", info.name.c_str(), info.batchId, info.threadIdx,
-              info.extEmbeddingSize, swapOutAddrs.size(),
-              FloatPtrToLimitStr(swapOutAddrs[0], info.extEmbeddingSize), EmbeddingUpdateTC.ElapsedMS());
+    if (MxRec::Logger::GetLevel() <= MxRec::Logger::DEBUG) {
+        string sample;
+        if (!swapOutAddrs.empty()) {
+            sample = FloatPtrToLimitStr(swapOutAddrs.front(), info.extEmbeddingSize); // print first element
+        }
+        LOG_DEBUG("table:{}, batchId:{}, thread:{}, receive d2hEmb, ext emb:{}, emb size:{}, emb samples:{}, "
+                  "EmbeddingUpdateTC(ms):{}", info.name.c_str(), info.batchId, info.threadIdx,
+                  info.extEmbeddingSize, swapOutAddrs.size(), sample, EmbeddingUpdateTC.ElapsedMS());
+    }
+
 
     lastUpdateFinishStepMap[info.name]++;
     cvLastUpdateFinishMap[info.name][info.cvNotifyIndex].notify_all();
