@@ -34,9 +34,6 @@ from mx_rec.util.log import logger
 from mx_rec.util.communication.hccl_ops import get_rank_size
 
 
-CLIP_SLOT_MAX_VALUE = 10000000
-
-
 def get_restore_vector_second(table_name: str, max_lookup_vec_size: int) -> tf.Tensor:
     """
     Get restore vector which is calculated after the second all2all

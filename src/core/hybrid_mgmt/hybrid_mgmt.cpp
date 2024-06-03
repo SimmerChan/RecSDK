@@ -1525,7 +1525,6 @@ void HybridMgmt::EmbeddingUpdateDDR(const EmbTaskInfo& info, const float* embPtr
                   info.extEmbeddingSize, swapOutAddrs.size(), sample, EmbeddingUpdateTC.ElapsedMS());
     }
 
-
     lastUpdateFinishStepMap[info.name]++;
     cvLastUpdateFinishMap[info.name][info.cvNotifyIndex].notify_all();
 }
