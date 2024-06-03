@@ -175,15 +175,17 @@ public:
             }
             bucket->replaceBase = replaceOffset;
             for (int j = 0; j < bucket->count; ++j) {
-                out[total++] = static_cast<int64_t>(bucket->data[j]);
+                out[total] = static_cast<int64_t>(bucket->data[j]);
+                ++total;
             }
             replaceOffset += bucket->count;
         }
         auto it = overflow_.begin();
         int32_t totalOverflow = 0;
         while (it != overflow_.end()) {
-            out[total++] = it->first;
+            out[total] = it->first;
             it->second = replaceOffset++;
+            ++total;
             ++it;
             ++totalOverflow;
         }
