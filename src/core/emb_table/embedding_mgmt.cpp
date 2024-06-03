@@ -19,6 +19,7 @@ See the License for the specific language governing permissions and
 #include "emb_table/embedding_static.h"
 #include "emb_table/embedding_dynamic.h"
 #include "emb_table/embedding_ddr.h"
+#include "file_system/file_system_handler.h"
 #include "utils/logger.h"
 
 using namespace MxRec;
@@ -117,7 +118,9 @@ void EmbeddingMgmt::Load(const string& name, const string& filePath,
 void EmbeddingMgmt::Load(const string& filePath, map<string, unordered_set<emb_cache_key_t>>& trainKeySet)
 {
     for (auto& tablePair: embeddings) {
+        tablePair.second->SetFileSystemPtr(filePath);
         tablePair.second->Load(filePath, trainKeySet);
+        tablePair.second->UnsetFileSystemPtr();
     }
 }
 
@@ -128,6 +131,9 @@ void EmbeddingMgmt::Save(const string& name, const string& filePath)
 
 void EmbeddingMgmt::Save(const string& filePath)
 {
+     for (auto& tablePair: embeddings) {
+        tablePair.second->SetFileSystemPtr(filePath);
+     }
     // use multi-thread to prevent receiving save_d2h blocked when table order different between cpp and python
     vector<future<void>> futures;
     for (auto& tablePair: embeddings) {
@@ -136,6 +142,10 @@ void EmbeddingMgmt::Save(const string& filePath)
     }
     for (auto& f: futures) {
         f.get();  // get() will repost exception if happened
+    }
+
+    for (auto& tablePair: embeddings) {
+        tablePair.second->UnsetFileSystemPtr();
     }
 }
 

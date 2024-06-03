@@ -119,6 +119,17 @@ absl::flat_hash_map<emb_key_t, int64_t> EmbeddingTable::GetKeyOffsetMap()
     return keyOffsetMap;
 }
 
+void EmbeddingTable::SetFileSystemPtr(const string& savePath)
+{
+    unique_ptr<FileSystemHandler> fileSystemHandler = make_unique<FileSystemHandler>();
+    fileSystemPtr_ = fileSystemHandler->Create(savePath);
+}
+
+void EmbeddingTable::UnsetFileSystemPtr()
+{
+    fileSystemPtr_ = nullptr;
+}
+
 vector<int64_t> EmbeddingTable::GetLoadOffset()
 {
     return loadOffset;

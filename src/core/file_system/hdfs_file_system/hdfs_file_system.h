@@ -28,7 +28,10 @@ namespace MxRec {
         {
             hdfs = make_unique<HdfsWrapper>();
         };
-        ~HdfsFileSystem() override {}
+        ~HdfsFileSystem()
+        {
+            hdfs->Disconnect(fs);
+        }
 
         void CreateDir(const string& dirName) override;
         vector<string> ListDir(const string& dirName) override;
@@ -48,6 +51,7 @@ namespace MxRec {
         hdfsFS ConnectHdfs();
 
         unique_ptr<HdfsWrapper> hdfs;
+        hdfsFS fs;
     };
 }
 
