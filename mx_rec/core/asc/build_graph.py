@@ -35,9 +35,6 @@ class SwapInfo:
     swap_out_len: int = 0
     swap_out_pos: List[tf.Tensor] = field(default_factory=lambda: [])
 
-ASCAnchorAttr.TABLE_NAME.value
-ASCAnchorAttr.CHANNEL_ID.value
-
 
 def get_restore_vector(config):
     logger.debug('Channel %s_restore_%s was built for getnext', config.get(ASCAnchorAttr.TABLE_NAME.value),
