@@ -1,4 +1,5 @@
 """define util function and  global variable"""
+from npu_bridge.npu_init import *
 import tensorflow as tf
 import os, sys
 import time, yaml
@@ -59,7 +60,7 @@ def check_file_exist(filename):
 def load_yaml_file(filename):
     with open(filename) as f:
         try:
-            config = yaml.load(f)
+            config = yaml.safe_load(f)
         except:
             raise IOError("load {0} error!".format(filename))
     return config
@@ -81,3 +82,4 @@ def convert_res_name(file_name):
         replace(".csv", ".tfrecord"). \
         replace(".libsvm", ".tfrecord")
     return res_name
+
