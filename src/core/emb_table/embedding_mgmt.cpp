@@ -112,7 +112,9 @@ int64_t EmbeddingMgmt::GetCapacity(const std::string &name)
 void EmbeddingMgmt::Load(const string& name, const string& filePath,
                          map<string, unordered_set<emb_cache_key_t>>& trainKeySet)
 {
-    return embeddings[name]->Load(filePath, trainKeySet);
+    embeddings[name]->SetFileSystemPtr(filePath);
+    embeddings[name]->Load(filePath, trainKeySet);
+    embeddings[name]->UnsetFileSystemPtr();
 }
 
 void EmbeddingMgmt::Load(const string& filePath, map<string, unordered_set<emb_cache_key_t>>& trainKeySet)
@@ -126,14 +128,16 @@ void EmbeddingMgmt::Load(const string& filePath, map<string, unordered_set<emb_c
 
 void EmbeddingMgmt::Save(const string& name, const string& filePath)
 {
-    return embeddings[name]->Save(filePath);
+    embeddings[name]->SetFileSystemPtr(filePath);
+    embeddings[name]->Save(filePath);
+    embeddings[name]->UnsetFileSystemPtr();
 }
 
 void EmbeddingMgmt::Save(const string& filePath)
 {
-     for (auto& tablePair: embeddings) {
+    for (auto& tablePair: embeddings) {
         tablePair.second->SetFileSystemPtr(filePath);
-     }
+    }
     // use multi-thread to prevent receiving save_d2h blocked when table order different between cpp and python
     vector<future<void>> futures;
     for (auto& tablePair: embeddings) {

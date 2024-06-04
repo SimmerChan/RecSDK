@@ -91,6 +91,10 @@ void EmbeddingStatic::SaveKey(const string& savePath)
         deviceOffset.push_back(it.second);
     }
 
+    if (fileSystemPtr_ == nullptr) {
+        throw runtime_error("failed to obtain the file system pointer, the file system pointer is null.");
+    }
+
     size_t writeSize = static_cast<size_t>(deviceKey.size() * sizeof(int64_t));
     ssize_t res = fileSystemPtr_->Write(ss.str(), reinterpret_cast<const char *>(deviceKey.data()), writeSize);
     if (res == -1) {
@@ -113,6 +117,9 @@ void EmbeddingStatic::LoadKey(const string& savePath)
     stringstream ss;
     ss << savePath << "/" << name << "/key/slice.data";
 
+    if (fileSystemPtr_ == nullptr) {
+        throw runtime_error("failed to obtain the file system pointer, the file system pointer is null.");
+    }
     size_t fileSize = fileSystemPtr_->GetFileSize(ss.str());
     if (fileSize >= FILE_MAX_SIZE) {
         throw runtime_error(StringFormat("Error: Load keys failed. file {} size {}  is too big.", ss.str(), fileSize));

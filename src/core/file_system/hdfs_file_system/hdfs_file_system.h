@@ -24,10 +24,7 @@ namespace MxRec {
 
     class HdfsFileSystem : public FileSystem {
     public:
-        HdfsFileSystem()
-        {
-            hdfs = make_unique<HdfsWrapper>();
-        };
+        HdfsFileSystem() {};
         ~HdfsFileSystem()
         {
             hdfs->Disconnect(fs);
@@ -50,8 +47,8 @@ namespace MxRec {
 
         hdfsFS ConnectHdfs();
 
-        unique_ptr<HdfsWrapper> hdfs;
-        hdfsFS fs;
+        unique_ptr<HdfsWrapper> hdfs = make_unique<HdfsWrapper>();
+        hdfsFS fs = ConnectHdfs();
     };
 }
 

@@ -145,9 +145,10 @@ void EmbeddingTable::Save(const string& filePath)
 
 void EmbeddingTable::MakeDir(const string& dirName)
 {
-    auto fileSystemHandler = make_unique<FileSystemHandler>();
-    unique_ptr<FileSystem> fileSystemPtr = fileSystemHandler->Create(dirName);
-    fileSystemPtr->CreateDir(dirName);
+    if (fileSystemPtr_ == nullptr) {
+        throw runtime_error("failed to obtain the file system pointer, the file system pointer is null.");
+    }
+    fileSystemPtr_->CreateDir(dirName);
 }
 
 void EmbeddingTable::SetCacheManager(CacheManager *cm)

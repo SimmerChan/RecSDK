@@ -83,7 +83,7 @@ ssize_t HdfsFileSystem::Write(const string& filePath, vector<vector<float>>& fil
     hdfsFile file = hdfs->OpenFile(fs, filePath.c_str(), O_WRONLY | O_CREAT, 0, 0, 0);
     if (!file) {
         throw runtime_error(StringFormat("Error: Unable to open hdfs file : {}.", filePath.c_str()));
-    }-
+    }
 
     tSize writeBytesNum = 0;
     size_t loops = fileContent.size();
@@ -254,9 +254,9 @@ void HdfsFileSystem::ReadEmbedding(const string& filePath, EmbeddingSizeInfo& em
 
 hdfsFS HdfsFileSystem::ConnectHdfs()
 {
-    hdfsFS fs = hdfs->Connect("default", 0);
-    if (!fs) {
+    hdfsFS hdfsClient = hdfs->Connect("default", 0);
+    if (!hdfsClient) {
         throw runtime_error("Connect hdfs file system failed.");
     }
-    return fs;
+    return hdfsClient;
 }

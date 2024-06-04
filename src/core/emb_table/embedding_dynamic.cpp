@@ -146,6 +146,9 @@ void EmbeddingDynamic::SaveKey(const string& savePath)
         embAddress.push_back(it.second);
     }
 
+    if (fileSystemPtr_ == nullptr) {
+        throw runtime_error("failed to obtain the file system pointer, the file system pointer is null.");
+    }
     size_t writeSize = static_cast<size_t>(deviceKey.size() * sizeof(int64_t));
     ssize_t res = fileSystemPtr_->Write(ss.str(), reinterpret_cast<const char *>(deviceKey.data()), writeSize);
     if (res == -1) {
@@ -191,11 +194,18 @@ void EmbeddingDynamic::SaveEmbData(const string& savePath)
     MakeDir(ss.str());
     ss << "slice_" << rankId_ << ".data";
 
+    if (fileSystemPtr_ == nullptr) {
+        throw runtime_error("failed to obtain the file system pointer, the file system pointer is null.");
+    }
     fileSystemPtr_->WriteEmbedding(ss.str(), embSize_, embAddress, deviceId);
 }
 
 void EmbeddingDynamic::SaveOptimData(const string &savePath)
 {
+    if (fileSystemPtr_ == nullptr) {
+        throw runtime_error("failed to obtain the file system pointer, the file system pointer is null.");
+    }
+
     for (const auto &content: optimAddressMap) {
         stringstream ss;
         ss << savePath << "/" << name << "/" << optimName + "_" + content.first << "/";
@@ -220,6 +230,10 @@ void EmbeddingDynamic::LoadEmbAndOptim(const string& savePath)
     // 读embedding
     stringstream embedStream;
     embedStream << ss.str() << "/" << "embedding/slice.data";
+
+    if (fileSystemPtr_ == nullptr) {
+        throw runtime_error("failed to obtain the file system pointer, the file system pointer is null.");
+    }
     EmbeddingSizeInfo embeddingSizeInfo = {embSize_, extEmbSize_};
     fileSystemPtr_->ReadEmbedding(embedStream.str(), embeddingSizeInfo, firstAddress, rankId_, loadOffset);
 
@@ -229,7 +243,7 @@ void EmbeddingDynamic::LoadEmbAndOptim(const string& savePath)
         stringstream paramStream;
         paramStream << ss.str() << "/" << optimName + "_" + param << "/slice.data";
         fileSystemPtr_->ReadEmbedding(paramStream.str(), embeddingSizeInfo,
-                                     firstAddress + optimIndex * embSize_ * sizeof(float), deviceId, loadOffset);
+                                      firstAddress + optimIndex * embSize_ * sizeof(float), deviceId, loadOffset);
         optimIndex++;
     }
 }
@@ -239,6 +253,9 @@ void EmbeddingDynamic::LoadKey(const string& savePath)
     stringstream ss;
     ss << savePath << "/" << name << "/key/slice.data";
 
+    if (fileSystemPtr_ == nullptr) {
+        throw runtime_error("failed to obtain the file system pointer, the file system pointer is null.");
+    }
     size_t fileSize = fileSystemPtr_->GetFileSize(ss.str());
     if (fileSize >= FILE_MAX_SIZE) {
         throw runtime_error(StringFormat("Error: Load keys failed. file {} size {}  is too big.", ss.str(), fileSize));

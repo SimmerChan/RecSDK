@@ -85,6 +85,10 @@ void EmbeddingDDR::LoadKey(const string &savePath, vector<emb_cache_key_t> &keys
     stringstream ss;
     ss << savePath << "/" << name << "/key/slice.data";
 
+    if (fileSystemPtr_ == nullptr) {
+        throw runtime_error("failed to obtain the file system pointer, the file system pointer is null.");
+    }
+
     size_t fileSize = 0;
     try {
         fileSize = fileSystemPtr_->GetFileSize(ss.str());
@@ -140,9 +144,12 @@ void EmbeddingDDR::LoadEmbedding(const string &savePath, vector<vector<float>> &
 
     stringstream ss;
     ss << savePath << "/" << name;
-
     stringstream embedStream;
     embedStream << ss.str() << "/" << "embedding/slice.data";
+
+    if (fileSystemPtr_ == nullptr) {
+        throw runtime_error("failed to obtain the file system pointer, the file system pointer is null.");
+    }
     ssize_t res = fileSystemPtr_->Read(embedStream.str(), embeddings, 0, hostLoadOffset, embSize_);
     LOG_DEBUG("load embedding done, table:{}, read bytes:{}", name, res);
 }
@@ -163,6 +170,9 @@ void EmbeddingDDR::LoadOptimizerSlot(const string &savePath, vector<vector<float
     stringstream ss;
     ss << savePath << "/" << name;
 
+    if (fileSystemPtr_ == nullptr) {
+        throw runtime_error("failed to obtain the file system pointer, the file system pointer is null.");
+    }
     int64_t slotIdx = 0;
     for (const auto &param: optimParams) {
         stringstream paramStream;
@@ -257,8 +267,11 @@ void EmbeddingDDR::SaveKey(const string& savePath, vector<emb_cache_key_t>& keys
     // 暂时向HBM兼容，转成int64_t，后续再归一key类型为uint64_t
     vector<int64_t> keysCompat(keys.cbegin(), keys.cend());
 
+    if (fileSystemPtr_ == nullptr) {
+        throw runtime_error("failed to obtain the file system pointer, the file system pointer is null.");
+    }
     ssize_t res = fileSystemPtr_->Write(ss.str(), reinterpret_cast<const char *>(keysCompat.data()),
-                                       static_cast<size_t>(keys.size() * sizeof(int64_t)));
+                                        static_cast<size_t>(keys.size() * sizeof(int64_t)));
     if (res == -1) {
         throw runtime_error("save key failed!");
     }
@@ -271,6 +284,9 @@ void EmbeddingDDR::SaveEmbedding(const string& savePath, vector<vector<float>>& 
     MakeDir(ss.str());
     ss << "slice_" << rankId_ << ".data";
 
+    if (fileSystemPtr_ == nullptr) {
+        throw runtime_error("failed to obtain the file system pointer, the file system pointer is null.");
+    }
     ssize_t writeBytesNum = fileSystemPtr_->Write(ss.str(), embeddings, embSize_);
     ssize_t expectWriteBytes = embeddings.size() * embSize_ * sizeof(float);
     if (writeBytesNum != expectWriteBytes) {

@@ -74,7 +74,7 @@ public:
 
     virtual void Save(const string& savePath);
 
-    static void MakeDir(const string& dirName);
+    void MakeDir(const string& dirName);
 
     virtual vector<int64_t> GetDeviceOffset();
 
