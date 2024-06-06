@@ -76,8 +76,8 @@ def split_byline_count(filename, count, sub_dir_name):
         if len(buf) != 0:
             try:
                 make_sub_file(buf, head, filename, sub_dir_name, sub)
-            except Exception as err:
-                raise Exception("please check the filename of data") from err
+            except FileNotFoundError as err:
+                raise FileNotFoundError("please check the filename of data") from err
     finally:
         f.close()
 
