@@ -76,8 +76,8 @@ def split_byline_count(filename, count, sub_dir_name):
         if len(buf) != 0:
             try:
                 make_sub_file(buf, head, filename, sub_dir_name, sub)
-            except Exception as e:
-                print(e)
+            except Exception as err:
+                raise Exception("please check the filename of data") from err
     finally:
         f.close()
 
@@ -248,8 +248,8 @@ if __name__ == '__main__':
         for col in sparse_features:
             try:
                 data_df[col] = data_df[col].map(lambda x: feature_map[col][x])
-            except KeyError as e:
-                print(e)
+            except KeyError as er:
+                raise KeyError("Feature {} not found in dataset".format(col)) from er
         # dense feature: Bin continuous data into intervals.
         data_df[dense_features] = rec_kbins_discretizer(data_df[dense_features], 1000, feature_map)
         # add offsets
