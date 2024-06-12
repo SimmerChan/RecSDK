@@ -317,6 +317,7 @@ public:
             if (ret != 0) {
                 delete[] tmp;
                 tmp = nullptr;
+                FreeSubMaps();
                 ock::ExternalLogger::PrintLog(ock::LogLevel::ERROR, "memset_s failed... size: " +
                 std::to_string(sizeof(NetHashBucket) * bucketCount) + ", error code:" + std::to_string(ret));
                 return false;
