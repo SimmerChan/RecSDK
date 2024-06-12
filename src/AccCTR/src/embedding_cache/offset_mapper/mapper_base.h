@@ -313,7 +313,7 @@ public:
             }
 
             /* make physical page and set to zero */
-            auto ret = SafeMemset(tmp, sizeof(NetHashBucket) * bucketCount, 0, sizeof(NetHashBucket) * bucketCount);
+            auto ret = SafeMemset(tmp, 0, sizeof(NetHashBucket) * bucketCount);
             if (ret != 0) {
                 delete[] tmp;
                 tmp = nullptr;
@@ -695,12 +695,12 @@ private:
         }
     }
 
-    int SafeMemset(void* dest, size_t destMax, int c, size_t count)
+    int SafeMemset(void* dest, int c, size_t count)
     {
         char* destBytePtr = reinterpret_cast<char*>(dest);
         for (size_t i = 0; i < count; i += MEMSET_S_MAX_SIZE) {
             size_t bytesOnceSet = (i + MEMSET_S_MAX_SIZE <= count) ? MEMSET_S_MAX_SIZE : (count - i);
-            auto ret = memset_s(destBytePtr + i, destMax, c, bytesOnceSet);
+            auto ret = memset_s(destBytePtr + i, bytesOnceSet, c, bytesOnceSet);
             if (ret != 0) {
                 return ret;
             }
