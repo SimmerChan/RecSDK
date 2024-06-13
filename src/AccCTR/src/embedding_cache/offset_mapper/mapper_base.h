@@ -696,6 +696,12 @@ private:
         }
     }
 
+    /*
+     * Description: SECUREC_MEM_MAX_LEN of memset_s function is 2GB
+     * Parameter: dest - destination address
+     * Parameter: c - the value to be copied
+     * Parameter: count - copies count bytes of value to dest
+     */
     int SafeMemset(void* dest, int c, size_t count)
     {
         char* destBytePtr = reinterpret_cast<char*>(dest);

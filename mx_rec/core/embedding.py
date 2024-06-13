@@ -235,11 +235,10 @@ def check_and_set_default_voc_size(voc_size_list: List[int], dim_bytes: int):
         raise ValueError("cache mode DDR, ssd-voc is need to be none")
     if voc_size_list[0] == 1:
         default_device_voc_size = int(DEFAULT_DEVICE_CACHE_MEMORY_SIZE / dim_bytes * get_rank_size())  # single rank 2GB
-        voc_size_list[0] = default_device_voc_size if default_device_voc_size < MAX_DEVICE_VOCABULARY_SIZE \
-            else MAX_DEVICE_VOCABULARY_SIZE
+        voc_size_list[0] = min(default_device_voc_size, MAX_DEVICE_VOCABULARY_SIZE)
     if (cache_mode == CacheModeEnum.DDR.value or cache_mode == CacheModeEnum.SSD.value) and voc_size_list[1] == 0:
         default_host_voc_size = int(DEFAULT_HOST_CACHE_MEMORY_SIZE / dim_bytes)  # total 40GB
-        voc_size_list[1] = default_host_voc_size if default_host_voc_size < MAX_VOCABULARY_SIZE else MAX_VOCABULARY_SIZE
+        voc_size_list[1] = min(default_host_voc_size, MAX_VOCABULARY_SIZE)
     if cache_mode == CacheModeEnum.SSD.value and voc_size_list[2] == 0:
         voc_size_list[2] = DEFAULT_SSD_CACHE_MEMORY_SIZE
     return
