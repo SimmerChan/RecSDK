@@ -27,7 +27,7 @@ warn() { echo >&2 -e "\033[1;31m[WARN ][Depend  ] $1\033[1;37m" ; }
 ARCH="$(uname -m)"
 SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
 MxRec_DIR=$(dirname "${SCRIPT_DIR}")
-
+echo "*************************"
 opensource_path="${MxRec_DIR}"/../opensource
 if [ ! -d ${opensource_path} ]; then
   echo "user should download dependency packages to mxRec/../opensource directory, see README.md"
