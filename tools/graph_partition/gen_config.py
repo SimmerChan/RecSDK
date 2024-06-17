@@ -1,13 +1,14 @@
-import os
 import argparse
-from graph_partition import GraphPartitioner
-import tensorflow as tf
+import os
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='')
-    parser.add_argument('--model_path', type=str, default='./')
-    parser.add_argument('--output_path', type=str, default='./')
-    parser.add_argument('--output_filename', type=str, default='config.cfg')
+import tensorflow as tf
+from graph_partition import GraphPartitioner
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="")
+    parser.add_argument("--model_path", type=str, default="./")
+    parser.add_argument("--output_path", type=str, default="./")
+    parser.add_argument("--output_filename", type=str, default="config.cfg")
     args = parser.parse_args()
 
     signature_def = "serving_default"
@@ -25,10 +26,14 @@ if __name__ == '__main__':
 
     with tf.compat.v1.Session() as sess:
         try:
-            meta_graph = tf.compat.v1.saved_model.loader.load(sess, ["serve"], args.model_path)
+            meta_graph = tf.compat.v1.saved_model.loader.load(
+                sess, ["serve"], args.model_path
+            )
 
         except Exception as e:
-            print("Error when try to load model, will try to partition graph anyway!", e)
+            print(
+                "Error when try to load model, will try to partition graph anyway!", e
+            )
 
         print("Load Model Done!")
         print("Try to generate sub graph...")
@@ -63,7 +68,5 @@ if __name__ == '__main__':
 
     # close file
     text_file.close()
+    ori_test.close()
     print("Finished!")
-
-
-

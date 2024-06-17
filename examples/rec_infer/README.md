@@ -34,14 +34,17 @@ c.执行如下命令，在“tf_adapter”文件夹下拷贝存放“_tf_adapter
 >cp /home/HwHiAiUser/Ascend/tfplugin/latest/python/site-packages/npu_bridge/_tf_adapter.so .<br>
 mv _tf_adapter.so lib_tf_adapter.so<br>
 
-4. 编译空的libtensorflow_framework.so、_pywrap_tensorflow_internal.so文件。
+4. 编译空的libtensorflow_framework.so、_pywrap_tensorflow_internal.so文件.
+
 a. 在“tf_adapter”文件夹下，执行如下命令。
 >vim CMakeLists.txt<br>
 
 b. 写入如下内容保存。
->file(TOUCH \${CMAKE_CURRENT_BINARY_DIR}/stub.c)<br>
-add_library(_pywrap_tensorflow_internal SHARED ${CMAKE_CURRENT_BINARY_DIR}/stub.c)<br>
-add_library(tensorflow_framework SHARED ${CMAKE_CURRENT_BINARY_DIR}/stub.c)<br>
+```text
+file(TOUCH ${CMAKE_CURRENT_BINARY_DIR}/stub.c)
+add_library(_pywrap_tensorflow_internal SHARED ${CMAKE_CURRENT_BINARY_DIR}/stub.c)
+add_library(tensorflow_framework SHARED ${CMAKE_CURRENT_BINARY_DIR}/stub.c)
+```
 
 c.执行:wq!命令保存文件并退出。
 d.执行如下命令，编译出空的.so文件。
@@ -55,7 +58,9 @@ cd ..<br>
 ln -s libtensorflow_framework.so libtensorflow_framework.so.1<br>
 
 e.配置环境命令。
-> export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$(pwd)<br>
+```text
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$(pwd)<br>
+```
 
 5. 在“tf_adapter”文件夹下创建BUILD文件。 写入如下内容。
 ```text

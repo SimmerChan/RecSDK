@@ -1,4 +1,4 @@
-export LD_LIBRARY_PATH=/usr/local/Ascend/ascend-toolkit/latest/lib64:/usr/local/Ascend/ascend-toolkit/latest/lib64/plugin/opskernel:$LD_LIBRARY_PATH
+source /usr/local/Ascend/ascend-toolkit/set_env.sh
 unset http_proxy
 unset https_proxy
 python3 client.py

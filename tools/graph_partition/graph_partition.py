@@ -1,5 +1,7 @@
 import tensorflow as tf
 from tensorflow.contrib import graph_editor as ge
+
+
 class GraphPartitioner:
     def __init__(self):
         self.signature_def = None
@@ -21,28 +23,23 @@ class GraphPartitioner:
         self.input_nodes = []
         self.output_nodes = []
 
-    def set_embedding_lookup_op_type(self,s):
+    def set_embedding_lookup_op_type(self, s):
         self.embedding_lookup_op_type = s
 
     def has_gray_downstreams(self, op):
         gray_list = ["DynamicPartition"]
         down_ops = ge.get_forward_walk_ops([op])
         for op in down_ops:
-            if op.type  in gray_list:
+            if op.type in gray_list:
                 return True
         return False
 
     def get_sub_graph(self):
         print("build graph...")
-        in_str = set()
-        out_str = set()
-        inputs_set = set()
-        outputs_set = set()
         for op in self.graph.get_operations():
             if self._is_embedding_lookup(op):
                 self.sparse_lookup_ops.append(op)
         if not self.sparse_lookup_ops:
-            print("aaaaaaaaaaaaaaaaaa")
             for op in self.graph.get_operations():
                 is_top_op = True
                 for op1 in self.graph.get_operations():
@@ -66,18 +63,25 @@ class GraphPartitioner:
             for tensor in self.sparse_lookup_tensors:
                 if tensor in op.inputs:
                     self.input_nodes.append(op)
-        for k,v in self.signature_def.outputs.items():
-            op_name = str(v).split("\n")[0].replace(' ', "").replace('"',"").split(":")[1].split(":")[0]
+        for k, v in self.signature_def.outputs.items():
+            op_name = (
+                str(v)
+                .split("\n")[0]
+                .replace(" ", "")
+                .replace('"', "")
+                .split(":")[1]
+                .split(":")[0]
+            )
             for op in self.graph.get_operations():
                 if op.name == op_name:
                     self.output_nodes.append(op)
 
-        floatUps = []
+        float_ups = []
         to_expand = []
         in_str = []
 
         for op in self.input_nodes:
-            if op.type not in floatUps:
+            if op.type not in float_ups:
                 if op.name not in in_str:
                     in_str.append(op.name)
             else:
@@ -92,7 +96,7 @@ class GraphPartitioner:
                             candidates.append(op)
             to_expand = []
             for op in candidates:
-                if op.type not in floatUps:
+                if op.type not in float_ups:
                     if op.name not in in_str:
                         in_str.append(op.name)
                 else:
