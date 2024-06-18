@@ -6,9 +6,11 @@
 // using namespace matmul_tiling;
 
 #define TEST_LOG(fmt, args...) fprintf(stdout, fmt "\n", ##args)
-constexpr int RESERVER_UB_SIZE = 20 * 1024;
 
-namespace optiling { 
+namespace optiling {
+
+#define RESERVER_UB_SIZE (20 * 1024)
+
 static ge::graphStatus TilingFunc(gert::TilingContext* context)
 {
     std::cout << "testing start " << std::endl;
