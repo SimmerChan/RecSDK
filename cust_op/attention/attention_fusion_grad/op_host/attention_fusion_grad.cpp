@@ -12,20 +12,15 @@ int CeilDiv(int a, int b)
     return (a + b - 1) / b;
 }
 
-static int32_t MatmulTile(gert::TilingContext* context, AttentionFusionGradTilingData &tilingData)
+static int32_t GradMatmulTile(gert::TilingContext* context, AttentionFusionGradTilingData &tilingData)
 {
     // q (B, M, K) k (B, N, K) v (B, V, K)
     auto qShape = context->GetInputShape(2)->GetStorageShape();
     auto kShape = context->GetInputShape(3)->GetStorageShape();
     auto vShape = context->GetInputShape(4)->GetStorageShape();
 
-    // Platform configuration
-    int softmaxOutSize = qShape.GetDim(0) * qShape.GetDim(1) * kShape.GetDim(1)*sizeof(float);
     auto ascnedPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
-    size_t *currentWorkspace = context->GetWorkspaceSizes(1);
-    size_t systemWorkspacesSize = ascnedPlatform.GetLibApiWorkSpaceSize();
-    currentWorkspace[0] = softmaxOutSize + systemWorkspacesSize;
-    
+
     // qkMatmul configuration
     matmul_tiling::MatmulApiTiling gardV(ascnedPlatform);
     gardV.SetAType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, matmul_tiling::DataType::DT_FLOAT);
@@ -77,7 +72,7 @@ static int32_t MatmulTile(gert::TilingContext* context, AttentionFusionGradTilin
     return 0;
 }
 
-static int32_t SoftmaxTiling(gert::TilingContext* context, AttentionFusionGradTilingData &tilingData, uint64_t ub)
+static int32_t GradSoftmaxTiling(gert::TilingContext* context, AttentionFusionGradTilingData &tilingData, uint64_t ub)
 {
     // q (B, M, K) k (B, N, K) v (B, V, K)
     auto qShape = context->GetInputShape(2)->GetStorageShape();
@@ -123,13 +118,19 @@ static int32_t SoftmaxTiling(gert::TilingContext* context, AttentionFusionGradTi
 static ge::graphStatus TilingFunc(gert::TilingContext* context)
 {
     AttentionFusionGradTilingData tilingData;
+    // Platform configuration
     auto ascnedPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
+    int softmaxOutSize = qShape.GetDim(0) * qShape.GetDim(1) * kShape.GetDim(1)*sizeof(float);
+    size_t *currentWorkspace = context->GetWorkspaceSizes(1);
+    size_t systemWorkspacesSize = ascnedPlatform.GetLibApiWorkSpaceSize();
+    currentWorkspace[0] = softmaxOutSize + systemWorkspacesSize;
     size_t coreNum = ascnedPlatform.GetCoreNumAic();
+    
     uint64_t ub;
     ascnedPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ub);
     ub = ub - RESERVER_UB_SIZE;
 
-    if (MatmulTiling(context, tilingData) != 0 || SoftmaxTiling(context, tilingData) != 0) {
+    if (GradMatmulTiling(context, tilingData) != 0 || GradSoftmaxTiling(context, tilingData, ub) != 0) {
         return ge::GRAPH_FAILED;
     }
 
