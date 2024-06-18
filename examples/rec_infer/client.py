@@ -26,23 +26,14 @@ class PredictModelGrpc():
         self.request, self.stub = self.__get_request()
 
     def inference(self):
-        t0 = time.time()
         for name in self.inputs:
             self.request.inputs[name].CopyFrom(
                 tf.make_tensor_proto(self.inputs[name], dtype=self.input_types[name])
             )
-        t1 = time.time()
-        print("request.inputs={:.3f} ms".format((t1 - t0) * 1000))
 
-        for i in range(100):
+        for _ in range(100):
             result = self.stub.Predict.future(self.request, 1000.0)
             result.result()
-            t2 = time.time()
-            print("request serving time cost: {:.3f} ms".format((t2 - t1) * 1000))
-            t1 = t2
-
-        res = []
-        return res
 
     def __get_request(self):
         channel = grpc.insecure_channel(
@@ -72,13 +63,13 @@ def gen_inputs():
 
 
 if __name__ == "__main__":
-    inputs, input_types = gen_inputs()
+    input_datas, types = gen_inputs()
     model = PredictModelGrpc(
         model_name="saved_model",
-        inputs=inputs,
-        input_types=input_types,
+        inputs=input_datas,
+        input_types=types,
         output_name="",
         socket="127.0.0.1:9999",
     )
 
-    res = model.inference()
+    model.inference()

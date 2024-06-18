@@ -22,21 +22,10 @@ if __name__ == "__main__":
 
     output_filepath = os.path.join(args.output_path, args.output_filename)
 
-    print("Try to load model from {}...".format(args.model_path))
-
     with tf.compat.v1.Session() as sess:
-        try:
-            meta_graph = tf.compat.v1.saved_model.loader.load(
-                sess, ["serve"], args.model_path
-            )
-
-        except Exception as e:
-            print(
-                "Error when try to load model, will try to partition graph anyway!", e
-            )
-
-        print("Load Model Done!")
-        print("Try to generate sub graph...")
+        meta_graph = tf.compat.v1.saved_model.loader.load(
+            sess, ["serve"], args.model_path
+        )
         ops = sess.graph.get_operations()
         graph_partitioner = GraphPartitioner()
 
@@ -45,12 +34,6 @@ if __name__ == "__main__":
         graph_partitioner.set_embedding_lookup_op_type(embedding_lookup_op_type)
 
         inputs, outputs = graph_partitioner.get_sub_graph()
-
-        print("Sub graph is generated!")
-
-    # 这里后续根据输出文件生成subs
-    print("Generating cfg file...")
-    print(inputs, outputs)
 
     res_string = "[[" + inputs + "," + outputs + "]]"
 
@@ -62,6 +45,7 @@ if __name__ == "__main__":
 
     # open text file
     text_file = open(output_filepath, "w")
+    text_file = os.fdopen(os.open(output_filepath, os.O_WRONLY | os.O_CREAT, 0o666, "w"))
 
     # write string to file
     n = text_file.write(output)
@@ -69,4 +53,3 @@ if __name__ == "__main__":
     # close file
     text_file.close()
     ori_test.close()
-    print("Finished!")
