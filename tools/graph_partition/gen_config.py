@@ -44,7 +44,6 @@ if __name__ == "__main__":
         os.remove(output_filepath)
 
     # open text file
-    text_file = open(output_filepath, "w")
     text_file = os.fdopen(os.open(output_filepath, os.O_WRONLY | os.O_CREAT, 0o666, "w"))
 
     # write string to file

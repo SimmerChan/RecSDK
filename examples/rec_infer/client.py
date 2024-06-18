@@ -50,6 +50,7 @@ class PredictModelGrpc():
 
         return request, stub
 
+
 def gen_inputs():
     inputs = {}
     input_types = {}
