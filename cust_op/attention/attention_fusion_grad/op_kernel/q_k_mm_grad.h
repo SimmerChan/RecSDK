@@ -29,7 +29,8 @@ class QKMmGradCompute {
 public:
     __aicore__ inline QKMmGradCompute(){}
 
-    __aicore__ inline void Init(QKMmGradArgs mmArgs){
+    __aicore__ inline void Init(QKMmGradArgs mmArgs)
+    {
         this->mmArgs = mmArgs;
         query.SetGlobalBuffer(reinterpret_cast<__gm__ tType*>(mmArgs.query), mmArgs.batchNum * mmArgs.queryDim1 * mmArgs.queryDim2);
         query = query[mmArgs.batchOffset * mmArgs.queryDim1 * mmArgs.queryDim2];
@@ -49,7 +50,8 @@ public:
 
 
     
-    __aicore__ inline void ProcessDQ(uint32_t batchI){
+    __aicore__ inline void ProcessDQ(uint32_t batchI)
+    {
         if (batchI != 0) {
             mmGradQ.WaitIterateAll();
             mmGradQ.End();
@@ -58,10 +60,10 @@ public:
         mmGradQ.SetTensorB(key[batchI * mmArgs.keyDim1 * mmArgs.keyDim2]);
 
         mmGradQ.template IterateAll<false>(gradQuery[batchI * mmArgs.queryDim1 * mmArgs.queryDim2], 0, false, true);
-        // mm.IterateAll(dB[batchI * mmArgs.vDim1 * mmArgs.vDim2], 0, false);
     }
 
-    __aicore__ inline void ProcessDK(uint32_t batchI){
+    __aicore__ inline void ProcessDK(uint32_t batchI)
+    {
         if (batchI != 0) {
             mmGradK.WaitIterateAll();
             mmGradK.End();
@@ -73,20 +75,18 @@ public:
     }
 
     matmul::Matmul<
-        matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, tType, false>, 
-        matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, tType, false>, 
-        matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, tType, false>, 
+        matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, tType, false>,
+        matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, tType, false>,
+        matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, tType, false>,
         matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, tType>
-        > 
-        mmGradQ;
+        > mmGradQ;
 
     matmul::Matmul<
-        matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, tType, true>, 
-        matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, tType, false>, 
-        matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, tType, false>, 
+        matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, tType, true>,
+        matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, tType, false>,
+        matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, tType, false>,
         matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, tType>
-        > 
-        mmGradK;
+        > mmGradK;
 
     private:
         QKMmGradArgs mmArgs;
@@ -96,7 +96,5 @@ public:
         GlobalTensor<tType> gradSoftmax;
         GlobalTensor<tType> gradQuery;
         GlobalTensor<tType> gradKey;
-
-    
 };
 #endif

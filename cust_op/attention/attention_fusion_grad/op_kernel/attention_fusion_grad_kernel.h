@@ -54,7 +54,8 @@ class AttentionFusionGradKernel {
     public:
         __aicore__ inline AttentionFusionGradKernel() {};
 
-        __aicore__ inline void Compute(AttentionFusionGradArgs args) {
+        __aicore__ inline void Compute(AttentionFusionGradArgs args)
+        {
             // Args
             this->args = args;
             GetBatchOffsetAndLen(args.batchNum, batchOffsetThisCore, batchLenThisCore);
@@ -86,17 +87,20 @@ class AttentionFusionGradKernel {
             Process();
         }
 
-        __aicore__ inline void Process() {
+        __aicore__ inline void Process()
+        {
             NormalNizeMatmulFusion();
 
         }
     private:
 
-        __aicore__ inline void NormalNizeMatmulFusion() {
-
-            NormGradArgs normGradArgs {args.softmaxOut, args.gradSoftmax, args.queryDim1, args.keyDim1, args.batchNum, batchOffsetThisCore , batchLenThisCore,
-            args.numOfNormalnizeOnce, args.paddingKeyDim1, args.attenDimSqrt, args.keyDimAlign, args.softmaxtiling, args.confusionTransposeTilingData, args.confusionTransposeTilingData1, args.confusionTransposeTilingData2,  
-                 args.confusionTransposeTilingData3};
+        __aicore__ inline void NormalNizeMatmulFusion()
+        {
+            NormGradArgs normGradArgs {args.softmaxOut, args.gradSoftmax, args.queryDim1, args.keyDim1, args.batchNum,
+                batchOffsetThisCore , batchLenThisCore, args.numOfNormalnizeOnce, args.paddingKeyDim1,args.attenDimSqrt,
+                args.keyDimAlign, args.softmaxtiling, args.confusionTransposeTilingData,
+                args.confusionTransposeTilingData1, args.confusionTransposeTilingData2,
+                args.confusionTransposeTilingData3};
             NormGradPipeArgs normGradPipe {&pipe};
 
             NormalGradCompute<tType> normalCompute;
@@ -116,7 +120,8 @@ class AttentionFusionGradKernel {
             }
         }
 
-        __aicore__ inline void GetBatchOffsetAndLen(int batchNum, int& batchOffset, int& batchLen) {
+        __aicore__ inline void GetBatchOffsetAndLen(int batchNum, int& batchOffset, int& batchLen)
+        {
             // batch offset
             int blockLenPerCoreBase = batchNum / (GetBlockNum()*2);
             int remain = batchNum % (GetBlockNum()*2);
@@ -136,6 +141,5 @@ class AttentionFusionGradKernel {
 
         int batchOffsetThisCore;
         int batchLenThisCore;
-
 };
 #endif

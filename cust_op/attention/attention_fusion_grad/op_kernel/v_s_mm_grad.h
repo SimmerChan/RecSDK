@@ -32,34 +32,42 @@ struct VSMmGradPipeArgs {
 template<typename tType>
 class VSMmGradCompute {
 public:
-    __aicore__ inline VSMmGradCompute(){}
+    __aicore__ inline VSMmGradCompute() {}
 
-    __aicore__ inline void Init(VSMmGradArgs mmArgs, VSMmGradPipeArgs pipeArgs){
+    __aicore__ inline void Init(VSMmGradArgs mmArgs, VSMmGradPipeArgs pipeArgs)
+    {
         this->mmArgs = mmArgs;
-        softmaxOut.SetGlobalBuffer(reinterpret_cast<__gm__ tType*>(mmArgs.softmaxOut), mmArgs.batchNum * mmArgs.sDim1 * mmArgs.sDim2);
+        softmaxOut.SetGlobalBuffer(reinterpret_cast<__gm__ tType*>(mmArgs.softmaxOut),
+                                                                    mmArgs.batchNum * mmArgs.sDim1 * mmArgs.sDim2);
         softmaxOut = softmaxOut[mmArgs.batchOffset * mmArgs.sDim1 * mmArgs.sDim2];
 
-        value.SetGlobalBuffer(reinterpret_cast<__gm__ tType*>(mmArgs.value), mmArgs.batchNum * mmArgs.vDim1 * mmArgs.vDim2);
+        value.SetGlobalBuffer(reinterpret_cast<__gm__ tType*>(mmArgs.value),
+                                                                mmArgs.batchNum * mmArgs.vDim1 * mmArgs.vDim2);
         value = value[mmArgs.batchOffset * mmArgs.vDim1 * mmArgs.vDim2];
 
-        dout.SetGlobalBuffer(reinterpret_cast<__gm__ tType*>(mmArgs.dout), mmArgs.batchNum * mmArgs.sDim1 * mmArgs.vDim2);
+        dout.SetGlobalBuffer(reinterpret_cast<__gm__ tType*>(mmArgs.dout),
+                                                                mmArgs.batchNum * mmArgs.sDim1 * mmArgs.vDim2);
         dout = dout[mmArgs.batchOffset * mmArgs.sDim1 * mmArgs.vDim2];
 
-        gradS.SetGlobalBuffer(reinterpret_cast<__gm__ tType*>(mmArgs.gradSoftmax), mmArgs.batchNum * mmArgs.sDim1 * mmArgs.sDim2);
+        gradS.SetGlobalBuffer(reinterpret_cast<__gm__ tType*>(mmArgs.gradSoftmax),
+                                                                mmArgs.batchNum * mmArgs.sDim1 * mmArgs.sDim2);
         gradS = gradS[mmArgs.batchOffset * mmArgs.sDim1 * mmArgs.sDim2];
 
-        gradValue.SetGlobalBuffer(reinterpret_cast<__gm__ tType*>(mmArgs.gradValue), mmArgs.batchNum * mmArgs.vDim1 * mmArgs.vDim2);
+        gradValue.SetGlobalBuffer(reinterpret_cast<__gm__ tType*>(mmArgs.gradValue),
+                                                                    mmArgs.batchNum * mmArgs.vDim1 * mmArgs.vDim2);
         gradValue = gradValue[mmArgs.batchOffset * mmArgs.vDim1 * mmArgs.vDim2];
     }
 
-    __aicore__ inline void Compute(){
+    __aicore__ inline void Compute()
+    {
         for (int thisBatch = 0 ; thisBatch < mmArgs.batchLen; thisBatch++) {
             ProcessDV(thisBatch);
             ProcessDS(thisBatch);
         }
     }
     
-    __aicore__ inline void ProcessDV(uint32_t batchI){
+    __aicore__ inline void ProcessDV(uint32_t batchI)
+    {
         if (batchI != 0) {
             mmGradV.WaitIterateAll();
             mmGradV.End();
@@ -71,7 +79,8 @@ public:
         // mm.IterateAll(dB[batchI * mmArgs.vDim1 * mmArgs.vDim2], 0, false);
     }
 
-    __aicore__ inline void ProcessDS(uint32_t batchI){
+    __aicore__ inline void ProcessDS(uint32_t batchI)
+    {
         if (batchI != 0) {
             mmGradS.WaitIterateAll();
             mmGradS.End();
@@ -83,20 +92,18 @@ public:
     }
 
     matmul::Matmul<
-        matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, tType, true>, 
-        matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, tType, false>, 
-        matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, tType, false>, 
+        matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, tType, true>,
+        matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, tType, false>,
+        matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, tType, false>,
         matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, tType>
-        > 
-        mmGradV;
+        > mmGradV;
 
     matmul::Matmul<
-        matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, tType, false>, 
-        matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, tType, true>, 
-        matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, tType, false>, 
+        matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, tType, false>,
+        matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, tType, true>,
+        matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, tType, false>,
         matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, tType>
-        > 
-        mmGradS;
+        > mmGradS;
 
     private:
         VSMmGradArgs mmArgs;

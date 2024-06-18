@@ -28,7 +28,8 @@ class KVBmmCompute {
 public:
     __aicore__ inline KVBmmCompute(){}
 
-    __aicore__ inline void Init(KVBmmArgs kvBmmArgs, KVBmmPipeArgs pipeArgs){
+    __aicore__ inline void Init(KVBmmArgs kvBmmArgs, KVBmmPipeArgs pipeArgs)
+    {
         this->kvBmmArgs = kvBmmArgs;
         this->pipeArgs = pipeArgs;
 
@@ -39,10 +40,10 @@ public:
         vGlobal = vGlobal[kvBmmArgs.batchOffset * kvBmmArgs.N * kvBmmArgs.K];
         outGlobal.SetGlobalBuffer(reinterpret_cast<__gm__ vType*>(kvBmmArgs.out), kvBmmArgs.M * kvBmmArgs.N);
         outGlobal = outGlobal[kvBmmArgs.batchOffset * kvBmmArgs.M * kvBmmArgs.N];
-
     }
 
-    __aicore__ inline void ComputeOneBatch(int batchI){
+    __aicore__ inline void ComputeOneBatch(int batchI)
+    {
         if (batchI != 0) {
             mm.WaitIterateAll();
             mm.End();
@@ -53,27 +54,21 @@ public:
         WaitFlag<HardEvent::MTE3_MTE2>(evenId);
         mm.SetTensorA(sGlobal[batchI * kvBmmArgs.M * kvBmmArgs.K]);
         mm.SetTensorB(vGlobal[batchI * kvBmmArgs.N * kvBmmArgs.K]);
-        // mm.SetWorkspace(outGlobal[thisBatch * qKBmmArgs.M * qKBmmArgs.N].GetPhyAddr(), qKBmmArgs.M * qKBmmArgs.N);
-        // while(mm.template Iterate<false>()) {
-        //     mm.template GetTensorC<false>();
-        // }
-        mm.template IterateAll<false>(outGlobal[batchI * kvBmmArgs.M * kvBmmArgs.N], 0, false, true);
 
-        //mm.IterateAll(outGlobal[batchI * kvBmmArgs.M * kvBmmArgs.N], 0, false);
+        mm.template IterateAll<false>(outGlobal[batchI * kvBmmArgs.M * kvBmmArgs.N], 0, false, true);
     }
     
     matmul::Matmul<
-        matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, sType, false>, 
-        matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, vType, false>, 
-        matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, vType, false>, 
+        matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, sType, false>,
+        matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, vType, false>,
+        matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, vType, false>,
         matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, vType>
-        > 
-        mm;
+        > mm;
 private:
     KVBmmArgs kvBmmArgs;
     KVBmmPipeArgs pipeArgs;
     GlobalTensor<sType> sGlobal;
     GlobalTensor<vType> vGlobal;
-    GlobalTensor<vType> outGlobal; 
+    GlobalTensor<vType> outGlobal;
 };
 #endif

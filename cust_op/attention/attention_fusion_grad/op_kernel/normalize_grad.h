@@ -35,9 +35,10 @@ struct NormGradPipeArgs {
 template<typename tType>
 class NormalGradCompute {
 public:
-    __aicore__ inline NormalGradCompute(){}
+    __aicore__ inline NormalGradCompute() {}
 
-    __aicore__ inline void Init(NormGradArgs mmArgs, NormGradPipeArgs pipeArgs){
+    __aicore__ inline void Init(NormGradArgs mmArgs, NormGradPipeArgs pipeArgs)
+    {
         this->mmArgs = mmArgs;
         softmaxOut.SetGlobalBuffer(reinterpret_cast<__gm__ tType*>(mmArgs.softmaxOut), mmArgs.batchNum * mmArgs.sDim1 * mmArgs.sDim2);
         softmaxOut = softmaxOut[mmArgs.batchOffset * mmArgs.sDim1 * mmArgs.sDim2];
@@ -51,9 +52,10 @@ public:
         pipeArgs.pipe->InitBuffer(tmpBuff,  mmArgs.numOfNormalnizeOnce*mmArgs.paddingKeyDim1*sizeof(tType));
     }
 
-    __aicore__ inline void DoPadLocal(LocalTensor<tType>& sourceTensor, LocalTensor<tType>& mindTensor, const ConfusionTransposeTiling* confusionTransposeTilingData,  const ConfusionTransposeTiling* confusionTransposeTilingData1)
+    __aicore__ inline void DoPadLocal(LocalTensor<tType>& sourceTensor, LocalTensor<tType>& mindTensor,
+                                      const ConfusionTransposeTiling* confusionTransposeTilingData,
+                                      const ConfusionTransposeTiling* confusionTransposeTilingData1)
     {
-
         int totalSize = 16 * 50 * 8;
         int padSize = 16 * 56 * 8;
 
@@ -73,9 +75,10 @@ public:
     }
 
 
-    __aicore__ inline void DoUnPadLocal(LocalTensor<tType>& sourceTensor, LocalTensor<tType>& mindTensor, const ConfusionTransposeTiling* confusionTransposeTilingData2,  const ConfusionTransposeTiling* confusionTransposeTilingData3)
+    __aicore__ inline void DoUnPadLocal(LocalTensor<tType>& sourceTensor, LocalTensor<tType>& mindTensor,
+                                        const ConfusionTransposeTiling* confusionTransposeTilingData2,
+                                        const ConfusionTransposeTiling* confusionTransposeTilingData3)
     {
-
         int totalSize = 16 * 50 * 8;
         int padSize = 16 * 56 * 8;
 
@@ -92,11 +95,10 @@ public:
         ConfusionTransposeTiling tiling1 = *confusionTransposeTilingData3;
         ConfusionTranspose<tType>(mindTensor, sourceTensor, TransposeType::TRANSPOSE_ND2ND_ONLY, tiling1);
         DataCopy(sourceTensor, mindTensor, padSize);
-
     }
 
-    __aicore__ inline void ProcessOneBatch(uint32_t batchI){
-
+    __aicore__ inline void ProcessOneBatch(uint32_t batchI)
+    {
         struct DataCopyExtParams copyParams{0, 0, 0, 0, 0}; // 结构体DataCopyExtParams最后一个参数是rsv保留位
         // struct DataCopyPadExtParams<float> padParams{false, 0, 0, 0}; 
         DataCopyPadExtParams<tType> padParams{true, 0, (uint8_t) (mmArgs.paddingKeyDim1-mmArgs.sDim2), 0};
@@ -170,7 +172,6 @@ public:
             vecOutQueue.FreeTensor(copyOutLocalTensor);
             remain = remain - thisLen;
         }
-
     }
     
     private:

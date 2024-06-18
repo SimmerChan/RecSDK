@@ -59,7 +59,8 @@ class AttentionFusionKernel {
     public:
         __aicore__ inline AttentionFusionKernel() {};
 
-        __aicore__ inline void Compute(AttentionFusionArgs args) {
+        __aicore__ inline void Compute(AttentionFusionArgs args)
+        {
             // Args
             this->args = args;
 
@@ -82,8 +83,9 @@ class AttentionFusionKernel {
             NormalizeArgs normalArgs {
                 &pipe, args.normalizeAttr, args.queryDim1, args.keyDim1, batchOffset, batchLen,
                 args.normalizeLoop, args.normalizeRow, args.normalizeColumn, args.normalizeSqrt,
-                args.maxSharedTmpBuf, args.softMaxTilingData, args.confusionTransposeTilingData, args.confusionTransposeTilingData1, args.confusionTransposeTilingData2,  
-                 args.confusionTransposeTilingData3,  
+                args.maxSharedTmpBuf, args.softMaxTilingData, args.confusionTransposeTilingData,
+                args.confusionTransposeTilingData1, args.confusionTransposeTilingData2,
+                args.confusionTransposeTilingData3
             };
             normalizeCompute.Init(normalArgs);
 
@@ -100,16 +102,19 @@ class AttentionFusionKernel {
             Process();
         }
 
-        __aicore__ inline void Process() {
+        __aicore__ inline void Process()
+        {
             QKBmmComputePart();
             NormalizeMatmulFusion();
         }
     private:
-        __aicore__ inline void QKBmmComputePart() {
+        __aicore__ inline void QKBmmComputePart()
+        {
             qKBmmCompute.Process();
         }
 
-        __aicore__ inline void NormalizeMatmulFusion() {
+        __aicore__ inline void NormalizeMatmulFusion()
+        {
             GlobalTensor<kType> softmaxOutGbTensorThisCore;
             softmaxOutGbTensorThisCore.SetGlobalBuffer(reinterpret_cast<__gm__ qType*>(args.softmaxOut),
                                                         batchLen * args.queryDim1 * args.keyDim1);
@@ -128,7 +133,8 @@ class AttentionFusionKernel {
             }
         }
 
-        __aicore__ inline void GetBatchOffsetAndLen(int batchNum, int& batchOffset, int& batchLen) {
+        __aicore__ inline void GetBatchOffsetAndLen(int batchNum, int& batchOffset, int& batchLen)
+        {
             // batch offset
             int blockLenPerCore = CeilDiv(batchNum, (GetBlockNum()*2));
             batchOffset = blockLenPerCore*GetBlockIdx();

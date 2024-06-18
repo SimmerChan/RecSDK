@@ -41,9 +41,10 @@ public:
         args.pipe->InitBuffer(vecSharedQueue, 1, args.maxSharedTmpBuf);
     }
 
-    __aicore__ inline void DoPadLocal(LocalTensor<qType>& sourceTensor, LocalTensor<qType>& mindTensor, const ConfusionTransposeTiling* confusionTransposeTilingData,  const ConfusionTransposeTiling* confusionTransposeTilingData1)
+    __aicore__ inline void DoPadLocal(LocalTensor<qType>& sourceTensor, LocalTensor<qType>& mindTensor,
+                                        const ConfusionTransposeTiling* confusionTransposeTilingData,
+                                        const ConfusionTransposeTiling* confusionTransposeTilingData1)
     {
-
         int totalSize = 16 * 50 * 16;
         int padSize = 16 * 56 * 16;
 
@@ -63,9 +64,10 @@ public:
     }
 
 
-    __aicore__ inline void DoUnPadLocal(LocalTensor<qType>& sourceTensor, LocalTensor<qType>& mindTensor, const ConfusionTransposeTiling* confusionTransposeTilingData2,  const ConfusionTransposeTiling* confusionTransposeTilingData3)
+    __aicore__ inline void DoUnPadLocal(LocalTensor<qType>& sourceTensor, LocalTensor<qType>& mindTensor,
+                                        const ConfusionTransposeTiling* confusionTransposeTilingData2,
+                                        const ConfusionTransposeTiling* confusionTransposeTilingData3)
     {
-
         int totalSize = 16 * 50 * 16;
         int padSize = 16 * 56 * 16;
 
@@ -82,7 +84,6 @@ public:
         ConfusionTransposeTiling tiling1 = *confusionTransposeTilingData3;
         ConfusionTranspose<qType>(mindTensor, sourceTensor, TransposeType::TRANSPOSE_ND2ND_ONLY, tiling1);
         DataCopy(sourceTensor, mindTensor, padSize);
-
     }
     
     __aicore__ inline void Process(GlobalTensor<qType> softmaxGlobleTensor, GlobalTensor<qType> softmaxGbMask)
@@ -97,7 +98,7 @@ public:
         for (int i = 0; i < args.loopCount; i++) {
             /* Get height of softmax matrix and handle the last loop height */
             height = ((args.queryDim1 - usedRowCount) < args.normalizeRow) ?
-            args.queryDim1 - usedRowCount : args.normalizeRow;
+                        args.queryDim1 - usedRowCount : args.normalizeRow;
             totalSize = height * args.normalizeColumn;
             CopyIn();
             Compute();
@@ -138,8 +139,10 @@ private:
         LocalTensor<qType> outLocalTensor = vecOutQueue.AllocTensor<qType>();
 
         if (args.attr == 2) {
-            DoPadLocal(LocalMask, outLocalTensor, args.confusionTransposeTilingData, args.confusionTransposeTilingData1);
-            DoPadLocal(inLocalTensor, outLocalTensor, args.confusionTransposeTilingData, args.confusionTransposeTilingData1);
+            DoPadLocal(LocalMask, outLocalTensor, args.confusionTransposeTilingData,
+                                                    args.confusionTransposeTilingData1);
+            DoPadLocal(inLocalTensor, outLocalTensor, args.confusionTransposeTilingData,
+                                                        args.confusionTransposeTilingData1);
         }
 
         // atten_weight = qkMatMul / sqrt(atten_dim)
@@ -159,7 +162,8 @@ private:
         SoftMax<qType>(outLocalTensor, inLocalTensor, sharedTmpBuf, *args.tiling, scrShape);
 
         if (args.attr == 2) {
-            DoUnPadLocal(outLocalTensor, inLocalTensor, args.confusionTransposeTilingData2, args.confusionTransposeTilingData3);
+            DoUnPadLocal(outLocalTensor, inLocalTensor, args.confusionTransposeTilingData2,
+                                                        args.confusionTransposeTilingData3);
         }
         vecOutQueue.EnQue<qType>(outLocalTensor);
         vecInQueue.FreeTensor(inLocalTensor);
