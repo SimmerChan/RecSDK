@@ -1,0 +1,82 @@
+{
+    "op_type": "AttentionFusionGrad",
+    "data_script": "",
+    "gen_data": false,
+    "inputs": [
+        {
+            "name": "dout",
+            "dtype": "float32",
+            "format": "ND",
+            "ignore": false,
+            "shape": [1024, 1000, 80],
+            "param_type": "required",
+            "data_file": "dout.bin"
+        },
+        {
+            "name": "softmax_out",
+            "dtype": "float32",
+            "format": "ND",
+            "ignore": false,
+            "shape": [1024, 1000, 50],
+            "param_type": "required",
+            "data_file": "softmax_out.bin"
+        },
+        {
+            "name": "query",
+            "dtype": "float32",
+            "format": "ND",
+            "ignore": false,
+            "shape": [1024, 1000, 80],
+            "param_type": "required",
+            "data_file": "query.bin"
+        },
+        {
+            "name": "key",
+            "dtype": "float32",
+            "format": "ND",
+            "ignore": false,
+            "shape": [1024, 50, 80],
+            "param_type": "required",
+            "data_file": "key.bin"
+        },
+        {
+            "name": "value",
+            "dtype": "float32",
+            "format": "ND",
+            "ignore": false,
+            "shape": [1024, 50, 80],
+            "param_type": "required",
+            "data_file": "value.bin"
+        }
+    ],
+    "outputs": [
+        {
+            "name": "grad_query",
+            "dtype": "float32",
+            "format": "ND",
+            "ignore": false,
+            "shape": [1024, 1000, 80],
+            "param_type": "required",
+            "data_file": "grad_query.bin"
+        },
+        {
+            "name": "grad_key",
+            "dtype": "float32",
+            "format": "ND",
+            "ignore": false,
+            "shape": [1024, 50, 80],
+            "param_type": "required",
+            "data_file": "grad_key.bin"
+        },
+        {
+            "name": "grad_value",
+            "dtype": "float32",
+            "format": "ND",
+            "ignore": false,
+            "shape": [1024, 50, 80],
+            "param_type": "required",
+            "data_file": "grad_value.bin"
+        }
+    ],
+    "attrs": []
+}
