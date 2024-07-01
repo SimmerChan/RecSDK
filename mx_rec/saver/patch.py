@@ -45,6 +45,7 @@ import numpy as np
 from mpi4py import MPI
 
 from mx_rec.saver.saver import Saver as SparseSaver, check_file_system_is_valid
+from mx_rec.util.communication.hccl_ops import get_local_rank_size
 from mx_rec.util.initialize import ConfigInitializer
 from mx_rec.validator.validator import para_checker_decorator, ClassValidator, StringValidator, OptionalIntValidator, \
     OptionalStringValidator, DirectoryValidator
@@ -253,7 +254,8 @@ def save(self, sess, save_path, global_step=None, latest_filename=None, meta_gra
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     comm.Barrier()
-    if rank == 0:
+    local_rank_size = get_local_rank_size()  # Compatible with multi-machine training.
+    if rank % local_rank_size == 0:
         model_checkpoint_path = compat.as_str(get_model_checkpoint_path(self, checkpoint_file, sess))
         if write_state:
             update_checkpoint_state(self, model_checkpoint_path, save_path_parent, latest_filename, meta_graph_suffix,
@@ -452,11 +454,13 @@ def patch_for_write_graph_func(func):
     def wrapper(*args, **kwargs):
         comm = MPI.COMM_WORLD
         rank = comm.Get_rank()
+        local_rank_size = get_local_rank_size()  # Compatible with multi-machine training.
         # In the case of multiple processes, choose one process to write graph.
-        if rank == 0:
+        if rank % local_rank_size == 0:
             return func(*args, **kwargs)
         else:
             return None
+
     return wrapper
 
 
