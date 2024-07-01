@@ -171,7 +171,10 @@ class Saver(object):
         rank = comm.Get_rank()
         comm.Barrier()
         local_rank_size = get_local_rank_size()  # Compatible with multi-machine training.
-        if rank % local_rank_size == 0:
+        # When use hdfs filesystem, rank0 process execute merge operation, assume use same hdfs path in multi-machine.
+        # When use local filesystem, the process which rank % local_rank_size == 0 execute merge operation.
+        is_need_merge = rank == 0 if check_file_system_is_hdfs(saving_path) else rank % local_rank_size == 0
+        if is_need_merge:
             table_list = self.save_op_dict.keys()
             for table_name in table_list:
                 self.merge_sparse_file(saving_path, table_name)
