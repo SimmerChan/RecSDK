@@ -170,11 +170,7 @@ class Saver(object):
         comm = MPI.COMM_WORLD
         rank = comm.Get_rank()
         comm.Barrier()
-        local_rank_size = get_local_rank_size()  # Compatible with multi-machine training.
-        # When use hdfs filesystem, rank0 process execute merge operation, assume use same hdfs path in multi-machine.
-        # When use local filesystem, the process which rank % local_rank_size == 0 execute merge operation.
-        is_need_merge = rank == 0 if check_file_system_is_hdfs(saving_path) else rank % local_rank_size == 0
-        if is_need_merge:
+        if is_need_write_data(rank, saving_path):
             table_list = self.save_op_dict.keys()
             for table_name in table_list:
                 self.merge_sparse_file(saving_path, table_name)
@@ -701,3 +697,13 @@ def set_optimizer_info(optimizer: CustomizedOptimizer, table_name: str):
     from mxrec_pybind import OptimizerInfo
     optim_info = OptimizerInfo(optimizer.optimizer_type, optimizer.optim_param_list)
     ConfigInitializer.get_instance().hybrid_manager_config.set_optim_info(table_name, optim_info)
+
+
+def is_need_write_data(rank_id: int, save_path: str) -> bool:
+    # When use hdfs filesystem, rank0 process execute write data operation, assume use same hdfs path in multi-machine.
+    # When use local filesystem, the process which `rank % local_rank_size == 0` execute write data operation.
+    # If you use hdfs filesystem, and use different hdfs path to save data, should modify check condition
+    #    as same as local filesystem.
+    is_hdfs = check_file_system_is_hdfs(save_path)
+    local_rank_size = get_local_rank_size()
+    return rank_id == 0 if is_hdfs else rank_id % local_rank_size == 0
