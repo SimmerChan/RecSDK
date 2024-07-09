@@ -1,6 +1,7 @@
-import subprocess
 import argparse
 import os
+import subprocess
+from collections import defaultdict
 
 
 def generate_flamegraph(perf_data, output_svg, flamegraph_path):
@@ -38,6 +39,43 @@ def generate_flamegraph(perf_data, output_svg, flamegraph_path):
         subprocess.run([flamegraph_script_path, folded_output], check=True, stdout=f)
 
     print(f"Flamegraph generated at {output_svg}")
+
+    # Analyze the folded stack output
+    analyze_folded_stack(folded_output)
+
+
+def analyze_folded_stack(folded_output):
+    function_counts = defaultdict(int)
+    total_count = 0
+
+    # Read the folded stack output
+    with open(folded_output, "r") as f:
+        for line in f:
+            parts = line.strip().rsplit(
+                " ", 1
+            )  # Use rsplit to handle function names with spaces
+            count = int(parts[-1])
+            stack = parts[0].split(";")
+            for function in stack:
+                function_counts[function] += count
+            total_count += count
+
+    # Filter and display functions with more than 5% total count
+    threshold = total_count * 0.05
+    results = [
+        (func, count) for func, count in function_counts.items() if count >= threshold
+    ]
+
+    # Sort results by count in descending order
+    results.sort(key=lambda x: x[1], reverse=True)
+
+    # Print the results in an ASCII table format
+    print("\nFunctions with more than 5% of total samples:\n")
+    print(f"{'Function':<40} {'Count':<10} {'Percentage':<10}")
+    print("=" * 60)
+    for func, count in results:
+        percentage = (count / total_count) * 100
+        print(f"{func:<40} {count:<10} {percentage:<10.2f}")
 
 
 def main():
