@@ -3,6 +3,8 @@ import os
 import subprocess
 from collections import defaultdict
 
+from tabulate import tabulate
+
 
 def generate_flamegraph(perf_data, output_svg, flamegraph_path):
     # Ensure perf script is available
@@ -56,8 +58,7 @@ def analyze_folded_stack(folded_output):
             )  # Use rsplit to handle function names with spaces
             count = int(parts[-1])
             stack = parts[0].split(";")
-            for function in stack:
-                function_counts[function] += count
+            function_counts[stack[-1]] += count
             total_count += count
 
     # Filter and display functions with more than 5% total count
@@ -69,13 +70,16 @@ def analyze_folded_stack(folded_output):
     # Sort results by count in descending order
     results.sort(key=lambda x: x[1], reverse=True)
 
-    # Print the results in an ASCII table format
-    print("\nFunctions with more than 5% of total samples:\n")
-    print(f"{'Function':<40} {'Count':<10} {'Percentage':<10}")
-    print("=" * 60)
+    # Prepare data for tabulate
+    table_data = []
     for func, count in results:
         percentage = (count / total_count) * 100
-        print(f"{func:<40} {count:<10} {percentage:<10.2f}")
+        table_data.append([func, count, f"{percentage:.2f}%"])
+
+    # Print the results using tabulate
+    print("\nFunctions with more than 5% of total samples:\n")
+    headers = ["Function", "Count", "Percentage"]
+    print(tabulate(table_data, headers=headers, tablefmt="grid"))
 
 
 def main():
