@@ -74,12 +74,27 @@ def analyze_folded_stack(folded_output):
     table_data = []
     for func, count in results:
         percentage = (count / total_count) * 100
-        table_data.append([func, count, f"{percentage:.2f}%"])
+        table_data.append([limit_line(func, 50), count, f"{percentage:.2f}%"])
 
     # Print the results using tabulate
     print("\nFunctions with more than 5% of total samples:\n")
     headers = ["Function", "Count", "Percentage"]
     print(tabulate(table_data, headers=headers, tablefmt="grid"))
+
+
+def limit_line(input: str, line_length: int) -> str:
+    if line_length >= len(input):
+        return input
+    limited_str = ""
+    if line_length > 0:
+        count = 0
+        for c in input:
+            if count >= line_length:
+                limited_str += "\n"
+                count = 0
+            limited_str += c
+            count += 1
+    return limited_str
 
 
 def main():
