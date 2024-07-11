@@ -1275,7 +1275,7 @@ void HybridMgmt::InitDataPipelineForL3Storage(const string& embName, int extEmbe
 
 void HybridMgmt::InitEmbeddingCache(const vector<EmbInfo>& embInfos)
 {
-    factory->SetExternalLogFuncInner(CTRLog);
+    factory->SetExternalLogFuncInner(reinterpret_cast<ExternalLog>(CTRLog));
     factory->CreateEmbCacheManager(embCache);
     EmbeddingMgmt::Instance()->SetEmbCacheForEmbTable(embCache);
     EmbeddingMgmt::Instance()->SetHDTransferForEmbTable(hdTransfer);

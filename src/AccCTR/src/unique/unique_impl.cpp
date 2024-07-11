@@ -12,8 +12,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
  ==============================================================================*/
 
-#include <thread>
 #include "unique_impl.h"
+
+#include <thread>
+
+#include "external_logger.h"
 
 namespace ock {
 namespace ctr {
@@ -41,7 +44,7 @@ int UniqueImpl::Initialize(const UniqueConf &conf)
             return H_ADDRESS_NULL;
         }
     } catch (AllocError &) {
-        ExternalLogger::PrintLog(LogLevel::ERROR, "memory alloc error");
+        OCK_LOG(LogLevel::ERROR, "memory alloc error");
         return H_MEMORY_ALLOC_ERROR;
     } catch (NullptrError &) {
         return H_ADDRESS_NULL;
@@ -58,13 +61,13 @@ int UniqueImpl::DoUnique(UniqueIn &uniqueIn, UniqueOut &uniqueOut)
     }
 
     if (uniqueConf.outputType != OutputType::NORMAL) {
-        ExternalLogger::PrintLog(LogLevel::ERROR, "output type error, should be NORMAL");
+        OCK_LOG(LogLevel::ERROR, "output type error, should be NORMAL");
         return H_OUTPUT_TYPE_ERROR;
     }
 
     int ret = CheckInput(uniqueIn, uniqueOut);
     if (ret != H_OK) {
-        ExternalLogger::PrintLog(LogLevel::ERROR, "input or conf is error");
+        OCK_LOG(LogLevel::ERROR, "input or conf is error");
         return ret;
     }
 
@@ -80,7 +83,7 @@ int UniqueImpl::DoUnique(UniqueIn &uniqueIn, UniqueOut &uniqueOut)
     }
 
     if (ret != H_OK) {
-        ExternalLogger::PrintLog(LogLevel::ERROR, "do unique error");
+        OCK_LOG(LogLevel::ERROR, "do unique error");
         return ret;
     }
     uniqueOut.uniqueIdCnt = uniqueOutSelf.uniqueIdCnt;
@@ -88,7 +91,7 @@ int UniqueImpl::DoUnique(UniqueIn &uniqueIn, UniqueOut &uniqueOut)
     std::stringstream sm;
     sm << "input id count " << uniqueIn.inputIdCnt << "; id count after unique " << uniqueOut.uniqueIdCnt <<
         "; unique id time cost " << doUniqueTimeCost.ElapsedMS() << " (ms)";
-    ExternalLogger::PrintLog(LogLevel::INFO, sm.str(), uniqueConf.trace);
+    OCK_LOG_FLAG(LogLevel::INFO, sm.str(), uniqueConf.trace);
 
     // 资源回收
     return ret;
@@ -102,13 +105,13 @@ int UniqueImpl::DoEnhancedUnique(UniqueIn &uniqueIn, EnhancedUniqueOut &uniqueOu
     }
 
     if (uniqueConf.outputType != OutputType::ENHANCED) {
-        ExternalLogger::PrintLog(LogLevel::ERROR, "output type error, should be ENHANCED");
+        OCK_LOG(LogLevel::ERROR, "output type error, should be ENHANCED");
         return H_OUTPUT_TYPE_ERROR;
     }
 
     int ret = CheckInput(uniqueIn, uniqueOut);
     if (ret != H_OK) {
-        ExternalLogger::PrintLog(LogLevel::ERROR, "input or conf is error.");
+        OCK_LOG(LogLevel::ERROR, "input or conf is error.");
         return ret;
     }
 
@@ -129,7 +132,7 @@ int UniqueImpl::DoEnhancedUnique(UniqueIn &uniqueIn, EnhancedUniqueOut &uniqueOu
     }
 
     if (ret != H_OK) {
-        ExternalLogger::PrintLog(LogLevel::ERROR, "do unique error");
+        OCK_LOG(LogLevel::ERROR, "do unique error");
         return ret;
     }
 
@@ -142,7 +145,7 @@ int UniqueImpl::DoEnhancedUnique(UniqueIn &uniqueIn, EnhancedUniqueOut &uniqueOu
     std::stringstream sm;
     sm << "input id count " << uniqueIn.inputIdCnt << "; id count after unique " << uniqueOutSelf.uniqueIdCnt <<
         "; unique id time cost " << doEnhancedUniqueTimeCost.ElapsedMS() << " (ms)";
-    ExternalLogger::PrintLog(LogLevel::INFO, sm.str(), uniqueConf.trace);
+    OCK_LOG_FLAG(LogLevel::INFO, sm.str(), uniqueConf.trace);
     // 资源回收
     return ret;
 }
@@ -193,17 +196,17 @@ int UniqueImpl::CheckNormalConf(const UniqueConf &conf)
     if (conf.maxThreadNum > processCoreNum) {
         std::stringstream sm;
         sm << "maxThreadNum can not larger than " << processCoreNum;
-        ExternalLogger::PrintLog(LogLevel::ERROR, sm.str());
+        OCK_LOG(LogLevel::ERROR, sm.str());
         return H_ERROR;
     }
 
     if (conf.maxThreadNum == 0 || conf.minThreadNum == 0 || conf.minThreadNum > conf.maxThreadNum) {
-        ExternalLogger::PrintLog(LogLevel::ERROR, "please check minThreadNum and maxThreadNum");
+        OCK_LOG(LogLevel::ERROR, "please check minThreadNum and maxThreadNum");
         return H_ERROR;
     }
 
     if (conf.desiredSize > MAX_DESIRED_SIZE) {
-        ExternalLogger::PrintLog(LogLevel::ERROR, "desiredSize can not larger than 1431655765");
+        OCK_LOG(LogLevel::ERROR, "desiredSize can not larger than 1431655765");
         return H_ERROR;
     }
 
@@ -214,12 +217,12 @@ int UniqueImpl::CheckEnhancedUniqueConf(const UniqueConf &conf)
 {
     if (conf.usePadding) {
         if (!conf.useSharding) {
-            ExternalLogger::PrintLog(LogLevel::ERROR, "sharding is not enable."); // 使能padding时，先使能sharding
+            OCK_LOG(LogLevel::ERROR, "sharding is not enable."); // 使能padding时，先使能sharding
             return H_SCENE_ERROR;
         }
 
         if (CheckInputZero(conf.paddingSize, "paddingSize")) {
-            ExternalLogger::PrintLog(LogLevel::ERROR, "if usePadding is true, paddingSize can not be zero");
+            OCK_LOG(LogLevel::ERROR, "if usePadding is true, paddingSize can not be zero");
             return H_NUM_SMALL;
         }
     }
@@ -232,7 +235,7 @@ int UniqueImpl::CheckEnhancedUniqueConf(const UniqueConf &conf)
             bool isExponentOfTwo =
                 (conf.shardingNum > 0) && ((conf.shardingNum & (conf.shardingNum - 1)) == 0); // 判断是不是2的N次幂
             if (!isExponentOfTwo) {
-                ExternalLogger::PrintLog(LogLevel::ERROR, "if performance is true, shardingNum must be 2^N");
+                OCK_LOG(LogLevel::ERROR, "if performance is true, shardingNum must be 2^N");
                 return H_ERROR;
             }
         }
@@ -271,7 +274,7 @@ int UniqueImpl::CheckInput(UniqueIn &uniqueIn, EnhancedUniqueOut &uniqueOut)
     }
 
     if (uniqueIn.inputIdCnt > MAX_ID_COUNT) {
-        ExternalLogger::PrintLog(LogLevel::ERROR, "inputIdCnt can not larger than 2^28");
+        OCK_LOG(LogLevel::ERROR, "inputIdCnt can not larger than 2^28");
         return H_ERROR;
     }
 
@@ -292,7 +295,7 @@ bool UniqueImpl::CheckInputNull(void *ptr, const std::string &name)
     if (ptr == nullptr) {
         std::stringstream sm;
         sm << name << "can not be nullptr";
-        ExternalLogger::PrintLog(LogLevel::ERROR, sm.str());
+        OCK_LOG(LogLevel::ERROR, sm.str());
         return true;
     }
     return false;
@@ -303,7 +306,7 @@ bool UniqueImpl::CheckInputZero(int64_t in, const std::string &name)
     if (in <= 0) {
         std::stringstream sm;
         sm << name << "can not be zero or negative";
-        ExternalLogger::PrintLog(LogLevel::ERROR, sm.str());
+        OCK_LOG(LogLevel::ERROR, sm.str());
         return true;
     }
     return false;
@@ -312,7 +315,7 @@ bool UniqueImpl::CheckInputZero(int64_t in, const std::string &name)
 bool UniqueImpl::IsInitialized()
 {
     if (unique == nullptr) {
-        ExternalLogger::PrintLog(LogLevel::ERROR, "please call Initialize before DoUnique");
+        OCK_LOG(LogLevel::ERROR, "please call Initialize before DoUnique");
         return false;
     }
     return true;

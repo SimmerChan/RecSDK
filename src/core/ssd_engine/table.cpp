@@ -119,7 +119,7 @@ void Table::Save(int step)
     } catch (runtime_error &e) {
         LOG_ERROR("fail to change permission of {}", metaFilePath.c_str());
         fs::remove_all(metaFilePath);
-        throw;
+        throw runtime_error(StringFormat("fail to change permission", e.what()));
     }
 
     // dump table name

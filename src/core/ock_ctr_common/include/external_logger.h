@@ -67,6 +67,5 @@ private:
 }
 
 #define OCK_LOG(level, message) ock::ExternalLogger::PrintLog(level, message, __FILE__, __LINE__)
-#define OCK_LOG_FLAG(level, message, flag) ock::ExternalLogger::PrintLog(level, message, flag, __FILE__, __LINE__)
 
 #endif // OCK_EXTERNAL_LOG_H

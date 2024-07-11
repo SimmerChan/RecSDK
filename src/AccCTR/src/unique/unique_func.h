@@ -315,7 +315,7 @@ public:
         std::vector<std::atomic<int32_t>> idCount(size);
         ret = CalUniqueOut<T>(uniqueIn, uniqueOut, totalUniqueSize, idCount);
         if (ret != H_OK) {
-            ExternalLogger::PrintLog(LogLevel::ERROR, "CalUniqueOut ERROR");
+            OCK_LOG(LogLevel::ERROR, "CalUniqueOut ERROR");
             return ret;
         }
 
@@ -358,7 +358,7 @@ private:
         }
 
         if (ret != H_OK) {
-            ExternalLogger::PrintLog(LogLevel::ERROR, "TileAndFill ERROR");
+            OCK_LOG(LogLevel::ERROR, "TileAndFill ERROR");
             return ret;
         }
 
@@ -478,7 +478,7 @@ private:
                 for (uint64_t j = start; j < end; ++j) {
                     auto value = val[j];
                     if (UNLIKELY(value > conf.maxIdVal)) {
-                        ExternalLogger::PrintLog(LogLevel::ERROR, "id val is larger than maxIdVal");
+                        OCK_LOG(LogLevel::ERROR, "id val is larger than maxIdVal");
                         ret = H_ID_LARGE;
                         break;
                     }

@@ -313,15 +313,13 @@ public:
         mOverflowEntryAlloc = new (std::nothrow) NetHeapAllocator();
         if (HM_UNLIKELY(mOverflowEntryAlloc == nullptr)) {
             FreeSubMaps();
-            ock::ExternalLogger::PrintLog(ock::LogLevel::ERROR,
-                "Failed to new overflow entry allocator, probably out of memory");
+            OCK_LOG(ock::LogLevel::ERROR, "Failed to new overflow entry allocator, probably out of memory");
             return false;
         }
 
         /* set bucket count */
         mBucketCount = bucketCount;
-        ock::ExternalLogger::PrintLog(ock::LogLevel::INFO,
-            "fastKV inited, mBucketCount: " + std::to_string(mBucketCount));
+        OCK_LOG(ock::LogLevel::INFO, "fastKV inited, mBucketCount: " + std::to_string(mBucketCount));
         return true;
     }
 
@@ -528,7 +526,7 @@ public:
             auto newBuck = static_cast<NetHashBucket *>(mOverflowEntryAlloc->Allocate(sizeof(NetHashBucket)));
             if (HM_UNLIKELY(newBuck == nullptr)) {
                 lock.UnLock();
-                ock::ExternalLogger::PrintLog(ock::LogLevel::ERROR, "Failed to allocate new bucket");
+                OCK_LOG(ock::LogLevel::ERROR, "Failed to allocate new bucket");
                 return FkvState::FKV_FAIL;
             }
             /* link to current buck, set buck to new buck */
@@ -691,8 +689,7 @@ private:
         bucketPtr = new (std::nothrow) NetHashBucket[bucketCount];
         if (HM_UNLIKELY(bucketPtr == nullptr)) {
             FreeSubMaps();
-            ock::ExternalLogger::PrintLog(ock::LogLevel::ERROR,
-                                          "Failed to new hash bucket, probably out of memory");
+            OCK_LOG(ock::LogLevel::ERROR, "Failed to new hash bucket, probably out of memory");
             return false;
         }
 
@@ -706,8 +703,7 @@ private:
                 delete[] bucketPtr;
                 bucketPtr = nullptr;
                 FreeSubMaps();
-                ock::ExternalLogger::PrintLog(ock::LogLevel::ERROR,
-                    "memset_s failed... size: " + std::to_string(bucketsBytes) + ", error code:" + std::to_string(ret));
+                OCK_LOG(ock::LogLevel::ERROR, "memset_s failed... size: " + std::to_string(bucketsBytes) + ", error code:" + std::to_string(ret));
                 return false;
             }
         }
@@ -801,7 +797,7 @@ private:
             auto newBuck = static_cast<NetHashBucket *>(mOverflowEntryAlloc->Allocate(sizeof(NetHashBucket)));
             if (HM_UNLIKELY(newBuck == nullptr)) {
                 lock.UnLock();
-                ock::ExternalLogger::PrintLog(ock::LogLevel::ERROR, "Failed to allocate new bucket");
+                OCK_LOG(ock::LogLevel::ERROR, "Failed to allocate new bucket");
                 return FkvState::FKV_FAIL;
             }
             /* link to current buck, set buck to new buck */
