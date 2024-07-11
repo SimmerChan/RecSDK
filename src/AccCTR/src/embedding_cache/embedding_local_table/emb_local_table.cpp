@@ -116,16 +116,14 @@ int EmbLocalTable::OneThreadHandle(uint64_t startAddr, const std::vector<uint64_
         if (isGather) {
             auto rc = memcpy_s(reinterpret_cast<void*>(addr), memSize, reinterpret_cast<void*>(embAddr), memSize);
             if (rc != 0) {
-                ExternalLogger::PrintLog(LogLevel::ERROR,
-                                         "gather memcpy_s failed... dstSize: " + std::to_string(memSize));
+                OCK_LOG(LogLevel::ERROR, "gather memcpy_s failed... dstSize: " + std::to_string(memSize));
                 return H_COPY_ERROR;
             }
         } else {
             auto rc = memcpy_s(reinterpret_cast<void*>(embAddr), memSize,  // 按顺序把新的embedding拷贝到对应地址中
                                reinterpret_cast<void*>(addr), memSize);
             if (rc != 0) {
-                ExternalLogger::PrintLog(LogLevel::ERROR,
-                                         "scatter memcpy_s failed... dstSize: " + std::to_string(memSize));
+                OCK_LOG(LogLevel::ERROR, "scatter memcpy_s failed... dstSize: " + std::to_string(memSize));
                 return H_COPY_ERROR;
             }
         }
@@ -167,7 +165,7 @@ int EmbLocalTable::Gather(uint64_t startAddr, const vector<uint64_t>& keys, uint
                 auto addr = startAddr + i * memSize;
                 auto rc = memcpy_s(reinterpret_cast<void*>(addr), memSize, reinterpret_cast<void*>(embAddr), memSize);
                 if (rc != 0) {
-                    ExternalLogger::PrintLog(LogLevel::ERROR, "memcpy_s failed... dstSize: " + std::to_string(memSize));
+                    OCK_LOG(LogLevel::ERROR, "memcpy_s failed... dstSize: " + std::to_string(memSize));
                     ret = H_COPY_ERROR;
                     return;
                 }
@@ -238,7 +236,7 @@ int EmbLocalTable::GatherAndRemove(uint64_t startAddr, const vector<uint64_t>& k
                     initializerInfo.initializer->GenerateData(embAddr, INVALID_EMB_SIZE);
                 }
             } else if (ret == FkvState::FKV_BEFORE_REMOVE_FUNC_FAIL) {
-                ExternalLogger::PrintLog(LogLevel::ERROR, "memcpy_s failed... dstSize: " + std::to_string(memSize));
+                OCK_LOG(LogLevel::ERROR, "memcpy_s failed... dstSize: " + std::to_string(memSize));
                 return H_COPY_ERROR;
             }
         }
@@ -271,7 +269,7 @@ int EmbLocalTable::GatherAndRemove(uint64_t startAddr, const vector<uint64_t>& k
                         initializerInfo.initializer->GenerateData(embAddr, INVALID_EMB_SIZE);
                     }
                 } else if (ret == FkvState::FKV_BEFORE_REMOVE_FUNC_FAIL) {
-                    ExternalLogger::PrintLog(LogLevel::ERROR, "memcpy_s failed... dstSize: " + std::to_string(memSize));
+                    OCK_LOG(LogLevel::ERROR, "memcpy_s failed... dstSize: " + std::to_string(memSize));
                     retVal = H_COPY_ERROR;
                     return;
                 }
@@ -319,7 +317,7 @@ int EmbLocalTable::Scatter(const uint64_t startAddr, const vector<uint64_t>& key
                 auto rc = memcpy_s(reinterpret_cast<void*>(embAddr), memSize,  // 按顺序把新的embedding拷贝到对应地址中
                                    reinterpret_cast<void*>(addr), memSize);
                 if (rc != 0) {
-                    ExternalLogger::PrintLog(LogLevel::ERROR, "memcpy_s failed... dstSize: " + std::to_string(memSize));
+                    OCK_LOG(LogLevel::ERROR, "memcpy_s failed... dstSize: " + std::to_string(memSize));
                     ret = H_COPY_ERROR;
                     return;
                 }
@@ -379,19 +377,19 @@ bool EmbLocalTable::Deserialize(const vector<char>& buffer)
     while (i < buffer.size()) {
         uint64_t key;
         if (!getData(buffer, key, i)) {
-            ExternalLogger::PrintLog(LogLevel::ERROR, "get data failed!");
+            OCK_LOG(LogLevel::ERROR, "get data failed!");
             return false;
         }
         uint64_t value = 0;
         if (FindAndPutIfNotFound(key, value) != H_OK) {
-            ExternalLogger::PrintLog(LogLevel::ERROR, "FindAndPutIfNotFound failed!");
+            OCK_LOG(LogLevel::ERROR, "FindAndPutIfNotFound failed!");
             return false;
         }
 
         auto* addr = reinterpret_cast<float*>(value);
         for (uint32_t j = 0; j < emExpendMemInfo->extEmbeddingSize; j++) {
             if (!getData(buffer, addr[j], i)) {
-                ExternalLogger::PrintLog(LogLevel::ERROR, "get data failed!");
+                OCK_LOG(LogLevel::ERROR, "get data failed!");
                 return false;
             }
         }
@@ -429,44 +427,41 @@ bool EmbLocalTable::LoadEmbTableInfos(const std::vector<uint64_t>& keys,
                                       const std::vector<std::vector<float>>& optimizerSlots)
 {
     if (keys.size() != embeddings.size()) {
-        ExternalLogger::PrintLog(LogLevel::ERROR, "the size of keys and embeddings should be same!");
+        OCK_LOG(LogLevel::ERROR, "the size of keys and embeddings should be same!");
         return false;
     }
     uint32_t optimizerSlotSize = extEmbeddingSize - embeddingSize;
     if (optimizerSlotSize > 0) {
         if (keys.size() != optimizerSlots.size()) {
-            ExternalLogger::PrintLog(LogLevel::ERROR, "the size of keys and optimizerSlots should be same!");
+            OCK_LOG(LogLevel::ERROR, "the size of keys and optimizerSlots should be same!");
             return false;
         }
     }
     for (uint64_t i = 0; i < keys.size(); i++) {
         uint64_t value = 0;
         if (FindAndPutIfNotFound(keys[i], value) != H_OK) {
-            ExternalLogger::PrintLog(LogLevel::ERROR, "FindAndPutIfNotFound failed!");
+            OCK_LOG(LogLevel::ERROR, "FindAndPutIfNotFound failed!");
             return false;
         }
         if (embeddings[i].size() != embeddingSize) {
-            ExternalLogger::PrintLog(LogLevel::ERROR,
-                                     "The size of entering Embedding does not equals to embeddingSize");
+            OCK_LOG(LogLevel::ERROR, "The size of entering Embedding does not equals to embeddingSize");
             return false;
         }
         auto* addr = reinterpret_cast<float*>(value);
         auto rc = memcpy_s(addr, embeddingSize * sizeof(float), embeddings[i].data(), embeddingSize * sizeof(float));
         if (rc != 0) {
-            ExternalLogger::PrintLog(LogLevel::ERROR, "embedding memcpy_s failed... ");
+            OCK_LOG(LogLevel::ERROR, "embedding memcpy_s failed... ");
             return false;
         }
         if (optimizerSlotSize > 0) {
             if (optimizerSlots[i].size() != optimizerSlotSize) {
-                ExternalLogger::PrintLog(
-                    LogLevel::ERROR,
-                    "The size of entering optimizerSlot does not equals to extEmbeddingSize - embeddingSize");
+                OCK_LOG(LogLevel::ERROR, "The size of entering optimizerSlot does not equals to extEmbeddingSize - embeddingSize");
                 return false;
             }
             auto rc2 = memcpy_s(reinterpret_cast<float*>(addr + embeddingSize), optimizerSlotSize * sizeof(float),
                                 optimizerSlots[i].data(), optimizerSlotSize * sizeof(float));
             if (rc2 != 0) {
-                ExternalLogger::PrintLog(LogLevel::ERROR, "optimizerSlot memcpy_s failed... ");
+                OCK_LOG(LogLevel::ERROR, "optimizerSlot memcpy_s failed... ");
                 return false;
             }
         }

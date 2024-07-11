@@ -176,7 +176,7 @@ int ShardedDedup::PrintMemCpyLog(int rc, const uint32_t dstSize, const std::stri
     if (rc != 0) {
         std::stringstream ssm;
         ssm << "[" << logMsg << "] memcpy_s failed... dstSize: " << dstSize;
-        ExternalLogger::PrintLog(LogLevel::ERROR, ssm.str());
+        OCK_LOG(LogLevel::ERROR, ssm.str());
         return H_COPY_ERROR;
     } else {
         return H_OK;
@@ -225,7 +225,7 @@ bool ShardedDedup::IsPaddingValid(UniqueOutSelf &uniqueOut)
                 std::stringstream ssm;
                 ssm << "paddingSize should not be smaller than uniqueSize, paddingSize " << conf.paddingSize <<
                     " , uniqueSize " << uniqueOut.uniqueIdCntInBucket[i];
-                ExternalLogger::PrintLog(LogLevel::ERROR, ssm.str());
+                OCK_LOG(LogLevel::ERROR, ssm.str());
                 return false;
             }
         }

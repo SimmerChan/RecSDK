@@ -34,6 +34,7 @@ See the License for the specific language governing permissions and
 #include "initializer/truncated_normal_initializer/truncated_normal_initializer.h"
 #include "ock_ctr_common/include/embedding_cache.h"
 #include "ock_ctr_common/include/factory.h"
+#include "ock_ctr_common/include/external_logger.h"
 #include "securec.h"
 #include "tensorflow/core/framework/tensor.h"
 #include "utils/config.h"
@@ -621,22 +622,7 @@ enum CTRLogLevel {  // can't use enum class due to compatibility for AccCTR
 
 static void CTRLog(int level, const char* msg)
 {
-    switch (level) {
-        case CTRLogLevel::DEBUG:
-            LOG_DEBUG(msg);
-            break;
-        case CTRLogLevel::INFO:
-            LOG_INFO(msg);
-            break;
-        case CTRLogLevel::WARN:
-            LOG_WARN(msg);
-            break;
-        case CTRLogLevel::ERROR:
-            LOG_ERROR(msg);
-            break;
-        default:
-            break;
-    }
+    OCK_LOG(static_cast<ock::LogLevel>(level), msg);
 }
 
 ostream& operator<<(ostream& ss, MxRec::CkptDataType type);

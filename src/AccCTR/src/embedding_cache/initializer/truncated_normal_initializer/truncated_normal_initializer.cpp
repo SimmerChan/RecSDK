@@ -25,11 +25,11 @@ TruncatedNormalInitializer::TruncatedNormalInitializer(uint32_t start, uint32_t 
 {
     // 校验stddev mean及initK值范围
     if (initInfo.mean > NORMAL_MEAN_MAX) {
-        ExternalLogger::PrintLog(LogLevel::WARN, "truncated normal mean param is greater than " +
+        OCK_LOG(LogLevel::WARN, "truncated normal mean param is greater than " +
             std::to_string(NORMAL_MEAN_MAX) + ", and will use " + std::to_string(NORMAL_MEAN_MAX) + ".");
         mean = NORMAL_MEAN_MAX;
     } else if (initInfo.mean < NORMAL_MEAN_MIN) {
-        ExternalLogger::PrintLog(LogLevel::WARN, "truncated normal mean param is less than " +
+        OCK_LOG(LogLevel::WARN, "truncated normal mean param is less than " +
             std::to_string(NORMAL_MEAN_MIN) + ", and will use " + std::to_string(NORMAL_MEAN_MIN) + ".");
         mean = NORMAL_MEAN_MIN;
     } else {
@@ -37,11 +37,11 @@ TruncatedNormalInitializer::TruncatedNormalInitializer(uint32_t start, uint32_t 
     }
 
     if (initInfo.stddev > NORMAL_STDDEV_MAX) {
-        ExternalLogger::PrintLog(LogLevel::WARN, "truncated normal stddev param is greater than " +
+        OCK_LOG(LogLevel::WARN, "truncated normal stddev param is greater than " +
             std::to_string(NORMAL_STDDEV_MAX) + ", and will use " + std::to_string(NORMAL_STDDEV_MAX) + ".");
         stddev = NORMAL_STDDEV_MAX;
     } else if (initInfo.stddev < NORMAL_STDDEV_MIN) {
-        ExternalLogger::PrintLog(LogLevel::WARN, "truncated normal stddev param is less than " +
+        OCK_LOG(LogLevel::WARN, "truncated normal stddev param is less than " +
             std::to_string(NORMAL_STDDEV_MIN) + ", and will use " + std::to_string(NORMAL_STDDEV_MIN) + ".");
         stddev = NORMAL_STDDEV_MIN;
     } else {
@@ -49,17 +49,15 @@ TruncatedNormalInitializer::TruncatedNormalInitializer(uint32_t start, uint32_t 
     }
 
     if (abs(stddev) < std::numeric_limits<float>::epsilon()) {
-        ExternalLogger::PrintLog(
-            LogLevel::WARN,
-            "truncated normal stddev param is zero, initialization can be slow, suggest using constant initializer");
+        OCK_LOG(LogLevel::WARN, "truncated normal stddev param is zero, initialization can be slow, suggest using constant initializer");
     }
 
     if (initInfo.initK > INIT_K_MAX) {
-        ExternalLogger::PrintLog(LogLevel::WARN, "truncated normal initK is greater than " +
-            std::to_string(INIT_K_MAX) + ", and will use " + std::to_string(INIT_K_MAX) + ".");
+        OCK_LOG(LogLevel::WARN, "truncated normal initK is greater than " + std::to_string(INIT_K_MAX) +
+        ", and will use " + std::to_string(INIT_K_MAX) + ".");
         initParam = INIT_K_MAX;
     } else if (initInfo.initK < INIT_K_MIN) {
-        ExternalLogger::PrintLog(LogLevel::WARN, "truncated normal initK is less than " + std::to_string(INIT_K_MIN) +
+        OCK_LOG(LogLevel::WARN, "truncated normal initK is less than " + std::to_string(INIT_K_MIN) +
             ", and will use " + std::to_string(INIT_K_MIN) + ".");
         initParam = INIT_K_MIN;
     } else {
@@ -79,9 +77,8 @@ void TruncatedNormalInitializer::GenerateData(float* emb, int embSize)
         return;
     }
     if (embSize != INVALID_EMB_SIZE && embSize < static_cast<int>(start + len)) {
-        ExternalLogger::PrintLog(LogLevel::WARN,
-                                 "InitializeInfo start " + std::to_string(start) + " + len " + std::to_string(len) +
-                                 " is larger than embedding size " + std::to_string(embSize));
+        OCK_LOG(LogLevel::WARN, "InitializeInfo start " + std::to_string(start) + " + len " + std::to_string(len) +
+        " is larger than embedding size " + std::to_string(embSize));
         return;
     }
     std::generate_n(emb + start, len, [this]() {

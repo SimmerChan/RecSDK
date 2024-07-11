@@ -182,7 +182,7 @@ public:
         }
 
         if (swapOutCnt < swapOutNum) {
-            ock::ExternalLogger::PrintLog(ock::LogLevel::ERROR, "max cache size is too small");
+            OCK_LOG(ock::LogLevel::ERROR, "max cache size is too small");
             return ock::ctr::H_MAX_CACHESIZE_TOO_SMALL;
         }
 
@@ -198,7 +198,7 @@ public:
         for (uint64_t i = swapInCnt; i < swapInKeys.size(); i++) {
             swapInPos[i] = useLength++;
             if (HM_UNLIKELY(swapInPos[i] >= maxCacheSize)) {
-                ock::ExternalLogger::PrintLog(ock::LogLevel::ERROR, "max cache size is too small");
+                OCK_LOG(ock::LogLevel::ERROR, "max cache size is too small");
                 return ock::ctr::H_MAX_CACHESIZE_TOO_SMALL;
             }
             // 放入新key-pos

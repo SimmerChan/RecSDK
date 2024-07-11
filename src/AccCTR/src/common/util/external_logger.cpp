@@ -14,7 +14,14 @@ limitations under the License.
 
 #include "external_logger.h"
 
+#include <ctime>
+#include <sys/time.h>
+#include <cstring>
+
 namespace ock {
+
+int ExternalLogger::rank = 0;
+
 void ExternalLogger::SetExternalLogFunction(ExternalLog func)
 {
     if (mLogFunc == nullptr) {
@@ -22,27 +29,51 @@ void ExternalLogger::SetExternalLogFunction(ExternalLog func)
     }
 }
 
-void ExternalLogger::Log(const int level, const std::ostringstream &oss) const
+void ExternalLogger::Log(const int level, const std::string &message, const char* file, int line) const
 {
     if (mLogFunc != nullptr) {
-        mLogFunc(level, oss.str().c_str());
+        std::stringstream ss;
+        struct tm t;
+        struct timeval tv;
+        gettimeofday(&tv, nullptr);
+        localtime_r(&tv.tv_sec, &t);
+
+        ss << "[OCK][" << YEAR_BASE + t.tm_year << "/" << 1 + t.tm_mon << "/" << t.tm_mday<< " "
+           << t.tm_hour << ":" << t.tm_min << ":" << t.tm_sec << "." << tv.tv_usec << "] ["
+           << ExternalLogger::rank << "] ["<< ExternalLogger::LevelToStr(level) << "] ["
+           << (strrchr(file, '/') ? strrchr(file, '/') + 1 : file) << ":" << line << "] " << message << std::endl;
+
+        std::cout << ss.str();
     }
 }
 
-void ExternalLogger::PrintLog(LogLevel level, const std::string &message)
+void ExternalLogger::PrintLog(LogLevel level, const std::string &message, const char* file, int line)
 {
-    std::ostringstream oss;
-    oss << message;
     auto logger = ExternalLogger::Instance();
     if (logger != nullptr) {
-        logger->Log(static_cast<int>(level), oss);
+        logger->Log(static_cast<int>(level), message, file, line);
     }
 }
 
-void ExternalLogger::PrintLog(LogLevel level, const std::string &message, bool flag)
+void ExternalLogger::PrintLog(LogLevel level, const std::string &message, bool flag, const char* file, int line)
 {
     if (flag) {
-        PrintLog(level, message);
+        PrintLog(level, message, file, line);
     }
+}
+
+const char* ExternalLogger::LevelToStr(int logLevel) const
+{
+    static const char* msg[] = {
+            "DEBUG",
+            "INFO",
+            "WARN",
+            "ERROR",
+    };
+    return msg[logLevel];
+}
+
+void ExternalLogger::SetRank(const int logRank) {
+    ExternalLogger::rank = logRank;
 }
 }

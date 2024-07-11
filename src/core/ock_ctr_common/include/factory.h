@@ -27,7 +27,7 @@ See the License for the specific language governing permissions and
 extern "C" {
 #endif
 
-using ExternalLog = void (*)(int level, const char* msg);
+using ExternalLog = void (*)(int level, const char* msg, const char* file, int line);
 
 #ifdef __cplusplus
 }

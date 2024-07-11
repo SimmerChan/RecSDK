@@ -36,7 +36,7 @@ InitializerInfo::InitializerInfo(std::string &name, uint32_t start, uint32_t len
         initializer = std::make_shared<ConstantInitializer>(start, len, constantInitializerInfo.constantValue,
             constantInitializerInfo.initK);
     } else {
-        ock::ExternalLogger::PrintLog(ock::LogLevel::ERROR, "Invalid Initializer Type.");
+        OCK_LOG(ock::LogLevel::ERROR, "Invalid Initializer Type.");
     }
 }
 
@@ -51,6 +51,6 @@ InitializerInfo::InitializerInfo(std::string &name, uint32_t start, uint32_t len
         initializerType = InitializerType::RANDOM_NORMAL;
         initializer = std::make_shared<RandomNormalInitializer>(start, len, normalInitializerInfo);
     } else {
-        ock::ExternalLogger::PrintLog(ock::LogLevel::ERROR, "Invalid Initializer Type.");
+        OCK_LOG(ock::LogLevel::ERROR, "Invalid Initializer Type.");
     }
 }

@@ -20,7 +20,7 @@ limitations under the License.
 #include <sstream>
 #include "singleton.h"
 
-using ExternalLog = void (*)(int level, const char *msg);
+using ExternalLog = void (*)(int level, const char *msg, const char* file, int line);
 
 namespace ock {
 enum class LogLevel {
@@ -29,6 +29,8 @@ enum class LogLevel {
     WARN = 2,
     ERROR = 3,
 };
+
+constexpr int YEAR_BASE = 1900;
 
 class ExternalLogger {
 public:
@@ -41,11 +43,15 @@ public:
 
     void SetExternalLogFunction(ExternalLog func);
 
-    void Log(const int level, const std::ostringstream &oss) const;
+    void Log(const int level, const std::string &message, const char* file, int line) const;
 
-    static void PrintLog(LogLevel level, const std::string &message);
+    static void PrintLog(LogLevel level, const std::string &message, const char* file, int line);
 
-    static void PrintLog(LogLevel level, const std::string &message, bool flag);
+    static void PrintLog(LogLevel level, const std::string &message, bool flag, const char* file, int line);
+
+    const char* LevelToStr(int logLevel) const;
+
+    static void SetRank(const int logRank);
 
     ExternalLogger(const ExternalLogger &) = delete;
     ExternalLogger &operator = (const ExternalLogger &) = delete;
@@ -61,9 +67,13 @@ private:
 private:
     static ExternalLogger *gLogger;
     static std::mutex gMutex;
+    static int rank;
 
     ExternalLog mLogFunc = nullptr;
 };
 }
+
+#define OCK_LOG(level, message) ock::ExternalLogger::PrintLog(level, message, __FILE__, __LINE__)
+#define OCK_LOG_FLAG(level, message, flag) ock::ExternalLogger::PrintLog(level, message, flag, __FILE__, __LINE__)
 
 #endif // OCK_EXTERNAL_LOG_H

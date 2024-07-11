@@ -119,7 +119,7 @@ public:
             producerCv.notify_one();
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
-        ock::ExternalLogger::PrintLog(
+        OCK_LOG(
             ock::LogLevel::ERROR,
             "Failed to get new address for embedding, it is likely due to refill thread memory allocation failure "
             "or max retry has been reached. Please check for memory alloc error or increase refill thread num!");
@@ -170,7 +170,7 @@ private:
             }
             auto newAddress = (uint64_t)malloc(newSize);
             if (newAddress == 0) {
-                ock::ExternalLogger::PrintLog(ock::LogLevel::WARN, "Refill thread allocate memory failed!");
+                OCK_LOG(ock::LogLevel::WARN, "Refill thread allocate memory failed!");
                 return false;
             }
             expandedMemory.emplace_back(newAddress, newSize);
@@ -253,17 +253,17 @@ public:
     {
         FkvState ret = MapperBase::FindAndPutIfNotFound(key, value, [&]() {
             if (HM_UNLIKELY(current_size.load() >= hostVocabSize)) {
-                ock::ExternalLogger::PrintLog(ock::LogLevel::ERROR, "host does not have enough space");
+                OCK_LOG(ock::LogLevel::ERROR, "host does not have enough space");
                 return BeforePutFuncState::BEFORE_NO_SPACE;
             }
             return emExpendMemInfoPtr->GetNewValueToBeInserted(value);
         });
         if (ret == FkvState::FKV_FAIL) {
-            ock::ExternalLogger::PrintLog(ock::LogLevel::ERROR, "FindAndPutIfNotFound failed!");
+            OCK_LOG(ock::LogLevel::ERROR, "FindAndPutIfNotFound failed!");
             return ret;
         }
         if (ret == FkvState::FKV_BEFORE_PUT_FUNC_FAIL) {
-            ock::ExternalLogger::PrintLog(ock::LogLevel::ERROR, "malloc failed");
+            OCK_LOG(ock::LogLevel::ERROR, "malloc failed");
             return ret;
         }
         return ret;
@@ -276,8 +276,7 @@ public:
             uint64_t memSize = emExpendMemInfoPtr->extEmbeddingSize * sizeof(float);
             auto rc = memcpy_s(reinterpret_cast<void*>(startAddr), memSize, reinterpret_cast<void*>(value), memSize);
             if (rc != 0) {
-                ock::ExternalLogger::PrintLog(ock::LogLevel::ERROR,
-                                              "memcpy_s failed... dstSize: " + std::to_string(memSize));
+                OCK_LOG(ock::LogLevel::ERROR, "memcpy_s failed... dstSize: " + std::to_string(memSize));
                 return BeforeRemoveFuncState::BEFORE_FAIL;
             }
             emExpendMemInfoPtr->GetValueToBeRecycled(value);

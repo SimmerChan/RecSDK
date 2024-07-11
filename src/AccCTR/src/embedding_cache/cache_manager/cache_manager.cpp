@@ -35,12 +35,12 @@ int EmbCacheManagerImpl::CreateCacheForTable(const EmbCacheInfo& embCacheInfo,
 
     if (embCacheInfo.extEmbeddingSize == 0 || embCacheInfo.embeddingSize == 0 || embCacheInfo.vocabSize == 0 ||
         embCacheInfo.maxCacheSize == 0) {
-        ExternalLogger::PrintLog(LogLevel::ERROR, "size must be positive");
+        OCK_LOG(LogLevel::ERROR, "size must be positive");
         return H_SIZE_ZERO;
     }
 
     if (embCacheInfo.vocabSize < embCacheInfo.maxCacheSize) {
-        ExternalLogger::PrintLog(LogLevel::ERROR, "host vocabSize:" + std::to_string(embCacheInfo.vocabSize) +
+        OCK_LOG(LogLevel::ERROR, "host vocabSize:" + std::to_string(embCacheInfo.vocabSize) +
         " must be greater than or equal to device vocabSize:" + std::to_string(embCacheInfo.maxCacheSize) +
         ", please increase [host vocabSize] in [create_table] interface");
         return H_HOST_VOCAB_SIZE_TOO_SMALL;
@@ -49,12 +49,12 @@ int EmbCacheManagerImpl::CreateCacheForTable(const EmbCacheInfo& embCacheInfo,
     auto om = offsetMappers.find(embCacheInfo.tableName);
     auto embTable = embTables.find(embCacheInfo.tableName);
     if (om != offsetMappers.end() || embTable != embTables.end()) {
-        ExternalLogger::PrintLog(LogLevel::ERROR, "This table has already been created");
+        OCK_LOG(LogLevel::ERROR, "This table has already been created");
         return H_TABLE_CREATE_DUPLICATE;
     }
 
     if (embCacheInfo.extEmbeddingSize % embCacheInfo.embeddingSize != 0) {
-        ExternalLogger::PrintLog(LogLevel::ERROR, "extEmbeddingSize = embeddingSize + optimizerSize, "
+        OCK_LOG(LogLevel::ERROR, "extEmbeddingSize = embeddingSize + optimizerSize, "
                                                   "which is divisible by embeddingSize");
         return H_EXT_EMBEDDING_SIZE_INVALID;
     }
@@ -64,7 +64,7 @@ int EmbCacheManagerImpl::CreateCacheForTable(const EmbCacheInfo& embCacheInfo,
     }
 
     if ((prefillBufferSize < 1) || (prefillBufferSize > embCacheInfo.vocabSize)) {
-        ExternalLogger::PrintLog(LogLevel::ERROR, "PrefillBufferSize: " + std::to_string(prefillBufferSize) +
+        OCK_LOG(LogLevel::ERROR, "PrefillBufferSize: " + std::to_string(prefillBufferSize) +
                                                   " has to be between [1, hostVocabSize].");
         return H_PREFILL_BUFFER_SIZE_INVALID;
     }
@@ -120,7 +120,7 @@ int EmbCacheManagerImpl::EmbeddingLookup(const std::string& tableName, const std
     }
 
     if (embAddr == nullptr) {
-        ExternalLogger::PrintLog(LogLevel::ERROR, "embAddr is nullptr");
+        OCK_LOG(LogLevel::ERROR, "embAddr is nullptr");
         return H_ADDRESS_NULL;
     }
 
@@ -164,7 +164,7 @@ int EmbCacheManagerImpl::EmbeddingLookupAndRemove(const std::string& tableName, 
     }
 
     if (embAddr == nullptr) {
-        ExternalLogger::PrintLog(LogLevel::ERROR, "embAddr is nullptr");
+        OCK_LOG(LogLevel::ERROR, "embAddr is nullptr");
         return H_ADDRESS_NULL;
     }
 
@@ -188,7 +188,7 @@ int EmbCacheManagerImpl::EmbeddingUpdate(const std::string& tableName, const std
     }
 
     if (embAddr == nullptr) {  // 检查embAddr是不是空指针
-        ExternalLogger::PrintLog(LogLevel::ERROR, "embAddr is nullptr");
+        OCK_LOG(LogLevel::ERROR, "embAddr is nullptr");
         return H_ADDRESS_NULL;
     }
 
@@ -224,7 +224,7 @@ int EmbCacheManagerImpl::RemoveEmbsByKeys(const std::string& tableName, const st
     const auto& embTable = embTables.find(tableName);
     for (auto key : keys) {
         if (key == static_cast<uint64_t>(INVALID_KEY)) {
-            ExternalLogger::PrintLog(LogLevel::WARN, "Try to evict invalid key");
+            OCK_LOG(LogLevel::WARN, "Try to evict invalid key");
             continue;
         }
         om->second.Remove(key);
@@ -236,7 +236,7 @@ int EmbCacheManagerImpl::RemoveEmbsByKeys(const std::string& tableName, const st
 int EmbCacheManagerImpl::GetEmbTableNames(std::vector<std::string>& allTableNames)
 {
     if (!allTableNames.empty()) {
-        ExternalLogger::PrintLog(LogLevel::ERROR, "allTableNames should be empty");
+        OCK_LOG(LogLevel::ERROR, "allTableNames should be empty");
         return H_ARG_NOT_EMPTY;
     }
     allTableNames.reserve(embTables.size());
@@ -289,15 +289,15 @@ int EmbCacheManagerImpl::GetEmbTableInfos(std::string tableName, std::vector<uin
         return checkTableNameRet;
     }
     if (!keys.empty()) {
-        ExternalLogger::PrintLog(LogLevel::ERROR, "keys should be empty");
+        OCK_LOG(LogLevel::ERROR, "keys should be empty");
         return H_ARG_NOT_EMPTY;
     }
     if (!embeddings.empty()) {
-        ExternalLogger::PrintLog(LogLevel::ERROR, "embeddings should be empty");
+        OCK_LOG(LogLevel::ERROR, "embeddings should be empty");
         return H_ARG_NOT_EMPTY;
     }
     if (!optimizerSlots.empty()) {
-        ExternalLogger::PrintLog(LogLevel::ERROR, "optimizerSlots should be empty");
+        OCK_LOG(LogLevel::ERROR, "optimizerSlots should be empty");
         return H_ARG_NOT_EMPTY;
     }
     embTables[tableName].GetEmbTableInfos(keys, embeddings, optimizerSlots);
@@ -334,14 +334,13 @@ void EmbCacheManagerImpl::Destroy()
 int EmbCacheManagerImpl::CheckValidTableName(const std::string& tableName)
 {
     if (tableName.size() > TABLE_NAME_MAX_SIZE) {
-        ExternalLogger::PrintLog(LogLevel::ERROR,
-                                 "tableName size can not larger than " + std::to_string(TABLE_NAME_MAX_SIZE));
+        OCK_LOG(LogLevel::ERROR, "tableName size can not larger than " + std::to_string(TABLE_NAME_MAX_SIZE));
         return H_TABLE_NAME_TOO_LONG;
     }
     auto om = offsetMappers.find(tableName);
     auto embTable = embTables.find(tableName);
     if (om == offsetMappers.end() || embTable == embTables.end()) {
-        ExternalLogger::PrintLog(LogLevel::ERROR, "can not find table");
+        OCK_LOG(LogLevel::ERROR, "can not find table");
         return H_TABLE_NOT_EXIST;
     }
     return H_OK;
@@ -354,18 +353,18 @@ bool EmbCacheManagerImpl::CheckInitializer(uint32_t extEmbSize, std::vector<Init
     uint32_t cur_pos = 0;
     for (const auto& info : initializerInfos) {
         if (info.initializer == nullptr) {
-            ExternalLogger::PrintLog(LogLevel::ERROR, "initializer is nullptr");
+            OCK_LOG(LogLevel::ERROR, "initializer is nullptr");
             return false;
         }
         if (info.start != cur_pos) {
-            ExternalLogger::PrintLog(LogLevel::ERROR, "Initializers got coverage problems");
+            OCK_LOG(LogLevel::ERROR, "Initializers got coverage problems");
             return false;
         }
         cur_pos += info.len;
     }
     // 最后判断
     if (cur_pos != extEmbSize) {
-        ExternalLogger::PrintLog(LogLevel::ERROR, "Initializers got coverage problems");
+        OCK_LOG(LogLevel::ERROR, "Initializers got coverage problems");
         return false;
     }
     return true;
@@ -375,12 +374,12 @@ bool EmbCacheManagerImpl::CheckValidThreadNum(uint32_t threadNum)
 {
     uint32_t processCoreNum = std::thread::hardware_concurrency();
     if (threadNum > processCoreNum) {
-        ExternalLogger::PrintLog(LogLevel::ERROR, "ThreadNum can not larger than cpu core num");
+        OCK_LOG(LogLevel::ERROR, "ThreadNum can not larger than cpu core num");
         return false;
     }
 
     if (threadNum == 0) {
-        ExternalLogger::PrintLog(LogLevel::ERROR, "ThreadNum can not be zero");
+        OCK_LOG(LogLevel::ERROR, "ThreadNum can not be zero");
         return false;
     }
     return true;
@@ -391,7 +390,7 @@ int EmbCacheManagerImpl::CheckGetSwapPairsAndKey2Offset(const std::string& table
 {
     if (!swapInKoPair.first.empty() || !swapInKoPair.second.empty() || !swapOutKoPair.first.empty() ||
         !swapOutKoPair.second.empty()) {
-        ExternalLogger::PrintLog(LogLevel::ERROR, "koPair should be empty");
+        OCK_LOG(LogLevel::ERROR, "koPair should be empty");
         return H_ARG_NOT_EMPTY;
     }
 
@@ -406,13 +405,12 @@ int EmbCacheManagerImpl::CheckGetSwapPairsAndKey2Offset(const std::string& table
 int EmbCacheManagerImpl::CheckCreateTableName(const std::string& tableName)
 {
     if (tableName.empty()) {
-        ExternalLogger::PrintLog(LogLevel::ERROR, "tableName can not be empty");
+        OCK_LOG(LogLevel::ERROR, "tableName can not be empty");
         return H_TABLE_NAME_EMPTY;
     }
 
     if (tableName.size() > TABLE_NAME_MAX_SIZE) {
-        ExternalLogger::PrintLog(LogLevel::ERROR,
-                                 "tableName size can not larger than " + std::to_string(TABLE_NAME_MAX_SIZE));
+        OCK_LOG(LogLevel::ERROR, "tableName size can not larger than " + std::to_string(TABLE_NAME_MAX_SIZE));
         return H_TABLE_NAME_TOO_LONG;
     }
     return H_OK;

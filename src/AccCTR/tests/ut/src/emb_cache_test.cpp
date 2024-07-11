@@ -100,7 +100,7 @@ EmbCacheManagerPtr EmbCacheTest::ConstZeroCreateTable(std::string tableName, uin
 void EmbCacheTest::SetUpTestCase()
 {
     Factory::Create(factory);
-    factory->SetExternalLogFuncInner(CTRLog);
+    factory->SetExternalLogFuncInner(reinterpret_cast<ExternalLog>(CTRLog));
 }
 
 void EmbCacheTest::TearDownTestCase() {}
