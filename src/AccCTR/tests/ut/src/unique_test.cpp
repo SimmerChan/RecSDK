@@ -170,7 +170,7 @@ TEST_F(UniqueTest, DoUniqueNormal)
     UniquePtr unique;
     ASSERT_EQ(factory->CreateUnique(unique), 0);
 
-    factory->SetExternalLogFuncInner(CTRLog);
+    factory->SetExternalLogFuncInner(reinterpret_cast<ExternalLog>(CTRLog));
 
     UniqueConf conf;
     conf.trace = true;
@@ -232,7 +232,7 @@ TEST_F(UniqueTest, UseErrOutputTypeEnhanced)
     UniquePtr unique;
     ASSERT_EQ(factory->CreateUnique(unique), 0);
 
-    factory->SetExternalLogFuncInner(CTRLog);
+    factory->SetExternalLogFuncInner(reinterpret_cast<ExternalLog>(CTRLog));
 
     UniqueConf conf;
     conf.desiredSize = 6;
@@ -274,7 +274,7 @@ TEST_F(UniqueTest, UseErrOutputTypeNormal)
     UniquePtr unique;
     ASSERT_EQ(factory->CreateUnique(unique), 0);
 
-    factory->SetExternalLogFuncInner(CTRLog);
+    factory->SetExternalLogFuncInner(reinterpret_cast<ExternalLog>(CTRLog));
 
     UniqueConf conf;
     conf.desiredSize = 6;
@@ -315,7 +315,7 @@ TEST_F(UniqueTest, DoEnhancedUnique)
     UniquePtr unique;
     ASSERT_EQ(factory->CreateUnique(unique), 0);
 
-    factory->SetExternalLogFuncInner(CTRLog);
+    factory->SetExternalLogFuncInner(reinterpret_cast<ExternalLog>(CTRLog));
 
     UniqueConf conf;
     conf.desiredSize = 6;
@@ -365,7 +365,7 @@ TEST_F(UniqueTest, DoEnhancedUniqueErr)
     UniquePtr unique;
     ASSERT_EQ(factory->CreateUnique(unique), 0);
 
-    factory->SetExternalLogFuncInner(CTRLog);
+    factory->SetExternalLogFuncInner(reinterpret_cast<ExternalLog>(CTRLog));
 
     UniqueConf conf;
     conf.desiredSize = 6;
@@ -432,7 +432,7 @@ TEST_F(UniqueTest, DoEnhancedUnique_UniqueIdSize)
     UniquePtr unique;
     ASSERT_EQ(factory->CreateUnique(unique), 0);
 
-    factory->SetExternalLogFuncInner(CTRLog);
+    factory->SetExternalLogFuncInner(reinterpret_cast<ExternalLog>(CTRLog));
 
     UniqueConf conf;
     conf.desiredSize = 6;
@@ -481,7 +481,7 @@ TEST_F(UniqueTest, idCntIsNull)
     UniquePtr unique;
     ASSERT_EQ(factory->CreateUnique(unique), 0);
 
-    factory->SetExternalLogFuncInner(CTRLog);
+    factory->SetExternalLogFuncInner(reinterpret_cast<ExternalLog>(CTRLog));
 
     UniqueConf conf;
     conf.desiredSize = 6;
@@ -522,7 +522,7 @@ TEST_F(UniqueTest, idCntIsNullSharding)
     UniquePtr unique;
     ASSERT_EQ(factory->CreateUnique(unique), 0);
 
-    factory->SetExternalLogFuncInner(CTRLog);
+    factory->SetExternalLogFuncInner(reinterpret_cast<ExternalLog>(CTRLog));
 
     UniqueConf conf;
     conf.desiredSize = 6;
@@ -576,7 +576,7 @@ TEST_F(UniqueTest, DoUniqueShard)
     UniquePtr unique;
     ASSERT_EQ(factory->CreateUnique(unique), 0);
 
-    factory->SetExternalLogFuncInner(CTRLog);
+    factory->SetExternalLogFuncInner(reinterpret_cast<ExternalLog>(CTRLog));
 
     UniqueConf conf;
     conf.useSharding = true;
@@ -654,7 +654,7 @@ TEST_F(UniqueTest, DoUniqueOnlyShard)
     UniquePtr unique;
     ASSERT_EQ(factory->CreateUnique(unique), 0);
 
-    factory->SetExternalLogFuncInner(CTRLog);
+    factory->SetExternalLogFuncInner(reinterpret_cast<ExternalLog>(CTRLog));
 
     UniqueConf conf;
     conf.useSharding = true;
@@ -720,7 +720,7 @@ TEST_F(UniqueTest, DoUniquePadding)
     UniquePtr unique;
     ASSERT_EQ(factory->CreateUnique(unique), 0);
 
-    factory->SetExternalLogFuncInner(CTRLog);
+    factory->SetExternalLogFuncInner(reinterpret_cast<ExternalLog>(CTRLog));
 
     UniqueConf conf;
     conf.usePadding = true;
@@ -804,7 +804,7 @@ TEST_F(UniqueTest, DoUniqueNoThreadPool)
     UniquePtr unique;
     ASSERT_EQ(factory->CreateUnique(unique), 0);
 
-    factory->SetExternalLogFuncInner(CTRLog);
+    factory->SetExternalLogFuncInner(reinterpret_cast<ExternalLog>(CTRLog));
 
     UniqueConf conf;
     conf.desiredSize = 20; // 配置空间大于实际输入数组长度，验证正常运行
@@ -868,7 +868,7 @@ TEST_F(UniqueTest, DoUniqueShardNumberOversize)
     UniquePtr unique;
     ASSERT_EQ(factory->CreateUnique(unique), 0);
 
-    factory->SetExternalLogFuncInner(CTRLog);
+    factory->SetExternalLogFuncInner(reinterpret_cast<ExternalLog>(CTRLog));
 
     UniqueConf conf;
     conf.useSharding = true;
@@ -949,7 +949,7 @@ TEST_F(UniqueTest, DoUniqueSpecial)
 
     UniquePtr unique;
     ASSERT_EQ(factory->CreateUnique(unique), 0);
-    factory->SetExternalLogFuncInner(CTRLog);
+    factory->SetExternalLogFuncInner(reinterpret_cast<ExternalLog>(CTRLog));
 
     int count = 1000000;
     UniqueConf conf;
@@ -1024,7 +1024,7 @@ TEST_F(UniqueTest, IdLarge)
     UniquePtr unique;
     ASSERT_EQ(factory->CreateUnique(unique), 0);
 
-    factory->SetExternalLogFuncInner(CTRLog);
+    factory->SetExternalLogFuncInner(reinterpret_cast<ExternalLog>(CTRLog));
 
     UniqueConf conf;
     conf.desiredSize = 6;
@@ -1066,7 +1066,7 @@ TEST_F(UniqueTest, DoUniqueNormalInt32)
     UniquePtr unique;
     ASSERT_EQ(factory->CreateUnique(unique), 0);
 
-    factory->SetExternalLogFuncInner(CTRLog);
+    factory->SetExternalLogFuncInner(reinterpret_cast<ExternalLog>(CTRLog));
 
     UniqueConf conf;
     conf.useSharding = true;
@@ -1193,7 +1193,7 @@ TEST_F(UniqueTest, DoUniqueShardMultipleTimes)
     UniquePtr unique;
     ASSERT_EQ(factory->CreateUnique(unique), 0);
 
-    factory->SetExternalLogFuncInner(CTRLog);
+    factory->SetExternalLogFuncInner(reinterpret_cast<ExternalLog>(CTRLog));
 
     UniqueConf conf;
     conf.useSharding = true;
@@ -1363,7 +1363,7 @@ TEST_F(UniqueTest, IdCntSmall)
     UniquePtr unique;
     ASSERT_EQ(factory->CreateUnique(unique), 0);
 
-    factory->SetExternalLogFuncInner(CTRLog);
+    factory->SetExternalLogFuncInner(reinterpret_cast<ExternalLog>(CTRLog));
 
     UniqueConf conf;
     conf.desiredSize = 6;

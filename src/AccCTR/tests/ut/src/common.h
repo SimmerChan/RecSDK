@@ -17,6 +17,7 @@ limitations under the License.
 #include <iostream>
 
 #include "factory.h"
+#include "external_logger.h"
 
 extern ock::ctr::FactoryPtr factory;
 
@@ -43,22 +44,7 @@ public:
 
 static void CTRLog(int level, const char *msg)
 {
-    switch (level) {
-        case CTRLogLevel::DEBUG:
-            std::cout << "DEBUG:" << msg << std::endl;
-            break;
-        case CTRLogLevel::INFO:
-            std::cout << "INFO:" << msg << std::endl;
-            break;
-        case CTRLogLevel::WARN:
-            std::cout << "WARN:" << msg << std::endl;
-            break;
-        case CTRLogLevel::ERROR:
-            std::cout << "ERROR:" << msg << std::endl;
-            break;
-        default:
-            break;
-    }
+    OCK_LOG(static_cast<ock::LogLevel>(level), msg);
 }
 
 #endif // CTR_COMMON_H

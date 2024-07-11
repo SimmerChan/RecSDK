@@ -14,7 +14,6 @@ limitations under the License.
 
 #include "external_logger.h"
 
-#include <cstdio>
 #include <ctime>
 #include <sys/time.h>
 #include <cstring>
