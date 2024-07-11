@@ -76,6 +76,7 @@ namespace MxRec {
         if (!g_isGlogInit) {
             Logger::SetLevel(GlogConfig::gGlogLevel);
             Logger::SetRank(rank);
+            ock::ExternalLogger::SetRank(rank);
             g_isGlogInit = true;
         }
     }

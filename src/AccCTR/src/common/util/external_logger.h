@@ -30,6 +30,8 @@ enum class LogLevel {
     ERROR = 3,
 };
 
+constexpr int YEAR_BASE = 1900;
+
 class ExternalLogger {
 public:
     ExternalLogger() = default;
@@ -41,11 +43,15 @@ public:
 
     void SetExternalLogFunction(ExternalLog func);
 
-    void Log(const int level, const std::ostringstream &oss, const char* file, int line) const;
+    void Log(const int level, const std::string &message, const char* file, int line) const;
 
     static void PrintLog(LogLevel level, const std::string &message, const char* file, int line);
 
     static void PrintLog(LogLevel level, const std::string &message, bool flag, const char* file, int line);
+
+    const char* LevelToStr(int logLevel) const;
+
+    static void SetRank(const int logRank);
 
     ExternalLogger(const ExternalLogger &) = delete;
     ExternalLogger &operator = (const ExternalLogger &) = delete;
@@ -61,6 +67,7 @@ private:
 private:
     static ExternalLogger *gLogger;
     static std::mutex gMutex;
+    static int rank;
 
     ExternalLog mLogFunc = nullptr;
 };

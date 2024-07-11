@@ -23,47 +23,54 @@ limitations under the License.
 using ExternalLog = void (*)(int level, const char *msg, const char* file, int line);
 
 namespace ock {
-enum class LogLevel {
-    DEBUG = 0,
-    INFO = 1,
-    WARN = 2,
-    ERROR = 3,
-};
+    enum class LogLevel {
+        DEBUG = 0,
+        INFO = 1,
+        WARN = 2,
+        ERROR = 3,
+    };
 
-class ExternalLogger {
-public:
-    ExternalLogger() = default;
+    constexpr int YEAR_BASE = 1900;
 
-    static ExternalLogger *Instance()
-    {
-        return Singleton<ExternalLogger>::GetInstance();
-    }
+    class ExternalLogger {
+    public:
+        ExternalLogger() = default;
 
-    void SetExternalLogFunction(ExternalLog func);
+        static ExternalLogger *Instance()
+        {
+            return Singleton<ExternalLogger>::GetInstance();
+        }
 
-    void Log(const int level, const std::ostringstream &oss, const char* file, int line) const;
+        void SetExternalLogFunction(ExternalLog func);
 
-    static void PrintLog(LogLevel level, const std::string &message, const char* file, int line);
+        void Log(const int level, const std::string &message, const char* file, int line) const;
 
-    static void PrintLog(LogLevel level, const std::string &message, bool flag, const char* file, int line);
+        static void PrintLog(LogLevel level, const std::string &message, const char* file, int line);
 
-    ExternalLogger(const ExternalLogger &) = delete;
-    ExternalLogger &operator = (const ExternalLogger &) = delete;
-    ExternalLogger(ExternalLogger &&) = delete;
-    ExternalLogger &operator = (const ExternalLogger &&) = delete;
+        static void PrintLog(LogLevel level, const std::string &message, bool flag, const char* file, int line);
 
-    ~ExternalLogger()
-    {
-        mLogFunc = nullptr;
-    }
+        const char* LevelToStr(int logLevel) const;
 
-private:
-private:
-    static ExternalLogger *gLogger;
-    static std::mutex gMutex;
+        static void SetRank(const int logRank);
 
-    ExternalLog mLogFunc = nullptr;
-};
+        ExternalLogger(const ExternalLogger &) = delete;
+        ExternalLogger &operator = (const ExternalLogger &) = delete;
+        ExternalLogger(ExternalLogger &&) = delete;
+        ExternalLogger &operator = (const ExternalLogger &&) = delete;
+
+        ~ExternalLogger()
+        {
+            mLogFunc = nullptr;
+        }
+
+    private:
+    private:
+        static ExternalLogger *gLogger;
+        static std::mutex gMutex;
+        static int rank;
+
+        ExternalLog mLogFunc = nullptr;
+    };
 }
 
 #define OCK_LOG(level, message) ock::ExternalLogger::PrintLog(level, message, __FILE__, __LINE__)
