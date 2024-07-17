@@ -203,7 +203,7 @@ def main():
             tracing.extend([TracingEvent(event) for event in merged])
 
     with open("mxrec_tracing.json", "w") as file:
-        json.dump(tracing, file, indent=4)
+        json.dump(tracing, file, indent=4, default=lambda obj: obj.__dict__)
 
 
 if __name__ == "__main__":
