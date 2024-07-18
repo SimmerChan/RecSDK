@@ -5,6 +5,7 @@ from collections import defaultdict
 from datetime import datetime
 from typing import Any, Dict, List
 
+import pandas as pd
 import toml
 
 
@@ -21,7 +22,25 @@ class MxRecEvent:
         self.pipe_id = pipe_id
 
 
-def extract_events(
+class OpEvent:
+    def __init__(
+        self,
+        device_id: int,
+        op_name: str,
+        op_type: str,
+        task_type: str,
+        start_timestamp: float,
+        duration: float,
+    ):
+        self.device_id = device_id
+        self.op_name = op_name
+        self.op_type = op_type
+        self.task_type = task_type
+        self.start_timestamp = start_timestamp
+        self.duration = duration
+
+
+def extract_mxrec_events(
     log_path: str, event_names: Dict[str, str]
 ) -> Dict[int, Dict[str, List[MxRecEvent]]]:
     events: Dict[int, Dict[str, List[MxRecEvent]]] = defaultdict(
@@ -40,39 +59,19 @@ def extract_events(
     return events
 
 
-def merge_multithread_timeline(events: List[MxRecEvent]) -> List[MxRecEvent]:
-    group_by_name: Dict[str, List[MxRecEvent]] = defaultdict(list)
-    for event in events:
-        group_by_name[event.name].append(event)
-    for es in group_by_name.values():
-        es.sort(key=lambda x: x.timestamp_start_us)
-    merged = list()
-    for events in group_by_name.values():
-        if len(events) > 1:
-            tmp_merged = list()
-            while events:
-                event = events.pop(0)
-                if tmp_merged:
-                    last_event: MxRecEvent = tmp_merged.pop()
-                    if event.timestamp_start_us <= last_event.timestamp_end_us:
-                        last_event.timestamp_end_us = event.timestamp_start_us
-                        event.timestamp_end_us = max(
-                            event.timestamp_end_us, last_event.timestamp_end_us
-                        )
-                        last_event.duration_us = (
-                            last_event.timestamp_end_us - last_event.timestamp_start_us
-                        )
-                        event.duration_us = (
-                            event.timestamp_end_us - event.timestamp_start_us
-                        )
-                    tmp_merged.append(last_event)
-                    tmp_merged.append(event)
-                else:
-                    tmp_merged.append(event)
-            merged.extend(tmp_merged)
-        else:
-            merged.extend(events)
-    return merged
+def extract_op_events(op_summary_path: str) -> List[OpEvent]:
+    df = pd.read_csv(op_summary_path)
+    return [
+        OpEvent(
+            row["Device_id"],
+            row["Op Name"],
+            row["Op Type"],
+            row["Task Type"],
+            row["Task Start Time(us)"],
+            row["Task Duration(us)"],
+        )
+        for _, row in df.iterrows()
+    ]
 
 
 def get_timestamp(log_line: str) -> float:
@@ -192,13 +191,12 @@ def main():
     log_path = args.debug_log
     config = read_config()
 
-    mxrec_events = extract_events(log_path, config)
+    mxrec_events = extract_mxrec_events(log_path, config)
     tracing = list()
     tracing.extend(get_metadata(list(mxrec_events.keys())))
     for process in mxrec_events.values():
         for events in process.values():
-            merged = merge_multithread_timeline(events)
-            tracing.extend([TracingEvent(event) for event in merged])
+            tracing.extend([TracingEvent(event) for event in events])
 
     with open("mxrec_tracing.json", "w") as file:
         json.dump(tracing, file, indent=4, default=lambda obj: obj.__dict__)
