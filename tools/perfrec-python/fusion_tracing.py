@@ -55,19 +55,18 @@ def merge_multithread_timeline(events: List[MxRecEvent]) -> List[MxRecEvent]:
                 if tmp_merged:
                     last_event: MxRecEvent = tmp_merged.pop()
                     if event.timestamp_start_us <= last_event.timestamp_end_us:
-                        event.timestamp_start_us = min(
-                            event.timestamp_start_us, last_event.timestamp_start_us
-                        )
+                        last_event.timestamp_end_us = event.timestamp_start_us
                         event.timestamp_end_us = max(
                             event.timestamp_end_us, last_event.timestamp_end_us
+                        )
+                        last_event.duration_us = (
+                            last_event.timestamp_end_us - last_event.timestamp_start_us
                         )
                         event.duration_us = (
                             event.timestamp_end_us - event.timestamp_start_us
                         )
-                        tmp_merged.append(event)
-                    else:
-                        tmp_merged.append(last_event)
-                        tmp_merged.append(event)
+                    tmp_merged.append(last_event)
+                    tmp_merged.append(event)
                 else:
                     tmp_merged.append(event)
             merged.extend(tmp_merged)
