@@ -1,9 +1,10 @@
 import argparse
 import json
+import os
 import re
 from collections import defaultdict
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 import pandas as pd
 import toml
@@ -65,7 +66,7 @@ def extract_op_events(op_summary_path: str) -> List[OpEvent]:
         OpEvent(
             row["Device_id"],
             row["Op Name"],
-            row["Op Type"],
+            row["OP Type"],
             row["Task Type"],
             row["Task Start Time(us)"],
             row["Task Duration(us)"],
@@ -108,7 +109,7 @@ def get_process_id(log_line: str) -> int:
         raise RuntimeError(f"There is no process_id in log: {log_line}")
 
 
-def read_config() -> Dict[str, str]:
+def read_mxrec_config() -> Dict[str, str]:
     config = toml.load("config.toml")
     mxrec_config = defaultdict(str)
     for pipe, event_list in config["mxrec"].items():
@@ -134,7 +135,7 @@ class TracingMetaData:
         self.args = args
 
 
-class TracingEvent:
+class TracingMxRecEvent:
     def __init__(self, mxrec_event: MxRecEvent):
         self.name = mxrec_event.name
         self.pid = mxrec_event.process_id
@@ -145,8 +146,19 @@ class TracingEvent:
         self.args = {}
 
 
+class TracingOpEvent:
+    def __init__(self, op_event: OpEvent, tid: int):
+        self.name = op_event.op_type
+        self.pid = get_op_pid(op_event)
+        self.tid = tid
+        self.ts = op_event.start_timestamp
+        self.dur = op_event.duration
+        self.ph = "X"
+        self.args = {"Op Name": op_event.op_name}
+
+
 def get_metadata(processes: List[int]) -> List[TracingMetaData]:
-    res = list()
+    metadata = list()
     pipes = get_pipes()
     for i, pid in enumerate(processes):
         metadata1 = TracingMetaData(
@@ -155,8 +167,8 @@ def get_metadata(processes: List[int]) -> List[TracingMetaData]:
         metadata2 = TracingMetaData(
             "process_sort_index", pid, 0, "M", {"sort_index": i}
         )
-        res.append(metadata1)
-        res.append(metadata2)
+        metadata.append(metadata1)
+        metadata.append(metadata2)
         for pipe_i, pipe in enumerate(pipes):
             pipe_metadata1 = TracingMetaData(
                 "thread_name",
@@ -172,13 +184,61 @@ def get_metadata(processes: List[int]) -> List[TracingMetaData]:
                 "M",
                 {"sort_index": pipe_i},
             )
-            res.append(pipe_metadata1)
-            res.append(pipe_metadata2)
-    return res
+            metadata.append(pipe_metadata1)
+            metadata.append(pipe_metadata2)
+    return metadata
 
 
 def get_fake_tid(pid: int, pipe_id: int) -> int:
     return pid * 10 + pipe_id
+
+
+def get_op_pid(op_event: OpEvent) -> int:
+    return 100 + op_event.device_id
+
+
+def get_op_tracing(path: str) -> Tuple[List[TracingMetaData], List[TracingOpEvent]]:
+    task_types = defaultdict(int)
+    pids = set()
+    tids = set()
+    metadata = list()
+    op_tracing = list()
+
+    def new_process_metadata(pid, device_id):
+        metadata1 = TracingMetaData(
+            "process_name", pid, 0, "M", {"name": f"NPU {device_id}"}
+        )
+        metadata2 = TracingMetaData(
+            "process_sort_index", pid, 0, "M", {"sort_index": pid}
+        )
+        return [metadata1, metadata2]
+
+    def new_thread_metadata(pid, tid, name):
+        metadata1 = TracingMetaData("thread_name", pid, tid, "M", {"name": f"{name}"})
+        metadata2 = TracingMetaData(
+            "thread_sort_index", pid, tid, "M", {"sort_index": tid}
+        )
+        return [metadata1, metadata2]
+
+    for root, _, files in os.walk(path):
+        for file in files:
+            if file.startswith("op_summary") and file.endswith(".csv"):
+                file_path = os.path.join(root, file)
+                op_events = extract_op_events(file_path)
+                for event in op_events:
+                    pid = get_op_pid(event)
+                    if pid not in pids:
+                        pids.add(pid)
+                        metadata.extend(new_process_metadata(pid, event.device_id))
+                    if event.task_type not in task_types:
+                        task_id = len(task_types)
+                        task_types[event.task_type] = task_id
+                    tid = get_fake_tid(pid, task_types[event.task_type])
+                    if tid not in tids:
+                        tids.add(tid)
+                        metadata.extend(new_thread_metadata(pid, tid, event.task_type))
+                    op_tracing.append(TracingOpEvent(event, tid))
+    return (metadata, op_tracing)
 
 
 def main():
@@ -186,17 +246,22 @@ def main():
         description="Generate CPU/NPU fusion tracing json."
     )
     parser.add_argument("debug_log", help="MxRec DEBUG level log flie path.")
+    parser.add_argument("msprof_output_path", help="msprof output path.")
     args = parser.parse_args()
 
     log_path = args.debug_log
-    config = read_config()
+    config = read_mxrec_config()
 
     mxrec_events = extract_mxrec_events(log_path, config)
     tracing = list()
     tracing.extend(get_metadata(list(mxrec_events.keys())))
     for process in mxrec_events.values():
         for events in process.values():
-            tracing.extend([TracingEvent(event) for event in events])
+            tracing.extend([TracingMxRecEvent(event) for event in events])
+
+    op_metadata, op_tracing = get_op_tracing(args.msprof_output_path)
+    tracing.extend(op_metadata)
+    tracing.extend(op_tracing)
 
     with open("mxrec_tracing.json", "w") as file:
         json.dump(tracing, file, indent=4, default=lambda obj: obj.__dict__)
