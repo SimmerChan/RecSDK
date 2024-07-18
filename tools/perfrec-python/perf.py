@@ -6,7 +6,15 @@ from collections import defaultdict
 from tabulate import tabulate
 
 
-def generate_flamegraph(perf_data, output_svg, flamegraph_path):
+def generate_flamegraph(perf_data: str, output_svg: str, flamegraph_path: str) -> None:
+    """
+    Generate a flamegraph from perf data.
+
+    Args:
+        perf_data (str): Path to the perf.data file.
+        output_svg (str): Path to the output SVG file.
+        flamegraph_path (str): Path to the Flamegraph scripts directory.
+    """
     # Ensure perf script is available
     try:
         subprocess.run(["perf", "--version"], check=True)
@@ -46,7 +54,13 @@ def generate_flamegraph(perf_data, output_svg, flamegraph_path):
     analyze_folded_stack(folded_output)
 
 
-def analyze_folded_stack(folded_output):
+def analyze_folded_stack(folded_output: str) -> None:
+    """
+    Analyzes the folded stack output to find functions with significant sample counts.
+
+    Args:
+        folded_output (str): Path to the folded stack output file.
+    """
     function_counts = defaultdict(int)
     total_count = 0
 
@@ -83,6 +97,16 @@ def analyze_folded_stack(folded_output):
 
 
 def limit_line(input: str, line_length: int) -> str:
+    """
+    Limits the length of a line to a specified number of characters, adding line breaks if necessary.
+
+    Args:
+        input (str): The input string.
+        line_length (int): The maximum line length.
+
+    Returns:
+        str: The formatted string with line breaks.
+    """
     if line_length >= len(input):
         return input
     limited_str = ""
@@ -98,6 +122,9 @@ def limit_line(input: str, line_length: int) -> str:
 
 
 def main():
+    """
+    Main function to parse arguments and generate a flamegraph.
+    """
     parser = argparse.ArgumentParser(description="Generate a Flamegraph from perf.data")
     parser.add_argument("perf_data", help="Path to the perf.data file")
     parser.add_argument("output_svg", help="Path to the output SVG file")

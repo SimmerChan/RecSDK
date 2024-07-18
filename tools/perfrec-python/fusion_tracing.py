@@ -11,6 +11,10 @@ import toml
 
 
 class MxRecEvent:
+    """
+    Class to represent an MxRec event.
+    """
+
     def __init__(self, log_line: str, event_name: str, pipe_id: int):
         timestamp_s = get_timestamp(log_line)
         duration_ms = get_duration(log_line, event_name)
@@ -24,6 +28,10 @@ class MxRecEvent:
 
 
 class OpEvent:
+    """
+    Class to represent an Op event.
+    """
+
     def __init__(
         self,
         device_id: int,
@@ -44,6 +52,16 @@ class OpEvent:
 def extract_mxrec_events(
     log_path: str, event_names: Dict[str, str]
 ) -> Dict[int, Dict[str, List[MxRecEvent]]]:
+    """
+    Extracts MxRec events from the log file.
+
+    Args:
+        log_path (str): Path to the log file.
+        event_names (Dict[str, str]): Dictionary mapping event names to pipe names.
+
+    Returns:
+        Dict[int, Dict[str, List[MxRecEvent]]]: Extracted MxRec events grouped by process ID and pipe.
+    """
     events: Dict[int, Dict[str, List[MxRecEvent]]] = defaultdict(
         lambda: defaultdict(list)
     )
@@ -61,6 +79,15 @@ def extract_mxrec_events(
 
 
 def extract_op_events(op_summary_path: str) -> List[OpEvent]:
+    """
+    Extracts Op events from the CSV file.
+
+    Args:
+        op_summary_path (str): Path to the op summary CSV file.
+
+    Returns:
+        List[OpEvent]: List of extracted Op events.
+    """
     df = pd.read_csv(op_summary_path)
     return [
         OpEvent(
@@ -76,6 +103,15 @@ def extract_op_events(op_summary_path: str) -> List[OpEvent]:
 
 
 def get_timestamp(log_line: str) -> float:
+    """
+    Extracts the timestamp from a log line.
+
+    Args:
+        log_line (str): A line from the log file.
+
+    Returns:
+        float: The extracted timestamp as a float.
+    """
     pattern = r"\[(\d{4}/\d{1,2}/\d{1,2} \d{1,2}:\d{1,2}:\d{1,2}\.\d+)\]"
     match = re.search(pattern, log_line)
     if match:
@@ -90,6 +126,16 @@ def get_timestamp(log_line: str) -> float:
 
 
 def get_duration(log_line: str, event_name: str) -> int:
+    """
+    Extracts the duration of an event from a log line.
+
+    Args:
+        log_line (str): A line from the log file.
+        event_name (str): The name of the event.
+
+    Returns:
+        int: The extracted duration in milliseconds.
+    """
     pattern = event_name + r".*:\s*(\d+)"
     match = re.search(pattern, log_line)
     if match:
@@ -100,6 +146,15 @@ def get_duration(log_line: str, event_name: str) -> int:
 
 
 def get_process_id(log_line: str) -> int:
+    """
+    Extracts the process ID from a log line.
+
+    Args:
+        log_line (str): A line from the log file.
+
+    Returns:
+        int: The extracted process ID.
+    """
     pattern = r"process_id:\s*(\d+)"
     match = re.search(pattern, log_line)
     if match:
@@ -110,6 +165,12 @@ def get_process_id(log_line: str) -> int:
 
 
 def read_mxrec_config() -> Dict[str, str]:
+    """
+    Reads the MxRec configuration from a TOML file.
+
+    Returns:
+        Dict[str, str]: Dictionary mapping event names to pipe names.
+    """
     config = toml.load("config.toml")
     mxrec_config = defaultdict(str)
     for pipe, event_list in config["mxrec"].items():
@@ -119,6 +180,12 @@ def read_mxrec_config() -> Dict[str, str]:
 
 
 def get_pipes() -> List[str]:
+    """
+    Reads the pipe names from the configuration file.
+
+    Returns:
+        List[str]: List of pipe names.
+    """
     config = toml.load("config.toml")
     pipes = list()
     for pipe in config["mxrec"].keys():
@@ -127,6 +194,10 @@ def get_pipes() -> List[str]:
 
 
 class TracingMetaData:
+    """
+    Class to represent metadata for tracing.
+    """
+
     def __init__(self, name: str, pid: int, tid: int, ph: str, args: Dict[str, Any]):
         self.name = name
         self.pid = pid
@@ -136,6 +207,10 @@ class TracingMetaData:
 
 
 class TracingMxRecEvent:
+    """
+    Class to represent a traced MxRec event.
+    """
+
     def __init__(self, mxrec_event: MxRecEvent):
         self.name = mxrec_event.name
         self.pid = mxrec_event.process_id
@@ -147,6 +222,10 @@ class TracingMxRecEvent:
 
 
 class TracingOpEvent:
+    """
+    Class to represent a traced Op event.
+    """
+
     def __init__(self, op_event: OpEvent, tid: int):
         self.name = op_event.op_type
         self.pid = get_op_pid(op_event)
@@ -158,6 +237,15 @@ class TracingOpEvent:
 
 
 def get_metadata(processes: List[int]) -> List[TracingMetaData]:
+    """
+    Generates metadata for tracing processes and threads.
+
+    Args:
+        processes (List[int]): List of process IDs.
+
+    Returns:
+        List[TracingMetaData]: List of tracing metadata.
+    """
     metadata = list()
     pipes = get_pipes()
     for i, pid in enumerate(processes):
@@ -190,14 +278,42 @@ def get_metadata(processes: List[int]) -> List[TracingMetaData]:
 
 
 def get_fake_tid(pid: int, pipe_id: int) -> int:
+    """
+    Generates a fake thread ID based on process ID and pipe ID.
+
+    Args:
+        pid (int): Process ID.
+        pipe_id (int): Pipe ID.
+
+    Returns:
+        int: Fake thread ID.
+    """
     return pid * 10 + pipe_id
 
 
 def get_op_pid(op_event: OpEvent) -> int:
+    """
+    Gets the process ID for an Op event.
+
+    Args:
+        op_event (OpEvent): An Op event.
+
+    Returns:
+        int: Process ID.
+    """
     return 100 + op_event.device_id
 
 
 def get_op_tracing(path: str) -> Tuple[List[TracingMetaData], List[TracingOpEvent]]:
+    """
+    Generates tracing data for Op events.
+
+    Args:
+        path (str): Path to the directory containing Op event summaries.
+
+    Returns:
+        Tuple[List[TracingMetaData], List[TracingOpEvent]]: Metadata and tracing events.
+    """
     task_types = defaultdict(int)
     pids = set()
     tids = set()
@@ -242,6 +358,9 @@ def get_op_tracing(path: str) -> Tuple[List[TracingMetaData], List[TracingOpEven
 
 
 def main():
+    """
+    Main function to parse arguments and generate tracing JSON.
+    """
     parser = argparse.ArgumentParser(
         description="Generate CPU/NPU fusion tracing json."
     )
