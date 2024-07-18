@@ -3,8 +3,6 @@ import json
 import re
 from collections import defaultdict
 from datetime import datetime
-from itertools import groupby
-from operator import attrgetter
 from typing import Any, Dict, List
 
 import toml
@@ -43,10 +41,11 @@ def extract_events(
 
 
 def merge_multithread_timeline(events: List[MxRecEvent]) -> List[MxRecEvent]:
-    group_by_name = {
-        name: sorted(list(group), key=attrgetter("timestamp_start_us"))
-        for name, group in groupby(events, key=attrgetter("name"))
-    }
+    group_by_name: Dict[str, List[MxRecEvent]] = defaultdict(list)
+    for event in events:
+        group_by_name[event.name].append(event)
+    for es in group_by_name.values():
+        es.sort(key=lambda x: x.timestamp_start_us)
     merged = list()
     for events in group_by_name.values():
         if len(events) > 1:
