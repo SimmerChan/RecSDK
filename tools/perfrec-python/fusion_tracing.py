@@ -65,6 +65,7 @@ def extract_mxrec_events(
     events: Dict[int, Dict[str, List[MxRecEvent]]] = defaultdict(
         lambda: defaultdict(list)
     )
+    broken_line = list()
     pipe_names = get_pipes()
     pipe_ids = defaultdict(int)
     for i, pipe in enumerate(pipe_names):
@@ -73,8 +74,15 @@ def extract_mxrec_events(
         for line in log:
             for name, pipe in event_names.items():
                 if name in line:
-                    event = MxRecEvent(line, name, pipe_ids[pipe])
-                    events[event.process_id][pipe].append(event)
+                    try:
+                        event = MxRecEvent(line, name, pipe_ids[pipe])
+                        events[event.process_id][pipe].append(event)
+                    except Exception:
+                        broken_line.append(line)
+    if broken_line:
+        print("Warning: There are some log line broken")
+        for line in broken_line:
+            print(line)
     return events
 
 
@@ -338,7 +346,11 @@ def get_op_tracing(path: str) -> Tuple[List[TracingMetaData], List[TracingOpEven
 
     for root, _, files in os.walk(path):
         for file in files:
-            if file.startswith("op_summary") and file.endswith(".csv"):
+            if (
+                root.endswith("mindstudio_profiler_output")
+                and file.startswith("op_summary")
+                and file.endswith(".csv")
+            ):
                 file_path = os.path.join(root, file)
                 op_events = extract_op_events(file_path)
                 for event in op_events:
