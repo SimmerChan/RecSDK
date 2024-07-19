@@ -65,7 +65,7 @@ def extract_mxrec_events(
     events: Dict[int, Dict[str, List[MxRecEvent]]] = defaultdict(
         lambda: defaultdict(list)
     )
-    broken_line = list()
+    broken_lines = list()
     pipe_names = get_pipes()
     pipe_ids = defaultdict(int)
     for i, pipe in enumerate(pipe_names):
@@ -78,10 +78,10 @@ def extract_mxrec_events(
                         event = MxRecEvent(line, name, pipe_ids[pipe])
                         events[event.process_id][pipe].append(event)
                     except Exception:
-                        broken_line.append(line)
-    if broken_line:
-        print("Warning: There are some log line broken")
-        for line in broken_line:
+                        broken_lines.append(line)
+    if broken_lines:
+        print(f"Warning: There are {len(broken_lines)} broken log lines")
+        for line in broken_lines:
             print(line)
     return events
 
