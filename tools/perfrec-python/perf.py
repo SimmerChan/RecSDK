@@ -154,6 +154,10 @@ def limit_line(input: str, line_length: int) -> str:
 
 
 class PerfConfig:
+    """
+    Configuration from `config.toml`.
+    """
+
     def __init__(self, threshold: int, ignores: List[str]):
         self.threshold = threshold
         self.ignores = set(ignores)

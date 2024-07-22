@@ -10,6 +10,20 @@ import pandas as pd
 import toml
 
 
+class MxRecConfig:
+    """
+    Configuration from `config.toml`.
+    """
+
+    def __init__(self, pipes: Dict[str, List[str]]):
+        self.pipes = pipes
+        self.func_to_pipe = defaultdict(str)
+        for pipe_name, event_list in self.pipes:
+            for event in event_list:
+                self.func_to_pipe[event] = pipe_name
+        self.pipe_names = [name for name in pipes.keys()]
+
+
 class MxRecEvent:
     """
     Class to represent an MxRec event.
@@ -50,14 +64,14 @@ class OpEvent:
 
 
 def extract_mxrec_events(
-    log_path: str, event_names: Dict[str, str]
+    log_path: str, config: MxRecConfig
 ) -> Dict[int, Dict[str, List[MxRecEvent]]]:
     """
     Extracts MxRec events from the log file.
 
     Args:
         log_path (str): Path to the log file.
-        event_names (Dict[str, str]): Dictionary mapping event names to pipe names.
+        config (MxRecConfig): Dictionary mapping event names to pipe names and other configs.
 
     Returns:
         Dict[int, Dict[str, List[MxRecEvent]]]: Extracted MxRec events grouped by process ID and pipe.
@@ -66,7 +80,8 @@ def extract_mxrec_events(
         lambda: defaultdict(list)
     )
     broken_lines = list()
-    pipe_names = get_pipes()
+    event_names = config.func_to_pipe
+    pipe_names = config.pipe_names
     pipe_ids = defaultdict(int)
     for i, pipe in enumerate(pipe_names):
         pipe_ids[pipe] = i
@@ -172,33 +187,15 @@ def get_process_id(log_line: str) -> int:
         raise RuntimeError(f"There is no process_id in log: {log_line}")
 
 
-def read_mxrec_config() -> Dict[str, str]:
+def read_mxrec_config() -> MxRecConfig:
     """
     Reads the MxRec configuration from a TOML file.
 
     Returns:
-        Dict[str, str]: Dictionary mapping event names to pipe names.
+        MxRecCofig: Configuration class.
     """
     config = toml.load("config.toml")
-    mxrec_config = defaultdict(str)
-    for pipe, event_list in config["mxrec"].items():
-        for event in event_list:
-            mxrec_config[event] = pipe
-    return mxrec_config
-
-
-def get_pipes() -> List[str]:
-    """
-    Reads the pipe names from the configuration file.
-
-    Returns:
-        List[str]: List of pipe names.
-    """
-    config = toml.load("config.toml")
-    pipes = list()
-    for pipe in config["mxrec"].keys():
-        pipes.append(pipe)
-    return pipes
+    return MxRecConfig(config["mxrec"])
 
 
 class TracingMetaData:
@@ -244,18 +241,19 @@ class TracingOpEvent:
         self.args = {"Op Name": op_event.op_name}
 
 
-def get_metadata(processes: List[int]) -> List[TracingMetaData]:
+def get_metadata(processes: List[int], config: MxRecConfig) -> List[TracingMetaData]:
     """
     Generates metadata for tracing processes and threads.
 
     Args:
         processes (List[int]): List of process IDs.
+        config (MxRecConfig): Configuration class.
 
     Returns:
         List[TracingMetaData]: List of tracing metadata.
     """
     metadata = list()
-    pipes = get_pipes()
+    pipes = config.pipe_names
     for i, pid in enumerate(processes):
         metadata1 = TracingMetaData(
             "process_name", pid, 0, "M", {"name": f"MxRec process {i}"}
@@ -387,7 +385,7 @@ def main():
 
     mxrec_events = extract_mxrec_events(log_path, config)
     tracing = list()
-    tracing.extend(get_metadata(list(mxrec_events.keys())))
+    tracing.extend(get_metadata(list(mxrec_events.keys()), config))
     for process in mxrec_events.values():
         for events in process.values():
             tracing.extend([TracingMxRecEvent(event) for event in events])
