@@ -377,7 +377,7 @@ def main():
         description="Generate CPU/NPU fusion tracing json."
     )
     parser.add_argument("debug_log", help="MxRec DEBUG level log flie path.")
-    parser.add_argument("msprof_output_path", help="msprof output path.")
+    parser.add_argument("--msprof_output", help="msprof output path.", required=False)
     args = parser.parse_args()
 
     log_path = args.debug_log
@@ -390,9 +390,11 @@ def main():
         for events in process.values():
             tracing.extend([TracingMxRecEvent(event) for event in events])
 
-    op_metadata, op_tracing = get_op_tracing(args.msprof_output_path)
-    tracing.extend(op_metadata)
-    tracing.extend(op_tracing)
+    msprof_output_path = args.msprof_output
+    if msprof_output_path:
+        op_metadata, op_tracing = get_op_tracing(msprof_output_path)
+        tracing.extend(op_metadata)
+        tracing.extend(op_tracing)
 
     with open("mxrec_tracing.json", "w") as file:
         json.dump(tracing, file, indent=4, default=lambda obj: obj.__dict__)
