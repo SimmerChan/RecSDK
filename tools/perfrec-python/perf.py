@@ -160,6 +160,12 @@ class PerfConfig:
 
 
 def read_config() -> PerfConfig:
+    """
+    Reads configs related to `perf` from the configuration file.
+
+    Returns:
+        PerfConfig: Configuration class.
+    """
     config = toml.load("config.toml")
     perf_config = config["perf"]
     return PerfConfig(perf_config["threshold"], perf_config["ignores"])
