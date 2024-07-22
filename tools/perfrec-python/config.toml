@@ -3,3 +3,7 @@ key_process = ["getBatchData", "getAndProcess"]
 process_emb_info = ["getAndSendTensors"]
 lookup_swap_addr = ["lookupAddrs"]
 embedding_recv = ["EmbeddingRecv", "EmbeddingUpdate", "SendH2DEmb"]
+
+[perf]
+threshold = 0.05
+ignores = ["[libc.so.6]"]

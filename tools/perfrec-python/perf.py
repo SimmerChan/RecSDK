@@ -2,8 +2,10 @@ import argparse
 import os
 import subprocess
 from collections import defaultdict
+from typing import List
 
 from tabulate import tabulate
+import toml
 
 
 def generate_flamegraph(perf_data: str, output_svg: str, flamegraph_path: str) -> None:
@@ -87,12 +89,14 @@ def analyze_folded_stack(folded_output: str) -> None:
             function_counts[stack[-1]].add_call_stacks(count, call_stack_str)
             total_count += count
 
+    config = read_config()
+
     # Filter and display functions with more than 5% total count
-    threshold = total_count * 0.05
+    threshold = total_count * config.threshold
     results = [
         (func, call_stack)
         for func, call_stack in function_counts.items()
-        if call_stack.count >= threshold
+        if call_stack.count >= threshold and func not in config.ignores
     ]
 
     # Sort results by count in descending order
@@ -147,6 +151,18 @@ def limit_line(input: str, line_length: int) -> str:
             limited_str += c
             count += 1
     return limited_str
+
+
+class PerfConfig:
+    def __init__(self, threshold: int, ignores: List[str]):
+        self.threshold = threshold
+        self.ignores = set(ignores)
+
+
+def read_config() -> PerfConfig:
+    config = toml.load("config.toml")
+    perf_config = config["perf"]
+    return PerfConfig(perf_config["threshold"], perf_config["ignores"])
 
 
 def main():
