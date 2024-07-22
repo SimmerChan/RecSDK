@@ -54,6 +54,16 @@ def generate_flamegraph(perf_data: str, output_svg: str, flamegraph_path: str) -
     analyze_folded_stack(folded_output)
 
 
+class CallStack:
+    def __init__(self):
+        self.count = 0
+        self.call_stacks = []
+
+    def add_call_stacks(self, count: int, call_stack: str):
+        self.count += count
+        self.call_stacks.append(call_stack)
+
+
 def analyze_folded_stack(folded_output: str) -> None:
     """
     Analyzes the folded stack output to find functions with significant sample counts.
@@ -61,7 +71,8 @@ def analyze_folded_stack(folded_output: str) -> None:
     Args:
         folded_output (str): Path to the folded stack output file.
     """
-    function_counts = defaultdict(int)
+
+    function_counts = defaultdict(CallStack)
     total_count = 0
 
     # Read the folded stack output
@@ -71,24 +82,37 @@ def analyze_folded_stack(folded_output: str) -> None:
                 " ", 1
             )  # Use rsplit to handle function names with spaces
             count = int(parts[-1])
+            call_stack_str = parts[0]
             stack = parts[0].split(";")
-            function_counts[stack[-1]] += count
+            function_counts[stack[-1]].add_call_stacks(count, call_stack_str)
             total_count += count
 
     # Filter and display functions with more than 5% total count
     threshold = total_count * 0.05
     results = [
-        (func, count) for func, count in function_counts.items() if count >= threshold
+        (func, call_stack)
+        for func, call_stack in function_counts.items()
+        if call_stack.count >= threshold
     ]
 
     # Sort results by count in descending order
-    results.sort(key=lambda x: x[1], reverse=True)
+    results.sort(key=lambda x: x[1].count, reverse=True)
 
     # Prepare data for tabulate
+    # Write call stacks to file
     table_data = []
-    for func, count in results:
-        percentage = (count / total_count) * 100
-        table_data.append([limit_line(func, 50), count, f"{percentage:.2f}%"])
+    with open("call_stacks.txt", "w") as f:
+        for func, call_stack in results:
+            percentage = (call_stack.count / total_count) * 100
+            table_data.append(
+                [limit_line(func, 50), call_stack.count, f"{percentage:.2f}%"]
+            )
+            stacks = [stk for stk in call_stack.call_stacks]
+            f.writelines(
+                [f"func_name: {func}", f"percetage: {percentage:.2f}%", "call_stacks:"]
+                + stacks
+                + ["\n"]
+            )
 
     # Print the results using tabulate
     print("\nFunctions with more than 5% of total samples:\n")
@@ -125,11 +149,22 @@ def main():
     """
     Main function to parse arguments and generate a flamegraph.
     """
-    parser = argparse.ArgumentParser(description="Generate a Flamegraph from perf.data")
-    parser.add_argument("perf_data", help="Path to the perf.data file")
-    parser.add_argument("output_svg", help="Path to the output SVG file")
+    parser = argparse.ArgumentParser(
+        description="Generate a Flamegraph from perf.data."
+    )
     parser.add_argument(
-        "flamegraph_path", help="Path to the Flamegraph scripts directory"
+        "--perf_data", help="Path to the perf.data file.", required=True
+    )
+    parser.add_argument(
+        "--output_svg",
+        help="Path to the output SVG file. (default: flamegraph.svg)",
+        required=False,
+        default="flamegraph.svg",
+    )
+    parser.add_argument(
+        "--flamegraph_path",
+        help="Path to the Flamegraph Perl scripts directory.",
+        required=True,
     )
     args = parser.parse_args()
 
