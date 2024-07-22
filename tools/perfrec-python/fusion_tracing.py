@@ -376,7 +376,9 @@ def main():
     parser = argparse.ArgumentParser(
         description="Generate CPU/NPU fusion tracing json."
     )
-    parser.add_argument("debug_log", help="MxRec DEBUG level log flie path.")
+    parser.add_argument(
+        "--debug_log", help="MxRec DEBUG level log flie path.", required=True
+    )
     parser.add_argument("--msprof_output", help="msprof output path.", required=False)
     args = parser.parse_args()
 
