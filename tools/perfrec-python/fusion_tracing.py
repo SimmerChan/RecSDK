@@ -1,5 +1,6 @@
 import argparse
 import json
+import logging
 import os
 import re
 from collections import defaultdict
@@ -95,9 +96,9 @@ def extract_mxrec_events(
                     except Exception:
                         broken_lines.append(line)
     if broken_lines:
-        print(f"Warning: There are {len(broken_lines)} broken log lines")
+        logging.warning(f"There are {len(broken_lines)} broken log lines")
         for line in broken_lines:
-            print(line)
+            logging.warning(line)
     return events
 
 
@@ -371,6 +372,7 @@ def main():
     """
     Main function to parse arguments and generate tracing JSON.
     """
+    logging.basicConfig(level=logging.INFO)
     parser = argparse.ArgumentParser(
         description="Generate CPU/NPU fusion tracing json."
     )
@@ -396,7 +398,8 @@ def main():
         tracing.extend(op_metadata)
         tracing.extend(op_tracing)
 
-    with open("mxrec_tracing.json", "w") as file:
+    fd = os.open("mxrec_tracing.json", os.O_WRONLY | os.O_CREAT, 0o644)
+    with os.fdopen(fd, "w") as file:
         json.dump(tracing, file, indent=4, default=lambda obj: obj.__dict__)
 
 

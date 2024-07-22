@@ -1,14 +1,17 @@
 import argparse
+import logging
 import os
 import subprocess
 from collections import defaultdict
 from typing import List
 
-from tabulate import tabulate
 import toml
+from tabulate import tabulate
 
 
-def generate_flamegraph(perf_data: str, output_svg: str, flamegraph_path: str) -> None:
+def generate_flamegraph(
+    perf_bin: str, perf_data: str, output_svg: str, flamegraph_path: str
+) -> None:
     """
     Generate a flamegraph from perf data.
 
@@ -19,9 +22,9 @@ def generate_flamegraph(perf_data: str, output_svg: str, flamegraph_path: str) -
     """
     # Ensure perf script is available
     try:
-        subprocess.run(["perf", "--version"], check=True)
+        subprocess.run([perf_bin, "--version"], check=True)
     except subprocess.CalledProcessError:
-        print("Error: perf is not installed or not in PATH.")
+        logging.error("perf is not installed or not in PATH.")
         return
 
     # Ensure Flamegraph scripts are available
@@ -31,26 +34,28 @@ def generate_flamegraph(perf_data: str, output_svg: str, flamegraph_path: str) -
     if not os.path.isfile(stackcollapse_path) or not os.path.isfile(
         flamegraph_script_path
     ):
-        print(
-            f"Error: Flamegraph scripts not found in the provided directory {flamegraph_path}."
+        logging.error(
+            f"Flamegraph scripts not found in the provided directory {flamegraph_path}."
         )
         return
 
     # Generate the folded stack output
     folded_output = perf_data + ".folded"
-    with open(folded_output, "w") as f:
+    fd = os.open(folded_output, os.O_WRONLY | os.O_CREAT, 0o644)
+    with os.fdopen(fd, "w") as f:
         script_output = subprocess.run(
-            ["perf", "script", "-i", perf_data], check=True, stdout=subprocess.PIPE
+            [perf_bin, "script", "-i", perf_data], check=True, stdout=subprocess.PIPE
         )
         subprocess.run(
             [stackcollapse_path], check=True, input=script_output.stdout, stdout=f
         )
 
     # Generate the flamegraph
-    with open(output_svg, "w") as f:
+    fd_svg = os.open(output_svg, os.O_WRONLY | os.O_CREAT, 0o644)
+    with os.fdopen(fd_svg, "w") as f:
         subprocess.run([flamegraph_script_path, folded_output], check=True, stdout=f)
 
-    print(f"Flamegraph generated at {output_svg}")
+    logging.info(f"Flamegraph generated at {output_svg}")
 
     # Analyze the folded stack output
     analyze_folded_stack(folded_output)
@@ -105,11 +110,14 @@ def analyze_folded_stack(folded_output: str) -> None:
     # Prepare data for tabulate
     # Write call stacks to file
     table_data = []
-    with open("call_stacks.txt", "w") as f:
+    fd_call_stacks = os.open("call_stacks.txt", os.O_WRONLY | os.O_CREAT, 0o644)
+    with os.fdopen(fd_call_stacks, "w") as f:
         for func, call_stack in results:
-            percentage = (call_stack.count / total_count) * 100
+            percentage = (
+                (call_stack.count / total_count) * 100 if total_count > 0 else 0
+            )
             table_data.append(
-                [limit_line(func, 50), call_stack.count, f"{percentage:.2f}%"]
+                [limit_str_per_line(func, 50), call_stack.count, f"{percentage:.2f}%"]
             )
             stacks = [stk + "\n" for stk in call_stack.call_stacks]
             f.writelines(
@@ -123,12 +131,12 @@ def analyze_folded_stack(folded_output: str) -> None:
             )
 
     # Print the results using tabulate
-    print("\nFunctions with more than 5% of total samples:\n")
+    logging.info("\nFunctions with more than 5% of total samples:\n")
     headers = ["Function", "Count", "Percentage"]
-    print(tabulate(table_data, headers=headers, tablefmt="grid"))
+    logging.info(tabulate(table_data, headers=headers, tablefmt="grid"))
 
 
-def limit_line(input: str, line_length: int) -> str:
+def limit_str_per_line(input: str, line_length: int) -> str:
     """
     Limits the length of a line to a specified number of characters, adding line breaks if necessary.
 
@@ -179,6 +187,7 @@ def main():
     """
     Main function to parse arguments and generate a flamegraph.
     """
+    logging.basicConfig(level=logging.INFO)
     parser = argparse.ArgumentParser(
         description="Generate a Flamegraph from perf.data."
     )
@@ -186,19 +195,27 @@ def main():
         "--perf_data", help="Path to the perf.data file.", required=True
     )
     parser.add_argument(
+        "--flamegraph_path",
+        help="Path to the Flamegraph Perl scripts directory.",
+        required=True,
+    )
+    parser.add_argument(
+        "--perf_bin",
+        help="Path to perf exacutable binary file. (default: perf)",
+        required=False,
+        default="perf",
+    )
+    parser.add_argument(
         "--output_svg",
         help="Path to the output SVG file. (default: flamegraph.svg)",
         required=False,
         default="flamegraph.svg",
     )
-    parser.add_argument(
-        "--flamegraph_path",
-        help="Path to the Flamegraph Perl scripts directory.",
-        required=True,
-    )
     args = parser.parse_args()
 
-    generate_flamegraph(args.perf_data, args.output_svg, args.flamegraph_path)
+    generate_flamegraph(
+        args.perf_bin, args.perf_data, args.output_svg, args.flamegraph_path
+    )
 
 
 if __name__ == "__main__":
