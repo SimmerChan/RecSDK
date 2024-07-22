@@ -107,11 +107,15 @@ def analyze_folded_stack(folded_output: str) -> None:
             table_data.append(
                 [limit_line(func, 50), call_stack.count, f"{percentage:.2f}%"]
             )
-            stacks = [stk for stk in call_stack.call_stacks]
+            stacks = [stk + "\n" for stk in call_stack.call_stacks]
             f.writelines(
-                [f"func_name: {func}", f"percetage: {percentage:.2f}%", "call_stacks:"]
+                [
+                    f"func_name: {func}\n",
+                    f"percetage: {percentage:.2f}%\n",
+                    "call_stacks:\n",
+                ]
                 + stacks
-                + ["\n"]
+                + ["\n\n"]
             )
 
     # Print the results using tabulate
