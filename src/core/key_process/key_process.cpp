@@ -1189,11 +1189,11 @@ vector<uint64_t> KeyProcess::GetUniqueKeys(const EmbBaseInfo& info, bool& isEos,
     TimeCost tc = TimeCost();
 
     HybridMgmtBlock* hybridMgmtBlock = Singleton<HybridMgmtBlock>::GetInstance();
-    bool cancelMonitor = false;
-    thread timeoutMonitor;
-    if (info.batchId != 0) {
-        timeoutMonitor = StartEosMonitorThread(info, cancelMonitor);
-    }
+//    bool cancelMonitor = false;
+//    thread timeoutMonitor;
+//    if (info.batchId != 0) {
+//        timeoutMonitor = StartEosMonitorThread(info, cancelMonitor);
+//    }
 
     // 循环尝试获取list中的数据；如果key process线程退出或者处理数据超时，返回空vector
 
@@ -1241,10 +1241,10 @@ vector<uint64_t> KeyProcess::GetUniqueKeys(const EmbBaseInfo& info, bool& isEos,
             this_thread::sleep_for(1ms);
         }
     }
-    cancelMonitor = true;
-    if (timeoutMonitor.joinable()) {
-        timeoutMonitor.join();
-    }
+//    cancelMonitor = true;
+//    if (timeoutMonitor.joinable()) {
+//        timeoutMonitor.join();
+//    }
     return ret;
 }
 
