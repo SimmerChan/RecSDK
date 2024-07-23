@@ -162,7 +162,7 @@ def analyze_folded_stack(folded_output: str) -> None:
     # Print the results using tabulate
     logging.info("\nFunctions with more than 5% of total samples:")
     headers = ["Function", "Count", "Percentage"]
-    logging.info("\n" + tabulate(table_data, headers=headers, tablefmt="grid"))
+    logging.info("\n%s", tabulate(table_data, headers=headers, tablefmt="grid"))
 
 
 def limit_line(input_content: str, line_length: int) -> str:
@@ -192,7 +192,7 @@ class PerfConfig:
     Configuration from `config.toml`.
     """
 
-    def __init__(self, threshold: float = 0.05, ignores: List[str] = []):
+    def __init__(self, threshold: float = 0.05, ignores: List[str] = list()):
         self.threshold = threshold
         self.ignores = set(ignores)
 

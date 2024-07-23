@@ -16,14 +16,14 @@
 # ==============================================================================
 
 import argparse
-from dataclasses import dataclass
 import json
 import logging
 import os
 import re
 from collections import defaultdict
+from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
 import toml
@@ -194,7 +194,7 @@ def get_process_id(log_line: str) -> int:
     return int(process_id)
 
 
-def read_mxrec_config() -> MxRecConfig:
+def read_mxrec_config() -> Optional[MxRecConfig]:
     """
     Reads the MxRec configuration from a TOML file.
 
@@ -206,7 +206,7 @@ def read_mxrec_config() -> MxRecConfig:
         return MxRecConfig(config["mxrec"])
     except toml.TomlDecodeError:
         logging.error("Can not open or load the config.toml.")
-        exit(1)
+        return None
 
 
 @dataclass
@@ -399,6 +399,9 @@ def main():
 
     log_path = args.debug_log
     config = read_mxrec_config()
+    if not config:
+        logging.error("Can not read config.toml, it will exit unsuccessfully.")
+        exit(1)
 
     mxrec_events = extract_mxrec_events(log_path, config)
     tracing = list()
