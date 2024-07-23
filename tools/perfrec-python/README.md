@@ -16,6 +16,23 @@ optional arguments:
                         Path to the output SVG file. (default: flamegraph.svg)
 ```
 #### 使用示例
+
+参考以下脚本使用`perf`采集数据。
+```bash
+pid=$(top -b -n 1 | head -n 8 | tail -n 1 | awk '{print $1}')
+if [ -z "$pid" ];then
+    echo "未获取到进程ID"
+    exit 1
+fi
+perf record -F 99 -p $pid -a -g -- sleep 60
+if [ $? -ne 0 ]; then
+    echo "perf record执行失败"
+    exit 1
+fi
+echo "perf.data 采集完成"
+```
+
+使用本工具生成火焰图和耗时函数分析。
 ```bash
 python perf.py --perf_data perf.data --flamegraph_path /ws/FlameGraph 
 ```
