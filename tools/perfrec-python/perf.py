@@ -19,6 +19,7 @@ import argparse
 import logging
 import os
 import subprocess
+import sys
 from collections import defaultdict
 from typing import List
 
@@ -151,7 +152,7 @@ def analyze_folded_stack(folded_output: str) -> None:
     # Print the results using tabulate
     logging.info("\nFunctions with more than 5% of total samples:\n")
     headers = ["Function", "Count", "Percentage"]
-    logging.info(tabulate(table_data, headers=headers, tablefmt="grid"))
+    sys.stdout.write(tabulate(table_data, headers=headers, tablefmt="grid") + "\n")
 
 
 def limit_line(input_content: str, line_length: int) -> str:
