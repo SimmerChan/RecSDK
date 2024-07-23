@@ -20,8 +20,11 @@ See the License for the specific language governing permissions and
 #include "tensorflow/core/framework/common_shape_fns.h"
 #include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/framework/op_kernel.h"
+#include "tensorflow/core/framework/partial_tensor_shape.h"
 #include "tensorflow/core/framework/tensor.h"
+#include "tensorflow/core/framework/types.h"
 #include "tensorflow/core/platform/mutex.h"
+
 #if defined(TF_VERSION_TF2)
 #include "tensorflow/core/data/name_utils.h"
 #endif
@@ -76,16 +79,20 @@ class EosDatasetOp::Dataset : public DatasetBase {
 public:
     explicit Dataset(OpKernelContext *ctx, const DatasetBase *input, int32_t channelId,
                      int32_t maxTrainSteps,
-                     int32_t maxEvalSteps)
+                     int32_t maxEvalSteps,
+                     const DataTypeVector& outputTypes,
+                     const std::vector<PartialTensorShape>& outputShapes)
         : DatasetBase(DatasetContext(ctx)),
           input_(input),
           channelId_(channelId),
           maxTrainSteps_(maxTrainSteps),
           maxEvalSteps_(maxEvalSteps),
+          outputTypes_(outputTypes),
+          outputShapes_(outputShapes),
           id_(g_datasetId[channelId]) {
         input_->Ref();
-        auto os_input = input->output_shapes();
-        output_shapes_ = os_input;
+//        auto os_input = input->output_shapes();
+//        output_shapes_ = os_input;
 
         MPI_Comm_group(MPI_COMM_WORLD, &g_group);
         MPI_Comm_create(MPI_COMM_WORLD, g_group, &g_comm[channelId]);
@@ -118,14 +125,14 @@ public:
                 this, prefix_para});
     }
 
-    const DataTypeVector &output_dtypes() const override
+    const DataTypeVector& output_dtypes() const override
     {
-        return input_->output_dtypes();
+        return outputTypes_;
     }
 
-    const std::vector <PartialTensorShape> &output_shapes() const override
+    const std::vector<PartialTensorShape>& output_shapes() const override
     {
-        return output_shapes_;
+        return outputShapes_;
     }
 
     string DebugString() const override
@@ -186,6 +193,86 @@ private:
         }
 
 #endif
+        int64_t GetTensorElementNum(size_t index) {
+            PartialTensorShape tensor_shape = dataset()->output_shapes()[index];
+            int64_t element_number = 1LL;
+            for (int32_t i = 0; i < tensor_shape.dims(); i++) {
+                element_number *= tensor_shape.dim_size(i);
+            }
+            return element_number;
+        }
+
+        bool IsUnknowShape(const PartialTensorShape& output_shapes) const {
+            if (output_shapes.unknown_rank()) {
+                return true;
+            }
+            for (int32_t i = 0; i < output_shapes.dims(); i++) {
+                if (output_shapes.dim_size(i) == -1) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        Tensor CreateTensorByShape(const PartialTensorShape& output_shapes, const DataType& tensor_data_type) {
+            TensorShape tf_shape;
+            for (int32_t i = 0; i < output_shapes.dims(); i++) {
+                tf_shape.AddDim(output_shapes.dim_size(i));
+            }
+            LOG_INFO("[LQK] CreateTensorByShape, tensor shape: {}", tf_shape.DebugString());
+            return Tensor(tensor_data_type, tf_shape);
+        }
+
+        std::vector<Tensor> CreateOutputVecTensor()
+        {
+            size_t output_shape_size = dataset()->output_shapes().size();
+            size_t output_type_size = dataset()->output_dtypes().size();
+            LOG_INFO("[LQK] output_shape_size: {}, output_type_size: {}", output_shape_size, output_type_size);
+            if (output_shape_size != output_type_size) {
+                LOG_ERROR("[LQK] output_shape_size: {} is not equal to output_type_size: {}", output_shape_size,
+                          output_type_size);
+                return {};
+            }
+            std::vector<Tensor> result;
+            for (size_t i = 0UL; i < output_shape_size; i++) {
+                DataType tensor_data_type = dataset()->output_dtypes().at(i);
+                if (tensor_data_type == DT_STRING) {
+                    LOG_ERROR("[LQK] current tensor type is DT_STRING");
+                    return{};
+                }
+                LOG_INFO("[LQK] current tensor type is: {}", tensor_data_type);
+                LOG_INFO("[LQK] current tensor dim is: {}, dim[0].dim_Size is {}", dataset()->output_shapes()[i].dims(),
+                         dataset()->output_shapes()[i].dim_size(0));
+                if (dataset()->output_shapes()[i].dims() == 2) {
+                    LOG_INFO("[LQK] current tensor dim[1].dim_Size is {}", dataset()->output_shapes()[i].dim_size(1));
+                }
+                if (IsUnknowShape(dataset()->output_shapes()[i])) {
+                    LOG_INFO("[LQK] output shape is unknown shape");
+                    Tensor tensor(tensor_data_type, TensorShape({3, 1}));
+                    if (dataset()->output_shapes()[i].dims() == -1) {
+                        tensor = Tensor(tensor_data_type, TensorShape({1}));
+                    }
+
+                    // 获取指针
+                    auto tensor_data = const_cast<char *>(tensor.tensor_data().data());
+                    auto tensor_size = tensor.tensor_data().size();
+                    LOG_INFO("[LQK] IsUnknowShape, create tensor: {}， tensor size: {}, tensor.NumElements:{}",
+                             tensor.DebugString(), tensor_size, tensor.NumElements());
+
+                    memset_s(tensor_data, tensor_size, 0, tensor_size);
+
+                    LOG_INFO("[LQK] IsUnknowShape, after memset tensor: {}", tensor.DebugString());
+
+                    result.push_back(tensor);
+                    continue;
+                }
+                Tensor a = CreateTensorByShape(dataset()->output_shapes()[i], tensor_data_type);
+                LOG_INFO("[LQK] success create know shape tensor: {}", a.DebugString());
+
+                result.push_back(a);
+            }
+            return result;
+        }
+
 
         Status
         GetNextInternal(IteratorContext *ctx, std::vector <Tensor> *out_tensors,
@@ -197,6 +284,28 @@ private:
                 return Status::OK();
             }
             TF_RETURN_IF_ERROR(input_impl_->GetNext(ctx, out_tensors, end_of_sequence));
+
+            int outSize = out_tensors->size();
+            if (outSize > 0) {
+                for (const auto& t : *out_tensors) {
+                    DataType tensor_type = t.dtype();
+                    TensorShape tensor_shape = t.shape();
+                    LOG_INFO("[LQK] GetNext eos, channel: {}, iter: {}, outTensor size: {}, tensor_type: {}, "
+                              "tensor_shape: {}",
+                              dataset()->channelId_,
+                              iter_times_,
+                              outSize,
+                              tensor_type,
+                              tensor_shape.DebugString());
+                }
+            }
+            if (!is_second_eos && *end_of_sequence) {
+                is_second_eos = true;
+                *end_of_sequence = false;
+                *out_tensors = CreateOutputVecTensor();
+            } else if (is_second_eos) {
+                *end_of_sequence = true;
+            }
 
             auto keyProcess = Singleton<KeyProcess>::GetInstance();
             auto datasetId = dataset()->id_;
@@ -287,17 +396,22 @@ private:
         GUARDED_BY(mu_);
         std::unique_ptr <IteratorBase> input_impl_
         GUARDED_BY(mu_);
+        bool is_second_eos = false;
     };
 
     const DatasetBase *input_;
     int32_t channelId_;
     int32_t maxTrainSteps_;
     int32_t maxEvalSteps_;
-    std::vector <PartialTensorShape> output_shapes_;
+    const DataTypeVector outputTypes_;
+    std::vector <PartialTensorShape> outputShapes_;
     int id_;
 };
 
-EosDatasetOp::EosDatasetOp(OpKernelConstruction *ctx) : UnaryDatasetOpKernel(ctx) {}
+EosDatasetOp::EosDatasetOp(OpKernelConstruction *ctx) : UnaryDatasetOpKernel(ctx) {
+    OP_REQUIRES_OK(ctx, ctx->GetAttr("output_types", &outputTypes_));
+    OP_REQUIRES_OK(ctx, ctx->GetAttr("output_shapes", &outputShapes_));
+}
 
 void EosDatasetOp::MakeDataset(OpKernelContext *ctx, DatasetBase *input, DatasetBase **output)
 {
@@ -307,7 +421,8 @@ void EosDatasetOp::MakeDataset(OpKernelContext *ctx, DatasetBase *input, Dataset
     OP_REQUIRES_OK(ctx, ParseScalarArgument<int32_t>(ctx, kMaxTrainSteps, &maxTrainSteps));
     int32_t maxEvalSteps;
     OP_REQUIRES_OK(ctx, ParseScalarArgument<int32_t>(ctx, kMaxEvalSteps, &maxEvalSteps));
-    *output = new Dataset(ctx, input, channel, maxTrainSteps, maxEvalSteps);
+    *output = new (std::nothrow) Dataset(ctx, input, channel, maxTrainSteps, maxEvalSteps, outputTypes_, outputShapes_);
+    OP_REQUIRES(ctx, *output != nullptr, errors::InvalidArgument("EosDatasetOp: new dataset failed"));
 }
 
 REGISTER_OP("EosDataset")
