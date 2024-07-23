@@ -39,7 +39,7 @@ def generate_flamegraph(
     """
     # Ensure perf script is available
     try:
-        subprocess.run([perf_bin, "--version"], check=True)
+        subprocess.run([perf_bin, "--version"], shell=False, check=True)
     except subprocess.CalledProcessError:
         logging.error("perf is not installed or not in PATH.")
         return
@@ -62,16 +62,25 @@ def generate_flamegraph(
     fd = os.open(folded_output, os.O_WRONLY | os.O_CREAT, 0o640)
     with os.fdopen(fd, "w") as f:
         script_output = subprocess.run(
-            [perf_bin, "script", "-i", perf_data], check=True, stdout=subprocess.PIPE
+            [perf_bin, "script", "-i", perf_data],
+            shell=False,
+            check=True,
+            stdout=subprocess.PIPE,
         )
         subprocess.run(
-            [stackcollapse_path], check=True, input=script_output.stdout, stdout=f
+            [stackcollapse_path],
+            shell=False,
+            check=True,
+            input=script_output.stdout,
+            stdout=f,
         )
 
     # Generate the flamegraph
     fd_svg = os.open(output_svg, os.O_WRONLY | os.O_CREAT, 0o640)
     with os.fdopen(fd_svg, "w") as f:
-        subprocess.run([flamegraph_script_path, folded_output], check=True, stdout=f)
+        subprocess.run(
+            [flamegraph_script_path, folded_output], shell=False, check=True, stdout=f
+        )
 
     logging.info("Flamegraph generated at %s", output_svg)
 
