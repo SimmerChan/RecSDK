@@ -1,3 +1,20 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# Copyright 2024. Huawei Technologies Co.,Ltd. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+
 import argparse
 import logging
 import os
@@ -35,7 +52,8 @@ def generate_flamegraph(
         flamegraph_script_path
     ):
         logging.error(
-            f"Flamegraph scripts not found in the provided directory {flamegraph_path}."
+            "Flamegraph scripts not found in the provided directory %s.",
+            flamegraph_path,
         )
         return
 
@@ -55,7 +73,7 @@ def generate_flamegraph(
     with os.fdopen(fd_svg, "w") as f:
         subprocess.run([flamegraph_script_path, folded_output], check=True, stdout=f)
 
-    logging.info(f"Flamegraph generated at {output_svg}")
+    logging.info("Flamegraph generated at %s", output_svg)
 
     # Analyze the folded stack output
     analyze_folded_stack(folded_output)
@@ -113,11 +131,12 @@ def analyze_folded_stack(folded_output: str) -> None:
     fd_call_stacks = os.open("call_stacks.txt", os.O_WRONLY | os.O_CREAT, 0o644)
     with os.fdopen(fd_call_stacks, "w") as f:
         for func, call_stack in results:
-            percentage = (
-                (call_stack.count / total_count) * 100 if total_count > 0 else 0
-            )
+            if total_count > 0:
+                percentage = (call_stack.count / total_count) * 100
+            else:
+                percentage = 0
             table_data.append(
-                [limit_str_per_line(func, 50), call_stack.count, f"{percentage:.2f}%"]
+                [limit_line(func, 50), call_stack.count, f"{percentage:.2f}%"]
             )
             stacks = [stk + "\n" for stk in call_stack.call_stacks]
             f.writelines(
@@ -136,7 +155,7 @@ def analyze_folded_stack(folded_output: str) -> None:
     logging.info(tabulate(table_data, headers=headers, tablefmt="grid"))
 
 
-def limit_str_per_line(input: str, line_length: int) -> str:
+def limit_line(input_content: str, line_length: int) -> str:
     """
     Limits the length of a line to a specified number of characters, adding line breaks if necessary.
 
@@ -147,12 +166,12 @@ def limit_str_per_line(input: str, line_length: int) -> str:
     Returns:
         str: The formatted string with line breaks.
     """
-    if line_length >= len(input):
-        return input
+    if line_length >= len(input_content):
+        return input_content
     limited_str = ""
     if line_length > 0:
         count = 0
-        for c in input:
+        for c in input_content:
             if count >= line_length:
                 limited_str += "\n"
                 count = 0
