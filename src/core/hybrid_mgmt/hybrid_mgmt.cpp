@@ -490,15 +490,17 @@ void HybridMgmt::TrainTask(TaskType type)
 void HybridMgmt::EvalTask(TaskType type)
 {
 #ifndef GTEST
-    int channelId = EVAL_CHANNEL_ID;
-    int& evalBatchId = hybridMgmtBlock->hybridBatchId[channelId];
+    int& evalBatchId = hybridMgmtBlock->hybridBatchId[EVAL_CHANNEL_ID];
     do {
-        hybridMgmtBlock->CheckAndSetBlock(channelId);
-        if (hybridMgmtBlock->GetBlockStatus(channelId)) {
+        hybridMgmtBlock->CheckAndSetBlock(EVAL_CHANNEL_ID);
+        if (hybridMgmtBlock->GetBlockStatus(EVAL_CHANNEL_ID)) {
             LOG_DEBUG("eval channel block at batchId:{}, needWaitSave:{}", evalBatchId,
                       hybridMgmtBlock->IsNeedWaitSave());
             std::unique_lock<std::mutex> checkSaveLocker(saveMutex);
             cvCheckSave.wait(checkSaveLocker, [this] { return !hybridMgmtBlock->IsNeedWaitSave() || mutexDestroy; });
+
+            LOG_DEBUG("eval channel block, python batch id:{}, hybridBatchId:{}",
+                      hybridMgmtBlock->pythonBatchId[EVAL_CHANNEL_ID], evalBatchId);
 
             if (hybridMgmtBlock->pythonBatchId[EVAL_CHANNEL_ID] >= hybridMgmtBlock->hybridBatchId[EVAL_CHANNEL_ID]) {
                 // Before waking the data process for training, Recover the backed-up training state
@@ -510,12 +512,12 @@ void HybridMgmt::EvalTask(TaskType type)
             }
 
             LOG_DEBUG("wake TrainTask");
-            hybridMgmtBlock->DoBlock(channelId);
+            hybridMgmtBlock->DoBlock(EVAL_CHANNEL_ID);
         }
         if (!isRunning) {
             return;
         }
-        LOG_INFO(HYBRID_BLOCKING + "hybrid start task channel {} batch {}", channelId, evalBatchId);
+        LOG_INFO(HYBRID_BLOCKING + "hybrid start task channel {} batch {}", EVAL_CHANNEL_ID, evalBatchId);
 
         ParseKeys(EVAL_CHANNEL_ID, evalBatchId, type);
     } while (true);
