@@ -131,10 +131,9 @@ def analyze_folded_stack(folded_output: str) -> None:
     fd_call_stacks = os.open("call_stacks.txt", os.O_WRONLY | os.O_CREAT, 0o644)
     with os.fdopen(fd_call_stacks, "w") as f:
         for func, call_stack in results:
-            if total_count > 0:
-                percentage = (call_stack.count / total_count) * 100
-            else:
-                percentage = 0
+            percentage = (
+                (call_stack.count / total_count) * 100 if total_count != 0 else 0
+            )
             table_data.append(
                 [limit_line(func, 50), call_stack.count, f"{percentage:.2f}%"]
             )
