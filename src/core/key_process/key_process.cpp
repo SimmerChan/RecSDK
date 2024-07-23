@@ -568,7 +568,8 @@ unique_ptr<EmbBatchT> KeyProcess::GetBatchData(int channel, int commId) const
         batch = batchQueue->TryPop();
         if (batch != nullptr) {
             if (batch->CheckAndSetEos()) {
-                LOG_INFO("GetBatchData eos, channelId:{} threadId:{}", channel, commId);
+                LOG_INFO("GetBatchData eos, table name:{}, batchId:{}, channelId:{} threadId:{}", batch->name,
+                         batch->batchId, channel, commId);
             }
             break;
         }
@@ -1230,10 +1231,10 @@ vector<uint64_t> KeyProcess::GetUniqueKeys(const EmbBaseInfo& info, bool& isEos,
 //            if (isEos) {
 //                break;
 //            }
-            LOG_DEBUG(KEY_PROCESS "GetUniqueKeys EmptyList! {}[{}]:{}",
-                     info.name, info.channelId, info.batchId);
+//            LOG_DEBUG(KEY_PROCESS "GetUniqueKeys EmptyList! {}[{}]:{}",
+//                     info.name, info.channelId, info.batchId);
 
-            this_thread::sleep_for(10ms);
+            this_thread::sleep_for(1ms);
         } catch (WrongListTop&) {
             LOG_TRACE("getting info failed table:{}, channel:{}, mgmt batchId:{}, wrong top",
                       info.name, info.channelId, info.channelId);
@@ -1368,8 +1369,8 @@ void KeyProcess::SendEos(const std::string& embName, int batchId, int channel, b
         this_thread::sleep_for(1000ms);
     }
     readySendEosCnt[channel].store(0);
-    isNeedSendEos[channel] = false;
-    LOG_DEBUG("isNeedSendEos set to false, table:{}, channelId:{} batchId:{}", embName, channel, batchId);
+//    isNeedSendEos[channel] = false;
+    LOG_DEBUG("sendEos finish all, table:{}, channelId:{} batchId:{}", embName, channel, batchId);
 #endif
 }
 
@@ -1432,11 +1433,11 @@ unique_ptr<vector<Tensor>> KeyProcess::GetInfoVec(const EmbBaseInfo &info, Proce
 //            if (isEos) {
 //                break;
 //            }
-            LOG_DEBUG(KEY_PROCESS "GetInfoVec EmptyList! {}[{}]:{}", info.name, info.channelId, info.batchId);
+//            LOG_DEBUG(KEY_PROCESS "GetInfoVec EmptyList! {}[{}]:{}", info.name, info.channelId, info.batchId);
 
             LOG_TRACE("getting info failed {}[{}], list is empty, and mgmt batchId: {}, readEmbKey batchId: {}.",
                 info.name, info.channelId, info.batchId, (hybridMgmtBlock->readEmbedBatchId[info.channelId] - 1));
-            this_thread::sleep_for(10ms);
+            this_thread::sleep_for(1ms);
         } catch (WrongListTop&) {
             LOG_TRACE("getting info failed {}[{}]:{} wrong top", info.name, info.channelId, info.batchId);
             this_thread::sleep_for(1ms);

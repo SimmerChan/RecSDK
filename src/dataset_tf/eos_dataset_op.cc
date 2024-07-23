@@ -220,7 +220,18 @@ private:
                 tf_shape.AddDim(output_shapes.dim_size(i));
             }
             LOG_INFO("[LQK] CreateTensorByShape, tensor shape: {}", tf_shape.DebugString());
-            return Tensor(tensor_data_type, tf_shape);
+
+            Tensor tmp(tensor_data_type, tf_shape);
+            auto tensor_data = const_cast<char *>(tmp.tensor_data().data());
+            auto tensor_size = tmp.tensor_data().size();
+            LOG_INFO("[LQK] KnownShape, create tensor: {}， tensor size: {}, tensor.NumElements:{}",
+                     tmp.DebugString(), tensor_size, tmp.NumElements());
+
+            memset_s(tensor_data, tensor_size, 0, tensor_size);
+
+            LOG_INFO("[LQK] KnownShape, after memset tensor: {}", tmp.DebugString());
+
+            return tmp;
         }
 
         std::vector<Tensor> CreateOutputVecTensor()
@@ -248,7 +259,7 @@ private:
                 }
                 if (IsUnknowShape(dataset()->output_shapes()[i])) {
                     LOG_INFO("[LQK] output shape is unknown shape");
-                    Tensor tensor(tensor_data_type, TensorShape({3, 1}));
+                    Tensor tensor(tensor_data_type, TensorShape({8, 1}));
                     if (dataset()->output_shapes()[i].dims() == -1) {
                         tensor = Tensor(tensor_data_type, TensorShape({1}));
                     }

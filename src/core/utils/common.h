@@ -185,12 +185,7 @@ struct Batch {
 
     bool CheckAndSetEos()
     {
-        int num = sample.size();
-        if (num < 3 || num % 3 != 0) {
-            return false;
-        }
-
-        for (int i = 0; i < num; i++) {
+        for (int i = 0; i < 8; i++) {
             if (sample[i] != 0)
             {
                 return false;
