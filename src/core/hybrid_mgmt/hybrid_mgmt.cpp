@@ -1381,49 +1381,25 @@ void HybridMgmt::HandleReachMaxStepCase(const EmbBaseInfo& info, bool& remainBat
     hybridMgmtBlock->SetBlockStatus(TRAIN_CHANNEL_ID, true);
 }
 
+// DDR
 void HybridMgmt::HandleEosCase(const EmbBaseInfo& info, bool& remainBatchOut)
 {
     LOG_INFO("GetUniqueKeys get eos, handle final batch for current epoch, table:{}, channel:{}, batchId:{}", info.name,
              info.channelId, info.batchId);
     bool sendAllChannel = false;
-    if (info.channelId == TRAIN_CHANNEL_ID) {
-        vector<uint64_t> emptySwapOutPos;
-        SendTensorForSwap(info, lastSwapInPosMap[info.name], emptySwapOutPos);
-        LOG_INFO("GetUniqueKeys get eos, send pos for train channel, table:{}, batchId:{}", info.name, info.batchId);
-        KEY_PROCESS_INSTANCE->SendEos(info.name, info.batchId, info.channelId, sendAllChannel);
-        remainBatchOut = false;
-        return;
-    }
+    vector<uint64_t> emptySwapOutPos;
+    SendTensorForSwap(info, lastSwapInPosMap[info.name], emptySwapOutPos);
+    LOG_INFO("GetUniqueKeys get eos, send pos for channel, table:{}, batchId:{}, channel:{}", info.name, info.batchId,
+             info.channelId);
 
     if (!alreadyTrainOnce) {
         // predict场景
         LOG_INFO("ProcessEmbInfoDDR first run in eval channel, assume as predict mode, start handle eos");
-        std::vector<uint64_t> emptySwapOutPos;
-        SendTensorForSwap(info, lastSwapInPosMap[info.name], emptySwapOutPos);
         sendAllChannel = true;
     } else {
         hybridMgmtBlock->SetBlockStatus(EVAL_CHANNEL_ID, true);
         LOG_INFO("GetUniqueKeys get eos from eval channel, SetBlockStatus=true");
-        if (hybridMgmtBlock->IsNeedWaitSave()) {
-            // train+eval+save场景
-            // 当前step n之后需要save，涉及save到train的状态切换。需要：
-            // 1. 补发pos以启动eval step n-1并完成。
-            // 2. eval step n遇到eos结束
-            // 3. 开始save，完成后唤醒train的ProcessEmbInfoDDR，所以需要在此之前改变specialProcessStatus
-            LOG_DEBUG("eval encounter eos and need save after this step"
-                      "send pos change specialProcessStatus, current status:{}, modify to status:{}",
-                      ProcessStatus2Str(specialProcessStatus[info.name]),
-                      ProcessStatus2Str(ProcessStatus::AFTER_SWITCH_FIRST_BATCH));
-            vector<uint64_t> emptySwapOutPos;
-            SendTensorForSwap(info, lastSwapInPosMap[info.name], emptySwapOutPos);
-            specialProcessStatus[info.name] = ProcessStatus::AFTER_SWITCH_FIRST_BATCH;
-        } else {
-            // train+eval+train场景
-            // 交给train的ProcessEmbInfoDDR启动最后n-1步eval
-            // train发送pos让eval step n-1跑完，到eval step n时各channel遇到eos后结束（train、eval共享的channel除外）
-            LOG_INFO("GetUniqueKeys get eos, skip send pos for eval channel, table:{}, batchId:{}", info.name,
-                     info.batchId);
-        }
+        specialProcessStatus[info.name] = ProcessStatus::AFTER_SWITCH_FIRST_BATCH;
     }
     KEY_PROCESS_INSTANCE->SendEos(info.name, info.batchId, info.channelId, sendAllChannel);
     remainBatchOut = false;
@@ -1774,6 +1750,7 @@ void HybridMgmt::EmbeddingSendL3Storage(const EmbTaskInfo& info, vector<Tensor>&
     LOG_DEBUG("h2dNextBatchId, table:{}, next batchId:{}", info.name, hybridMgmtBlock->h2dNextBatchId[info.name]);
 }
 
+// HBM
 void HybridMgmt::HandleEosCaseHBM(const string& embName, int batchId, int channelId, bool& remainBatchOut)
 {
     bool sendAllChannel = false;
@@ -1784,7 +1761,7 @@ void HybridMgmt::HandleEosCaseHBM(const string& embName, int batchId, int channe
         } else {
             // train+eval场景
             hybridMgmtBlock->SetBlockStatus(EVAL_CHANNEL_ID, true);
-            LOG_INFO("GetUniqueKeys get eos from eval channel, SetBlockStatus=true");
+            LOG_INFO("GetInfoVec[RESTORE]: {}, get eos from eval channel, SetBlockStatus=true", embName);
         }
     }
     KEY_PROCESS_INSTANCE->SendEos(embName, batchId, channelId, sendAllChannel);
