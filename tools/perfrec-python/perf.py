@@ -192,9 +192,9 @@ class PerfConfig:
     Configuration from `config.toml`.
     """
 
-    def __init__(self, threshold: float = 0.05, ignores: List[str] = list()):
-        self.threshold = threshold
+    def __init__(self, ignores: List[str], threshold: float = 0.05):
         self.ignores = set(ignores)
+        self.threshold = threshold
 
 
 def read_config() -> PerfConfig:
@@ -207,9 +207,9 @@ def read_config() -> PerfConfig:
     try:
         config = toml.load("config.toml")
         perf_config = config["perf"]
-        return PerfConfig(perf_config["threshold"], perf_config["ignores"])
+        return PerfConfig(perf_config["ignores"], perf_config["threshold"])
     except toml.TomlDecodeError:
-        return PerfConfig()
+        return PerfConfig(ignores=[])
 
 
 def main():

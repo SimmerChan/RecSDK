@@ -23,7 +23,7 @@ import re
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 import pandas as pd
 import toml
@@ -194,7 +194,7 @@ def get_process_id(log_line: str) -> int:
     return int(process_id)
 
 
-def read_mxrec_config() -> Optional[MxRecConfig]:
+def read_mxrec_config() -> MxRecConfig:
     """
     Reads the MxRec configuration from a TOML file.
 
@@ -205,8 +205,7 @@ def read_mxrec_config() -> Optional[MxRecConfig]:
         config = toml.load("config.toml")
         return MxRecConfig(config["mxrec"])
     except toml.TomlDecodeError:
-        logging.error("Can not open or load the config.toml.")
-        return None
+        raise RuntimeError("can not load config.toml")
 
 
 @dataclass
@@ -398,14 +397,15 @@ def main():
     args = parser.parse_args()
 
     log_path = args.debug_log
-    config = read_mxrec_config()
-    if not config:
+    tracing = list()
+    try:
+        config = read_mxrec_config()
+        mxrec_events = extract_mxrec_events(log_path, config)
+        tracing.extend(get_metadata(list(mxrec_events.keys()), config))
+    except RuntimeError:
         logging.error("Can not read config.toml, it will exit unsuccessfully.")
         exit(1)
 
-    mxrec_events = extract_mxrec_events(log_path, config)
-    tracing = list()
-    tracing.extend(get_metadata(list(mxrec_events.keys()), config))
     for process in mxrec_events.values():
         for events in process.values():
             tracing.extend([TracingMxRecEvent(event) for event in events])
