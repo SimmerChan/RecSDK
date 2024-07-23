@@ -204,8 +204,8 @@ def read_mxrec_config() -> MxRecConfig:
     try:
         config = toml.load("config.toml")
         return MxRecConfig(config["mxrec"])
-    except toml.TomlDecodeError:
-        raise RuntimeError("can not load config.toml")
+    except toml.TomlDecodeError as e:
+        raise RuntimeError("can not load config.toml") from e
 
 
 @dataclass
