@@ -166,6 +166,9 @@ public:
     std::map<std::string, TaskQueue<std::vector<float*>>> HBMSwapAddrsQue;
     std::map<std::string, TaskQueue<std::vector<float*>>> DDRSwapAddrsQue;
 
+    std::map<std::string, TaskQueue<pair<bool,int>>> EosL1Que;  // pair <isEos, channelId>
+    std::map<std::string, TaskQueue<pair<bool,int>>> EosL2Que;
+
     std::mutex evictMut;
 
     std::map<std::string, std::unordered_set<uint64_t>> trainKeysSet;
@@ -254,7 +257,7 @@ private:
 
     void HandleEosCaseHBM(const string& embName, int batchId, int channelId, bool& remainBatchOut);
 
-    bool EmbeddingReceiveDDR(const EmbTaskInfo& info, float*& ptr, vector<float*>& swapOutAddrs);
+    bool EmbeddingReceiveDDR(const EmbTaskInfo& info, float*& ptr, vector<float*>& swapOutAddrs, bool& isEos);
 
     void EmbeddingUpdateDDR(const EmbTaskInfo& info, const float* embPtr, vector<float*>& swapOutAddrs);
 
@@ -262,7 +265,8 @@ private:
 
     void EmbeddingSendDDR(const EmbTaskInfo& info, vector<Tensor>& h2dEmb);
 
-    bool EmbeddingReceiveL3Storage(const EmbTaskInfo& info, float*& ptr, vector<float*>& swapOutAddrs, int64_t& dims0);
+    bool EmbeddingReceiveL3Storage(const EmbTaskInfo& info, float*& ptr, vector<float*>& swapOutAddrs, int64_t& dims0,
+                                   bool& isEos);
 
     void EmbeddingUpdateL3Storage(const EmbTaskInfo& info, float* embPtr, vector<float*>& swapOutAddrs, int64_t& dims0);
 
@@ -286,7 +290,7 @@ private:
 
     bool BuildH2DEmbedding(const EmbTaskInfo& info, vector<Tensor>& h2dEmb);
 
-    vector<uint64_t> GetUniqueKeys(const EmbBaseInfo& info, bool& remainBatchOut);
+    vector<uint64_t> GetUniqueKeys(const EmbBaseInfo& info, bool& remainBatchOut, bool& isEos);
 
     vector<int32_t> GetRestoreVecSec(const EmbBaseInfo& info, bool& remainBatchOut);
 
