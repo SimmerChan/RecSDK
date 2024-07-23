@@ -36,7 +36,7 @@ class MxRecConfig:
     def __init__(self, pipes: Dict[str, List[str]]):
         self.pipes = pipes
         self.func_to_pipe = defaultdict(str)
-        for pipe_name, event_list in self.pipes:
+        for pipe_name, event_list in self.pipes.items():
             for event in event_list:
                 self.func_to_pipe[event] = pipe_name
         self.pipe_names = [name for name in pipes.keys()]
@@ -394,7 +394,7 @@ def main():
         description="Generate CPU/NPU fusion tracing json."
     )
     parser.add_argument(
-        "--debug_log", help="MxRec DEBUG level log flie path.", required=True
+        "--debug_log", help="MxRec DEBUG level log file path.", required=True
     )
     parser.add_argument("--msprof_output", help="msprof output path.", required=False)
     args = parser.parse_args()
