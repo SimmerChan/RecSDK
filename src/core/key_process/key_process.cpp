@@ -546,6 +546,9 @@ unique_ptr<EmbBatchT> KeyProcess::GetBatchData(int channel, int commId) const
     while (true) {
         batch = batchQueue->TryPop();
         if (batch != nullptr) {
+            if (batch->CheckAndSetEos()) {
+                LOG_INFO("GetBatchData eos, channelId:{} threadId:{}", channel, commId);
+            }
             break;
         }
         this_thread::sleep_for(100us);

@@ -213,6 +213,7 @@ private:
             }
             return false;
         }
+
         Tensor CreateTensorByShape(const PartialTensorShape& output_shapes, const DataType& tensor_data_type) {
             TensorShape tf_shape;
             for (int32_t i = 0; i < output_shapes.dims(); i++) {

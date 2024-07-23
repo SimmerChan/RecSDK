@@ -183,11 +183,29 @@ struct Batch {
         return s;
     }
 
+    bool CheckAndSetEos()
+    {
+        int num = sample.size();
+        if (num < 3 || num % 3 != 0) {
+            return false;
+        }
+
+        for (int i = 0; i < num; i++) {
+            if (sample[i] != 0)
+            {
+                return false;
+            }
+        }
+        isEos = true;
+        return true;
+    }
+
     std::vector<T> sample;
     std::string name;
     size_t batchSize;
     int batchId;
     int channel = 0;
+    bool isEos = false;
     time_t timestamp{-1};
 };
 

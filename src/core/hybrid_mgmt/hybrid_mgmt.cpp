@@ -658,7 +658,7 @@ void HybridMgmt::ProcessEmbInfoHBM(const EmbBaseInfo& info, bool& remainBatchOut
         SendUniqKeysAndRestoreVecHBM(info, infoVecs, isGrad);
     }
 
-    // 发送恢复向量
+    // 发送恢复向量和hotPos
     TimeCost sendRestoreSyncTC;
     hdTransfer->Send(TransferChannel::RESTORE, *infoVecs, info.channelId, info.name);
     LOG_DEBUG("table:{}, sendRestoreSyncTC(ms):{}, parseKeysTc HBM mode (ms):{}", info.name,
