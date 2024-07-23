@@ -305,9 +305,9 @@ void KeyProcess::KeyProcessTask(int channel, int threadId)
                 break;
             }
             LOG_INFO(KEY_PROCESS "getAndProcessTC(ms):{}, key process cost:{},"
-                                 " get data time(ms):{}, batch name:{}, channelId:{}, threadId:{}, batchId:{}",
+                                 " get data time(ms):{}, batch name:{}, channelId:{}, threadId:{}, batchId:{}, isEos:{}",
                      getAndProcessTC.ElapsedMS(), processDataTime.ElapsedMS(), getBatchTime,
-                     batch->name, batch->channel, threadId, batch->batchId);
+                     batch->name, batch->channel, threadId, batch->batchId, batch->isEos);
             int queueIndex = threadId + (MAX_KEY_PROCESS_THREAD * batch->channel);
             auto batchQueue = SingletonQueue<EmbBatchT>::GetInstances(queueIndex);
             batchQueue->PutDirty(move(batch));
@@ -397,6 +397,26 @@ bool KeyProcess::KeyProcessTaskHelperWithFastUnique(unique_ptr<EmbBatchT>& batch
 
 bool KeyProcess::KeyProcessTaskHelper(unique_ptr<EmbBatchT>& batch, int channel, int threadId)
 {
+    if (batch->isEos) {
+        if (!rankInfo.isDDR) { // HBM
+//            auto tensors = make_unique<vector<Tensor>>();
+            std::unique_lock<std::mutex> lockGuard(mut);
+//            storage.push_front(move(tensors));
+            infoList[batch->name][batch->channel].push(make_tuple(batch->batchId, batch->name, batch->isEos, storage.begin()));
+            lockGuard.unlock();
+            LOG_INFO("KeyProcessTaskHelper hbm eos, batch name:{}, batch id: {}, channelId:{} threadId:{}",
+                     batch->name, batch->batchId, batch->channel, threadId);
+            return true;
+        }
+        // DDR
+        vector<uint64_t> uniqueKeys;
+        std::unique_lock<std::mutex> lockGuard(mut);
+        uniqueKeysList[batch->name][batch->channel].push(make_tuple(batch->batchId, batch->name, batch->isEos, move(uniqueKeys)));
+        lockGuard.unlock();
+        LOG_INFO("KeyProcessTaskHelper ddr eos, batch name:{}, batch id: {}, channelId:{} threadId:{}",
+                 batch->name, batch->batchId, batch->channel, threadId);
+        return true;
+    }
     vector<KeysT> splitKeys;
     vector<int32_t> restore;
     vector<int32_t> hotPos;
@@ -440,11 +460,12 @@ bool KeyProcess::KeyProcessTaskHelper(unique_ptr<EmbBatchT>& batch, int channel,
     hotPos.resize(hotEmbTotCount[batch->name], 0);
     tensors->push_back(Vec2TensorI32(hotPos));
 
+    // HBM把restore、unique、idoffset做成了Tensor，放到infolist里面了（hbm第一个get的是tensors）
     if (!rankInfo.isDDR) {
         PushGlobalUniqueTensors(tensors, lookupKeys, channel);
         tensors->push_back(rankInfo.useDynamicExpansion ? Vec2TensorI64(lookupKeys) : Vec2TensorI32(lookupKeys));
         PushResultHBM(batch, move(tensors));
-    } else {
+    } else { // DDR 则保留原有的数据结构，idoffset在mgmt侧组装（ddr第一个get的是unique）
         std::vector<uint64_t> lookupKeysUint(lookupKeys.begin(), lookupKeys.end());
         vector<uint64_t> uniqueKeys;
         vector<int32_t> restoreVecSec;
@@ -513,7 +534,7 @@ void KeyProcess::PushResultHBM(unique_ptr<EmbBatchT>& batch, unique_ptr<vector<T
 {
     std::unique_lock<std::mutex> lockGuard(mut);
     storage.push_front(move(tensors));
-    infoList[batch->name][batch->channel].push(make_tuple(batch->batchId, batch->name, storage.begin()));
+    infoList[batch->name][batch->channel].push(make_tuple(batch->batchId, batch->name, batch->isEos, storage.begin()));
     lockGuard.unlock();
 }
 
@@ -522,8 +543,8 @@ void KeyProcess::PushResultDDR(unique_ptr<EmbBatchT>& batch, unique_ptr<vector<T
 {
     std::unique_lock<std::mutex> lockGuard(mut);
     storage.push_front(move(tensors));
-    infoList[batch->name][batch->channel].push(make_tuple(batch->batchId, batch->name, storage.begin()));
-    uniqueKeysList[batch->name][batch->channel].push(make_tuple(batch->batchId, batch->name, move(uniqueKeys)));
+    infoList[batch->name][batch->channel].push(make_tuple(batch->batchId, batch->name, batch->isEos, storage.begin()));
+    uniqueKeysList[batch->name][batch->channel].push(make_tuple(batch->batchId, batch->name, batch->isEos, move(uniqueKeys)));
     restoreVecSecList[batch->name][batch->channel].push(make_tuple(batch->batchId, batch->name, move(restoreVecSec)));
     lockGuard.unlock();
 }
@@ -1195,15 +1216,24 @@ vector<uint64_t> KeyProcess::GetUniqueKeys(const EmbBaseInfo& info, bool& isEos,
         }
         try {
             auto infoVec = GetInfo(uniqueKeysList, info);
+            isEos = get<bool>(infoVec);
+            if (isEos) {
+                LOG_WARN(KEY_PROCESS "GetUniqueKeys eos! {}[{}]:{}",
+                         info.name, info.channelId, info.batchId);
+                break;
+            }
             ret = get<std::vector<uint64_t>>(infoVec);
             break;
         } catch (EmptyList&) {
-            unique_lock<mutex> lockEosGuard(eosMutex);
-            isEos = IsGetUniqueKeysEos(info, startTime, lookUpSwapInAddrsPushId);
-            if (isEos) {
-                break;
-            }
-            this_thread::sleep_for(1ms);
+//            unique_lock<mutex> lockEosGuard(eosMutex);
+//            isEos = IsGetUniqueKeysEos(info, startTime, lookUpSwapInAddrsPushId);
+//            if (isEos) {
+//                break;
+//            }
+            LOG_DEBUG(KEY_PROCESS "GetUniqueKeys EmptyList! {}[{}]:{}",
+                     info.name, info.channelId, info.batchId);
+
+            this_thread::sleep_for(10ms);
         } catch (WrongListTop&) {
             LOG_TRACE("getting info failed table:{}, channel:{}, mgmt batchId:{}, wrong top",
                       info.name, info.channelId, info.channelId);
@@ -1279,16 +1309,16 @@ std::vector<int32_t> KeyProcess::GetRestoreVecSec(const EmbBaseInfo& info)
             auto ret = GetInfo(restoreVecSecList, info);
             return get<std::vector<int32_t>>(ret);
         } catch (EmptyList&) {
-            unique_lock<mutex> lockEosGuard(eosMutex);
-            // readEmbKey真实的次数是readEmbedBatchId减1
+//            unique_lock<mutex> lockEosGuard(eosMutex);
+//            // readEmbKey真实的次数是readEmbedBatchId减1
             int readEmbKeyBatchId = hybridMgmtBlock->readEmbedBatchId[info.channelId] - 1;
-            // 避免eos在keyProcess还未处理完数据时插队到通道前面
-            if (isNeedSendEos[info.channelId] && readEmbKeyBatchId < info.batchId &&
-                hybridMgmtBlock->h2dNextBatchId[info.name] == info.batchId) {
-                LOG_ERROR("channelId:{} batchId:{}, GetRestoreVecSec eos, code should not reach here",
-                          info.channelId, info.batchId);
-                throw runtime_error("GetRestoreVecSec eos, code should not reach here");
-            }
+//            // 避免eos在keyProcess还未处理完数据时插队到通道前面
+//            if (isNeedSendEos[info.channelId] && readEmbKeyBatchId < info.batchId &&
+//                hybridMgmtBlock->h2dNextBatchId[info.name] == info.batchId) {
+//                LOG_ERROR("channelId:{} batchId:{}, GetRestoreVecSec eos, code should not reach here",
+//                          info.channelId, info.batchId);
+//                throw runtime_error("GetRestoreVecSec eos, code should not reach here");
+//            }
             LOG_TRACE("getting info failed {}[{}], list is empty, and mgmt batchId: {}, readEmbKey batchId: {}.",
                       info.name, info.channelId, info.batchId, readEmbKeyBatchId);
             this_thread::sleep_for(1ms);
@@ -1386,20 +1416,27 @@ unique_ptr<vector<Tensor>> KeyProcess::GetInfoVec(const EmbBaseInfo &info, Proce
 
         try {
             auto infoVec = GetInfo(*list, info);
+            isEos = get<bool>(infoVec);
+            if (isEos) {
+                LOG_WARN(KEY_PROCESS "GetInfoVec eos! {}[{}]:{}", info.name, info.channelId, info.batchId);
+                break;
+            }
             auto it = get<std::list<unique_ptr<vector<Tensor>>>::iterator>(infoVec);
             ret = std::move(*it);
             std::unique_lock<std::mutex> lockGuard(mut);
             storage.erase(it);
             break;
         } catch (EmptyList&) {
-            unique_lock<mutex> lockEosGuard(eosMutex);
-            isEos = IsGetInfoVecEos(info.batchId, info.name, info.channelId);
-            if (isEos) {
-                break;
-            }
+//            unique_lock<mutex> lockEosGuard(eosMutex);
+//            isEos = IsGetInfoVecEos(info.batchId, info.name, info.channelId);
+//            if (isEos) {
+//                break;
+//            }
+            LOG_DEBUG(KEY_PROCESS "GetInfoVec EmptyList! {}[{}]:{}", info.name, info.channelId, info.batchId);
+
             LOG_TRACE("getting info failed {}[{}], list is empty, and mgmt batchId: {}, readEmbKey batchId: {}.",
                 info.name, info.channelId, info.batchId, (hybridMgmtBlock->readEmbedBatchId[info.channelId] - 1));
-            this_thread::sleep_for(1ms);
+            this_thread::sleep_for(10ms);
         } catch (WrongListTop&) {
             LOG_TRACE("getting info failed {}[{}]:{} wrong top", info.name, info.channelId, info.batchId);
             this_thread::sleep_for(1ms);
@@ -1423,7 +1460,7 @@ void KeyProcess::SendA2A(const vector<int>& a2aInfo, const string& embName, int 
 
     std::unique_lock<std::mutex> lockGuard(mut);
     storage.push_front(move(tensors));
-    all2AllList[embName][channel].push(make_tuple(batch, embName, storage.begin()));
+    all2AllList[embName][channel].push(make_tuple(batch, embName, false, storage.begin()));
     lockGuard.unlock();
 }
 

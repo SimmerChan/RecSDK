@@ -327,7 +327,7 @@ private:
                                &req);
                 CheckCommFinished(req, channelId);
 
-                keyProcess->SetEos(1, dataset()->channelId_);
+//                keyProcess->SetEos(1, dataset()->channelId_);
                 LOG_DEBUG("[ACTIVE] GetNext eos was triggered actively, channel: {}, iter: {}",
                           dataset()->channelId_,
                           iter_times_);
@@ -342,7 +342,7 @@ private:
 
             if (getNextStatus < g_rankSize) {
                 *end_of_sequence = true;
-                keyProcess->SetEos(1, dataset()->channelId_);
+//                keyProcess->SetEos(1, dataset()->channelId_);
                 LOG_DEBUG(
                     "[PASSIVE] GetNext eos was triggered passively, channel: {}, iter: {}, sum: {}",
                     dataset()->channelId_, iter_times_, getNextStatus);
