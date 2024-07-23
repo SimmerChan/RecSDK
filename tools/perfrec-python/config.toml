@@ -14,14 +14,14 @@
 # ==============================================================================
 
 [mxrec]
-# pipe name and time cost name
+# Pipe name and time cost name
 key_process = ["getBatchData", "getAndProcess"]
 process_emb_info = ["getAndSendTensors"]
 lookup_swap_addr = ["lookupAddrs"]
 embedding_recv = ["EmbeddingRecv", "EmbeddingUpdate", "SendH2DEmb"]
 
 [perf]
-# filter percentage of time cost
+# Filter percentage of time cost
 threshold = 0.05
-# ignore function list
+# Ignore function list
 ignores = ["[libc.so.6]"]

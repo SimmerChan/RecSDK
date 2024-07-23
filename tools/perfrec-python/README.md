@@ -24,9 +24,9 @@ python perf.py --perf_data perf.data --flamegraph_path /ws/FlameGraph
 # config.toml
 
 [perf]
-# filter percentage of time cost
+# Filter percentage of time cost
 threshold = 0.05
-# ignore function list
+# Ignore function list
 ignores = ["[libc.so.6]"]
 ```
 
@@ -56,7 +56,7 @@ python fusion_tracing.py --debug_log ../../example/demo/little_demo/temp.log --m
 # config.toml
 
 [mxrec]
-# pipe name and time cost name
+# Pipe name and time cost name
 key_process = ["getBatchData", "getAndProcess"]
 process_emb_info = ["getAndSendTensors"]
 lookup_swap_addr = ["lookupAddrs"]

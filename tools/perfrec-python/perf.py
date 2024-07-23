@@ -19,7 +19,6 @@ import argparse
 import logging
 import os
 import subprocess
-import sys
 from collections import defaultdict
 from typing import List
 
@@ -60,7 +59,7 @@ def generate_flamegraph(
 
     # Generate the folded stack output
     folded_output = perf_data + ".folded"
-    fd = os.open(folded_output, os.O_WRONLY | os.O_CREAT, 0o644)
+    fd = os.open(folded_output, os.O_WRONLY | os.O_CREAT, 0o640)
     with os.fdopen(fd, "w") as f:
         script_output = subprocess.run(
             [perf_bin, "script", "-i", perf_data], check=True, stdout=subprocess.PIPE
@@ -70,7 +69,7 @@ def generate_flamegraph(
         )
 
     # Generate the flamegraph
-    fd_svg = os.open(output_svg, os.O_WRONLY | os.O_CREAT, 0o644)
+    fd_svg = os.open(output_svg, os.O_WRONLY | os.O_CREAT, 0o640)
     with os.fdopen(fd_svg, "w") as f:
         subprocess.run([flamegraph_script_path, folded_output], check=True, stdout=f)
 
@@ -102,6 +101,8 @@ def analyze_folded_stack(folded_output: str) -> None:
     total_count = 0
 
     # Read the folded stack output
+    # Line of folded stack example:
+    # python3.7;[libascendalog.so];access;__sys_trace_return;prepare_creds 10101010
     with open(folded_output, "r") as f:
         for line in f:
             parts = line.strip().rsplit(
@@ -129,7 +130,7 @@ def analyze_folded_stack(folded_output: str) -> None:
     # Prepare data for tabulate
     # Write call stacks to file
     table_data = []
-    fd_call_stacks = os.open("call_stacks.txt", os.O_WRONLY | os.O_CREAT, 0o644)
+    fd_call_stacks = os.open("call_stacks.txt", os.O_WRONLY | os.O_CREAT, 0o640)
     with os.fdopen(fd_call_stacks, "w") as f:
         for func, call_stack in results:
             percentage = (
@@ -142,7 +143,7 @@ def analyze_folded_stack(folded_output: str) -> None:
             f.writelines(
                 [
                     f"func_name: {func}\n",
-                    f"percetage: {percentage:.2f}%\n",
+                    f"percentage: {percentage:.2f}%\n",
                     "call_stacks:\n",
                 ]
                 + stacks
@@ -150,9 +151,9 @@ def analyze_folded_stack(folded_output: str) -> None:
             )
 
     # Print the results using tabulate
-    logging.info("\nFunctions with more than 5% of total samples:\n")
+    logging.info("\nFunctions with more than 5% of total samples:")
     headers = ["Function", "Count", "Percentage"]
-    sys.stdout.write(tabulate(table_data, headers=headers, tablefmt="grid") + "\n")
+    logging.info("\n" + tabulate(table_data, headers=headers, tablefmt="grid"))
 
 
 def limit_line(input_content: str, line_length: int) -> str:
@@ -160,7 +161,7 @@ def limit_line(input_content: str, line_length: int) -> str:
     Limits the length of a line to a specified number of characters, adding line breaks if necessary.
 
     Args:
-        input (str): The input string.
+        input_content (str): The input string.
         line_length (int): The maximum line length.
 
     Returns:
@@ -170,13 +171,10 @@ def limit_line(input_content: str, line_length: int) -> str:
         return input_content
     limited_str = ""
     if line_length > 0:
-        count = 0
-        for c in input_content:
-            if count >= line_length:
-                limited_str += "\n"
-                count = 0
-            limited_str += c
-            count += 1
+        limited_str = "\n".join(
+            input_content[i : i + line_length]
+            for i in range(len(input_content), line_length)
+        )
     return limited_str
 
 
@@ -185,7 +183,7 @@ class PerfConfig:
     Configuration from `config.toml`.
     """
 
-    def __init__(self, threshold: int, ignores: List[str]):
+    def __init__(self, threshold: float = 0.05, ignores: List[str] = []):
         self.threshold = threshold
         self.ignores = set(ignores)
 
@@ -197,9 +195,12 @@ def read_config() -> PerfConfig:
     Returns:
         PerfConfig: Configuration class.
     """
-    config = toml.load("config.toml")
-    perf_config = config["perf"]
-    return PerfConfig(perf_config["threshold"], perf_config["ignores"])
+    try:
+        config = toml.load("config.toml")
+        perf_config = config["perf"]
+        return PerfConfig(perf_config["threshold"], perf_config["ignores"])
+    except toml.TomlDecodeError:
+        return PerfConfig()
 
 
 def main():

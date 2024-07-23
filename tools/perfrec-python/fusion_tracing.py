@@ -16,6 +16,7 @@
 # ==============================================================================
 
 import argparse
+from dataclasses import dataclass
 import json
 import logging
 import os
@@ -51,34 +52,26 @@ class MxRecEvent:
         timestamp_s = get_timestamp(log_line)
         duration_ms = get_duration(log_line, event_name)
         process_id = get_process_id(log_line)
-        self.timestamp_start_us = timestamp_s * 1e6 - float(duration_ms) * 1e3
-        self.duration_us = float(duration_ms) * 1e3
+        self.timestamp_start_us = timestamp_s * 1e6 - duration_ms * 1e3
+        self.duration_us = duration_ms * 1e3
         self.timestamp_end_us = timestamp_s * 1e6
         self.process_id = process_id
         self.name = event_name
         self.pipe_id = pipe_id
 
 
+@dataclass
 class OpEvent:
     """
     Class to represent an Op event.
     """
 
-    def __init__(
-        self,
-        device_id: int,
-        op_name: str,
-        op_type: str,
-        task_type: str,
-        start_timestamp: float,
-        duration: float,
-    ):
-        self.device_id = device_id
-        self.op_name = op_name
-        self.op_type = op_type
-        self.task_type = task_type
-        self.start_timestamp = start_timestamp
-        self.duration = duration
+    device_id: int
+    op_name: str
+    op_type: str
+    task_type: str
+    start_timestamp: float
+    duration: float
 
 
 def extract_mxrec_events(
@@ -105,13 +98,12 @@ def extract_mxrec_events(
         pipe_ids[pipe] = i
     with open(log_path) as log:
         for line in log:
-            for name, pipe in event_names.items():
-                if name in line:
-                    try:
-                        event = MxRecEvent(line, name, pipe_ids[pipe])
-                        events[event.process_id][pipe].append(event)
-                    except Exception:
-                        broken_lines.append(line)
+            for name, pipe in filter(lambda item: item[0] in line, event_names.items()):
+                try:
+                    event = MxRecEvent(line, name, pipe_ids[pipe])
+                    events[event.process_id][pipe].append(event)
+                except RuntimeError:
+                    broken_lines.append(line)
     if broken_lines:
         logging.warning("There are %d broken log lines", len(broken_lines))
         for line in broken_lines:
@@ -155,18 +147,17 @@ def get_timestamp(log_line: str) -> float:
     """
     pattern = r"\[(\d{4}/\d{1,2}/\d{1,2} \d{1,2}:\d{1,2}:\d{1,2}\.\d+)\]"
     match = re.search(pattern, log_line)
-    if match:
-        date_time_str = match.group(1)
-        date_time_format = "%Y/%m/%d %H:%M:%S.%f"
-        # Parse the date-time string into a datetime object
-        date_time_obj = datetime.strptime(date_time_str, date_time_format)
-        # Convert the datetime object to a timestamp
-        return date_time_obj.timestamp()
-    else:
-        raise RuntimeError(f"There is no time in log: {log_line}")
+    if not match:
+        raise RuntimeError(f"there is no time in log: {log_line}")
+    date_time_str = match.group(1)
+    date_time_format = "%Y/%m/%d %H:%M:%S.%f"
+    # Parse the date-time string into a datetime object
+    date_time_obj = datetime.strptime(date_time_str, date_time_format)
+    # Convert the datetime object to a timestamp
+    return date_time_obj.timestamp()
 
 
-def get_duration(log_line: str, event_name: str) -> int:
+def get_duration(log_line: str, event_name: str) -> float:
     """
     Extracts the duration of an event from a log line.
 
@@ -179,11 +170,10 @@ def get_duration(log_line: str, event_name: str) -> int:
     """
     pattern = event_name + r".*:\s*(\d+)"
     match = re.search(pattern, log_line)
-    if match:
-        duration_ms = match.group(1)
-        return int(duration_ms)
-    else:
-        raise RuntimeError(f"There is no event: {event_name}, log: {log_line}")
+    if not match:
+        raise RuntimeError(f"there is no event: {event_name}, log: {log_line}")
+    duration_ms = match.group(1)
+    return float(duration_ms)
 
 
 def get_process_id(log_line: str) -> int:
@@ -196,13 +186,12 @@ def get_process_id(log_line: str) -> int:
     Returns:
         int: The extracted process ID.
     """
-    pattern = r"process_id:\s*(\d+)"
+    pattern = r"\[(\d+)\]"
     match = re.search(pattern, log_line)
-    if match:
-        process_id = match.group(1)
-        return int(process_id)
-    else:
-        raise RuntimeError(f"There is no process_id in log: {log_line}")
+    if not match:
+        raise RuntimeError(f"there is no process_id in log: {log_line}")
+    process_id = match.group(1)
+    return int(process_id)
 
 
 def read_mxrec_config() -> MxRecConfig:
@@ -212,21 +201,25 @@ def read_mxrec_config() -> MxRecConfig:
     Returns:
         MxRecCofig: Configuration class.
     """
-    config = toml.load("config.toml")
-    return MxRecConfig(config["mxrec"])
+    try:
+        config = toml.load("config.toml")
+        return MxRecConfig(config["mxrec"])
+    except toml.TomlDecodeError:
+        logging.error("Can not open or load the config.toml.")
+        exit(1)
 
 
+@dataclass
 class TracingMetaData:
     """
     Class to represent metadata for tracing.
     """
 
-    def __init__(self, name: str, pid: int, tid: int, ph: str, args: Dict[str, Any]):
-        self.name = name
-        self.pid = pid
-        self.tid = tid
-        self.ph = ph
-        self.args = args
+    name: str
+    pid: int
+    tid: int
+    ph: str
+    args: Dict[str, Any]
 
 
 class TracingMxRecEvent:
@@ -325,6 +318,7 @@ def get_op_pid(op_event: OpEvent) -> int:
     Returns:
         int: Process ID.
     """
+    # add 100 avoiding confict with cpu pid(rand_id)
     return 100 + op_event.device_id
 
 
@@ -370,19 +364,23 @@ def get_op_tracing(path: str) -> Tuple[List[TracingMetaData], List[TracingOpEven
                 file_path = os.path.join(root, file)
                 op_events = extract_op_events(file_path)
                 for event in op_events:
-                    pid = get_op_pid(event)
-                    if pid not in pids:
-                        pids.add(pid)
-                        metadata.extend(new_process_metadata(pid, event.device_id))
+                    process_id = get_op_pid(event)
+                    if process_id not in pids:
+                        pids.add(process_id)
+                        metadata.extend(
+                            new_process_metadata(process_id, event.device_id)
+                        )
                     if event.task_type not in task_types:
                         task_id = len(task_types)
                         task_types[event.task_type] = task_id
-                    tid = get_fake_tid(pid, task_types[event.task_type])
+                    tid = get_fake_tid(process_id, task_types[event.task_type])
                     if tid not in tids:
                         tids.add(tid)
-                        metadata.extend(new_thread_metadata(pid, tid, event.task_type))
+                        metadata.extend(
+                            new_thread_metadata(process_id, tid, event.task_type)
+                        )
                     op_tracing.append(TracingOpEvent(event, tid))
-    return (metadata, op_tracing)
+    return metadata, op_tracing
 
 
 def main():
@@ -415,7 +413,7 @@ def main():
         tracing.extend(op_metadata)
         tracing.extend(op_tracing)
 
-    fd = os.open("mxrec_tracing.json", os.O_WRONLY | os.O_CREAT, 0o644)
+    fd = os.open("mxrec_tracing.json", os.O_WRONLY | os.O_CREAT, 0o640)
     with os.fdopen(fd, "w") as file:
         json.dump(tracing, file, indent=4, default=lambda obj: obj.__dict__)
 
