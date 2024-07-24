@@ -20,7 +20,11 @@ See the License for the specific language governing permissions and
 #include "tiling/platform/platform_ascendc.h"
 #include "attention_fusion_grad_tiling.h"
 
+namespace optiling {
+
+
 #define NEED_TRANSPOSE_AGLING(qDim1, kDim1) (qDim1==1000 && kDim1==50)
+constexpr int RESERVER_UB_SIZE = 20 * 1024;
 constexpr int MAX_BATCH_SIZE = 2000;
 constexpr int MAX_DIM = 1000;
 constexpr int FLOAT_ALIGNMENT = 8;
@@ -29,11 +33,7 @@ constexpr int TRANSPOSE_TYPE = 7;
 constexpr int KEY_DIM1_COPY_ALIGN_MODE = 1;
 constexpr int KEY_DIM1_COPY_TRANSPOSE_ALIGN_MODE = 2;
 constexpr int KEY_DIM1_COPY_PAD_MODE = 3;
-constexpr int L0C_MAX_SIZE = 100*1024;
-
-namespace optiling {
-
-#define RESERVER_UB_SIZE (20 * 1024)
+constexpr int L0C_MAX_SIZE = 100 * 1024;
 
 int CeilDiv(int a, int b)
 {
@@ -43,18 +43,21 @@ int CeilDiv(int a, int b)
     return (a + b - 1) / b;
 }
 
-int gcd(int x, int y)
+int GCD(int a, int b)
 {
-    if (y == 0) {
-        return 0;
+    while (a != b)
+    {
+        if (a > b)
+            a -= b;
+        else 
+            b -= a;
     }
-    while (y ^= x ^= y ^= x %= y);
-    return x;
+    return a;
 }
  
-int lcm(int x, int y)
+int LCM(int x, int y)
 {
-    int gcdResult = gcd(x, y);
+    int gcdResult = GCD(x, y);
     if (gcdResult == 0) {
         return 0;
     }
@@ -143,7 +146,7 @@ static int32_t GradSoftmaxTiling(gert::TilingContext* context, AttentionFusionGr
     int paddingKeyDim1 = CeilDiv(kShape.GetDim(1), FLOAT_ALIGNMENT) * FLOAT_ALIGNMENT;
     int numRowOfNormalizeOne = ub / 4 / sizeof(float) / paddingKeyDim1;
     int keyDim1Align;
-    int transposeAlignDim = lcm(kShape.GetDim(1), TRANSPOSE_ALIGNMENT)/kShape.GetDim(1);
+    int transposeAlignDim = LCM(kShape.GetDim(1), TRANSPOSE_ALIGNMENT)/kShape.GetDim(1);
 
     if (kShape.GetDim(1) % FLOAT_ALIGNMENT == 0) {
         keyDim1Align = KEY_DIM1_COPY_ALIGN_MODE;
@@ -196,7 +199,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     auto kShape = context->GetInputShape(3)->GetStorageShape();
     int keyDim1 = kShape.GetDim(1);
     int paddingKeyDim1 = CeilDiv(keyDim1, FLOAT_ALIGNMENT) * FLOAT_ALIGNMENT;
-    int transposeAlignDim = lcm(keyDim1, TRANSPOSE_ALIGNMENT)/keyDim1;
+    int transposeAlignDim = LCM(keyDim1, TRANSPOSE_ALIGNMENT)/keyDim1;
 
     std::vector<int64_t> shapeVec = {TRANSPOSE_ALIGNMENT, keyDim1 * transposeAlignDim};
     ge::Shape srcShape(shapeVec);
@@ -227,12 +230,15 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
 namespace ge {
 static ge::graphStatus InferShape(gert::InferShapeContext* context)
 {
-    const gert::Shape* qShape = context->GetInputShape(2);
-    const gert::Shape* kShape = context->GetInputShape(3);
-    const gert::Shape* vShape = context->GetInputShape(4);
+    int index2 = 2;
+    int index3 = 3;
+    int index4 = 4; 
+    const gert::Shape* qShape = context->GetInputShape(index2);
+    const gert::Shape* kShape = context->GetInputShape(index3);
+    const gert::Shape* vShape = context->GetInputShape(index4);
     gert::Shape* gradQShape = context->GetOutputShape(0);
     gert::Shape* gradKShape = context->GetOutputShape(1);
-    gert::Shape* gradVShape = context->GetOutputShape(2);
+    gert::Shape* gradVShape = context->GetOutputShape(index2);
     *gradQShape = *qShape;
     *gradKShape = *kShape;
     *gradVShape = *vShape;
@@ -241,9 +247,12 @@ static ge::graphStatus InferShape(gert::InferShapeContext* context)
 
 static ge::graphStatus InferDtype(gert::InferDataTypeContext* context)
 {
-    context->SetOutputDataType(0, context->GetInputDataType(2));
-    context->SetOutputDataType(1, context->GetInputDataType(3));
-    context->SetOutputDataType(2, context->GetInputDataType(4));
+    int index2 = 2;
+    int index3 = 3;
+    int index4 = 4;       
+    context->SetOutputDataType(0, context->GetInputDataType(index2));
+    context->SetOutputDataType(1, context->GetInputDataType(index3));
+    context->SetOutputDataType(2, context->GetInputDataType(index4));
     return GRAPH_SUCCESS;
 }
 }
@@ -301,7 +310,6 @@ public:
             .SetTiling(optiling::TilingFunc);
         this->AICore().AddConfig("ascend910b");
         this->AICore().AddConfig("ascend910");
-
     }
 };
 

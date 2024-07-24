@@ -23,7 +23,6 @@ OperatorDesc::~OperatorDesc()
     for (auto *desc : outputDesc) {
         aclDestroyTensorDesc(desc);
     }
-
 }
 
 OperatorDesc &OperatorDesc::AddInputTensorDesc(aclDataType dataType,

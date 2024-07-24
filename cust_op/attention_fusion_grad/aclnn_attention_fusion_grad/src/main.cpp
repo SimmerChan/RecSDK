@@ -21,6 +21,7 @@
 bool isDevice = false;
 int deviceId = 15;
 
+namespace  AttentionFusionGrad {
 OperatorDesc CreateOpDesc()
 {
     // define operator
@@ -66,7 +67,7 @@ bool SetInputData(OpRunner &runner)
 
 bool ProcessOutputData(OpRunner &runner)
 {
-    int gradValueIndex =2;
+    int gradValueIndex = 2;
     WriteFile("../output/grad_query.bin", runner.GetOutputBuffer<void>(0), runner.GetOutputSize(0));
     WriteFile("../output/grad_key.bin", runner.GetOutputBuffer<void>(1), runner.GetOutputSize(1));
     WriteFile("../output/grad_value.bin", runner.GetOutputBuffer<void>(gradValueIndex), runner.GetOutputSize(gradValueIndex));
@@ -168,6 +169,7 @@ bool RunOp()
     return true;
 }
 
+
 int main(int argc, char **argv)
 {
     if (!InitResource()) {
@@ -184,4 +186,5 @@ int main(int argc, char **argv)
     DestoryResource();
 
     return SUCCESS;
+}
 }
