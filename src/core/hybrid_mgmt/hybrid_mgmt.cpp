@@ -1456,6 +1456,7 @@ bool HybridMgmt::EmbeddingReceiveDDR(const EmbTaskInfo& info, float*& ptr, vecto
 
     swapOutAddrs = HBMSwapAddrsQue[info.name + SWAP_OUT_STR].WaitAndPop();
     if (swapOutAddrs.size() == 2 && swapOutAddrs[0] == nullptr && swapOutAddrs[1] == nullptr) { // eos
+        LOG_INFO("EmbeddingReceiveDDR get eos from train channel");
         bool sendAllChannel = false;
         if (!alreadyTrainOnce) {
             // predict场景
@@ -1466,6 +1467,7 @@ bool HybridMgmt::EmbeddingReceiveDDR(const EmbTaskInfo& info, float*& ptr, vecto
         return true;
     }
     if (swapOutAddrs.size() == 3 && swapOutAddrs[0] == nullptr && swapOutAddrs[1] == nullptr && swapOutAddrs[2] == nullptr) { // eos
+        LOG_INFO("EmbeddingReceiveDDR get eos from eval channel");
         bool sendAllChannel = false;
         if (!alreadyTrainOnce) {
             // predict场景
@@ -1991,6 +1993,7 @@ bool HybridMgmt::BuildH2DEmbedding(const EmbTaskInfo& info, vector<Tensor>& h2dE
 {
     std::vector<float*> swapInAddrs = HBMSwapAddrsQue[info.name + SWAP_IN_STR].WaitAndPop();
     if (swapInAddrs.size() == 2 && swapInAddrs[0] == nullptr && swapInAddrs[1] == nullptr) { // eos
+        LOG_INFO("BuildH2DEmbedding get eos from train channel");
         isEos = true;
         bool sendAllChannel = false;
         if (!alreadyTrainOnce) {
@@ -2001,6 +2004,7 @@ bool HybridMgmt::BuildH2DEmbedding(const EmbTaskInfo& info, vector<Tensor>& h2dE
         return true;
     }
     if (swapInAddrs.size() == 3 && swapInAddrs[0] == nullptr && swapInAddrs[1] == nullptr && swapInAddrs[2] == nullptr) { // eos
+        LOG_INFO("BuildH2DEmbedding get eos from eval channel");
         isEos = true;
         bool sendAllChannel = false;
         if (!alreadyTrainOnce) {
