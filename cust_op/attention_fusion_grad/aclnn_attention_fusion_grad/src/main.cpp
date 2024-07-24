@@ -51,20 +51,25 @@ OperatorDesc CreateOpDesc()
 bool SetInputData(OpRunner &runner)
 {
     size_t fileSize = 0;
+    int queryIndex = 2;
+    int keyIndex = 3;
+    int valueIndex = 4;
     ReadFile("../input/dout.bin", fileSize, runner.GetInputBuffer<void>(0), runner.GetInputSize(0));
     ReadFile("../input/softmax_out.bin", fileSize, runner.GetInputBuffer<void>(1), runner.GetInputSize(1));
-    ReadFile("../input/query.bin", fileSize, runner.GetInputBuffer<void>(2), runner.GetInputSize(2));
-    ReadFile("../input/key.bin", fileSize, runner.GetInputBuffer<void>(3), runner.GetInputSize(3));
-    ReadFile("../input/value.bin", fileSize, runner.GetInputBuffer<void>(4), runner.GetInputSize(4));
+    ReadFile("../input/query.bin", fileSize, runner.GetInputBuffer<void>(queryIndex), runner.GetInputSize(queryIndex));
+
+    ReadFile("../input/key.bin", fileSize, runner.GetInputBuffer<void>(keyIndex), runner.GetInputSize(keyIndex));
+    ReadFile("../input/value.bin", fileSize, runner.GetInputBuffer<void>(valueIndex), runner.GetInputSize(valueIndex));
     INFO_LOG("Set input success");
     return true;
 }
 
 bool ProcessOutputData(OpRunner &runner)
 {
+    int gradValueIndex =2;
     WriteFile("../output/grad_query.bin", runner.GetOutputBuffer<void>(0), runner.GetOutputSize(0));
     WriteFile("../output/grad_key.bin", runner.GetOutputBuffer<void>(1), runner.GetOutputSize(1));
-    WriteFile("../output/grad_value.bin", runner.GetOutputBuffer<void>(2), runner.GetOutputSize(2));
+    WriteFile("../output/grad_value.bin", runner.GetOutputBuffer<void>(gradValueIndex), runner.GetOutputSize(gradValueIndex));
     INFO_LOG("Write output success");
     return true;
 }

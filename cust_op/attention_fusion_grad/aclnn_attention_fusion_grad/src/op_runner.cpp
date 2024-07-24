@@ -21,6 +21,8 @@
 using namespace std;
 
 extern bool g_isDevice;
+constexpr int NUM_TEST_EXEC = 100;
+constexpr int TIME_OUT = 5000;
 
 OpRunner::OpRunner(OperatorDesc* opDesc) : opDesc_(opDesc)
 {
@@ -336,7 +338,7 @@ bool OpRunner::RunOp()
     }
     INFO_LOG("Execute aclnnAttentionFusionGrad success");
 
-    ret = aclrtSynchronizeStreamWithTimeout(stream, 5000);
+    ret = aclrtSynchronizeStreamWithTimeout(stream, TIME_OUT);
     if (ret != SUCCESS) {
         ERROR_LOG("Synchronize stream failed. error code is %d", static_cast<int32_t>(ret));
         (void)aclrtDestroyStream(stream);
@@ -344,17 +346,22 @@ bool OpRunner::RunOp()
     }
     INFO_LOG("Synchronize stream success");
 
+    int inputIndex2 = 2;
+    int inputIndex3 = 3;
+    int inputIndex4 = 4;
+
+    int oputputIndex2 = 2;
     auto beforeTime = std::chrono::steady_clock::now();
-    for (int i = 0; i < 100; i++) {
-        ret = aclnnAttentionFusionGradGetWorkspaceSize(inputTensor_[0], inputTensor_[1], inputTensor_[2],
-                                                       inputTensor_[3], inputTensor_[4], outputTensor_[0],
-                                                       outputTensor_[1], outputTensor_[2], &workspaceSize, &handle);
+    for (int i = 0; i < NUM_TEST_EXEC; i++) {
+        ret = aclnnAttentionFusionGradGetWorkspaceSize(inputTensor_[0], inputTensor_[1], inputTensor_[inputIndex2],
+                                                       inputTensor_[inputIndex3], inputTensor_[inputIndex4], outputTensor_[0],
+                                                       outputTensor_[1], outputTensor_[oputputIndex2], &workspaceSize, &handle);
         ret = aclnnAttentionFusionGrad(workspace, workspaceSize, handle, stream);
     }
-    ret = aclrtSynchronizeStreamWithTimeout(stream, 5000);
+    ret = aclrtSynchronizeStreamWithTimeout(stream, TIME_OUT);
     auto afterTime = std::chrono::steady_clock::now();
     double duration_microsecond = std::chrono::duration<double, std::micro>(afterTime - beforeTime).count();
-    std::cout << "time cost " << duration_microsecond / 100 << " us" << std::endl;
+    std::cout << "time cost " << duration_microsecond / NUM_TEST_EXEC << " us" << std::endl;
 
     for (size_t i = 0; i < numOutputs_; ++i) {
         auto size = GetOutputSize(i);
@@ -379,7 +386,6 @@ void DoPrintData(const T* data, size_t count, size_t elementsPerRow)
 {
     assert(elementsPerRow != 0);
     for (size_t i = 0; i < count; ++i) {
-        std::cout << std::setw(10) << data[i];
         if (i % elementsPerRow == elementsPerRow - 1) {
             std::cout << std::endl;
         }
@@ -390,7 +396,6 @@ void DoPrintFp16Data(const aclFloat16* data, size_t count, size_t elementsPerRow
 {
     assert(elementsPerRow != 0);
     for (size_t i = 0; i < count; ++i) {
-        std::cout << std::setw(10) << std::setprecision(4) << aclFloat16ToFloat(data[i]);
         if (i % elementsPerRow == elementsPerRow - 1) {
             std::cout << std::endl;
         }
