@@ -166,6 +166,9 @@ public:
     std::map<std::string, TaskQueue<std::vector<float*>>> HBMSwapAddrsQue;
     std::map<std::string, TaskQueue<std::vector<float*>>> DDRSwapAddrsQue;
 
+    std::map<std::string, TaskQueue<pair<bool,int>>> EosL1Que;  // pair <isEos, channelId>
+    std::map<std::string, TaskQueue<pair<bool,int>>> EosL2Que;
+
     std::mutex evictMut;
 
     std::map<std::string, std::unordered_set<uint64_t>> trainKeysSet;
@@ -254,19 +257,20 @@ private:
 
     void HandleEosCaseHBM(const string& embName, int batchId, int channelId, bool& remainBatchOut);
 
-    bool EmbeddingReceiveDDR(const EmbTaskInfo& info, float*& ptr, vector<float*>& swapOutAddrs);
+    bool EmbeddingReceiveDDR(const EmbTaskInfo& info, float*& ptr, vector<float*>& swapOutAddrs, bool& isEos);
 
     void EmbeddingUpdateDDR(const EmbTaskInfo& info, const float* embPtr, vector<float*>& swapOutAddrs);
 
-    bool EmbeddingLookUpDDR(const EmbTaskInfo& info, vector<Tensor>& h2dEmb, bool& isEos);
+    bool EmbeddingLookUpDDR(const EmbTaskInfo& info, vector<Tensor>& h2dEmb);
 
     void EmbeddingSendDDR(const EmbTaskInfo& info, vector<Tensor>& h2dEmb);
 
-    bool EmbeddingReceiveL3Storage(const EmbTaskInfo& info, float*& ptr, vector<float*>& swapOutAddrs, int64_t& dims0);
+    bool EmbeddingReceiveL3Storage(const EmbTaskInfo& info, float*& ptr, vector<float*>& swapOutAddrs, int64_t& dims0,
+                                   bool& isEos);
 
     void EmbeddingUpdateL3Storage(const EmbTaskInfo& info, float* embPtr, vector<float*>& swapOutAddrs, int64_t& dims0);
 
-    bool EmbeddingLookUpL3Storage(const EmbTaskInfo& info, vector<Tensor>& h2dEmb, bool& isEos);
+    bool EmbeddingLookUpL3Storage(const EmbTaskInfo& info, vector<Tensor>& h2dEmb);
 
     void EmbeddingSendL3Storage(const EmbTaskInfo& info, vector<Tensor>& h2dEmb);
 
@@ -284,7 +288,7 @@ private:
     void HandleDataSwapForL3Storage(const EmbBaseInfo& info, vector<uint64_t>& swapInKeys,
                                     vector<uint64_t>& swapOutKeys);
 
-    bool BuildH2DEmbedding(const EmbTaskInfo& info, vector<Tensor>& h2dEmb, bool& isEos);
+    bool BuildH2DEmbedding(const EmbTaskInfo& info, vector<Tensor>& h2dEmb);
 
     vector<uint64_t> GetUniqueKeys(const EmbBaseInfo& info, bool& remainBatchOut, bool& isEos);
 

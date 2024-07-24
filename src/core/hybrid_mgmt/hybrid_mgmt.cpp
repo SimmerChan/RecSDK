@@ -696,15 +696,9 @@ void HybridMgmt::ProcessEmbInfoDDR(const EmbBaseInfo& info, bool& remainBatchOut
     bool isEos = false;
     auto uniqueKeys = GetUniqueKeys(info, remainBatchOut, isEos);
     if (isEos) {
-        vector<uint64_t> swapInKeys{0, 0};
-        if (info.channelId == EVAL_CHANNEL_ID) {
-            swapInKeys = vector<uint64_t>(2,1);
-        }
-
-        LOG_DEBUG("[LQK] enqueue HBMSwapKeyQue table:{}, batchId:{}, channelId:{}, swapInSize:{}", info.name,
-                  info.batchId, info.channelId, swapInKeys.size());
-        HBMSwapKeyQue[info.name + SWAP_IN_STR].Pushv(swapInKeys);
-        CheckLookupAddrSuccessDDR();
+        EosL1Que[info.name].Pushv(make_pair(true, info.channelId));
+        LOG_DEBUG("[LQK] enqueue EosL1Que DDR, table:{}, batchId:{}, channelId:{}", info.name,
+                  info.batchId, info.channelId);
     }
     if (uniqueKeys.empty()) {
         return;
@@ -992,27 +986,18 @@ void HybridMgmt::LookUpSwapAddrs(const string& embName)
         if (!isRunning) {
             return;
         }
-        // swap in
-        std::vector<uint64_t> keys = HBMSwapKeyQue[swapInName].WaitAndPop();
-        if (keys.size() == 2 && keys[0] == keys[1] == 0) //train eos
-        {
-            std::vector<float*> addrs{nullptr, nullptr};
-            HBMSwapAddrsQue[swapInName].Pushv(addrs);
-            HBMSwapAddrsQue[swapOutName].Pushv(addrs);
-            LOG_DEBUG("[LQK] enqueue HBMSwapAddrsQue eos, table:{}, batchId:{}, channelId:{}",
-                      embName, id, TRAIN_CHANNEL_ID);
+        pair<bool, int> keyChannel = EosL1Que[embName].WaitAndPop();
+        if (keyChannel.first) {
+            EosL2Que[embName].Pushv(make_pair(true, keyChannel.second));
+            LOG_DEBUG("[LQK] enqueue EosL2Que eos, table:{}, batchId:{}, channelId:{}",
+                      embName, id, keyChannel.second);
             continue;
-        }
-        if (keys.size() == 2 && keys[0] == keys[1] == 1) //eval eos
-        {
-            std::vector<float*> addrs{nullptr, nullptr, nullptr};
-            HBMSwapAddrsQue[swapInName].Pushv(addrs);
-            HBMSwapAddrsQue[swapOutName].Pushv(addrs);
-            LOG_DEBUG("[LQK] enqueue HBMSwapAddrsQue eos, table:{}, batchId:{}, channelId:{}",
-                      embName, id, EVAL_CHANNEL_ID);
-            continue;
+        } else {
+            EosL2Que[embName].Pushv(make_pair(false, keyChannel.second));
         }
 
+        // swap in
+        std::vector<uint64_t> keys = HBMSwapKeyQue[swapInName].WaitAndPop();
         TimeCost lookupAddrsInTC;
         int rc = embCache->EmbeddingLookupAddrs(embName, keys, addrs);
         if (rc != H_OK) {
@@ -1111,15 +1096,12 @@ void HybridMgmt::EmbeddingLookUpAndSendDDR(int batchId, int index, const EmbInfo
                         .name = embInfo.name};
     vector<Tensor> h2dEmb;
 
-    bool isEos = false;
-    auto isSuccess = EmbeddingLookUpDDR(info, h2dEmb, isEos);
+    auto isSuccess = EmbeddingLookUpDDR(info, h2dEmb);
     if (!isSuccess) {
         LOG_INFO("HybridMgmt is not running");
         return;
     }
-    if (!isEos) {
-        EmbeddingSendDDR(info, h2dEmb);
-    }
+    EmbeddingSendDDR(info, h2dEmb);
 
 }
 
@@ -1138,13 +1120,15 @@ void HybridMgmt::EmbeddingReceiveAndUpdateDDR(int batchId, int index, const EmbI
 
     float* ptr = nullptr;
     vector<float*> swapOutAddrs;
-    auto isSuccess = EmbeddingReceiveDDR(info, ptr, swapOutAddrs);
+    bool isEos = false;
+    auto isSuccess = EmbeddingReceiveDDR(info, ptr, swapOutAddrs, isEos);
     if (!isSuccess) {
         LOG_INFO("HybridMgmt is not running");
         return;
     }
-
-    EmbeddingUpdateDDR(info, ptr, swapOutAddrs);
+    if (!isEos) {
+        EmbeddingUpdateDDR(info, ptr, swapOutAddrs);
+    }
 }
 
 void HybridMgmt::EmbeddingLookUpAndSendL3Storage(int batchId, int index, const EmbInfo& embInfo)
@@ -1161,16 +1145,13 @@ void HybridMgmt::EmbeddingLookUpAndSendL3Storage(int batchId, int index, const E
                         .name = embInfo.name};
     vector<Tensor> h2dEmb;
 
-    bool isEos = false;
-    auto isSuccess = EmbeddingLookUpL3Storage(info, h2dEmb, isEos);
+    auto isSuccess = EmbeddingLookUpL3Storage(info, h2dEmb);
     if (!isSuccess) {
         LOG_INFO("HybridMgmt is not running");
         return;
     }
 
-    if (!isEos) {
-        EmbeddingSendL3Storage(info, h2dEmb);
-    }
+    EmbeddingSendL3Storage(info, h2dEmb);
 }
 
 void HybridMgmt::EmbeddingReceiveAndUpdateL3Storage(int batchId, int index, const EmbInfo& embInfo)
@@ -1189,9 +1170,11 @@ void HybridMgmt::EmbeddingReceiveAndUpdateL3Storage(int batchId, int index, cons
     float* ptr = nullptr;
     vector<float*> swapOutAddrs;
     int64_t dims0 = 0;
-    EmbeddingReceiveL3Storage(info, ptr, swapOutAddrs, dims0);
-
-    EmbeddingUpdateL3Storage(info, ptr, swapOutAddrs, dims0);
+    bool isEos = false;
+    EmbeddingReceiveL3Storage(info, ptr, swapOutAddrs, dims0, isEos);
+    if (!isEos) {
+        EmbeddingUpdateL3Storage(info, ptr, swapOutAddrs, dims0);
+    }
 }
 
 /// 构造训练所需的各种向量数据
@@ -1216,6 +1199,12 @@ void HybridMgmt::ProcessEmbInfoL3Storage(const EmbBaseInfo& info, bool& remainBa
     // 获取GlobalUnique向量
     bool isEos = false;
     auto uniqueKeys = GetUniqueKeys(info, remainBatchOut, isEos);
+    if (isEos) {
+        EosL1Que[info.name].Pushv(make_pair(true, info.channelId));
+        LOG_DEBUG("[LQK] enqueue EosL1Que SSD, table:{}, batchId:{}, channelId:{}", info.name,
+                  info.batchId, info.channelId);
+    }
+
     if (uniqueKeys.empty()) {
         return;
     }
@@ -1301,6 +1290,8 @@ void HybridMgmt::InitDataPipelineForDDR(const string& embName)
     HBMSwapAddrsQue[embName + SWAP_IN_STR];
     HBMSwapAddrsQue[embName + SWAP_OUT_STR];
 
+    EosL1Que[embName];
+    EosL2Que[embName];
     // 初始化lookup线程
     lookUpSwapInAddrsPushId[embName];  // 此处初始化，避免多线程竞争导致计数错误
     lookUpSwapInAddrsThreads.emplace_back(
@@ -1316,6 +1307,9 @@ void HybridMgmt::InitDataPipelineForL3Storage(const string& embName, int extEmbe
     HBMSwapKeyQue[embName + SWAP_OUT_STR];
     HBMSwapAddrsQue[embName + SWAP_IN_STR];
     HBMSwapAddrsQue[embName + SWAP_OUT_STR];
+
+    EosL1Que[embName];
+    EosL2Que[embName];
 
     HBMSwapKeyQue[embName + ADDR_STR];
     HBMSwapKeyForL3StorageQue[embName + SWAP_IN_STR];
@@ -1365,6 +1359,12 @@ void HybridMgmt::InitEmbeddingCache(const vector<EmbInfo>& embInfos)
 
 void HybridMgmt::JoinEmbeddingCacheThread()
 {
+    for (auto& p : EosL1Que) {
+        p.second.DestroyQueue();
+    }
+    for (auto& p : EosL2Que) {
+        p.second.DestroyQueue();
+    }
     for (auto& p : HBMSwapAddrsQue) {
         p.second.DestroyQueue();
     }
@@ -1443,7 +1443,7 @@ void HybridMgmt::HandleEosCase(const EmbBaseInfo& info, bool& remainBatchOut)
     remainBatchOut = false;
 }
 
-bool HybridMgmt::EmbeddingReceiveDDR(const EmbTaskInfo& info, float*& ptr, vector<float*>& swapOutAddrs)
+bool HybridMgmt::EmbeddingReceiveDDR(const EmbTaskInfo& info, float*& ptr, vector<float*>& swapOutAddrs, bool& isEos)
 {
     std::unique_lock<std::mutex> lastRecvFinishLocker(lastRecvFinishMutexMap[info.name][info.threadIdx]);
     cvLastRecvFinishMap[info.name][info.threadIdx].wait(lastRecvFinishLocker, [info, this] {
@@ -1452,31 +1452,22 @@ bool HybridMgmt::EmbeddingReceiveDDR(const EmbTaskInfo& info, float*& ptr, vecto
     if (!isRunning) {
         return false;
     }
-    TimeCost EmbeddingRecvTC = TimeCost();
+    pair<bool, int> keyChannel = EosL2Que[info.name].WaitAndPop();
+    if (keyChannel.first) {
+        isEos = true;
+        LOG_INFO("EmbeddingReceiveDDR get eos from channel: {}", keyChannel.second);
+        bool sendAllChannel = false;
+        if (!alreadyTrainOnce) {
+            // predict场景
+            sendAllChannel = true;
+        }
+        KEY_PROCESS_INSTANCE->SendEos(info.name, info.batchId, keyChannel.second, sendAllChannel);
+        cvLastRecvFinishMap[info.name][info.cvNotifyIndex].notify_all();
+        return true;
+    }
 
+    TimeCost EmbeddingRecvTC = TimeCost();
     swapOutAddrs = HBMSwapAddrsQue[info.name + SWAP_OUT_STR].WaitAndPop();
-    if (swapOutAddrs.size() == 2 && swapOutAddrs[0] == nullptr && swapOutAddrs[1] == nullptr) { // eos
-        LOG_INFO("EmbeddingReceiveDDR get eos from train channel");
-        bool sendAllChannel = false;
-        if (!alreadyTrainOnce) {
-            // predict场景
-            sendAllChannel = true;
-        }
-        KEY_PROCESS_INSTANCE->SendEos(info.name, info.batchId, TRAIN_CHANNEL_ID, sendAllChannel);
-        cvLastRecvFinishMap[info.name][info.cvNotifyIndex].notify_all();
-        return true;
-    }
-    if (swapOutAddrs.size() == 3 && swapOutAddrs[0] == nullptr && swapOutAddrs[1] == nullptr && swapOutAddrs[2] == nullptr) { // eos
-        LOG_INFO("EmbeddingReceiveDDR get eos from eval channel");
-        bool sendAllChannel = false;
-        if (!alreadyTrainOnce) {
-            // predict场景
-            sendAllChannel = true;
-        }
-        KEY_PROCESS_INSTANCE->SendEos(info.name, info.batchId, EVAL_CHANNEL_ID, sendAllChannel);
-        cvLastRecvFinishMap[info.name][info.cvNotifyIndex].notify_all();
-        return true;
-    }
     if (!isRunning) {
         return false;
     }
@@ -1548,7 +1539,7 @@ void HybridMgmt::EmbeddingUpdateDDR(const EmbTaskInfo& info, const float* embPtr
     cvLastUpdateFinishMap[info.name][info.cvNotifyIndex].notify_all();
 }
 
-bool HybridMgmt::EmbeddingLookUpDDR(const EmbTaskInfo& info, vector<Tensor>& h2dEmb, bool& isEos)
+bool HybridMgmt::EmbeddingLookUpDDR(const EmbTaskInfo& info, vector<Tensor>& h2dEmb)
 {
     std::unique_lock<std::mutex> lastUpdateFinishLocker(lastUpdateFinishMutexMap[info.name][info.threadIdx]);
     cvLastUpdateFinishMap[info.name][info.threadIdx].wait(lastUpdateFinishLocker, [info, this] {
@@ -1566,14 +1557,12 @@ bool HybridMgmt::EmbeddingLookUpDDR(const EmbTaskInfo& info, vector<Tensor>& h2d
         return false;
     }
 
-    bool isSuccess = BuildH2DEmbedding(info, h2dEmb, isEos);
+    bool isSuccess = BuildH2DEmbedding(info, h2dEmb);
     if (!isSuccess) {
         return false;
     }
 
-    if (!isEos) {
-        lastLookUpFinishStepMap[info.name]++;
-    }
+    lastLookUpFinishStepMap[info.name]++;
     cvLastLookUpFinishMap[info.name][info.cvNotifyIndex].notify_all();
 
     return true;
@@ -1647,7 +1636,7 @@ void HybridMgmt::CreateEmbeddingReceiveAndUpdateThread(int index, const EmbInfo&
 }
 
 bool HybridMgmt::EmbeddingReceiveL3Storage(const EmbTaskInfo& info, float*& ptr, vector<float*>& swapOutAddrs,
-                                           int64_t& dims0)
+                                           int64_t& dims0, bool& isEos)
 {
     std::unique_lock<std::mutex> lastRecvFinishLocker(lastRecvFinishMutexMap[info.name][info.threadIdx]);
     cvLastRecvFinishMap[info.name][info.threadIdx].wait(lastRecvFinishLocker, [info, this] {
@@ -1656,32 +1645,27 @@ bool HybridMgmt::EmbeddingReceiveL3Storage(const EmbTaskInfo& info, float*& ptr,
     if (!isRunning) {
         return false;
     }
+
+    pair<bool, int> keyChannel = EosL1Que[info.name].WaitAndPop();
+    if (keyChannel.first) {
+        isEos = true;
+        LOG_INFO("EmbeddingReceiveL3Storage get eos from channel: {}", keyChannel.second);
+        bool sendAllChannel = false;
+        if (!alreadyTrainOnce) {
+            // predict场景
+            sendAllChannel = true;
+        }
+        KEY_PROCESS_INSTANCE->SendEos(info.name, info.batchId, keyChannel.second, sendAllChannel);
+        cvLastRecvFinishMap[info.name][info.cvNotifyIndex].notify_all();
+        return true;
+    }
+
     // DDR swap out key need to be removed
     LookUpAndRemoveAddrs(info);
 
     TimeCost EmbeddingRecvTC = TimeCost();
     // finish时会pop空vector，因此需要额外判定isRunning
     swapOutAddrs = HBMSwapAddrsQue[info.name + SWAP_OUT_STR].WaitAndPop();
-    if (swapOutAddrs.size() == 2 && swapOutAddrs[0] == nullptr && swapOutAddrs[1] == nullptr) { // eos
-        bool sendAllChannel = false;
-        if (!alreadyTrainOnce) {
-            // predict场景
-            sendAllChannel = true;
-        }
-        KEY_PROCESS_INSTANCE->SendEos(info.name, info.batchId, TRAIN_CHANNEL_ID, sendAllChannel);
-        cvLastRecvFinishMap[info.name][info.cvNotifyIndex].notify_all();
-        return true;
-    }
-    if (swapOutAddrs.size() == 3 && swapOutAddrs[0] == nullptr && swapOutAddrs[1] == nullptr && swapOutAddrs[2] == nullptr) { // eos
-        bool sendAllChannel = false;
-        if (!alreadyTrainOnce) {
-            // predict场景
-            sendAllChannel = true;
-        }
-        KEY_PROCESS_INSTANCE->SendEos(info.name, info.batchId, EVAL_CHANNEL_ID, sendAllChannel);
-        cvLastRecvFinishMap[info.name][info.cvNotifyIndex].notify_all();
-        return true;
-    }
     if (!isRunning) {
         return false;
     }
@@ -1763,7 +1747,7 @@ void HybridMgmt::EmbeddingUpdateL3Storage(const EmbTaskInfo& info, float* embPtr
     cvLastUpdateFinishMap[info.name][info.cvNotifyIndex].notify_all();
 }
 
-bool HybridMgmt::EmbeddingLookUpL3Storage(const EmbTaskInfo& info, vector<Tensor>& h2dEmb, bool& isEos)
+bool HybridMgmt::EmbeddingLookUpL3Storage(const EmbTaskInfo& info, vector<Tensor>& h2dEmb)
 {
     std::unique_lock<std::mutex> lastUpdateFinishLocker(lastUpdateFinishMutexMap[info.name][info.threadIdx]);
     cvLastUpdateFinishMap[info.name][info.threadIdx].wait(lastUpdateFinishLocker, [info, this] {
@@ -1803,14 +1787,12 @@ bool HybridMgmt::EmbeddingLookUpL3Storage(const EmbTaskInfo& info, vector<Tensor
     LOG_DEBUG("table:{}, thread:{}, fetchL3StorageEmb2DDRTC(ms):{}", info.name.c_str(), info.threadIdx,
               fetchL3StorageEmb2DDRTC.ElapsedMS());
 
-    bool isSuccess = BuildH2DEmbedding(info, h2dEmb, isEos);
+    bool isSuccess = BuildH2DEmbedding(info, h2dEmb);
     if (!isSuccess) {
         return false;
     }
 
-    if (!isEos) {
-        lastLookUpFinishStepMap[info.name]++;
-    }
+    lastLookUpFinishStepMap[info.name]++;
     cvLastLookUpFinishMap[info.name][info.cvNotifyIndex].notify_all();
 
     return true;
@@ -1987,33 +1969,13 @@ void HybridMgmt::HandleDataSwapForL3Storage(const EmbBaseInfo& info, vector<uint
     // HBM->L3Storage
     HBMSwapKeyForL3StorageQue[info.name + SWAP_OUT_STR].Pushv(hbmSwapInfo.swapOutL3StorageKeys);
     HBMSwapKeyForL3StorageQue[info.name + ADDR_STR].Pushv(hbmSwapInfo.swapOutL3StorageAddrOffs);
+
+    EosL1Que[info.name].Pushv(make_pair(false, info.channelId));
 }
 
-bool HybridMgmt::BuildH2DEmbedding(const EmbTaskInfo& info, vector<Tensor>& h2dEmb, bool& isEos)
+bool HybridMgmt::BuildH2DEmbedding(const EmbTaskInfo& info, vector<Tensor>& h2dEmb)
 {
     std::vector<float*> swapInAddrs = HBMSwapAddrsQue[info.name + SWAP_IN_STR].WaitAndPop();
-    if (swapInAddrs.size() == 2 && swapInAddrs[0] == nullptr && swapInAddrs[1] == nullptr) { // eos
-        LOG_INFO("BuildH2DEmbedding get eos from train channel");
-        isEos = true;
-        bool sendAllChannel = false;
-        if (!alreadyTrainOnce) {
-            // predict场景
-            sendAllChannel = true;
-        }
-        KEY_PROCESS_INSTANCE->SendEos(info.name, info.batchId, TRAIN_CHANNEL_ID, sendAllChannel);
-        return true;
-    }
-    if (swapInAddrs.size() == 3 && swapInAddrs[0] == nullptr && swapInAddrs[1] == nullptr && swapInAddrs[2] == nullptr) { // eos
-        LOG_INFO("BuildH2DEmbedding get eos from eval channel");
-        isEos = true;
-        bool sendAllChannel = false;
-        if (!alreadyTrainOnce) {
-            // predict场景
-            sendAllChannel = true;
-        }
-        KEY_PROCESS_INSTANCE->SendEos(info.name, info.batchId, EVAL_CHANNEL_ID, sendAllChannel);
-        return true;
-    }
     if (!isRunning) {
         return false;
     }
@@ -2284,8 +2246,9 @@ void HybridMgmt::EnqueueSwapInfo(const EmbBaseInfo& info, pair<vector<uint64_t>,
               info.batchId, info.channelId, swapInKeys.size(), swapOutKeys.size());
     HBMSwapKeyQue[info.name + SWAP_OUT_STR].Pushv(swapOutKeys);
     HBMSwapKeyQue[info.name + SWAP_IN_STR].Pushv(swapInKeys);
-
     CheckLookupAddrSuccessDDR();
+
+    EosL1Que[info.name].Pushv(make_pair(false, info.channelId));
 }
 
 bool HybridMgmt::IsTrainAndEvalCase()
