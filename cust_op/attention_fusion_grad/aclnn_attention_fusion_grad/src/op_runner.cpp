@@ -93,8 +93,12 @@ bool OpRunner::Init()
         }
         inputTensor_.emplace_back(inputTensor);
     }
+    return InitOutput();
+}
 
-    for (size_t i = 0; i < numOutputs_; ++i) {
+const size_t OpRunner::InitOutput()
+{
+  for (size_t i = 0; i < numOutputs_; ++i) {
         auto size = GetOutputSize(i);
         void* devMem = nullptr;
         if (aclrtMalloc(&devMem, size, ACL_MEM_MALLOC_HUGE_FIRST) != ACL_SUCCESS) {

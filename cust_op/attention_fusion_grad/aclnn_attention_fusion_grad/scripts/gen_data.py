@@ -10,6 +10,7 @@ _PROJECT_PATH = os.path.dirname(_CURRENT_PATH)
 _INPUT_PATH = os.path.join(_PROJECT_PATH, "./input")
 _OUTPUT_PATH = os.path.join(_PROJECT_PATH, "./output")
 
+
 def softmax_grad(grad, src):
     dst = grad * src
     dst = np.sum(dst, axis=-1, keepdims=True)
