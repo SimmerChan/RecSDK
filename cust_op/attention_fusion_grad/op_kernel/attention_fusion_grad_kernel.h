@@ -77,9 +77,8 @@ public:
         smallKMatmul.Init(args, normGradPipe);
 
         // 80对齐，且UB能放下
-        bool specialCase = args.shapeArgs.queryDim1 == SPECAIL_CASE[0] &&
-                             args.shapeArgs.keyDim1 == SPECAIL_CASE[1] && 
-                             args.shapeArgs.valueDim2 == SPECAIL_CASE[2];
+        bool specialCase = args.shapeArgs.queryDim1 == SPECAIL_CASE[0] && args.shapeArgs.keyDim1 == SPECAIL_CASE[1] &&
+                           args.shapeArgs.valueDim2 == SPECAIL_CASE[2];
         for (int thisBatch = 0; thisBatch < args.shapeTilingArgs.batchLen; thisBatch++) {
             vSmm.ProcessDS(thisBatch);
             if (specialCase == true) {
@@ -104,6 +103,6 @@ public:
     QKMmGrad<tType> qKmm;
     TPipe pipe;
 };
-}
+}  // namespace AscendFusionGrad
 
 #endif

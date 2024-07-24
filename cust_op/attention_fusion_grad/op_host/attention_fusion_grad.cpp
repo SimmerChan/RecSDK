@@ -124,13 +124,16 @@ static int32_t GradMatmulTiling(gert::TilingContext* context, AttentionFusionGra
 
 static int32_t GradSoftmaxTiling(gert::TilingContext* context, AttentionFusionGradTilingData& tilingData, uint64_t ub)
 {
-    // q (B, M, K) k (B, N, K) v (B, V, K)
-    auto qShape = context->GetInputShape(2)->GetStorageShape();
-    auto kShape = context->GetInputShape(3)->GetStorageShape();
-    auto vShape = context->GetInputShape(4)->GetStorageShape();
-    if (qShape.GetDim(0) > MAX_BATCH_SIZE || qShape.GetDim(1) > MAX_DIM || qShape.GetDim(2) > MAX_DIM ||
-        kShape.GetDim(1) > MAX_DIM || kShape.GetDim(2) > MAX_DIM || vShape.GetDim(1) > MAX_DIM ||
-        vShape.GetDim(2) > MAX_DIM) {
+    
+    int dimIndex2 = 2;
+    int dimIndex3 = 3;
+    int dimIndex4 = 4;
+    auto qShape = context->GetInputShape(dimIndex2)->GetStorageShape();
+    auto kShape = context->GetInputShape(dimIndex3)->GetStorageShape();
+    auto vShape = context->GetInputShape(dimIndex4)->GetStorageShape();
+    if (qShape.GetDim(0) > MAX_BATCH_SIZE || qShape.GetDim(1) > MAX_DIM || qShape.GetDim(dimIndex2) > MAX_DIM ||
+        kShape.GetDim(1) > MAX_DIM || kShape.GetDim(dimIndex2) > MAX_DIM || vShape.GetDim(1) > MAX_DIM ||
+        vShape.GetDim(dimIndex2) > MAX_DIM) {
         printf("This shape is out of range(0, 1000)");
     }
 
@@ -163,13 +166,13 @@ static int32_t GradSoftmaxTiling(gert::TilingContext* context, AttentionFusionGr
     float attenDimSqrt = 1 / std::sqrt(qShape.GetDim(2));
 
     // set attr
-    tilingData.set_attnDim(qShape.GetDim(2));
+    tilingData.set_attnDim(qShape.GetDim(dimIndex2));
     tilingData.set_queryDim1(qShape.GetDim(1));
-    tilingData.set_queryDim2(qShape.GetDim(2));
+    tilingData.set_queryDim2(qShape.GetDim(dimIndex2));
     tilingData.set_keyDim1(kShape.GetDim(1));
-    tilingData.set_keyDim2(kShape.GetDim(2));
+    tilingData.set_keyDim2(kShape.GetDim(dimIndex2));
     tilingData.set_valueDim1(vShape.GetDim(1));
-    tilingData.set_valueDim2(vShape.GetDim(2));
+    tilingData.set_valueDim2(vShape.GetDim(dimIndex2));
     tilingData.set_batchNum(qShape.GetDim(0));
     tilingData.set_numRowOfNormalizeOne(numRowOfNormalizeOne);
     tilingData.set_paddingKeyDim1(paddingKeyDim1);
@@ -197,6 +200,10 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
 
     auto kShape = context->GetInputShape(3)->GetStorageShape();
     int keyDim1 = kShape.GetDim(1);
+    if (keyDim1 == 0) {
+        return ge::GRAPH_FAILED;
+    }
+    
     int paddingKeyDim1 = CeilDiv(keyDim1, FLOAT_ALIGNMENT) * FLOAT_ALIGNMENT;
     int transposeAlignDim = LCM(keyDim1, TRANSPOSE_ALIGNMENT) / keyDim1;
 

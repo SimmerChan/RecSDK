@@ -105,6 +105,6 @@ private:
     GlobalTensor<tType> gradQuery;
     GlobalTensor<tType> gradKey;
 };
-}
+}  // namespace AscendFusionGrad
 
 #endif
