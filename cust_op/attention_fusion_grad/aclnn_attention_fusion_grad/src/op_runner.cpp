@@ -20,7 +20,7 @@
 
 using namespace std;
 
-extern bool g_isDevice;
+extern bool isDevice;
 constexpr int NUM_TEST_EXEC = 100;
 constexpr int TIME_OUT = 5000;
 
@@ -36,7 +36,7 @@ OpRunner::~OpRunner()
         (void)aclDestroyTensor(inputTensor_[i]);
         (void)aclDestroyDataBuffer(inputBuffers_[i]);
         (void)aclrtFree(devInputs_[i]);
-        if (g_isDevice) {
+        if (isDevice) {
             (void)aclrtFree(hostInputs_[i]);
         } else {
             (void)aclrtFreeHost(hostInputs_[i]);
@@ -47,7 +47,7 @@ OpRunner::~OpRunner()
         (void)aclDestroyTensor(outputTensor_[i]);
         (void)aclDestroyDataBuffer(outputBuffers_[i]);
         (void)aclrtFree(devOutputs_[i]);
-        if (g_isDevice) {
+        if (isDevice) {
             (void)aclrtFree(hostOutputs_[i]);
         } else {
             (void)aclrtFreeHost(hostOutputs_[i]);
@@ -68,7 +68,7 @@ bool OpRunner::Init()
         inputBuffers_.emplace_back(aclCreateDataBuffer(devMem, size));
 
         void* hostInput = nullptr;
-        if (g_isDevice) {
+        if (isDevice) {
             if (aclrtMalloc(&hostInput, size, ACL_MEM_MALLOC_HUGE_FIRST) != ACL_SUCCESS) {
                 ERROR_LOG("Malloc device memory for input[%zu] failed", i);
                 return false;
@@ -106,7 +106,7 @@ bool OpRunner::Init()
         outputBuffers_.emplace_back(aclCreateDataBuffer(devMem, size));
 
         void* hostOutput = nullptr;
-        if (g_isDevice) {
+        if (isDevice) {
             if (aclrtMalloc(&hostOutput, size, ACL_MEM_MALLOC_HUGE_FIRST) != ACL_SUCCESS) {
                 ERROR_LOG("Malloc device memory for output[%zu] failed", i);
                 return false;
@@ -294,7 +294,7 @@ bool OpRunner::RunOp()
     for (size_t i = 0; i < numInputs_; ++i) {
         auto size = GetInputSize(i);
         aclrtMemcpyKind kind = ACL_MEMCPY_HOST_TO_DEVICE;
-        if (g_isDevice) {
+        if (isDevice) {
             kind = ACL_MEMCPY_DEVICE_TO_DEVICE;
         }
         if (aclrtMemcpy(devInputs_[i], size, hostInputs_[i], size, kind) != ACL_SUCCESS) {
@@ -366,7 +366,7 @@ bool OpRunner::RunOp()
     for (size_t i = 0; i < numOutputs_; ++i) {
         auto size = GetOutputSize(i);
         aclrtMemcpyKind kind = ACL_MEMCPY_DEVICE_TO_HOST;
-        if (g_isDevice) {
+        if (isDevice) {
             kind = ACL_MEMCPY_DEVICE_TO_DEVICE;
         }
         if (aclrtMemcpy(hostOutputs_[i], size, devOutputs_[i], size, kind) != ACL_SUCCESS) {
