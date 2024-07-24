@@ -37,18 +37,28 @@ namespace optiling {
 
 int CeilDiv(int a, int b)
 {
+    if (b == 0) {
+        return 0;
+    }
     return (a + b - 1) / b;
 }
 
 int gcd(int x, int y)
 {
+    if (y == 0) {
+        return 0;
+    }
     while (y ^= x ^= y ^= x %= y);
     return x;
 }
  
 int lcm(int x, int y)
 {
-    return x * y / gcd(x, y);
+    int gcdResult = gcd(x, y);
+    if (gcdResult == 0) {
+        return 0;
+    }
+    return x * y / gcdResult;
 }
 
 static int32_t GradMatmulTiling(gert::TilingContext* context, AttentionFusionGradTilingData &tilingData)
