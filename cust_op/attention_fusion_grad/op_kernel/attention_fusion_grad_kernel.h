@@ -70,7 +70,7 @@ public:
 
         NormGradPipeArgs normGradPipe{&pipe, &vecInQueue, &vecInGradQueue, &vecOutQueue, &tmpBuff};
 
-        NormalGradCompute<tType> normalCompute;
+        NormalizeGrad<tType> normalCompute;
         normalCompute.Init(args, normGradPipe);
 
         SmallKMatmul<tType> smallKMatmul;

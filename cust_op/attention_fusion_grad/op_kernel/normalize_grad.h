@@ -24,9 +24,9 @@ using namespace AscendC;
 namespace AscendFusionGrad {
 
 template <typename tType>
-class NormalGradCompute {
+class NormalizeGrad {
 public:
-    __aicore__ inline NormalGradCompute() {}
+    __aicore__ inline NormalizeGrad() {}
 
     __aicore__ inline int GetAlignSize()
     {
