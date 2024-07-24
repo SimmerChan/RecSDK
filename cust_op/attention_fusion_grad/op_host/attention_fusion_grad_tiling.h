@@ -13,6 +13,9 @@ See the License for the specific language governing permissions and
         limitations under the License.
 ==============================================================================*/
 
+#ifndef ATTENTION_FUSION_GRAD_TILING_H
+#define ATTENTION_FUSION_GRAD_TILING_H
+
 #include "register/tilingdata_base.h"
 #include "tiling/tiling_api.h"
 
@@ -47,3 +50,5 @@ END_TILING_DATA_DEF;
 
 REGISTER_TILING_DATA_CLASS(AttentionFusionGrad, AttentionFusionGradTilingData)
 }
+
+#endif

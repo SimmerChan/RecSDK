@@ -133,7 +133,6 @@ bool OpRunner::Init()
         }
         outputTensor_.emplace_back(outputTensor);
     }
-
     return true;
 }
 

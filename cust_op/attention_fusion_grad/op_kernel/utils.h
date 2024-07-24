@@ -17,6 +17,7 @@ See the License for the specific language governing permissions and
 #define ATTENTION_FUSION_GRAD_UTILS_H
 #include "kernel_operator.h"
 
+namespace AttentionFusionGrad {
 template <typename T1, typename T2>
 __aicore__ inline T1 CeilDiv(T1 a, T2 b)
 {
@@ -50,4 +51,6 @@ __global__ __aicore__ void Log(Args&&... args)
 #else
 #define LOG(X...)
 #endif
+}
+
 #endif

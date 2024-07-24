@@ -20,7 +20,8 @@ See the License for the specific language governing permissions and
 #include "lib/matmul_intf.h"
 #include "utils.h"
 using namespace AscendC;
-using namespace AscendFusionGrad;
+
+namespace AscendFusionGrad {
 
 template <typename tType>
 class QKMmGrad {
@@ -104,4 +105,6 @@ private:
     GlobalTensor<tType> gradQuery;
     GlobalTensor<tType> gradKey;
 };
+}
+
 #endif

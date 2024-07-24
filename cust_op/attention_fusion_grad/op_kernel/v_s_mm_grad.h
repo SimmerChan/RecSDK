@@ -22,8 +22,8 @@ See the License for the specific language governing permissions and
 #include "lib/matmul_intf.h"
 #include "utils.h"
 using namespace AscendC;
-using namespace AscendFusionGrad;
 
+namespace AscendFusionGrad {
 template <typename tType>
 class VSMmGrad {
 public:
@@ -102,4 +102,5 @@ private:
     GlobalTensor<tType> gradS;
     GlobalTensor<tType> gradValue;
 };
+}
 #endif

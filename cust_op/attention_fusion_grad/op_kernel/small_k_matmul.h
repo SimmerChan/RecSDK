@@ -21,7 +21,9 @@ See the License for the specific language governing permissions and
 #include "kernel_operator.h"
 #include "utils.h"
 using namespace AscendC;
-using namespace AscendFusionGrad;
+
+
+namespace AscendFusionGrad {
 
 constexpr int DIM_NUMS = 2;
 template <typename tType>
@@ -117,4 +119,6 @@ private:
     GlobalTensor<tType> dout;
     GlobalTensor<tType> softmaxOut;
 };
+}
+
 #endif
