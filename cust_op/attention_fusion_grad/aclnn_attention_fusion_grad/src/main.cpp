@@ -1,39 +1,39 @@
 /**
-* @file main.cpp
-*
-* Copyright (C) 2024. Huawei Technologies Co., Ltd. All rights reserved.
-*
-* This program is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-*/
+ * @file main.cpp
+ *
+ * Copyright (C) 2024. Huawei Technologies Co., Ltd. All rights reserved.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ */
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+
 #include <cstdint>
 #include <iostream>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 
 #include "acl/acl.h"
+#include "common.h"
 #include "op_runner.h"
 
-#include "common.h"
+bool g_isDevice = false;
+int g_deviceId = 15;
 
-bool isDevice = false;
-int deviceId = 15;
-
-namespace  AttentionFusionGrad {
+namespace {
 OperatorDesc CreateOpDesc()
 {
     // define operator
-    std::vector<int64_t> dout { 1024, 1000, 80 };
-    std::vector<int64_t> softmax_out { 1024, 1000, 50 };
-    std::vector<int64_t> query { 1024, 1000, 80};
-    std::vector<int64_t> key  { 1024, 50, 80  };
-    std::vector<int64_t> value { 1024, 50, 80  };
+    std::vector<int64_t> dout{1024, 1000, 80};
+    std::vector<int64_t> softmax_out{1024, 1000, 50};
+    std::vector<int64_t> query{1024, 1000, 80};
+    std::vector<int64_t> key{1024, 50, 80};
+    std::vector<int64_t> value{1024, 50, 80};
 
-    std::vector<int64_t> grad_query { 1024, 1000, 80};
-    std::vector<int64_t> grad_key { 1024, 50, 80 };
-    std::vector<int64_t> grad_value { 1024, 50, 80 };
+    std::vector<int64_t> grad_query{1024, 1000, 80};
+    std::vector<int64_t> grad_key{1024, 50, 80};
+    std::vector<int64_t> grad_value{1024, 50, 80};
 
     aclFormat format = ACL_FORMAT_ND;
     OperatorDesc opDesc;
@@ -49,7 +49,7 @@ OperatorDesc CreateOpDesc()
     return opDesc;
 }
 
-bool SetInputData(OpRunner &runner)
+bool SetInputData(OpRunner& runner)
 {
     size_t fileSize = 0;
     int queryIndex = 2;
@@ -65,12 +65,13 @@ bool SetInputData(OpRunner &runner)
     return true;
 }
 
-bool ProcessOutputData(OpRunner &runner)
+bool ProcessOutputData(OpRunner& runner)
 {
     int gradValueIndex = 2;
     WriteFile("../output/grad_query.bin", runner.GetOutputBuffer<void>(0), runner.GetOutputSize(0));
     WriteFile("../output/grad_key.bin", runner.GetOutputBuffer<void>(1), runner.GetOutputSize(1));
-    WriteFile("../output/grad_value.bin", runner.GetOutputBuffer<void>(gradValueIndex), runner.GetOutputSize(gradValueIndex));
+    WriteFile("../output/grad_value.bin", runner.GetOutputBuffer<void>(gradValueIndex),
+              runner.GetOutputSize(gradValueIndex));
     INFO_LOG("Write output success");
     return true;
 }
@@ -78,8 +79,8 @@ bool ProcessOutputData(OpRunner &runner)
 void DestoryResource()
 {
     bool flag = false;
-    if (aclrtResetDevice(deviceId) != ACL_SUCCESS) {
-        ERROR_LOG("Reset device %d failed", deviceId);
+    if (aclrtResetDevice(g_deviceId) != ACL_SUCCESS) {
+        ERROR_LOG("Reset device %d failed", g_deviceId);
         flag = true;
     }
     INFO_LOG("Reset Device success");
@@ -101,8 +102,7 @@ bool InitResource()
         int ret = mkdir(output.c_str(), 0700);
         if (ret == 0) {
             INFO_LOG("Make output directory successfully");
-        }
-        else {
+        } else {
             ERROR_LOG("Make output directory fail");
             return false;
         }
@@ -114,12 +114,12 @@ bool InitResource()
         return false;
     }
 
-    if (aclrtSetDevice(deviceId) != ACL_SUCCESS) {
-        ERROR_LOG("Set device failed. deviceId is %d", deviceId);
+    if (aclrtSetDevice(g_deviceId) != ACL_SUCCESS) {
+        ERROR_LOG("Set device failed. deviceId is %d", g_deviceId);
         (void)aclFinalize();
         return false;
     }
-    INFO_LOG("Set device[%d] success", deviceId);
+    INFO_LOG("Set device[%d] success", g_deviceId);
 
     // runMode is ACL_HOST which represents app is running in host
     // runMode is ACL_DEVICE which represents app is running in device
@@ -129,7 +129,7 @@ bool InitResource()
         DestoryResource();
         return false;
     }
-    isDevice = (runMode == ACL_DEVICE);
+    g_isDevice = (runMode == ACL_DEVICE);
     INFO_LOG("Get RunMode[%d] success", runMode);
 
     return true;
@@ -169,8 +169,7 @@ bool RunOp()
     return true;
 }
 
-
-int main(int argc, char **argv)
+int main(int argc, char** argv)
 {
     if (!InitResource()) {
         ERROR_LOG("Init resource failed");
@@ -187,4 +186,4 @@ int main(int argc, char **argv)
 
     return SUCCESS;
 }
-}
+}  // namespace AttentionFusionGrad

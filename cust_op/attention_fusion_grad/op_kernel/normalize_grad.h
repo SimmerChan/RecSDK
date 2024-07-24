@@ -21,9 +21,7 @@ See the License for the specific language governing permissions and
 #include "utils.h"
 using namespace AscendC;
 
-constexpr int KEY_DIM1_COPY_ALIGN_MODE = 1;
-constexpr int KEY_DIM1_COPY_TRANSPOSE_ALIGN_MODE = 2;
-constexpr int KEY_DIM1_COPY_PAD_MODE = 3;
+#define ALIGN_SIZE (32/sizeof(tType))
 
 template <typename tType>
 class NormalGradCompute {
@@ -106,11 +104,11 @@ public:
     __aicore__ inline void ProcessOneBatch(uint32_t batchI)
     {
         batchI += args.shapeTilingArgs.batchOffset;
-        if (args.shapeTilingArgs.keyDim1Align == 1) {
+        if (args.shapeTilingArgs.keyDim1Align == KEY_DIM1_COPY_ALIGN_MODE) {
             OneBatchWithDataCopyAlign(batchI);
-        } else if (args.shapeTilingArgs.keyDim1Align == 2) {
+        } else if (args.shapeTilingArgs.keyDim1Align == KEY_DIM1_COPY_TRANSPOSE_ALIGN_MODE) {
             OneBatchWithTransposeAlign(batchI);
-        } else if (args.shapeTilingArgs.keyDim1Align == 3) {
+        } else if (args.shapeTilingArgs.keyDim1Align == KEY_DIM1_COPY_PAD_MODE) {
             OneBatchWithDataCopyPad(batchI);
         }
     }

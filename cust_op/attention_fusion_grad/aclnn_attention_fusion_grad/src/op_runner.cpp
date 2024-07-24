@@ -20,7 +20,8 @@
 
 using namespace std;
 
-extern bool isDevice;
+namespace AttentionFusionGrad {
+extern bool g_isDevice;
 constexpr int NUM_TEST_EXEC = 100;
 constexpr int TIME_OUT = 5000;
 
@@ -36,7 +37,7 @@ OpRunner::~OpRunner()
         (void)aclDestroyTensor(inputTensor_[i]);
         (void)aclDestroyDataBuffer(inputBuffers_[i]);
         (void)aclrtFree(devInputs_[i]);
-        if (isDevice) {
+        if (g_isDevice) {
             (void)aclrtFree(hostInputs_[i]);
         } else {
             (void)aclrtFreeHost(hostInputs_[i]);
@@ -47,7 +48,7 @@ OpRunner::~OpRunner()
         (void)aclDestroyTensor(outputTensor_[i]);
         (void)aclDestroyDataBuffer(outputBuffers_[i]);
         (void)aclrtFree(devOutputs_[i]);
-        if (isDevice) {
+        if (g_isDevice) {
             (void)aclrtFree(hostOutputs_[i]);
         } else {
             (void)aclrtFreeHost(hostOutputs_[i]);
@@ -68,7 +69,7 @@ bool OpRunner::Init()
         inputBuffers_.emplace_back(aclCreateDataBuffer(devMem, size));
 
         void* hostInput = nullptr;
-        if (isDevice) {
+        if (g_isDevice) {
             if (aclrtMalloc(&hostInput, size, ACL_MEM_MALLOC_HUGE_FIRST) != ACL_SUCCESS) {
                 ERROR_LOG("Malloc device memory for input[%zu] failed", i);
                 return false;
@@ -106,7 +107,7 @@ bool OpRunner::Init()
         outputBuffers_.emplace_back(aclCreateDataBuffer(devMem, size));
 
         void* hostOutput = nullptr;
-        if (isDevice) {
+        if (g_isDevice) {
             if (aclrtMalloc(&hostOutput, size, ACL_MEM_MALLOC_HUGE_FIRST) != ACL_SUCCESS) {
                 ERROR_LOG("Malloc device memory for output[%zu] failed", i);
                 return false;
@@ -294,7 +295,7 @@ bool OpRunner::RunOp()
     for (size_t i = 0; i < numInputs_; ++i) {
         auto size = GetInputSize(i);
         aclrtMemcpyKind kind = ACL_MEMCPY_HOST_TO_DEVICE;
-        if (isDevice) {
+        if (g_isDevice) {
             kind = ACL_MEMCPY_DEVICE_TO_DEVICE;
         }
         if (aclrtMemcpy(devInputs_[i], size, hostInputs_[i], size, kind) != ACL_SUCCESS) {
@@ -354,8 +355,9 @@ bool OpRunner::RunOp()
     auto beforeTime = std::chrono::steady_clock::now();
     for (int i = 0; i < NUM_TEST_EXEC; i++) {
         ret = aclnnAttentionFusionGradGetWorkspaceSize(inputTensor_[0], inputTensor_[1], inputTensor_[inputIndex2],
-                                                       inputTensor_[inputIndex3], inputTensor_[inputIndex4], outputTensor_[0],
-                                                       outputTensor_[1], outputTensor_[oputputIndex2], &workspaceSize, &handle);
+                                                       inputTensor_[inputIndex3], inputTensor_[inputIndex4],
+                                                       outputTensor_[0], outputTensor_[1], outputTensor_[oputputIndex2],
+                                                       &workspaceSize, &handle);
         ret = aclnnAttentionFusionGrad(workspace, workspaceSize, handle, stream);
     }
     ret = aclrtSynchronizeStreamWithTimeout(stream, TIME_OUT);
@@ -366,7 +368,7 @@ bool OpRunner::RunOp()
     for (size_t i = 0; i < numOutputs_; ++i) {
         auto size = GetOutputSize(i);
         aclrtMemcpyKind kind = ACL_MEMCPY_DEVICE_TO_HOST;
-        if (isDevice) {
+        if (g_isDevice) {
             kind = ACL_MEMCPY_DEVICE_TO_DEVICE;
         }
         if (aclrtMemcpy(hostOutputs_[i], size, devOutputs_[i], size, kind) != ACL_SUCCESS) {
@@ -472,3 +474,4 @@ void OpRunner::PrintOutput(size_t index, size_t numElementsPerRow)
     auto desc = opDesc_->outputDesc[index];
     PrintData(hostOutputs_[index], GetOutputElementCount(index), aclGetTensorDescType(desc), numElementsPerRow);
 }
+}  // namespace AttentionFusionGrad

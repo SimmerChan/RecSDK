@@ -28,7 +28,7 @@ See the License for the specific language governing permissions and
 
 using namespace AscendC;
 
-#define IS_LITTLE_K(qDim1, kDim1, vDim2) (qDim1 == 1 && kDim1 == 1000 && vDim2 == 80)
+constexpr int SPECAIL_CASE[] = {1, 1000, 80};
 
 struct AttentionFusionGradPipe {
     TPipe* pipe;
@@ -75,7 +75,9 @@ public:
         smallKMatmul.Init(args, normGradPipe);
 
         // 80对齐，且UB能放下
-        bool specialCase = IS_LITTLE_K(args.shapeArgs.queryDim1, args.shapeArgs.keyDim1, args.shapeArgs.valueDim2);
+        bool specialCase = args.shapeArgs.queryDim1 == SPECAIL_CASE[0] &&
+                             args.shapeArgs.keyDim1 == SPECAIL_CASE[1] && 
+                             args.shapeArgs.valueDim2 == SPECAIL_CASE[2];
         for (int thisBatch = 0; thisBatch < args.shapeTilingArgs.batchLen; thisBatch++) {
             vSmm.ProcessDS(thisBatch);
             if (specialCase == true) {

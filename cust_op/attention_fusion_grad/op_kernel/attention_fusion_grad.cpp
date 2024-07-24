@@ -19,6 +19,7 @@ See the License for the specific language governing permissions and
 #include "utils.h"
 
 using namespace AscendC;
+using namespace AscendFusionGrad;
 
 extern "C" __global__ __aicore__ void attention_fusion_grad(GM_ADDR dout, GM_ADDR softmaxOut, GM_ADDR query,
                                                             GM_ADDR key, GM_ADDR value, GM_ADDR gradQuery,

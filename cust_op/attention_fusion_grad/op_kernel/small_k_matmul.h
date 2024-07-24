@@ -69,7 +69,9 @@ public:
 
         const uint32_t dstShape_[]{(uint32_t)numOfOneMul, (uint32_t)valueDim2};
         const uint32_t srcShape_[]{1, (uint32_t)valueDim2};
-        BroadCast<float, 2, 0>(inGradLocalTensor, inLocalTensorCompute, dstShape_, srcShape_);
+        
+        int dimNums = 2;
+        BroadCast<float, dimNums, 0>(inGradLocalTensor, inLocalTensorCompute, dstShape_, srcShape_);
 
         DataCopy(inLocalTensorCompute, inGradLocalTensor, numOfOneMul * valueDim2);
 

@@ -15,6 +15,8 @@
 #include "common.h"
 #include "operator_desc.h"
 
+
+namespace AttentionFusionGrad {
 /**
  * Op Runner
  */
@@ -178,5 +180,7 @@ private:
     std::vector<aclTensor *> outputTensor_;
     OperatorDesc *opDesc_;
 };
+
+}
 
 #endif // OP_RUNNER_H

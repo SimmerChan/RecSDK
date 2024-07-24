@@ -16,14 +16,14 @@ See the License for the specific language governing permissions and
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+
+#include "attention_fusion_grad_tiling.h"
 #include "register/op_def_registry.h"
 #include "tiling/platform/platform_ascendc.h"
-#include "attention_fusion_grad_tiling.h"
 
 namespace optiling {
 
-
-#define NEED_TRANSPOSE_AGLING(qDim1, kDim1) (qDim1==1000 && kDim1==50)
+constexpr int TRANSPOSE_AGLING_SPECAIL_CASE[] = {1000, 50};
 constexpr int RESERVER_UB_SIZE = 20 * 1024;
 constexpr int MAX_BATCH_SIZE = 2000;
 constexpr int MAX_DIM = 1000;
@@ -45,16 +45,16 @@ int CeilDiv(int a, int b)
 
 int GCD(int a, int b)
 {
-    while (a != b)
-    {
-        if (a > b)
+    while (a != b) {
+        if (a > b) {
             a -= b;
-        else 
+        } else {
             b -= a;
+        }
     }
     return a;
 }
- 
+
 int LCM(int x, int y)
 {
     int gcdResult = GCD(x, y);
@@ -64,7 +64,7 @@ int LCM(int x, int y)
     return x * y / gcdResult;
 }
 
-static int32_t GradMatmulTiling(gert::TilingContext* context, AttentionFusionGradTilingData &tilingData)
+static int32_t GradMatmulTiling(gert::TilingContext* context, AttentionFusionGradTilingData& tilingData)
 {
     // q (B, M, K) k (B, N, K) v (B, V, K)
     auto qShape = context->GetInputShape(2)->GetStorageShape();
@@ -114,54 +114,53 @@ static int32_t GradMatmulTiling(gert::TilingContext* context, AttentionFusionGra
 
     gardK.SetBias(false);
     gardK.SetBufferSpace(-1, L0C_MAX_SIZE, -1);
-    
-    if (gardV.GetTiling(tilingData.gardVMatmulTiling)==-1 ||
-        gardS.GetTiling(tilingData.gardSMatmulTiling)==-1 ||
-        gardK.GetTiling(tilingData.gardKMatmulTiling)==-1 ||
-        gardQ.GetTiling(tilingData.gardQMatmulTiling)==-1) {
+
+    if (gardV.GetTiling(tilingData.gardVMatmulTiling) == -1 || gardS.GetTiling(tilingData.gardSMatmulTiling) == -1 ||
+        gardK.GetTiling(tilingData.gardKMatmulTiling) == -1 || gardQ.GetTiling(tilingData.gardQMatmulTiling) == -1) {
         return 1;
     }
     return 0;
 }
 
-static int32_t GradSoftmaxTiling(gert::TilingContext* context, AttentionFusionGradTilingData &tilingData, uint64_t ub)
+static int32_t GradSoftmaxTiling(gert::TilingContext* context, AttentionFusionGradTilingData& tilingData, uint64_t ub)
 {
     // q (B, M, K) k (B, N, K) v (B, V, K)
     auto qShape = context->GetInputShape(2)->GetStorageShape();
     auto kShape = context->GetInputShape(3)->GetStorageShape();
     auto vShape = context->GetInputShape(4)->GetStorageShape();
-    if (qShape.GetDim(0)>MAX_BATCH_SIZE || qShape.GetDim(1)>MAX_DIM || qShape.GetDim(2)>MAX_DIM ||
-                                    kShape.GetDim(1)>MAX_DIM || kShape.GetDim(2)>MAX_DIM ||
-                                    vShape.GetDim(1)>MAX_DIM || vShape.GetDim(2)>MAX_DIM) {
+    if (qShape.GetDim(0) > MAX_BATCH_SIZE || qShape.GetDim(1) > MAX_DIM || qShape.GetDim(2) > MAX_DIM ||
+        kShape.GetDim(1) > MAX_DIM || kShape.GetDim(2) > MAX_DIM || vShape.GetDim(1) > MAX_DIM ||
+        vShape.GetDim(2) > MAX_DIM) {
         printf("This shape is out of range(0, 1000)");
     }
 
     // Platform configuration
     auto ascnedPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
-    int softmaxOutSize = qShape.GetDim(0) * qShape.GetDim(1) * kShape.GetDim(1)*sizeof(float);
-    size_t *currentWorkspace = context->GetWorkspaceSizes(1);
+    int softmaxOutSize = qShape.GetDim(0) * qShape.GetDim(1) * kShape.GetDim(1) * sizeof(float);
+    size_t* currentWorkspace = context->GetWorkspaceSizes(1);
     size_t systemWorkspacesSize = ascnedPlatform.GetLibApiWorkSpaceSize();
     currentWorkspace[0] = softmaxOutSize + systemWorkspacesSize;
 
     int paddingKeyDim1 = CeilDiv(kShape.GetDim(1), FLOAT_ALIGNMENT) * FLOAT_ALIGNMENT;
     int numRowOfNormalizeOne = ub / 4 / sizeof(float) / paddingKeyDim1;
     int keyDim1Align;
-    int transposeAlignDim = LCM(kShape.GetDim(1), TRANSPOSE_ALIGNMENT)/kShape.GetDim(1);
+    int transposeAlignDim = LCM(kShape.GetDim(1), TRANSPOSE_ALIGNMENT) / kShape.GetDim(1);
 
     if (kShape.GetDim(1) % FLOAT_ALIGNMENT == 0) {
         keyDim1Align = KEY_DIM1_COPY_ALIGN_MODE;
-    } else if (NEED_TRANSPOSE_AGLING(qShape.GetDim(1), kShape.GetDim(1))) {
+    } else if (qShape.GetDim(1) == TRANSPOSE_AGLING_SPECAIL_CASE[0] &&
+               kShape.GetDim(1) == TRANSPOSE_AGLING_SPECAIL_CASE[1]) {
         numRowOfNormalizeOne = TRANSPOSE_ALIGNMENT * transposeAlignDim;
         keyDim1Align = KEY_DIM1_COPY_TRANSPOSE_ALIGN_MODE;
-    }  else {
+    } else {
         keyDim1Align = KEY_DIM1_COPY_PAD_MODE;
     }
 
     const ge::Shape softmaxShape({numRowOfNormalizeOne, paddingKeyDim1});
     uint64_t toTalUb;
     ascnedPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ub);
-    uint64_t localWorkSpaceSize = toTalUb - 4*numRowOfNormalizeOne*paddingKeyDim1*sizeof(float);
-    float attenDimSqrt = 1/std::sqrt(qShape.GetDim(2));
+    uint64_t localWorkSpaceSize = toTalUb - 4 * numRowOfNormalizeOne * paddingKeyDim1 * sizeof(float);
+    float attenDimSqrt = 1 / std::sqrt(qShape.GetDim(2));
 
     // set attr
     tilingData.set_attnDim(qShape.GetDim(2));
@@ -199,40 +198,43 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     auto kShape = context->GetInputShape(3)->GetStorageShape();
     int keyDim1 = kShape.GetDim(1);
     int paddingKeyDim1 = CeilDiv(keyDim1, FLOAT_ALIGNMENT) * FLOAT_ALIGNMENT;
-    int transposeAlignDim = LCM(keyDim1, TRANSPOSE_ALIGNMENT)/keyDim1;
+    int transposeAlignDim = LCM(keyDim1, TRANSPOSE_ALIGNMENT) / keyDim1;
 
     std::vector<int64_t> shapeVec = {TRANSPOSE_ALIGNMENT, keyDim1 * transposeAlignDim};
     ge::Shape srcShape(shapeVec);
-    AscendC::GetConfusionTransposeTilingInfo(srcShape, 0, sizeof(float), TRANSPOSE_TYPE, tilingData.unAlign2AlignStep1Tiling);
+    AscendC::GetConfusionTransposeTilingInfo(srcShape, 0, sizeof(float), TRANSPOSE_TYPE,
+                                             tilingData.unAlign2AlignStep1Tiling);
 
     std::vector<int64_t> shapeVec1 = {paddingKeyDim1 * transposeAlignDim, TRANSPOSE_ALIGNMENT};
     ge::Shape srcShape1(shapeVec1);
-    AscendC::GetConfusionTransposeTilingInfo(srcShape1, 0, sizeof(float), TRANSPOSE_TYPE, tilingData.unAlign2AlignStep2Tiling);
+    AscendC::GetConfusionTransposeTilingInfo(srcShape1, 0, sizeof(float), TRANSPOSE_TYPE,
+                                             tilingData.unAlign2AlignStep2Tiling);
 
     std::vector<int64_t> shapeVec2 = {TRANSPOSE_ALIGNMENT, paddingKeyDim1 * transposeAlignDim};
     ge::Shape srcShape2(shapeVec2);
-    AscendC::GetConfusionTransposeTilingInfo(srcShape2, 0, sizeof(float), TRANSPOSE_TYPE, tilingData.Align2UnAlignStep1Tiling);
+    AscendC::GetConfusionTransposeTilingInfo(srcShape2, 0, sizeof(float), TRANSPOSE_TYPE,
+                                             tilingData.Align2UnAlignStep1Tiling);
 
-    std::vector<int64_t> shapeVec3 = {keyDim1* transposeAlignDim, TRANSPOSE_ALIGNMENT};
+    std::vector<int64_t> shapeVec3 = {keyDim1 * transposeAlignDim, TRANSPOSE_ALIGNMENT};
     ge::Shape srcShape3(shapeVec3);
-    AscendC::GetConfusionTransposeTilingInfo(srcShape3, 0, sizeof(float), TRANSPOSE_TYPE, tilingData.Align2UnAlignStep2Tiling);
+    AscendC::GetConfusionTransposeTilingInfo(srcShape3, 0, sizeof(float), TRANSPOSE_TYPE,
+                                             tilingData.Align2UnAlignStep2Tiling);
 
     tilingData.set_transposeAlignDim(transposeAlignDim);
-    
+
     context->SetBlockDim(coreNum);
     tilingData.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tilingData.GetDataSize());
     return ge::GRAPH_SUCCESS;
 }
-}
-
+}  // namespace optiling
 
 namespace ge {
 static ge::graphStatus InferShape(gert::InferShapeContext* context)
 {
     int index2 = 2;
     int index3 = 3;
-    int index4 = 4; 
+    int index4 = 4;
     const gert::Shape* qShape = context->GetInputShape(index2);
     const gert::Shape* kShape = context->GetInputShape(index3);
     const gert::Shape* vShape = context->GetInputShape(index4);
@@ -249,14 +251,13 @@ static ge::graphStatus InferDtype(gert::InferDataTypeContext* context)
 {
     int index2 = 2;
     int index3 = 3;
-    int index4 = 4;       
+    int index4 = 4;
     context->SetOutputDataType(0, context->GetInputDataType(index2));
     context->SetOutputDataType(1, context->GetInputDataType(index3));
     context->SetOutputDataType(2, context->GetInputDataType(index4));
     return GRAPH_SUCCESS;
 }
-}
-
+}  // namespace ge
 
 namespace ops {
 class AttentionFusionGrad : public OpDef {
@@ -306,12 +307,11 @@ public:
 
         this->SetInferShape(ge::InferShape).SetInferDataType(ge::InferDtype);
 
-        this->AICore()
-            .SetTiling(optiling::TilingFunc);
+        this->AICore().SetTiling(optiling::TilingFunc);
         this->AICore().AddConfig("ascend910b");
         this->AICore().AddConfig("ascend910");
     }
 };
 
 OP_ADD(AttentionFusionGrad);
-}
+}  // namespace ops

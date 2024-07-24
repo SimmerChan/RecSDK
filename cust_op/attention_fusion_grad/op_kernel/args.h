@@ -19,6 +19,14 @@ See the License for the specific language governing permissions and
 
 using namespace AscendC;
 
+constexpr int FLOAT_ALIGNMENT = 8;
+constexpr int TRANSPOSE_ALIGNMENT = 16;
+
+namespace AscendFusionGrad {
+    
+constexpr int FLOAT_ALIGNMENT = 8;
+constexpr int TRANSPOSE_ALIGNMENT = 16;
+
 struct InputArgs {
     GM_ADDR dout;
     GM_ADDR softmaxOut;
@@ -93,4 +101,6 @@ struct NormGradPipeArgs {
     TQue<QuePosition::VECOUT, 1>* vecOutQueue;
     TBuf<TPosition::VECCALC>* tmpBuff;
 };
+}
+
 #endif
