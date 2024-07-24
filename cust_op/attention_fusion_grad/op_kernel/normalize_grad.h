@@ -20,6 +20,7 @@ See the License for the specific language governing permissions and
 #include "kernel_operator.h"
 #include "utils.h"
 using namespace AscendC;
+using namespace AscendFusionGrad;
 
 #define ALIGN_SIZE (32/sizeof(tType))
 

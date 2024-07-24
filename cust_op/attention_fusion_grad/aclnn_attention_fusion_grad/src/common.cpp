@@ -14,9 +14,12 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
-extern bool g_isDevice;
+using namespace AttentionFusionGrad;
 
 namespace AttentionFusionGrad {
+    
+extern bool g_isDevice;
+
 bool ReadFile(const std::string &filePath, size_t fileSize, void *buffer, size_t bufferSize)
 {
     struct stat sBuf;

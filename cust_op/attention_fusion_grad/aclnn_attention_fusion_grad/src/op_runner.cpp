@@ -19,8 +19,8 @@
 #include "common.h"
 
 using namespace std;
+using namespace AttentionFusionGrad;
 
-namespace AttentionFusionGrad {
 extern bool g_isDevice;
 constexpr int NUM_TEST_EXEC = 100;
 constexpr int TIME_OUT = 5000;
@@ -474,4 +474,3 @@ void OpRunner::PrintOutput(size_t index, size_t numElementsPerRow)
     auto desc = opDesc_->outputDesc[index];
     PrintData(hostOutputs_[index], GetOutputElementCount(index), aclGetTensorDescType(desc), numElementsPerRow);
 }
-}  // namespace AttentionFusionGrad

@@ -11,6 +11,7 @@
 #include "operator_desc.h"
 
 using namespace std;
+using namespace AttentionFusionGrad;
 
 OperatorDesc::OperatorDesc() {}
 
