@@ -27,7 +27,7 @@ See the License for the specific language governing permissions and
 
 using namespace AscendC;
 
-#define IS_LITTLE_K(qDim1, kDim1, vDim2) qDim1 == 1 && kDim1 == 1000 && vDim2 == 80;
+#define IS_LITTLE_K(qDim1, kDim1, vDim2) (qDim1 == 1 && kDim1 == 1000 && vDim2 == 80)
 
 struct AttentionFusionGradPipe {
     TPipe* pipe;

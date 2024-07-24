@@ -14,7 +14,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
-extern bool g_isDevice;
+extern bool isDevice;
 
 bool ReadFile(const std::string &filePath, size_t fileSize, void *buffer, size_t bufferSize)
 {

@@ -8,7 +8,7 @@ import numpy as np
 LOSS = 1e-3
 MINIMUM = 10e-10
 
-logging.getLogger().setLevel(logging.info)
+logging.getLogger().setLevel(logging.INFO)
 
 
 def verify_result(real_result, golden):

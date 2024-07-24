@@ -17,7 +17,7 @@ def param_attn_layer_grad(dout, softmax_out, query, key, value):
     # Dv and dS
     d_v = np.matmul(np.transpose(softmax_out, (0, 2, 1)), dout)
     d_s = np.matmul(dout, np.transpose(value, (0, 2, 1))) 
-    d_s = softmax_grad(d_s, softmax_out)/math.sqrt(query.shape[2])
+    d_s = softmax_grad(d_s, softmax_out) / math.sqrt(query.shape[2])
     # Atten 
     d_q = np.matmul(d_s, key)
     d_k = np.matmul(np.transpose(d_s, (0, 2, 1)), query)
@@ -26,7 +26,7 @@ def param_attn_layer_grad(dout, softmax_out, query, key, value):
 
 def gen_golden_data_simple():
     dout = np.random.uniform(-1, 1, [1024, 1000, 80]).astype(np.float32)
-    softmax_out = np.random.uniform(-1, 1,[1024, 1000, 50]).astype(np.float32)
+    softmax_out = np.random.uniform(-1, 1, [1024, 1000, 50]).astype(np.float32)
     query = np.random.uniform(-1, 1, [1024, 1000, 80]).astype(np.float32)
     key = np.random.uniform(-1, 1, [1024, 50, 80]).astype(np.float32)
     value = np.random.uniform(-1, 1, [1024, 50, 80]).astype(np.float32)

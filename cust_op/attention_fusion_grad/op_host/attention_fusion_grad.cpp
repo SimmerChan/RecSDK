@@ -29,6 +29,7 @@ constexpr int TRANSPOSE_TYPE = 7;
 constexpr int KEY_DIM1_COPY_ALIGN_MODE = 1;
 constexpr int KEY_DIM1_COPY_TRANSPOSE_ALIGN_MODE = 2;
 constexpr int KEY_DIM1_COPY_PAD_MODE = 3;
+constexpr int L0C_MAX_SIZE = 100*1024;
 
 namespace optiling {
 
@@ -69,7 +70,7 @@ static int32_t GradMatmulTiling(gert::TilingContext* context, AttentionFusionGra
     gardV.SetShape(kShape.GetDim(1), vShape.GetDim(DimIndex2), qShape.GetDim(1));
 
     gardV.SetBias(false);
-    gardV.SetBufferSpace(-1, -1, -1);
+    gardV.SetBufferSpace(-1, L0C_MAX_SIZE, -1);
 
     matmul_tiling::MatmulApiTiling gardS(ascnedPlatform);
     gardS.SetAType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, matmul_tiling::DataType::DT_FLOAT);
@@ -79,7 +80,7 @@ static int32_t GradMatmulTiling(gert::TilingContext* context, AttentionFusionGra
     gardS.SetShape(qShape.GetDim(1), vShape.GetDim(1), vShape.GetDim(DimIndex2));
 
     gardS.SetBias(false);
-    gardS.SetBufferSpace(-1, -1, -1);
+    gardS.SetBufferSpace(-1, L0C_MAX_SIZE, -1);
 
     matmul_tiling::MatmulApiTiling gardQ(ascnedPlatform);
     gardQ.SetAType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, matmul_tiling::DataType::DT_FLOAT);
@@ -89,7 +90,7 @@ static int32_t GradMatmulTiling(gert::TilingContext* context, AttentionFusionGra
     gardQ.SetShape(qShape.GetDim(1), qShape.GetDim(DimIndex2), kShape.GetDim(1));
 
     gardQ.SetBias(false);
-    gardQ.SetBufferSpace(-1, -1, -1);
+    gardQ.SetBufferSpace(-1, L0C_MAX_SIZE, -1);
 
     matmul_tiling::MatmulApiTiling gardK(ascnedPlatform);
     gardK.SetAType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, matmul_tiling::DataType::DT_FLOAT);
@@ -99,7 +100,7 @@ static int32_t GradMatmulTiling(gert::TilingContext* context, AttentionFusionGra
     gardK.SetShape(kShape.GetDim(1), qShape.GetDim(DimIndex2), qShape.GetDim(1));
 
     gardK.SetBias(false);
-    gardK.SetBufferSpace(-1, -1, -1);
+    gardK.SetBufferSpace(-1, L0C_MAX_SIZE, -1);
     
     if (gardV.GetTiling(tilingData.gardVMatmulTiling)==-1 ||
         gardS.GetTiling(tilingData.gardSMatmulTiling)==-1 ||
@@ -133,7 +134,7 @@ static int32_t GradSoftmaxTiling(gert::TilingContext* context, AttentionFusionGr
     int numRowOfNormalizeOne = ub / 4 / sizeof(float) / paddingKeyDim1;
     int keyDim1Align;
     int transposeAlignDim = lcm(kShape.GetDim(1), TRANSPOSE_ALIGNMENT)/kShape.GetDim(1);
-    
+
     if (kShape.GetDim(1) % FLOAT_ALIGNMENT == 0) {
         keyDim1Align = KEY_DIM1_COPY_ALIGN_MODE;
     } else if (NEED_TRANSPOSE_AGLING(qShape.GetDim(1), kShape.GetDim(1))) {
