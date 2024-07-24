@@ -30,7 +30,8 @@ public:
 
     __aicore__ inline int GetAlignSize()
     {
-        return 32/sizeof(tType);
+        int ubAlign = 32;
+        return ubAlign/sizeof(tType);
     }
 
     __aicore__ inline void Init(AttentionFusionGradArgs args, NormGradPipeArgs pipeArgs)
