@@ -23,12 +23,15 @@ using namespace AscendC;
 
 namespace AscendFusionGrad {
 
-#define ALIGN_SIZE (32/sizeof(tType))
-
 template <typename tType>
 class NormalGradCompute {
 public:
     __aicore__ inline NormalGradCompute() {}
+
+    __aicore__ inline GetAlignSize()
+    {
+        return 32/sizeof(tType);
+    }
 
     __aicore__ inline void Init(AttentionFusionGradArgs args, NormGradPipeArgs pipeArgs)
     {
@@ -57,17 +60,17 @@ public:
         int transposeAlignDim = args.shapeTilingArgs.transposeAlignDim;
         int paddingLen = paddingKeyDim1 - args.shapeArgs.keyDim1;
 
-        int totalSize = 16 * keyDim1 * transposeAlignDim;
-        int padSize = 16 * paddingKeyDim1 * transposeAlignDim;
+        int totalSize = TRANSPOSE_ALIGNMENT * keyDim1 * transposeAlignDim;
+        int padSize = TRANSPOSE_ALIGNMENT * paddingKeyDim1 * transposeAlignDim;
 
         ConfusionTransposeTiling tiling = *confusionTransposeTilingData;
         ConfusionTranspose<tType>(mindTensor, sourceTensor, TransposeType::TRANSPOSE_ND2ND_ONLY, tiling);
         Duplicate<float>(sourceTensor, 0, padSize);
         DataCopyParams dataCopyParam = {0, 0, 0, 0};
         dataCopyParam.blockCount = transposeAlignDim;
-        dataCopyParam.blockLen = keyDim1 * 16 / 8;
+        dataCopyParam.blockLen = keyDim1 * TRANSPOSE_ALIGNMENT / GetAlignSize();
         dataCopyParam.srcStride = 0;
-        dataCopyParam.dstStride = paddingLen * 16 / 8;
+        dataCopyParam.dstStride = paddingLen * TRANSPOSE_ALIGNMENT / GetAlignSize();
 
         DataCopy(sourceTensor, mindTensor, dataCopyParam);
 
@@ -85,16 +88,16 @@ public:
         int transposeAlignDim = args.shapeTilingArgs.transposeAlignDim;
         int paddingLen = paddingKeyDim1 - args.shapeArgs.keyDim1;
 
-        int totalSize = 16 * keyDim1 * transposeAlignDim;
-        int padSize = 16 * paddingKeyDim1 * transposeAlignDim;
+        int totalSize = TRANSPOSE_ALIGNMENT * keyDim1 * transposeAlignDim;
+        int padSize = TRANSPOSE_ALIGNMENT * paddingKeyDim1 * transposeAlignDim;
 
         ConfusionTransposeTiling tiling = *confusionTransposeTilingData2;
         ConfusionTranspose<tType>(mindTensor, sourceTensor, TransposeType::TRANSPOSE_ND2ND_ONLY, tiling);
         Duplicate<float>(sourceTensor, 0, padSize);
         DataCopyParams dataCopyParam = {0, 0, 0, 0};
         dataCopyParam.blockCount = transposeAlignDim;
-        dataCopyParam.blockLen = keyDim1 * 16 / 8;
-        dataCopyParam.srcStride = paddingLen * 16 / 8;
+        dataCopyParam.blockLen = keyDim1 * TRANSPOSE_ALIGNMENT / GetAlignSize();
+        dataCopyParam.srcStride = paddingLen * TRANSPOSE_ALIGNMENT / GetAlignSize();
         dataCopyParam.dstStride = 0;
         DataCopy(sourceTensor, mindTensor, dataCopyParam);
 
@@ -167,7 +170,7 @@ public:
             vecOutQueue->EnQue<tType>(outLocalTensor);
             LocalTensor<tType> copyOutLocalTensor = vecOutQueue->DeQue<tType>();
 
-            uint32_t copyLenAlign = thisLen / 8 * 8;
+            uint32_t copyLenAlign = thisLen / GetAlignSize() * GetAlignSize();
             uint32_t remainOfThisCopy = thisLen - copyLenAlign;
             DataCopy(thisBatchSoftmaxGradGb[offset], copyOutLocalTensor, copyLenAlign);
             if (remainOfThisCopy != 0) {
@@ -304,5 +307,5 @@ private:
     GlobalTensor<tType> softmaxOut;
     GlobalTensor<tType> gradSoftmax;
 };
-}
+}  // namespace AscendFusionGrad
 #endif

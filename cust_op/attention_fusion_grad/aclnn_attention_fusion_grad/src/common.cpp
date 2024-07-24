@@ -19,6 +19,8 @@ using namespace AttentionFusionGrad;
 namespace AttentionFusionGrad {
     
 extern bool g_isDevice;
+constexpr int NUM_TEST_EXEC = 100;
+constexpr int TIME_OUT = 5000;
 
 bool ReadFile(const std::string &filePath, size_t fileSize, void *buffer, size_t bufferSize)
 {

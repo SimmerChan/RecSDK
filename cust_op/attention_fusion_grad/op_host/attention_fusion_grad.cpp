@@ -33,7 +33,7 @@ constexpr int TRANSPOSE_TYPE = 7;
 constexpr int KEY_DIM1_COPY_ALIGN_MODE = 1;
 constexpr int KEY_DIM1_COPY_TRANSPOSE_ALIGN_MODE = 2;
 constexpr int KEY_DIM1_COPY_PAD_MODE = 3;
-constexpr int L0C_MAX_SIZE = 100 * 1024;
+constexpr int L0C_MAX_SIZE = 32 * 1024;
 
 int CeilDiv(int a, int b)
 {
@@ -124,7 +124,6 @@ static int32_t GradMatmulTiling(gert::TilingContext* context, AttentionFusionGra
 
 static int32_t GradSoftmaxTiling(gert::TilingContext* context, AttentionFusionGradTilingData& tilingData, uint64_t ub)
 {
-    
     int dimIndex2 = 2;
     int dimIndex3 = 3;
     int dimIndex4 = 4;
@@ -203,7 +202,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     if (keyDim1 == 0) {
         return ge::GRAPH_FAILED;
     }
-    
+
     int paddingKeyDim1 = CeilDiv(keyDim1, FLOAT_ALIGNMENT) * FLOAT_ALIGNMENT;
     int transposeAlignDim = LCM(keyDim1, TRANSPOSE_ALIGNMENT) / keyDim1;
 
@@ -261,7 +260,7 @@ static ge::graphStatus InferDtype(gert::InferDataTypeContext* context)
     int index4 = 4;
     context->SetOutputDataType(0, context->GetInputDataType(index2));
     context->SetOutputDataType(1, context->GetInputDataType(index3));
-    context->SetOutputDataType(2, context->GetInputDataType(index4));
+    context->SetOutputDataType(index2, context->GetInputDataType(index4));
     return GRAPH_SUCCESS;
 }
 }  // namespace ge
