@@ -697,8 +697,8 @@ void HybridMgmt::ProcessEmbInfoDDR(const EmbBaseInfo& info, bool& remainBatchOut
     auto uniqueKeys = GetUniqueKeys(info, remainBatchOut, isEos);
     if (isEos) {
         EosL1Que[info.name].Pushv(make_pair(true, info.channelId));
-        LOG_DEBUG("[LQK] enqueue EosL1Que DDR, table:{}, batchId:{}, channelId:{}", info.name,
-                  info.batchId, info.channelId);
+        LOG_DEBUG("[LQK] enqueue EosL1Que DDR, table:{}, batchId:{}, channelId:{}, EosL1Que size: {}", info.name,
+                  info.batchId, info.channelId, EosL1Que.size());
     }
     if (uniqueKeys.empty()) {
         return;
@@ -989,11 +989,13 @@ void HybridMgmt::LookUpSwapAddrs(const string& embName)
         pair<bool, int> keyChannel = EosL1Que[embName].WaitAndPop();
         if (keyChannel.first) {
             EosL2Que[embName].Pushv(make_pair(true, keyChannel.second));
-            LOG_DEBUG("[LQK] enqueue EosL2Que eos, table:{}, batchId:{}, channelId:{}",
-                      embName, id, keyChannel.second);
+            LOG_DEBUG("[LQK] enqueue EosL2Que eos, table:{}, batchId:{}, channelId:{}, EosL1Que size:{}, EosL2Que.size: {}",
+                      embName, id, keyChannel.second, EosL1Que.size(), EosL2Que.size());
             continue;
         } else {
             EosL2Que[embName].Pushv(make_pair(false, keyChannel.second));
+            LOG_DEBUG("[LQK] enqueue EosL2Que normal, table:{}, batchId:{}, channelId:{}, EosL1Que size:{}, EosL2Que.size: {}",
+                      embName, id, keyChannel.second, EosL1Que.size(), EosL2Que.size());
         }
 
         // swap in
@@ -2249,6 +2251,9 @@ void HybridMgmt::EnqueueSwapInfo(const EmbBaseInfo& info, pair<vector<uint64_t>,
     CheckLookupAddrSuccessDDR();
 
     EosL1Que[info.name].Pushv(make_pair(false, info.channelId));
+    LOG_DEBUG("enqueue EosL1Que, normal status,  table:{}, batchId:{}, channelId:{}, EosL1Que.size: {}", info.name,
+              info.batchId, info.channelId, EosL1Que.size());
+
 }
 
 bool HybridMgmt::IsTrainAndEvalCase()
