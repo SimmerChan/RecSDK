@@ -1,4 +1,19 @@
 #!/bin/bash
+# Copyright 2024. Huawei Technologies Co.,Ltd. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+
 export ASCEND_SLOG_PRINT_TO_STDOUT=0
 export ASCEND_GLOBAL_LOG_LEVEL=0
 
@@ -85,15 +100,10 @@ function main {
 
     # 5. 比较真值文件
     cd $CURRENT_DIR
-    ret=`python3 scripts/verify_result.py output/output_atten_score.bin output/output_softmax_out.bin output/golden_atten_score.bin output/golden_softmax_out.bin `
-    echo $ret
-    if [ "x$ret" == "xtest pass" ]; then
-        echo ""
-        echo "#####################################"
-        echo "INFO: you have passed the Precision!"
-        echo "#####################################"
-        echo ""
-    fi
+    echo "============= attention score ==============="
+    python3 scripts/verify_result.py output/output_atten_score.bin output/golden_atten_score.bin
+    echo "============= softmax out ==============="
+    python3 scripts/verify_result.py output/output_softmax_out.bin output/golden_softmax_out.bin
 }
 
 main

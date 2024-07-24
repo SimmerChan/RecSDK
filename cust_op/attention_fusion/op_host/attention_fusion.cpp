@@ -1,3 +1,18 @@
+/* Copyright 2024. Huawei Technologies Co.,Ltd. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+        limitations under the License.
+==============================================================================*/
+
 #include <cstdint>
 #include <cmath>
 #include "attention_fusion_tiling.h"
@@ -7,27 +22,25 @@
 #define TEST_LOG(fmt, args...) fprintf(stdout, fmt "\n", ##args)
 
 namespace optiling {
-#define ge::GRAPH_FAILED 1
-#define ge::GRAPH_SUCCESS 0
-#define ALIGN_32 (32 / sizeof(float))
-#define RESERVER_UB_SIZE (20 * 1024)
-#define ALREADY_ALIGNED 1
-#define SPECIAL_CASE 2
-#define SPECIAL_ROW_SIZE (16 * 16)
-#define SPECIAL_Q_DIM1 500
-#define SPECIAL_K_DIM1 50
-#define ORIG_UNPAD_DIM0 16
-#define ORIG_UNPAD_DIM1 (16 * 50)
-#define TRANSPOSED_PADDED_DIM0 (56 * 16)
-#define TRANSPOSED_PADDED_DIM1 16
-#define ORIG_PADDED_DIM0 16
-#define ORIG_PADDED_DIM1 (56 * 16)
-#define TRANSPOSED_UNPAD_DIM0 (16 * 50)
-#define TRANSPOSED_UNPAD_DIM1 16
-#define UB_TILES 3
-#define DIM0 0
-#define DIM1 1
-#define DIM2 2
+constexpr int32_t ALIGN_32 = (32 / sizeof(float));
+constexpr int32_t RESERVER_UB_SIZE = (20 * 1024);
+constexpr int32_t ALREADY_ALIGNED = 1;
+constexpr int32_t SPECIAL_CASE = 2;
+constexpr int32_t SPECIAL_ROW_SIZE = (16 * 16);
+constexpr int32_t SPECIAL_Q_DIM1 = 500;
+constexpr int32_t SPECIAL_K_DIM1 = 50;
+constexpr int32_t ORIG_UNPAD_DIM0 = 16;
+constexpr int32_t ORIG_UNPAD_DIM1 = (16 * 50);
+constexpr int32_t TRANSPOSED_PADDED_DIM0 = (56 * 16);
+constexpr int32_t TRANSPOSED_PADDED_DIM1 = 16;
+constexpr int32_t ORIG_PADDED_DIM0 = 16;
+constexpr int32_t ORIG_PADDED_DIM1 = (56 * 16);
+constexpr int32_t TRANSPOSED_UNPAD_DIM0 = (16 * 50);
+constexpr int32_t TRANSPOSED_UNPAD_DIM1 = 16;
+constexpr int32_t UB_TILES = 3;
+constexpr int32_t DIM0 = 0;
+constexpr int32_t DIM1 = 1;
+constexpr int32_t DIM2 = 2;
 
 static int32_t MatmulTiling(gert::TilingContext* context, AttentionFusionTilingData &tilingData)
 {
@@ -65,7 +78,15 @@ static int32_t MatmulTiling(gert::TilingContext* context, AttentionFusionTilingD
     kvMm.SetBufferSpace(-1, -1, -1);
     kvMm.SetDim(coreNum);
 
-    // Get tilingData using on the kernel side 
+    // set tiling data
+    tilingData.set_attnDim(qShape.GetDim(DIM2));
+    tilingData.set_queryDim1(qShape.GetDim(DIM1));
+    tilingData.set_queryDim2(qShape.GetDim(DIM2));
+    tilingData.set_keyDim1(kShape.GetDim(DIM1));
+    tilingData.set_valueDim2(vShape.GetDim(DIM2));
+    tilingData.set_batchNum(qShape.GetDim(DIM0));
+
+    // Get tilingData using on the kernel side
     if (qkMm.GetTiling(tilingData.qkMatmulTiling) == -1 ||
         kvMm.GetTiling(tilingData.kvMatmulTiling) == -1) {
         return ge::GRAPH_FAILED;
@@ -77,7 +98,6 @@ static int32_t SoftmaxTiling(gert::TilingContext* context, AttentionFusionTiling
 {
     auto qShape = context->GetInputShape(0)->GetStorageShape();
     auto kShape = context->GetInputShape(1)->GetStorageShape();
-    auto vShape = context->GetInputShape(2)->GetStorageShape();
     const int32_t* maskIsOn = context->GetAttrs()->GetAttrPointer<int32_t>(0);
 
     int numOfelement = kShape.GetDim(DIM1) / ALIGN_32;
@@ -96,6 +116,7 @@ static int32_t SoftmaxTiling(gert::TilingContext* context, AttentionFusionTiling
     }
 
     if ((sizeof(float) * normalizeColumn) > (ub / UB_TILES)) {
+        printf("[ERROR] Key dim1 too large, please check key shape!");
         return ge::GRAPH_FAILED;
     }
 
@@ -115,26 +136,21 @@ static int32_t SoftmaxTiling(gert::TilingContext* context, AttentionFusionTiling
     const ge::Shape softmaxShape({normalizeRow, normalizeColumn});
     const uint32_t minLocalWorkSize = AscendC::GetSoftMaxMinTmpSize(softmaxShape, sizeof(float), false);
     if (minLocalWorkSize > maxLocalWorkSize) {
+        printf("[ERROR] Softmax minimun workspace larger than max local workspace, please check input shape.");
         return ge::GRAPH_FAILED;
     }
 
     // divisor should not be 0
     if (normalizeRow == 0) {
+        printf("[ERROR] divisor normalizeRow == 0.")
         return ge::GRAPH_FAILED;
     }
     int normalizeLoop = qShape.GetDim(DIM1) / normalizeRow;
     normalizeLoop = ((qShape.GetDim(DIM1) % normalizeRow) == 0) ? normalizeLoop : normalizeLoop + 1;
-    float res = sqrt(qShape.GetDim(DIM2));
-    float dimSqrt = (res != 0) ? (1 / res) : 0;
+    float dimSqrt = (sqrt(qShape.GetDim(DIM2)) != 0) ? (1 / sqrt(qShape.GetDim(DIM2))) : 0;
 
     // set tiling data
     tilingData.set_normalizeAttr(attr);
-    tilingData.set_attnDim(qShape.GetDim(DIM2));
-    tilingData.set_queryDim1(qShape.GetDim(DIM1));
-    tilingData.set_queryDim2(qShape.GetDim(DIM2));
-    tilingData.set_keyDim1(kShape.GetDim(DIM1));
-    tilingData.set_valueDim2(vShape.GetDim(DIM2));
-    tilingData.set_batchNum(qShape.GetDim(DIM0));
     tilingData.set_normalizeLoop(normalizeLoop);
     tilingData.set_normalizeRow(normalizeRow);
     tilingData.set_normalizeColumn(normalizeColumn);
@@ -216,6 +232,7 @@ static ge::graphStatus InferShape(gert::InferShapeContext* context)
 
     return GRAPH_SUCCESS;
 }
+
 static ge::graphStatus InferDtype(gert::InferDataTypeContext* context)
 {
     context->SetOutputDataType(0, context->GetInputDataType(0));
