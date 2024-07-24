@@ -22,49 +22,50 @@ struct KVBmmPipeArgs {
 };
 
 template<typename sType, typename vType>
-class KVBmmCompute {
+class KVBmmCompute
+{
     public:
-    __aicore__ inline KVBmmCompute() {}
+        __aicore__ inline KVBmmCompute() {}
 
-    __aicore__ inline void Init(KVBmmArgs kvBmmArgs, KVBmmPipeArgs pipeArgs)
-    {
-        this->kvBmmArgs = kvBmmArgs;
-        this->pipeArgs = pipeArgs;
+        __aicore__ inline void Init(KVBmmArgs kvBmmArgs, KVBmmPipeArgs pipeArgs)
+        {
+            this->kvBmmArgs = kvBmmArgs;
+            this->pipeArgs = pipeArgs;
 
-        // kernel batch offset
-        sGlobal.SetGlobalBuffer(reinterpret_cast<__gm__ sType*>(kvBmmArgs.softmaxOut), kvBmmArgs.dimM * kvBmmArgs.dimK);
-        sGlobal = sGlobal[kvBmmArgs.batchOffset * kvBmmArgs.dimM * kvBmmArgs.dimK];
-        vGlobal.SetGlobalBuffer(reinterpret_cast<__gm__ vType*>(kvBmmArgs.value),  kvBmmArgs.dimN * kvBmmArgs.dimK);
-        vGlobal = vGlobal[kvBmmArgs.batchOffset * kvBmmArgs.dimN * kvBmmArgs.dimK];
-        outGlobal.SetGlobalBuffer(reinterpret_cast<__gm__ vType*>(kvBmmArgs.out), kvBmmArgs.dimM * kvBmmArgs.dimN);
-        outGlobal = outGlobal[kvBmmArgs.batchOffset * kvBmmArgs.dimM * kvBmmArgs.dimN];
-    }
-
-    __aicore__ inline void ComputeOneBatch(int batchI)
-    {
-        if (batchI != 0) {
-            mm.WaitIterateAll();
-            mm.End();
+            // kernel batch offset
+            sGlobal.SetGlobalBuffer(reinterpret_cast<__gm__ sType*>(kvBmmArgs.softmaxOut), kvBmmArgs.dimM * kvBmmArgs.dimK);
+            sGlobal = sGlobal[kvBmmArgs.batchOffset * kvBmmArgs.dimM * kvBmmArgs.dimK];
+            vGlobal.SetGlobalBuffer(reinterpret_cast<__gm__ vType*>(kvBmmArgs.value),  kvBmmArgs.dimN * kvBmmArgs.dimK);
+            vGlobal = vGlobal[kvBmmArgs.batchOffset * kvBmmArgs.dimN * kvBmmArgs.dimK];
+            outGlobal.SetGlobalBuffer(reinterpret_cast<__gm__ vType*>(kvBmmArgs.out), kvBmmArgs.dimM * kvBmmArgs.dimN);
+            outGlobal = outGlobal[kvBmmArgs.batchOffset * kvBmmArgs.dimM * kvBmmArgs.dimN];
         }
 
-        mm.SetTensorA(sGlobal[batchI * kvBmmArgs.dimM * kvBmmArgs.dimK]);
-        mm.SetTensorB(vGlobal[batchI * kvBmmArgs.dimN * kvBmmArgs.dimK]);
+        __aicore__ inline void ComputeOneBatch(int batchI)
+        {
+            if (batchI != 0) {
+                mm.WaitIterateAll();
+                mm.End();
+            }
 
-        mm.template IterateAll<false>(outGlobal[batchI * kvBmmArgs.dimM * kvBmmArgs.dimN], 0, false, true);
-    }
+            mm.SetTensorA(sGlobal[batchI * kvBmmArgs.dimM * kvBmmArgs.dimK]);
+            mm.SetTensorB(vGlobal[batchI * kvBmmArgs.dimN * kvBmmArgs.dimK]);
 
-    matmul::Matmul<
-        matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, sType, false>,
-        matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, vType, false>,
-        matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, vType, false>,
-        matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, vType>
-        > mm;
+            mm.template IterateAll<false>(outGlobal[batchI * kvBmmArgs.dimM * kvBmmArgs.dimN], 0, false, true);
+        }
+
+        matmul::Matmul<
+            matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, sType, false>,
+            matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, vType, false>,
+            matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, vType, false>,
+            matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, vType>
+            > mm;
     private:
-    KVBmmArgs kvBmmArgs;
-    KVBmmPipeArgs pipeArgs;
-    GlobalTensor<sType> sGlobal;
-    GlobalTensor<vType> vGlobal;
-    GlobalTensor<vType> outGlobal;
+        KVBmmArgs kvBmmArgs;
+        KVBmmPipeArgs pipeArgs;
+        GlobalTensor<sType> sGlobal;
+        GlobalTensor<vType> vGlobal;
+        GlobalTensor<vType> outGlobal;
 };
 }
 #endif
