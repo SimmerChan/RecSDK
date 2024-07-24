@@ -1,9 +1,12 @@
 import os
+
 import numpy as np
 from tensorflow.python.framework import ops
 import tensorflow as tf
 import npu_device
 from npu_device.compat.v1.npu_init import *
+import logging
+logging.getLogger().setLevel(logging.INFO)
 
 os.environ["DEVICE_ID"] = str(0)
 os.environ["ASCEND_DEVICE_ID"] = str(0)
@@ -23,12 +26,12 @@ config.graph_options.rewrite_options.memory_optimization = RewriterConfig.OFF
 
 
 def attention_fusion(q, k, v, mask=None):
-    maskIsOn = 1
+    mask_on = 1
     if mask is None:
         mask = tf.zeros(())
-        maskIsOn = 0
-    attn_out, softmax_out = tfOpLib.attention_fusion(query=q, key=k, value=v, atten_mask=mask, mask_on = maskIsOn)
-    return attn_out, softmax_out
+        mask_on = 0
+    attn_out_result, softmax_out_result = tfOpLib.attention_fusion(query=q, key=k, value=v, atten_mask=mask, mask_on=mask_on)
+    return attn_out_result, softmax_out_result
 
 
 @ops.RegisterGradient("AttentionFusion")
@@ -37,8 +40,7 @@ def _npu_fusion_attention_grad(op, *grad):
     k = op.inputs[1]
     v = op.inputs[2]
     mask = op.inputs[3]
-
-    attention_out = op.outputs[0]
+    
     softmax_output = op.outputs[1]
     dout = grad[0]
     d_q, d_k, d_v = tfOpLib.attention_fusion_grad(dout=dout, softmax_out=softmax_output, query=q, key=k, value=v)
@@ -53,7 +55,7 @@ def param_attn_layer(q, k, v, m=None):
             
         with tf.name_scope("div"):
             sqrt_attndim = tf.sqrt(tf.cast(tf.shape(k)[2], tf.float32))
-            if sqrt_attndim is 0 :
+            if sqrt_attndim == 0 :
                 qk_div = 0
             else:
                 qk_div = qk / sqrt_attndim
@@ -69,28 +71,29 @@ def param_attn_layer(q, k, v, m=None):
 
     return out, softmax_output
 
-def generate_data(dim0, dim1, dim2, dim3, dim4):
-    q = np.random.randn(dim0, dim1, dim2).astype(np.float32)
-    k = np.random.randn(dim0, dim3, dim2).astype(np.float32)
-    v = np.random.randn(dim0, dim3, dim4).astype(np.float32)
-    m = np.random.randint(0, 2, size=(dim0, dim1, dim3)).astype(np.float32)
+
+def generate_data(batch_size, query_dim1, query_dim2, key_dim1, value_dim2):
+    q = np.random.randn(batch_size, query_dim1, query_dim2).astype(np.float32)
+    k = np.random.randn(batch_size, key_dim1, query_dim2).astype(np.float32)
+    v = np.random.randn(batch_size, key_dim1, value_dim2).astype(np.float32)
+    m = np.random.randint(0, 2, size=(batch_size, query_dim1, key_dim1)).astype(np.float32)
     return q, k, v, m
 
 
-query = tf.placeholder(tf.float32, shape=[None, None, None], name="query")
-key = tf.placeholder(tf.float32, shape=[None, None, None], name="key")
-value = tf.placeholder(tf.float32, shape=[None, None, None], name="value")
-mask = tf.placeholder(tf.float32, shape=[None, None, None], name="mask")
+query_ph = tf.placeholder(tf.float32, shape=[None, None, None], name="query")
+key_ph = tf.placeholder(tf.float32, shape=[None, None, None], name="key")
+value_ph = tf.placeholder(tf.float32, shape=[None, None, None], name="value")
+mask_ph = tf.placeholder(tf.float32, shape=[None, None, None], name="mask")
 
 # gloden
-atten_out_gloden, softmax_out_gloden = param_attn_layer(query, key, value, mask)
+atten_out_gloden, softmax_out_gloden = param_attn_layer(query_ph, key_ph, value_ph, mask_ph)
 loss_golden = tf.reduce_mean(atten_out_gloden, keep_dims=False)
-grads_and_vars_golden = tf.gradients(loss_golden, [query, key, value])
+grads_and_vars_golden = tf.gradients(loss_golden, [query_ph, key_ph, value_ph])
 
 # fusion
-atten_out, softmax_out = attention_fusion(q=query, k=key, v=value, mask=mask)
+atten_out, softmax_out = attention_fusion(q=query_ph, k=key_ph, v=value_ph, mask=mask_ph)
 loss = tf.reduce_mean(atten_out, keep_dims=False)
-grads_and_vars = tf.gradients(loss, [query, key, value])
+grads_and_vars = tf.gradients(loss, [query_ph, key_ph, value_ph])
 
 # test case
 test_case = [(1024, 144, 64, 1000, 80)]
@@ -98,19 +101,19 @@ test_case = [(1024, 144, 64, 1000, 80)]
 with tf.compat.v1.Session(config=config) as sess:
     sess.run(tf.compat.v1.global_variables_initializer())
     for dim0, dim1, dim2, dim3, dim4 in test_case:
-        print("===================test case ", dim0, dim1, dim2, dim3, dim4, " ===================")
+        logging.info("===================test case ", dim0, dim1, dim2, dim3, dim4, " ===================")
         query_np, key_np, value_np, mask_np = generate_data(dim0, dim1, dim2, dim3, dim4)
 
         result_gloden = sess.run([loss_golden, grads_and_vars_golden, softmax_out_gloden],
-                                    feed_dict={query: query_np, key:key_np, value:value_np, mask:mask_np})
+                                    feed_dict={query_ph: query_np, key_ph:key_np, value_ph:value_np, mask_ph:mask_np})
         result = sess.run([loss, grads_and_vars, softmax_out],
-                            feed_dict={query: query_np, key:key_np, value:value_np, mask:mask_np})
+                            feed_dict={query_ph: query_np, key_ph:key_np, value_ph:value_np, mask_ph:mask_np})
         
-        print(((result[0]-result[1]) < 1e-3).all())
-        print(((result[1][0] - result_gloden[1][0]) < 1e-3).all())
-        print(((result[1][1] - result_gloden[1][1]) < 1e-3).all())
-        print(((result[1][2] - result_gloden[1][2]) < 1e-3).all())
-        print("============ attention fusion end =============")
+        logging.info(((result[0]-result[1]) < 1e-3).all())
+        logging.info(((result[1][0] - result_gloden[1][0]) < 1e-3).all())
+        logging.info(((result[1][1] - result_gloden[1][1]) < 1e-3).all())
+        logging.info(((result[1][2] - result_gloden[1][2]) < 1e-3).all())
+        logging.info("============ attention fusion end =============")
     
 
 

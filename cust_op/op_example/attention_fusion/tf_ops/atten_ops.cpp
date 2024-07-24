@@ -32,9 +32,9 @@ using OpKernelContextPtr = OpKernelContext*;
 using InferenceContextPtr = ::tensorflow::shape_inference::InferenceContext*;
 
 namespace {
-    class CustOps : public OpKernel {
+    class AttnOps : public OpKernel {
         public:
-            explicit CustOps(OpKernelConstructionPtr context) : OpKernel(context)
+            explicit AttnOps(OpKernelConstructionPtr context) : OpKernel(context)
             {
             }
 
@@ -43,7 +43,7 @@ namespace {
                 std::cout << "Cust Ops not installed!!" << std::endl;
             }
 
-            ~CustOps() override = default;
+            ~AttnOps() override = default;
     };
 }
 
@@ -78,7 +78,7 @@ namespace tensorflow {
         c->set_output(1, c->MakeShape({shape0, shape1, shape2}));
         return Status::OK();
     });
-    REGISTER_KERNEL_BUILDER(Name("AttentionFusion").Device(DEVICE_CPU), CustOps)
+    REGISTER_KERNEL_BUILDER(Name("AttentionFusion").Device(DEVICE_CPU), AttnOps)
 
     REGISTER_OP("AttentionFusionGrad")
     .Input("dout: float")
@@ -121,5 +121,5 @@ namespace tensorflow {
         c->set_output(2, c->MakeShape({qShape0, vShape1, vShape2}));
         return Status::OK();
     });
-    REGISTER_KERNEL_BUILDER(Name("AttentionFusionGrad").Device(DEVICE_CPU), CustOps)
+    REGISTER_KERNEL_BUILDER(Name("AttentionFusionGrad").Device(DEVICE_CPU), AttnOps)
 }
