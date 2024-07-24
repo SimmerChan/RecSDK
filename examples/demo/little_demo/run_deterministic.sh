@@ -16,7 +16,7 @@
 
 export USE_DETERMINISTIC=1
 
-sh run.sh main.py | tee log
+sh run.sh | tee log
 
 grep -rn "loss" log | grep "1,0" | awk '{print $NF}'> loss
 
@@ -26,6 +26,7 @@ soc_name=`python3 -c 'import acl;print(acl.get_soc_name())'`
 echo "soc_name: $soc_name"
 
 loss_file=deterministic_loss/loss${soc_name:10:1}
+echo "loss_file: $loss_file"
 
 if [ ! -e $loss_file ];then
     echo "$loss_file file does not exist"

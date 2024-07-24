@@ -13,13 +13,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-
+import datetime
 import math
+import os
 
 import tensorflow as tf
 from tensorflow.core.protobuf.rewriter_config_pb2 import RewriterConfig
 
 from mx_rec.util.communication.hccl_ops import get_rank_size
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+CURRENT_TIME = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+PRECISION_CHECK = bool(int(os.getenv("PRECISION_CHECK", 0)))
+PRECISION_CHECK_PATH = SCRIPT_DIR + f'/precision_check/{CURRENT_TIME}'
 
 
 class Config:
@@ -94,36 +100,77 @@ class Config:
         self.hashtable_dim = 8
         self.learning_rate = 0.01
 
+def construct_basic_config(npu_custom_op):
+    npu_custom_op.parameter_map["mix_compile_mode"].b = False
+    npu_custom_op.parameter_map["use_off_line"].b = True
+    npu_custom_op.parameter_map["min_group_size"].b = 1
+    npu_custom_op.parameter_map["HCCL_algorithm"].s = tf.compat.as_bytes("level0:pairwise;level1:pairwise")
+    npu_custom_op.parameter_map["enable_data_pre_proc"].b = True
+    npu_custom_op.parameter_map["iterations_per_loop"].i = 1
+    npu_custom_op.parameter_map["hcom_parallel"].b = False
+    npu_custom_op.parameter_map["op_precision_mode"].s = tf.compat.as_bytes("op_impl_mode.ini")
+    npu_custom_op.parameter_map["op_execute_timeout"].i = 2000
+    npu_custom_op.parameter_map["precision_mode"].s = tf.compat.as_bytes("allow_mix_precision")
 
-def sess_config(dump_data=False, dump_path="./dump_output", dump_steps="0|1|2", use_deterministic=0):
+
+def construct_deterministic_config(npu_custom_op):
+    npu_custom_op.parameter_map["precision_mode"].s = tf.compat.as_bytes("must_keep_origin_dtype")
+    npu_custom_op.parameter_map["deterministic"].i = 1
+
+def construct_op_dump_config(npu_custom_op):
+    npu_custom_op.parameter_map["enable_dump"].b = True
+
+
+    dump_path = PRECISION_CHECK_PATH + "/03dump_op"
+    os.makedirs(dump_path, exist_ok=True)
+
+    npu_custom_op.parameter_map["dump_path"].s = tf.compat.as_bytes(dump_path)
+    npu_custom_op.parameter_map["dump_step"].s = tf.compat.as_bytes("0|1|2")
+    npu_custom_op.parameter_map["dump_mode"].s = tf.compat.as_bytes("all")
+
+    # hot_pos_gather = "user_table//user_table_lookup/hot_pos " \
+    #            + "item_table//item_table_lookup/hot_pos"
+    gather_for_id_offset = "user_table//user_table_lookup/gather_for_id_offsets " \
+                         + "item_table//item_table_lookup/gather_for_id_offsets"
+    gather_for_restore_vec = "user_table//user_table_lookup/gather_for_restore_vector " \
+                           + "item_table//item_table_lookup/gather_for_restore_vector"
+    # gradientUpdate_ScatterNdAdd = "gradients_1/user_table//user_table_lookup/IdentityN_grad/TensorScatterAdd/ScatterNdAdd " \
+    #         + "gradients_1/item_table//item_table_lookup/IdentityN_grad/TensorScatterAdd/ScatterNdAdd"
+    gradientUpdate_ScatterNdAdd = "LazyAdam_0/update_user_table/ScatterNdAdd " \
+                                + "LazyAdam_0/update_user_table/ScatterNdAdd_1 " \
+                                + "LazyAdam_0/update_user_table/ScatterNdAdd_2 " \
+                                + "LazyAdam_0/update_item_table/ScatterNdAdd " \
+                                + "LazyAdam_0/update_item_table/ScatterNdAdd_1 " \
+                                + "LazyAdam_0/update_item_table/ScatterNdAdd_2 " \
+    
+    # lazyadam_byaddress = "LazyAdamByAddress_0/update_user_table//user_table_lookup/id_offsets/user_table/GetNext/EmbeddingLookupByAddress " \
+    #                 + "LazyAdamByAddress_0/update_item_table//item_table_lookup/id_offsets/item_table/GetNext/EmbeddingLookupByAddress"
+    lookup_byaddress = "user_table//user_table_lookup/EmbeddingLookupByAddress " \
+                    + "user_table//item_table_lookup/EmbeddingLookupByAddress"
+    update_byaddress = "LazyAdamByAddress_0/update_user_table//user_table_lookup/id_offsets/user_table/GetNext/EmbeddingUpdateByAddress " \
+                    + "LazyAdamByAddress_0/update_item_table//item_table_lookup/id_offsets/item_table/GetNext/EmbeddingUpdateByAddress"
+    
+    use_dynamic_expansion = bool(int(os.getenv("USE_DYNAMIC_EXPANSION", 0)))
+    if use_dynamic_expansion:
+        op_name_list = [lookup_byaddress, update_byaddress]
+    else:
+        op_name_list = [gather_for_id_offset, gather_for_restore_vec, gradientUpdate_ScatterNdAdd]
+
+    dump_ops_string = " ".join(op_name_list)
+    npu_custom_op.parameter_map["dump_layer"].s = tf.compat.as_bytes(dump_ops_string)
+
+def construct_npu_sess_config(dump_data=False, use_deterministic=0):
     session_config = tf.compat.v1.ConfigProto(allow_soft_placement=False,
                                               log_device_placement=False)
-
+    
     session_config.gpu_options.allow_growth = True
     custom_op = session_config.graph_options.rewrite_options.custom_optimizers.add()
     custom_op.name = "NpuOptimizer"
-    custom_op.parameter_map["mix_compile_mode"].b = False
-    custom_op.parameter_map["use_off_line"].b = True
-    custom_op.parameter_map["min_group_size"].b = 1
-    custom_op.parameter_map["HCCL_algorithm"].s = tf.compat.as_bytes("level0:pairwise;level1:pairwise")
-    custom_op.parameter_map["enable_data_pre_proc"].b = True
-    custom_op.parameter_map["iterations_per_loop"].i = 1
+    construct_basic_config(custom_op)
     if use_deterministic:
-        custom_op.parameter_map["precision_mode"].s = tf.compat.as_bytes("must_keep_origin_dtype")
-        custom_op.parameter_map["deterministic"].i = 1
-    else:
-        custom_op.parameter_map["precision_mode"].s = tf.compat.as_bytes("allow_mix_precision")
-    custom_op.parameter_map["hcom_parallel"].b = False
-    custom_op.parameter_map["op_precision_mode"].s = tf.compat.as_bytes("op_impl_mode.ini")
-    custom_op.parameter_map["op_execute_timeout"].i = 2000
+        construct_deterministic_config(custom_op)
     if dump_data:
-        """
-            To see the details, please refer to the descriptions at official web site
-        """
-        custom_op.parameter_map["enable_dump"].b = True
-        custom_op.parameter_map["dump_path"].s = tf.compat.as_bytes(dump_path)
-        custom_op.parameter_map["dump_step"].s = tf.compat.as_bytes(dump_steps)
-        custom_op.parameter_map["dump_mode"].s = tf.compat.as_bytes("all")
+        construct_op_dump_config(custom_op)
 
     session_config.graph_options.rewrite_options.remapping = RewriterConfig.OFF
     session_config.graph_options.rewrite_options.memory_optimization = RewriterConfig.OFF

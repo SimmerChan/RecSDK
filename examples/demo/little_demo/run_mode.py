@@ -18,9 +18,10 @@
 import os
 import sys
 from typing import List
+import numpy as np
 
 import tensorflow as tf
-from config import sess_config
+from config import construct_npu_sess_config, CURRENT_TIME, PRECISION_CHECK, PRECISION_CHECK_PATH
 
 from mx_rec.util.variable import get_dense_and_sparse_variable
 from mx_rec.util.tf_version_adapter import hccl_ops
@@ -39,7 +40,6 @@ class UseMode(BaseEnum):
 
 
 class RunMode:
-
     def __init__(
             self, is_modify_graph: bool, is_faae: bool, table_list: list, optimizer_list: list, train_model,
             eval_model, train_iterator, eval_iterator, max_train_steps: int, infer_steps: int, params: dict):
@@ -47,7 +47,7 @@ class RunMode:
         self.is_faae = is_faae
         self.use_deterministic = params.get("use_deterministic")
         self.session = tf.compat.v1.Session(
-            config=sess_config(dump_data=False, use_deterministic=self.use_deterministic))
+            config=construct_npu_sess_config(dump_data=True, use_deterministic=self.use_deterministic))
         self.train_model = train_model
         self.train_iterator = train_iterator
         self.eval_model = eval_model
@@ -117,6 +117,7 @@ class RunMode:
                 self.train_ops.append(sparse_optimizer.apply_gradients(grads_and_vars))
 
     def train(self, train_interval: int, saving_interval: int, if_load: bool, model_file: List[str]):
+
         self.set_train_ops()
         # In train mode, graph modify needs to be performed after compute gradients
         if self.is_modify_graph:
@@ -129,6 +130,7 @@ class RunMode:
             self.session.run(initializer)
         else:
             logger.debug(f"use one shot iterator and modify graph is `{self.is_modify_graph}`.")
+
         self.saver = tf.compat.v1.train.Saver()
 
         latest_ckpt_step = 0
@@ -142,12 +144,19 @@ class RunMode:
 
         if self.max_train_steps == -1:
             self.max_train_steps = sys.maxsize  # 消耗全部数据
+
+
+        dump_precision_dataset(self.session, self.train_batch)
+        dump_precision_ckpt(self.session, self.saver, 0)
+
         for i in range(start_step, start_step + self.max_train_steps):
             logger.info("################    training at step %d    ################", i)
             try:
                 _, loss = self.session.run([self.train_ops, self.train_model.loss_list])
                 if self.use_deterministic:
                     logger.info(f"train_loss: {loss[0]}")
+                if i == 2:
+                    break
             except tf.errors.OutOfRangeError:
                 logger.info("Encounter the end of Sequence for training.")
                 break
@@ -158,6 +167,9 @@ class RunMode:
 
                 if train_interval != -1 and (i - latest_ckpt_step) % train_interval == 0:
                     self.evaluate()
+                    
+                if self.use_deterministic:
+                    dump_precision_ckpt(self.session, self.saver, i)
 
                 if saving_interval != -1 and (i - latest_ckpt_step) % saving_interval == 0:
                     self.saver.save(self.session, f"./saved-model/model", global_step=i)
@@ -211,3 +223,28 @@ def get_load_step(model_file: List[str]):
     if latest_step == -1:
         raise RuntimeError("latest model not found")
     return latest_step
+
+
+def dump_precision_dataset(sess, train_batch):
+    if PRECISION_CHECK:
+        try:            
+            batch_index = 0
+            while True and batch_index < 3:
+                batch_data = sess.run(train_batch)  # 获取批次数据
+                # 将批次数据中的每个特征转换为 NumPy 数组并保存
+
+                for key, value in batch_data.items():
+                    folder_name = PRECISION_CHECK_PATH + '/01dump_dataset'
+                    os.makedirs(folder_name, exist_ok=True)
+
+                    filename = folder_name + f'/data_batch_{batch_index}_{key}.npy'
+                    np.save(filename, value)  # 保存 NumPy 数组到文件
+                    print(f'Saved {filename}')
+                batch_index += 1
+        except tf.errors.OutOfRangeError:
+            raise IndexError("data set end.")
+        
+def dump_precision_ckpt(sess, saver, current_step):
+    if PRECISION_CHECK:
+        dump_ckpt_path = PRECISION_CHECK_PATH + "/02dump_model/model"
+        saver.save(sess, dump_ckpt_path, global_step=current_step)
