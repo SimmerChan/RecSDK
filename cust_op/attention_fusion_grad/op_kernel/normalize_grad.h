@@ -28,7 +28,7 @@ class NormalGradCompute {
 public:
     __aicore__ inline NormalGradCompute() {}
 
-    __aicore__ inline GetAlignSize()
+    __aicore__ inline int GetAlignSize()
     {
         return 32/sizeof(tType);
     }
