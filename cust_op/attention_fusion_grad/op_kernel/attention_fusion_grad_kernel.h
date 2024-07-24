@@ -27,6 +27,7 @@ See the License for the specific language governing permissions and
 #include "v_s_mm_grad.h"
 
 using namespace AscendC;
+using namespace AscendFusionGrad;
 
 constexpr int SPECAIL_CASE[] = {1, 1000, 80};
 

@@ -15,6 +15,7 @@
 
 #include "acl/acl.h"
 
+namespace AttentionFusionGrad {
 /**
  * Op description
  */
@@ -53,5 +54,6 @@ struct OperatorDesc {
     std::vector<aclTensorDesc *> inputDesc;
     std::vector<aclTensorDesc *> outputDesc;
 };
+}
 
 #endif // OPERATOR_DESC_H

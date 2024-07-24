@@ -16,6 +16,7 @@
 
 extern bool g_isDevice;
 
+namespace AttentionFusionGrad {
 bool ReadFile(const std::string &filePath, size_t fileSize, void *buffer, size_t bufferSize)
 {
     struct stat sBuf;
@@ -76,4 +77,5 @@ bool WriteFile(const std::string &filePath, const void *buffer, size_t size)
     }
 
     return true;
+}
 }

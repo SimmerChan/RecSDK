@@ -17,11 +17,12 @@
 #include "acl/acl.h"
 #include "common.h"
 #include "op_runner.h"
+using namespace AttentionFusionGrad;
 
 bool g_isDevice = false;
 int g_deviceId = 15;
 
-namespace {
+namespace AttentionFusionGrad {
 OperatorDesc CreateOpDesc()
 {
     // define operator
@@ -168,6 +169,7 @@ bool RunOp()
     INFO_LOG("Run op success");
     return true;
 }
+}
 
 int main(int argc, char** argv)
 {
@@ -186,4 +188,3 @@ int main(int argc, char** argv)
 
     return SUCCESS;
 }
-}  // namespace AttentionFusionGrad

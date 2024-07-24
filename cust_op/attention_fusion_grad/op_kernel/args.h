@@ -19,13 +19,13 @@ See the License for the specific language governing permissions and
 
 using namespace AscendC;
 
-constexpr int FLOAT_ALIGNMENT = 8;
-constexpr int TRANSPOSE_ALIGNMENT = 16;
-
 namespace AscendFusionGrad {
-    
+
 constexpr int FLOAT_ALIGNMENT = 8;
 constexpr int TRANSPOSE_ALIGNMENT = 16;
+constexpr int KEY_DIM1_COPY_ALIGN_MODE = 1;
+constexpr int KEY_DIM1_COPY_TRANSPOSE_ALIGN_MODE = 2;
+constexpr int KEY_DIM1_COPY_PAD_MODE = 3;
 
 struct InputArgs {
     GM_ADDR dout;

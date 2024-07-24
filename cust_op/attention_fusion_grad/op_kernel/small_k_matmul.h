@@ -21,7 +21,9 @@ See the License for the specific language governing permissions and
 #include "kernel_operator.h"
 #include "utils.h"
 using namespace AscendC;
+using namespace AscendFusionGrad;
 
+constexpr int DIM_NUMS = 2;
 template <typename tType>
 class SmallKMatmul {
 public:
@@ -70,8 +72,7 @@ public:
         const uint32_t dstShape_[]{(uint32_t)numOfOneMul, (uint32_t)valueDim2};
         const uint32_t srcShape_[]{1, (uint32_t)valueDim2};
         
-        int dimNums = 2;
-        BroadCast<float, dimNums, 0>(inGradLocalTensor, inLocalTensorCompute, dstShape_, srcShape_);
+        BroadCast<float, DIM_NUMS, 0>(inGradLocalTensor, inLocalTensorCompute, dstShape_, srcShape_);
 
         DataCopy(inLocalTensorCompute, inGradLocalTensor, numOfOneMul * valueDim2);
 

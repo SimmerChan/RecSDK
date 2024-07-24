@@ -25,6 +25,7 @@
 #define WARN_LOG(fmt, args...) fprintf(stdout, "[WARN]  " fmt "\n", ##args)
 #define ERROR_LOG(fmt, args...) fprintf(stderr, "[ERROR]  " fmt "\n", ##args)
 
+namespace AttentionFusionGrad {
 /**
  * @brief Read data from file
  * @param [in] filePath: file path
@@ -41,5 +42,6 @@ bool ReadFile(const std::string &filePath, size_t fileSize, void *buffer, size_t
  * @return write result
  */
 bool WriteFile(const std::string &filePath, const void *buffer, size_t size);
+}
 
 #endif // COMMON_H
