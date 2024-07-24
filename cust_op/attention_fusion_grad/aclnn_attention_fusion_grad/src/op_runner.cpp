@@ -22,8 +22,6 @@ using namespace std;
 using namespace AttentionFusionGrad;
 
 extern bool g_isDevice;
-constexpr int NUM_TEST_EXEC = 100;
-constexpr int TIME_OUT = 5000;
 
 OpRunner::OpRunner(OperatorDesc* opDesc) : opDesc_(opDesc)
 {
@@ -114,7 +112,7 @@ bool OpRunner::Init()
             }
         } else {
             if (aclrtMallocHost(&hostOutput, size) != ACL_SUCCESS) {
-                ERROR_LOG("Malloc device memory for output[%zu] failed", i);
+                ERROR_LOG("Malloc host memory for output[%zu] failed", i);
                 return false;
             }
         }
@@ -149,7 +147,7 @@ const size_t OpRunner::NumOutputs()
 const size_t OpRunner::GetInputSize(size_t index) const
 {
     if (index >= numInputs_) {
-        ERROR_LOG("index out of range. index = %zu, numInputs = %zu", index, numInputs_);
+        ERROR_LOG("Index out of range. index = %zu, numInputs = %zu", index, numInputs_);
         return 0;
     }
 
@@ -159,7 +157,7 @@ const size_t OpRunner::GetInputSize(size_t index) const
 const size_t OpRunner::GetInputNumDims(size_t index) const
 {
     if (index >= numInputs_) {
-        ERROR_LOG("index out of range. index = %zu, numInputs = %zu", index, numInputs_);
+        ERROR_LOG("Index out of range. index = %zu, numInputs = %zu", index, numInputs_);
         return 0;
     }
 
@@ -169,7 +167,7 @@ const size_t OpRunner::GetInputNumDims(size_t index) const
 aclDataType OpRunner::GetInputDataType(size_t index) const
 {
     if (index >= numInputs_) {
-        ERROR_LOG("index out of range. index = %zu, numInputs = %zu", index, numInputs_);
+        ERROR_LOG("Index out of range. index = %zu, numInputs = %zu", index, numInputs_);
         return ACL_DT_UNDEFINED;
     }
 
@@ -179,7 +177,7 @@ aclDataType OpRunner::GetInputDataType(size_t index) const
 aclFormat OpRunner::GetInputFormat(size_t index) const
 {
     if (index >= numInputs_) {
-        ERROR_LOG("index out of range. index = %zu, numInputs = %zu", index, numInputs_);
+        ERROR_LOG("Index out of range. index = %zu, numInputs = %zu", index, numInputs_);
         return ACL_FORMAT_UNDEFINED;
     }
 
@@ -190,7 +188,7 @@ std::vector<int64_t> OpRunner::GetInputShape(size_t index) const
 {
     std::vector<int64_t> ret;
     if (index >= numInputs_) {
-        ERROR_LOG("index out of range. index = %zu, numInputs = %zu", index, numInputs_);
+        ERROR_LOG("Index out of range. index = %zu, numInputs = %zu", index, numInputs_);
         return ret;
     }
 
@@ -211,7 +209,7 @@ std::vector<int64_t> OpRunner::GetInputShape(size_t index) const
 size_t OpRunner::GetOutputSize(size_t index) const
 {
     if (index >= numOutputs_) {
-        ERROR_LOG("index out of range. index = %zu, numOutputs = %zu", index, numOutputs_);
+        ERROR_LOG("Index out of range. index = %zu, numOutputs = %zu", index, numOutputs_);
         return 0;
     }
 
@@ -221,7 +219,7 @@ size_t OpRunner::GetOutputSize(size_t index) const
 const size_t OpRunner::GetOutputNumDims(size_t index) const
 {
     if (index >= numOutputs_) {
-        ERROR_LOG("index out of range. index = %zu, numOutputs = %zu", index, numOutputs_);
+        ERROR_LOG("Index out of range. index = %zu, numOutputs = %zu", index, numOutputs_);
         return 0;
     }
 
@@ -231,7 +229,7 @@ const size_t OpRunner::GetOutputNumDims(size_t index) const
 aclDataType OpRunner::GetOutputDataType(size_t index) const
 {
     if (index >= numOutputs_) {
-        ERROR_LOG("index out of range. index = %zu, numOutputs = %zu", index, numOutputs_);
+        ERROR_LOG("Index out of range. index = %zu, numOutputs = %zu", index, numOutputs_);
         return ACL_DT_UNDEFINED;
     }
 
@@ -241,7 +239,7 @@ aclDataType OpRunner::GetOutputDataType(size_t index) const
 aclFormat OpRunner::GetOutputFormat(size_t index) const
 {
     if (index >= numOutputs_) {
-        ERROR_LOG("index out of range. index = %zu, numOutputs = %zu", index, numOutputs_);
+        ERROR_LOG("Index out of range. index = %zu, numOutputs = %zu", index, numOutputs_);
         return ACL_FORMAT_UNDEFINED;
     }
 
@@ -252,7 +250,7 @@ std::vector<int64_t> OpRunner::GetOutputShape(size_t index) const
 {
     std::vector<int64_t> ret;
     if (index >= numOutputs_) {
-        ERROR_LOG("index out of range. index = %zu, numOutputs = %zu", index, numOutputs_);
+        ERROR_LOG("Index out of range. index = %zu, numOutputs = %zu", index, numOutputs_);
         return ret;
     }
 
@@ -272,7 +270,7 @@ std::vector<int64_t> OpRunner::GetOutputShape(size_t index) const
 size_t OpRunner::GetInputElementCount(size_t index) const
 {
     if (index >= opDesc_->inputDesc.size()) {
-        ERROR_LOG("index out of range. index = %zu, numInputs = %zu", index, numInputs_);
+        ERROR_LOG("Index out of range. index = %zu, numInputs = %zu", index, numInputs_);
         return 0;
     }
 
@@ -282,7 +280,7 @@ size_t OpRunner::GetInputElementCount(size_t index) const
 size_t OpRunner::GetOutputElementCount(size_t index) const
 {
     if (index >= opDesc_->outputDesc.size()) {
-        ERROR_LOG("index out of range. index = %zu, numOutputs = %zu", index, numOutputs_);
+        ERROR_LOG("Index out of range. index = %zu, numOutputs = %zu", index, numOutputs_);
         return 0;
     }
 
@@ -327,6 +325,7 @@ bool OpRunner::RunOp()
     if (workspaceSize != 0) {
         if (aclrtMalloc(&workspace, workspaceSize, ACL_MEM_MALLOC_HUGE_FIRST) != ACL_SUCCESS) {
             ERROR_LOG("Malloc device memory failed");
+            return false;
         }
     }
 
@@ -339,7 +338,7 @@ bool OpRunner::RunOp()
     INFO_LOG("Execute aclnnAttentionFusionGrad success");
 
     ret = aclrtSynchronizeStreamWithTimeout(stream, TIME_OUT);
-    if (ret != SUCCESS) {
+    if (ret != SUCCESSED) {
         ERROR_LOG("Synchronize stream failed. error code is %d", static_cast<int32_t>(ret));
         (void)aclrtDestroyStream(stream);
         return false;

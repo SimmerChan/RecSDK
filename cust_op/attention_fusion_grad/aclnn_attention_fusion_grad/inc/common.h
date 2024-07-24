@@ -18,7 +18,7 @@
 
 #include "acl/acl.h"
 
-#define SUCCESS 0
+#define SUCCESSED 0
 #define FAILED 1
 
 #define INFO_LOG(fmt, args...) fprintf(stdout, "[INFO]  " fmt "\n", ##args)

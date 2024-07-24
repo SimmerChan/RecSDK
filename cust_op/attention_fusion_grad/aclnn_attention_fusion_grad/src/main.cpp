@@ -186,5 +186,5 @@ int main(int argc, char** argv)
 
     DestoryResource();
 
-    return SUCCESS;
+    return SUCCESSED;
 }

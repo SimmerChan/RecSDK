@@ -15,7 +15,6 @@
 #include "common.h"
 #include "operator_desc.h"
 
-
 namespace AttentionFusionGrad {
 /**
  * Op Runner
@@ -26,7 +25,7 @@ public:
      * @brief Constructor
      * @param [in] opDesc: op description
      */
-    explicit OpRunner(OperatorDesc *opDesc);
+    explicit OpRunner(OperatorDesc* opDesc);
 
     /**
      * @brief Destructor
@@ -108,7 +107,7 @@ public:
     T *GetInputBuffer(size_t index)
     {
         if (index >= numInputs_) {
-            ERROR_LOG("index out of range. index = %zu, numInputs = %zu", index, numInputs_);
+            ERROR_LOG("Index out of range. index = %zu, numInputs = %zu", index, numInputs_);
             return nullptr;
         }
         return reinterpret_cast<T *>(hostInputs_[index]);
@@ -124,7 +123,7 @@ public:
     const T *GetOutputBuffer(size_t index)
     {
         if (index >= numOutputs_) {
-            ERROR_LOG("index out of range. index = %zu, numOutputs = %zu", index, numOutputs_);
+            ERROR_LOG("Index out of range. index = %zu, numOutputs = %zu", index, numOutputs_);
             return nullptr;
         }
 
@@ -180,7 +179,6 @@ private:
     std::vector<aclTensor *> outputTensor_;
     OperatorDesc *opDesc_;
 };
-
 }
 
 #endif // OP_RUNNER_H
