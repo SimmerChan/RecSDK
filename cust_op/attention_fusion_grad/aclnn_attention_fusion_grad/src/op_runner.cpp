@@ -1,26 +1,28 @@
 /**
-* @file op_runner.cpp
-*
-* Copyright (C) 2024. Huawei Technologies Co., Ltd. All rights reserved.
-*
-* This program is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-*/
+ * @file op_runner.cpp
+ *
+ * Copyright (C) 2024. Huawei Technologies Co., Ltd. All rights reserved.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ */
 
-#include "aclnn_attention_fusion_grad.h"
 #include "op_runner.h"
-#include <limits>
+
 #include <cassert>
 #include <chrono>
+#include <limits>
+
 #include "acl/acl_op_compiler.h"
+#include "aclnn_attention_fusion_grad.h"
 #include "common.h"
 
 using namespace std;
 
 extern bool g_isDevice;
 
-OpRunner::OpRunner(OperatorDesc *opDesc) : opDesc_(opDesc)
+OpRunner::OpRunner(OperatorDesc* opDesc) : opDesc_(opDesc)
 {
     numInputs_ = opDesc->inputDesc.size();
     numOutputs_ = opDesc->outputDesc.size();
@@ -55,7 +57,7 @@ bool OpRunner::Init()
 {
     for (size_t i = 0; i < numInputs_; ++i) {
         auto size = GetInputSize(i);
-        void *devMem = nullptr;
+        void* devMem = nullptr;
         if (aclrtMalloc(&devMem, size, ACL_MEM_MALLOC_HUGE_FIRST) != ACL_SUCCESS) {
             ERROR_LOG("Malloc device memory for input[%zu] failed", i);
             return false;
@@ -63,7 +65,7 @@ bool OpRunner::Init()
         devInputs_.emplace_back(devMem);
         inputBuffers_.emplace_back(aclCreateDataBuffer(devMem, size));
 
-        void *hostInput = nullptr;
+        void* hostInput = nullptr;
         if (g_isDevice) {
             if (aclrtMalloc(&hostInput, size, ACL_MEM_MALLOC_HUGE_FIRST) != ACL_SUCCESS) {
                 ERROR_LOG("Malloc device memory for input[%zu] failed", i);
@@ -81,8 +83,9 @@ bool OpRunner::Init()
         }
         hostInputs_.emplace_back(hostInput);
 
-        aclTensor *inputTensor = aclCreateTensor(GetInputShape(i).data(), GetInputNumDims(i), GetInputDataType(i),
-            nullptr, 0, GetInputFormat(i), GetInputShape(i).data(), GetInputNumDims(i), devInputs_[i]);
+        aclTensor* inputTensor =
+            aclCreateTensor(GetInputShape(i).data(), GetInputNumDims(i), GetInputDataType(i), nullptr, 0,
+                            GetInputFormat(i), GetInputShape(i).data(), GetInputNumDims(i), devInputs_[i]);
         if (inputTensor == nullptr) {
             ERROR_LOG("Create Tensor for input[%zu] failed", i);
             return false;
@@ -92,7 +95,7 @@ bool OpRunner::Init()
 
     for (size_t i = 0; i < numOutputs_; ++i) {
         auto size = GetOutputSize(i);
-        void *devMem = nullptr;
+        void* devMem = nullptr;
         if (aclrtMalloc(&devMem, size, ACL_MEM_MALLOC_HUGE_FIRST) != ACL_SUCCESS) {
             ERROR_LOG("Malloc device memory for output[%zu] failed", i);
             return false;
@@ -100,7 +103,7 @@ bool OpRunner::Init()
         devOutputs_.emplace_back(devMem);
         outputBuffers_.emplace_back(aclCreateDataBuffer(devMem, size));
 
-        void *hostOutput = nullptr;
+        void* hostOutput = nullptr;
         if (g_isDevice) {
             if (aclrtMalloc(&hostOutput, size, ACL_MEM_MALLOC_HUGE_FIRST) != ACL_SUCCESS) {
                 ERROR_LOG("Malloc device memory for output[%zu] failed", i);
@@ -118,8 +121,9 @@ bool OpRunner::Init()
         }
         hostOutputs_.emplace_back(hostOutput);
 
-        aclTensor *outputTensor = aclCreateTensor(GetOutputShape(i).data(), GetOutputNumDims(i), GetOutputDataType(i),
-            nullptr, 0, GetOutputFormat(i), GetOutputShape(i).data(), GetOutputNumDims(i), devOutputs_[i]);
+        aclTensor* outputTensor =
+            aclCreateTensor(GetOutputShape(i).data(), GetOutputNumDims(i), GetOutputDataType(i), nullptr, 0,
+                            GetOutputFormat(i), GetOutputShape(i).data(), GetOutputNumDims(i), devOutputs_[i]);
         if (outputTensor == nullptr) {
             ERROR_LOG("Create Tensor for output[%zu] failed", i);
             return false;
@@ -232,7 +236,6 @@ aclDataType OpRunner::GetOutputDataType(size_t index) const
     return aclGetTensorDescType(opDesc_->outputDesc[index]);
 }
 
-
 aclFormat OpRunner::GetOutputFormat(size_t index) const
 {
     if (index >= numOutputs_) {
@@ -307,19 +310,18 @@ bool OpRunner::RunOp()
     INFO_LOG("Create stream success");
 
     size_t workspaceSize = 0;
-	aclOpExecutor *handle = nullptr;
-	auto ret = aclnnAttentionFusionGradGetWorkspaceSize(inputTensor_[0], inputTensor_[1], 
-                                                        inputTensor_[2], inputTensor_[3], inputTensor_[4], 
-                                                        outputTensor_[0], outputTensor_[1], outputTensor_[2], 
-                                                        &workspaceSize, &handle);
+    aclOpExecutor* handle = nullptr;
+    auto ret = aclnnAttentionFusionGradGetWorkspaceSize(inputTensor_[0], inputTensor_[1], inputTensor_[2],
+                                                        inputTensor_[3], inputTensor_[4], outputTensor_[0],
+                                                        outputTensor_[1], outputTensor_[2], &workspaceSize, &handle);
     if (ret != ACL_SUCCESS) {
         (void)aclrtDestroyStream(stream);
         ERROR_LOG("Get Operator Workspace failed. error code is %d", static_cast<int32_t>(ret));
         return false;
     }
-	INFO_LOG("Execute aclnnAttentionFusionGradGetWorkspaceSize success, workspace size %lu", workspaceSize);
-    
-    void *workspace = nullptr;
+    INFO_LOG("Execute aclnnAttentionFusionGradGetWorkspaceSize success, workspace size %lu", workspaceSize);
+
+    void* workspace = nullptr;
     if (workspaceSize != 0) {
         if (aclrtMalloc(&workspace, workspaceSize, ACL_MEM_MALLOC_HUGE_FIRST) != ACL_SUCCESS) {
             ERROR_LOG("Malloc device memory failed");
@@ -332,7 +334,7 @@ bool OpRunner::RunOp()
         ERROR_LOG("Execute Operator failed. error code is %d", static_cast<int32_t>(ret));
         return false;
     }
-	INFO_LOG("Execute aclnnAttentionFusionGrad success");
+    INFO_LOG("Execute aclnnAttentionFusionGrad success");
 
     ret = aclrtSynchronizeStreamWithTimeout(stream, 5000);
     if (ret != SUCCESS) {
@@ -343,18 +345,17 @@ bool OpRunner::RunOp()
     INFO_LOG("Synchronize stream success");
 
     auto beforeTime = std::chrono::steady_clock::now();
-    for (int i = 0; i<100; i++) {
-        ret = aclnnAttentionFusionGradGetWorkspaceSize(inputTensor_[0], inputTensor_[1], inputTensor_[2], 
-                                                        inputTensor_[3], inputTensor_[4], outputTensor_[0], 
-                                                        outputTensor_[1], outputTensor_[2], 
-                                                        &workspaceSize, &handle);
+    for (int i = 0; i < 100; i++) {
+        ret = aclnnAttentionFusionGradGetWorkspaceSize(inputTensor_[0], inputTensor_[1], inputTensor_[2],
+                                                       inputTensor_[3], inputTensor_[4], outputTensor_[0],
+                                                       outputTensor_[1], outputTensor_[2], &workspaceSize, &handle);
         ret = aclnnAttentionFusionGrad(workspace, workspaceSize, handle, stream);
     }
     ret = aclrtSynchronizeStreamWithTimeout(stream, 5000);
     auto afterTime = std::chrono::steady_clock::now();
     double duration_microsecond = std::chrono::duration<double, std::micro>(afterTime - beforeTime).count();
-	std::cout << "time cost " << duration_microsecond/100 << " us" << std::endl;
-    
+    std::cout << "time cost " << duration_microsecond / 100 << " us" << std::endl;
+
     for (size_t i = 0; i < numOutputs_; ++i) {
         auto size = GetOutputSize(i);
         aclrtMemcpyKind kind = ACL_MEMCPY_DEVICE_TO_HOST;
@@ -373,9 +374,8 @@ bool OpRunner::RunOp()
     return true;
 }
 
-
-template<typename T>
-void DoPrintData(const T *data, size_t count, size_t elementsPerRow)
+template <typename T>
+void DoPrintData(const T* data, size_t count, size_t elementsPerRow)
 {
     assert(elementsPerRow != 0);
     for (size_t i = 0; i < count; ++i) {
@@ -386,7 +386,7 @@ void DoPrintData(const T *data, size_t count, size_t elementsPerRow)
     }
 }
 
-void DoPrintFp16Data(const aclFloat16 *data, size_t count, size_t elementsPerRow)
+void DoPrintFp16Data(const aclFloat16* data, size_t count, size_t elementsPerRow)
 {
     assert(elementsPerRow != 0);
     for (size_t i = 0; i < count; ++i) {
@@ -397,7 +397,7 @@ void DoPrintFp16Data(const aclFloat16 *data, size_t count, size_t elementsPerRow
     }
 }
 
-void PrintData(const void *data, size_t count, aclDataType dataType, size_t elementsPerRow)
+void PrintData(const void* data, size_t count, aclDataType dataType, size_t elementsPerRow)
 {
     if (data == nullptr) {
         ERROR_LOG("Print data failed. data is nullptr");
@@ -406,40 +406,40 @@ void PrintData(const void *data, size_t count, aclDataType dataType, size_t elem
 
     switch (dataType) {
         case ACL_BOOL:
-            DoPrintData(reinterpret_cast<const bool *>(data), count, elementsPerRow);
+            DoPrintData(reinterpret_cast<const bool*>(data), count, elementsPerRow);
             break;
         case ACL_INT8:
-            DoPrintData(reinterpret_cast<const int8_t *>(data), count, elementsPerRow);
+            DoPrintData(reinterpret_cast<const int8_t*>(data), count, elementsPerRow);
             break;
         case ACL_UINT8:
-            DoPrintData(reinterpret_cast<const uint8_t *>(data), count, elementsPerRow);
+            DoPrintData(reinterpret_cast<const uint8_t*>(data), count, elementsPerRow);
             break;
         case ACL_INT16:
-            DoPrintData(reinterpret_cast<const int16_t *>(data), count, elementsPerRow);
+            DoPrintData(reinterpret_cast<const int16_t*>(data), count, elementsPerRow);
             break;
         case ACL_UINT16:
-            DoPrintData(reinterpret_cast<const uint16_t *>(data), count, elementsPerRow);
+            DoPrintData(reinterpret_cast<const uint16_t*>(data), count, elementsPerRow);
             break;
         case ACL_INT32:
-            DoPrintData(reinterpret_cast<const int32_t *>(data), count, elementsPerRow);
+            DoPrintData(reinterpret_cast<const int32_t*>(data), count, elementsPerRow);
             break;
         case ACL_UINT32:
-            DoPrintData(reinterpret_cast<const uint32_t *>(data), count, elementsPerRow);
+            DoPrintData(reinterpret_cast<const uint32_t*>(data), count, elementsPerRow);
             break;
         case ACL_INT64:
-            DoPrintData(reinterpret_cast<const int64_t *>(data), count, elementsPerRow);
+            DoPrintData(reinterpret_cast<const int64_t*>(data), count, elementsPerRow);
             break;
         case ACL_UINT64:
-            DoPrintData(reinterpret_cast<const uint64_t *>(data), count, elementsPerRow);
+            DoPrintData(reinterpret_cast<const uint64_t*>(data), count, elementsPerRow);
             break;
         case ACL_FLOAT16:
-            DoPrintFp16Data(reinterpret_cast<const aclFloat16 *>(data), count, elementsPerRow);
+            DoPrintFp16Data(reinterpret_cast<const aclFloat16*>(data), count, elementsPerRow);
             break;
         case ACL_FLOAT:
-            DoPrintData(reinterpret_cast<const float *>(data), count, elementsPerRow);
+            DoPrintData(reinterpret_cast<const float*>(data), count, elementsPerRow);
             break;
         case ACL_DOUBLE:
-            DoPrintData(reinterpret_cast<const double *>(data), count, elementsPerRow);
+            DoPrintData(reinterpret_cast<const double*>(data), count, elementsPerRow);
             break;
         default:
             ERROR_LOG("Unsupported type: %d", dataType);

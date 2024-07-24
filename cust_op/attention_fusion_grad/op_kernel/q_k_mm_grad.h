@@ -15,16 +15,16 @@ See the License for the specific language governing permissions and
 
 #ifndef QK_MM_GRAD_H
 #define QK_MM_GRAD_H
+#include "args.h"
 #include "kernel_operator.h"
 #include "lib/matmul_intf.h"
 #include "utils.h"
-#include "args.h"
 using namespace AscendC;
 
-template<typename tType>
+template <typename tType>
 class QKMmGrad {
 public:
-    __aicore__ inline QKMmGrad(){}
+    __aicore__ inline QKMmGrad() {}
 
     __aicore__ inline void Init(AttentionFusionGradArgs args)
     {
@@ -35,19 +35,19 @@ public:
         gradQueryShapeOfOneBatch = args.shapeArgs.queryDim1 * args.shapeArgs.queryDim2;
         gradKeyShapeOfOneBatch = args.shapeArgs.keyDim1 * args.shapeArgs.keyDim2;
 
-        query.SetGlobalBuffer(reinterpret_cast<__gm__ tType*>(args.inputArgs.query), 
-                                args.shapeArgs.batchNum * queryShapeOfOneBatch);
+        query.SetGlobalBuffer(reinterpret_cast<__gm__ tType*>(args.inputArgs.query),
+                              args.shapeArgs.batchNum * queryShapeOfOneBatch);
 
-        key.SetGlobalBuffer(reinterpret_cast<__gm__ tType*>(args.inputArgs.key), 
-                                args.shapeArgs.batchNum * keyShapeOfOneBatch);
+        key.SetGlobalBuffer(reinterpret_cast<__gm__ tType*>(args.inputArgs.key),
+                            args.shapeArgs.batchNum * keyShapeOfOneBatch);
 
-        gradSoftmax.SetGlobalBuffer(reinterpret_cast<__gm__ tType*>(args.inputArgs.workspace), 
-                                args.shapeArgs.batchNum * gradSoftmaxShapeOfOneBatch);
+        gradSoftmax.SetGlobalBuffer(reinterpret_cast<__gm__ tType*>(args.inputArgs.workspace),
+                                    args.shapeArgs.batchNum * gradSoftmaxShapeOfOneBatch);
 
-        gradQuery.SetGlobalBuffer(reinterpret_cast<__gm__ tType*>(args.outputArgs.gradQuery), 
-                                args.shapeArgs.batchNum * gradQueryShapeOfOneBatch);
+        gradQuery.SetGlobalBuffer(reinterpret_cast<__gm__ tType*>(args.outputArgs.gradQuery),
+                                  args.shapeArgs.batchNum * gradQueryShapeOfOneBatch);
 
-        gradKey.SetGlobalBuffer(reinterpret_cast<__gm__ tType*>(args.outputArgs.gradKey), 
+        gradKey.SetGlobalBuffer(reinterpret_cast<__gm__ tType*>(args.outputArgs.gradKey),
                                 args.shapeArgs.batchNum * gradKeyShapeOfOneBatch);
     }
 
@@ -57,7 +57,7 @@ public:
             mmGradQ.WaitIterateAll();
             mmGradQ.End();
         }
-        batchI +=  args.shapeTilingArgs.batchOffset;
+        batchI += args.shapeTilingArgs.batchOffset;
         mmGradQ.SetTensorA(gradSoftmax[batchI * gradSoftmaxShapeOfOneBatch]);
         mmGradQ.SetTensorB(key[batchI * keyShapeOfOneBatch]);
 
@@ -70,39 +70,37 @@ public:
             mmGradK.WaitIterateAll();
             mmGradK.End();
         }
-        batchI +=  args.shapeTilingArgs.batchOffset;
+        batchI += args.shapeTilingArgs.batchOffset;
         mmGradK.SetTensorA(gradSoftmax[batchI * gradSoftmaxShapeOfOneBatch], true);
         mmGradK.SetTensorB(query[batchI * queryShapeOfOneBatch]);
 
         mmGradK.template IterateAll<false>(gradKey[batchI * gradKeyShapeOfOneBatch], 0, false, true);
     }
 
-    matmul::Matmul<
-        matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, tType, false>,
-        matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, tType, false>,
-        matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, tType, false>,
-        matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, tType>
-        > mmGradQ;
+    matmul::Matmul<matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, tType, false>,
+                   matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, tType, false>,
+                   matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, tType, false>,
+                   matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, tType>>
+        mmGradQ;
 
-    matmul::Matmul<
-        matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, tType, true>,
-        matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, tType, false>,
-        matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, tType, false>,
-        matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, tType>
-        > mmGradK;
+    matmul::Matmul<matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, tType, true>,
+                   matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, tType, false>,
+                   matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, tType, false>,
+                   matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, tType>>
+        mmGradK;
 
-    private:
-        int queryShapeOfOneBatch;
-        int keyShapeOfOneBatch;
-        int gradSoftmaxShapeOfOneBatch;
-        int gradQueryShapeOfOneBatch;
-        int gradKeyShapeOfOneBatch;
-        AttentionFusionGradArgs args;
+private:
+    int queryShapeOfOneBatch;
+    int keyShapeOfOneBatch;
+    int gradSoftmaxShapeOfOneBatch;
+    int gradQueryShapeOfOneBatch;
+    int gradKeyShapeOfOneBatch;
+    AttentionFusionGradArgs args;
 
-        GlobalTensor<tType> query;
-        GlobalTensor<tType> key;
-        GlobalTensor<tType> gradSoftmax;
-        GlobalTensor<tType> gradQuery;
-        GlobalTensor<tType> gradKey;
+    GlobalTensor<tType> query;
+    GlobalTensor<tType> key;
+    GlobalTensor<tType> gradSoftmax;
+    GlobalTensor<tType> gradQuery;
+    GlobalTensor<tType> gradKey;
 };
 #endif

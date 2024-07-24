@@ -13,17 +13,18 @@ See the License for the specific language governing permissions and
         limitations under the License.
 ==============================================================================*/
 
-#include "kernel_operator.h"
-#include "attention_fusion_grad_kernel.h"
-#include "utils.h"
 #include "args.h"
+#include "attention_fusion_grad_kernel.h"
+#include "kernel_operator.h"
+#include "utils.h"
 
 using namespace AscendC;
 
 extern "C" __global__ __aicore__ void attention_fusion_grad(GM_ADDR dout, GM_ADDR softmaxOut, GM_ADDR query,
                                                             GM_ADDR key, GM_ADDR value, GM_ADDR gradQuery,
                                                             GM_ADDR gradKey, GM_ADDR gradValue, GM_ADDR workspace,
-                                                            GM_ADDR tiling) {
+                                                            GM_ADDR tiling)
+{
     GET_TILING_DATA(tilingData, tiling);
     // calculate batch offset
     int batchOffset;
@@ -39,33 +40,27 @@ extern "C" __global__ __aicore__ void attention_fusion_grad(GM_ADDR dout, GM_ADD
         batchOffset = GetBlockIdx() * blockLenPerCoreBase + remain;
     }
 
-    InputArgs inputArgs {
-        dout, softmaxOut, query, key, value, workspace, tilingData.attenDimSqrt
-    };
+    InputArgs inputArgs{dout, softmaxOut, query, key, value, workspace, tilingData.attenDimSqrt};
 
-    OutputArgs outputArgs {
-        gradQuery, gradKey, gradValue
-    };
+    OutputArgs outputArgs{gradQuery, gradKey, gradValue};
 
-    ShapeArgs shapeArgs {
-        tilingData.batchNum, tilingData.queryDim1, tilingData.queryDim2, tilingData.keyDim1, 
-        tilingData.keyDim2, tilingData.valueDim1, tilingData.valueDim2
-    };
+    ShapeArgs shapeArgs{tilingData.batchNum, tilingData.queryDim1, tilingData.queryDim2, tilingData.keyDim1,
+                        tilingData.keyDim2,  tilingData.valueDim1, tilingData.valueDim2};
 
-    ShapeTilingArgs shapeTilingArgs {
-        tilingData.paddingKeyDim1, tilingData.keyDim1Align, tilingData.transposeAlignDim, 
-        tilingData.numRowOfNormalizeOne, batchOffset, batchLen
-    };
+    ShapeTilingArgs shapeTilingArgs{tilingData.paddingKeyDim1,
+                                    tilingData.keyDim1Align,
+                                    tilingData.transposeAlignDim,
+                                    tilingData.numRowOfNormalizeOne,
+                                    batchOffset,
+                                    batchLen};
 
-    TilingArgs tilingArgs {
-        &tilingData.gardVMatmulTiling, &tilingData.gardSMatmulTiling, &tilingData.gardQMatmulTiling, 
-        &tilingData.gardKMatmulTiling, &tilingData.unAlign2AlignStep1Tiling, &tilingData.unAlign2AlignStep2Tiling,
-        &tilingData.Align2UnAlignStep1Tiling, &tilingData.Align2UnAlignStep2Tiling, &tilingData.softMaxGradTiling
-    };
+    TilingArgs tilingArgs{&tilingData.gardVMatmulTiling,        &tilingData.gardSMatmulTiling,
+                          &tilingData.gardQMatmulTiling,        &tilingData.gardKMatmulTiling,
+                          &tilingData.unAlign2AlignStep1Tiling, &tilingData.unAlign2AlignStep2Tiling,
+                          &tilingData.Align2UnAlignStep1Tiling, &tilingData.Align2UnAlignStep2Tiling,
+                          &tilingData.softMaxGradTiling};
 
-    AttentionFusionGradArgs attentionFusionGradAgs {
-        inputArgs, outputArgs, shapeArgs, shapeTilingArgs, tilingArgs
-    };
+    AttentionFusionGradArgs attentionFusionGradAgs{inputArgs, outputArgs, shapeArgs, shapeTilingArgs, tilingArgs};
 
     AttentionFusionGradKernel<float> attentionGradKernel;
     attentionGradKernel.Compute(attentionFusionGradAgs);
