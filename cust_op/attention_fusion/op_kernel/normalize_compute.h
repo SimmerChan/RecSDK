@@ -3,15 +3,20 @@
 #include <cstdint>
 #include "kernel_operator.h"
 using namespace AscendC;
-#define ALIGN_32 32
-#define ALREADY_ALIGNED 1
-#define SPECIAL_CASE 2
-#define PAD_SIZE (16 * 56 * 16)
-#define PAD_SIZE (16 * 56 * 16)
-#define SPECIAL_BLOCK_COUNT 16
-#define SPECIAL_BLOCK_LEN (16 * 56 * 16)
-#define SPECIAL_STRIDE (6 * 16 / 8)
-#define PAD_VALUE -1000
+
+namespace Attention_Kernel {
+
+constexpr int32_t ALIGN_32 = 32;
+constexpr int32_t ALREADY_ALIGNED = 1;
+constexpr int32_t SPECIAL_CASE = 2;
+constexpr int32_t PAD_SIZE = (16 * 56 * 16);
+constexpr int32_t PAD_SIZE = (16 * 56 * 16);
+constexpr int32_t SPECIAL_BLOCK_COUNT = 16;
+constexpr int32_t SPECIAL_BLOCK_LEN = (16 * 56 * 16);
+constexpr int32_t SPECIAL_STRIDE = (6 * 16 / 8);
+constexpr int32_t PAD_VALUE = -1000;
+constexpr float MASK_MUL_CONST = -10000;
+constexpr float MASK_ADD_CONST = 10000;
 
 struct NormalizeArgs {
     TPipe* pipe;
@@ -28,16 +33,16 @@ struct NormalizeArgs {
 
     const SoftMaxTiling* tiling;
 
-    const ConfusionTransposeTiling* confusionTransposeTilingData;
-    const ConfusionTransposeTiling* confusionTransposeTilingData1;
-    const ConfusionTransposeTiling* confusionTransposeTilingData2;
-    const ConfusionTransposeTiling* confusionTransposeTilingData3;
+    const ConfusionTransposeTiling* tilingData;
+    const ConfusionTransposeTiling* tilingData1;
+    const ConfusionTransposeTiling* tilingData2;
+    const ConfusionTransposeTiling* tilingData3;
 };
 
 template<typename qType>
 class NormalizeCompute {
-public:
-    __aicore__ inline NormalizeCompute(){}
+    public:
+    __aicore__ inline NormalizeCompute() {}
 
     __aicore__ inline void Init(NormalizeArgs normalArgs)
     {
@@ -49,44 +54,35 @@ public:
     }
 
     __aicore__ inline void DoPadLocal(LocalTensor<qType>& sourceTensor, LocalTensor<qType>& mindTensor,
-                                        const ConfusionTransposeTiling* confusionTransposeTilingData,
-                                        const ConfusionTransposeTiling* confusionTransposeTilingData1)
+                                        const ConfusionTransposeTiling* tilingData,
+                                        const ConfusionTransposeTiling* tilingData1)
     {
-        ConfusionTransposeTiling tiling = *confusionTransposeTilingData;
+        ConfusionTransposeTiling tiling = *tilingData;
         ConfusionTranspose<qType>(mindTensor, sourceTensor, TransposeType::TRANSPOSE_ND2ND_ONLY, tiling);
         Duplicate<float>(sourceTensor, PAD_VALUE, PAD_SIZE);
-        DataCopyParams dataCopyParam = {0, 0, 0, 0};
-        dataCopyParam.blockCount = SPECIAL_BLOCK_COUNT;
-        dataCopyParam.blockLen = SPECIAL_BLOCK_LEN;
-        dataCopyParam.srcStride = 0;
-        dataCopyParam.dstStride = SPECIAL_STRIDE;
+        DataCopyParams dataCopyParam = {SPECIAL_BLOCK_COUNT, SPECIAL_BLOCK_LEN, 0, SPECIAL_STRIDE};
         DataCopy(sourceTensor, mindTensor, dataCopyParam);
 
-        ConfusionTransposeTiling tiling1 = *confusionTransposeTilingData1;
+        ConfusionTransposeTiling tiling1 = *tilingData1;
         ConfusionTranspose<qType>(mindTensor, sourceTensor, TransposeType::TRANSPOSE_ND2ND_ONLY, tiling1);
         DataCopy(sourceTensor, mindTensor, PAD_SIZE);
     }
-
 
     __aicore__ inline void DoUnPadLocal(LocalTensor<qType>& sourceTensor, LocalTensor<qType>& mindTensor,
-                                        const ConfusionTransposeTiling* confusionTransposeTilingData2,
-                                        const ConfusionTransposeTiling* confusionTransposeTilingData3)
+                                        const ConfusionTransposeTiling* tilingData2,
+                                        const ConfusionTransposeTiling* tilingData3)
     {
-        ConfusionTransposeTiling tiling = *confusionTransposeTilingData2;
+        ConfusionTransposeTiling tiling = *tilingData2;
         ConfusionTranspose<qType>(mindTensor, sourceTensor, TransposeType::TRANSPOSE_ND2ND_ONLY, tiling);
         Duplicate<float>(sourceTensor, PAD_VALUE, PAD_SIZE);
-        DataCopyParams dataCopyParam = {0, 0, 0, 0};
-        dataCopyParam.blockCount = SPECIAL_BLOCK_COUNT;
-        dataCopyParam.blockLen = SPECIAL_BLOCK_LEN;
-        dataCopyParam.srcStride = SPECIAL_STRIDE;
-        dataCopyParam.dstStride = 0;
+        DataCopyParams dataCopyParam = {SPECIAL_BLOCK_COUNT, SPECIAL_BLOCK_LEN, SPECIAL_STRIDE, 0};
         DataCopy(sourceTensor, mindTensor, dataCopyParam);
 
-        ConfusionTransposeTiling tiling1 = *confusionTransposeTilingData3;
+        ConfusionTransposeTiling tiling1 = *tilingData3;
         ConfusionTranspose<qType>(mindTensor, sourceTensor, TransposeType::TRANSPOSE_ND2ND_ONLY, tiling1);
         DataCopy(sourceTensor, mindTensor, PAD_SIZE);
     }
-    
+
     __aicore__ inline void Process(GlobalTensor<qType> softmaxGlobleTensor, GlobalTensor<qType> softmaxGbMask)
     {
         srcGloblePtr = softmaxGlobleTensor;
@@ -112,7 +108,7 @@ public:
         }
     }
 
-private:
+    private:
     __aicore__ inline void CopyMask()
     {
         LocalTensor<qType> LocalMask = vecSharedQueue.AllocTensor<qType>();
@@ -157,14 +153,11 @@ private:
 
         if (args.attr == SPECIAL_CASE && args.maskIsOn == 1) {
             LocalTensor<qType> LocalMask = vecSharedQueue.DeQue<qType>();
-            DoPadLocal(LocalMask, outLocalTensor, args.confusionTransposeTilingData,
-                                                    args.confusionTransposeTilingData1);
-            DoPadLocal(inLocalTensor, outLocalTensor, args.confusionTransposeTilingData,
-                                                        args.confusionTransposeTilingData1);
+            DoPadLocal(LocalMask, outLocalTensor, args.tilingData, args.tilingData1);
+            DoPadLocal(inLocalTensor, outLocalTensor, args.tilingData, args.tilingData1);
             vecSharedQueue.EnQue(LocalMask);
         } else if (args.attr == SPECIAL_CASE) {
-            DoPadLocal(inLocalTensor, outLocalTensor, args.confusionTransposeTilingData,
-                                                        args.confusionTransposeTilingData1);
+            DoPadLocal(inLocalTensor, outLocalTensor, args.tilingData, args.tilingData1);
         }
 
         // atten_weight = qkMatMul / sqrt(atten_dim)
@@ -173,8 +166,8 @@ private:
         if (args.maskIsOn == 1) {
             LocalTensor<qType> LocalMask = vecSharedQueue.DeQue<qType>();
             // atten_mask = (1 - mask) * 10000
-            Muls(LocalMask, LocalMask, (float)-10000, totalSize);
-            Adds(LocalMask, LocalMask, (float)10000, totalSize);
+            Muls(LocalMask, LocalMask, MASK_MUL_CONST, totalSize);
+            Adds(LocalMask, LocalMask, MASK_ADD_CONST, totalSize);
 
             // atten_weight = atten_weight + atten_mask
             Add(inLocalTensor, inLocalTensor, LocalMask, totalSize);
@@ -191,12 +184,11 @@ private:
         LocalTensor<qType> outLocalTensor = vecOutQueue.DeQue<qType>();
         LocalTensor<uint8_t> sharedTmpBuf = vecSharedQueue.AllocTensor<uint8_t>();
 
-        SoftMaxShapeInfo scrShape ={height, (uint32_t)args.normalizeColumn, height, (uint32_t)args.keyDim1};
+        SoftMaxShapeInfo scrShape = {height, (uint32_t)args.normalizeColumn, height, (uint32_t)args.keyDim1};
         SoftMax<qType>(outLocalTensor, inLocalTensor, sharedTmpBuf, *args.tiling, scrShape);
 
         if (args.attr == SPECIAL_CASE) {
-            DoUnPadLocal(outLocalTensor, inLocalTensor, args.confusionTransposeTilingData2,
-                                                        args.confusionTransposeTilingData3);
+            DoUnPadLocal(outLocalTensor, inLocalTensor, args.tilingData2, args.tilingData3);
         }
         vecOutQueue.EnQue<qType>(outLocalTensor);
         vecInQueue.FreeTensor(inLocalTensor);
@@ -223,7 +215,7 @@ private:
         vecOutQueue.FreeTensor(outLocalTensor);
     }
 
-private:
+    private:
     NormalizeArgs args;
     TQue<QuePosition::VECIN, 1> vecInQueue;
     TQue<QuePosition::VECOUT, 1> vecOutQueue;
@@ -238,4 +230,5 @@ private:
     struct DataCopyExtParams copyParams;
     struct DataCopyPadExtParams<qType> padParams;
 };
+}
 #endif

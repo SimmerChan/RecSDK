@@ -2,8 +2,10 @@
 #include "attention_fusion_kernel.h"
 using namespace AscendC;
 
+namespace Attention_Kernel {
 // call of kernel function
-extern "C" __global__ __aicore__ void attention_fusion(GM_ADDR query, GM_ADDR key, GM_ADDR value, GM_ADDR attnMask, GM_ADDR attenScore, GM_ADDR softmaxOut, GM_ADDR workspace, GM_ADDR tiling) {
+extern "C" __global__ __aicore__ void attention_fusion(GM_ADDR query, GM_ADDR key, GM_ADDR value, GM_ADDR attnMask,
+                                            GM_ADDR attenScore, GM_ADDR softmaxOut, GM_ADDR workspace, GM_ADDR tiling) {
     GET_TILING_DATA(tiling_data, tiling);
 
     const TCubeTiling *qkMatmulTiling = &tiling_data.qkMatmulTiling;
@@ -21,4 +23,5 @@ extern "C" __global__ __aicore__ void attention_fusion(GM_ADDR query, GM_ADDR ke
 
     AttentionFusionKernel<float, float, float> kernel;
     kernel.Compute(args);
+}
 }

@@ -1,12 +1,11 @@
 #ifndef QK_BMMM_COMPUTE__H
 #define QK_BMMM_COMPUTE__H
 #include <cstdint>
-#include "attention_fusion_kernel.h"
 #include "kernel_operator.h"
-#include "lib/matmul_intf.h"
 
 using namespace AscendC;
 
+namespace Attention_Kernel {
 struct QKBmmArgs {
     GM_ADDR query;
     GM_ADDR key;
@@ -26,7 +25,7 @@ struct QKBmmPipeArgs {
 
 template<typename qType, typename kType>
 class QKBmmCompute {
-public:
+    public:
     __aicore__ inline QKBmmCompute() {}
 
     __aicore__ inline void Init(QKBmmArgs qKBmmArgs, QKBmmPipeArgs pipeArgs)
@@ -64,10 +63,11 @@ public:
         matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, qType, false>,
         matmul::MatmulType<matmul::TPosition::GM, CubeFormat::ND, qType>
         > mm;
-private:
+    private:
     QKBmmArgs qKBmmArgs;
     GlobalTensor<qType> qGlobal;
     GlobalTensor<kType> kGlobal;
     GlobalTensor<kType> outGlobal;
 };
+}
 #endif
