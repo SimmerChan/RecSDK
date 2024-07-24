@@ -696,14 +696,15 @@ void HybridMgmt::ProcessEmbInfoDDR(const EmbBaseInfo& info, bool& remainBatchOut
     bool isEos = false;
     auto uniqueKeys = GetUniqueKeys(info, remainBatchOut, isEos);
     if (isEos) {
-        std::vector<float*> addrs{nullptr, nullptr};
+        vector<uint64_t> swapInKeys{0, 0};
         if (info.channelId == EVAL_CHANNEL_ID) {
-            addrs.push_back(nullptr);
+            swapInKeys = vector<uint64_t>(2,1);
         }
-        HBMSwapAddrsQue[info.name + SWAP_IN_STR].Pushv(addrs);
-        HBMSwapAddrsQue[info.name + SWAP_OUT_STR].Pushv(addrs);
-        LOG_DEBUG("[LQK] enqueue HBMSwapAddrsQue eos, table:{}, batchId:{}, channelId:{}, addrs:{}",
-                  info.name, info.batchId, info.channelId, addrs.size());
+
+        LOG_DEBUG("[LQK] enqueue HBMSwapKeyQue table:{}, batchId:{}, channelId:{}, swapInSize:{}", info.name,
+                  info.batchId, info.channelId, swapInKeys.size());
+        HBMSwapKeyQue[info.name + SWAP_IN_STR].Pushv(swapInKeys);
+        CheckLookupAddrSuccessDDR();
     }
     if (uniqueKeys.empty()) {
         return;
@@ -993,6 +994,25 @@ void HybridMgmt::LookUpSwapAddrs(const string& embName)
         }
         // swap in
         std::vector<uint64_t> keys = HBMSwapKeyQue[swapInName].WaitAndPop();
+        if (keys.size() == 2 && keys[0] == keys[1] == 0) //train eos
+        {
+            std::vector<float*> addrs{nullptr, nullptr};
+            HBMSwapAddrsQue[swapInName].Pushv(addrs);
+            HBMSwapAddrsQue[swapOutName].Pushv(addrs);
+            LOG_DEBUG("[LQK] enqueue HBMSwapAddrsQue eos, table:{}, batchId:{}, channelId:{}",
+                      embName, id, TRAIN_CHANNEL_ID);
+            continue;
+        }
+        if (keys.size() == 2 && keys[0] == keys[1] == 1) //eval eos
+        {
+            std::vector<float*> addrs{nullptr, nullptr, nullptr};
+            HBMSwapAddrsQue[swapInName].Pushv(addrs);
+            HBMSwapAddrsQue[swapOutName].Pushv(addrs);
+            LOG_DEBUG("[LQK] enqueue HBMSwapAddrsQue eos, table:{}, batchId:{}, channelId:{}",
+                      embName, id, EVAL_CHANNEL_ID);
+            continue;
+        }
+
         TimeCost lookupAddrsInTC;
         int rc = embCache->EmbeddingLookupAddrs(embName, keys, addrs);
         if (rc != H_OK) {
