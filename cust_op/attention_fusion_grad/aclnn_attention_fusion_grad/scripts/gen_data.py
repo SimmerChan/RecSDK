@@ -1,9 +1,10 @@
 #!/usr/bin/python3
 # -*- coding:utf-8 -*-
 # Copyright 2024 Huawei Technologies Co., Ltd
-import numpy as np
 import os
 import math
+import numpy as np
+
 
 def softmax_grad(grad, src):
     dst = grad * src
@@ -11,23 +12,24 @@ def softmax_grad(grad, src):
     dst = (grad - dst) * src
     return dst
 
+
 def param_attn_layer_grad(dout, softmax_out, query, key, value):
     # Dv and dS
-    dv = np.matmul(np.transpose(softmax_out, (0, 2, 1)), dout)
-    dS = np.matmul(dout, np.transpose(value, (0, 2, 1))) 
-    dS = softmax_grad(dS, softmax_out)/math.sqrt(query.shape[2])
+    d_v = np.matmul(np.transpose(softmax_out, (0, 2, 1)), dout)
+    d_s = np.matmul(dout, np.transpose(value, (0, 2, 1))) 
+    d_s = softmax_grad(d_s, softmax_out)/math.sqrt(query.shape[2])
     # Atten 
-    dQ = np.matmul(dS, key)
-    dK = np.matmul(np.transpose(dS, (0, 2, 1)), query)
-    return dQ, dK, dv
+    d_q = np.matmul(d_s, key)
+    d_k = np.matmul(np.transpose(d_s, (0, 2, 1)), query)
+    return d_q, d_k, d_v
+
 
 def gen_golden_data_simple():
-
-    dout = np.random.uniform(-1, 1,[1024, 1000, 80]).astype(np.float32)
+    dout = np.random.uniform(-1, 1, [1024, 1000, 80]).astype(np.float32)
     softmax_out = np.random.uniform(-1, 1,[1024, 1000, 50]).astype(np.float32)
-    query = np.random.uniform(-1, 1,[1024, 1000, 80]).astype(np.float32)
-    key = np.random.uniform(-1, 1,[1024, 50, 80]).astype(np.float32)
-    value = np.random.uniform(-1, 1,[1024, 50, 80]).astype(np.float32)
+    query = np.random.uniform(-1, 1, [1024, 1000, 80]).astype(np.float32)
+    key = np.random.uniform(-1, 1, [1024, 50, 80]).astype(np.float32)
+    value = np.random.uniform(-1, 1, [1024, 50, 80]).astype(np.float32)
 
     grad_query, grad_key, grad_value = param_attn_layer_grad(dout, softmax_out, query, key, value)
 
