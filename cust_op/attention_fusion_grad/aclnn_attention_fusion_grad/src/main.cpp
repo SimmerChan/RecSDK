@@ -18,7 +18,7 @@
 
 #include "common.h"
 
-bool g_isDevice = false;
+bool isDevice = false;
 int deviceId = 15;
 
 OperatorDesc CreateOpDesc()
@@ -123,7 +123,7 @@ bool InitResource()
         DestoryResource();
         return false;
     }
-    g_isDevice = (runMode == ACL_DEVICE);
+    isDevice = (runMode == ACL_DEVICE);
     INFO_LOG("Get RunMode[%d] success", runMode);
 
     return true;

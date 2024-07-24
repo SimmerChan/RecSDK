@@ -21,8 +21,8 @@ See the License for the specific language governing permissions and
 using namespace AscendC;
 
 extern "C" __global__ __aicore__ void attention_fusion_grad(GM_ADDR dout, GM_ADDR softmaxOut, GM_ADDR query,
-                                                            GM_ADDR key, GM_ADDR value, GM_ADDR gradQuery, 
-                                                            GM_ADDR gradKey, GM_ADDR gradValue, GM_ADDR workspace, 
+                                                            GM_ADDR key, GM_ADDR value, GM_ADDR gradQuery,
+                                                            GM_ADDR gradKey, GM_ADDR gradValue, GM_ADDR workspace,
                                                             GM_ADDR tiling) {
     GET_TILING_DATA(tilingData, tiling);
     // calculate batch offset

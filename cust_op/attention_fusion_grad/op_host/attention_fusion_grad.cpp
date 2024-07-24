@@ -31,17 +31,15 @@ int CeilDiv(int a, int b)
     return (a + b - 1) / b;
 }
 
-int gcd(int x,int y)
-{            
-    //最大公约数
-    while( y^=x^=y^=x%=y );
+int gcd(int x, int y)
+{
+    while (y^=x^=y^=x%=y);
     return x;
 }
  
 int lcm(int x, int y)
-{           
-    //最小公倍数
-    return x*y/gcd(x,y);
+{
+    return x*y/gcd(x, y);
 }
 
 static int32_t GradMatmulTiling(gert::TilingContext* context, AttentionFusionGradTilingData &tilingData)
@@ -93,12 +91,11 @@ static int32_t GradMatmulTiling(gert::TilingContext* context, AttentionFusionGra
 
     gardK.SetBias(false);
     gardK.SetBufferSpace(-1, -1, -1);
-
-    // Get tilingData using on the kernel side 
-    if (gardV.GetTiling(tilingData.gardVMatmulTiling) == -1 ||
-        gardS.GetTiling(tilingData.gardSMatmulTiling) == -1 ||
-        gardK.GetTiling(tilingData.gardKMatmulTiling) == -1 ||
-        gardQ.GetTiling(tilingData.gardQMatmulTiling) == -1) {
+    
+    if (gardV.GetTiling(tilingData.gardVMatmulTiling)==-1 ||
+        gardS.GetTiling(tilingData.gardSMatmulTiling)==-1 ||
+        gardK.GetTiling(tilingData.gardKMatmulTiling)==-1 ||
+        gardQ.GetTiling(tilingData.gardQMatmulTiling)==-1) {
         return 1;
     }
     return 0;
@@ -110,9 +107,9 @@ static int32_t GradSoftmaxTiling(gert::TilingContext* context, AttentionFusionGr
     auto qShape = context->GetInputShape(2)->GetStorageShape();
     auto kShape = context->GetInputShape(3)->GetStorageShape();
     auto vShape = context->GetInputShape(4)->GetStorageShape();
-    if (qShape.GetDim(0)>2000 || qShape.GetDim(0)>1000 || qShape.GetDim(1)>1000 || 
-                                    kShape.GetDim(0)>1000 || kShape.GetDim(1)>1000 || 
-                                    vShape.GetDim(0)>1000 || vShape.GetDim(1)>1000 ) {
+    if (qShape.GetDim(0)>2000 || qShape.GetDim(0)>1000 || qShape.GetDim(1)>1000 ||
+                                    kShape.GetDim(0)>1000 || kShape.GetDim(1)>1000 ||
+                                    vShape.GetDim(0)>1000 || vShape.GetDim(1)>1000) {
         printf("This shape is out of range(0, 1000)");
     }
 
@@ -123,12 +120,9 @@ static int32_t GradSoftmaxTiling(gert::TilingContext* context, AttentionFusionGr
     size_t systemWorkspacesSize = ascnedPlatform.GetLibApiWorkSpaceSize();
     currentWorkspace[0] = softmaxOutSize + systemWorkspacesSize;
 
-    // std::vector<int64_t> softmaxShape = 
     int paddingKeyDim1 = CeilDiv(kShape.GetDim(1), 8) * 8;
-    // 3*2+1
     int numRowOfNormalizeOne = ub / 4 / sizeof(float) / paddingKeyDim1;
     int keyDim1Align;
-    // 计算16和keyDim1的最小公倍数
     int transposeAlignDim = lcm(kShape.GetDim(1), 16)/kShape.GetDim(1);
 
     if (kShape.GetDim(1) % 8 == 0) {

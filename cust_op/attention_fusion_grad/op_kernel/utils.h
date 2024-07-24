@@ -22,7 +22,7 @@ __aicore__ inline T1 CeilDiv(T1 a, T2 b)
 {
     if (b == 0) {
         return 0;
-    }   
+    }
     return (a + b -1) / b;
 }
 

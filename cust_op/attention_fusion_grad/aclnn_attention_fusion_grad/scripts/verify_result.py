@@ -10,6 +10,7 @@ MINIMUM = 10e-10
 
 logging.getLogger().setLevel(logging.info)
 
+
 def verify_result(real_result, golden):
     real_result = np.fromfile(real_result, dtype=np.float32)
     golden = np.fromfile(golden, dtype=np.float32)

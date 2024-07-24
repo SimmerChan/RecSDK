@@ -7,8 +7,9 @@
 * but WITHOUT ANY WARRANTY; without even the implied warranty of
 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 */
-#include "op_runner.h"
+
 #include "aclnn_attention_fusion_grad.h"
+#include "op_runner.h"
 #include <limits>
 #include <cassert>
 #include <chrono>
