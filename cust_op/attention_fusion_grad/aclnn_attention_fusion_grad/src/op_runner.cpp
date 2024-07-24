@@ -307,8 +307,10 @@ bool OpRunner::RunOp()
 
     size_t workspaceSize = 0;
 	aclOpExecutor *handle = nullptr;
-	auto ret = aclnnAttentionFusionGradGetWorkspaceSize(inputTensor_[0], inputTensor_[1], inputTensor_[2], inputTensor_[3], inputTensor_[4], outputTensor_[0], outputTensor_[1], outputTensor_[2], 
-                                              &workspaceSize, &handle);
+	auto ret = aclnnAttentionFusionGradGetWorkspaceSize(inputTensor_[0], inputTensor_[1], 
+                                                        inputTensor_[2], inputTensor_[3], inputTensor_[4], 
+                                                        outputTensor_[0], outputTensor_[1], outputTensor_[2], 
+                                                        &workspaceSize, &handle);
     if (ret != ACL_SUCCESS) {
         (void)aclrtDestroyStream(stream);
         ERROR_LOG("Get Operator Workspace failed. error code is %d", static_cast<int32_t>(ret));
@@ -341,8 +343,10 @@ bool OpRunner::RunOp()
 
     auto beforeTime = std::chrono::steady_clock::now();
     for (int i = 0; i<100; i++) {
-        ret = aclnnAttentionFusionGradGetWorkspaceSize(inputTensor_[0], inputTensor_[1], inputTensor_[2], inputTensor_[3], inputTensor_[4], outputTensor_[0], outputTensor_[1], outputTensor_[2], 
-                                              &workspaceSize, &handle);
+        ret = aclnnAttentionFusionGradGetWorkspaceSize(inputTensor_[0], inputTensor_[1], inputTensor_[2], 
+                                                        inputTensor_[3], inputTensor_[4], outputTensor_[0], 
+                                                        outputTensor_[1], outputTensor_[2], 
+                                                        &workspaceSize, &handle);
         ret = aclnnAttentionFusionGrad(workspace, workspaceSize, handle, stream);
     }
     ret = aclrtSynchronizeStreamWithTimeout(stream, 5000);

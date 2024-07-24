@@ -36,9 +36,11 @@ public:
 
         softmaxShpeOfOneBatch = args.shapeArgs.queryDim1*args.shapeArgs.keyDim1;
 
-        softmaxOut.SetGlobalBuffer(reinterpret_cast<__gm__ tType*>(args.inputArgs.softmaxOut), args.shapeArgs.batchNum * softmaxShpeOfOneBatch);
+        softmaxOut.SetGlobalBuffer(reinterpret_cast<__gm__ tType*>(args.inputArgs.softmaxOut),
+                                                                    args.shapeArgs.batchNum * softmaxShpeOfOneBatch);
 
-        gradSoftmax.SetGlobalBuffer(reinterpret_cast<__gm__ tType*>(args.inputArgs.workspace), args.shapeArgs.batchNum * softmaxShpeOfOneBatch);
+        gradSoftmax.SetGlobalBuffer(reinterpret_cast<__gm__ tType*>(args.inputArgs.workspace), 
+                                                                    args.shapeArgs.batchNum * softmaxShpeOfOneBatch);
 
         vecInQueue = pipeArgs.vecInQueue;
         vecInGradQueue = pipeArgs.vecInGradQueue;
@@ -142,8 +144,12 @@ public:
             LocalTensor<tType> inGradLocalTensorCompute = vecInGradQueue->DeQue<tType>();
             LocalTensor<tType> outLocalTensor = vecOutQueue->AllocTensor<tType>();
 
-            DoPadLocal(inLocalTensorCompute, outLocalTensor, args.tilingArgs.unAlign2AlignStep1Tiling, args.tilingArgs.unAlign2AlignStep2Tiling);
-            DoPadLocal(inGradLocalTensorCompute, outLocalTensor, args.tilingArgs.unAlign2AlignStep1Tiling, args.tilingArgs.unAlign2AlignStep2Tiling);
+            DoPadLocal(inLocalTensorCompute, outLocalTensor, 
+                                            args.tilingArgs.unAlign2AlignStep1Tiling,
+                                            args.tilingArgs.unAlign2AlignStep2Tiling);
+            DoPadLocal(inGradLocalTensorCompute, outLocalTensor, 
+                                            args.tilingArgs.unAlign2AlignStep1Tiling,
+                                             args.tilingArgs.unAlign2AlignStep2Tiling);
 
             uint32_t height = thisLen/args.shapeArgs.keyDim1;
             uint32_t weightPadding = args.shapeTilingArgs.paddingKeyDim1;
@@ -151,10 +157,14 @@ public:
 
             SoftMaxShapeInfo scrShape ={height, weightPadding, height, weightOrig};
 
-            SoftmaxGrad<tType>(outLocalTensor,  inGradLocalTensorCompute , inLocalTensorCompute, tmpBuff->Get<uint8_t>(), *args.tilingArgs.softmaxtiling, false, scrShape);
+            SoftmaxGrad<tType>(outLocalTensor, inGradLocalTensorCompute,
+                                inLocalTensorCompute, tmpBuff->Get<uint8_t>(), 
+                                *args.tilingArgs.softmaxtiling, false, scrShape);
             Muls(outLocalTensor, outLocalTensor, args.inputArgs.attenDimSqrt, height*weightPadding);
 
-            DoUnPadLocal(outLocalTensor, inLocalTensorCompute, args.tilingArgs.Align2UnAlignStep1Tiling, args.tilingArgs.Align2UnAlignStep2Tiling);
+            DoUnPadLocal(outLocalTensor, inLocalTensorCompute, 
+                                args.tilingArgs.Align2UnAlignStep1Tiling, 
+                                args.tilingArgs.Align2UnAlignStep2Tiling);
             vecInQueue->FreeTensor(inLocalTensorCompute);
             vecInGradQueue->FreeTensor(inGradLocalTensorCompute);
 
@@ -165,8 +175,10 @@ public:
             uint32_t remainOfThisCopy = thisLen-copyLenAlign;
             DataCopy(thisBatchSoftmaxGradGb[offset], copyOutLocalTensor, copyLenAlign);
             if (remainOfThisCopy != 0) {
-                DataCopyExtParams dataCopyParamTail {1, remainOfThisCopy*static_cast<uint32_t>(sizeof(tType)), 0, 0, 0};
-                DataCopyPad(thisBatchSoftmaxGradGb[offset+copyLenAlign], copyOutLocalTensor, dataCopyParamTail);
+                DataCopyExtParams dataCopyParamTail {1, 
+                                        remainOfThisCopy*static_cast<uint32_t>(sizeof(tType)), 0, 0, 0};
+                DataCopyPad(thisBatchSoftmaxGradGb[offset+copyLenAlign], 
+                                        copyOutLocalTensor, dataCopyParamTail);
             } 
             
             vecOutQueue->FreeTensor(copyOutLocalTensor);
@@ -209,7 +221,9 @@ public:
 
             SoftMaxShapeInfo scrShape ={height, weightPadding, height, weightOrig};
 
-            SoftmaxGrad<tType>(outLocalTensor,  inGradLocalTensorCompute , inLocalTensorCompute, tmpBuff->Get<uint8_t>(), *args.tilingArgs.softmaxtiling, false, scrShape);
+            SoftmaxGrad<tType>(outLocalTensor, inGradLocalTensorCompute, 
+                                                inLocalTensorCompute, tmpBuff->Get<uint8_t>(),
+                                                *args.tilingArgs.softmaxtiling, false, scrShape);
             Muls(outLocalTensor, outLocalTensor, args.inputArgs.attenDimSqrt, height*weightPadding);
 
             vecInQueue->FreeTensor(inLocalTensorCompute);
@@ -229,7 +243,8 @@ public:
     {
         struct DataCopyExtParams copyParams{0, 0, 0, 0, 0}; // 结构体DataCopyExtParams最后一个参数是rsv保留位
         // struct DataCopyPadExtParams<float> padParams{false, 0, 0, 0}; 
-        DataCopyPadExtParams<tType> padParams{true, 0, (uint8_t) (args.shapeTilingArgs.paddingKeyDim1-args.shapeArgs.keyDim1), 0};
+        DataCopyPadExtParams<tType> padParams{true, 0, 
+                                    (uint8_t) (args.shapeTilingArgs.paddingKeyDim1-args.shapeArgs.keyDim1), 0};
         GlobalTensor<tType> thisBatchSoftmaxGb = softmaxOut[batchI * softmaxShpeOfOneBatch];
         GlobalTensor<tType> thisBatchSoftmaxGradGb = gradSoftmax[batchI * softmaxShpeOfOneBatch];
 
@@ -266,7 +281,9 @@ public:
 
             SoftMaxShapeInfo scrShape ={height, weightPadding, height, weightOrig};
 
-            SoftmaxGrad<tType>(outLocalTensor,  inGradLocalTensorCompute , inLocalTensorCompute, tmpBuff->Get<uint8_t>(), *args.tilingArgs.softmaxtiling, false, scrShape);
+            SoftmaxGrad<tType>(outLocalTensor, inGradLocalTensorCompute, 
+                                                inLocalTensorCompute, tmpBuff->Get<uint8_t>(), 
+                                                *args.tilingArgs.softmaxtiling, false, scrShape);
             Muls(outLocalTensor, outLocalTensor, args.inputArgs.attenDimSqrt, height*weightPadding);
 
             vecInQueue->FreeTensor(inLocalTensorCompute);

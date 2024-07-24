@@ -21,10 +21,11 @@ See the License for the specific language governing permissions and
 #include "utils.h"
 #include "args.h"
 using namespace AscendC;
+
 template<typename tType>
-class VSMmGradCompute {
+class VSMmGrad {
 public:
-    __aicore__ inline VSMmGradCompute() {}
+    __aicore__ inline VSMmGrad() {}
 
     __aicore__ inline void Init(AttentionFusionGradArgs& args)
     {
@@ -36,19 +37,19 @@ public:
         gradValueShapeOfOneBatch = args.shapeArgs.valueDim1 * args.shapeArgs.valueDim2;
 
         softmaxOut.SetGlobalBuffer(reinterpret_cast<__gm__ tType*>(args.inputArgs.softmaxOut),
-                                                                    args.shapeArgs.batchNum * softmaxOutShapeOfOneBatch);
+                                    args.shapeArgs.batchNum * softmaxOutShapeOfOneBatch);
 
         value.SetGlobalBuffer(reinterpret_cast<__gm__ tType*>(args.inputArgs.value),
-                                                                args.shapeArgs.batchNum * valueShapeOfOneBatch);
+                                    args.shapeArgs.batchNum * valueShapeOfOneBatch);
 
         dout.SetGlobalBuffer(reinterpret_cast<__gm__ tType*>(args.inputArgs.dout),
-                                                                args.shapeArgs.batchNum * doutShapeOfOneBatch);
+                                    args.shapeArgs.batchNum * doutShapeOfOneBatch);
 
         gradS.SetGlobalBuffer(reinterpret_cast<__gm__ tType*>(args.inputArgs.workspace),
-                                                                args.shapeArgs.batchNum * gradSShapeOfOneBatch);
+                                    args.shapeArgs.batchNum * gradSShapeOfOneBatch);
 
         gradValue.SetGlobalBuffer(reinterpret_cast<__gm__ tType*>(args.outputArgs.gradValue),
-                                                                    args.shapeArgs.batchNum * gradValueShapeOfOneBatch);
+                                    args.shapeArgs.batchNum * gradValueShapeOfOneBatch);
     }
     
     __aicore__ inline void ProcessDV(int batchI)

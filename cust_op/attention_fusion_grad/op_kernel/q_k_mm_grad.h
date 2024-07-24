@@ -22,9 +22,9 @@ See the License for the specific language governing permissions and
 using namespace AscendC;
 
 template<typename tType>
-class QKMmGradCompute {
+class QKMmGrad {
 public:
-    __aicore__ inline QKMmGradCompute(){}
+    __aicore__ inline QKMmGrad(){}
 
     __aicore__ inline void Init(AttentionFusionGradArgs args)
     {
@@ -35,15 +35,20 @@ public:
         gradQueryShapeOfOneBatch = args.shapeArgs.queryDim1 * args.shapeArgs.queryDim2;
         gradKeyShapeOfOneBatch = args.shapeArgs.keyDim1 * args.shapeArgs.keyDim2;
 
-        query.SetGlobalBuffer(reinterpret_cast<__gm__ tType*>(args.inputArgs.query), args.shapeArgs.batchNum * queryShapeOfOneBatch);
+        query.SetGlobalBuffer(reinterpret_cast<__gm__ tType*>(args.inputArgs.query), 
+                                args.shapeArgs.batchNum * queryShapeOfOneBatch);
 
-        key.SetGlobalBuffer(reinterpret_cast<__gm__ tType*>(args.inputArgs.key), args.shapeArgs.batchNum * keyShapeOfOneBatch);
+        key.SetGlobalBuffer(reinterpret_cast<__gm__ tType*>(args.inputArgs.key), 
+                                args.shapeArgs.batchNum * keyShapeOfOneBatch);
 
-        gradSoftmax.SetGlobalBuffer(reinterpret_cast<__gm__ tType*>(args.inputArgs.workspace), args.shapeArgs.batchNum * gradSoftmaxShapeOfOneBatch);
+        gradSoftmax.SetGlobalBuffer(reinterpret_cast<__gm__ tType*>(args.inputArgs.workspace), 
+                                args.shapeArgs.batchNum * gradSoftmaxShapeOfOneBatch);
 
-        gradQuery.SetGlobalBuffer(reinterpret_cast<__gm__ tType*>(args.outputArgs.gradQuery), args.shapeArgs.batchNum * gradQueryShapeOfOneBatch);
+        gradQuery.SetGlobalBuffer(reinterpret_cast<__gm__ tType*>(args.outputArgs.gradQuery), 
+                                args.shapeArgs.batchNum * gradQueryShapeOfOneBatch);
 
-        gradKey.SetGlobalBuffer(reinterpret_cast<__gm__ tType*>(args.outputArgs.gradKey), args.shapeArgs.batchNum * gradKeyShapeOfOneBatch);
+        gradKey.SetGlobalBuffer(reinterpret_cast<__gm__ tType*>(args.outputArgs.gradKey), 
+                                args.shapeArgs.batchNum * gradKeyShapeOfOneBatch);
     }
 
     __aicore__ inline void ProcessDQ(int batchI)

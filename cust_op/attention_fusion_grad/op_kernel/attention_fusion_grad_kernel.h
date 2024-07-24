@@ -57,7 +57,8 @@ class AttentionFusionGradKernel {
             TQue<QuePosition::VECOUT, 1> vecOutQueue;
             TBuf<TPosition::VECCALC> tmpBuff;
 
-            int64_t oneRowSize = args.shapeTilingArgs.numRowOfNormalizeOne*args.shapeTilingArgs.paddingKeyDim1*sizeof(tType);
+            int64_t oneRowSize = args.shapeTilingArgs.numRowOfNormalizeOne*
+                                            args.shapeTilingArgs.paddingKeyDim1*sizeof(tType);
 
             pipe.InitBuffer(vecInQueue, 1, oneRowSize);
             pipe.InitBuffer(vecInGradQueue, 1, oneRowSize);
@@ -94,8 +95,8 @@ class AttentionFusionGradKernel {
             }
         }
         AttentionFusionGradArgs args;
-        VSMmGradCompute<tType> vSmm;
-        QKMmGradCompute<tType> qKmm;
+        VSMmGrad<tType> vSmm;
+        QKMmGrad<tType> qKmm;
         TPipe pipe;
 };
 #endif
