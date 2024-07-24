@@ -101,7 +101,7 @@ test_case = [(1024, 144, 64, 1000, 80)]
 with tf.compat.v1.Session(config=config) as sess:
     sess.run(tf.compat.v1.global_variables_initializer())
     for dim0, dim1, dim2, dim3, dim4 in test_case:
-        logging.info("===================test case ", dim0, dim1, dim2, dim3, dim4, " ===================")
+        logging.info(f"===================test case {dim0}, {dim1}, {dim2}, {dim3}, {dim4}, ===================")
         query_np, key_np, value_np, mask_np = generate_data(dim0, dim1, dim2, dim3, dim4)
 
         result_gloden = sess.run([loss_golden, grads_and_vars_golden, softmax_out_gloden],
@@ -109,10 +109,10 @@ with tf.compat.v1.Session(config=config) as sess:
         result = sess.run([loss, grads_and_vars, softmax_out],
                             feed_dict={query_ph: query_np, key_ph:key_np, value_ph:value_np, mask_ph:mask_np})
         
-        logging.info(((result[0]-result[1]) < 1e-3).all())
-        logging.info(((result[1][0] - result_gloden[1][0]) < 1e-3).all())
-        logging.info(((result[1][1] - result_gloden[1][1]) < 1e-3).all())
-        logging.info(((result[1][2] - result_gloden[1][2]) < 1e-3).all())
+        logging.info(((result[0]-result[0]) < 1e-4).all())
+        logging.info(((result[1][0] - result_gloden[1][0]) < 1e-4).all())
+        logging.info(((result[1][1] - result_gloden[1][1]) < 1e-4).all())
+        logging.info(((result[1][2] - result_gloden[1][2]) < 1e-4).all())
         logging.info("============ attention fusion end =============")
     
 

@@ -1,20 +1,20 @@
 /**
-* @file common.h
-*
-* Copyright (C) 2024. Huawei Technologies Co., Ltd. All rights reserved.
-*
-* This program is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-*/
+ * @file common.h
+ *
+ * Copyright (C) 2024. Huawei Technologies Co., Ltd. All rights reserved.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ */
 #ifndef COMMON_H
 #define COMMON_H
 
 #include <cstdio>
+#include <iomanip>
+#include <iostream>
 #include <string>
 #include <vector>
-#include <iostream>
-#include <iomanip>
 
 #include "acl/acl.h"
 
@@ -26,13 +26,15 @@
 #define ERROR_LOG(fmt, args...) fprintf(stderr, "[ERROR]  " fmt "\n", ##args)
 
 namespace AttentionFusionGrad {
+constexpr int NUM_TEST_EXEC = 100;
+constexpr int TIME_OUT = 5000;
 /**
  * @brief Read data from file
  * @param [in] filePath: file path
  * @param [out] fileSize: file size
  * @return read result
  */
-bool ReadFile(const std::string &filePath, size_t fileSize, void *buffer, size_t bufferSize);
+bool ReadFile(const std::string& filePath, size_t fileSize, void* buffer, size_t bufferSize);
 
 /**
  * @brief Write data to file
@@ -41,7 +43,7 @@ bool ReadFile(const std::string &filePath, size_t fileSize, void *buffer, size_t
  * @param [in] size: size to write
  * @return write result
  */
-bool WriteFile(const std::string &filePath, const void *buffer, size_t size);
-}
+bool WriteFile(const std::string& filePath, const void* buffer, size_t size);
+}  // namespace AttentionFusionGrad
 
-#endif // COMMON_H
+#endif  // COMMON_H
