@@ -57,7 +57,7 @@ namespace AclnnAttention {
         }
     }
 
-    bool OpRunner::Init()
+    bool OpRunner::InitInput()
     {
         for (size_t i = 0; i < numInputs_; ++i) {
             auto size = GetInputSize(i);
@@ -96,6 +96,11 @@ namespace AclnnAttention {
             inputTensor_.emplace_back(inputTensor);
         }
 
+        return true;
+    }
+
+    bool OpRunner::InitOutput()
+    {
         for (size_t i = 0; i < numOutputs_; ++i) {
             auto size = GetOutputSize(i);
             void *devMem = nullptr;
@@ -135,6 +140,11 @@ namespace AclnnAttention {
         }
 
         return true;
+    }
+
+    bool OpRunner::Init()
+    {
+        return InitInput() && InitOutput();
     }
 
     const size_t OpRunner::NumInputs()

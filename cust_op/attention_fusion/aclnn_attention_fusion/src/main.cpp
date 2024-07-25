@@ -58,23 +58,21 @@ namespace AclnnAttention {
     bool SetInputData(OpRunner &runner)
     {
         size_t fileSize = 0;
-        ReadFile("../input/input_query.bin", fileSize, runner.GetInputBuffer<void>(0), runner.GetInputSize(0));
-        ReadFile("../input/input_key.bin", fileSize, runner.GetInputBuffer<void>(1), runner.GetInputSize(1));
-        ReadFile("../input/input_value.bin", fileSize, runner.GetInputBuffer<void>(2), runner.GetInputSize(2));
-        ReadFile("../input/input_atten_mask.bin", fileSize, runner.GetInputBuffer<void>(3), runner.GetInputSize(3));
-        INFO_LOG("Set input success");
-        return true;
+        return ReadFile("../input/input_query.bin", fileSize, runner.GetInputBuffer<void>(0), runner.GetInputSize(0)) &&
+            ReadFile("../input/input_key.bin", fileSize, runner.GetInputBuffer<void>(1), runner.GetInputSize(1)) &&
+            ReadFile("../input/input_value.bin", fileSize, runner.GetInputBuffer<void>(2), runner.GetInputSize(2)) &&
+            ReadFile("../input/input_atten_mask.bin", fileSize, runner.GetInputBuffer<void>(3), runner.GetInputSize(3));
     }
 
     bool ProcessOutputData(OpRunner &runner)
     {
-        WriteFile("../output/output_atten_score.bin", runner.GetOutputBuffer<void>(0), runner.GetOutputSize(0));
-        WriteFile("../output/output_softmax_out.bin", runner.GetOutputBuffer<void>(1), runner.GetOutputSize(1));
-        INFO_LOG("Write output success");
-        return true;
+        bool ret;
+        ret = WriteFile("../output/output_atten_score.bin", runner.GetOutputBuffer<void>(0), runner.GetOutputSize(0)) &&
+            WriteFile("../output/output_softmax_out.bin", runner.GetOutputBuffer<void>(1), runner.GetOutputSize(1));
+        return ret;
     }
 
-    void DestoryResource()
+    void DestroyResource()
     {
         bool flag = false;
         if (aclrtResetDevice(g_deviceId) != ACL_SUCCESS) {
