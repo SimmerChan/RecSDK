@@ -4,13 +4,15 @@
 
 ***
 ## 开源项目链接
-```shell
+```
+wangzhen38 committed on May 19, 2022 hash值（提交ID）：54b6a96abae574a04c7fcac53df190f885970c3f
+commit的链接: https://github.com/PaddlePaddle/PaddleRec/commit/54b6a96abae574a04c7fcac53df190f885970c3f
 https://github.com/PaddlePaddle/PaddleRec/tree/master/models/multitask/mmoe
 ```
 ***
 ## 数据集
 
-```shell
+```url
 Census-Income-KDD数据集:  
 https://archive.ics.uci.edu/static/public/117/census+income+kdd.zip
 ```
@@ -26,7 +28,7 @@ https://archive.ics.uci.edu/static/public/117/census+income+kdd.zip
 
 ***
 ### 数据预处理运行脚本
-```shell
+```python
 python critro.py --train_data_path train_data_path --test_data_path test_data_path --output_path output_path 
 ```
 参数说明：
@@ -146,7 +148,9 @@ self.test_epoch = 100
 self.expert_num = 8 #专家网络数量
 self.gate_num = 2 #门控网络数量
 self.expert_size = 16
-self.tower_size = 8          
+self.tower_size = 8      
+# emb dim大小计算
+self.emb_dim = self.expert_num * self.expert_size + self.gate_num * self.expert_num    
 ```
 ***
 
@@ -254,7 +258,7 @@ class MMoELayer(nn.Layer):
         return output_layers
 
 ```
-`input_data`未把sparse特征和dense特征区分，迁移后将sparse数据单独做了处理，详见`main_mxrec.py`。  
+`_input`未把sparse特征和dense特征区分，迁移后将sparse数据单独做了处理，详见`main_mxrec.py`,而后将sparse查表数据embedding与dense数据分别传入模型中，之后再切片聚合，还原原代码操作。  
 
 **迁移后代码：**
 ```python
