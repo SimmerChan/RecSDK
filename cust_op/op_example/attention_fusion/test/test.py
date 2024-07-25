@@ -108,7 +108,7 @@ with tf.compat.v1.Session(config=config) as sess:
     sess.run(tf.compat.v1.global_variables_initializer())
     for dim0, dim1, dim2, dim3, dim4 in test_case:
         logging.info("===================test case %d, %d, %d, %d, %d, ===================",
-                        {dim0}, {dim1}, {dim2}, {dim3}, {dim4})
+                    dim0, dim1, dim2, dim3, dim4)
         query_np, key_np = generate_data_qk(dim0, dim1, dim2, dim3, dim4)
         value_np, mask_np = generate_data_vm(dim0, dim1, dim2, dim3, dim4)
 
