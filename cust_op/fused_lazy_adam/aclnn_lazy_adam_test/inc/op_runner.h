@@ -39,6 +39,11 @@ namespace AclnnLazyAdam {
         virtual ~OpRunner();
 
         /**
+        * @brief Init op runner output info
+        */
+        bool InitOutputInfo();
+        
+        /**
         * @brief Init op runner
         */
         bool Init();
