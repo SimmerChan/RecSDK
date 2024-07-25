@@ -325,8 +325,8 @@ namespace AclnnAttention {
 
         size_t workspaceSize = 0;
         aclOpExecutor *handle = nullptr;
-        auto ret = aclnnAttentionFusionGetWorkspaceSize(inputTensor_[0], inputTensor_[1], inputTensor_[2], inputTensor_[3],
-            opDesc_->maskOnOptional, outputTensor_[0], outputTensor_[1], &workspaceSize, &handle);
+        auto ret = aclnnAttentionFusionGetWorkspaceSize(inputTensor_[0], inputTensor_[1], inputTensor_[2],
+            inputTensor_[3], opDesc_->maskOnOptional, outputTensor_[0], outputTensor_[1], &workspaceSize, &handle);
         if (ret != ACL_SUCCESS) {
             (void)aclrtDestroyStream(stream);
             ERROR_LOG("Get Operator Workspace failed. error code is %d", static_cast<int32_t>(ret));

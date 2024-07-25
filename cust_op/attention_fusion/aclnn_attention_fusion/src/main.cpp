@@ -66,10 +66,9 @@ namespace AclnnAttention {
 
     bool ProcessOutputData(OpRunner &runner)
     {
-        bool ret;
-        ret = WriteFile("../output/output_atten_score.bin", runner.GetOutputBuffer<void>(0), runner.GetOutputSize(0)) &&
-            WriteFile("../output/output_softmax_out.bin", runner.GetOutputBuffer<void>(1), runner.GetOutputSize(1));
-        return ret;
+        return WriteFile("../output/output_atten_score.bin", runner.GetOutputBuffer<void>(0),
+            runner.GetOutputSize(0)) && WriteFile("../output/output_softmax_out.bin", runner.GetOutputBuffer<void>(1),
+            runner.GetOutputSize(1));
     }
 
     void DestroyResource()
