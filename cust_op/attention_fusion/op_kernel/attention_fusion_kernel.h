@@ -71,109 +71,108 @@ __aicore__ inline T1 CeilDiv(T1 a, T2 b) {
 }
 
 template<typename qType, typename kType, typename vType>
-class AttentionFusionKernel
-{
-    public:
-        __aicore__ inline AttentionFusionKernel() {};
+class AttentionFusionKernel {
+public:
+    __aicore__ inline AttentionFusionKernel() {};
 
-        __aicore__ inline void Compute(AttentionFusionArgs args)
-        {
-            // Args
-            this->args = args;
+    __aicore__ inline void Compute(AttentionFusionArgs args)
+    {
+        // Args
+        this->args = args;
 
-            // Matmul Register
-            REGIST_MATMUL_OBJ(&pipe, GetSysWorkSpacePtr(), qKBmmCompute.mm, args.qkMatmulTiling, kvBmmCompute.mm,
-                args.kvMatmulTiling);
+        // Matmul Register
+        REGIST_MATMUL_OBJ(&pipe, GetSysWorkSpacePtr(), qKBmmCompute.mm, args.qkMatmulTiling, kvBmmCompute.mm,
+            args.kvMatmulTiling);
 
-            // batch offset
-            GetBatchOffsetAndLen(args.batchNum, this->batchOffset, this->batchLen);
+        // batch offset
+        GetBatchOffsetAndLen(args.batchNum, this->batchOffset, this->batchLen);
 
-            // QKBmm Initialize
-            QKBmmArgs qKBmmArgs {
-                args.query, args.key, args.softmaxOut,
-                args.queryDim1, args.keyDim1, args.queryDim2,
-                batchOffset, batchLen
-            };
-            QKBmmPipeArgs qKBmmPipeArgs {&pipe};
-            qKBmmCompute.Init(qKBmmArgs, qKBmmPipeArgs);
+        // QKBmm Initialize
+        QKBmmArgs qKBmmArgs {
+            args.query, args.key, args.softmaxOut,
+            args.queryDim1, args.keyDim1, args.queryDim2,
+            batchOffset, batchLen
+        };
+        QKBmmPipeArgs qKBmmPipeArgs {&pipe};
+        qKBmmCompute.Init(qKBmmArgs, qKBmmPipeArgs);
 
-            NormalizeArgs normalArgs {
-                &pipe, args.normalizeAttr, args.queryDim1, args.keyDim1, args.normalizeLoop, args.normalizeRow,
-                args.normalizeColumn, args.maskIsOn, args.normalizeSqrt, args.maxSharedTmpBuf, args.softMaxTilingData,
-                args.confusionTransposeTilingData, args.confusionTransposeTilingData1,
-                args.confusionTransposeTilingData2, args.confusionTransposeTilingData3
-            };
-            normalizeCompute.Init(normalArgs);
+        NormalizeArgs normalArgs {
+            &pipe, args.normalizeAttr, args.queryDim1, args.keyDim1, args.normalizeLoop, args.normalizeRow,
+            args.normalizeColumn, args.maskIsOn, args.normalizeSqrt, args.maxSharedTmpBuf, args.softMaxTilingData,
+            args.confusionTransposeTilingData, args.confusionTransposeTilingData1,
+            args.confusionTransposeTilingData2, args.confusionTransposeTilingData3
+        };
+        normalizeCompute.Init(normalArgs);
 
-            // KVBmm Initialize
-            KVBmmArgs kvBmmArgs {
-                args.softmaxOut, args.value, args.attenScore,
-                args.queryDim1, args.valueDim2, args.keyDim1,
-                batchOffset
-            };
-            KVBmmPipeArgs kvBmmPipeArgs {&pipe};
-            kvBmmCompute.Init(kvBmmArgs, kvBmmPipeArgs);
+        // KVBmm Initialize
+        KVBmmArgs kvBmmArgs {
+            args.softmaxOut, args.value, args.attenScore,
+            args.queryDim1, args.valueDim2, args.keyDim1,
+            batchOffset
+        };
+        KVBmmPipeArgs kvBmmPipeArgs {&pipe};
+        kvBmmCompute.Init(kvBmmArgs, kvBmmPipeArgs);
 
-            // Start compute
-            Process();
-        }
+        // Start compute
+        Process();
+    }
 
-        __aicore__ inline void Process()
-        {
-            QKBmmComputePart();
-            NormalizeMatmulFusion();
-        }
+    __aicore__ inline void Process()
+    {
+        QKBmmComputePart();
+        NormalizeMatmulFusion();
+    }
 
-        __aicore__ inline void QKBmmComputePart()
-        {
-            qKBmmCompute.Process();
-        }
+    __aicore__ inline void QKBmmComputePart()
+    {
+        qKBmmCompute.Process();
+    }
 
-        __aicore__ inline void NormalizeMatmulFusion()
-        {
-            GlobalTensor<kType> softmaxOutGbTensorThisCore;
-            softmaxOutGbTensorThisCore.SetGlobalBuffer(reinterpret_cast<__gm__ qType*>(args.softmaxOut),
-                                                        batchLen * args.queryDim1 * args.keyDim1);
-            GlobalTensor<kType> softmaxGbMaskThisCore;
-            softmaxGbMaskThisCore.SetGlobalBuffer(reinterpret_cast<__gm__ qType*>(args.attnMask),
-                                                        batchLen * args.queryDim1 * args.keyDim1);
-            for (int i = 0; i < batchLen + 1; i++) {
-                if (i != batchLen) {
-                    GlobalTensor<kType> softmaxOutGbTensor =
-                        softmaxOutGbTensorThisCore[(batchOffset + i) * args.queryDim1 * args.keyDim1];
-                    GlobalTensor<kType> softmaxGbMaskTensor =
-                        softmaxGbMaskThisCore[(batchOffset + i) * args.queryDim1 * args.keyDim1];
-                    /* normallize */
-                    normalizeCompute.Process(softmaxOutGbTensor, softmaxGbMaskTensor);
-                }
-                
-                if (i != 0) {
-                    /* matmul */
-                    kvBmmCompute.ComputeOneBatch(i - 1);
-                }
+    __aicore__ inline void NormalizeMatmulFusion()
+    {
+        GlobalTensor<kType> softmaxOutGbTensorThisCore;
+        softmaxOutGbTensorThisCore.SetGlobalBuffer(reinterpret_cast<__gm__ qType*>(args.softmaxOut),
+                                                    batchLen * args.queryDim1 * args.keyDim1);
+        GlobalTensor<kType> softmaxGbMaskThisCore;
+        softmaxGbMaskThisCore.SetGlobalBuffer(reinterpret_cast<__gm__ qType*>(args.attnMask),
+                                                    batchLen * args.queryDim1 * args.keyDim1);
+        for (int i = 0; i < batchLen + 1; i++) {
+            if (i != batchLen) {
+                GlobalTensor<kType> softmaxOutGbTensor =
+                    softmaxOutGbTensorThisCore[(batchOffset + i) * args.queryDim1 * args.keyDim1];
+                GlobalTensor<kType> softmaxGbMaskTensor =
+                    softmaxGbMaskThisCore[(batchOffset + i) * args.queryDim1 * args.keyDim1];
+                /* normallize */
+                normalizeCompute.Process(softmaxOutGbTensor, softmaxGbMaskTensor);
+            }
+            
+            if (i != 0) {
+                /* matmul */
+                kvBmmCompute.ComputeOneBatch(i - 1);
             }
         }
+    }
 
-        __aicore__ inline void GetBatchOffsetAndLen(int batchNum, int& batchOffset, int& batchLen)
-        {
-            // batch offset
-            int blockLenPerCore = CeilDiv(batchNum, (GetBlockNum() * 2));
-            batchOffset = blockLenPerCore * GetBlockIdx();
-            batchLen = blockLenPerCore;
-            if (batchOffset + batchLen > batchNum) {
-                batchLen = batchNum - batchOffset;
-            }
+    __aicore__ inline void GetBatchOffsetAndLen(int batchNum, int& batchOffset, int& batchLen)
+    {
+        // batch offset
+        int blockLenPerCore = CeilDiv(batchNum, (GetBlockNum() * 2));
+        batchOffset = blockLenPerCore * GetBlockIdx();
+        batchLen = blockLenPerCore;
+        if (batchOffset + batchLen > batchNum) {
+            batchLen = batchNum - batchOffset;
         }
+    }
 
-    private:
-        TPipe pipe;
-        AttentionFusionArgs args;
-        QKBmmCompute<qType, kType> qKBmmCompute;
-        KVBmmCompute<qType, vType> kvBmmCompute;
-        NormalizeCompute<qType> normalizeCompute;
+private:
+    TPipe pipe;
+    AttentionFusionArgs args;
+    QKBmmCompute<qType, kType> qKBmmCompute;
+    KVBmmCompute<qType, vType> kvBmmCompute;
+    NormalizeCompute<qType> normalizeCompute;
 
-        int batchOffset;
-        int batchLen;
+    int batchOffset;
+    int batchLen;
 };
 }
 #endif
