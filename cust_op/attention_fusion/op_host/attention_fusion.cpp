@@ -19,8 +19,6 @@ See the License for the specific language governing permissions and
 #include "register/op_def_registry.h"
 #include "tiling/platform/platform_ascendc.h"
 
-#define TEST_LOG(fmt, args...) fprintf(stdout, fmt "\n", ##args)
-
 namespace optiling {
 constexpr int32_t ALIGN_32 = (32 / sizeof(float));
 constexpr int32_t RESERVER_UB_SIZE = (20 * 1024);

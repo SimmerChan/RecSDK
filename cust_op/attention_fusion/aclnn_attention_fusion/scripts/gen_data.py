@@ -19,6 +19,13 @@ import os
 from math import sqrt
 import numpy as np
 
+_MASK_CONST = 10000
+_MASK_CONST_NE = 10000
+_BATCH_ = 1024
+_Q_DIM1_ = 1000
+_Q_DIM2_ = 80
+_K_DIM1_ = 50
+
 
 def softmax(src):
     # do softmax with numpy
@@ -34,7 +41,7 @@ def gloden_atten_fusion(query, key, value, atten_mask):
     qk = np.matmul(query, key.transpose(0, 2, 1))
     attn_dimsqrt = 1 / sqrt(query.shape[2])
     attn_weight = np.multiply(qk, attn_dimsqrt)
-    atten_mask = np.add(10000, np.multiply(atten_mask, -10000))
+    atten_mask = np.add(_MASK_CONST, np.multiply(atten_mask, _MASK_CONST_NE))
     add_mask = np.add(attn_weight, atten_mask)
     qk_div = softmax(add_mask)
 
@@ -43,10 +50,10 @@ def gloden_atten_fusion(query, key, value, atten_mask):
 
 
 def gen_golden_data_simple():
-    input_query = np.random.uniform(-1, 1, [1024, 1000, 80]).astype(np.float32)
-    input_key = np.random.uniform(-1, 1, [1024, 50, 80]).astype(np.float32)
-    input_value = np.random.uniform(-1, 1, [1024, 50, 80]).astype(np.float32)
-    input_atten_mask = np.random.randint(0, 2, size=(1024, 1000, 50)).astype(np.float32)
+    input_query = np.random.uniform(-1, 1, [_BATCH_, _Q_DIM1_, _Q_DIM2_]).astype(np.float32)
+    input_key = np.random.uniform(-1, 1, [_BATCH_, _K_DIM1_, _Q_DIM2_]).astype(np.float32)
+    input_value = np.random.uniform(-1, 1, [_BATCH_, _K_DIM1_, _Q_DIM2_]).astype(np.float32)
+    input_atten_mask = np.random.randint(0, 2, size=(_BATCH_, _Q_DIM1_, _K_DIM1_)).astype(np.float32)
 
     golden_atten_score, gold_softmax_out = gloden_atten_fusion(input_query, input_key, input_value, input_atten_mask)
 

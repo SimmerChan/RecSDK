@@ -41,6 +41,8 @@ public:
     * @brief Init op runner
     */
     bool Init();
+    bool InitInput();
+    bool InitOutput();
 
     /**
      * @brief Get number of inputs
