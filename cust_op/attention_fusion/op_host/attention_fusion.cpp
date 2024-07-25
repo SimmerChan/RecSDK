@@ -37,6 +37,8 @@ constexpr int32_t ORIG_PADDED_DIM0 = 16;
 constexpr int32_t ORIG_PADDED_DIM1 = (56 * 16);
 constexpr int32_t TRANSPOSED_UNPAD_DIM0 = (16 * 50);
 constexpr int32_t TRANSPOSED_UNPAD_DIM1 = 16;
+constexpr int32_t TRANSPOSE_CONST = 7;
+constexpr int32_t SHAPE_DIMS = 3;
 constexpr int32_t UB_TILES = 3;
 constexpr int32_t DIM0 = 0;
 constexpr int32_t DIM1 = 1;
@@ -185,22 +187,26 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     // Get tiling data for transposing the origin tensor, then the transposed tensor is going to be padded.
     std::vector<int64_t> shapeVec = {ORIG_UNPAD_DIM0, ORIG_UNPAD_DIM1};
     ge::Shape srcShape(shapeVec);
-    AscendC::GetConfusionTransposeTilingInfo(srcShape, 0, sizeof(float), 7, tilingData.confusionTransposeTilingData);
+    AscendC::GetConfusionTransposeTilingInfo(srcShape, 0, sizeof(float), TRANSPOSE_CONST,
+        tilingData.confusionTransposeTilingData);
 
     // Get tiling data for transposing the padded tensor.
     std::vector<int64_t> shapeVec1 = {TRANSPOSED_PADDED_DIM0, TRANSPOSED_PADDED_DIM1};
     ge::Shape srcShape1(shapeVec1);
-    AscendC::GetConfusionTransposeTilingInfo(srcShape1, 0, sizeof(float), 7, tilingData.confusionTransposeTilingData1);
+    AscendC::GetConfusionTransposeTilingInfo(srcShape1, 0, sizeof(float), TRANSPOSE_CONST,
+        tilingData.confusionTransposeTilingData1);
 
     // Get tiling data for transposing the padded tensor, then the transposed tensor is going to be unpadded.
     std::vector<int64_t> shapeVec2 = {ORIG_PADDED_DIM0, ORIG_PADDED_DIM1};
     ge::Shape srcShape2(shapeVec2);
-    AscendC::GetConfusionTransposeTilingInfo(srcShape2, 0, sizeof(float), 7, tilingData.confusionTransposeTilingData2);
+    AscendC::GetConfusionTransposeTilingInfo(srcShape2, 0, sizeof(float), TRANSPOSE_CONST,
+        tilingData.confusionTransposeTilingData2);
 
     // Get tiling data for transposing the unpadded tensor back to original shape.
     std::vector<int64_t> shapeVec3 = {TRANSPOSED_UNPAD_DIM0, TRANSPOSED_UNPAD_DIM1};
     ge::Shape srcShape3(shapeVec3);
-    AscendC::GetConfusionTransposeTilingInfo(srcShape3, 0, sizeof(float), 7, tilingData.confusionTransposeTilingData3);
+    AscendC::GetConfusionTransposeTilingInfo(srcShape3, 0, sizeof(float), TRANSPOSE_CONST,
+        tilingData.confusionTransposeTilingData3);
 
     context->SetBlockDim(coreNum);
     tilingData.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
@@ -220,12 +226,12 @@ static ge::graphStatus InferShape(gert::InferShapeContext* context)
     gert::Shape* attnScoreShape = context->GetOutputShape(0);
     gert::Shape* softmaxOutShape = context->GetOutputShape(1);
 
-    attnScoreShape->SetDimNum(3);
+    attnScoreShape->SetDimNum(SHAPE_DIMS);
     attnScoreShape->SetDim(0, qShape->GetDim(DIM0));
     attnScoreShape->SetDim(1, qShape->GetDim(DIM1));
     attnScoreShape->SetDim(2, vShape->GetDim(DIM2));
 
-    softmaxOutShape->SetDimNum(3);
+    softmaxOutShape->SetDimNum(SHAPE_DIMS);
     softmaxOutShape->SetDim(0, qShape->GetDim(DIM0));
     softmaxOutShape->SetDim(1, qShape->GetDim(DIM1));
     softmaxOutShape->SetDim(2, kShape->GetDim(DIM1));

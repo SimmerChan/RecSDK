@@ -46,7 +46,7 @@ def gen_golden_data_simple():
     input_query = np.random.uniform(-1, 1, [1024, 1000, 80]).astype(np.float32)
     input_key = np.random.uniform(-1, 1, [1024, 50, 80]).astype(np.float32)
     input_value = np.random.uniform(-1, 1, [1024, 50, 80]).astype(np.float32)
-    input_atten_mask = np.random.randint(0,2,size=(1024, 1000, 50)).astype(np.float32)
+    input_atten_mask = np.random.randint(0, 2, size=(1024, 1000, 50)).astype(np.float32)
 
     golden_atten_score, gold_softmax_out = gloden_atten_fusion(input_query, input_key, input_value, input_atten_mask)
 
