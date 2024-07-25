@@ -53,5 +53,3 @@ bash build.sh
 bash ./build_out/custom_opp*.run
 cd ../aclnn_attention_fusion
 bash run.sh
-# cd ..
-# rm -rf ./attenion_fusion
