@@ -26,6 +26,8 @@
 ### Tensorflow2.x使用示例（[session模式NPU迁移](https://www.hiascend.com/document/detail/zh/canncommercial/80RC2/developmentguide/moddevg/tfmigr2/tfmigr2_000001.html)）
 ```python
 import os
+import logging
+
 import numpy as np
 from tensorflow.python.framework import ops
 import tensorflow as tf
@@ -50,12 +52,13 @@ config.graph_options.rewrite_options.memory_optimization = RewriterConfig.OFF
 
 
 def attention_fusion(q, k, v, mask=None):
-    maskIsOn = 1
+    mask_on = 1
     if mask is None:
         mask = tf.zeros(())
-        maskIsOn = 0
-    attn_out, softmax_out = tfOpLib.attention_fusion(query=q, key=k, value=v, atten_mask=mask, mask_on = maskIsOn)
-    return attn_out, softmax_out
+        mask_on = 0
+    attn_out_result, softmax_out_result = tfOpLib.attention_fusion(query=q, 
+                                                                   key=k, value=v, atten_mask=mask, mask_on=mask_on)
+    return attn_out_result, softmax_out_result
 
 
 @ops.RegisterGradient("AttentionFusion")
@@ -64,13 +67,11 @@ def _npu_fusion_attention_grad(op, *grad):
     k = op.inputs[1]
     v = op.inputs[2]
     mask = op.inputs[3]
-
-    attention_out = op.outputs[0]
+    
     softmax_output = op.outputs[1]
     dout = grad[0]
     d_q, d_k, d_v = tfOpLib.attention_fusion_grad(dout=dout, softmax_out=softmax_output, query=q, key=k, value=v)
-    return d_q, d_k, d_v, tf.zeros(tf.shape(mask))
-
+    return (d_q, d_k, d_v, tf.zeros(tf.shape(mask)))
 '''
 后续按照tensorflow的方式进行session run和算子的调用
 '''
