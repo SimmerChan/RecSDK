@@ -21,7 +21,6 @@ See the License for the specific language governing permissions and
 #include "common.h"
 #include "operator_desc.h"
 
-namespace AclnnAttention {
 /**
  * Op Runner
  */
@@ -187,5 +186,5 @@ private:
     std::vector<aclTensor *> outputTensor_;
     OperatorDesc *opDesc_;
 };
-} // namespace AclnnAttention
+
 #endif // OP_RUNNER_H
