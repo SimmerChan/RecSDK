@@ -124,8 +124,9 @@ namespace AclnnAttention {
             }
             hostOutputs_.emplace_back(hostOutput);
 
-            aclTensor *outputTensor = aclCreateTensor(GetOutputShape(i).data(), GetOutputNumDims(i), GetOutputDataType(i),
-                nullptr, 0, GetOutputFormat(i), GetOutputShape(i).data(), GetOutputNumDims(i), devOutputs_[i]);
+            aclTensor *outputTensor = aclCreateTensor(GetOutputShape(i).data(), GetOutputNumDims(i),
+                GetOutputDataType(i), nullptr, 0, GetOutputFormat(i), GetOutputShape(i).data(), GetOutputNumDims(i),
+                devOutputs_[i]);
             if (outputTensor == nullptr) {
                 ERROR_LOG("Create Tensor for output[%zu] failed", i);
                 return false;

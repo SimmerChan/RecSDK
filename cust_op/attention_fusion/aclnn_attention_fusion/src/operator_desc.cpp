@@ -31,10 +31,8 @@ namespace AclnnAttention {
         }
     }
 
-    OperatorDesc &OperatorDesc::AddInputTensorDesc(aclDataType dataType,
-                                                int numDims,
-                                                const int64_t *dims,
-                                                aclFormat format)
+    OperatorDesc &OperatorDesc::AddInputTensorDesc(aclDataType dataType, int numDims, const int64_t *dims,
+        aclFormat format)
     {
         aclTensorDesc *desc = aclCreateTensorDesc(dataType, numDims, dims, format);
         if (desc == nullptr) {
@@ -45,10 +43,8 @@ namespace AclnnAttention {
         return *this;
     }
 
-    OperatorDesc &OperatorDesc::AddOutputTensorDesc(aclDataType dataType,
-                                                    int numDims,
-                                                    const int64_t *dims,
-                                                    aclFormat format)
+    OperatorDesc &OperatorDesc::AddOutputTensorDesc(aclDataType dataType, int numDims, const int64_t *dims,
+        aclFormat format)
     {
         aclTensorDesc *desc = aclCreateTensorDesc(dataType, numDims, dims, format);
         if (desc == nullptr) {
