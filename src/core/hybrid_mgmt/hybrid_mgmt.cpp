@@ -206,12 +206,6 @@ bool HybridMgmt::Load(const string& loadPath, vector<string> warmStartTables)
         throw runtime_error("HybridMgmt not initialized. Call Initialize first.");
     }
 
-    if (mgmtRankInfo.isDDR && IsTrainAndEvalCase()) {
-        LOG_INFO("estimator train and eval case, skip loading, "
-                 "host will reuse data in memory while evaluating since is's same as saved data");
-        return true;
-    }
-
     // 数据处理线程上锁
     KEY_PROCESS_INSTANCE->LoadSaveLock();
 
@@ -221,6 +215,7 @@ bool HybridMgmt::Load(const string& loadPath, vector<string> warmStartTables)
     Checkpoint loadCkpt;
     vector<CkptFeatureType> loadFeatures;
     SetFeatureTypeForLoad(loadFeatures);
+    BackUpTrainStatus();
 
     if (warmStartTables.size() == 0) {
         EmbeddingMgmt::Instance()->Load(loadPath, trainKeysSet);
@@ -256,10 +251,15 @@ bool HybridMgmt::Load(const string& loadPath, vector<string> warmStartTables)
         featAdmitNEvict.LoadHistoryRecords(loadData.histRec);
     }
 
+    int& theTrainBatchId = hybridMgmtBlock->hybridBatchId[TRAIN_CHANNEL_ID];
     if (isL3StorageEnabled) {
         LOG_DEBUG(MGMT + "Start host side load: L3Storage key freq map");
         auto step = GetStepFromPath(loadPath);
-        cacheManager->Load(mgmtEmbInfo, step, trainKeysSet);
+        // When in load and train mode or predict mode, SSD needs to actually execute loading
+        // When in the train and eval modes, loading before eval should be directly skipped
+        if (theTrainBatchId == 0) {
+            cacheManager->Load(mgmtEmbInfo, step, trainKeysSet);
+        }
     }
 
     LOG_DEBUG(MGMT + "Finish host side load process");
@@ -499,7 +499,16 @@ void HybridMgmt::EvalTask(TaskType type)
                       hybridMgmtBlock->IsNeedWaitSave());
             std::unique_lock<std::mutex> checkSaveLocker(saveMutex);
             cvCheckSave.wait(checkSaveLocker, [this] { return !hybridMgmtBlock->IsNeedWaitSave() || mutexDestroy; });
-            hybridMgmtBlock->Wake(TRAIN_CHANNEL_ID);
+
+            if (hybridMgmtBlock->pythonBatchId[EVAL_CHANNEL_ID] >= hybridMgmtBlock->hybridBatchId[EVAL_CHANNEL_ID]) {
+                // Before waking the data process for training, Recover the backed-up training state
+                RecoverTrainStatus();
+                hybridMgmtBlock->Wake(TRAIN_CHANNEL_ID);
+            } else {
+                std::this_thread::sleep_for(SLEEP_MS);
+                continue;
+            }
+
             LOG_DEBUG("wake TrainTask");
             hybridMgmtBlock->DoBlock(channelId);
         }
@@ -959,30 +968,43 @@ void HybridMgmt::LookUpAndRemoveAddrs(const EmbTaskInfo& info)
 }
 
 // DDR
-void HybridMgmt::LookUpSwapAddrs(const string& embName, const string& swapStr)
+void HybridMgmt::LookUpSwapAddrs(const string& embName)
 {
     int id = 0;
-    std::string swapName = embName + swapStr;
+    std::string swapInName = embName + SWAP_IN_STR;
+    std::string swapOutName = embName + SWAP_OUT_STR;
+    std::vector<float*> addrs;
     while (isRunning && lookupAddrSuccess) {
-        std::vector<uint64_t> keys = HBMSwapKeyQue[swapName].WaitAndPop();
         if (!isRunning) {
             return;
         }
-        vector<float*> addrs;
-        TimeCost lookupAddrsTC;
+        // swap in
+        std::vector<uint64_t> keys = HBMSwapKeyQue[swapInName].WaitAndPop();
+        TimeCost lookupAddrsInTC;
         int rc = embCache->EmbeddingLookupAddrs(embName, keys, addrs);
         if (rc != H_OK) {
             lookupAddrSuccess = false;
             throw runtime_error("EmbeddingLookupAddrs failed! error code: " + std::to_string(rc));
         }
-        LOG_DEBUG("table:{}, swapStr:{}, keys.size:{}, addrs.size:{}, pushId:{}, lookupAddrsTC(ms):{}", embName,
-                  swapStr, keys.size(), addrs.size(), id, lookupAddrsTC.ElapsedMS());
-        HBMSwapAddrsQue[swapName].Pushv(addrs);
-        if (swapStr == SWAP_IN_STR) {
-            lookUpSwapInAddrsPushId[embName]++;
-            LOG_DEBUG("LookUpSwapAddrs, table:{}, pushId:{}, lookUpSwapInAddrsPushId:{}", embName, id,
-                      lookUpSwapInAddrsPushId[embName]);
+        LOG_DEBUG("table:{}, swapStr:{}, keys.size:{}, addrs.size:{}, pushId:{}, lookupAddrsInTC(ms):{}", embName,
+                  SWAP_IN_STR, keys.size(), addrs.size(), id, lookupAddrsInTC.ElapsedMS());
+        HBMSwapAddrsQue[swapInName].Pushv(addrs);
+
+        lookUpSwapInAddrsPushId[embName]++;
+        LOG_DEBUG("LookUpSwapAddrs, table:{}, pushId:{}, lookUpSwapInAddrsPushId:{}", embName, id,
+                  lookUpSwapInAddrsPushId[embName]);
+
+        // swap out
+        keys = HBMSwapKeyQue[swapOutName].WaitAndPop();
+        TimeCost lookupAddrsOutTC;
+        rc = embCache->EmbeddingLookupAddrs(embName, keys, addrs);
+        if (rc != H_OK) {
+            lookupAddrSuccess = false;
+            throw runtime_error("EmbeddingLookupAddrs failed! error code: " + std::to_string(rc));
         }
+        LOG_DEBUG("table:{}, swapStr:{}, keys.size:{}, addrs.size:{}, pushId:{}, lookupAddrsOutTC(ms):{}", embName,
+                  SWAP_OUT_STR, keys.size(), addrs.size(), id, lookupAddrsOutTC.ElapsedMS());
+        HBMSwapAddrsQue[swapOutName].Pushv(addrs);
         id++;
     }
 }
@@ -1242,9 +1264,7 @@ void HybridMgmt::InitDataPipelineForDDR(const string& embName)
     // 初始化lookup线程
     lookUpSwapInAddrsPushId[embName];  // 此处初始化，避免多线程竞争导致计数错误
     lookUpSwapInAddrsThreads.emplace_back(
-        std::async(std::launch::async, [=] { LookUpSwapAddrs(embName, SWAP_IN_STR); }));
-    lookUpSwapOutAddrsThreads.emplace_back(
-        std::async(std::launch::async, [=] { LookUpSwapAddrs(embName, SWAP_OUT_STR); }));
+        std::async(std::launch::async, [=] { LookUpSwapAddrs(embName); }));
 
     LOG_DEBUG("data pipeline for ddr init");
 }
@@ -2194,4 +2214,35 @@ bool HybridMgmt::IsTrainAndEvalCase()
         }
     }
     return alreadyTrainOnce && isChannelSwitchCase;
+}
+
+void HybridMgmt::BackUpTrainStatus()
+{
+    int channelID = TRAIN_CHANNEL_ID;
+    int& theTrainBatchId = hybridMgmtBlock->hybridBatchId[channelID];
+    if (theTrainBatchId == 0) {
+        return;
+    }
+
+    LOG_INFO("On Estimator train and eval mode, start to backup train status, "
+             "current train batchId: {} .", theTrainBatchId);
+    // When in the train and eval mode of estimator, backup training states before loading.
+    EmbeddingMgmt::Instance()->BackUpTrainStatusBeforeLoad();
+
+    if (isL3StorageEnabled) {
+        cacheManager->BackUpTrainStatus();
+    }
+    isBackUpTrainStatus = true;
+}
+
+void HybridMgmt::RecoverTrainStatus()
+{
+    if (isBackUpTrainStatus) {
+        EmbeddingMgmt::Instance()->RecoverTrainStatus();
+    }
+
+    if (isL3StorageEnabled) {
+        cacheManager->RecoverTrainStatus();
+    }
+    isBackUpTrainStatus = false;
 }
