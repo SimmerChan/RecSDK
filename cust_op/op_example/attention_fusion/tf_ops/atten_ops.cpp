@@ -32,23 +32,21 @@ using OpKernelContextPtr = OpKernelContext*;
 using InferenceContextPtr = ::tensorflow::shape_inference::InferenceContext*;
 
 namespace {
-    class AttnOps : public OpKernel {
-        public:
-            explicit AttnOps(OpKernelConstructionPtr context) : OpKernel(context)
-            {
-            }
+class AttenOps : public OpKernel {
+public:
+    explicit AttenOps(OpKernelConstructionPtr context) : OpKernel(context) {}
 
-            void Compute(OpKernelContextPtr context) override
-            {
-                std::cout << "Cust Ops not installed!!" << std::endl;
-            }
+    void Compute(OpKernelContextPtr context) override
+    {
+        std::cout << "Cust Ops not installed!!" << std::endl;
+    }
 
-            ~AttnOps() override = default;
-    };
-}
+    ~AttenOps() override = default;
+};
+}  // namespace
 
 namespace tensorflow {
-    REGISTER_OP("AttentionFusion")
+REGISTER_OP("AttentionFusion")
     .Input("query: float")
     .Input("key: float")
     .Input("value: float")
@@ -57,7 +55,7 @@ namespace tensorflow {
     .Output("softmax_out: float")
     .Attr("mask_on: int")
     .SetIsStateful()
-    .SetShapeFn([](::tensorflow::shape_inference::InferenceContext *c) {
+    .SetShapeFn([](::tensorflow::shape_inference::InferenceContext* c) {
         ShapeHandle query_shape;
         ShapeHandle key_shape;
         ShapeHandle value_shape;
@@ -78,9 +76,9 @@ namespace tensorflow {
         c->set_output(1, c->MakeShape({shape0, shape1, shape2}));
         return Status::OK();
     });
-    REGISTER_KERNEL_BUILDER(Name("AttentionFusion").Device(DEVICE_CPU), AttnOps)
+REGISTER_KERNEL_BUILDER(Name("AttentionFusion").Device(DEVICE_CPU), AttenOps)
 
-    REGISTER_OP("AttentionFusionGrad")
+REGISTER_OP("AttentionFusionGrad")
     .Input("dout: float")
     .Input("softmax_out: float")
     .Input("query: float")
@@ -90,7 +88,7 @@ namespace tensorflow {
     .Output("grad_key: float")
     .Output("grad_value: float")
     .SetIsStateful()
-    .SetShapeFn([](::tensorflow::shape_inference::InferenceContext *c) {
+    .SetShapeFn([](::tensorflow::shape_inference::InferenceContext* c) {
         ShapeHandle query_shape;
         ShapeHandle key_shape;
         ShapeHandle value_shape;
@@ -121,5 +119,5 @@ namespace tensorflow {
         c->set_output(2, c->MakeShape({qShape0, vShape1, vShape2}));
         return Status::OK();
     });
-    REGISTER_KERNEL_BUILDER(Name("AttentionFusionGrad").Device(DEVICE_CPU), AttnOps)
-}
+REGISTER_KERNEL_BUILDER(Name("AttentionFusionGrad").Device(DEVICE_CPU), AttenOps)
+}  // namespace tensorflow

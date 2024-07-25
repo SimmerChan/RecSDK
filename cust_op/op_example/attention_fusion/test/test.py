@@ -1,11 +1,12 @@
 import os
+import logging
 
 import numpy as np
 from tensorflow.python.framework import ops
 import tensorflow as tf
 import npu_device
 from npu_device.compat.v1.npu_init import *
-import logging
+
 logging.getLogger().setLevel(logging.INFO)
 
 os.environ["DEVICE_ID"] = str(0)
@@ -30,7 +31,8 @@ def attention_fusion(q, k, v, mask=None):
     if mask is None:
         mask = tf.zeros(())
         mask_on = 0
-    attn_out_result, softmax_out_result = tfOpLib.attention_fusion(query=q, key=k, value=v, atten_mask=mask, mask_on=mask_on)
+    attn_out_result, softmax_out_result = tfOpLib.attention_fusion(query=q, 
+                                                                   key=k, value=v, atten_mask=mask, mask_on=mask_on)
     return attn_out_result, softmax_out_result
 
 
@@ -72,12 +74,16 @@ def param_attn_layer(q, k, v, m=None):
     return out, softmax_output
 
 
-def generate_data(batch_size, query_dim1, query_dim2, key_dim1, value_dim2):
+def generate_data_qk(batch_size, query_dim1, query_dim2, key_dim1, value_dim2):
     q = np.random.randn(batch_size, query_dim1, query_dim2).astype(np.float32)
     k = np.random.randn(batch_size, key_dim1, query_dim2).astype(np.float32)
+    return (q, k)
+
+
+def generate_data_vm(batch_size, query_dim1, query_dim2, key_dim1, value_dim2):
     v = np.random.randn(batch_size, key_dim1, value_dim2).astype(np.float32)
     m = np.random.randint(0, 2, size=(batch_size, query_dim1, key_dim1)).astype(np.float32)
-    return (q, k, v, m)
+    return (v, m)
 
 
 query_ph = tf.placeholder(tf.float32, shape=[None, None, None], name="query")
@@ -101,15 +107,17 @@ test_case = [(1024, 144, 64, 1000, 80)]
 with tf.compat.v1.Session(config=config) as sess:
     sess.run(tf.compat.v1.global_variables_initializer())
     for dim0, dim1, dim2, dim3, dim4 in test_case:
-        logging.info(f"===================test case {dim0}, {dim1}, {dim2}, {dim3}, {dim4}, ===================")
-        query_np, key_np, value_np, mask_np = generate_data(dim0, dim1, dim2, dim3, dim4)
+        logging.info("===================test case %d, %d, %d, %d, %d, ===================",
+                        {dim0}, {dim1}, {dim2}, {dim3}, {dim4})
+        query_np, key_np = generate_data_qk(dim0, dim1, dim2, dim3, dim4)
+        value_np, mask_np = generate_data_vm(dim0, dim1, dim2, dim3, dim4)
 
         result_gloden = sess.run([loss_golden, grads_and_vars_golden, softmax_out_gloden],
                                     feed_dict={query_ph: query_np, key_ph:key_np, value_ph:value_np, mask_ph:mask_np})
         result = sess.run([loss, grads_and_vars, softmax_out],
                             feed_dict={query_ph: query_np, key_ph:key_np, value_ph:value_np, mask_ph:mask_np})
         
-        logging.info(((result[0]-result[0]) < 1e-4).all())
+        logging.info(((result[0] - result[0]) < 1e-4).all())
         logging.info(((result[1][0] - result_gloden[1][0]) < 1e-4).all())
         logging.info(((result[1][1] - result_gloden[1][1]) < 1e-4).all())
         logging.info(((result[1][2] - result_gloden[1][2]) < 1e-4).all())
