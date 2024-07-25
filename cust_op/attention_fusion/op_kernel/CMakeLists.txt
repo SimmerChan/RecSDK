@@ -1,3 +1,5 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2024. All rights reserved.
+
 # set custom compile options
 if ("${CMAKE_BUILD_TYPE}x" STREQUAL "Debugx")
     add_ops_compile_options(ALL OPTIONS -g -O0)
