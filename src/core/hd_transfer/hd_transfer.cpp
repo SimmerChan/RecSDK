@@ -148,12 +148,14 @@ void HDTransfer::Send(TransferChannel channel, const vector<Tensor> &tensors, in
         sizes.push_back(t.NumElements());
     }
 
-    string sendName;
-    if (channel == TransferChannel::SWAP || channel == TransferChannel::D2H || channel == TransferChannel::H2D) {
-        sendName = StringFormat("%s_%s_all", embName.c_str(), TransferChannel2Str(channel).c_str());
-    } else {
-        sendName = StringFormat("%s_%s_%d", embName.c_str(), TransferChannel2Str(channel).c_str(), channelId);
-    }
+//    string sendName;
+//    if (channel == TransferChannel::SWAP || channel == TransferChannel::D2H || channel == TransferChannel::H2D) {
+//        sendName = StringFormat("%s_%s_all", embName.c_str(), TransferChannel2Str(channel).c_str());
+//    } else {
+//        sendName = StringFormat("%s_%s_%d", embName.c_str(), TransferChannel2Str(channel).c_str(), channelId);
+//    }
+
+    string sendName = StringFormat("%s_%s_%d", embName.c_str(), TransferChannel2Str(channel).c_str(), channelId);
 
     LOG_INFO(HD + "hd transfer send:{}, batchId:{}, send count:{}, size list:{}",
              sendName, batchId, sizes.size(), VectorToString(sizes));
@@ -236,12 +238,14 @@ size_t HDTransfer::RecvAcl(TransferChannel channel, int channelId, const string&
     EASY_FUNCTION()
     size_t ret = 0;
 #ifndef GTEST
-    string recvName;
-    if (channel == TransferChannel::SWAP || channel == TransferChannel::D2H || channel == TransferChannel::H2D) {
-        recvName = StringFormat("%s_%s_all", embName.c_str(), TransferChannel2Str(channel).c_str());
-    } else {
-        recvName = StringFormat("%s_%s_%d", embName.c_str(), TransferChannel2Str(channel).c_str(), channelId);
-    }
+//    string recvName;
+//    if (channel == TransferChannel::SWAP || channel == TransferChannel::D2H || channel == TransferChannel::H2D) {
+//        recvName = StringFormat("%s_%s_all", embName.c_str(), TransferChannel2Str(channel).c_str());
+//    } else {
+//        recvName = StringFormat("%s_%s_%d", embName.c_str(), TransferChannel2Str(channel).c_str(), channelId);
+//    }
+    string recvName = StringFormat("%s_%s_%d", embName.c_str(), TransferChannel2Str(channel).c_str(), channelId);
+
 
     LOG_DEBUG("hd transfer try recv:{}, batchId:{}", recvName, batchId);
     TimeCost tc = TimeCost();
