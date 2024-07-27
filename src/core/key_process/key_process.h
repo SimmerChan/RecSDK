@@ -84,7 +84,7 @@ namespace MxRec {
 
         unique_ptr<vector<Tensor>> GetInfoVec(const EmbBaseInfo& info, ProcessedInfo type, bool &isEos);
 
-        vector<uint64_t> GetUniqueKeys(const EmbBaseInfo &info, bool &isEos, map<string, int> &lookUpSwapInAddrsPushId);
+        vector<uint64_t> GetUniqueKeys(const EmbBaseInfo &info, bool &isEos, map<string, vector<int>> &lookUpSwapAddrsPushId);
 
         vector<int32_t> GetRestoreVecSec(const EmbBaseInfo& info);
 
@@ -304,7 +304,7 @@ namespace MxRec {
         bool IsGetInfoVecEos(int batch, const string& embName, int channel);
 
         bool IsGetUniqueKeysEos(const EmbBaseInfo& info, std::chrono::_V2::system_clock::time_point& startTime,
-                                map<string, int>& lookUpSwapInAddrsPushId);
+                                map<string, vector<int>>& lookUpSwapAddrsPushId);
 
         void SendEosTensor(const std::string& embName, int channel, bool sendAllChannel);
 

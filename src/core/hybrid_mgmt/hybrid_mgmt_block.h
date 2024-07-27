@@ -47,7 +47,7 @@ namespace MxRec {
         int stepsInterval[2] = {0, 0};  // 通道i运行多少步后切换为通道j
 
         // hybrid已完成H2D的step；不区分通道、图，不会重置；
-        map<string, int> h2dNextBatchId;
+        map<string, vector<int>> h2dNextBatchId;
 
         int loop[2] = {1, 1};
 

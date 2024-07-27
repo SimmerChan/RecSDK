@@ -1159,7 +1159,7 @@ T KeyProcess::GetInfo(info_list_t<T>& list, const EmbBaseInfo &info)
 }
 
 vector<uint64_t> KeyProcess::GetUniqueKeys(const EmbBaseInfo& info, bool& isEos,
-                                           map<string, int> &lookUpSwapInAddrsPushId)
+                                           map<string, vector<int>> &lookUpSwapAddrsPushId)
 {
     TimeCost tc = TimeCost();
 
@@ -1196,7 +1196,7 @@ vector<uint64_t> KeyProcess::GetUniqueKeys(const EmbBaseInfo& info, bool& isEos,
             break;
         } catch (EmptyList&) {
             unique_lock<mutex> lockEosGuard(eosMutex);
-            isEos = IsGetUniqueKeysEos(info, startTime, lookUpSwapInAddrsPushId);
+            isEos = IsGetUniqueKeysEos(info, startTime, lookUpSwapAddrsPushId);
             if (isEos) {
                 break;
             }
@@ -1215,7 +1215,7 @@ vector<uint64_t> KeyProcess::GetUniqueKeys(const EmbBaseInfo& info, bool& isEos,
 }
 
 bool KeyProcess::IsGetUniqueKeysEos(const EmbBaseInfo& info, std::chrono::_V2::system_clock::time_point& startTime,
-                                    map<string, int>& lookUpSwapInAddrsPushId)
+                                    map<string, vector<int>>& lookUpSwapAddrsPushId)
 {
     HybridMgmtBlock* hybridMgmtBlock = Singleton<HybridMgmtBlock>::GetInstance();
     auto endTime = std::chrono::system_clock::now();
@@ -1236,15 +1236,15 @@ bool KeyProcess::IsGetUniqueKeysEos(const EmbBaseInfo& info, std::chrono::_V2::s
         LOG_DEBUG("table:{}, channelId:{}, isNeedSendEos:{}, readEmbKeyBatchId:{}, batch:{}, h2dNextBatchId:{},"
                   " lookUpSwapAddrsPushId:{}, allChannelBatchId:{}", info.name, info.channelId,
                   isNeedSendEos[info.channelId], readEmbKeyBatchId, info.batchId,
-                  hybridMgmtBlock->h2dNextBatchId[info.name], lookUpSwapInAddrsPushId[info.name], allChannelBatchId);
+                  hybridMgmtBlock->h2dNextBatchId[info.name][info.channelId], lookUpSwapAddrsPushId[info.name][info.channelId], allChannelBatchId);
         startTime = std::chrono::system_clock::now();
     }
     // Check '>= readEmbedBatchIdAll' condition to avoid send eos before handle all batch data from readEmbKey Op.
     if (isNeedSendEos[info.channelId] && readEmbKeyBatchId < info.batchId &&
-        hybridMgmtBlock->h2dNextBatchId[info.name] == lookUpSwapInAddrsPushId[info.name] &&
-        hybridMgmtBlock->h2dNextBatchId[info.name] >= allChannelBatchId) {
+        hybridMgmtBlock->h2dNextBatchId[info.name][info.channelId] == lookUpSwapAddrsPushId[info.name][info.channelId] &&
+        hybridMgmtBlock->h2dNextBatchId[info.name][info.channelId] >= allChannelBatchId) {
         LOG_INFO("table:{}, channelId:{} batchId:{}, GetUniqueKeys eos, h2dNextBatchId:{}, allChannelBatchId:{}",
-                 info.name, info.channelId, info.batchId, hybridMgmtBlock->h2dNextBatchId[info.name],
+                 info.name, info.channelId, info.batchId, hybridMgmtBlock->h2dNextBatchId[info.name][info.channelId],
                  allChannelBatchId);
         return true;
     }
@@ -1281,7 +1281,7 @@ std::vector<int32_t> KeyProcess::GetRestoreVecSec(const EmbBaseInfo& info)
             int readEmbKeyBatchId = hybridMgmtBlock->readEmbedBatchId[info.channelId] - 1;
             // 避免eos在keyProcess还未处理完数据时插队到通道前面
             if (isNeedSendEos[info.channelId] && readEmbKeyBatchId < info.batchId &&
-                hybridMgmtBlock->h2dNextBatchId[info.name] == info.batchId) {
+                hybridMgmtBlock->h2dNextBatchId[info.name][info.channelId] == info.batchId) {
                 LOG_ERROR("channelId:{} batchId:{}, GetRestoreVecSec eos, code should not reach here",
                           info.channelId, info.batchId);
                 throw runtime_error("GetRestoreVecSec eos, code should not reach here");
@@ -1553,7 +1553,7 @@ bool KeyProcess::IsGetInfoVecEos(int batch, const string& embName, int channel)
     int readEmbKeyBatchId = hybridMgmtBlock->readEmbedBatchId[channel] - 1;
     if (rankInfo.isDDR) {
         if (isNeedSendEos[channel] && readEmbKeyBatchId < batch &&
-            hybridMgmtBlock->h2dNextBatchId[embName] == batch) {
+            hybridMgmtBlock->h2dNextBatchId[embName][channel] == batch) {
             LOG_ERROR("channelId:{} batchId:{}, GetInfoVec eos, code should not reach here", channel, batch);
             throw runtime_error("GetInfoVec eos, code should not reach here");
         }
