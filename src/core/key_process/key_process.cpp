@@ -1234,7 +1234,7 @@ bool KeyProcess::IsGetUniqueKeysEos(const EmbBaseInfo& info, std::chrono::_V2::s
     }
     if (info.batchId != 0 && elapsedTime.count() >= timeoutGetUniqueKeysEmpty) {
         LOG_DEBUG("table:{}, channelId:{}, isNeedSendEos:{}, readEmbKeyBatchId:{}, batch:{}, h2dNextBatchId:{},"
-                  " lookUpSwapInAddrsPushId:{}, allChannelBatchId:{}", info.name, info.channelId,
+                  " lookUpSwapAddrsPushId:{}, allChannelBatchId:{}", info.name, info.channelId,
                   isNeedSendEos[info.channelId], readEmbKeyBatchId, info.batchId,
                   hybridMgmtBlock->h2dNextBatchId[info.name], lookUpSwapInAddrsPushId[info.name], allChannelBatchId);
         startTime = std::chrono::system_clock::now();

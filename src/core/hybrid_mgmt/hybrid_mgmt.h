@@ -70,6 +70,7 @@ struct EmbTaskInfo {
     int threadIdx;
     int cvNotifyIndex;
     int extEmbeddingSize;
+    int channelId;
     string name;
 };
 
@@ -136,35 +137,38 @@ public:
     void RecoverTrainStatus();
 
     GTEST_PRIVATE : bool mutexDestroy{false};
-    std::mutex lookUpAndSendBatchIdMtx;
-    std::mutex receiveAndUpdateBatchIdMtx;
-    std::map<std::string, int> lookUpAndSendTableBatchMap;
-    std::map<std::string, int> receiveAndUpdateTableBatchMap;
+    std::mutex lookUpAndSendBatchIdMtx[2];  // train and eval
+    std::mutex receiveAndUpdateBatchIdMtx[2];
+    std::map<std::string, vector<int>> lookUpAndSendTableBatchId;  // train and eval
+    std::map<std::string, vector<int>> receiveAndUpdateTableBatchId;
 
-    std::map<std::string, std::map<int, std::mutex>> lastUpdateFinishMutexMap;
-    std::map<std::string, std::map<int, std::condition_variable>> cvLastUpdateFinishMap;
-    std::map<std::string, int> lastUpdateFinishStepMap;
-    std::map<std::string, std::map<int, std::mutex>> lastLookUpFinishMutexMap;
-    std::map<std::string, std::map<int, std::condition_variable>> cvLastLookUpFinishMap;
-    std::map<std::string, int> lastLookUpFinishStepMap;
-    std::map<std::string, std::map<int, std::mutex>> lastSendFinishMutexMap;
-    std::map<std::string, std::map<int, std::condition_variable>> cvLastSendFinishMap;
-    std::map<std::string, int> lastSendFinishStepMap;
-    std::map<std::string, std::map<int, std::mutex>> lastRecvFinishMutexMap;
-    std::map<std::string, std::map<int, std::condition_variable>> cvLastRecvFinishMap;
-    std::map<std::string, int> lastRecvFinishStepMap;
+    std::map<std::string, std::mutex> lastUpdateFinishMutex;
+    std::map<std::string, std::condition_variable> lastUpdateFinishCV;
+    std::map<std::string, vector<int>> lastUpdateFinishStep;  // train and eval
+
+    std::map<std::string, std::mutex> lastLookUpFinishMutex;
+    std::map<std::string, std::condition_variable> lastLookUpFinishCV;
+    std::map<std::string, vector<int>> lastLookUpFinishStep;  // train and eval
+
+    std::map<std::string, std::mutex> lastSendFinishMutex;
+    std::map<std::string, std::condition_variable> lastSendFinishCV;
+    std::map<std::string, vector<int>> lastSendFinishStep;  // train and eval
+
+    std::map<std::string, std::mutex> lastRecvFinishMutex;
+    std::map<std::string, std::condition_variable> lastRecvFinishCV;
+    std::map<std::string, vector<int>> lastRecvFinishStep;  // train and eval
 
     std::vector<std::thread> EmbeddingLookUpAndSendThreadPool;
     std::vector<std::thread> EmbeddingReceiveAndUpdateThreadPool;
     std::vector<std::future<void>> lookUpSwapOutAddrsThreads;
     std::vector<std::future<void>> lookUpSwapInAddrsThreads;
 
-    std::map<std::string, TaskQueue<std::vector<uint64_t>>> HBMSwapKeyQue;
-    std::map<std::string, TaskQueue<std::vector<uint64_t>>> HBMSwapKeyForL3StorageQue;
-    std::map<std::string, TaskQueue<std::vector<uint64_t>>> DDRSwapKeyQue;
-    std::map<std::string, TaskQueue<std::vector<uint64_t>>> DDRSwapKeyForL3StorageQue;
-    std::map<std::string, TaskQueue<std::vector<float*>>> HBMSwapAddrsQue;
-    std::map<std::string, TaskQueue<std::vector<float*>>> DDRSwapAddrsQue;
+    std::map<std::string, vector<TaskQueue<std::vector<uint64_t>>>> HBMSwapKeyQue;  // train and eval
+    std::map<std::string, vector<TaskQueue<std::vector<uint64_t>>>> HBMSwapKeyForL3StorageQue;
+    std::map<std::string, vector<TaskQueue<std::vector<uint64_t>>>> DDRSwapKeyQue;
+    std::map<std::string, vector<TaskQueue<std::vector<uint64_t>>>> DDRSwapKeyForL3StorageQue;
+    std::map<std::string, vector<TaskQueue<std::vector<float*>>>> HBMSwapAddrsQue;
+    std::map<std::string, vector<TaskQueue<std::vector<float*>>>> DDRSwapAddrsQue;
 
     std::mutex evictMut;
 
@@ -191,19 +195,19 @@ public:
 
     void LookUpAndRemoveAddrs(const EmbTaskInfo& info);  // L3Storage, synchronous
 
-    void LookUpSwapAddrs(const std::string& embName);  // DDR, asynchronous
+    void LookUpSwapAddrs(const std::string& embName, int channelId);  // DDR, asynchronous
 
     void EmbeddingTask();
 
     void MultiThreadEmbHDTransWrap();
 
-    void EmbeddingLookUpAndSendDDR(int batchId, int index, const EmbInfo& embInfo);
+    void EmbeddingLookUpAndSendDDR(int batchId, int index, const EmbInfo& embInfo, int channelId);
 
-    void EmbeddingReceiveAndUpdateDDR(int batchId, int index, const EmbInfo& embInfo);
+    void EmbeddingReceiveAndUpdateDDR(int batchId, int index, const EmbInfo& embInfo, int channelId);
 
-    void EmbeddingLookUpAndSendL3Storage(int batchId, int index, const EmbInfo& embInfo);
+    void EmbeddingLookUpAndSendL3Storage(int batchId, int index, const EmbInfo& embInfo, int channelId);
 
-    void EmbeddingReceiveAndUpdateL3Storage(int batchId, int index, const EmbInfo& embInfo);
+    void EmbeddingReceiveAndUpdateL3Storage(int batchId, int index, const EmbInfo& embInfo, int channelId);
 
     void SendTensorForSwap(const EmbBaseInfo& info, const vector<uint64_t>& swapInPosUint,
                            const vector<uint64_t>& swapOutPosUint);
@@ -224,7 +228,7 @@ private:
     bool isInitialized{false};
     bool alreadyTrainOnce = false;  // 用于判断是否为predict模式
     bool isBackUpTrainStatus = false; // whether the train state has been backed up
-    map<string, int> lookUpSwapInAddrsPushId;  // 用于处理eos场景，当消费者追上生产者且长时间无上游数据，会触发eos
+    map<string, vector<int>> lookUpSwapAddrsPushId;  // 用于处理eos场景，当消费者追上生产者且长时间无上游数据，会触发eos
     map<string, ProcessStatus> specialProcessStatus;
 
     void TrainTask(TaskType type);
@@ -270,9 +274,9 @@ private:
 
     void EmbeddingSendL3Storage(const EmbTaskInfo& info, vector<Tensor>& h2dEmb);
 
-    void CreateEmbeddingLookUpAndSendThread(int index, const EmbInfo& embInfo);
+    void CreateEmbeddingLookUpAndSendThread(int index, const EmbInfo& embInfo, int channelId);
 
-    void CreateEmbeddingReceiveAndUpdateThread(int index, const EmbInfo& embInfo);
+    void CreateEmbeddingReceiveAndUpdateThread(int index, const EmbInfo& embInfo, int channelId);
 
     void HandleFirstBatchCaseDDR(const EmbBaseInfo& info, std::pair<vector<uint64_t>, vector<uint64_t>>& swapInKoPair,
                                  std::pair<vector<uint64_t>, vector<uint64_t>>& swapOutKoPair);
