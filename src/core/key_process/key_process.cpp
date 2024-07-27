@@ -1610,16 +1610,18 @@ void KeyProcess::SendEosTensor(const std::string& embName, int channel, bool sen
             continue;
         }
 
+        sendName = StringFormat("%s_%s_%d", embName.c_str(), transName.c_str(), channel);
+
         if (transName == TransferChannel2Str(TransferChannel::SWAP) ||
             transName == TransferChannel2Str(TransferChannel::H2D)) {
-            sendName = StringFormat("%s_%s_all", embName.c_str(), transName.c_str());
+//            sendName = StringFormat("%s_%s_all", embName.c_str(), transName.c_str());
             if (channel == EVAL_CHANNEL_ID && !sendAllChannel) {
                 LOG_INFO("skip send eos for share channel:{}, channel id:{}", sendName, channel);
                 LOG_INFO("check if train ProcessEmbInfo run and let it decide eos or not");
                 continue;
             }
         } else {
-            sendName = StringFormat("%s_%s_%d", embName.c_str(), transName.c_str(), channel);
+//            sendName = StringFormat("%s_%s_%d", embName.c_str(), transName.c_str(), channel);
         }
 
         size_t channelSize = 0;

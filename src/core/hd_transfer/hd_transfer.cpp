@@ -105,13 +105,15 @@ void HDTransfer::CreateChannel(const uint32_t localRankId, const string& embName
         }
 
         auto channel = static_cast<TransferChannel>(c);
-        std::string sendName;
-        if (c == static_cast<int>(TransferChannel::SWAP) || c == static_cast<int>(TransferChannel::D2H) ||
-            c == static_cast<int>(TransferChannel::H2D)) {
-            sendName = StringFormat("%s_%s_all", embName.c_str(), TransferChannel2Str(channel).c_str());
-        } else {
-            sendName = StringFormat("%s_%s_%d", embName.c_str(), TransferChannel2Str(channel).c_str(), channelNum);
-        }
+//        std::string sendName;
+//        if (c == static_cast<int>(TransferChannel::SWAP) || c == static_cast<int>(TransferChannel::D2H) ||
+//            c == static_cast<int>(TransferChannel::H2D)) {
+//            sendName = StringFormat("%s_%s_all", embName.c_str(), TransferChannel2Str(channel).c_str());
+//        } else {
+//            sendName = StringFormat("%s_%s_%d", embName.c_str(), TransferChannel2Str(channel).c_str(), channelNum);
+//        }
+        std::string sendName = StringFormat("%s_%s_%d", embName.c_str(), TransferChannel2Str(channel).c_str(), channelNum);
+
         if (TransferChannel2Str(channel) == "all2all" ||
             TransferChannel2Str(channel) == "restore" ||
             TransferChannel2Str(channel) == "lookup"  ||
