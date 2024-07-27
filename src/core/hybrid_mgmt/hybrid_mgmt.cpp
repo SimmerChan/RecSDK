@@ -1148,6 +1148,7 @@ void HybridMgmt::EmbeddingLookUpAndSendL3Storage(int batchId, int index, const E
                         .threadIdx = index,
                         .cvNotifyIndex = cvNotifyIndex,
                         .extEmbeddingSize = embInfo.extEmbeddingSize,
+                        .channelId = channelId,
                         .name = embInfo.name};
     vector<Tensor> h2dEmb;
 
