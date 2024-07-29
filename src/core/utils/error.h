@@ -65,10 +65,9 @@ UnExpected<typename std::decay<E>::type> make_unexpected(E&& e)
     return tl::unexpected<typename std::decay<E>::type>(std::forward<E>(e));
 }
 
-template <typename E, typename... Args,
-          typename std::enable_if<std::is_constructible<E, Args&&...>::value>::type* = nullptr>
-UnExpected<typename std::decay<E>::type> make_unexpected(Args&&... args)
+template <typename... Args, typename std::enable_if<std::is_constructible<Error, Args&&...>::value>::type* = nullptr>
+UnExpected<Error> make_unexpected(Args&&... args)
 {
-    return tl::unexpected<typename std::decay<E>::type>(std::forward<Args>(args)...);
+    return tl::unexpected<Error>(std::forward<Args>(args)...);
 }
 }  // namespace MxRec
