@@ -33,7 +33,11 @@ public:
 
     std::string ToString()
     {
-        return "ERROR kind:" + this->CodeAsString() + ". Message: " + this->msg_;
+        std::string res = this->CodeAsString();
+        if (!this->msg_.empty()) {
+            res += ": " + this->msg_;
+        }
+        return res;
     }
 
 private:
