@@ -36,20 +36,20 @@ namespace MxRec {
         // 上一次运行的通道ID
         int lastRunChannelId = -1;
         // hybrid将要处理的batch id
-        int hybridBatchId[2] = {0, 0};
+        int hybridBatchId[MAX_CHANNEL_NUM] = {0, 0};
         // python侧将要处理的batch id
-        int pythonBatchId[2] = {0, 0};
+        int pythonBatchId[MAX_CHANNEL_NUM] = {0, 0};
         // readEmbed算子侧将要处理的batch id
-        int readEmbedBatchId[2] = {0, 0};
+        int readEmbedBatchId[MAX_CHANNEL_NUM] = {0, 0};
         // eval通道处理过的batch计数，不区分通道、图，不会重置；用于判断h2d swap是否需要eos
         int evalBatchIdTotal = 0;
         int maxTrainStep = 0;
-        int stepsInterval[2] = {0, 0};  // 通道i运行多少步后切换为通道j
+        int stepsInterval[MAX_CHANNEL_NUM] = {0, 0};  // 通道i运行多少步后切换为通道j
 
         // hybrid已完成H2D的step；不区分通道、图，不会重置；
-        map<string, vector<int>> h2dNextBatchId;
+        map<string, int[MAX_CHANNEL_NUM]> h2dNextBatchId;
 
-        int loop[2] = {1, 1};
+        int loop[MAX_CHANNEL_NUM] = {1, 1};
 
         bool isRunning = true;
 
@@ -93,7 +93,7 @@ namespace MxRec {
 
     private:
         // 控制通道阻塞的变量
-        bool isBlock[2] = {true, true};
+        bool isBlock[MAX_CHANNEL_NUM] = {true, true};
         // 控制训练了多少步进行保存的步数
         int saveInterval = 0;
         RankInfo rankInfo;
