@@ -22,6 +22,9 @@ enum class ErrorCode {
     // TODO add real error kinds
     kNotFound = 1,
     kFileNotExist = 2,
+    kNotSupported = 3,
+    kInvalidArgument = 4,
+    kIOError = 5,
     kUnknown,
 };
 
@@ -48,6 +51,12 @@ private:
                 return "NotFound";
             case ErrorCode::kFileNotExist:
                 return "FileNotExist";
+            case ErrorCode::kNotSupported:
+                return "NotSupported";
+            case ErrorCode::kInvalidArgument:
+                return "InvalidArgument";
+            case ErrorCode::kIOError:
+                return "IOError";
             default:
                 return "Unknown";
         }
