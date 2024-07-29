@@ -1,3 +1,17 @@
+/* Copyright 2024. Huawei Technologies Co.,Ltd. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+        limitations under the License.
+==============================================================================*/
 #include <string>
 
 #include "expected.h"
@@ -40,6 +54,21 @@ private:
 };
 
 template <typename T>
-using Result = tl::expected<T, Error>;
+using Expected = tl::expected<T, Error>;
 
+template <typename E>
+using UnExpected = tl::unexpected<E>;
+
+template <typename E>
+UnExpected<typename std::decay<E>::type> make_unexpected(E&& e)
+{
+    return tl::unexpected<typename std::decay<E>::type>(std::forward<E>(e));
+}
+
+template <typename E, typename... Args,
+          typename std::enable_if<std::is_constructible<E, Args&&...>::value>::type* = nullptr>
+UnExpected<typename std::decay<E>::type> make_unexpected(Args&&... args)
+{
+    return tl::unexpected<typename std::decay<E>::type>(std::forward<Args>(args)...);
+}
 }  // namespace MxRec
