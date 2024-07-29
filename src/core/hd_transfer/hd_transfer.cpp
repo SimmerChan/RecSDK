@@ -99,8 +99,8 @@ void HDTransfer::CreateChannel(const uint32_t localRankId, const string& embName
     int channelSize = GlobalEnv::hdChannelSize;
     LOG_INFO("user config all2all restore lookup channel size:{}", channelSize);
     for (int c = static_cast<int>(TransferChannel::D2H); c != static_cast<int>(TransferChannel::INVALID); c++) {
-        if ((c == static_cast<int>(TransferChannel::SWAP) || c == static_cast<int>(TransferChannel::D2H) ||
-             c == static_cast<int>(TransferChannel::H2D)) && channelNum == EVAL_CHANNEL_ID) {
+        if ((c == static_cast<int>(TransferChannel::SAVE_D2H) || c == static_cast<int>(TransferChannel::SAVE_H2D))
+            && channelNum == EVAL_CHANNEL_ID) {
             continue;
         }
 
