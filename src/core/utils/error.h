@@ -12,6 +12,10 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
         limitations under the License.
 ==============================================================================*/
+
+#ifndef MXREC_CORE_UTILS_ERROR_H
+#define MXREC_CORE_UTILS_ERROR_H
+
 #include <string>
 
 #include "expected.h"
@@ -77,3 +81,5 @@ UnExpected make_unexpected(Args&&... args)
     return tl::unexpected<Error>(std::forward<Args>(args)...);
 }
 }  // namespace MxRec
+
+#endif
