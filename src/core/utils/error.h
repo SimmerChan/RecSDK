@@ -56,17 +56,10 @@ private:
 template <typename T>
 using Expected = tl::expected<T, Error>;
 
-template <typename E>
-using UnExpected = tl::unexpected<E>;
-
-template <typename E>
-UnExpected<typename std::decay<E>::type> make_unexpected(E&& e)
-{
-    return tl::unexpected<typename std::decay<E>::type>(std::forward<E>(e));
-}
+using UnExpected = tl::unexpected<Error>;
 
 template <typename... Args, typename std::enable_if<std::is_constructible<Error, Args&&...>::value>::type* = nullptr>
-UnExpected<Error> make_unexpected(Args&&... args)
+UnExpected make_unexpected(Args&&... args)
 {
     return tl::unexpected<Error>(std::forward<Args>(args)...);
 }
