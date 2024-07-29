@@ -14,8 +14,9 @@ See the License for the specific language governing permissions and
 ==============================================================================*/
 
 #include "hd_transfer.h"
-#include <fstream>
+
 #include "utils/common.h"
+#include "utils/error.h"
 #include "utils/time_cost.h"
 
 using namespace MxRec;
@@ -25,7 +26,7 @@ using namespace std;
 /// \param embInfos 稀疏表元信息类的list
 /// \param localRankId 设备逻辑ID
 /// \return
-int HDTransfer::Init(const vector<EmbInfo>& embInfos, uint32_t localRankId)
+Expected<void> HDTransfer::Init(const vector<EmbInfo>& embInfos, uint32_t localRankId)
 {
 #ifndef GTEST
     LOG_INFO(MGMT + "begin hd_transfer initialize, rank:{}", localRankId);
@@ -34,17 +35,17 @@ int HDTransfer::Init(const vector<EmbInfo>& embInfos, uint32_t localRankId)
     LOG_INFO(MGMT + "end aclInit, rank:{}", localRankId);
     if (retOk != ACL_SUCCESS) {
         LOG_ERROR(MGMT + "aclInit fail, rank:{}, errno:{}", localRankId, retOk);
-        return false;
+        return make_unexpected(ErrorCode::kAscendCLError);
     }
     LOG_INFO(MGMT + "start Set device, rank:{}", localRankId);
     // 指定当前进程或线程中用于运算的Device，同时隐式创建默认Context
     auto ret = aclrtSetDevice(static_cast<int32_t>(localRankId));
     if (ret != ACL_ERROR_NONE) {
         LOG_ERROR("Set device failed, device_id:{}", localRankId);
-        return false;
+        return make_unexpected(ErrorCode::kAscendCLError);
     }
     LOG_INFO(MGMT + "end Set device, rank:{}", localRankId);
-    for (const auto& embInfo: embInfos) {
+    for (const auto& embInfo : embInfos) {
         auto embName = embInfo.name;
         for (int i = 0; i < MAX_CHANNEL_NUM; ++i) {
             CreateChannel(localRankId, embInfo.name, i);
@@ -54,7 +55,7 @@ int HDTransfer::Init(const vector<EmbInfo>& embInfos, uint32_t localRankId)
             acltdtDataset* dataset = acltdtCreateDataset();
             if (dataset == nullptr) {
                 LOG_ERROR("create acltdtDataset failed, table:{}, threadId:{}", embName, j);
-                throw runtime_error("create acltdtDataset failed");
+                return make_unexpected(ErrorCode::kAscendCLError);
             }
             aclDatasets[embInfo.name][j] = dataset;
         }
@@ -62,31 +63,32 @@ int HDTransfer::Init(const vector<EmbInfo>& embInfos, uint32_t localRankId)
     running = true;
     LOG(INFO) << "hd_transfer init";
 #endif
-    return true;
+    return {};
 }
 
 /// 删除所有通道和TDT dataset
-void HDTransfer::Destroy()
+Expected<void> HDTransfer::Destroy()
 {
 #ifndef GTEST
     running = false;
     LOG_INFO(HD + "destroy channel start");
-    for (auto& c: transferChannels) {
+    for (auto& c : transferChannels) {
         LOG_INFO(HD + "start destroy channel:{}", c.first);
         if (acltdtStopChannel(c.second) != ACL_ERROR_NONE || acltdtDestroyChannel(c.second) != ACL_ERROR_NONE) {
-            throw runtime_error("Acl destroy channel failed.");
+            return make_unexpected(ErrorCode::kAscendCLError, "Acl destroy channel failed.");
         }
         LOG_INFO(HD + "destroy channel:{}", c.first);
     }
-    for (auto& datasetMap: aclDatasets) {
-        for (auto &d: datasetMap.second) {
+    for (auto& datasetMap : aclDatasets) {
+        for (auto& d : datasetMap.second) {
             if (acltdtDestroyDataset(d.second) != ACL_ERROR_NONE) {
-                throw runtime_error("Acl destroy tensor dataset failed.");
+                return make_unexpected(ErrorCode::kAscendCLError, "Acl destroy tensor dataset failed.");
             }
         }
     }
     aclFinalize();
 #endif
+    return {};
 }
 
 /// 为每张表创建相应的数据传输通道（all2ll、restore、lookup等）
@@ -100,7 +102,8 @@ void HDTransfer::CreateChannel(const uint32_t localRankId, const string& embName
     LOG_INFO("user config all2all restore lookup channel size:{}", channelSize);
     for (int c = static_cast<int>(TransferChannel::D2H); c != static_cast<int>(TransferChannel::INVALID); c++) {
         if ((c == static_cast<int>(TransferChannel::SWAP) || c == static_cast<int>(TransferChannel::D2H) ||
-             c == static_cast<int>(TransferChannel::H2D)) && channelNum == EVAL_CHANNEL_ID) {
+             c == static_cast<int>(TransferChannel::H2D)) &&
+            channelNum == EVAL_CHANNEL_ID) {
             continue;
         }
 
@@ -112,14 +115,10 @@ void HDTransfer::CreateChannel(const uint32_t localRankId, const string& embName
         } else {
             sendName = StringFormat("%s_%s_%d", embName.c_str(), TransferChannel2Str(channel).c_str(), channelNum);
         }
-        if (TransferChannel2Str(channel) == "all2all" ||
-            TransferChannel2Str(channel) == "restore" ||
-            TransferChannel2Str(channel) == "lookup"  ||
-            TransferChannel2Str(channel) == "restore_second" ||
-            TransferChannel2Str(channel) == "uniquekeys" ||
-            TransferChannel2Str(channel) == "evict" ||
-            TransferChannel2Str(channel) == "swap"
-                ) {
+        if (TransferChannel2Str(channel) == "all2all" || TransferChannel2Str(channel) == "restore" ||
+            TransferChannel2Str(channel) == "lookup" || TransferChannel2Str(channel) == "restore_second" ||
+            TransferChannel2Str(channel) == "uniquekeys" || TransferChannel2Str(channel) == "evict" ||
+            TransferChannel2Str(channel) == "swap") {
             transferChannels[sendName] = TDT_CREATE_CHANNEL(localRankId, sendName.c_str(), channelSize);
         } else {
             transferChannels[sendName] = TDT_CREATE_CHANNEL(localRankId, sendName.c_str(), PING_PONG_SIZE);
@@ -135,16 +134,16 @@ void HDTransfer::CreateChannel(const uint32_t localRankId, const string& embName
 /// \param channelId 通道索引（训练/推理）
 /// \param embName 表名
 /// \param batchId 已处理的batch数
-void HDTransfer::Send(TransferChannel channel, const vector<Tensor> &tensors, int channelId, const string &embName,
-                      int batchId)
+Expected<void> HDTransfer::Send(TransferChannel channel, const vector<Tensor>& tensors, int channelId,
+                                const string& embName, int batchId)
 {
     EASY_FUNCTION()
     if (!running) {
-        return;
+        return {};
     }
 #ifndef GTEST
     vector<size_t> sizes;
-    for (auto& t: tensors) {
+    for (auto& t : tensors) {
         sizes.push_back(t.NumElements());
     }
 
@@ -155,25 +154,25 @@ void HDTransfer::Send(TransferChannel channel, const vector<Tensor> &tensors, in
         sendName = StringFormat("%s_%s_%d", embName.c_str(), TransferChannel2Str(channel).c_str(), channelId);
     }
 
-    LOG_INFO(HD + "hd transfer send:{}, batchId:{}, send count:{}, size list:{}",
-             sendName, batchId, sizes.size(), VectorToString(sizes));
+    LOG_INFO(HD + "hd transfer send:{}, batchId:{}, send count:{}, size list:{}", sendName, batchId, sizes.size(),
+             VectorToString(sizes));
 
     if (sizes.size() == 0) {
         LOG_WARN("tensors num can not be zero");
-        return;
+        return {};
     }
     bool isNeedResend = false;
     int resendTime = 0;
     tensorflow::Status status = tensorflow::Status::OK();
     do {
-        status = tensorflow::SendTensorsByAcl(transferChannels[sendName], ACL_TENSOR_DATA_TENSOR, tensors,
-                                              isNeedResend);
+        status =
+            tensorflow::SendTensorsByAcl(transferChannels[sendName], ACL_TENSOR_DATA_TENSOR, tensors, isNeedResend);
         if (!running) {
-            return;
+            return {};
         }
         if (status != tensorflow::Status::OK()) {
             LOG_ERROR(MGMT + "hd send {} error '{}'", sendName, status.error_message());
-            throw runtime_error("hd send error");
+            return make_unexpected(ErrorCode::kAscendCLError, "hd send error");
         }
         if (batchId != -1 && resendTime != 0) {
             LOG_WARN(MGMT + "hd send {} batch: {} failed, retry: {} ", sendName, batchId, resendTime);
@@ -182,10 +181,11 @@ void HDTransfer::Send(TransferChannel channel, const vector<Tensor> &tensors, in
     } while (isNeedResend);
 
     if (channel == TransferChannel::EVICT) {
-        return;
+        return {};
     }
     usedChannelsNames[channelId].insert(TransferChannel2Str(channel));
 #endif
+    return {};
 }
 
 /// 接收从device发送过来的数据（D2H）；使用tfa封装的接口
@@ -193,7 +193,7 @@ void HDTransfer::Send(TransferChannel channel, const vector<Tensor> &tensors, in
 /// \param channelId 通道索引（训练/推理）
 /// \param embName 表名
 /// \return
-vector<tensorflow::Tensor> HDTransfer::Recv(TransferChannel channel, int channelId, const string& embName)
+Expected<vector<tensorflow::Tensor>> HDTransfer::Recv(TransferChannel channel, int channelId, const string& embName)
 {
     EASY_FUNCTION()
     vector<tensorflow::Tensor> tensors;
@@ -213,11 +213,11 @@ vector<tensorflow::Tensor> HDTransfer::Recv(TransferChannel channel, int channel
     }
     if (status != tensorflow::Status::OK()) {
         LOG_ERROR(MGMT + "{} hd recv error '{}'", recvName, status.error_message());
-        throw runtime_error("hd recv error");
+        return make_unexpected(ErrorCode::kAscendCLError, "hd recv error");
     }
 
     vector<size_t> sizes;
-    for (auto& t: tensors) {
+    for (auto& t : tensors) {
         sizes.push_back(t.NumElements());
     }
     LOG_INFO("hd transfer recv:{}, size:{} cost:{}ms", recvName, VectorToString(sizes), tc.ElapsedMS());
@@ -230,8 +230,8 @@ vector<tensorflow::Tensor> HDTransfer::Recv(TransferChannel channel, int channel
 /// \param channelId 通道索引（训练/推理）
 /// \param embName 表名
 /// \return
-size_t HDTransfer::RecvAcl(TransferChannel channel, int channelId, const string& embName,
-                           int embeddingThreadId, int batchId)
+Expected<size_t> HDTransfer::RecvAcl(TransferChannel channel, int channelId, const string& embName,
+                                     int embeddingThreadId, int batchId)
 {
     EASY_FUNCTION()
     size_t ret = 0;
@@ -246,18 +246,19 @@ size_t HDTransfer::RecvAcl(TransferChannel channel, int channelId, const string&
     LOG_DEBUG("hd transfer try recv:{}, batchId:{}", recvName, batchId);
     TimeCost tc = TimeCost();
     if (aclDatasets[embName][embeddingThreadId] == nullptr) {
-        throw runtime_error(StringFormat("Failed recv:%s.", recvName.c_str()).c_str());
+        return make_unexpected(ErrorCode::kAscendCLError, StringFormat("Failed recv:%s.", recvName.c_str()).c_str());
     }
-    auto aclStatus = acltdtReceiveTensor(
-        transferChannels[recvName], aclDatasets[embName][embeddingThreadId], GlobalEnv::aclTimeout);
+    auto aclStatus =
+        acltdtReceiveTensor(transferChannels[recvName], aclDatasets[embName][embeddingThreadId], GlobalEnv::aclTimeout);
     if (!running) {
         return 0;
     }
     if (aclStatus != ACL_ERROR_NONE && aclStatus != ACL_ERROR_RT_QUEUE_EMPTY) {
-        throw runtime_error(StringFormat("Failed receive data from acl channel, acl status:%d", aclStatus).c_str());
+        return make_unexpected(ErrorCode::kAscendCLError,
+                               StringFormat("Failed receive data from acl channel, acl status:%d", aclStatus).c_str());
     }
     LOG_INFO("hd transfer recv:{}, batchId:{}, cost:{}ms", recvName, batchId, tc.ElapsedMS());
-    ret =  acltdtGetDatasetSize(aclDatasets[embName][embeddingThreadId]);
+    ret = acltdtGetDatasetSize(aclDatasets[embName][embeddingThreadId]);
 #endif
     return ret;
 }
@@ -275,7 +276,7 @@ std::unordered_map<int, std::set<std::string>> HDTransfer::GetUsedTransChannel()
 void HDTransfer::ClearTransChannel(int channelId)
 {
     LOG_INFO("[CLEAR] Start to clear channel: {}", channelId);
-    
+
     acltdtDataset* trashDataset = acltdtCreateDataset();
     std::unordered_map<std::string, acltdtChannelHandle*> transChannels = this->GetTransChannel();
 
@@ -287,7 +288,7 @@ void HDTransfer::ClearTransChannel(int channelId)
         if (table_channel != channelId) {
             continue;
         }
-     
+
         size_t initSize = 0;
         acltdtQueryChannelSize(channelHandle, &initSize);
         if (initSize == 0) {

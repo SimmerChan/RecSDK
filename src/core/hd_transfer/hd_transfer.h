@@ -16,99 +16,100 @@ See the License for the specific language governing permissions and
 #ifndef MX_REC_HD_TRANSFER_H
 #define MX_REC_HD_TRANSFER_H
 
-#include "acl/acl_base.h"
 #include "acl/acl.h"
+#include "acl/acl_base.h"
 #include "acl/acl_tdt.h"
 #include "acl/acl_tdt_queue.h"
 #include "acl_channel.h"
 #include "utils/common.h"
 #include "utils/config.h"
+#include "utils/error.h"
 
 #ifndef TDT_CREATE_CHANNEL
 #define TDT_CREATE_CHANNEL acltdtCreateChannelWithCapacity
 #endif
 
 namespace MxRec {
-    using namespace std;
-    const std::string MGMT = "\033[32m[Mgmt]\033[0m ";
-    const std::string HD = "\033[32m[HD]\033[0m ";
-    const std::string HOSTEMB = "\033[32m[HostEmb]\033[0m ";
-    const int PING_PONG_SIZE = 6;
+using namespace std;
+const std::string MGMT = "\033[32m[Mgmt]\033[0m ";
+const std::string HD = "\033[32m[HD]\033[0m ";
+const std::string HOSTEMB = "\033[32m[HostEmb]\033[0m ";
+const int PING_PONG_SIZE = 6;
 
-    enum class TransferChannel {
-        D2H,
-        RESTORE,
-        RESTORE_SECOND,
-        ALL2ALL,
-        UNIQKEYS,
-        LOOKUP,
-        EVICT,
-        H2D,
-        SWAP,
-        SAVE_D2H,
-        SAVE_H2D,
-        INVALID
-    };
+enum class TransferChannel {
+    D2H,
+    RESTORE,
+    RESTORE_SECOND,
+    ALL2ALL,
+    UNIQKEYS,
+    LOOKUP,
+    EVICT,
+    H2D,
+    SWAP,
+    SAVE_D2H,
+    SAVE_H2D,
+    INVALID
+};
 
-    inline string TransferChannel2Str(TransferChannel e)
-    {
-        switch (e) {
-            case TransferChannel::RESTORE_SECOND:
-                return "restore_second";
-            case TransferChannel::D2H:
-                return "d2h";
-            case TransferChannel::RESTORE:
-                return "restore";
-            case TransferChannel::ALL2ALL:
-                return "all2all";
-            case TransferChannel::UNIQKEYS:
-                return "uniquekeys";
-            case TransferChannel::LOOKUP:
-                return "lookup";
-            case TransferChannel::EVICT:
-                return "evict";
-            case TransferChannel::H2D:
-                return "h2d";
-            case TransferChannel::SWAP:
-                return "swap";
-            case TransferChannel::SAVE_D2H:
-                return "save_d2h";
-            case TransferChannel::SAVE_H2D:
-                return "save_h2d";
-            default:
-                throw std::invalid_argument("Invalid TransferChannel");
-        }
-    };
+inline string TransferChannel2Str(TransferChannel e)
+{
+    switch (e) {
+        case TransferChannel::RESTORE_SECOND:
+            return "restore_second";
+        case TransferChannel::D2H:
+            return "d2h";
+        case TransferChannel::RESTORE:
+            return "restore";
+        case TransferChannel::ALL2ALL:
+            return "all2all";
+        case TransferChannel::UNIQKEYS:
+            return "uniquekeys";
+        case TransferChannel::LOOKUP:
+            return "lookup";
+        case TransferChannel::EVICT:
+            return "evict";
+        case TransferChannel::H2D:
+            return "h2d";
+        case TransferChannel::SWAP:
+            return "swap";
+        case TransferChannel::SAVE_D2H:
+            return "save_d2h";
+        case TransferChannel::SAVE_H2D:
+            return "save_h2d";
+        default:
+            throw std::invalid_argument("Invalid TransferChannel");
+    }
+};
 
-    class HDTransfer {
-    public:
-        std::unordered_map<std::string, std::unordered_map<int, acltdtDataset*>> aclDatasets;
+class HDTransfer {
+public:
+    std::unordered_map<std::string, std::unordered_map<int, acltdtDataset*>> aclDatasets;
 
-        HDTransfer() = default;
+    HDTransfer() = default;
 
-        int Init(const vector<EmbInfo>& embInfos, uint32_t localRankId);
+    Expected<void> Init(const vector<EmbInfo>& embInfos, uint32_t localRankId);
 
-        void Send(TransferChannel channel, const vector<Tensor>& tensors,
-                  int channelId, const string& embName, int batchId = -1);
+    Expected<void> Send(TransferChannel channel, const vector<Tensor>& tensors, int channelId, const string& embName,
+                        int batchId = -1);
 
-        vector<Tensor> Recv(TransferChannel channel, int channelId, const string& embName);
+    Expected<vector<Tensor>> Recv(TransferChannel channel, int channelId, const string& embName);
 
-        size_t RecvAcl(TransferChannel channel, int channelId, const string& embName,
-                       int embeddingThreadId, int batchId);
+    Expected<size_t> RecvAcl(TransferChannel channel, int channelId, const string& embName, int embeddingThreadId,
+                             int batchId);
 
-        void Destroy();
+    Expected<void> Destroy();
 
-        std::unordered_map<std::string, acltdtChannelHandle*> GetTransChannel();
+    std::unordered_map<std::string, acltdtChannelHandle*> GetTransChannel();
 
-        unordered_map<int, set<std::string>> GetUsedTransChannel();
+    unordered_map<int, set<std::string>> GetUsedTransChannel();
 
-        void ClearTransChannel(int channelId);
+    void ClearTransChannel(int channelId);
 
-    private:
-        std::unordered_map<std::string, acltdtChannelHandle*> transferChannels;
-        std::unordered_map<int, std::set<std::string>> usedChannelsNames; // key是通道0、1
-        bool running;
-        void CreateChannel(const uint32_t localRankId, const string& embName, const int channelNum);
-    };
-}
-#endif // MX_REC_HD_TRANSFER_H
+private:
+    std::unordered_map<std::string, acltdtChannelHandle*> transferChannels;
+    std::unordered_map<int, std::set<std::string>> usedChannelsNames;  // key是通道0、1
+    bool running;
+    void CreateChannel(const uint32_t localRankId, const string& embName, const int channelNum);
+};
+}  // namespace MxRec
+#endif  // MX_REC_HD_TRANSFER_H
