@@ -18,12 +18,13 @@ See the License for the specific language governing permissions and
 using namespace std;
 using namespace MxRec;
 
-unique_ptr<FileSystem> FileSystemHandler::Create(const string& filePath)
+Expected<unique_ptr<FileSystem>> FileSystemHandler::Create(const string& filePath)
 {
     if (filePath.empty()) {
-        throw runtime_error("dataDir is Null. The pointer of the file system cannot be created.");
+        return make_unexpected(ErrorCode::kInvalidArgument,
+                               "dataDir is Null. The pointer of the file system cannot be created.");
     }
-    for (const auto &prefix: hdfsPrefixes) {
+    for (const auto& prefix : hdfsPrefixes) {
         if (filePath.substr(0, prefix.length()) == prefix) {
             return make_unique<HdfsFileSystem>();
         }
