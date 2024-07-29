@@ -171,6 +171,14 @@ def _clear_saved_model() -> None:
         os.makedirs(sub_path, mode=0o550, exist_ok=True)
         logger.info(f"Create dir:{sub_path}")
 
+def index_initializer(shape, dtype=None, partition_info=None):
+    # shape 是一个元组，表示张量的形状，例如 (rows, cols)
+    rows, cols = shape
+    # 创建一个与shape相同大小的列表，用于存储初始化值
+    values = [[i * 1e06 + j * 1e-20 for j in range(cols)] for i in range(rows)]
+    # 将列表转换为numpy数组
+    return tf.constant(values, dtype=dtype)
+
 
 if __name__ == "__main__":
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
@@ -188,7 +196,7 @@ if __name__ == "__main__":
     # 评估多少步切换为训练
     EVAL_STEPS = 10
     # 训练多少步进行保存
-    SAVING_INTERVAL = 100
+    SAVING_INTERVAL = 1
 
     # get init configuration
     try:
@@ -245,8 +253,10 @@ if __name__ == "__main__":
         config_for_item_table = dict(access_threshold=cfg.access_threshold, eviction_threshold=cfg.eviction_threshold,
                                      faae_coefficient=4)
         ACCESS_AND_EVICT = dict(user_table=config_for_user_table, item_table=config_for_item_table)
+
     train_feature_spec_list = None
     eval_feature_spec_list = None
+    
     if not MODIFY_GRAPH_FLAG:
         train_feature_spec_list = create_feature_spec_list(use_timestamp=USE_TIMESTAMP)
         eval_feature_spec_list = create_feature_spec_list(use_timestamp=USE_TIMESTAMP)
@@ -272,8 +282,10 @@ if __name__ == "__main__":
         raise ValueError(f"cache mode must in {list(cache_mode_dict.keys())}, get:{cache_mode}")
     if cache_mode in ["DDR", "SSD"] and not use_dynamic:
         logger.warning("when cache_mode in [DDR, SSD], suggest use_dynamic=true to avoid tuning size parameter")
-    emb_initializer = tf.compat.v1.constant_initializer(0) if USE_DETERMINISTIC \
-        else tf.compat.v1.truncated_normal_initializer()
+
+    emb_initializer = tf.compat.v1.constant_initializer(0)
+    # emb_initializer = tf.compat.v1.constant_initializer(0) if USE_DETERMINISTIC \
+    #     else tf.compat.v1.truncated_normal_initializer()
     user_hashtable = create_table(key_dtype=tf.int64,
                                   dim=tf.TensorShape([cfg.user_hashtable_dim]),
                                   name='user_table',
