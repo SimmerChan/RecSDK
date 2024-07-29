@@ -27,8 +27,8 @@ See the License for the specific language governing permissions and
 // <http://creativecommons.org/publicdomain/zero/1.0/>.
 ///
 
-#ifndef TL_EXPECTED_HPP
-#define TL_EXPECTED_HPP
+#ifndef MXREC_TL_EXPECTED_H
+#define MXREC_TL_EXPECTED_H
 
 #define TL_EXPECTED_VERSION_MAJOR 1
 #define TL_EXPECTED_VERSION_MINOR 1
