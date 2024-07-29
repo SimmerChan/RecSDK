@@ -1159,7 +1159,7 @@ T KeyProcess::GetInfo(info_list_t<T>& list, const EmbBaseInfo &info)
 }
 
 vector<uint64_t> KeyProcess::GetUniqueKeys(const EmbBaseInfo& info, bool& isEos,
-                                           map<string, vector<int>> &lookUpSwapAddrsPushId)
+                                           map<string, int[MAX_CHANNEL_NUM]> &lookUpSwapAddrsPushId)
 {
     TimeCost tc = TimeCost();
 
@@ -1215,7 +1215,7 @@ vector<uint64_t> KeyProcess::GetUniqueKeys(const EmbBaseInfo& info, bool& isEos,
 }
 
 bool KeyProcess::IsGetUniqueKeysEos(const EmbBaseInfo& info, std::chrono::_V2::system_clock::time_point& startTime,
-                                    map<string, vector<int>>& lookUpSwapAddrsPushId)
+                                    map<string, int[MAX_CHANNEL_NUM]>& lookUpSwapAddrsPushId)
 {
     HybridMgmtBlock* hybridMgmtBlock = Singleton<HybridMgmtBlock>::GetInstance();
     auto endTime = std::chrono::system_clock::now();

@@ -933,8 +933,8 @@ void HybridMgmt::LookUpAndRemoveAddrs(const EmbTaskInfo& info)
     uint64_t memSize = info.extEmbeddingSize * sizeof(float);
     const std::string hbmSwapKeyQueName = "HBMSwapKeyQue";
     const std::string ddrSwapKeyQueName = "DDRSwapKeyQue";
-    auto lookUpFunc = [this, memSize, info](std::map<std::string, vector<TaskQueue<std::vector<uint64_t>>>>& fromQue,
-                                            std::map<std::string, vector<TaskQueue<std::vector<float*>>>>& toQue,
+    auto lookUpFunc = [this, memSize, info](std::map<std::string, TaskQueue<std::vector<uint64_t>>[MAX_CHANNEL_NUM]>& fromQue,
+                                            std::map<std::string, TaskQueue<std::vector<float*>>[MAX_CHANNEL_NUM]>& toQue,
                                             const string& swapStr, const string& fromQueName) {
         std::vector<uint64_t> keys = fromQue[info.name + swapStr][info.channelId].WaitAndPop();
         if (!isRunning) {
@@ -1285,20 +1285,13 @@ void HybridMgmt::SendTensorForSwap(const EmbBaseInfo& info, const vector<uint64_
 void HybridMgmt::InitDataPipelineForDDR(const string& embName)
 {
     // 初始化公共队列
-    HBMSwapKeyQue[embName + SWAP_IN_STR][TRAIN_CHANNEL_ID];
-    HBMSwapKeyQue[embName + SWAP_OUT_STR][TRAIN_CHANNEL_ID];
-    HBMSwapAddrsQue[embName + SWAP_IN_STR][TRAIN_CHANNEL_ID];
-    HBMSwapAddrsQue[embName + SWAP_OUT_STR][TRAIN_CHANNEL_ID];
-
-    HBMSwapKeyQue[embName + SWAP_IN_STR][EVAL_CHANNEL_ID];
-    HBMSwapKeyQue[embName + SWAP_OUT_STR][EVAL_CHANNEL_ID];
-    HBMSwapAddrsQue[embName + SWAP_IN_STR][EVAL_CHANNEL_ID];
-    HBMSwapAddrsQue[embName + SWAP_OUT_STR][EVAL_CHANNEL_ID];
-
+    HBMSwapKeyQue[embName + SWAP_IN_STR];
+    HBMSwapKeyQue[embName + SWAP_OUT_STR];
+    HBMSwapAddrsQue[embName + SWAP_IN_STR];
+    HBMSwapAddrsQue[embName + SWAP_OUT_STR];
 
     // 初始化lookup线程
-    lookUpSwapAddrsPushId[embName][TRAIN_CHANNEL_ID];  // 此处初始化，避免多线程竞争导致计数错误
-    lookUpSwapAddrsPushId[embName][EVAL_CHANNEL_ID];  // 此处初始化，避免多线程竞争导致计数错误
+    lookUpSwapAddrsPushId[embName];  // 此处初始化，避免多线程竞争导致计数错误
 
     lookUpSwapInAddrsThreads.emplace_back(
         std::async(std::launch::async, [=] { LookUpSwapAddrs(embName, TRAIN_CHANNEL_ID); }));
@@ -1311,39 +1304,22 @@ void HybridMgmt::InitDataPipelineForDDR(const string& embName)
 void HybridMgmt::InitDataPipelineForL3Storage(const string& embName, int extEmbeddingSize)
 {
     // 初始化公共队列
-    HBMSwapKeyQue[embName + SWAP_IN_STR][TRAIN_CHANNEL_ID];
-    HBMSwapKeyQue[embName + SWAP_OUT_STR][TRAIN_CHANNEL_ID];
-    HBMSwapAddrsQue[embName + SWAP_IN_STR][TRAIN_CHANNEL_ID];
-    HBMSwapAddrsQue[embName + SWAP_OUT_STR][TRAIN_CHANNEL_ID];
+    HBMSwapKeyQue[embName + SWAP_IN_STR];
+    HBMSwapKeyQue[embName + SWAP_OUT_STR];
+    HBMSwapAddrsQue[embName + SWAP_IN_STR];
+    HBMSwapAddrsQue[embName + SWAP_OUT_STR];
 
-    HBMSwapKeyQue[embName + SWAP_IN_STR][EVAL_CHANNEL_ID];
-    HBMSwapKeyQue[embName + SWAP_OUT_STR][EVAL_CHANNEL_ID];
-    HBMSwapAddrsQue[embName + SWAP_IN_STR][EVAL_CHANNEL_ID];
-    HBMSwapAddrsQue[embName + SWAP_OUT_STR][EVAL_CHANNEL_ID];
+    HBMSwapKeyQue[embName + ADDR_STR];
+    HBMSwapKeyForL3StorageQue[embName + SWAP_IN_STR];
+    HBMSwapKeyForL3StorageQue[embName + ADDR_STR];
+    HBMSwapKeyForL3StorageQue[embName + SWAP_OUT_STR];
 
-    HBMSwapKeyQue[embName + ADDR_STR][TRAIN_CHANNEL_ID];
-    HBMSwapKeyForL3StorageQue[embName + SWAP_IN_STR][TRAIN_CHANNEL_ID];
-    HBMSwapKeyForL3StorageQue[embName + ADDR_STR][TRAIN_CHANNEL_ID];
-    HBMSwapKeyForL3StorageQue[embName + SWAP_OUT_STR][TRAIN_CHANNEL_ID];
-
-    HBMSwapKeyQue[embName + ADDR_STR][EVAL_CHANNEL_ID];
-    HBMSwapKeyForL3StorageQue[embName + SWAP_IN_STR][EVAL_CHANNEL_ID];
-    HBMSwapKeyForL3StorageQue[embName + ADDR_STR][EVAL_CHANNEL_ID];
-    HBMSwapKeyForL3StorageQue[embName + SWAP_OUT_STR][EVAL_CHANNEL_ID];
-
-    DDRSwapKeyQue[embName + SWAP_OUT_STR][TRAIN_CHANNEL_ID];
-    DDRSwapKeyQue[embName + SWAP_IN_STR][TRAIN_CHANNEL_ID];
-    DDRSwapKeyForL3StorageQue[embName + SWAP_OUT_STR][TRAIN_CHANNEL_ID];
-    DDRSwapKeyForL3StorageQue[embName + SWAP_IN_STR][TRAIN_CHANNEL_ID];
-    DDRSwapAddrsQue[embName + SWAP_OUT_STR][TRAIN_CHANNEL_ID];
-    DDRSwapAddrsQue[embName + SWAP_IN_STR][TRAIN_CHANNEL_ID];
-
-    DDRSwapKeyQue[embName + SWAP_OUT_STR][EVAL_CHANNEL_ID];
-    DDRSwapKeyQue[embName + SWAP_IN_STR][EVAL_CHANNEL_ID];
-    DDRSwapKeyForL3StorageQue[embName + SWAP_OUT_STR][EVAL_CHANNEL_ID];
-    DDRSwapKeyForL3StorageQue[embName + SWAP_IN_STR][EVAL_CHANNEL_ID];
-    DDRSwapAddrsQue[embName + SWAP_OUT_STR][EVAL_CHANNEL_ID];
-    DDRSwapAddrsQue[embName + SWAP_IN_STR][EVAL_CHANNEL_ID];
+    DDRSwapKeyQue[embName + SWAP_OUT_STR];
+    DDRSwapKeyQue[embName + SWAP_IN_STR];
+    DDRSwapKeyForL3StorageQue[embName + SWAP_OUT_STR];
+    DDRSwapKeyForL3StorageQue[embName + SWAP_IN_STR];
+    DDRSwapAddrsQue[embName + SWAP_OUT_STR];
+    DDRSwapAddrsQue[embName + SWAP_IN_STR];
 
     // 初始化lookup线程
     LOG_DEBUG("data pipeline for L3Storage init");
