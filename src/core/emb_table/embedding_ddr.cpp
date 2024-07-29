@@ -16,19 +16,17 @@ See the License for the specific language governing permissions and
 
 #include <utility>
 
-#include "utils/logger.h"
-#include "utils/singleton.h"
 #include "l3_storage/cache_manager.h"
 #include "ock_ctr_common/include/error_code.h"
+#include "utils/logger.h"
 
 using namespace MxRec;
 
-EmbeddingDDR::EmbeddingDDR()
-{
-}
+EmbeddingDDR::EmbeddingDDR() {}
 
 EmbeddingDDR::EmbeddingDDR(const EmbInfo& info, const RankInfo& rankInfo, int inSeed)
-    : EmbeddingTable(info, rankInfo, inSeed), deviceId(rankInfo.deviceId)
+    : EmbeddingTable(info, rankInfo, inSeed),
+      deviceId(rankInfo.deviceId)
 {
     LOG_INFO("Init DDR table:{}, devVocabSize:{}, hostVocabSize:{}", name, devVocabSize, hostVocabSize);
 }
@@ -39,9 +37,7 @@ EmbeddingDDR::~EmbeddingDDR()
     embCache = nullptr;
 }
 
-void EmbeddingDDR::Key2Offset(std::vector<emb_key_t>& splitKey, int channel)
-{
-}
+void EmbeddingDDR::Key2Offset(std::vector<emb_key_t>& splitKey, int channel) {}
 
 int64_t EmbeddingDDR::capacity() const
 {
@@ -49,18 +45,14 @@ int64_t EmbeddingDDR::capacity() const
 }
 
 /*
-* 删除淘汰key的映射关系，并将其offset更新到evictPos，待后续复用
-*/
-void EmbeddingDDR::EvictDeleteEmb(const vector<emb_key_t>& keys)
-{
-}
+ * 删除淘汰key的映射关系，并将其offset更新到evictPos，待后续复用
+ */
+void EmbeddingDDR::EvictDeleteEmb(const vector<emb_key_t>& keys) {}
 
 /// DDR模式下的淘汰：删除映射表、初始化host表、发送dev淘汰位置
 /// \param embName
 /// \param keys
-void EmbeddingDDR::EvictKeys(const vector<emb_key_t>& keys)
-{
-}
+void EmbeddingDDR::EvictKeys(const vector<emb_key_t>& keys) {}
 
 void EmbeddingDDR::Load(const string& savePath, map<string, unordered_set<emb_cache_key_t>>& trainKeySet)
 {
@@ -85,7 +77,7 @@ void EmbeddingDDR::Load(const string& savePath, map<string, unordered_set<emb_ca
     }
 }
 
-void EmbeddingDDR::LoadKey(const string &savePath, vector<emb_cache_key_t> &keys)
+void EmbeddingDDR::LoadKey(const string& savePath, vector<emb_cache_key_t>& keys)
 {
     stringstream ss;
     ss << savePath << "/" << name << "/key/slice.data";
@@ -121,7 +113,8 @@ void EmbeddingDDR::LoadKey(const string &savePath, vector<emb_cache_key_t> &keys
     if (result != fileSize) {
         free(static_cast<void*>(buf));
         throw runtime_error(StringFormat("Error: Load keys failed. Expected to read %d bytes, "
-                                         "but actually read %d bytes to file %s.", fileSize, result, ss.str().c_str()));
+                                         "but actually read %d bytes to file %s.",
+                                         fileSize, result, ss.str().c_str()));
     }
 
     hostLoadOffset.clear();
@@ -139,7 +132,7 @@ void EmbeddingDDR::LoadKey(const string &savePath, vector<emb_cache_key_t> &keys
     LOG_DEBUG("load key done, table:{}", name);
 }
 
-void EmbeddingDDR::LoadEmbedding(const string &savePath, vector<vector<float>> &embeddings)
+void EmbeddingDDR::LoadEmbedding(const string& savePath, vector<vector<float>>& embeddings)
 {
     // must init first
     for (size_t i = 0; i < hostLoadOffset.size(); i++) {
@@ -150,7 +143,8 @@ void EmbeddingDDR::LoadEmbedding(const string &savePath, vector<vector<float>> &
     stringstream ss;
     ss << savePath << "/" << name;
     stringstream embedStream;
-    embedStream << ss.str() << "/" << "embedding/slice.data";
+    embedStream << ss.str() << "/"
+                << "embedding/slice.data";
 
     if (fileSystemPtr_ == nullptr) {
         throw runtime_error("failed to obtain the file system pointer, the file system pointer is null.");
@@ -159,7 +153,7 @@ void EmbeddingDDR::LoadEmbedding(const string &savePath, vector<vector<float>> &
     LOG_DEBUG("load embedding done, table:{}, read bytes:{}", name, res);
 }
 
-void EmbeddingDDR::LoadOptimizerSlot(const string &savePath, vector<vector<float>> &optimizerSlots)
+void EmbeddingDDR::LoadOptimizerSlot(const string& savePath, vector<vector<float>>& optimizerSlots)
 {
     if (optimParams.size() == 0) {
         LOG_DEBUG("optimizer has no slot data to load");
@@ -179,7 +173,7 @@ void EmbeddingDDR::LoadOptimizerSlot(const string &savePath, vector<vector<float
         throw runtime_error("failed to obtain the file system pointer, the file system pointer is null.");
     }
     int64_t slotIdx = 0;
-    for (const auto &param: optimParams) {
+    for (const auto& param : optimParams) {
         stringstream paramStream;
         paramStream << ss.str() << "/" << optimName + "_" + param << "/slice.data";
         ssize_t res = fileSystemPtr_->Read(paramStream.str(), optimizerSlots, slotIdx, hostLoadOffset, embSize_);
@@ -222,7 +216,10 @@ void EmbeddingDDR::SyncLatestEmbedding()
 
     // 接收python save接口发送的卡内embedding
     auto size = hdTransfer->RecvAcl(TransferChannel::SAVE_D2H, TRAIN_CHANNEL_ID, name, 0, -1);
-    LOG_DEBUG("save acltdtGetDatasetSize, size: {}, table:{}", size, name);
+    if (!size.has_value()) {
+        // error handle
+    }
+    LOG_DEBUG("save acltdtGetDatasetSize, size: {}, table:{}", *size, name);
     auto aclData = acltdtGetDataItem(hdTransfer->aclDatasets[name][0], 0);
     if (aclData == nullptr) {
         throw runtime_error("Acl get tensor data from dataset failed.");
@@ -252,8 +249,8 @@ void EmbeddingDDR::SyncLatestEmbedding()
 #pragma omp parallel for num_threads(MGMT_CPY_THREADS) default(none) \
     shared(swapOutAddrs, info, ptr, extEmbeddingSize, memSize)
         for (uint64_t i = 0; i < swapOutAddrs.size(); i++) {
-            int errCode = memcpy_s(
-                swapOutAddrs[i], memSize, ptr + info.swapOutDDRAddrOffs[i] * extEmbeddingSize, memSize);
+            int errCode =
+                memcpy_s(swapOutAddrs[i], memSize, ptr + info.swapOutDDRAddrOffs[i] * extEmbeddingSize, memSize);
             if (errCode != 0) {
                 string errMsg = StringFormat("memcpy_s failed, table:%s, error code:%d", name.c_str(), errCode);
                 throw std::invalid_argument(errMsg);
@@ -277,7 +274,7 @@ void EmbeddingDDR::SaveKey(const string& savePath, vector<emb_cache_key_t>& keys
     if (fileSystemPtr_ == nullptr) {
         throw runtime_error("failed to obtain the file system pointer, the file system pointer is null.");
     }
-    ssize_t res = fileSystemPtr_->Write(ss.str(), reinterpret_cast<const char *>(keysCompat.data()),
+    ssize_t res = fileSystemPtr_->Write(ss.str(), reinterpret_cast<const char*>(keysCompat.data()),
                                         static_cast<size_t>(keys.size() * sizeof(int64_t)));
     if (res == -1) {
         throw runtime_error("save key failed!");
@@ -297,8 +294,8 @@ void EmbeddingDDR::SaveEmbedding(const string& savePath, vector<vector<float>>& 
     ssize_t writeBytesNum = fileSystemPtr_->Write(ss.str(), embeddings, embSize_);
     ssize_t expectWriteBytes = embeddings.size() * embSize_ * sizeof(float);
     if (writeBytesNum != expectWriteBytes) {
-        string errMsg = StringFormat("Save embedding failed, write expect:%ld, actual:%ld, path:%s .",
-                                     expectWriteBytes, writeBytesNum, savePath.c_str());
+        string errMsg = StringFormat("Save embedding failed, write expect:%ld, actual:%ld, path:%s .", expectWriteBytes,
+                                     writeBytesNum, savePath.c_str());
         throw runtime_error(errMsg);
     }
 }
@@ -309,7 +306,7 @@ void EmbeddingDDR::SaveOptimizerSlot(const string& savePath, vector<vector<float
         LOG_DEBUG("optimizer has no slot data to save");
         return;
     }
-    
+
     if (optimizerSlots.size() != keySize) {
         string errMsg = StringFormat("optimizer slot data size not equal to key size, "
                                      "optimizerSlots.size:%d, keySize:%d",
@@ -318,15 +315,15 @@ void EmbeddingDDR::SaveOptimizerSlot(const string& savePath, vector<vector<float
     }
 
     size_t slotIdx = 0;
-    for (const auto &slotName: optimParams) {
+    for (const auto& slotName : optimParams) {
         stringstream ss;
         ss << savePath << "/" << name << "/" << optimName + "_" + slotName << "/";
         MakeDir(ss.str());
         ss << "slice_" << rankId_ << ".data";
 
         vector<vector<float>> slotData;
-        for (const auto &data: optimizerSlots) {
-            vector<float> tmp(data.cbegin() + slotIdx * embSize_, data.cbegin() + (slotIdx+1) * embSize_);
+        for (const auto& data : optimizerSlots) {
+            vector<float> tmp(data.cbegin() + slotIdx * embSize_, data.cbegin() + (slotIdx + 1) * embSize_);
             slotData.emplace_back(tmp);
         }
         ssize_t writeBytesNum = fileSystemPtr_->Write(ss.str(), slotData, embSize_);
@@ -352,7 +349,7 @@ void EmbeddingDDR::SetOptimizerInfo(OptimizerInfo& optimizerInfo)
     optimParams = optimizerInfo.optimParams;
 }
 
-void EmbeddingDDR::SetCacheManager(CacheManager *cm)
+void EmbeddingDDR::SetCacheManager(CacheManager* cm)
 {
     LOG_DEBUG("set CacheManager");
     cacheManager_ = cm;
@@ -361,16 +358,16 @@ void EmbeddingDDR::SetCacheManager(CacheManager *cm)
 TableInfo EmbeddingDDR::GetTableInfo()
 {
     TableInfo ti = {
-        .name=name,
-        .hostVocabSize=hostVocabSize,
-        .devVocabSize=devVocabSize,
-        .maxOffset=maxOffset,
-        .keyOffsetMap=keyOffsetMap,
+        .name = name,
+        .hostVocabSize = hostVocabSize,
+        .devVocabSize = devVocabSize,
+        .maxOffset = maxOffset,
+        .keyOffsetMap = keyOffsetMap,
     };
     return ti;
 }
 
-void EmbeddingDDR::SetHDTransfer(HDTransfer *hdTransfer)
+void EmbeddingDDR::SetHDTransfer(HDTransfer* hdTransfer)
 {
     this->hdTransfer = hdTransfer;
 }

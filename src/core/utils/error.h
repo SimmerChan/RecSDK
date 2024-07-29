@@ -28,7 +28,7 @@ enum class ErrorCode {
     kNotSupported = 3,
     kInvalidArgument = 4,
     kIOError = 5,
-    kAscendCError = 6,
+    kAscendCLError = 6,
     kUnknown,
 };
 
@@ -61,7 +61,7 @@ private:
                 return "InvalidArgument";
             case ErrorCode::kIOError:
                 return "IOError";
-            case ErrorCode::kAscendCError:
+            case ErrorCode::kAscendCLError:
                 return "AscendCError";
             default:
                 return "Unknown";
