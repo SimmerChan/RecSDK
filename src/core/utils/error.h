@@ -23,12 +23,12 @@ See the License for the specific language governing permissions and
 namespace MxRec {
 
 enum class ErrorCode {
-    // TODO add real error kinds
     kNotFound = 1,
     kFileNotExist = 2,
     kNotSupported = 3,
     kInvalidArgument = 4,
     kIOError = 5,
+    kAscendCError = 6,
     kUnknown,
 };
 
@@ -61,6 +61,8 @@ private:
                 return "InvalidArgument";
             case ErrorCode::kIOError:
                 return "IOError";
+            case ErrorCode::kAscendCError:
+                return "AscendCError";
             default:
                 return "Unknown";
         }
