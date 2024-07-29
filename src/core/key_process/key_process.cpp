@@ -1158,17 +1158,16 @@ T KeyProcess::GetInfo(info_list_t<T>& list, const EmbBaseInfo &info)
     return move(t);
 }
 
-vector<uint64_t> KeyProcess::GetUniqueKeys(const EmbBaseInfo& info, bool& isEos,
-                                           map<string, int[MAX_CHANNEL_NUM]> &lookUpSwapAddrsPushId)
+vector<uint64_t> KeyProcess::GetUniqueKeys(const EmbBaseInfo& info, bool& isEos)
 {
     TimeCost tc = TimeCost();
 
     HybridMgmtBlock* hybridMgmtBlock = Singleton<HybridMgmtBlock>::GetInstance();
-    bool cancelMonitor = false;
-    thread timeoutMonitor;
-    if (info.batchId != 0) {
-        timeoutMonitor = StartEosMonitorThread(info, cancelMonitor);
-    }
+//    bool cancelMonitor = false;
+//    thread timeoutMonitor;
+//    if (info.batchId != 0) {
+//        timeoutMonitor = StartEosMonitorThread(info, cancelMonitor);
+//    }
 
     // 循环尝试获取list中的数据；如果key process线程退出或者处理数据超时，返回空vector
 
@@ -1196,7 +1195,7 @@ vector<uint64_t> KeyProcess::GetUniqueKeys(const EmbBaseInfo& info, bool& isEos,
             break;
         } catch (EmptyList&) {
             unique_lock<mutex> lockEosGuard(eosMutex);
-            isEos = IsGetUniqueKeysEos(info, startTime, lookUpSwapAddrsPushId);
+            isEos = IsGetUniqueKeysEos(info, startTime);
             if (isEos) {
                 break;
             }
@@ -1207,15 +1206,14 @@ vector<uint64_t> KeyProcess::GetUniqueKeys(const EmbBaseInfo& info, bool& isEos,
             this_thread::sleep_for(1ms);
         }
     }
-    cancelMonitor = true;
-    if (timeoutMonitor.joinable()) {
-        timeoutMonitor.join();
-    }
+//    cancelMonitor = true;
+//    if (timeoutMonitor.joinable()) {
+//        timeoutMonitor.join();
+//    }
     return ret;
 }
 
-bool KeyProcess::IsGetUniqueKeysEos(const EmbBaseInfo& info, std::chrono::_V2::system_clock::time_point& startTime,
-                                    map<string, int[MAX_CHANNEL_NUM]>& lookUpSwapAddrsPushId)
+bool KeyProcess::IsGetUniqueKeysEos(const EmbBaseInfo& info, std::chrono::_V2::system_clock::time_point& startTime)
 {
     HybridMgmtBlock* hybridMgmtBlock = Singleton<HybridMgmtBlock>::GetInstance();
     auto endTime = std::chrono::system_clock::now();
@@ -1224,28 +1222,24 @@ bool KeyProcess::IsGetUniqueKeysEos(const EmbBaseInfo& info, std::chrono::_V2::s
     int readEmbKeyBatchId = hybridMgmtBlock->readEmbedBatchId[info.channelId] - 1;
     // 避免eos在keyProcess还未处理完数据时插队到通道前面
     std::chrono::duration<double> elapsedTime = endTime - startTime;
-    // train and eval batch total num
-    int allChannelBatchId = 0;
-    if (info.channelId == EVAL_CHANNEL_ID) {
-        allChannelBatchId = hybridMgmtBlock->evalBatchIdTotal + hybridMgmtBlock->hybridBatchId[TRAIN_CHANNEL_ID] +
-                            hybridMgmtBlock->readEmbedBatchId[info.channelId];
-    } else {
-        allChannelBatchId = hybridMgmtBlock->evalBatchIdTotal + hybridMgmtBlock->readEmbedBatchId[info.channelId];
-    }
     if (info.batchId != 0 && elapsedTime.count() >= timeoutGetUniqueKeysEmpty) {
-        LOG_DEBUG("table:{}, channelId:{}, isNeedSendEos:{}, readEmbKeyBatchId:{}, batch:{}, h2dNextBatchId:{},"
-                  " lookUpSwapAddrsPushId:{}, allChannelBatchId:{}", info.name, info.channelId,
-                  isNeedSendEos[info.channelId], readEmbKeyBatchId, info.batchId,
-                  hybridMgmtBlock->h2dNextBatchId[info.name][info.channelId], lookUpSwapAddrsPushId[info.name][info.channelId], allChannelBatchId);
+        LOG_DEBUG("table:{}, channelId:{}, isNeedSendEos:{}, current batchId:{}, L1 pipeline readEmbKeyBatchId:{}, "
+                  "L2 pipeline lookUpSwapAddrsPushId:{}, L3 pipeline h2dNextBatchId:{}",
+                  info.name, info.channelId, isNeedSendEos[info.channelId], info.batchId, readEmbKeyBatchId,
+                  hybridMgmtBlock->lookUpSwapAddrsPushId[info.name][info.channelId],
+                  hybridMgmtBlock->h2dNextBatchId[info.name][info.channelId]);
         startTime = std::chrono::system_clock::now();
     }
     // Check '>= readEmbedBatchIdAll' condition to avoid send eos before handle all batch data from readEmbKey Op.
     if (isNeedSendEos[info.channelId] && readEmbKeyBatchId < info.batchId &&
-        hybridMgmtBlock->h2dNextBatchId[info.name][info.channelId] == lookUpSwapAddrsPushId[info.name][info.channelId] &&
-        hybridMgmtBlock->h2dNextBatchId[info.name][info.channelId] >= allChannelBatchId) {
-        LOG_INFO("table:{}, channelId:{} batchId:{}, GetUniqueKeys eos, h2dNextBatchId:{}, allChannelBatchId:{}",
-                 info.name, info.channelId, info.batchId, hybridMgmtBlock->h2dNextBatchId[info.name][info.channelId],
-                 allChannelBatchId);
+        hybridMgmtBlock->h2dNextBatchId[info.name][info.channelId] == hybridMgmtBlock->lookUpSwapAddrsPushId[info.name][info.channelId] &&
+        hybridMgmtBlock->h2dNextBatchId[info.name][info.channelId] >= hybridMgmtBlock->readEmbedBatchId[info.channelId]) {
+        LOG_INFO("table:{}, channelId:{} current batchId:{}, GetUniqueKeys eos, L1 pipeline readEmbKeyBatchId:{}, "
+                 "L2 pipeline hybridBatchId:{}, L3 pipeline lookUpSwapAddrsPushId:{}, L4 pipeline h2dNextBatchId:{}",
+                 info.name, info.channelId, info.batchId, readEmbKeyBatchId,
+                 hybridMgmtBlock->hybridBatchId[info.channelId],
+                 hybridMgmtBlock->lookUpSwapAddrsPushId[info.name][info.channelId],
+                 hybridMgmtBlock->h2dNextBatchId[info.name][info.channelId]);
         return true;
     }
     LOG_TRACE("getting uniqueKeys failed, table:{}, channel:{}, mgmt batchId:{}, readEmbKey batchId:{}, list is empty",

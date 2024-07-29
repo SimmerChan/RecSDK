@@ -169,14 +169,35 @@ void HybridMgmtBlock::ResetAll(int channelId)
     LOG_DEBUG(HYBRID_BLOCKING + "start reset block status,"
                                 " channelId:{}, pythonBatchId:{}, readEmbedBatchId:{}, hybridBatchId:{}",
               channelId, pythonBatchId[channelId], readEmbedBatchId[channelId], hybridBatchId[channelId]);
+    for (auto& b : lookUpSwapAddrsPushId) {
+           b.second[channelId] = 0;
+    }
+    for (auto& b : lookUpAndSendTableBatchId) {
+        b.second[channelId] = 0;
+    }
+    for (auto& b : receiveAndUpdateTableBatchId) {
+        b.second[channelId] = 0;
+    }
+    for (auto& b : lastUpdateFinishStep) {
+        b.second[channelId] = 0;
+    }
+    for (auto& b : lastLookUpFinishStep) {
+        b.second[channelId] = 0;
+    }
+    for (auto& b : lastSendFinishStep) {
+        b.second[channelId] = 0;
+    }
+    for (auto& b : lastRecvFinishStep) {
+        b.second[channelId] = 0;
+    }
+    for (auto& b : h2dNextBatchId) {
+        b.second[channelId] = 0;
+    }
 
     readEmbedBatchId[channelId] = 0;
     pythonBatchId[channelId] = 0;
     hybridBatchId[channelId] = 0;
     isBlock[channelId] = false;
-    if (channelId == EVAL_CHANNEL_ID) {
-        evalBatchIdTotal += readEmbedBatchId[channelId];
-    }
 
     LOG_DEBUG(HYBRID_BLOCKING + "after reset block status,"
                                 " channelId:{}, pythonBatchId:{}, readEmbedBatchId:{}, hybridBatchId:{}",

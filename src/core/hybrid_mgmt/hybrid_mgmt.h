@@ -139,29 +139,22 @@ public:
     GTEST_PRIVATE : bool mutexDestroy{false};
     std::mutex lookUpAndSendBatchIdMtx[MAX_CHANNEL_NUM];  // train and eval
     std::mutex receiveAndUpdateBatchIdMtx[MAX_CHANNEL_NUM];
-    std::map<std::string, int[MAX_CHANNEL_NUM]> lookUpAndSendTableBatchId;  // train and eval
-    std::map<std::string, int[MAX_CHANNEL_NUM]> receiveAndUpdateTableBatchId;
 
     std::map<std::string, std::mutex> lastUpdateFinishMutex;
     std::map<std::string, std::condition_variable> lastUpdateFinishCV;
-    std::map<std::string, int[MAX_CHANNEL_NUM]> lastUpdateFinishStep;  // train and eval
 
     std::map<std::string, std::mutex> lastLookUpFinishMutex;
     std::map<std::string, std::condition_variable> lastLookUpFinishCV;
-    std::map<std::string, int[MAX_CHANNEL_NUM]> lastLookUpFinishStep;  // train and eval
 
     std::map<std::string, std::mutex> lastSendFinishMutex;
     std::map<std::string, std::condition_variable> lastSendFinishCV;
-    std::map<std::string, int[MAX_CHANNEL_NUM]> lastSendFinishStep;  // train and eval
 
     std::map<std::string, std::mutex> lastRecvFinishMutex;
     std::map<std::string, std::condition_variable> lastRecvFinishCV;
-    std::map<std::string, int[MAX_CHANNEL_NUM]> lastRecvFinishStep;  // train and eval
 
     std::vector<std::thread> EmbeddingLookUpAndSendThreadPool;
     std::vector<std::thread> EmbeddingReceiveAndUpdateThreadPool;
-    std::vector<std::future<void>> lookUpSwapOutAddrsThreads;
-    std::vector<std::future<void>> lookUpSwapInAddrsThreads;
+    std::vector<std::future<void>> lookUpSwapAddrsThreads;
 
     std::map<std::string, TaskQueue<std::vector<uint64_t>>[MAX_CHANNEL_NUM]> HBMSwapKeyQue;  // train and eval
     std::map<std::string, TaskQueue<std::vector<uint64_t>>[MAX_CHANNEL_NUM]> HBMSwapKeyForL3StorageQue;
@@ -228,7 +221,7 @@ private:
     bool isInitialized{false};
     bool alreadyTrainOnce = false;  // 用于判断是否为predict模式
     bool isBackUpTrainStatus = false; // whether the train state has been backed up
-    map<string, int[MAX_CHANNEL_NUM]> lookUpSwapAddrsPushId;  // 用于处理eos场景，当消费者追上生产者且长时间无上游数据，会触发eos
+
     map<string, ProcessStatus> specialProcessStatus;
 
     void TrainTask(TaskType type);

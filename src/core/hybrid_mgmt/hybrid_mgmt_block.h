@@ -41,13 +41,18 @@ namespace MxRec {
         int pythonBatchId[MAX_CHANNEL_NUM] = {0, 0};
         // readEmbed算子侧将要处理的batch id
         int readEmbedBatchId[MAX_CHANNEL_NUM] = {0, 0};
-        // eval通道处理过的batch计数，不区分通道、图，不会重置；用于判断h2d swap是否需要eos
-        int evalBatchIdTotal = 0;
+
         int maxTrainStep = 0;
         int stepsInterval[MAX_CHANNEL_NUM] = {0, 0};  // 通道i运行多少步后切换为通道j
 
-        // hybrid已完成H2D的step；不区分通道、图，不会重置；
-        map<string, int[MAX_CHANNEL_NUM]> h2dNextBatchId;
+        map<string, int[MAX_CHANNEL_NUM]> lookUpSwapAddrsPushId;  // L2 pipeline， key->addr
+        std::map<std::string, int[MAX_CHANNEL_NUM]> lookUpAndSendTableBatchId;  // L3 pipeline
+        std::map<std::string, int[MAX_CHANNEL_NUM]> receiveAndUpdateTableBatchId;
+        std::map<std::string, int[MAX_CHANNEL_NUM]> lastUpdateFinishStep;
+        std::map<std::string, int[MAX_CHANNEL_NUM]> lastLookUpFinishStep;
+        std::map<std::string, int[MAX_CHANNEL_NUM]> lastSendFinishStep;
+        std::map<std::string, int[MAX_CHANNEL_NUM]> lastRecvFinishStep;
+        map<string, int[MAX_CHANNEL_NUM]> h2dNextBatchId;  // hybrid已完成H2D的step；区分通道、图，eval重置；
 
         int loop[MAX_CHANNEL_NUM] = {1, 1};
 
