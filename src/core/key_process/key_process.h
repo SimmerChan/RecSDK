@@ -158,7 +158,7 @@ namespace MxRec {
 
         void SetEos(int status, int channelId);
 
-        void SendEos(const string& embName, int batchId, int channel, bool sendAllChannel);
+        void SendEos(const string& embName, int batchId, int channel);
 
         bool isRunning { false };
 
@@ -305,9 +305,7 @@ namespace MxRec {
 
         bool IsGetUniqueKeysEos(const EmbBaseInfo& info, std::chrono::_V2::system_clock::time_point& startTime);
 
-        void SendEosTensor(const std::string& embName, int channel, bool sendAllChannel);
-
-        std::thread StartEosMonitorThread(const EmbBaseInfo& info, bool& cancelMonitor);
+        void SendEosTensor(const std::string& embName, int channel);
     };
 
 #define KEY_PROCESS_INSTANCE Singleton<KeyProcess>::GetInstance()

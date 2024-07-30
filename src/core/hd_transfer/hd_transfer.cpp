@@ -105,13 +105,6 @@ void HDTransfer::CreateChannel(const uint32_t localRankId, const string& embName
         }
 
         auto channel = static_cast<TransferChannel>(c);
-//        std::string sendName;
-//        if (c == static_cast<int>(TransferChannel::SWAP) || c == static_cast<int>(TransferChannel::D2H) ||
-//            c == static_cast<int>(TransferChannel::H2D)) {
-//            sendName = StringFormat("%s_%s_all", embName.c_str(), TransferChannel2Str(channel).c_str());
-//        } else {
-//            sendName = StringFormat("%s_%s_%d", embName.c_str(), TransferChannel2Str(channel).c_str(), channelNum);
-//        }
         std::string sendName = StringFormat("%s_%s_%d", embName.c_str(), TransferChannel2Str(channel).c_str(), channelNum);
 
         if (TransferChannel2Str(channel) == "all2all" ||
@@ -150,17 +143,15 @@ void HDTransfer::Send(TransferChannel channel, const vector<Tensor> &tensors, in
         sizes.push_back(t.NumElements());
     }
 
-//    string sendName;
-//    if (channel == TransferChannel::SWAP || channel == TransferChannel::D2H || channel == TransferChannel::H2D) {
-//        sendName = StringFormat("%s_%s_all", embName.c_str(), TransferChannel2Str(channel).c_str());
-//    } else {
-//        sendName = StringFormat("%s_%s_%d", embName.c_str(), TransferChannel2Str(channel).c_str(), channelId);
-//    }
+    string sendBatchIdType;
+    if (channel == TransferChannel::D2H || channel == TransferChannel::H2D) {
+        sendBatchIdType = "accumulate";
+    }
 
     string sendName = StringFormat("%s_%s_%d", embName.c_str(), TransferChannel2Str(channel).c_str(), channelId);
 
-    LOG_INFO(HD + "hd transfer send:{}, batchId:{}, send count:{}, size list:{}",
-             sendName, batchId, sizes.size(), VectorToString(sizes));
+    LOG_INFO(HD + "hd transfer send:{}, {} batchId:{}, send count:{}, size list:{}",
+             sendName, sendBatchIdType, batchId, sizes.size(), VectorToString(sizes));
 
     if (sizes.size() == 0) {
         LOG_WARN("tensors num can not be zero");
@@ -180,7 +171,8 @@ void HDTransfer::Send(TransferChannel channel, const vector<Tensor> &tensors, in
             throw runtime_error("hd send error");
         }
         if (batchId != -1 && resendTime != 0) {
-            LOG_WARN(MGMT + "hd send {} batch: {} failed, retry: {} ", sendName, batchId, resendTime);
+            LOG_WARN(MGMT + "hd send: {}, {} batchId: {} failed, retry: {} ",
+                     sendName, sendBatchIdType, batchId, resendTime);
         }
         resendTime++;
     } while (isNeedResend);
@@ -202,13 +194,7 @@ vector<tensorflow::Tensor> HDTransfer::Recv(TransferChannel channel, int channel
     EASY_FUNCTION()
     vector<tensorflow::Tensor> tensors;
 #ifndef GTEST
-    string recvName;
-    if (channel == TransferChannel::SWAP || channel == TransferChannel::D2H || channel == TransferChannel::H2D) {
-        recvName = StringFormat("%s_%s_all", embName.c_str(), TransferChannel2Str(channel).c_str());
-    } else {
-        recvName = StringFormat("%s_%s_%d", embName.c_str(), TransferChannel2Str(channel).c_str(), channelId);
-    }
-
+    string recvName = StringFormat("%s_%s_%d", embName.c_str(), TransferChannel2Str(channel).c_str(), channelId);
     LOG_DEBUG("hd transfer try recv:{}", recvName);
     TimeCost tc = TimeCost();
     tensorflow::Status status = tensorflow::RecvTensorByAcl(transferChannels[recvName], tensors);
@@ -240,16 +226,12 @@ size_t HDTransfer::RecvAcl(TransferChannel channel, int channelId, const string&
     EASY_FUNCTION()
     size_t ret = 0;
 #ifndef GTEST
-//    string recvName;
-//    if (channel == TransferChannel::SWAP || channel == TransferChannel::D2H || channel == TransferChannel::H2D) {
-//        recvName = StringFormat("%s_%s_all", embName.c_str(), TransferChannel2Str(channel).c_str());
-//    } else {
-//        recvName = StringFormat("%s_%s_%d", embName.c_str(), TransferChannel2Str(channel).c_str(), channelId);
-//    }
+    string recvBatchIdType;
+    if (channel == TransferChannel::D2H || channel == TransferChannel::H2D) {
+        recvBatchIdType = "accumulate";
+    }
     string recvName = StringFormat("%s_%s_%d", embName.c_str(), TransferChannel2Str(channel).c_str(), channelId);
-
-
-    LOG_DEBUG("hd transfer try recv:{}, batchId:{}", recvName, batchId);
+    LOG_DEBUG("hd transfer try recv:{}, {} batchId:{}", recvName, recvBatchIdType, batchId);
     TimeCost tc = TimeCost();
     if (aclDatasets[embName][embeddingThreadId] == nullptr) {
         throw runtime_error(StringFormat("Failed recv:%s.", recvName.c_str()).c_str());
@@ -262,7 +244,7 @@ size_t HDTransfer::RecvAcl(TransferChannel channel, int channelId, const string&
     if (aclStatus != ACL_ERROR_NONE && aclStatus != ACL_ERROR_RT_QUEUE_EMPTY) {
         throw runtime_error(StringFormat("Failed receive data from acl channel, acl status:%d", aclStatus).c_str());
     }
-    LOG_INFO("hd transfer recv:{}, batchId:{}, cost:{}ms", recvName, batchId, tc.ElapsedMS());
+    LOG_INFO("hd transfer recv:{}, {} batchId:{}, cost:{}ms", recvName, recvBatchIdType, batchId, tc.ElapsedMS());
     ret =  acltdtGetDatasetSize(aclDatasets[embName][embeddingThreadId]);
 #endif
     return ret;

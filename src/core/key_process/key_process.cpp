@@ -1163,14 +1163,6 @@ vector<uint64_t> KeyProcess::GetUniqueKeys(const EmbBaseInfo& info, bool& isEos)
     TimeCost tc = TimeCost();
 
     HybridMgmtBlock* hybridMgmtBlock = Singleton<HybridMgmtBlock>::GetInstance();
-//    bool cancelMonitor = false;
-//    thread timeoutMonitor;
-//    if (info.batchId != 0) {
-//        timeoutMonitor = StartEosMonitorThread(info, cancelMonitor);
-//    }
-
-    // 循环尝试获取list中的数据；如果key process线程退出或者处理数据超时，返回空vector
-
     vector<uint64_t> ret;
     auto startTime = std::chrono::system_clock::now();
     while (true) {
@@ -1206,10 +1198,6 @@ vector<uint64_t> KeyProcess::GetUniqueKeys(const EmbBaseInfo& info, bool& isEos)
             this_thread::sleep_for(1ms);
         }
     }
-//    cancelMonitor = true;
-//    if (timeoutMonitor.joinable()) {
-//        timeoutMonitor.join();
-//    }
     return ret;
 }
 
@@ -1294,8 +1282,7 @@ std::vector<int32_t> KeyProcess::GetRestoreVecSec(const EmbBaseInfo& info)
 /// \param embName 表名
 /// \param batchId 已处理的batch数
 /// \param channel 通道索引（训练/推理）
-/// \param sendAllChannel 是否强制发送所有channel
-void KeyProcess::SendEos(const std::string& embName, int batchId, int channel, bool sendAllChannel)
+void KeyProcess::SendEos(const std::string& embName, int batchId, int channel)
 {
 #ifndef GTEST
     finishSendEosCnt[channel].store(0);
@@ -1316,7 +1303,7 @@ void KeyProcess::SendEos(const std::string& embName, int batchId, int channel, b
         destroyMutex.unlock();
         return;
     }
-    SendEosTensor(embName, channel, sendAllChannel);
+    SendEosTensor(embName, channel);
     destroyMutex.unlock();
     LOG_INFO("channelId:{} batchId:{}, the embName:{} SendEos end, release destroyMutex", channel, batchId, embName);
 
@@ -1562,32 +1549,7 @@ bool KeyProcess::IsGetInfoVecEos(int batch, const string& embName, int channel)
     return false;
 }
 
-std::thread KeyProcess::StartEosMonitorThread(const EmbBaseInfo &info, bool &cancelMonitor)
-{
-    // 由于embCache延迟发送swapPos的特性，step n需要step n+1的数据来启动，当获取不到step n+1时，需要触发eos并补发step n需要的swapPos
-    LOG_DEBUG("table:{}, channel:{}, batchId:{}, start a monitor thread to check eos",
-              info.name, info.channelId, info.batchId);
-    return thread([&]() {
-        chrono::high_resolution_clock::time_point start = chrono::high_resolution_clock::now();
-        chrono::high_resolution_clock::time_point end = chrono::high_resolution_clock::now();
-        chrono::duration<double> duration = chrono::duration_cast<chrono::duration<double>>(end - start);
-        while (!cancelMonitor && duration.count() < timeoutGetUniqueKeys) {
-            this_thread::sleep_for(1ms);
-            end = chrono::high_resolution_clock::now();
-            duration = chrono::duration_cast<chrono::duration<double >>(end - start);
-        }
-        if (!cancelMonitor) {
-            this->SetEos(1, info.channelId);
-            LOG_INFO("table:{}, channel:{}, batchId:{}, timeout:{}(s) monitor empty data, set eos",
-                     info.name, info.channelId, info.batchId, timeoutGetUniqueKeys);
-        } else {
-            LOG_DEBUG("table:{}, channel:{}, batchId:{}, timeout monitor canceled",
-                      info.name, info.channelId, info.batchId);
-        }
-    });
-}
-
-void KeyProcess::SendEosTensor(const std::string& embName, int channel, bool sendAllChannel)
+void KeyProcess::SendEosTensor(const std::string& embName, int channel)
 {
 #ifndef GTEST
     auto trans = Singleton<HDTransfer>::GetInstance();
@@ -1605,19 +1567,6 @@ void KeyProcess::SendEosTensor(const std::string& embName, int channel, bool sen
         }
 
         sendName = StringFormat("%s_%s_%d", embName.c_str(), transName.c_str(), channel);
-
-        if (transName == TransferChannel2Str(TransferChannel::SWAP) ||
-            transName == TransferChannel2Str(TransferChannel::H2D)) {
-//            sendName = StringFormat("%s_%s_all", embName.c_str(), transName.c_str());
-            if (channel == EVAL_CHANNEL_ID && !sendAllChannel) {
-                LOG_INFO("skip send eos for share channel:{}, channel id:{}", sendName, channel);
-                LOG_INFO("check if train ProcessEmbInfo run and let it decide eos or not");
-                continue;
-            }
-        } else {
-//            sendName = StringFormat("%s_%s_%d", embName.c_str(), transName.c_str(), channel);
-        }
-
         size_t channelSize = 0;
         acltdtQueryChannelSize(transChannels[sendName], &channelSize);
         LOG_INFO("[EOS] Before send eos, channel:{}, size:{}.", sendName, channelSize);

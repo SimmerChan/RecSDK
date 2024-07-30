@@ -231,8 +231,6 @@ private:
     void SendUniqKeysAndRestoreVecHBM(const EmbBaseInfo& info, const unique_ptr<vector<Tensor>>& infoVecs,
                                       bool isGrad) const;
 
-    void HandleEndBatchCase(const EmbBaseInfo& info, vector<uint64_t>& swapInPos);
-
     bool IsTrainEndBatch(int batchId) const;
 
     bool IsEvalEndBatch(int batchId) const;
@@ -245,11 +243,7 @@ private:
 
     void JoinEmbeddingCacheThread();
 
-    void HandleReachMaxStepCase(const EmbBaseInfo& info, bool& remainBatchOut);
-
     void HandleEosCase(const EmbBaseInfo& info, bool& remainBatchOut);
-
-    void HandleEosCaseHBM(const string& embName, int batchId, int channelId, bool& remainBatchOut);
 
     bool EmbeddingReceiveDDR(const EmbTaskInfo& info, float*& ptr, vector<float*>& swapOutAddrs);
 
@@ -271,13 +265,6 @@ private:
 
     void CreateEmbeddingReceiveAndUpdateThread(int index, const EmbInfo& embInfo, int channelId);
 
-    void HandleFirstBatchCaseDDR(const EmbBaseInfo& info, std::pair<vector<uint64_t>, vector<uint64_t>>& swapInKoPair,
-                                 std::pair<vector<uint64_t>, vector<uint64_t>>& swapOutKoPair);
-
-    void HandleFirstBatchCaseL3Storage(const EmbBaseInfo& info,
-                                       std::pair<vector<uint64_t>, vector<uint64_t>>& swapInKoPair,
-                                       std::pair<vector<uint64_t>, vector<uint64_t>>& swapOutKoPair);
-
     void HandleDataSwapForL3Storage(const EmbBaseInfo& info, vector<uint64_t>& swapInKeys,
                                     vector<uint64_t>& swapOutKeys);
 
@@ -295,14 +282,6 @@ private:
 
     void SendGlobalUniqueVec(const EmbBaseInfo& info, vector<uint64_t>& uniqueKeys, vector<int32_t>& restoreVecSec);
 
-    bool HandleSpecialProcessStatusDDR(const EmbBaseInfo& info, TimeCost& getAndSendTensorsTC,
-                                       std::pair<vector<uint64_t>, vector<uint64_t>>& swapInKoPair,
-                                       std::pair<vector<uint64_t>, vector<uint64_t>>& swapOutKoPair);
-
-    bool HandleSpecialProcessStatusL3Storage(const EmbBaseInfo& info, TimeCost& getAndSendTensorsTC,
-                                             std::pair<vector<uint64_t>, vector<uint64_t>>& swapInKoPair,
-                                             std::pair<vector<uint64_t>, vector<uint64_t>>& swapOutKoPair);
-
     void CheckLookupAddrSuccessDDR();
 
     void GetSwapPairsAndKey2Offset(const EmbBaseInfo& info, vector<uint64_t>& uniqueKeys,
@@ -312,7 +291,6 @@ private:
     void EnqueueSwapInfo(const EmbBaseInfo& info, std::pair<vector<uint64_t>, vector<uint64_t>>& swapInKoPair,
                          std::pair<vector<uint64_t>, vector<uint64_t>>& swapOutKoPair);
 
-    bool IsTrainAndEvalCase();
 };
 }  // namespace MxRec
 #endif  // MX_REC_EMB_MGMT_H
