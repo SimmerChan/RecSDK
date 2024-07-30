@@ -100,7 +100,8 @@ def get_id_offsets(max_lookup_vec_size: int, config: dict) -> Tuple[int, SwapInf
         ) = npu_ops.gen_npu_ops.get_next(
             output_types=[tf.int32, tf.int32, tf.int32, tf.int32],
             output_shapes=[[max_lookup_vec_size], [max_lookup_vec_size], [], []],
-            channel_name=f'{config.get(ASCAnchorAttr.TABLE_NAME.value)}_swap_{config.get(ASCAnchorAttr.CHANNEL_ID.value)}',
+            channel_name=
+            f'{config.get(ASCAnchorAttr.TABLE_NAME.value)}_swap_{config.get(ASCAnchorAttr.CHANNEL_ID.value)}',
         )
         logger.debug('Channel %s_swap_%s was built for getnext', config.get(ASCAnchorAttr.TABLE_NAME.value),
                      config.get(ASCAnchorAttr.CHANNEL_ID.value))

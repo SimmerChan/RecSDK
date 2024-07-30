@@ -199,8 +199,8 @@ private:
     bool isRunning;
     bool isLoad{false};
     bool isInitialized{false};
-    bool alreadyTrainOnce = false;  // 用于判断是否为predict模式
-    bool isBackUpTrainStatus = false; // whether the train state has been backed up
+    bool alreadyTrainOnce = false;     // 用于判断是否为predict模式
+    bool isBackUpTrainStatus = false;  // whether the train state has been backed up
 
     void TrainTask(TaskType type);
 
@@ -264,7 +264,6 @@ private:
 
     void EnqueueSwapInfo(const EmbBaseInfo& info, std::pair<vector<uint64_t>, vector<uint64_t>>& swapInKoPair,
                          std::pair<vector<uint64_t>, vector<uint64_t>>& swapOutKoPair);
-
 };
 }  // namespace MxRec
 #endif  // MX_REC_EMB_MGMT_H
