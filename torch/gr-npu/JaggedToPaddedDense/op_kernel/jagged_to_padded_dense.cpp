@@ -10,9 +10,6 @@
 
 #include "kernel_operator.h"
 #include "utils.h"
-#ifdef __CCE_KT_TEST__
-#include "jagged_to_padded_dense_tiling.h"
-#endif
 
 constexpr int DATA_TYPE_INT64 = 8;
 using namespace AscendC;
@@ -20,7 +17,6 @@ extern "C" __global__ __aicore__ void jagged_to_padded_dense(GM_ADDR values, GM_
                                                              GM_ADDR workspace, GM_ADDR tiling)
 {
     GET_TILING_DATA(tiling_data, tiling);
-    // TODO: user kernel impl
     int64_t totalBatch = tiling_data.totalBatch;
     int64_t baseBatchLen = tiling_data.baseBatchLen;
     int64_t tailSplitIndex = tiling_data.tailSplitIndex;

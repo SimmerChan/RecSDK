@@ -12,12 +12,16 @@
 #include "register/op_def_registry.h"
 #include "tiling/platform/platform_ascendc.h"
 
+namespace optiling {
+
 constexpr int GM_ALIGN = 64;
 constexpr int RESERVER_UB_SIZE = 20 * 1024;
 constexpr int DATA_TYPE_INT64 = 8;
 constexpr int DATA_TYPE_INT32 = 4;
 constexpr int DATA_TYPE_FLOAT32 = 4;
-namespace optiling {
+constexpr int NUM_QUEUE = 4;
+constexpr int UB_ALIGN = 32;
+
 static ge::graphStatus TilingFunc(gert::TilingContext* context)
 {
     auto ascnedPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
@@ -27,7 +31,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     uint64_t ubCanUsed;
     ascnedPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubCanUsed);
     ubCanUsed = ubCanUsed - RESERVER_UB_SIZE;
-    ubCanUsed = ubCanUsed / 32 / 4 * 32 * 4;
+    ubCanUsed = ubCanUsed / UB_ALIGN / NUM_QUEUE * UB_ALIGN * NUM_QUEUE;
 
     if (valuesShape.GetDimNum() != 2 or offsetsShape.GetDimNum() != 1) {
         printf("jagged_to_padded_dense_tiling is only used for values whit rank-3 and offset rank-1");
@@ -57,7 +61,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
         bytesOfDataType = DATA_TYPE_INT64;
     }
 
-    int64_t offsetDataType = 4;
+    int64_t offsetDataType = 0;
     ge::DataType offsetDataTypeGe = context->GetInputTensor(1)->GetDataType();
     if (offsetDataTypeGe == ge::DataType::DT_INT64) {
         offsetDataType = DATA_TYPE_INT64;
@@ -99,10 +103,12 @@ static ge::graphStatus InferShape(gert::InferShapeContext* context)
 
     gert::Shape* outShape = context->GetOutputShape(0);
 
-    outShape->SetDimNum(3);
+    int dimSize = 3;
+    int dimIndex2 = 2;
+    outShape->SetDimNum(dimSize);
     outShape->SetDim(0, offsetsShape->GetDim(0));
     outShape->SetDim(1, maxLen);
-    outShape->SetDim(2, valuesShape->GetDim(1));
+    outShape->SetDim(dimIndex2, valuesShape->GetDim(1));
 
     return GRAPH_SUCCESS;
 }

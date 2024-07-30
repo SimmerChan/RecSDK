@@ -10,9 +10,6 @@
 
 #include "kernel_operator.h"
 #include "utils.h"
-#ifdef __CCE_KT_TEST__
-#include "index_select_for_rank1_backward_tiling.h"
-#endif
 
 using namespace AscendC;
 extern "C" __global__ __aicore__ void index_select_for_rank1_backward(GM_ADDR gradY, GM_ADDR x, GM_ADDR index,

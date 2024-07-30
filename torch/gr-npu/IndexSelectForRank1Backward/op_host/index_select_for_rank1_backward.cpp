@@ -12,8 +12,11 @@
 #include "index_select_for_rank1_backward_tiling.h"
 #include "register/op_def_registry.h"
 
-constexpr int GM_ALIGN = 64;
 namespace optiling {
+
+constexpr int GM_ALIGN = 64;
+constexpr int FLOAT_BYTESIZE = 4;
+    
 static ge::graphStatus TilingFunc(gert::TilingContext* context)
 {
     auto gardShape = context->GetInputShape(0)->GetStorageShape();
@@ -25,20 +28,23 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
         return ge::FAILED;
     }
 
-    int64_t keyDim0Align64B = (xShape.GetShapeSize()*4+GM_ALIGN-1)/GM_ALIGN*GM_ALIGN/4;
+    int64_t keyDim0Align64B = (xShape.GetShapeSize()*FLOAT_BYTESIZE+GM_ALIGN-1)/GM_ALIGN*GM_ALIGN/FLOAT_BYTESIZE;
     auto ascnedPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
-    size_t coreNum = ascnedPlatform.GetCoreNumAiv(); 
+    size_t coreNum = ascnedPlatform.GetCoreNumAiv();
 
     size_t *currentWorkspace = context->GetWorkspaceSizes(1);
     size_t systemWorkspacesSize = ascnedPlatform.GetLibApiWorkSpaceSize();
-    currentWorkspace[0] = systemWorkspacesSize + coreNum*keyDim0Align64B*4;
+    currentWorkspace[0] = systemWorkspacesSize + coreNum*keyDim0Align64B*FLOAT_BYTESIZE;
 
     // 进行tiling, 为了保持尽量均匀，tailIndex之前长度为baseLen+1， 之后为baseLen
     // 例如7个数据分3个核，[3, 2, 2]
+    if (coreNum == 0) {
+        return ge::FAILED;
+    }
     int64_t totalLen = indexShape.GetShapeSize();
     int64_t xDim0 = xShape.GetShapeSize();
-    int64_t baseLen = indexShape.GetShapeSize()/coreNum;
-    int64_t tailSplitIndex = indexShape.GetShapeSize()%coreNum;
+    int64_t baseLen = indexShape.GetShapeSize() / coreNum;
+    int64_t tailSplitIndex = indexShape.GetShapeSize() % coreNum;
 
     IndexSelectForRank1BackwardTilingData tiling;
     tiling.set_totalLen(totalLen);
@@ -46,8 +52,6 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     tiling.set_baseLen(baseLen);
     tiling.set_tailSplitIndex(tailSplitIndex);
     tiling.set_keyDim0Align64B(keyDim0Align64B);
-
-    // printf("totalLen %ld, xDim0 %ld, baseLen %ld, tailSplitIndex %ld keyDim0Align64B %ld", totalLen, xDim0, baseLen, tailSplitIndex, keyDim0Align64B);
 
     context->SetBlockDim(coreNum);
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
