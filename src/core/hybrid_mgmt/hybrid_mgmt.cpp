@@ -550,30 +550,6 @@ void HybridMgmt::SendUniqKeysAndRestoreVecHBM(const EmbBaseInfo& info, const uni
               sendUniqueRestoreVecSyncTC.ElapsedMS());
 }
 
-/// 当前处理的batch是否是最后一个batch，涵盖train切换eval、save场景
-/// \param batchId 已处理的batch数
-/// \return
-bool HybridMgmt::IsTrainEndBatch(int batchId) const
-{
-    // case 1：需要切eval
-    // case 2：需要save时，补发pos后被阻塞，等待save完成，避免embCache状态发送变化
-    // batchId是从0开始的，所以要+1对上step
-    bool isNeedSwitchToEval =
-        mgmtRankInfo.ctrlSteps[TRAIN_CHANNEL_ID] != -1 && (batchId + 1) % mgmtRankInfo.ctrlSteps[TRAIN_CHANNEL_ID] == 0;
-    bool isNeedSave = mgmtRankInfo.ctrlSteps[SAVE_STEP_INDEX] != -1 && mgmtRankInfo.ctrlSteps[SAVE_STEP_INDEX] != 0 &&
-                      (batchId + 1) % mgmtRankInfo.ctrlSteps[SAVE_STEP_INDEX] == 0;
-    LOG_DEBUG("mgmtRankInfo.ctrlSteps[TRAIN_CHANNEL_ID]:{}, batchId:{}", mgmtRankInfo.ctrlSteps[TRAIN_CHANNEL_ID],
-              batchId);
-    LOG_DEBUG("isNeedSwitchToEval:{}, isNeedSave:{}", isNeedSwitchToEval, isNeedSave);
-    return isNeedSwitchToEval || isNeedSave;
-}
-
-bool HybridMgmt::IsEvalEndBatch(int batchId) const
-{
-    // batchId是从0开始的，所以要+1对上step，表示当前step之后要结束eval了
-    return (batchId + 1) == hybridMgmtBlock->stepsInterval[EVAL_CHANNEL_ID];
-}
-
 /// DDR模式下，发送key process线程已处理好的各类型向量到指定通道中
 /// \param channelId 通道索引（训练/推理）
 /// \param batchId 已处理的batch数
@@ -1310,8 +1286,6 @@ void HybridMgmt::InitEmbeddingCache(const vector<EmbInfo>& embInfos)
         } else {
             InitDataPipelineForDDR(embInfo.name);
         }
-
-        specialProcessStatus[embInfo.name] = ProcessStatus::NORMAL;
 
         // 初始化embedding cache
         LOG_INFO("create cache for table:{}, hostVocabSize:{}, extEmbeddingSize:{}, maxCacheSize(devVocabSize):{}",

@@ -45,26 +45,6 @@ enum class TaskType {
     DDR
 };
 
-enum class ProcessStatus {
-    NORMAL,
-    AFTER_SWITCH_FIRST_BATCH,
-    AFTER_SWITCH_SECOND_BATCH
-};
-
-inline string ProcessStatus2Str(ProcessStatus s)
-{
-    switch (s) {
-        case ProcessStatus::NORMAL:
-            return "normal";
-        case ProcessStatus::AFTER_SWITCH_FIRST_BATCH:
-            return "afterSwitchFirstBatch";
-        case ProcessStatus::AFTER_SWITCH_SECOND_BATCH:
-            return "afterSwitchSecondBatch";
-        default:
-            throw std::invalid_argument("Invalid ProcessStatus");
-    }
-};
-
 struct EmbTaskInfo {
     int batchId;
     int threadIdx;
@@ -222,18 +202,12 @@ private:
     bool alreadyTrainOnce = false;  // 用于判断是否为predict模式
     bool isBackUpTrainStatus = false; // whether the train state has been backed up
 
-    map<string, ProcessStatus> specialProcessStatus;
-
     void TrainTask(TaskType type);
 
     void EvalTask(TaskType type);
 
     void SendUniqKeysAndRestoreVecHBM(const EmbBaseInfo& info, const unique_ptr<vector<Tensor>>& infoVecs,
                                       bool isGrad) const;
-
-    bool IsTrainEndBatch(int batchId) const;
-
-    bool IsEvalEndBatch(int batchId) const;
 
     void InitEmbeddingCache(const vector<EmbInfo>& embInfos);
 
