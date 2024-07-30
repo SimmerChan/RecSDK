@@ -1,15 +1,22 @@
-#include <cstdint>
-#include <cstdio>
-#include <iostream>
-#include "tiling/platform/platform_ascendc.h"
+/**
+ * @file jagged_to_padded_dense.cpp
+ *
+ * Copyright (C) 2024. Huawei Technologies Co., Ltd. All rights reserved.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ */
+
 #include "jagged_to_padded_dense_tiling.h"
 #include "register/op_def_registry.h"
+#include "tiling/platform/platform_ascendc.h"
 
 constexpr int GM_ALIGN = 64;
 constexpr int RESERVER_UB_SIZE = 20 * 1024;
-constexpr int DATA_TYPE_INT64=8;
-constexpr int DATA_TYPE_INT32=4;
-constexpr int DATA_TYPE_FLOAT32=4;
+constexpr int DATA_TYPE_INT64 = 8;
+constexpr int DATA_TYPE_INT32 = 4;
+constexpr int DATA_TYPE_FLOAT32 = 4;
 namespace optiling {
 static ge::graphStatus TilingFunc(gert::TilingContext* context)
 {
@@ -20,28 +27,28 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     uint64_t ubCanUsed;
     ascnedPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubCanUsed);
     ubCanUsed = ubCanUsed - RESERVER_UB_SIZE;
-    ubCanUsed = ubCanUsed/32/4*32*4;
+    ubCanUsed = ubCanUsed / 32 / 4 * 32 * 4;
 
-    if (valuesShape.GetDimNum() != 2 or offsetsShape.GetDimNum()!=1) {
+    if (valuesShape.GetDimNum() != 2 or offsetsShape.GetDimNum() != 1) {
         printf("jagged_to_padded_dense_tiling is only used for values whit rank-3 and offset rank-1");
         return ge::FAILED;
     }
 
-    size_t coreNum = ascnedPlatform.GetCoreNumAiv(); 
+    size_t coreNum = ascnedPlatform.GetCoreNumAiv();
 
-    size_t *currentWorkspace = context->GetWorkspaceSizes(1);
+    size_t* currentWorkspace = context->GetWorkspaceSizes(1);
     size_t systemWorkspacesSize = ascnedPlatform.GetLibApiWorkSpaceSize();
     currentWorkspace[0] = systemWorkspacesSize;
     // 进行tiling, 为了保持尽量均匀，tailIndex之前长度为baseLen+1， 之后为baseLen
     // 例如7个数据分3个核，[3, 2, 2]
     int64_t totalBatch = offsetsShape.GetDim(0) - 1;
-    int64_t baseBatchLen = (offsetsShape.GetDim(0) - 1)/coreNum;
-    int64_t tailSplitIndex = (offsetsShape.GetDim(0) - 1)%coreNum;
+    int64_t baseBatchLen = (offsetsShape.GetDim(0) - 1) / coreNum;
+    int64_t tailSplitIndex = (offsetsShape.GetDim(0) - 1) % coreNum;
     int64_t valuesDim0 = valuesShape.GetDim(0);
     int64_t valuesDim1 = valuesShape.GetDim(1);
     int64_t offsetDim0 = offsetsShape.GetDim(0);
     int64_t outDim1 = *context->GetAttrs()->GetInt(0);
-    
+
     int64_t bytesOfDataType = 0;
     ge::DataType dataType = context->GetInputTensor(0)->GetDataType();
     if (dataType == ge::DataType::DT_FLOAT) {
@@ -70,8 +77,10 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     tiling.set_bytesOfDataType(bytesOfDataType);
     tiling.set_offsetDataType(offsetDataType);
 
-    // printf("totalBatch %ld  baseBatchLen %ld  tailSplitIndex %ld  valuesDim0 %ld  valuesDim1 %ld  offsetDim0 %ld ubCanUsed %ld  bytesOfDataType %ld  ",
-    //         totalBatch, baseBatchLen, tailSplitIndex, valuesDim0, valuesDim1, offsetDim0, ubCanUsed, bytesOfDataType);
+    // printf("totalBatch %ld  baseBatchLen %ld  tailSplitIndex %ld  valuesDim0 %ld  valuesDim1 %ld  offsetDim0 %ld
+    // ubCanUsed %ld  bytesOfDataType %ld  ",
+    //         totalBatch, baseBatchLen, tailSplitIndex, valuesDim0, valuesDim1, offsetDim0, ubCanUsed,
+    //         bytesOfDataType);
 
     context->SetBlockDim(coreNum);
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
@@ -79,8 +88,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
 
     return ge::GRAPH_SUCCESS;
 }
-}
-
+}  // namespace optiling
 
 namespace ge {
 static ge::graphStatus InferShape(gert::InferShapeContext* context)
@@ -98,8 +106,7 @@ static ge::graphStatus InferShape(gert::InferShapeContext* context)
 
     return GRAPH_SUCCESS;
 }
-}
-
+}  // namespace ge
 
 namespace ops {
 class JaggedToPaddedDense : public OpDef {
@@ -126,12 +133,11 @@ public:
 
         this->SetInferShape(ge::InferShape);
 
-        this->AICore()
-            .SetTiling(optiling::TilingFunc);
+        this->AICore().SetTiling(optiling::TilingFunc);
         this->AICore().AddConfig("ascend910");
         this->AICore().AddConfig("ascend910b");
     }
 };
 
 OP_ADD(JaggedToPaddedDense);
-}
+}  // namespace ops

@@ -1,3 +1,13 @@
+/**
+ * @file index_select_for_rank1_backward.cpp
+ *
+ * Copyright (C) 2024. Huawei Technologies Co., Ltd. All rights reserved.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ */
+
 #include "tiling/platform/platform_ascendc.h"
 #include "index_select_for_rank1_backward_tiling.h"
 #include "register/op_def_registry.h"

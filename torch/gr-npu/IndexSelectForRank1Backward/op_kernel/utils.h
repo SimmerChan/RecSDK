@@ -1,3 +1,13 @@
+/**
+ * @file utils.h
+ *
+ * Copyright (C) 2024. Huawei Technologies Co., Ltd. All rights reserved.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ */
+
 #ifndef INDEX_SELECT_RANK1_BACKWARD_UTILS_H
 #define INDEX_SELECT_RANK1_BACKWARD_UTILS_H
 #include "kernel_operator.h"
