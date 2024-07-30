@@ -169,27 +169,11 @@ void HybridMgmtBlock::ResetAll(int channelId)
     LOG_DEBUG(HYBRID_BLOCKING + "start reset block status,"
                                 " channelId:{}, pythonBatchId:{}, readEmbedBatchId:{}, hybridBatchId:{}",
               channelId, pythonBatchId[channelId], readEmbedBatchId[channelId], hybridBatchId[channelId]);
+    // L2 data pipeline, key->addr
     for (auto& b : lookUpSwapAddrsPushId) {
            b.second[channelId] = 0;
     }
-    for (auto& b : lookUpAndSendTableBatchId) {
-        b.second[channelId] = 0;
-    }
-    for (auto& b : receiveAndUpdateTableBatchId) {
-        b.second[channelId] = 0;
-    }
-    for (auto& b : lastUpdateFinishStep) {
-        b.second[channelId] = 0;
-    }
-    for (auto& b : lastLookUpFinishStep) {
-        b.second[channelId] = 0;
-    }
-    for (auto& b : lastSendFinishStep) {
-        b.second[channelId] = 0;
-    }
-    for (auto& b : lastRecvFinishStep) {
-        b.second[channelId] = 0;
-    }
+    // L3 data pipeline, swap
     for (auto& b : h2dNextBatchId) {
         b.second[channelId] = 0;
     }

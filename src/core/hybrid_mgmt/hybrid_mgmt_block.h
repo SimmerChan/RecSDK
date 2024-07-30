@@ -46,13 +46,13 @@ namespace MxRec {
         int stepsInterval[MAX_CHANNEL_NUM] = {0, 0};  // 通道i运行多少步后切换为通道j
 
         map<string, int[MAX_CHANNEL_NUM]> lookUpSwapAddrsPushId;  // L2 pipeline， key->addr
-        std::map<std::string, int[MAX_CHANNEL_NUM]> lookUpAndSendTableBatchId;  // L3 pipeline
+        map<string, int[MAX_CHANNEL_NUM]> h2dNextBatchId;  // L3 pipeline， use for eos
+        std::map<std::string, int[MAX_CHANNEL_NUM]> lookUpAndSendTableBatchId;
         std::map<std::string, int[MAX_CHANNEL_NUM]> receiveAndUpdateTableBatchId;
         std::map<std::string, int[MAX_CHANNEL_NUM]> lastUpdateFinishStep;
         std::map<std::string, int[MAX_CHANNEL_NUM]> lastLookUpFinishStep;
         std::map<std::string, int[MAX_CHANNEL_NUM]> lastSendFinishStep;
         std::map<std::string, int[MAX_CHANNEL_NUM]> lastRecvFinishStep;
-        map<string, int[MAX_CHANNEL_NUM]> h2dNextBatchId;  // hybrid已完成H2D的step；区分通道、图，eval重置；
 
         int loop[MAX_CHANNEL_NUM] = {1, 1};
 

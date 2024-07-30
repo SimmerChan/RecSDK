@@ -102,7 +102,8 @@ def get_id_offsets(max_lookup_vec_size: int, config: dict) -> Tuple[int, SwapInf
             output_shapes=[[max_lookup_vec_size], [max_lookup_vec_size], [], []],
             channel_name=f'{config.get(ASCAnchorAttr.TABLE_NAME.value)}_swap_{config.get(ASCAnchorAttr.CHANNEL_ID.value)}',
         )
-        logger.debug('Channel %s_swap_all was built for getnext', config.get(ASCAnchorAttr.TABLE_NAME.value))
+        logger.debug('Channel %s_swap_%s was built for getnext', config.get(ASCAnchorAttr.TABLE_NAME.value),
+                     config.get(ASCAnchorAttr.CHANNEL_ID.value))
     return id_offsets, swap_info
 
 
