@@ -52,10 +52,3 @@ bash build.sh
 
 # # 安装编译成功的算子包
 bash ./build_out/custom_opp*.run
-cd ../aclnn_jagged_to_padded_dense
-bash run.sh
-
-# cpu工程
-# cd ../cpu
-# bash generate_cpu.sh
-# cd ..

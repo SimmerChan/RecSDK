@@ -2,14 +2,13 @@ import torch
 import torch_npu
 import fbgemm_gpu
 import numpy as np
+
+
 DENSE_DIM = (128, 210, 1)
-
-
 ## test_shape
 denses = np.random.randn(*DENSE_DIM).astype(np.float32)
-
-
 offsets = np.random.randint(0, DENSE_DIM[1], DENSE_DIM[0])
+
 
 def get_grad(device):
     dense_torch = torch.nn.Parameter(torch.from_numpy(denses).to(torch.float32)).to(device)
@@ -27,6 +26,7 @@ def get_grad(device):
     loss.backward()
 
     return dense_torch.grad.cpu().clone()
+
 
 gloden = get_grad(torch.device("cpu"))
 npu_result = get_grad(torch.device("npu"))

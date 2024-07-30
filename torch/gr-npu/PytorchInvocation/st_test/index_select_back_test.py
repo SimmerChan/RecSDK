@@ -1,11 +1,13 @@
 import torch
 import torch_npu
 import numpy as np
+
+
 EMBD_DIM = (129,)
 INDEX_DIM = (128, 211, 211)
-
 weight = np.random.randn(EMBD_DIM[0]).astype(np.float32)
 index = np.random.randint(0, EMBD_DIM[0], INDEX_DIM).astype(np.int64)
+
 
 class EmbedRank1Select(torch.autograd.Function):
     @staticmethod
@@ -19,7 +21,8 @@ class EmbedRank1Select(torch.autograd.Function):
         x, index = ctx.saved_tensors
         gradX, gradIndex = torch_npu.index_select_for_rank1_backward(grad_output, x, index)
         return gradX, gradIndex
-    
+
+
 def get_loss(device):
     weightTensor = torch.nn.Parameter(torch.from_numpy(weight)).to(device)
     weightTensor.retain_grad()
@@ -33,6 +36,8 @@ def get_loss(device):
 
     grad = weightTensor.grad.cpu().clone()
     return grad
+
+
 
 def get_loss_op(device):
     weightTensor = torch.nn.Parameter(torch.from_numpy(weight)).to(device)
@@ -48,7 +53,8 @@ def get_loss_op(device):
 
     grad = weightTensor.grad.cpu().clone()
     return grad
-    
+
+
 gloden = get_loss(torch.device("cpu"))
 npu_result = get_loss_op(torch.device("npu"))
 result = torch.abs(gloden-npu_result)<0.0001
