@@ -39,9 +39,9 @@ struct DenseToJaggedArgs {
 };
 
 template<typename dType, typename tType>
-class DenseToJaggedKernel {
+class DenseToJagged {
 public:
-    __aicore__ inline DenseToJaggedKernel() {};
+    __aicore__ inline DenseToJagged() {};
 
     __aicore__ inline void init(DenseToJaggedArgs *args, TPipe *pipe)
     {
@@ -174,21 +174,21 @@ extern "C" __global__ __aicore__ void dense_to_jagged(GM_ADDR dense, GM_ADDR off
     int32_t int32Type = DenseToJagged_Kernel::TYPE_INT32; // 3
     int32_t int64Type = DenseToJagged_Kernel::TYPE_INT64; // 9
 
-    // Init DenseToJaggedKernel class with different data type according to dense and offset data type.
+    // Init DenseToJagged class with different data type according to dense and offset data type.
     if (tiling_data.denseType == floatType && tiling_data.offsetType == int32Type) {
-        DenseToJagged_Kernel::DenseToJaggedKernel<float, int32_t> kernel;
+        DenseToJagged_Kernel::DenseToJagged<float, int32_t> kernel;
         kernel.init(&args, &pipe);
         kernel.Compute();
     } else if (tiling_data.denseType == floatType && tiling_data.offsetType == int64Type) {
-        DenseToJagged_Kernel::DenseToJaggedKernel<float, int64_t> kernel;
+        DenseToJagged_Kernel::DenseToJagged<float, int64_t> kernel;
         kernel.init(&args, &pipe);
         kernel.Compute();
     } else if (tiling_data.denseType == int64Type && tiling_data.offsetType == int64Type) {
-        DenseToJagged_Kernel::DenseToJaggedKernel<int64_t, int64_t> kernel;
+        DenseToJagged_Kernel::DenseToJagged<int64_t, int64_t> kernel;
         kernel.init(&args, &pipe);
         kernel.Compute();
     } else if (tiling_data.denseType == int64Type && tiling_data.offsetType == int32Type) {
-        DenseToJagged_Kernel::DenseToJaggedKernel<int64_t, int32_t> kernel;
+        DenseToJagged_Kernel::DenseToJagged<int64_t, int32_t> kernel;
         kernel.init(&args, &pipe);
         kernel.Compute();
     }

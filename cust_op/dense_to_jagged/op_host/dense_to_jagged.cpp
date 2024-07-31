@@ -63,6 +63,10 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     int64_t jaggedTotal = *outDim0 * outDim1;
     int64_t denseTotal = denseShape.GetDim(DIM0) * denseShape.GetDim(DIM1) * denseShape.GetDim(DIM2);
     
+    if (coreNum == 0) {
+        printf("[ERROR] aiv core num == 0!");
+        return ge::GRAPH_FAILED;
+    }
     int singleCoreBatch = (offsetShape.GetDim(0) - 1) / coreNum;
     int left = (offsetShape.GetDim(0) - 1) % coreNum;
     int singleLoopSize = ub / 2 / ALIGN_512 * ALIGN_512;
@@ -96,7 +100,7 @@ static ge::graphStatus InferShape(gert::InferShapeContext* context)
 
     jaggedShape->SetDimNum(2);
     jaggedShape->SetDim(0, *jaggedDim0);
-    jaggedShape->SetDim(1, denseShape->GetDim(DIM2)); 
+    jaggedShape->SetDim(1, denseShape->GetDim(DIM2));
 
     return GRAPH_SUCCESS;
 }

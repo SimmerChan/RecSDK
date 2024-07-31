@@ -13,8 +13,12 @@ See the License for the specific language governing permissions and
         limitations under the License.
 ==============================================================================*/
 
+#ifndef DENSE_TO_JAGGED_TILING_H
+#define DENSE_TO_JAGGED_TILING_H
+
 #include "register/tilingdata_base.h"
 #include "tiling/tiling_api.h"
+
 namespace optiling {
     BEGIN_TILING_DATA_DEF(DenseToJaggedTilling)
         TILING_DATA_FIELD_DEF(int32_t, denseDim1);
@@ -30,3 +34,4 @@ namespace optiling {
 
     REGISTER_TILING_DATA_CLASS(DenseToJagged, DenseToJaggedTilling)
 }
+#endif
