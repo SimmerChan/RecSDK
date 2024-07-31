@@ -187,7 +187,7 @@ namespace MxRec {
         return res;
     }
 
-    // make key for mutex and cv in swap pipeline, id: threadId, channelId: train/eval
+    // Make key for mutex and cv in swap pipeline, id: threadId, channelId: train/eval.
     string MakeKeyName(int id, const string& tableName, int channelId)
     {
         return to_string(id) + tableName + to_string(channelId);

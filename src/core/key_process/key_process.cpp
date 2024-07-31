@@ -13,15 +13,14 @@ See the License for the specific language governing permissions and
         limitations under the License.
 ==============================================================================*/
 
-#include "key_process.h"
-
-#include <mpi.h>
-
 #include <cstddef>
 #include <iostream>
 
+#include <mpi.h>
+
 #include "emb_table/embedding_mgmt.h"
 #include "hd_transfer/hd_transfer.h"
+#include "key_process.h"
 #include "ock_ctr_common/include/error_code.h"
 #include "utils/common.h"
 #include "utils/config.h"
@@ -426,14 +425,10 @@ bool KeyProcess::KeyProcessTaskHelper(unique_ptr<EmbBatchT>& batch, int channel,
 
     // without host, just device, all embedding vectors were stored in device
     // map key to offset directly by lookup keyOffsetMap (hashmap)
-    if (!rankInfo.isDDR) {
-        EmbeddingMgmt::Instance()->Key2Offset(batch->name, lookupKeys, channel);
-    }
+    if (!rankInfo.isDDR) { EmbeddingMgmt::Instance()->Key2Offset(batch->name, lookupKeys, channel); }
 
     // Static all2all，need send count
-    if (!rankInfo.useStatic) {
-        SendA2A(scAll, batch->name, batch->channel, batch->batchId);
-    }
+    if (!rankInfo.useStatic) { SendA2A(scAll, batch->name, batch->channel, batch->batchId); }
 
     TimeCost pushResultTC;
     auto tensors = make_unique<vector<Tensor>>();
@@ -1218,9 +1213,9 @@ bool KeyProcess::IsGetUniqueKeysEos(const EmbBaseInfo& info, std::chrono::_V2::s
     // Check '>= readEmbedBatchIdAll' condition to avoid send eos before handle all batch data from readEmbKey Op.
     if (isNeedSendEos[info.channelId] && readEmbKeyBatchId < info.batchId &&
         hybridMgmtBlock->h2dNextBatchId[info.name][info.channelId] ==
-            hybridMgmtBlock->lookUpSwapAddrsPushId[info.name][info.channelId] &&
+        hybridMgmtBlock->lookUpSwapAddrsPushId[info.name][info.channelId] &&
         hybridMgmtBlock->h2dNextBatchId[info.name][info.channelId] >=
-            hybridMgmtBlock->readEmbedBatchId[info.channelId]) {
+        hybridMgmtBlock->readEmbedBatchId[info.channelId]) {
         LOG_INFO("table:{}, channelId:{} current batchId:{}, GetUniqueKeys eos, L1 pipeline readEmbKeyBatchId:{}, "
                  "L2 pipeline hybridBatchId:{}, L3 pipeline lookUpSwapAddrsPushId:{}, L4 pipeline h2dNextBatchId:{}",
                  info.name, info.channelId, info.batchId, readEmbKeyBatchId,

@@ -45,8 +45,8 @@ namespace MxRec {
         int maxTrainStep = 0;
         int stepsInterval[MAX_CHANNEL_NUM] = {0, 0};  // 通道i运行多少步后切换为通道j
 
-        map<string, int[MAX_CHANNEL_NUM]> lookUpSwapAddrsPushId;  // L2 pipeline， key->addr
-        map<string, int[MAX_CHANNEL_NUM]> h2dNextBatchId;  // L3 pipeline， use for eos
+        std::map<string, int[MAX_CHANNEL_NUM]> lookUpSwapAddrsPushId;  // L2 pipeline， key->addr
+        std::map<string, int[MAX_CHANNEL_NUM]> h2dNextBatchId;  // L3 pipeline， use for eos
         std::map<std::string, int[MAX_CHANNEL_NUM]> lookUpAndSendTableBatchId;
         std::map<std::string, int[MAX_CHANNEL_NUM]> receiveAndUpdateTableBatchId;
         std::map<std::string, int[MAX_CHANNEL_NUM]> lastUpdateFinishStep;

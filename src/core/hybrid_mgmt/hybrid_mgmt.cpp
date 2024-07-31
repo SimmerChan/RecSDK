@@ -1345,14 +1345,11 @@ void HybridMgmt::JoinEmbeddingCacheThread()
 
 void HybridMgmt::HandleEosCase(const EmbBaseInfo& info, bool& remainBatchOut)
 {
-    if (info.channelId == EVAL_CHANNEL_ID) {
-        if (!alreadyTrainOnce) {
-            // predict场景
-        } else {
-            // train+eval场景
-            hybridMgmtBlock->SetBlockStatus(EVAL_CHANNEL_ID, true);
-            LOG_INFO("GetUniqueKeys get eos from eval channel, SetBlockStatus=true");
-        }
+    // Predict do not need to be blocked.
+    if (info.channelId == EVAL_CHANNEL_ID && alreadyTrainOnce) {
+        // Train switch to eval.
+        hybridMgmtBlock->SetBlockStatus(EVAL_CHANNEL_ID, true);
+        LOG_INFO("GetUniqueKeys get eos from eval channel, SetBlockStatus=true");
     }
     KEY_PROCESS_INSTANCE->SendEos(info.name, info.batchId, info.channelId);
     remainBatchOut = false;

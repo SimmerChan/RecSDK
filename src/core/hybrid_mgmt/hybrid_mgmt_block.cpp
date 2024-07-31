@@ -13,10 +13,9 @@ See the License for the specific language governing permissions and
         limitations under the License.
 ==============================================================================*/
 
-#include "hybrid_mgmt_block.h"
-
 #include <thread>
 
+#include "hybrid_mgmt_block.h"
 #include "key_process/key_process.h"
 #include "utils/common.h"
 #include "utils/logger.h"
