@@ -331,7 +331,7 @@ int EmbCacheManagerImpl::BackUpTrainStatus(const std::string& tableName)
     if (embInfo == embCacheInfos.end()) {
         return H_EMB_CACHE_INFO_LOST;
     }
-    uint32_t reserve = embInfo->second.maxCacheSize / VOCAB_CACHE_RATIO;
+    uint32_t reserve = embInfo->second.vocabSize / VOCAB_CACHE_RATIO;
     uint32_t maxCacheSize = embInfo->second.maxCacheSize;
 
     auto om = offsetMappersBackUp.find(tableName);
