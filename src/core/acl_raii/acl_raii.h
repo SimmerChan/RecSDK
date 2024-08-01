@@ -28,7 +28,7 @@ template <typename T, aclError (*Fn)(T*)>
 class AclResourceRAII {
 public:
     AclResourceRAII() : inner_(nullptr) {}
-    explicit AclResourceRAII(T* dataset) : inner_(dataset) {}
+    explicit AclResourceRAII(T* inner) : inner_(inner) {}
     ~AclResourceRAII()
     {
         if (this->inner_ != nullptr) {
