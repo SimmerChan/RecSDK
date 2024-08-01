@@ -102,8 +102,7 @@ def make_batch_and_iterator(config, feature_spec_list, is_training, dump_graph, 
         # Enable EOSDataset manually.
         librec = import_host_pipeline_ops(LIBREC_EOS_OPS_SO)
         channel_id = 0 if is_training else 1
-        dataset = dataset.eos_map(librec, channel_id, kwargs.get("max_train_steps", max_train_steps),
-                                  kwargs.get("max_eval_steps", eval_steps))
+        dataset = dataset.eos_map(librec, channel_id, -1, kwargs.get("max_eval_steps", eval_steps))
         insert_fn = get_asc_insert_func(tgt_key_specs=feature_spec_list, is_training=is_training, dump_graph=dump_graph)
         dataset = dataset.map(insert_fn)
 
@@ -305,7 +304,6 @@ if __name__ == "__main__":
                          "or USE_MODIFY_GRAPH only 0 or 1 is supported.") from err
 
     cfg = Config()
-    max_train_steps = int(199524 * cfg.train_epoch // cfg.rank_size // cfg.batch_size) 
     train_steps = 1000
     eval_steps = 1500
     use_dynamic = bool(int(os.getenv("USE_DYNAMIC", 0)))
@@ -326,10 +324,10 @@ if __name__ == "__main__":
 
     train_batch, train_iterator = make_batch_and_iterator(cfg, feature_spec_list_train, is_training=True,
                                                           dump_graph=True, is_use_faae=use_faae, 
-                                                          max_train_steps=max_train_steps, max_eval_steps=eval_steps)
+                                                          max_eval_steps=eval_steps)
     eval_batch, eval_iterator = make_batch_and_iterator(cfg, feature_spec_list_eval, is_training=False,
-                                                        dump_graph=False, is_use_faae=use_faae,
-                                                        max_train_steps=max_train_steps, max_eval_steps=eval_steps)
+                                                        dump_graph=False, is_use_faae=use_faae, 
+                                                        max_eval_steps=eval_steps)
     logger.info(f"train_batch: {train_batch}")
 
     if use_faae:
