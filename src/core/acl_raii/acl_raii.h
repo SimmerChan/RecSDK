@@ -27,7 +27,7 @@ aclError DestroyAclChannel(acltdtChannelHandle*);
 template <typename T, aclError (*Fn)(T*)>
 class AclResourceRAII {
 public:
-    AclResourceRAII() = delete;
+    AclResourceRAII() : inner_(nullptr) {}
     explicit AclResourceRAII(T* dataset) : inner_(dataset) {}
     ~AclResourceRAII()
     {
@@ -38,10 +38,23 @@ public:
     }
     AclResourceRAII(const AclResourceRAII& rhs) = delete;
     AclResourceRAII& operator=(const AclResourceRAII& rhs) = delete;
-    AclResourceRAII(AclResourceRAII&& rhs) = delete;
-    AclResourceRAII& operator=(AclResourceRAII&& rhs) = delete;
+    AclResourceRAII(AclResourceRAII&& rhs) noexcept : inner_(rhs.inner_)
+    {
+        rhs.inner_ = nullptr;
+    }
+    AclResourceRAII& operator=(AclResourceRAII&& rhs) noexcept
+    {
+        if (this != &rhs) {
+            if (this->inner_ != nullptr) {
+                Fn(this->inner_);
+            }
+            this->inner_ = rhs.inner_;
+            rhs.inner_ = nullptr;
+        }
+        return *this;
+    }
 
-    T* ptr()
+    T* ptr() const
     {
         return this->inner_;
     }
