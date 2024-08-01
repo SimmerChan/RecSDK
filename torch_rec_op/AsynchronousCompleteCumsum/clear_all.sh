@@ -1,0 +1,4 @@
+rm -rf asynchronous_complete_cumsum
+rm -rf aclnn_asynchronous_complete_cumsum/build
+rm -rf aclnn_asynchronous_complete_cumsum/input
+rm -rf aclnn_asynchronous_complete_cumsum/output
