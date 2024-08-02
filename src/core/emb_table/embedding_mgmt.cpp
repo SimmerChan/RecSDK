@@ -126,10 +126,10 @@ void EmbeddingMgmt::Load(const string& filePath, map<string, unordered_set<emb_c
     }
 }
 
-void EmbeddingMgmt::Save(const string& name, const string& filePath)
+void EmbeddingMgmt::Save(const string& name, const string& filePath, const int pythonBatchId)
 {
     embeddings[name]->SetFileSystemPtr(filePath);
-    embeddings[name]->Save(filePath);
+    embeddings[name]->Save(filePath, pythonBatchId);
     embeddings[name]->UnsetFileSystemPtr();
 }
 
