@@ -12,6 +12,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
         limitations under the License.
 ==============================================================================*/
+#include "key_process.h"
 
 #include <cstddef>
 #include <iostream>
@@ -20,7 +21,6 @@ See the License for the specific language governing permissions and
 
 #include "emb_table/embedding_mgmt.h"
 #include "hd_transfer/hd_transfer.h"
-#include "key_process.h"
 #include "ock_ctr_common/include/error_code.h"
 #include "utils/common.h"
 #include "utils/config.h"

@@ -93,7 +93,7 @@ def get_id_offsets(max_lookup_vec_size: int, config: dict) -> Tuple[int, SwapInf
         if config.get("is_hbm"):
             return id_offsets, swap_info
 
-        swapChannel =  f'{config.get(ASCAnchorAttr.TABLE_NAME.value)}_swap_{config.get(ASCAnchorAttr.CHANNEL_ID.value)}'
+        swap_channel = f'{config.get(ASCAnchorAttr.TABLE_NAME.value)}_swap_{config.get(ASCAnchorAttr.CHANNEL_ID.value)}'
         (
             swap_info.swap_in_pos,
             swap_info.swap_out_pos,
@@ -102,7 +102,7 @@ def get_id_offsets(max_lookup_vec_size: int, config: dict) -> Tuple[int, SwapInf
         ) = npu_ops.gen_npu_ops.get_next(
             output_types=[tf.int32, tf.int32, tf.int32, tf.int32],
             output_shapes=[[max_lookup_vec_size], [max_lookup_vec_size], [], []],
-            channel_name=swapChannel,
+            channel_name=swap_channel,
         )
         logger.debug('Channel %s_swap_%s was built for getnext', config.get(ASCAnchorAttr.TABLE_NAME.value),
                      config.get(ASCAnchorAttr.CHANNEL_ID.value))
@@ -149,7 +149,7 @@ def get_preprocessed_tensor_for_asc(table, config):
     if not config.get("is_hbm"):
         # 一表多查时，会多次进入get_preprocessed_tensor_for_asc，最后一次大查询替换map的key-value即可
         swap_args = SwapArgs()
-        
+
         swap_args.set_data(SwapDataType.CONFIG.value, var_name=config.get(ASCAnchorAttr.TABLE_NAME.value),
                            var_channel=config.get(ASCAnchorAttr.CHANNEL_ID.value), config=config, swap_info=swap_info)
 

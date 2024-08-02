@@ -1347,7 +1347,7 @@ void HybridMgmt::HandleEosCase(const EmbBaseInfo& info, bool& remainBatchOut)
 {
     // Predict do not need to be blocked.
     if (info.channelId == EVAL_CHANNEL_ID && alreadyTrainOnce) {
-        // Train switch to eval.
+        // Eval after train.
         hybridMgmtBlock->SetBlockStatus(EVAL_CHANNEL_ID, true);
         LOG_INFO("GetUniqueKeys get eos from eval channel, SetBlockStatus=true");
     }
