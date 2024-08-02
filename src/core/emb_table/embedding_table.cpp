@@ -122,7 +122,12 @@ absl::flat_hash_map<emb_key_t, int64_t> EmbeddingTable::GetKeyOffsetMap()
 void EmbeddingTable::SetFileSystemPtr(const string& savePath)
 {
     unique_ptr<FileSystemHandler> fileSystemHandler = make_unique<FileSystemHandler>();
-    fileSystemPtr_ = fileSystemHandler->Create(savePath);
+    auto fileSystemPtr = fileSystemHandler->Create(savePath);
+    if (fileSystemPtr.has_value()) {
+        fileSystemPtr_ = std::move(*fileSystemPtr);
+    } else {
+        // error handle
+    }
 }
 
 void EmbeddingTable::UnsetFileSystemPtr()

@@ -106,7 +106,11 @@ bool HybridMgmt::Initialize(RankInfo rankInfo, const vector<EmbInfo>& embInfos, 
 
     // 进行acl资源初始化，设置当前训练进程的device，为每张表创建数据传输通道
     hdTransfer = Singleton<MxRec::HDTransfer>::GetInstance();
-    hdTransfer->Init(embInfos, rankInfo.deviceId);
+    const auto hdTransInitRes = hdTransfer->Init(embInfos, rankInfo.deviceId);
+    if (!hdTransInitRes.has_value()) {
+        // error handle
+        // retry??
+    }
 
     hybridMgmtBlock = Singleton<HybridMgmtBlock>::GetInstance();
     hybridMgmtBlock->SetRankInfo(rankInfo);
@@ -440,7 +444,10 @@ void HybridMgmt::Destroy()
         // 先发送停止信号给KEY_PROCESS_INSTANCE，用于停止查询中lookup卡住状态
         KEY_PROCESS_INSTANCE->isRunning = false;
         // 停止hdTransfer，用于停止mgmt的recv中卡住状态
-        hdTransfer->Destroy();
+        const auto destroyRes = hdTransfer->Destroy();
+        if (!destroyRes.has_value()) {
+            // error handle
+        }
         LOG_DEBUG(MGMT + "destroy hdTransfer end.");
     }
 
@@ -1263,8 +1270,7 @@ void HybridMgmt::InitDataPipelineForDDR(const string& embName)
 
     // 初始化lookup线程
     lookUpSwapInAddrsPushId[embName];  // 此处初始化，避免多线程竞争导致计数错误
-    lookUpSwapInAddrsThreads.emplace_back(
-        std::async(std::launch::async, [=] { LookUpSwapAddrs(embName); }));
+    lookUpSwapInAddrsThreads.emplace_back(std::async(std::launch::async, [=] { LookUpSwapAddrs(embName); }));
 
     LOG_DEBUG("data pipeline for ddr init");
 }
@@ -1446,7 +1452,10 @@ bool HybridMgmt::EmbeddingReceiveDDR(const EmbTaskInfo& info, float*& ptr, vecto
     if (info.batchId != 0) {
         TransferChannel transferName = TransferChannel::D2H;
         auto size = hdTransfer->RecvAcl(transferName, TRAIN_CHANNEL_ID, info.name, info.threadIdx, info.batchId);
-        if (size == 0) {
+        if (!size.has_value()) {
+            // error handle
+        }
+        if (*size == 0) {
             LOG_WARN(HOSTEMB + "recv empty data");
             return false;
         }
@@ -1629,7 +1638,10 @@ bool HybridMgmt::EmbeddingReceiveL3Storage(const EmbTaskInfo& info, float*& ptr,
     if (info.batchId != 0) {
         TransferChannel transferName = TransferChannel::D2H;
         auto size = hdTransfer->RecvAcl(transferName, TRAIN_CHANNEL_ID, info.name, info.threadIdx, info.batchId);
-        if (size == 0) {
+        if (!size.has_value()) {
+            // error handle
+        }
+        if (*size == 0) {
             LOG_WARN(HOSTEMB + "recv empty data");
             return false;
         }
@@ -2225,7 +2237,8 @@ void HybridMgmt::BackUpTrainStatus()
     }
 
     LOG_INFO("On Estimator train and eval mode, start to backup train status, "
-             "current train batchId: {} .", theTrainBatchId);
+             "current train batchId: {} .",
+             theTrainBatchId);
     // When in the train and eval mode of estimator, backup training states before loading.
     EmbeddingMgmt::Instance()->BackUpTrainStatusBeforeLoad();
 

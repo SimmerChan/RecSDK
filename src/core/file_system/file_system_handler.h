@@ -18,13 +18,14 @@ See the License for the specific language governing permissions and
 
 #include "hdfs_file_system/hdfs_file_system.h"
 #include "local_file_system/local_file_system.h"
+#include "utils/error.h"
 
 namespace MxRec {
     using namespace std;
 
     class FileSystemHandler {
     public:
-        unique_ptr<FileSystem> Create(const string& filePath);
+        Expected<unique_ptr<FileSystem>> Create(const string& filePath);
     private:
         const vector<string> hdfsPrefixes = {"hdfs://", "viewfs://"};
     };

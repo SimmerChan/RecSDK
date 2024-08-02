@@ -43,7 +43,12 @@ void Checkpoint::SaveModel(string savePath, CkptData& ckptData, RankInfo& mgmtRa
     mgmtEmbInfo = embInfo;
 
     auto fileSystemHandler = make_unique<FileSystemHandler>();
-    fileSystemPtr = fileSystemHandler->Create(savePath);
+    auto fileSystemPtrRes = fileSystemHandler->Create(savePath);
+    if (fileSystemPtrRes.has_value()) {
+        fileSystemPtr = std::move(*fileSystemPtrRes);
+    } else {
+        // error handle
+    }
 
     LOG_INFO("Start host side saving data.");
     LOG_DEBUG("==Start to create save data handler.");
@@ -63,7 +68,12 @@ void Checkpoint::LoadModel(string loadPath, CkptData& ckptData, RankInfo& mgmtRa
     mgmtEmbInfo = embInfo;
 
     auto fileSystemHandler = make_unique<FileSystemHandler>();
-    fileSystemPtr = fileSystemHandler->Create(loadPath);
+    auto fileSystemPtrRes = fileSystemHandler->Create(loadPath);
+    if (fileSystemPtrRes.has_value()) {
+        fileSystemPtr = std::move(*fileSystemPtrRes);
+    } else {
+        // error handle
+    }
 
     LOG_INFO("Start host side loading data.");
     LOG_DEBUG("==Start to create load data handler.");
