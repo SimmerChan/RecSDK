@@ -80,6 +80,8 @@ GTEST_PRIVATE:
 
     void EvictDeleteEmb(const vector<emb_key_t>& keys);
 
+    void EmbeddingUpdateWithSSD(const vector<uint_64>& swapOutKeys, float* deviceDataPtr);
+
     size_t maxOffsetOld { 0 };
     std::vector<size_t> evictPosChange;
     std::vector<size_t> evictDevPosChange;

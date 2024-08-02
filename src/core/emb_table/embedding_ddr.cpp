@@ -243,31 +243,37 @@ void EmbeddingDDR::SyncLatestEmbedding(const int pythonBatchId)
             throw std::invalid_argument(errMsg);
         }
     } else {
-        // 在保存之前先更新ddr和ssd的embedding
-        HBMSwapOutInfo info;
-        cacheManager_->ProcessSwapOutKeys(name, swapOutKeys, info);
-        vector<float*> swapOutAddrs;
-        rc = embCache->EmbeddingLookupAddrs(name, info.swapOutDDRKeys, swapOutAddrs);
-        if (rc != ock::ctr::H_OK) {
-            string errMsg = StringFormat("EmbeddingLookupAddrs failed, table:%s, error code:%d", name.c_str(), rc);
+        // SSD mode embedding update.
+        EmbeddingUpdateWithSSD(swapOutKeys, ptr)
+    }
+}
+
+void EmbeddingDDR::EmbeddingUpdateWithSSD(const vector<uint_64>& swapOutKeys, float* deviceDataPtr)
+{
+    // 在保存之前先更新ddr和ssd的embedding
+    HBMSwapOutInfo info;
+    cacheManager_->ProcessSwapOutKeys(name, swapOutKeys, info);
+    vector<float*> swapOutAddrs;
+    int rc = embCache->EmbeddingLookupAddrs(name, info.swapOutDDRKeys, swapOutAddrs);
+    if (rc != ock::ctr::H_OK) {
+        string errMsg = StringFormat("EmbeddingLookupAddrs failed, table:%s, error code:%d", name.c_str(), rc);
+        throw std::invalid_argument(errMsg);
+    }
+    uint32_t extEmbeddingSize = embInfo_.extEmbeddingSize;
+    uint32_t memSize = extEmbeddingSize * sizeof(float);
+    // DDR更新
+#pragma omp parallel for num_threads(MGMT_CPY_THREADS) default(none) \
+    shared(swapOutAddrs, info, deviceDataPtr, extEmbeddingSize, memSize)
+    for (uint64_t i = 0; i < swapOutAddrs.size(); i++) {
+        int errCode = memcpy_s(
+                swapOutAddrs[i], memSize, deviceDataPtr + info.swapOutDDRAddrOffs[i] * extEmbeddingSize, memSize);
+        if (errCode != 0) {
+            string errMsg = StringFormat("memcpy_s failed, table:%s, error code:%d", name.c_str(), errCode);
             throw std::invalid_argument(errMsg);
         }
-        uint32_t extEmbeddingSize = embInfo_.extEmbeddingSize;
-        uint32_t memSize = extEmbeddingSize * sizeof(float);
-        // DDR更新
-#pragma omp parallel for num_threads(MGMT_CPY_THREADS) default(none) \
-    shared(swapOutAddrs, info, ptr, extEmbeddingSize, memSize)
-        for (uint64_t i = 0; i < swapOutAddrs.size(); i++) {
-            int errCode = memcpy_s(
-                swapOutAddrs[i], memSize, ptr + info.swapOutDDRAddrOffs[i] * extEmbeddingSize, memSize);
-            if (errCode != 0) {
-                string errMsg = StringFormat("memcpy_s failed, table:%s, error code:%d", name.c_str(), errCode);
-                throw std::invalid_argument(errMsg);
-            }
-        }
-        cacheManager_->UpdateL3StorageEmb(name, ptr, embInfo_.extEmbeddingSize, info.swapOutL3StorageKeys,
-                                          info.swapOutL3StorageAddrOffs);
     }
+    cacheManager_->UpdateL3StorageEmb(name, deviceDataPtr, embInfo_.extEmbeddingSize, info.swapOutL3StorageKeys,
+                                      info.swapOutL3StorageAddrOffs);
 }
 
 void EmbeddingDDR::SaveKey(const string& savePath, vector<emb_cache_key_t>& keys)
