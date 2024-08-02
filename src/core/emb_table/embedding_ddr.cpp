@@ -231,7 +231,7 @@ void EmbeddingDDR::SyncLatestEmbedding(const int pythonBatchId)
 
     // In step 0, can't update cacheEmb because key-pos mapping has been modified in hybrid_mgmt `ParseKeys` method.
     if (pythonBatchId == 0) {
-        LOG_DEBUG("In step 0, skipping update cacheEmb.", size, name);
+        LOG_DEBUG("In step 0, skipping update cacheEmb.");
         return;
     }
 
