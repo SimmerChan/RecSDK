@@ -244,7 +244,7 @@ void EmbeddingDDR::SyncLatestEmbedding(const int pythonBatchId)
         }
     } else {
         // SSD mode embedding update.
-        EmbeddingUpdateWithSSD(swapOutKeys, ptr)
+        EmbeddingUpdateWithSSD(swapOutKeys, ptr);
     }
 }
 
