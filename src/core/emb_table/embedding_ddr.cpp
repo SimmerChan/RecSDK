@@ -265,8 +265,8 @@ void EmbeddingDDR::EmbeddingUpdateWithSSD(const vector<uint64_t>& swapOutKeys, f
 #pragma omp parallel for num_threads(MGMT_CPY_THREADS) default(none) \
     shared(swapOutAddrs, info, deviceDataPtr, extEmbeddingSize, memSize)
     for (uint64_t i = 0; i < swapOutAddrs.size(); i++) {
-        int errCode = memcpy_s(
-                swapOutAddrs[i], memSize, deviceDataPtr + info.swapOutDDRAddrOffs[i] * extEmbeddingSize, memSize);
+        int errCode = memcpy_s(swapOutAddrs[i], memSize,
+                               deviceDataPtr + info.swapOutDDRAddrOffs[i] * extEmbeddingSize, memSize);
         if (errCode != 0) {
             string errMsg = StringFormat("memcpy_s failed, table:%s, error code:%d", name.c_str(), errCode);
             throw std::invalid_argument(errMsg);
