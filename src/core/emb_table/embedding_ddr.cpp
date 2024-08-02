@@ -190,9 +190,9 @@ void EmbeddingDDR::LoadOptimizerSlot(const string &savePath, vector<vector<float
     LOG_DEBUG("load optimizer slot done, table:{}", name);
 }
 
-void EmbeddingDDR::Save(const string& savePath)
+void EmbeddingDDR::Save(const string& savePath, const int pythonBatchId)
 {
-    SyncLatestEmbedding();
+    SyncLatestEmbedding(pythonBatchId);
     vector<emb_cache_key_t> keys;
     vector<vector<float>> embeddings;
     vector<vector<float>> optimizerSlots;
@@ -205,7 +205,7 @@ void EmbeddingDDR::Save(const string& savePath)
     SaveOptimizerSlot(savePath, optimizerSlots, keys.size());
 }
 
-void EmbeddingDDR::SyncLatestEmbedding()
+void EmbeddingDDR::SyncLatestEmbedding(const int pythonBatchId)
 {
     // 导出host记录的存在于npu的embedding
     std::vector<std::pair<uint64_t, uint64_t>> koVec;
@@ -228,6 +228,12 @@ void EmbeddingDDR::SyncLatestEmbedding()
         throw runtime_error("Acl get tensor data from dataset failed.");
     }
     auto* ptr = reinterpret_cast<float*>(acltdtGetDataAddrFromItem(aclData));
+
+    // In step 0, can't update cacheEmb because key-pos mapping has been modified in hybrid_mgmt `ParseKeys` method.
+    if (pythonBatchId == 0) {
+        LOG_DEBUG("In step 0, skipping update cacheEmb.", size, name);
+        return;
+    }
 
     if (ssdVocabSize == 0) {
         // 在保存之前先更新host的embedding

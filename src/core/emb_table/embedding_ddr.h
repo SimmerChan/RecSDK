@@ -44,9 +44,9 @@ public:
 
     void LoadOptimizerSlot(const string& savePath, vector<vector<float>>& optimizerSlots);
 
-    void Save(const string& savePath);
+    void Save(const string& savePath, const int pythonBatchId);
 
-    void SyncLatestEmbedding();
+    void SyncLatestEmbedding(const int pythonBatchId);
 
     void SaveKey(const string& savePath, vector<emb_cache_key_t>& keys);
 

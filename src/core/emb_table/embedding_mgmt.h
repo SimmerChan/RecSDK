@@ -87,7 +87,7 @@ public:
     /**
      * 保存所有表
      */
-    void Save(const string& filePath);
+    void Save(const string& filePath, const int pythonBatchId);
 
     /**
      * In estimator mode, when switching from train to eval, backup the training state of all tables.

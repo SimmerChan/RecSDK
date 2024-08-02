@@ -133,7 +133,7 @@ void EmbeddingMgmt::Save(const string& name, const string& filePath)
     embeddings[name]->UnsetFileSystemPtr();
 }
 
-void EmbeddingMgmt::Save(const string& filePath)
+void EmbeddingMgmt::Save(const string& filePath, const int pythonBatchId)
 {
     for (auto& tablePair: embeddings) {
         tablePair.second->SetFileSystemPtr(filePath);
@@ -142,7 +142,8 @@ void EmbeddingMgmt::Save(const string& filePath)
     vector<future<void>> futures;
     for (auto& tablePair: embeddings) {
         futures.emplace_back(
-            std::async(std::launch::async, [table = tablePair.second, filePath] { table->Save(filePath); }));
+            std::async(std::launch::async,
+                       [table = tablePair.second, filePath, pythonBatchId] { table->Save(filePath, pythonBatchId); }));
     }
     for (auto& f: futures) {
         f.get();  // get() will repost exception if happened
