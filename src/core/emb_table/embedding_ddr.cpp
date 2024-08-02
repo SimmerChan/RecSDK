@@ -248,7 +248,7 @@ void EmbeddingDDR::SyncLatestEmbedding(const int pythonBatchId)
     }
 }
 
-void EmbeddingDDR::EmbeddingUpdateWithSSD(const vector<uint_64>& swapOutKeys, float* deviceDataPtr)
+void EmbeddingDDR::EmbeddingUpdateWithSSD(const vector<uint64_t>& swapOutKeys, float* deviceDataPtr)
 {
     // 在保存之前先更新ddr和ssd的embedding
     HBMSwapOutInfo info;
