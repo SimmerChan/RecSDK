@@ -18,6 +18,7 @@
 at::Tensor dense_to_jagged_forward_npu(const at::Tensor& dense, const std::vector<at::Tensor>& offsets,
                                        c10::optional<at::SymInt> total_L)
 {
+    const at::OptionalDeviceGuard guard(device_of(dense));
     auto D = dense.size(-1);
     auto dense_contin = dense.contiguous();
 
@@ -35,6 +36,7 @@ at::Tensor dense_to_jagged_forward_npu(const at::Tensor& dense, const std::vecto
 
 at::Tensor asynchronous_complete_cumsum_npu(const at::Tensor& offset)
 {
+    const at::OptionalDeviceGuard guard(device_of(offset));
     auto offset_contin = offset.contiguous();
     auto output = at::empty({offset.size(0) + 1}, offset.options());
 
@@ -45,6 +47,7 @@ at::Tensor asynchronous_complete_cumsum_npu(const at::Tensor& offset)
 at::Tensor jagged_to_padded_dense_forward_npu(const at::Tensor& values, const std::vector<at::Tensor>& offsets,
                                               c10::SymIntArrayRef max_lengths, const double padding_value)
 {
+    const at::OptionalDeviceGuard guard(device_of(values));
     auto values_contin = values.contiguous();
     auto D = values.size(-1);
     at::IntArrayRef max_lengths_int = c10::asIntArrayRefUnchecked(max_lengths);

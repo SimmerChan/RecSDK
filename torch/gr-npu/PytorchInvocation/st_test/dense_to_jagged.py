@@ -20,7 +20,6 @@ import torch_npu
 import fbgemm_gpu
 import numpy as np
 
-
 DENSE_DIM = (128, 210, 1)
 ## test_shape
 denses = np.random.randn(*DENSE_DIM).astype(np.float32)

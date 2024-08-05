@@ -39,7 +39,10 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     }
 
     size_t coreNum = ascnedPlatform.GetCoreNumAiv();
-
+    if (coreNum == 0) {
+        return ge::FAILED;
+    }
+    
     size_t* currentWorkspace = context->GetWorkspaceSizes(1);
     size_t systemWorkspacesSize = ascnedPlatform.GetLibApiWorkSpaceSize();
     currentWorkspace[0] = systemWorkspacesSize;
@@ -80,11 +83,6 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     tiling.set_ubCanUsed(ubCanUsed);
     tiling.set_bytesOfDataType(bytesOfDataType);
     tiling.set_offsetDataType(offsetDataType);
-
-    // printf("totalBatch %ld  baseBatchLen %ld  tailSplitIndex %ld  valuesDim0 %ld  valuesDim1 %ld  offsetDim0 %ld
-    // ubCanUsed %ld  bytesOfDataType %ld  ",
-    //         totalBatch, baseBatchLen, tailSplitIndex, valuesDim0, valuesDim1, offsetDim0, ubCanUsed,
-    //         bytesOfDataType);
 
     context->SetBlockDim(coreNum);
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());

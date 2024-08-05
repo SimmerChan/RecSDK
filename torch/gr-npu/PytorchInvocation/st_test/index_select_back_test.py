@@ -15,7 +15,6 @@
 # limitations under the License.
 # ==============================================================================
 
-
 import torch
 import torch_npu
 import numpy as np
