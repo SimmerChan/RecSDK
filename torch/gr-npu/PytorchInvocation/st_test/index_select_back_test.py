@@ -15,9 +15,11 @@
 # limitations under the License.
 # ==============================================================================
 
-import torch
-import torch_npu
+import logging
 import numpy as np
+import torch_npu
+import torch
+logging.getLogger().setLevel(logging.INFO)
 
 
 EMBD_DIM = (129,)
@@ -36,43 +38,44 @@ class EmbedRank1Select(torch.autograd.Function):
     @staticmethod
     def backward(ctx, grad_output):
         x, index = ctx.saved_tensors
-        gradX, gradIndex = torch_npu.index_select_for_rank1_backward(grad_output, x, index)
-        return gradX, gradIndex
+        gradX, grad_index = torch_npu.index_select_for_rank1_backward(grad_output, x, index)
+        return gradX, grad_index
 
 
 def get_loss(device):
-    weightTensor = torch.nn.Parameter(torch.from_numpy(weight)).to(device)
-    weightTensor.retain_grad()
+    weight_tensor = torch.nn.Parameter(torch.from_numpy(weight)).to(device)
+    weight_tensor.retain_grad()
 
-    indexTensor = torch.from_numpy(index).to(device)
+    index_tensor = torch.from_numpy(index).to(device)
 
-    result = torch.index_select(weightTensor, dim=0, index=indexTensor.view(-1))
+    result = torch.index_select(weight_tensor, dim=0, index=index_tensor.view(-1))
 
     loss = torch.mean(result)
     loss.backward()
 
-    grad = weightTensor.grad.cpu().clone()
-    return grad
-
+    grad = weight_tensor.grad.cpu().clone()
+    return result, grad
 
 
 def get_loss_op(device):
-    weightTensor = torch.nn.Parameter(torch.from_numpy(weight)).to(device)
-    weightTensor.retain_grad()
+    weight_tensor = torch.nn.Parameter(torch.from_numpy(weight)).to(device)
+    weight_tensor.retain_grad()
 
-    indexTensor = torch.from_numpy(index).to(device)
+    index_tensor = torch.from_numpy(index).to(device)
 
     op = EmbedRank1Select()
-    result = op.apply(weightTensor, indexTensor.view(-1))
+    result = op.apply(weight_tensor, index_tensor.view(-1))
 
     loss = torch.mean(result)
     loss.backward()
 
-    grad = weightTensor.grad.cpu().clone()
-    return grad
+    grad = weight_tensor.grad.cpu().clone()
+    return result, grad
 
 
 gloden = get_loss(torch.device("cpu"))
 npu_result = get_loss_op(torch.device("npu"))
-result = torch.abs(gloden-npu_result)<0.0001
-print(result.all().item())
+result_forward = torch.abs(gloden[0]-npu_result[0]) < 0.0001
+result_grad = torch.abs(gloden[1]-npu_result[1]) < 0.0001
+logging.info(result_forward.all().item())
+logging.info(result_grad.all().item())

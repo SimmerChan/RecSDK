@@ -15,6 +15,7 @@
 
 #define DISPATCH_TO_NPU(name, function) m.impl(name, torch::dispatch(c10::DispatchKey::PrivateUse1, TORCH_FN(function)))
 
+namespace fbgemm_npu {
 at::Tensor dense_to_jagged_forward_npu(const at::Tensor& dense, const std::vector<at::Tensor>& offsets,
                                        c10::optional<at::SymInt> total_L)
 {
@@ -82,13 +83,14 @@ std::tuple<at::Tensor, std::vector<at::Tensor>> dense_to_jagged_npu(const at::Te
 
     return {dense_to_jagged_forward_npu(dense, offsets, at::SymInt(total_L_computed)), offsets};
 };
+}
 
 TORCH_LIBRARY_IMPL(fbgemm, PrivateUse1, m)
 {
-    DISPATCH_TO_NPU("dense_to_jagged_forward", dense_to_jagged_forward_npu);
-    DISPATCH_TO_NPU("asynchronous_complete_cumsum", asynchronous_complete_cumsum_npu);
-    DISPATCH_TO_NPU("jagged_to_padded_dense_forward", jagged_to_padded_dense_forward_npu);
-    DISPATCH_TO_NPU("jagged_to_padded_dense_backward", jagged_to_padded_dense_backward_npu);
-    DISPATCH_TO_NPU("jagged_to_padded_dense", jagged_to_padded_dense_npu);
-    DISPATCH_TO_NPU("dense_to_jagged", dense_to_jagged_npu);
+    DISPATCH_TO_NPU("dense_to_jagged_forward", fbgemm_npu::dense_to_jagged_forward_npu);
+    DISPATCH_TO_NPU("asynchronous_complete_cumsum", fbgemm_npu::asynchronous_complete_cumsum_npu);
+    DISPATCH_TO_NPU("jagged_to_padded_dense_forward", fbgemm_npu::jagged_to_padded_dense_forward_npu);
+    DISPATCH_TO_NPU("jagged_to_padded_dense_backward", fbgemm_npu::jagged_to_padded_dense_backward_npu);
+    DISPATCH_TO_NPU("jagged_to_padded_dense", fbgemm_npu::jagged_to_padded_dense_npu);
+    DISPATCH_TO_NPU("dense_to_jagged", fbgemm_npu::dense_to_jagged_npu);
 };
