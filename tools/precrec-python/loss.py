@@ -21,20 +21,33 @@ import os
 from utils import parse_json_to_dict
 
 
+DUMP_LOSS_STR = "03dump_loss"
+
+
 class Loss:
+    """
+    This class is used to represent parsed loss for choosen step and rank.
+    """
+
     def __init__(self, data_dir, data_step, rank_id):
-        self.path = os.path.join(data_dir, "03dump_loss", f"{rank_id}_rank_loss.json")
+        self.path = os.path.join(data_dir, DUMP_LOSS_STR, f"{rank_id}_rank_loss.json")
         self.loss_dict = parse_json_to_dict(self.path)
         self.loss_value = self.loss_dict[str(data_step)]
 
     def __eq__(self, other) -> bool:
-        logging.info(f"[Loss] comparison start......")
+        logging.info("[Loss] comparison start......")
+        target_class = other.__class__
         if not isinstance(other, Loss):
             logging.error(
-                f"[Loss] comparison must between Loss, but {other.__class__} is given"
+                "[Loss]Comparison must between Loss, but %s is given", target_class
             )
             return False
 
         if self.loss_value != other.loss_value:
+            logging.error(
+                "[Loss]Loss value not equal, Test: %s, Golden: %s",
+                self.loss_value,
+                other.loss_value,
+            )
             return False
         return True
