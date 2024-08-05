@@ -7,7 +7,7 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  */
- 
+
 #include "op_plugin/AclOpsInterface.h"
 #include "op_plugin/OpApiInterface.h"
 #include "op_plugin/utils/op_api_common.h"
@@ -71,8 +71,8 @@ at::Tensor jagged_to_padded_dense_npu(const at::Tensor& values, const std::vecto
 };
 
 std::tuple<at::Tensor, std::vector<at::Tensor>> dense_to_jagged_npu(const at::Tensor& dense,
-                                                                            const std::vector<at::Tensor>& offsets,
-                                                                            c10::optional<int64_t> total_L)
+                                                                    const std::vector<at::Tensor>& offsets,
+                                                                    c10::optional<int64_t> total_L)
 {
     int64_t total_L_computed;
     if (total_L.has_value()) {
@@ -83,7 +83,7 @@ std::tuple<at::Tensor, std::vector<at::Tensor>> dense_to_jagged_npu(const at::Te
 
     return {dense_to_jagged_forward_npu(dense, offsets, at::SymInt(total_L_computed)), offsets};
 };
-}
+}  // namespace fbgemm_npu
 
 TORCH_LIBRARY_IMPL(fbgemm, PrivateUse1, m)
 {

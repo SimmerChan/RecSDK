@@ -21,6 +21,7 @@ constexpr int DATA_TYPE_INT32 = 4;
 constexpr int DATA_TYPE_FLOAT32 = 4;
 constexpr int NUM_QUEUE = 4;
 constexpr int UB_ALIGN = 32;
+constexpr int SUPORT_EMBEDDING_DIM_NUM = 2;
 
 static ge::graphStatus TilingFunc(gert::TilingContext* context)
 {
@@ -33,7 +34,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     ubCanUsed = ubCanUsed - RESERVER_UB_SIZE;
     ubCanUsed = ubCanUsed / UB_ALIGN / NUM_QUEUE * UB_ALIGN * NUM_QUEUE;
 
-    if (valuesShape.GetDimNum() != 2 or offsetsShape.GetDimNum() != 1) {
+    if (valuesShape.GetDimNum() != SUPORT_EMBEDDING_DIM_NUM or offsetsShape.GetDimNum() != 1) {
         printf("jagged_to_padded_dense_tiling is only used for values whit rank-3 and offset rank-1");
         return ge::FAILED;
     }
@@ -46,8 +47,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     size_t* currentWorkspace = context->GetWorkspaceSizes(1);
     size_t systemWorkspacesSize = ascnedPlatform.GetLibApiWorkSpaceSize();
     currentWorkspace[0] = systemWorkspacesSize;
-    // 进行tiling, 为了保持尽量均匀，tailIndex之前长度为baseLen+1， 之后为baseLen
-    // 例如7个数据分3个核，[3, 2, 2]
+    // tiling core
     int64_t totalBatch = offsetsShape.GetDim(0) - 1;
     int64_t baseBatchLen = (offsetsShape.GetDim(0) - 1) / coreNum;
     int64_t tailSplitIndex = (offsetsShape.GetDim(0) - 1) % coreNum;

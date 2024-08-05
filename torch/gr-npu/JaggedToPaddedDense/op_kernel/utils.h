@@ -13,6 +13,8 @@
 #include "kernel_operator.h"
 
 namespace JaggedToPaddedDense {
+constexpr int DATA_TYPE_INT64 = 8;
+
 template <typename T1, typename T2>
 __aicore__ inline T1 CeilDiv(T1 a, T2 b)
 {

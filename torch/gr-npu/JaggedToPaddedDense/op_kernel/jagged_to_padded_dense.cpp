@@ -11,8 +11,9 @@
 #include "kernel_operator.h"
 #include "utils.h"
 
-constexpr int DATA_TYPE_INT64 = 8;
 using namespace AscendC;
+using namespace JaggedToPaddedDense;
+
 extern "C" __global__ __aicore__ void jagged_to_padded_dense(GM_ADDR values, GM_ADDR offsets, GM_ADDR out,
                                                              GM_ADDR workspace, GM_ADDR tiling)
 {
