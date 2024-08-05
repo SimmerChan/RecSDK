@@ -17,10 +17,13 @@
 
 import os
 import sys
+import json
+import time
 from typing import List
+import numpy as np
 
 import tensorflow as tf
-from config import sess_config
+
 
 from mx_rec.util.variable import get_dense_and_sparse_variable
 from mx_rec.util.tf_version_adapter import hccl_ops
@@ -29,8 +32,9 @@ from mx_rec.graph.modifier import modify_graph_and_start_emb_cache
 from mx_rec.util.log import logger
 from mx_rec.util.ops import import_host_pipeline_ops
 from mx_rec.util.initialize import ConfigInitializer
-from mx_rec.util.communication.hccl_ops import get_rank_id, get_rank_size
 
+from config import construct_npu_sess_config, PRECISION_CHECK, USE_DETERMINISTIC
+from utils import PrecisionDumpInfo, PRECISION_CHECK_PATH, PRECISION_DUMP_STEP, LOCAL_RANK_ID, GLOBAL_RANK_SIZE
 
 class UseMode(BaseEnum):
     TRAIN = "train"
@@ -39,20 +43,17 @@ class UseMode(BaseEnum):
 
 
 class RunMode:
-
     def __init__(
             self, is_modify_graph: bool, is_faae: bool, table_list: list, optimizer_list: list, train_model,
             eval_model, train_iterator, eval_iterator, max_train_steps: int, infer_steps: int, params: dict):
         self.is_modify_graph = is_modify_graph
         self.is_faae = is_faae
-        self.use_deterministic = params.get("use_deterministic")
         self.session = tf.compat.v1.Session(
-            config=sess_config(dump_data=False, use_deterministic=self.use_deterministic))
+            config=construct_npu_sess_config(dump_data=PRECISION_CHECK, use_deterministic=USE_DETERMINISTIC))
         self.train_model = train_model
         self.train_iterator = train_iterator
         self.eval_model = eval_model
         self.eval_iterator = eval_iterator
-        self.rank_id = get_rank_id()
         self.train_ops = []
         self.table_list = table_list
         self.optimizer_list = optimizer_list
@@ -92,7 +93,7 @@ class RunMode:
             grads = dense_optimizer.compute_gradients(loss, var_list=dense_variables)
             avg_grads = []
             for grad, var in grads:
-                if get_rank_size() > 1:
+                if GLOBAL_RANK_SIZE > 1:
                     grad = hccl_ops.allreduce(grad, "sum") if grad is not None else None
                 if grad is not None:
                     avg_grads.append((grad, var))
@@ -118,6 +119,7 @@ class RunMode:
 
     def train(self, train_interval: int, saving_interval: int, if_load: bool, model_file: List[str]):
         self.set_train_ops()
+
         # In train mode, graph modify needs to be performed after compute gradients
         if self.is_modify_graph:
             logger.info("start to modifying graph")
@@ -129,6 +131,7 @@ class RunMode:
             self.session.run(initializer)
         else:
             logger.debug(f"use one shot iterator and modify graph is `{self.is_modify_graph}`.")
+
         self.saver = tf.compat.v1.train.Saver()
 
         latest_ckpt_step = 0
@@ -142,12 +145,23 @@ class RunMode:
 
         if self.max_train_steps == -1:
             self.max_train_steps = sys.maxsize  # 消耗全部数据
+
+        if PRECISION_CHECK:
+            PrecisionDumpInfo.write_dump_info()
+
+        loss_dict = {}
+
+        
         for i in range(start_step, start_step + self.max_train_steps):
             logger.info("################    training at step %d    ################", i)
             try:
+                dump_precision_ckpt(self.session, self.saver, i)
                 _, loss = self.session.run([self.train_ops, self.train_model.loss_list])
-                if self.use_deterministic:
-                    logger.info(f"train_loss: {loss[0]}")
+                if PRECISION_CHECK and i in PRECISION_DUMP_STEP:
+                    loss_dict[i] = float(loss[0])
+                    if i == 2:
+                        time.sleep(10)
+                        break
             except tf.errors.OutOfRangeError:
                 logger.info("Encounter the end of Sequence for training.")
                 break
@@ -166,7 +180,10 @@ class RunMode:
                     logger.info("###############    set_threshold at step:%d   ################", i)
                     self.change_threshold()
 
+        dump_precision_dataset(self.session, self.train_iterator, LOCAL_RANK_ID)
+        dump_loss_dict(loss_dict)
         # save last step without duplication
+
         if i % saving_interval != 0:
             self.saver.save(self.session, f"./saved-model/model", global_step=i)
 
@@ -211,3 +228,48 @@ def get_load_step(model_file: List[str]):
     if latest_step == -1:
         raise RuntimeError("latest model not found")
     return latest_step
+
+def dump_loss_dict(loss_dict):
+    if not PRECISION_CHECK:
+        return
+    
+    loss_path = os.path.join(PRECISION_CHECK_PATH, "03dump_loss")
+
+    if LOCAL_RANK_ID == 0:
+        if os.path.exists(loss_path):
+            raise FileExistsError(f"03dump_loss exist! Your files may have been tampered:{loss_path}")
+        os.makedirs(loss_path, exist_ok=True)
+
+    loss_dump_file = os.path.join(loss_path, f"{LOCAL_RANK_ID}_rank_loss.json")
+    with open(loss_dump_file, 'w') as f:
+        json.dump(loss_dict, f)
+
+def dump_precision_dataset(sess, train_iterator, rank_id):
+    if not PRECISION_CHECK:
+        return
+    initializer = train_iterator.initializer
+    data_batch = train_iterator.get_next()
+    try:
+        sess.run(initializer)
+        batch_index = 1
+        while True and batch_index in PRECISION_DUMP_STEP:
+            batch_data = sess.run(data_batch)  # 获取批次数据
+            # 将批次数据中的每个特征转换为 NumPy 数组并保存
+
+            for key, value in batch_data.items():
+                folder_name = PRECISION_CHECK_PATH + '/01dump_dataset'
+                os.makedirs(folder_name, exist_ok=True)
+
+                filename = folder_name + f'/data_rank_{rank_id}_batch_{batch_index}_{key}.npy'
+                np.save(filename, value)  # 保存 NumPy 数组到文件
+                print(f'Saved {filename}')
+            batch_index += 1
+    except tf.errors.OutOfRangeError:
+        raise IndexError("data set end.")
+    
+def dump_precision_ckpt(sess, saver, current_step):
+    if not PRECISION_CHECK:
+        return
+    if current_step in PRECISION_DUMP_STEP:
+        dump_ckpt_path = PRECISION_CHECK_PATH + "/02dump_model/model"
+        saver.save(sess, dump_ckpt_path, global_step=current_step)
