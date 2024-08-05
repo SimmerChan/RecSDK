@@ -16,7 +16,6 @@
 # ==============================================================================
 
 import logging
-import sys
 import os
 import re
 from typing import Dict, List
@@ -24,7 +23,6 @@ from typing import Dict, List
 import numpy as np
 
 from utils import validate_path
-
 
 DATASET_REGEX_STR = r"^data_rank_\d+_batch_\d+_.+\.npy$"
 DATA_SET_NUMPY_ATOL = "1e-10"
@@ -44,7 +42,7 @@ class BatchDataSet:
         self.data_pattern = re.compile(data_pattern_str)
 
         self.batch_data_name_list = self.get_dump_data_names()
-        self.bathc_data = self.parse_batch_data()
+        self.batch_data = self.parse_batch_data()
 
     def __eq__(self, other) -> bool:
         logging.info(f"[BatchDataSet] comparison start......")
@@ -62,8 +60,8 @@ class BatchDataSet:
             return False
 
         for batch_data_name in self.batch_data_name_list:
-            test_data = self.bathc_data[batch_data_name]
-            golden_data = other.bathc_data[batch_data_name]
+            test_data = self.batch_data[batch_data_name]
+            golden_data = other.batch_data[batch_data_name]
             if not np.allclose(test_data, golden_data, rtol=float(DATA_SET_NUMPY_ATOL)):
                 logging.error(
                     f"[BatchDataSet] data different, batch data name {batch_data_name}"

@@ -18,13 +18,10 @@
 import copy
 import logging
 import os
-
 from typing import Tuple
-
 
 import numpy as np
 import tensorflow as tf
-
 
 META_LENGTH = "length"
 META_EMB_DIM = "emb_dim"
@@ -156,7 +153,6 @@ def check_basic_meta_equal(
                     f"{meta_name} {meta_basic_content} does not match. Basic Meta must have the same basic content."
                 )
                 return False
-        print()
     return True
 
 
@@ -210,7 +206,7 @@ def check_key_emb_equal(key_intersection:list, test_key_emb_dict:dict, golden_ke
 
 def parse_table_info(tabel_path:str) -> Tuple[str, dict]:
     meta_list = list_model_files(tabel_path)
-    table_name = tabel_path.split("/")[-1]
+    table_name = os.path.basename(tabel_path)
 
     table_meta_dict = {}
 
@@ -226,7 +222,7 @@ def parse_table_info(tabel_path:str) -> Tuple[str, dict]:
 
 
 def parse_single_meta_data(meta_path: str) -> Tuple[str, dict]:
-    meta_name = meta_path.split("/")[-1]
+    meta_name = os.path.basename(meta_path)
     meta_attribute_path = os.path.join(meta_path, "slice.attribute")
     meta_data_path = os.path.join(meta_path, "slice.data")
     logging.debug(

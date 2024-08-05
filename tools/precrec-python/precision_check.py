@@ -16,13 +16,14 @@
 # ==============================================================================
 
 import logging
-import sys
-import os
-import re
 from typing import Dict, List, Tuple
 
-import numpy as np
-
+from data_set import BatchDataSet
+from dense_ckpt import DenseModel
+from dump_info import DumpInfo
+from loss import Loss
+from ops import OpData
+from sparse_ckpt import SparseModel
 from utils import (
     init_logger,
     parse_input_param,
@@ -32,12 +33,7 @@ from utils import (
     INFO_LEVEL,
     ERROR_LEVEL,
 )
-from dump_info import DumpInfo
-from data_set import BatchDataSet
-from sparse_ckpt import SparseModel
-from dense_ckpt import DenseModel
-from loss import Loss
-from ops import OpData
+
 
 
 OUTPUT_REGEX_STR = r"^\d{8}_\d{6}$"
@@ -110,14 +106,7 @@ class PrecisionData:
             "parsing start...... ==========="
         )
 
-        for i in range(self.rank_size):
-            if self.data_dict[data_step][i].get(SPARSE_MODEL_FUNC_KEY):
-                cur_sparse_model = self.data_dict[data_step][i].get(
-                    SPARSE_MODEL_FUNC_KEY
-                )
-            else:
-                cur_sparse_model = SparseModel(self.data_path, data_step)
-
+        cur_sparse_model = SparseModel(self.data_path, data_step)
         self.data_dict[data_step][rank_id][SPARSE_MODEL_FUNC_KEY] = cur_sparse_model
 
         logging.info(
@@ -133,12 +122,7 @@ class PrecisionData:
             "parsing start...... ==========="
         )
 
-        for i in range(self.rank_size):
-            if self.data_dict[data_step][i].get(DENSE_MODEL_FUNC_KEY):
-                cur_dense_model = self.data_dict[data_step][i].get(DENSE_MODEL_FUNC_KEY)
-            else:
-                cur_dense_model = DenseModel(self.data_path, data_step)
-
+        cur_dense_model = DenseModel(self.data_path, data_step)
         self.data_dict[data_step][rank_id][DENSE_MODEL_FUNC_KEY] = cur_dense_model
 
         logging.info(
@@ -188,7 +172,7 @@ def construct_precision_comparison(
     rank_list=None,
 ) -> Dict[int, Dict[int, Dict[str, bool]]]:
     parsed_step_list, parsed_rank_list = parse_step_and_rank(test_data, golden_data, step_list, rank_list)
-    comparison_result = pared_and_compare_data(test_data, golden_data, select_func_list, parsed_step_list, parsed_rank_list)
+    comparison_result = parsed_and_compare_data(test_data, golden_data, select_func_list, parsed_step_list, parsed_rank_list)
     return comparison_result
     
 def parse_step_and_rank(
@@ -231,7 +215,7 @@ def parse_step_and_rank(
         rank_list = range(test_data.rank_size)
     return step_list, rank_list
 
-def pared_and_compare_data(
+def parsed_and_compare_data(
     test_data: SparseModel,
     golden_data: SparseModel,
     select_func_list: list,
@@ -315,7 +299,6 @@ if __name__ == "__main__":
     BATCH_DATASET_FUNC_KEY, SPARSE_MODEL_FUNC_KEY, DENSE_MODEL_FUNC_KEY, OP_DATA_FUNC_KEY
     """
     func_key_list = [BATCH_DATASET_FUNC_KEY, SPARSE_MODEL_FUNC_KEY, DENSE_MODEL_FUNC_KEY, LOSS, OP_DATA_FUNC_KEY]
-    func_key_list = [OP_DATA_FUNC_KEY]
 
     """
     Set up the steps of data you want to compare, could only be a list of int

@@ -17,6 +17,7 @@
 
 import logging
 import os
+
 from utils import parse_json_to_dict, parse_dict
 
 
@@ -80,9 +81,6 @@ def parse_and_compare_task_config(test_info:DumpInfo, golden_info:DumpInfo) -> b
             f"Table keys invalid. Test keys: {test_info.task_config_key_list} Golden keys: {golden_info.task_config_key_list}"
         )
         return False
-    logging.error(
-        f"Table keys invalid. Test keys: {test_info.task_config_key_list} Golden keys: {golden_info.task_config_key_list}"
-    )
 
     for key in test_info.task_config_key_list:
         test_value = test_info.task_config[key]
