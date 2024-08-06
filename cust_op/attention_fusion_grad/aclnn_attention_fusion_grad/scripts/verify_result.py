@@ -27,7 +27,6 @@ def verify_result(real_result, golden):
             logging.error("[ERROR] result error")
             return False
     logging.info("test pass")
-    return True
 
 if __name__ == '__main__':
     logging.info("=============================grad query============")
