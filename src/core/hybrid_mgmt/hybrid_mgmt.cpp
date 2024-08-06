@@ -95,6 +95,9 @@ bool HybridMgmt::Initialize(RankInfo rankInfo, const vector<EmbInfo>& embInfos, 
         throw runtime_error(Logger::Format("create fast factory failed, error code:{}", result));
     }
 
+    // InitPool need to be before Start().
+    threadPool.InitPool(embInfos.size());
+
     InitRankInfo(rankInfo, embInfos);
     GlogConfig::gStatOn = GlobalEnv::statOn;
 
@@ -559,34 +562,39 @@ bool HybridMgmt::ParseKeys(int channelId, int& batchId, TaskType type)
 #ifndef GTEST
     LOG_INFO(MGMT + "channelId:{} batchId:{}, ParseKeys start.", channelId, batchId);
     TimeCost parseKeyTC;
-    bool remainBatch = true;  // 是否从通道获取了数据
 
-    vector<std::thread> parseKeyThreadPool;
+    std::vector<std::future<bool>> remainResult;
     for (const auto& embInfo : mgmtEmbInfo) {
         EmbBaseInfo info = {.batchId = batchId, .channelId = channelId, .name = embInfo.name};
         switch (type) {
             case TaskType::HBM:
-                parseKeyThreadPool.emplace_back(
-                    [this, info, &remainBatch, embInfo]() { ProcessEmbInfoHBM(info, remainBatch, embInfo.isGrad); });
+            {
+                std::future<bool> remainBatch = threadPool.enqueue([this, info, embInfo]() { return ProcessEmbInfoHBM(info, embInfo.isGrad); });
+                remainResult.push_back(std::move(remainBatch));
+            }
                 break;
             case TaskType::DDR:
                 if (!isL3StorageEnabled) {
-                    parseKeyThreadPool.emplace_back(
-                        [this, info, &remainBatch, embInfo]() { ProcessEmbInfoDDR(info, remainBatch); });
+                    std::future<bool> remainBatch = threadPool.enqueue([this, info, embInfo]() { return ProcessEmbInfoDDR(info); });
+                    remainResult.push_back(std::move(remainBatch));
                 } else {
-                    parseKeyThreadPool.emplace_back(
-                        [this, info, &remainBatch, embInfo]() { ProcessEmbInfoL3Storage(info, remainBatch); });
+                    std::future<bool> remainBatch = threadPool.enqueue([this, info, embInfo]() { return ProcessEmbInfoL3Storage(info); });
+                    remainResult.push_back(std::move(remainBatch));
                 }
                 break;
             default:
                 throw std::invalid_argument("Invalid TaskType Type.");
         }
     }
-    for (auto& t : parseKeyThreadPool) {
-        t.join();
+
+    bool isRemainAll = true;
+    for (auto& remain : remainResult) {
+        bool isRemain = remain.get();
+        LOG_DEBUG(MGMT + "channelId:{} batchId:{}, ParseKeys thread get future:{}", channelId, batchId, isRemain);
+        isRemainAll = isRemainAll && isRemain;
     }
     // 通道数据已空
-    if (!remainBatch) {
+    if (!isRemainAll) {
         LOG_DEBUG("last batch ending");
         return false;
     }
@@ -601,8 +609,9 @@ bool HybridMgmt::ParseKeys(int channelId, int& batchId, TaskType type)
     return true;
 }
 
-void HybridMgmt::ProcessEmbInfoHBM(const EmbBaseInfo& info, bool& remainBatchOut, bool isGrad)
+bool HybridMgmt::ProcessEmbInfoHBM(const EmbBaseInfo& info, bool isGrad)
 {
+    bool remainBatchOut = true;
     TimeCost parseKeysTc;
     LOG_DEBUG("ProcessEmbInfoHBM table:{}, batchId:{}, channel:{}", info.name, info.batchId, info.channelId);
 
@@ -611,13 +620,13 @@ void HybridMgmt::ProcessEmbInfoHBM(const EmbBaseInfo& info, bool& remainBatchOut
     auto infoVecs = KEY_PROCESS_INSTANCE->GetInfoVec(info, ProcessedInfo::RESTORE, isEos);
     if (isEos) {
         HandleEosCase(info, remainBatchOut);
-        return;
+        return remainBatchOut;
     }
     if (infoVecs == nullptr) {
         LOG_INFO(MGMT + "table:{}, channelId:{} batchId:{}, ParseKeys infoVecs empty !", info.name, info.channelId,
                  info.batchId);
         remainBatchOut = false;
-        return;
+        return remainBatchOut;
     }
     LOG_DEBUG("table:{}, channelId:{} batchId:{}, ParseKeysHBM GetInfoVec end", info.name, info.channelId,
               info.batchId);
@@ -625,7 +634,7 @@ void HybridMgmt::ProcessEmbInfoHBM(const EmbBaseInfo& info, bool& remainBatchOut
     // 动态shape场景下，获取all2all向量（通信量矩阵）
     SendAll2AllVec(info, remainBatchOut);
     if (!remainBatchOut) {
-        return;
+        return remainBatchOut;
     }
 
     // 发送查询向量
@@ -652,6 +661,7 @@ void HybridMgmt::ProcessEmbInfoHBM(const EmbBaseInfo& info, bool& remainBatchOut
     if (info.channelId == TRAIN_CHANNEL_ID) {
         alreadyTrainOnce = true;
     }
+    return remainBatchOut;
 }
 
 /// 构造训练所需的各种向量数据
@@ -659,8 +669,9 @@ void HybridMgmt::ProcessEmbInfoHBM(const EmbBaseInfo& info, bool& remainBatchOut
 /// \param batchId 已处理的batch数
 /// \param channelId 通道索引（训练/推理）
 /// \param remainBatchOut 是否从通道获取了数据
-void HybridMgmt::ProcessEmbInfoDDR(const EmbBaseInfo& info, bool& remainBatchOut)
+bool HybridMgmt::ProcessEmbInfoDDR(const EmbBaseInfo& info)
 {
+    bool remainBatchOut = true;
 #ifndef GTEST
     TimeCost getAndSendTensorsTC;
     LOG_DEBUG("ProcessEmbInfoDDR start, table:{}, channel:{}, batchId:{}", info.name, info.channelId, info.batchId);
@@ -670,23 +681,23 @@ void HybridMgmt::ProcessEmbInfoDDR(const EmbBaseInfo& info, bool& remainBatchOut
     // 获取GlobalUnique向量
     auto uniqueKeys = GetUniqueKeys(info, remainBatchOut);
     if (uniqueKeys.empty()) {
-        return;
+        return remainBatchOut;
     }
 
     // 获取GlobalUnique对应的restoreVectorSec
     auto restoreVecSec = GetRestoreVecSec(info, remainBatchOut);
     if (restoreVecSec.empty()) {
-        return;
+        return remainBatchOut;
     }
 
     SendAll2AllVec(info, remainBatchOut);
     if (!remainBatchOut) {
-        return;
+        return remainBatchOut;
     }
 
     SendRestoreVec(info, remainBatchOut);
     if (!remainBatchOut) {
-        return;
+        return remainBatchOut;
     }
 
     std::pair<vector<uint64_t>, vector<uint64_t>> swapInKoPair;
@@ -710,6 +721,7 @@ void HybridMgmt::ProcessEmbInfoDDR(const EmbBaseInfo& info, bool& remainBatchOut
     LOG_DEBUG("ProcessEmbInfoDDR end, table:{}, channel:{}, batchId:{} swapProcessTC(ms):{} getAndSendTensorsTC(ms):{}",
               info.name, info.channelId, info.batchId, swapProcessTC.ElapsedMS(), getAndSendTensorsTC.ElapsedMS());
 #endif
+    return remainBatchOut;
 }
 
 /// hook通过时间或者step数触发淘汰
@@ -1158,8 +1170,9 @@ void HybridMgmt::EmbeddingReceiveAndUpdateL3Storage(int batchId, int index, cons
 /// \param channelId 通道索引（训练/推理）
 /// \param remainBatchOut 是否从通道获取了数据
 /// \return 是否处理成功
-void HybridMgmt::ProcessEmbInfoL3Storage(const EmbBaseInfo& info, bool& remainBatchOut)
+bool HybridMgmt::ProcessEmbInfoL3Storage(const EmbBaseInfo& info)
 {
+    bool remainBatchOut = true;
 #ifndef GTEST
     TimeCost getAndSendTensorsTC;
     LOG_DEBUG("ProcessEmbInfoL3Storage table:{}, channel:{}, batchId:{}", info.name, info.channelId, info.batchId);
@@ -1169,23 +1182,23 @@ void HybridMgmt::ProcessEmbInfoL3Storage(const EmbBaseInfo& info, bool& remainBa
     // 获取GlobalUnique向量
     auto uniqueKeys = GetUniqueKeys(info, remainBatchOut);
     if (uniqueKeys.empty()) {
-        return;
+        return remainBatchOut;
     }
 
     // 获取GlobalUnique对应的restoreVectorSec
     auto restoreVecSec = GetRestoreVecSec(info, remainBatchOut);
     if (restoreVecSec.empty()) {
-        return;
+        return remainBatchOut;
     }
 
     SendAll2AllVec(info, remainBatchOut);
     if (!remainBatchOut) {
-        return;
+        return remainBatchOut;
     }
 
     SendRestoreVec(info, remainBatchOut);
     if (!remainBatchOut) {
-        return;
+        return remainBatchOut;
     }
 
     std::pair<vector<uint64_t>, vector<uint64_t>> swapInKoPair;
@@ -1213,6 +1226,7 @@ void HybridMgmt::ProcessEmbInfoL3Storage(const EmbBaseInfo& info, bool& remainBa
     LOG_DEBUG("ProcessEmbInfoL3Storage end, table:{}, batchId:{}, swapProcessTC(ms):{}, getAndSendTensorsTC(ms):{}",
               info.name, info.batchId, swapProcessTC.ElapsedMS(), getAndSendTensorsTC.ElapsedMS());
 #endif
+    return remainBatchOut;
 }
 
 void HybridMgmt::SendTensorForSwap(const EmbBaseInfo& info, const vector<uint64_t>& swapInPosUint,
