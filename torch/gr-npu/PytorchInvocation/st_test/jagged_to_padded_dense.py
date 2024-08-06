@@ -40,8 +40,8 @@ def get_result(device):
 
     jagged_embeding = torch.ops.fbgemm.dense_to_jagged(dense_torch, [jagged_id_offset], output_size)[0]
 
-    output_embeddings = torch.ops.fbgemm.jagged_to_padded_dense(jagged_embeding, 
-                                                                [jagged_id_offset], max_lengths=[DENSE_DIM[1]], padding_value=0.0)
+    output_embeddings = torch.ops.fbgemm.jagged_to_padded_dense(jagged_embeding, [jagged_id_offset], 
+                                                                max_lengths=[DENSE_DIM[1]], padding_value=0.0)
 
     loss = torch.mean(output_embeddings)
     loss.backward()

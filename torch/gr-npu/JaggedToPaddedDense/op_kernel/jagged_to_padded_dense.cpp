@@ -29,7 +29,7 @@ extern "C" __global__ __aicore__ void jagged_to_padded_dense(GM_ADDR values, GM_
     int64_t bytesOfDataType = tiling_data.bytesOfDataType;
     int64_t offsetDataType = tiling_data.offsetDataType;
 
-    // 计算出此核的偏移
+    // caculate this offset
     int64_t lenOfThisCore;
     int64_t offsetOfThisCore;
     if (GetBlockIdx() >= tailSplitIndex) {
@@ -45,18 +45,18 @@ extern "C" __global__ __aicore__ void jagged_to_padded_dense(GM_ADDR values, GM_
     valuesGT.SetGlobalBuffer(values, valuesDim0 * valuesDim1 * bytesOfDataType);
     outGT.SetGlobalBuffer(out, offsetDim0 * outDim1 * valuesDim1 * bytesOfDataType);
 
-    // 初始化pipe
+    // init pipe
     TPipe pipe;
     TQueBind<QuePosition::VECIN, QuePosition::VECOUT, 2> inQueueX;
     pipe.InitBuffer(inQueueX, 2, ubCanUsed / 2);
     int64_t blockLen = ubCanUsed / 2;
 
-    // 遍历所有的offset
+    // travel all offset
     for (int64_t i = offsetOfThisCore; i < lenOfThisCore + offsetOfThisCore; i++) {
         int64_t offsetThisIndex;
         int64_t offsetNextIndex;
         if (offsetDataType == DATA_TYPE_INT64) {
-            // 初始化所有向量
+            // init offset
             __gm__ int64_t* offsetsPtr = (__gm__ int64_t*)offsets;
             offsetThisIndex = *(offsetsPtr + i);
             offsetNextIndex = *(offsetsPtr + i + 1);
@@ -88,11 +88,9 @@ extern "C" __global__ __aicore__ void jagged_to_padded_dense(GM_ADDR values, GM_
             }
             LocalTensor<uint8_t> localTensor = inQueueX.AllocTensor<uint8_t>();
 
-            // 首先用datacopy拷贝大部分数据，最后用DataCopyPad拷贝末尾的数据
-            uint32_t alignLen = thisLen / 32 * 32;
-            uint32_t unAlignLen = thisLen - thisLen / 32 * 32;
-
-            // 对齐拷贝
+            // unAlign copy
+            uint32_t alignLen = thisLen / DATA_ALIGN_BYTES * DATA_ALIGN_BYTES;
+            uint32_t unAlignLen = thisLen - thisLen / DATA_ALIGN_BYTES * DATA_ALIGN_BYTES;
             DataCopy(localTensor, valuesGT[valuesStartIndex], alignLen);
             if (unAlignLen != 0) {
                 const DataCopyExtParams dataCopyExtParams{1, unAlignLen, 0, 0, 0};
@@ -105,7 +103,7 @@ extern "C" __global__ __aicore__ void jagged_to_padded_dense(GM_ADDR values, GM_
 
             LocalTensor<uint8_t> outPutTensor = inQueueX.DeQue<uint8_t>();
 
-            // 对齐拷贝
+            // unAlign copy
             DataCopy(outGT[outStartIndex], outPutTensor, alignLen);
             if (unAlignLen != 0) {
                 const DataCopyExtParams dataCopyExtParams{1, unAlignLen, 0, 0, 0};
