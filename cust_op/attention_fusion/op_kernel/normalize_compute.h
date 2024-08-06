@@ -198,7 +198,7 @@ public:
         LocalTensor<uint8_t> sharedTmpBuf = vecSharedQueue.AllocTensor<uint8_t>();
 
         uint32_t weightPad = args.normalizeColumn;
-        uint32_t weight = (uint32_t)args.keyDim1;
+        uint32_t weight = args.keyDim1;
         SoftMaxShapeInfo scrShape = {height, weightPad, height, weight};
         SoftMax<qType>(outLocalTensor, inLocalTensor, sharedTmpBuf, *args.tiling, scrShape);
 
