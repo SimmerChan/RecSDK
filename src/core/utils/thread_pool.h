@@ -41,10 +41,12 @@ public:
         for (std::thread& worker : workers) {
             worker.join();
         }
+        LOG_INFO("ThreadPool finish!");
     }
 
     void InitPool(size_t num)
     {
+        LOG_INFO("ThreadPool init num: {}", num);
         for (size_t i = 0; i < num; i++) {
             workers.emplace_back([this] {
                 while (true) {

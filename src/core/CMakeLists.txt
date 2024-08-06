@@ -44,8 +44,7 @@ endif()
 link_libraries(stdc++fs)
 
 file(GLOB_RECURSE MXREC_SRC ./*.cpp ./*.h)
-add_library(ASC SHARED ${MXREC_SRC}
-        utils/thread_pool.h)
+add_library(ASC SHARED ${MXREC_SRC})
 
 target_include_directories(ASC
     PUBLIC
