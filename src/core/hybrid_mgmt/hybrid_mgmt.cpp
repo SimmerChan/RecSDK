@@ -96,7 +96,7 @@ bool HybridMgmt::Initialize(RankInfo rankInfo, const vector<EmbInfo>& embInfos, 
     }
 
     // InitPool need to be before Start().
-    threadPool.InitPool(embInfos.size());
+    threadPool.InitPool(embInfos.size() * MAX_CHANNEL_NUM);
 
     InitRankInfo(rankInfo, embInfos);
     GlogConfig::gStatOn = GlobalEnv::statOn;
@@ -567,18 +567,19 @@ bool HybridMgmt::ParseKeys(int channelId, int& batchId, TaskType type)
     for (const auto& embInfo : mgmtEmbInfo) {
         EmbBaseInfo info = {.batchId = batchId, .channelId = channelId, .name = embInfo.name};
         switch (type) {
-            case TaskType::HBM:
-            {
-                std::future<bool> remainBatch = threadPool.enqueue([this, info, embInfo]() { return ProcessEmbInfoHBM(info, embInfo.isGrad); });
+            case TaskType::HBM: {
+                std::future<bool> remainBatch =
+                    threadPool.enqueue([this, info, embInfo]() { return ProcessEmbInfoHBM(info, embInfo.isGrad); });
                 remainResult.push_back(std::move(remainBatch));
-            }
-                break;
+            } break;
             case TaskType::DDR:
                 if (!isL3StorageEnabled) {
-                    std::future<bool> remainBatch = threadPool.enqueue([this, info, embInfo]() { return ProcessEmbInfoDDR(info); });
+                    std::future<bool> remainBatch =
+                        threadPool.enqueue([this, info, embInfo]() { return ProcessEmbInfoDDR(info); });
                     remainResult.push_back(std::move(remainBatch));
                 } else {
-                    std::future<bool> remainBatch = threadPool.enqueue([this, info, embInfo]() { return ProcessEmbInfoL3Storage(info); });
+                    std::future<bool> remainBatch =
+                        threadPool.enqueue([this, info, embInfo]() { return ProcessEmbInfoL3Storage(info); });
                     remainResult.push_back(std::move(remainBatch));
                 }
                 break;
