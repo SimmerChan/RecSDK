@@ -159,7 +159,7 @@ public:
     std::mutex saveMutex;
     std::condition_variable cvCheckSave;
 
-    ThreadPool threadPool;
+    unique_ptr<ThreadPool> threadPool;
 
     void SetFeatureTypeForLoad(vector<CkptFeatureType>& loadFeatures);
 
