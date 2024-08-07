@@ -23,7 +23,7 @@ constexpr int NUM_QUEUE = 4;
 constexpr int UB_ALIGN = 32;
 constexpr int SUPORT_EMBEDDING_DIM_NUM = 2;
 
-static void GetType(gert::TilingContext* contex, JaggedToPaddedDenseTilingData& tiling) 
+static void SetTypeTiling(gert::TilingContext* context, JaggedToPaddedDenseTilingData& tiling) 
 {
     int64_t bytesOfDataType = 0;
     ge::DataType dataType = context->GetInputTensor(0)->GetDataType();
@@ -46,6 +46,7 @@ static void GetType(gert::TilingContext* contex, JaggedToPaddedDenseTilingData& 
 
 static ge::graphStatus TilingFunc(gert::TilingContext* context)
 {
+    JaggedToPaddedDenseTilingData tiling;
     auto ascnedPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
     auto valuesShape = context->GetInputShape(0)->GetStorageShape();
     auto offsetsShape = context->GetInputShape(1)->GetStorageShape();
@@ -70,7 +71,6 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     size_t systemWorkspacesSize = ascnedPlatform.GetLibApiWorkSpaceSize();
     currentWorkspace[0] = systemWorkspacesSize;
     // tiling core
-    JaggedToPaddedDenseTilingData tiling;
     
     int64_t totalBatch = offsetsShape.GetDim(0) - 1;
     tiling.set_totalBatch(totalBatch);
@@ -86,6 +86,8 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     tiling.set_offsetDim0(offsetDim0);
     int64_t outDim1 = *context->GetAttrs()->GetInt(0);
     tiling.set_outDim1(outDim1);
+    SetTypeTiling(context, tiling);
+
     context->SetBlockDim(coreNum);
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
