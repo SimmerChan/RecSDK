@@ -33,11 +33,11 @@ public:
     {
         LOG_INFO("ThreadPool init num: {}", num);
         for (size_t i = 0; i < num; i++) {
-            workers.emplace_back([this] {
+            threads.emplace_back([this] {
                 while (true) {
                     std::function<void()> task;
                     {
-                        std::unique_lock<std::mutex> lock(this->queueMutex);
+                        std::unique_lock<std::mutex> lock(this->mutex);
                         this->condition.wait(lock, [this] { return this->stop || !this->tasks.empty(); });
                         if (this->stop && this->tasks.empty()) {
                             return;
@@ -54,12 +54,12 @@ public:
     ~ThreadPool()
     {
         {
-            std::unique_lock<std::mutex> lock(queueMutex);
+            std::unique_lock<std::mutex> lock(mutex);
             stop = true;
         }
         condition.notify_all();
-        for (std::thread& worker : workers) {
-            worker.join();
+        for (std::thread& thread : threads) {
+            thread.join();
         }
         LOG_INFO("ThreadPool finish!");
     }
@@ -72,35 +72,36 @@ public:
     void enqueue(F&& f)
     {
         {
-            std::unique_lock<std::mutex> lock(queueMutex);
+            std::unique_lock<std::mutex> lock(mutex);
             tasks.emplace(std::forward<F>(f));
         }
         condition.notify_one();
     }
 
-    template <typename Func, typename... Args>
-    auto enqueueWithFuture(Func&& func, Args&&... args) -> std::future<typename std::result_of<Func(Args...)>::type>
+    template <typename F, typename... A>
+    auto enqueueWithFuture(F&& f, A&&... args) -> std::future<decltype(f(std::forward<A>(args)...))>
     {
-        using ReturnType = typename std::result_of<Func(Args...)>::type;
+        using ReturnType = decltype(declval<F>()(declval<A>()...));
         auto task = std::make_shared<std::packaged_task<ReturnType()>>(
-            std::bind(std::forward<Func>(func), std::forward<Args>(args)...));
-        std::future<ReturnType> result = task->get_future();
+            std::bind(std::forward<F>(f), std::forward<A>(args)...));
+
+        std::future<ReturnType> futureRes = task->get_future();
         {
-            std::unique_lock<std::mutex> lock(queueMutex);
+            std::unique_lock<std::mutex> lock(mutex);
             if (stop) {
                 throw std::runtime_error("enqueue on stopped thread pool");
             }
             tasks.emplace([task]() { (*task)(); });
         }
         condition.notify_one();
-        return result;
+        return futureRes;
     }
 
 private:
-    std::vector<std::thread> workers;
+    std::vector<std::thread> threads;
     std::queue<std::function<void()>> tasks;
 
-    std::mutex queueMutex;
+    std::mutex mutex;
     std::condition_variable condition;
     bool stop;
 };
