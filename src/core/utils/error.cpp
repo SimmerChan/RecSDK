@@ -31,23 +31,24 @@ std::string Error::ToString() const
 
 uint32_t Error::ErrorCode() const
 {
-    return static_cast<uint32_t>(this->mod_) * 100 + static_cast<uint32_t>(this->e_);
+    uint32_t offset = 100;
+    return static_cast<uint32_t>(this->mod_) * offset + static_cast<uint32_t>(this->e_);
 }
 
 std::string Error::TypeAsString() const noexcept
 {
     switch (this->e_) {
-        case ErrorType::kNotFound:
+        case ErrorType::NOT_FOUND:
             return "NotFound";
-        case ErrorType::kFileNotExist:
+        case ErrorType::FILE_NOT_EXIST:
             return "FileNotExist";
-        case ErrorType::kNotSupported:
+        case ErrorType::NOT_SUPPORTED:
             return "NotSupported";
-        case ErrorType::kInvalidArgument:
+        case ErrorType::INVALID_ARGUMENT:
             return "InvalidArgument";
-        case ErrorType::kIOError:
+        case ErrorType::IO_ERROR:
             return "IOError";
-        case ErrorType::kAscendCLError:
+        case ErrorType::ACL_ERROR:
             return "AscendCError";
         default:
             return "UnknownError";
@@ -57,23 +58,23 @@ std::string Error::TypeAsString() const noexcept
 std::string Error::ModAsString() const noexcept
 {
     switch (this->mod_) {
-        case ModuleName::checkPoint:
+        case ModuleName::CHECK_POINT:
             return "CheckPoint";
-        case ModuleName::embTable:
+        case ModuleName::EMB_TABLE:
             return "EmbTable";
-        case ModuleName::fileSystem:
+        case ModuleName::FILE_SYSTEM:
             return "FileSystem";
-        case ModuleName::hdTransfer:
+        case ModuleName::HD_TRANSFER:
             return "HdTransfer";
-        case ModuleName::hybridMgmt:
+        case ModuleName::HYBRID_MGMT:
             return "HybridMgmt";
-        case ModuleName::keyProcess:
+        case ModuleName::KEY_PROCESS:
             return "KeyProcess";
-        case ModuleName::l3Storage:
+        case ModuleName::L3_STORAGE:
             return "L3Storge";
-        case ModuleName::ssdEngine:
+        case ModuleName::SSD_ENGINE:
             return "SsdEngine";
-        case ModuleName::utils:
+        case ModuleName::UTILS:
             return "Utils";
         default:
             return "UnknownModule";

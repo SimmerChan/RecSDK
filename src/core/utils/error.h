@@ -22,25 +22,25 @@ See the License for the specific language governing permissions and
 namespace MxRec {
 
 enum class ErrorType {
-    kNotFound = 1,
-    kFileNotExist = 2,
-    kNotSupported = 3,
-    kInvalidArgument = 4,
-    kIOError = 5,
-    kAscendCLError = 6,
-    kUnknown,
+    NOT_FOUND = 1,
+    FILE_NOT_EXIST = 2,
+    NOT_SUPPORTED = 3,
+    INVALID_ARGUMENT = 4,
+    IO_ERROR = 5,
+    ACL_ERROR = 6,
+    UNKNOWN,
 };
 
 enum class ModuleName {
-    checkPoint = 1,
-    embTable = 2,
-    fileSystem = 3,
-    hdTransfer = 4,
-    hybridMgmt = 5,
-    keyProcess = 6,
-    l3Storage = 7,
-    ssdEngine = 8,
-    utils = 9,
+    CHECK_POINT = 1,
+    EMB_TABLE = 2,
+    FILE_SYSTEM = 3,
+    HD_TRANSFER = 4,
+    HYBRID_MGMT = 5,
+    KEY_PROCESS = 6,
+    L3_STORAGE = 7,
+    SSD_ENGINE = 8,
+    UTILS = 9,
 };
 
 class Error {
