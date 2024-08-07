@@ -54,7 +54,7 @@ def get_loss(device):
     loss.backward()
 
     grad = weight_tensor.grad.cpu().clone()
-    return result, grad
+    return result.cpu(), grad
 
 
 def get_loss_op(device):
@@ -70,7 +70,7 @@ def get_loss_op(device):
     loss.backward()
 
     grad = weight_tensor.grad.cpu().clone()
-    return result, grad
+    return result.cpu(), grad
 
 
 gloden = get_loss(torch.device("cpu"))
