@@ -575,11 +575,11 @@ bool HybridMgmt::ParseKeys(int channelId, int& batchId, TaskType type)
             case TaskType::DDR:
                 if (!isL3StorageEnabled) {
                     std::future<bool> remainBatch =
-                        threadPool->enqueueWithFuture([this, info, embInfo]() { return ProcessEmbInfoDDR(info); });
+                        threadPool->enqueueWithFuture([this, info]() { return ProcessEmbInfoDDR(info); });
                     remainResult.push_back(std::move(remainBatch));
                 } else {
                     std::future<bool> remainBatch = threadPool->enqueueWithFuture(
-                        [this, info, embInfo]() { return ProcessEmbInfoL3Storage(info); });
+                        [this, info]() { return ProcessEmbInfoL3Storage(info); });
                     remainResult.push_back(std::move(remainBatch));
                 }
                 break;
@@ -610,6 +610,10 @@ bool HybridMgmt::ParseKeys(int channelId, int& batchId, TaskType type)
     return true;
 }
 
+/// 构造训练所需的各种向量数据
+/// \param info 表名、batch数、通道索引（训练/推理）
+/// \param isGrad 是否需要发送反向需要的tensor
+/// \return remainBatchOut 是否从通道获取了数据
 bool HybridMgmt::ProcessEmbInfoHBM(const EmbBaseInfo& info, bool isGrad)
 {
     bool remainBatchOut = true;
@@ -666,10 +670,8 @@ bool HybridMgmt::ProcessEmbInfoHBM(const EmbBaseInfo& info, bool isGrad)
 }
 
 /// 构造训练所需的各种向量数据
-/// \param embName 表名
-/// \param batchId 已处理的batch数
-/// \param channelId 通道索引（训练/推理）
-/// \param remainBatchOut 是否从通道获取了数据
+/// \param info 表名、batch数、通道索引（训练/推理）
+/// \return remainBatchOut 是否从通道获取了数据
 bool HybridMgmt::ProcessEmbInfoDDR(const EmbBaseInfo& info)
 {
     bool remainBatchOut = true;
@@ -1166,11 +1168,8 @@ void HybridMgmt::EmbeddingReceiveAndUpdateL3Storage(int batchId, int index, cons
 }
 
 /// 构造训练所需的各种向量数据
-/// \param embName 表名
-/// \param batchId 已处理的batch数
-/// \param channelId 通道索引（训练/推理）
-/// \param remainBatchOut 是否从通道获取了数据
-/// \return 是否处理成功
+/// \param info 表名、已处理的batch数、通道索引（训练/推理）
+/// \return remainBatchOut 是否从通道获取了数据
 bool HybridMgmt::ProcessEmbInfoL3Storage(const EmbBaseInfo& info)
 {
     bool remainBatchOut = true;
