@@ -44,6 +44,7 @@ public:
                         }
                         task = std::move(this->tasks.front());
                         this->tasks.pop();
+                        LOG_TRACE("ThreadPool pop one task!");
                     }
                     task();
                 }
@@ -68,16 +69,19 @@ public:
 
     ThreadPool& operator=(const ThreadPool&) = delete;
 
+    // Enqueue task without return value.
     template <class F>
     void enqueue(F&& f)
     {
         {
             std::unique_lock<std::mutex> lock(mutex);
             tasks.emplace(std::forward<F>(f));
+            LOG_TRACE("ThreadPool enqueue one task!");
         }
         condition.notify_one();
     }
 
+    // Enqueue task with return value.
     template <typename F, typename... A>
     auto enqueueWithFuture(F&& f, A&&... args) -> std::future<decltype(f(std::forward<A>(args)...))>
     {
@@ -85,6 +89,7 @@ public:
         auto task = std::make_shared<std::packaged_task<ReturnType()>>(
             std::bind(std::forward<F>(f), std::forward<A>(args)...));
 
+        // Get task return value.
         std::future<ReturnType> futureRes = task->get_future();
         {
             std::unique_lock<std::mutex> lock(mutex);
@@ -92,6 +97,7 @@ public:
                 throw std::runtime_error("enqueue on stopped thread pool");
             }
             tasks.emplace([task]() { (*task)(); });
+            LOG_TRACE("ThreadPool enqueue one task!");
         }
         condition.notify_one();
         return futureRes;
