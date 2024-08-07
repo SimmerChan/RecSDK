@@ -29,12 +29,6 @@ std::string Error::ToString() const
     return absl::StrFormat("Module: %s, Error Type: %s, Error Message: %s", modName, errType, this->msg_);
 }
 
-uint32_t Error::ErrorCode() const
-{
-    uint32_t offset = 100;
-    return static_cast<uint32_t>(this->mod_) * offset + static_cast<uint32_t>(this->e_);
-}
-
 std::string Error::TypeAsString() const noexcept
 {
     switch (this->e_) {

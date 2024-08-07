@@ -49,7 +49,6 @@ public:
     Error(ModuleName mod, ErrorType e, const std::string& msg) : mod_(mod), e_(e), msg_(msg) {}
 
     std::string ToString() const;
-    uint32_t ErrorCode() const;
 
 private:
     std::string TypeAsString() const noexcept;
