@@ -25,6 +25,8 @@ using namespace AscendC;
 
 namespace JaggedToPaddedDense {
 
+constexpr int USE_QUEUE_NUM = 2;
+
 struct Args {
     GM_ADDR values;
     GM_ADDR offsets;
@@ -33,9 +35,9 @@ struct Args {
     GM_ADDR tiling;
 };
 
-class JaggedToPaddedDenseCompute {
+class JaggedToPaddedDenseKernel {
 public:
-    __aicore__ inline JaggedToPaddedDenseCompute(Args args)
+    __aicore__ inline JaggedToPaddedDenseKernel(Args args)
     {
         GET_TILING_DATA(tilingData, args.tiling);
         totalBatch = tilingData.totalBatch;
@@ -67,8 +69,8 @@ public:
         outGT.SetGlobalBuffer(out, offsetDim0 * outDim1 * valuesDim1 * bytesOfDataType);
 
         // Init pipe
-        pipe.InitBuffer(inQueueX, 2, ubCanUsed / 2);
-        blockLen = ubCanUsed / 2;
+        pipe.InitBuffer(inQueueX, USE_QUEUE_NUM, ubCanUsed / USE_QUEUE_NUM);
+        blockLen = ubCanUsed / USE_QUEUE_NUM;
     }
 
     template <typename T>
@@ -189,7 +191,7 @@ private:
 
     // Tpipe
     TPipe pipe;
-    TQueBind<QuePosition::VECIN, QuePosition::VECOUT, 2> inQueueX;
+    TQueBind<QuePosition::VECIN, QuePosition::VECOUT, USE_QUEUE_NUM> inQueueX;
 
     // ThisCoreAddr
     GlobalTensor<uint8_t> valuesGT;

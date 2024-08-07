@@ -23,39 +23,7 @@ constexpr int NUM_QUEUE = 4;
 constexpr int UB_ALIGN = 32;
 constexpr int SUPORT_EMBEDDING_DIM_NUM = 2;
 
-static ge::graphStatus TilingFunc(gert::TilingContext* context)
-{
-    auto ascnedPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
-    auto valuesShape = context->GetInputShape(0)->GetStorageShape();
-    auto offsetsShape = context->GetInputShape(1)->GetStorageShape();
-
-    uint64_t ubCanUsed;
-    ascnedPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubCanUsed);
-    ubCanUsed = ubCanUsed - RESERVER_UB_SIZE;
-    ubCanUsed = ubCanUsed / UB_ALIGN / NUM_QUEUE * UB_ALIGN * NUM_QUEUE;
-
-    if (valuesShape.GetDimNum() != SUPORT_EMBEDDING_DIM_NUM or offsetsShape.GetDimNum() != 1) {
-        printf("jagged_to_padded_dense_tiling is only used for values whit rank-3 and offset rank-1");
-        return ge::FAILED;
-    }
-
-    size_t coreNum = ascnedPlatform.GetCoreNumAiv();
-    if (coreNum == 0) {
-        return ge::FAILED;
-    }
-    
-    size_t* currentWorkspace = context->GetWorkspaceSizes(1);
-    size_t systemWorkspacesSize = ascnedPlatform.GetLibApiWorkSpaceSize();
-    currentWorkspace[0] = systemWorkspacesSize;
-    // tiling core
-    int64_t totalBatch = offsetsShape.GetDim(0) - 1;
-    int64_t baseBatchLen = (offsetsShape.GetDim(0) - 1) / coreNum;
-    int64_t tailSplitIndex = (offsetsShape.GetDim(0) - 1) % coreNum;
-    int64_t valuesDim0 = valuesShape.GetDim(0);
-    int64_t valuesDim1 = valuesShape.GetDim(1);
-    int64_t offsetDim0 = offsetsShape.GetDim(0);
-    int64_t outDim1 = *context->GetAttrs()->GetInt(0);
-
+static void GetType(gert::TilingContext* contex, JaggedToPaddedDenseTilingData& tiling) {
     int64_t bytesOfDataType = 0;
     ge::DataType dataType = context->GetInputTensor(0)->GetDataType();
     if (dataType == ge::DataType::DT_FLOAT) {
@@ -71,19 +39,52 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     } else {
         offsetDataType = DATA_TYPE_INT32;
     }
-
-    JaggedToPaddedDenseTilingData tiling;
-    tiling.set_totalBatch(totalBatch);
-    tiling.set_baseBatchLen(baseBatchLen);
-    tiling.set_tailSplitIndex(tailSplitIndex);
-    tiling.set_valuesDim0(valuesDim0);
-    tiling.set_valuesDim1(valuesDim1);
-    tiling.set_offsetDim0(offsetDim0);
-    tiling.set_outDim1(outDim1);
-    tiling.set_ubCanUsed(ubCanUsed);
     tiling.set_bytesOfDataType(bytesOfDataType);
     tiling.set_offsetDataType(offsetDataType);
+}
 
+static ge::graphStatus TilingFunc(gert::TilingContext* context)
+{
+    auto ascnedPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
+    auto valuesShape = context->GetInputShape(0)->GetStorageShape();
+    auto offsetsShape = context->GetInputShape(1)->GetStorageShape();
+
+    uint64_t ubCanUsed;
+    ascnedPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubCanUsed);
+    ubCanUsed = ubCanUsed - RESERVER_UB_SIZE;
+    ubCanUsed = ubCanUsed / UB_ALIGN / NUM_QUEUE * UB_ALIGN * NUM_QUEUE;
+    tiling.set_ubCanUsed(ubCanUsed);
+
+    if (valuesShape.GetDimNum() != SUPORT_EMBEDDING_DIM_NUM or offsetsShape.GetDimNum() != 1) {
+        printf("jagged_to_padded_dense_tiling is only used for values with rank-3 and offset rank-1");
+        return ge::FAILED;
+    }
+
+    size_t coreNum = ascnedPlatform.GetCoreNumAiv();
+    if (coreNum == 0) {
+        return ge::FAILED;
+    }
+    
+    size_t* currentWorkspace = context->GetWorkspaceSizes(1);
+    size_t systemWorkspacesSize = ascnedPlatform.GetLibApiWorkSpaceSize();
+    currentWorkspace[0] = systemWorkspacesSize;
+    // tiling core
+    JaggedToPaddedDenseTilingData tiling;
+    
+    int64_t totalBatch = offsetsShape.GetDim(0) - 1;
+    tiling.set_totalBatch(totalBatch);
+    int64_t baseBatchLen = (offsetsShape.GetDim(0) - 1) / coreNum;
+    tiling.set_baseBatchLen(baseBatchLen);
+    int64_t tailSplitIndex = (offsetsShape.GetDim(0) - 1) % coreNum;
+    tiling.set_tailSplitIndex(tailSplitIndex);
+    int64_t valuesDim0 = valuesShape.GetDim(0);
+    tiling.set_valuesDim0(valuesDim0);
+    int64_t valuesDim1 = valuesShape.GetDim(1);
+    tiling.set_valuesDim1(valuesDim1);
+    int64_t offsetDim0 = offsetsShape.GetDim(0);
+    tiling.set_offsetDim0(offsetDim0);
+    int64_t outDim1 = *context->GetAttrs()->GetInt(0);
+    tiling.set_outDim1(outDim1);
     context->SetBlockDim(coreNum);
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
