@@ -46,7 +46,7 @@ def get_result(device):
     loss = torch.mean(output_embeddings)
     loss.backward()
 
-    return jagged_embeding, dense_torch.grad.cpu().clone()
+    return jagged_embeding.cpu(), dense_torch.grad.cpu().clone()
 
 
 gloden = get_result(torch.device("cpu"))

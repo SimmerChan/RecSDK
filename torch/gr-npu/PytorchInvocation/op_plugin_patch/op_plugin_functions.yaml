@@ -1,2 +1,2 @@
   - func: index_select_for_rank1_backward(Tensor gradY, Tensor x, Tensor index) -> (Tensor, Tensor)
-    impl_ns: op_api
+    op_api: all_version

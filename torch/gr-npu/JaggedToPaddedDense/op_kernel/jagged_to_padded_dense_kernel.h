@@ -68,7 +68,7 @@ public:
 
         // Init pipe
         pipe.InitBuffer(inQueueX, 2, ubCanUsed / 2);
-        int64_t blockLen = ubCanUsed / 2;
+        blockLen = ubCanUsed / 2;
     }
 
     template <typename T>
