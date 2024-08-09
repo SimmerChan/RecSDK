@@ -91,8 +91,6 @@ public:
           outputShapes_(outputShapes),
           id_(g_datasetId[channelId]) {
         input_->Ref();
-//        auto os_input = input->output_shapes();
-//        output_shapes_ = os_input;
 
         MPI_Comm_group(MPI_COMM_WORLD, &g_group);
         MPI_Comm_create(MPI_COMM_WORLD, g_group, &g_comm[channelId]);

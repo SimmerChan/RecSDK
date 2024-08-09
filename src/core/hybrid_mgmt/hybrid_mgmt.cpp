@@ -116,8 +116,7 @@ bool HybridMgmt::Initialize(RankInfo rankInfo, const vector<EmbInfo>& embInfos, 
     hybridMgmtBlock->SetRankInfo(rankInfo);
 
     // 启动数据处理线程
-    KEY_PROCESS_INSTANCE->Initialize(rankInfo, embInfos, thresholdValues, seed,
-                                     isIncrementalCheckpoint);
+    KEY_PROCESS_INSTANCE->Initialize(rankInfo, embInfos, thresholdValues, seed, isIncrementalCheckpoint);
 
     isRunning = true;
     isL3StorageEnabled = rankInfo.isSSDEnabled;
@@ -169,7 +168,7 @@ void HybridMgmt::Save(const string& savePath, bool saveDelta)
         throw runtime_error("HybridMgmt not initialized. Call Initialize first.");
     }
     string saveModelType =
-            saveDelta ? TransferModelType2Str(SaveModelType::DELTA) : TransferModelType2Str(SaveModelType::BASE);
+        saveDelta ? TransferModelType2Str(SaveModelType::DELTA) : TransferModelType2Str(SaveModelType::BASE);
     LOG_INFO(MGMT + "Start to save {} model to {}.", saveModelType, savePath);
 
     // 数据处理线程上锁
@@ -510,7 +509,9 @@ void HybridMgmt::TrainTask(TaskType type)
             return;
         }
         LOG_INFO(HYBRID_BLOCKING + "hybrid start task channel {} batch {}", channelId, theTrainBatchId);
-
+        if (isBackUpTrainStatus) {
+            RecoverTrainStatus();
+        }
         ParseKeys(TRAIN_CHANNEL_ID, theTrainBatchId, type);
     } while (true);
 #endif
@@ -535,10 +536,11 @@ void HybridMgmt::EvalTask(TaskType type)
                       hybridMgmtBlock->pythonBatchId[EVAL_CHANNEL_ID], evalBatchId);
 
             if (hybridMgmtBlock->pythonBatchId[EVAL_CHANNEL_ID] >= hybridMgmtBlock->hybridBatchId[EVAL_CHANNEL_ID]) {
-                // Before waking the data process for training, Recover the backed-up training state
-                RecoverTrainStatus();
                 hybridMgmtBlock->Wake(TRAIN_CHANNEL_ID);
-            } else {
+            } else if (!isRunning) {
+                return;
+            }
+            else {
                 std::this_thread::sleep_for(SLEEP_MS);
                 continue;
             }
@@ -603,8 +605,8 @@ bool HybridMgmt::ParseKeys(int channelId, int& batchId, TaskType type)
                         threadPool->enqueueWithFuture([this, info]() { return ProcessEmbInfoDDR(info); });
                     remainResult.push_back(std::move(remainBatch));
                 } else {
-                    std::future<bool> remainBatch = threadPool->enqueueWithFuture(
-                        [this, info]() { return ProcessEmbInfoL3Storage(info); });
+                    std::future<bool> remainBatch =
+                        threadPool->enqueueWithFuture([this, info]() { return ProcessEmbInfoL3Storage(info); });
                     remainResult.push_back(std::move(remainBatch));
                 }
                 break;
@@ -711,7 +713,7 @@ bool HybridMgmt::ProcessEmbInfoDDR(const EmbBaseInfo& info)
     auto uniqueKeys = GetUniqueKeys(info, remainBatchOut, isEos);
     if (isEos) {
         EosL1Que[info.name].Pushv(make_pair(true, info.channelId));
-        LOG_DEBUG("[LQK] enqueue EosL1Que DDR, table:{}, batchId:{}, channelId:{}, EosL1Que size: {}", info.name,
+        LOG_DEBUG("Enqueue on EosL1Que, table:{}, batchId:{}, channelId:{}, EosL1Que size: {}", info.name,
                   info.batchId, info.channelId, EosL1Que.size());
     }
     if (uniqueKeys.empty()) {
@@ -993,23 +995,28 @@ void HybridMgmt::LookUpSwapAddrs(const string& embName, int channelId)
     std::string swapOutName = embName + SWAP_OUT_STR;
     std::vector<float*> addrs;
     while (isRunning && lookupAddrSuccess) {
+        pair<bool, int> eosChannel = EosL1Que[embName].WaitAndPop();
         if (!isRunning) {
             return;
         }
-        pair<bool, int> keyChannel = EosL1Que[embName].WaitAndPop();
-        if (keyChannel.first) {
-            EosL2Que[embName].Pushv(make_pair(true, keyChannel.second));
-            LOG_DEBUG("[LQK] enqueue EosL2Que eos, table:{}, batchId:{}, channelId:{}, EosL1Que size:{}, EosL2Que.size: {}",
-                      embName, id, keyChannel.second, EosL1Que.size(), EosL2Que.size());
+        if (eosChannel.first) {
+            EosL2Que[embName].Pushv(make_pair(true, eosChannel.second));
+            LOG_DEBUG(
+                "Enqueue on EosL2Que, table:{}, batchId:{}, channelId:{}, EosL1Que size:{}, EosL2Que.size: {}",
+                embName, id, eosChannel.second, EosL1Que.size(), EosL2Que.size());
             continue;
         } else {
-            EosL2Que[embName].Pushv(make_pair(false, keyChannel.second));
-            LOG_DEBUG("[LQK] enqueue EosL2Que normal, table:{}, batchId:{}, channelId:{}, EosL1Que size:{}, EosL2Que.size: {}",
-                      embName, id, keyChannel.second, EosL1Que.size(), EosL2Que.size());
+            EosL2Que[embName].Pushv(make_pair(false, eosChannel.second));
+            LOG_DEBUG("Enqueue on EosL2Que, normal status, table:{}, batchId:{}, channelId:{}, EosL1Que size:{}, "
+                      "EosL2Que.size: {}",
+                      embName, id, eosChannel.second, EosL1Que.size(), EosL2Que.size());
         }
 
         // swap in
         std::vector<uint64_t> keys = HBMSwapKeyQue[swapInName][channelId].WaitAndPop();
+        if (!isRunning) {
+            return;
+        }
         TimeCost lookupAddrsInTC;
         int rc = embCache->EmbeddingLookupAddrs(embName, keys, addrs);
         if (rc != H_OK) {
@@ -1026,6 +1033,9 @@ void HybridMgmt::LookUpSwapAddrs(const string& embName, int channelId)
         keys = HBMSwapKeyQue[swapOutName][channelId].WaitAndPop();
         TimeCost lookupAddrsOutTC;
         rc = embCache->EmbeddingLookupAddrs(embName, keys, addrs);
+        if (!isRunning) {
+            return;
+        }
         if (rc != H_OK) {
             lookupAddrSuccess = false;
             throw runtime_error("EmbeddingLookupAddrs failed! error code: " + std::to_string(rc));
@@ -1127,14 +1137,12 @@ void HybridMgmt::ReceiveKeyThread(const EmbInfo& embInfo)
     receiveKeyThreads.emplace_back([embInfo, this]() {
         while (isRunning) {
             TransferChannel transferName = TransferChannel::KEY_D2H;
-            size_t ret = hdTransfer->RecvOffsetsAcl(transferName, TRAIN_CHANNEL_ID,
-                                                    embInfo.name);
+            size_t ret = hdTransfer->RecvOffsetsAcl(transferName, TRAIN_CHANNEL_ID, embInfo.name);
             if (ret == 0) {
                 LOG_WARN("Receive empty data.");
             } else {
                 LOG_INFO("Receive data success, get {} data size: {}.", embInfo.name, ret);
-                auto aclData =
-                        acltdtGetDataItem(hdTransfer->aclDatasetsForIncrementalCkpt[embInfo.name], 0);
+                auto aclData = acltdtGetDataItem(hdTransfer->aclDatasetsForIncrementalCkpt[embInfo.name], 0);
                 if (aclData == nullptr) {
                     throw runtime_error("Acl get tensor data failed.");
                 }
@@ -1142,12 +1150,12 @@ void HybridMgmt::ReceiveKeyThread(const EmbInfo& embInfo)
                 int64_t timeStamp = *ptr;
                 int64_t globalStep = *(ptr + 1);
                 LOG_INFO("Receive {} timeStamp: {}, global step: {}.", embInfo.name, timeStamp, globalStep);
-                // tensorflow获取的global step是从1开始的，但是在key process中batch id则是从0开始，因此，下面的info中的batchId需要用
-                // globalStep - 1
-                EmbBaseInfo info = {.batchId=static_cast<int>(globalStep-1), .channelId=TRAIN_CHANNEL_ID,
-                                    .name=embInfo.name};
-                unique_ptr<vector<Tensor>> keyCountVecInfo =
-                        KEY_PROCESS_INSTANCE->GetKCInfoVec(info);
+                // tensorflow获取的global step是从1开始的，但是在key process中batch
+                // id则是从0开始，因此，下面的info中的batchId需要用 globalStep - 1
+                EmbBaseInfo info = {.batchId = static_cast<int>(globalStep - 1),
+                                    .channelId = TRAIN_CHANNEL_ID,
+                                    .name = embInfo.name};
+                unique_ptr<vector<Tensor>> keyCountVecInfo = KEY_PROCESS_INSTANCE->GetKCInfoVec(info);
                 if (keyCountVecInfo == nullptr) {
                     LOG_ERROR("Get key count info vector is empty.");
                     throw runtime_error("Get key count info vector is empty.");
@@ -1159,8 +1167,8 @@ void HybridMgmt::ReceiveKeyThread(const EmbInfo& embInfo)
                 for (int64 i = 0; i < keyCountSize; ++i) {
                     keyCountVec.push_back(static_cast<int64_t>(keyCountVecTmp(i)));
                 }
-                LOG_INFO("Emb table: {}, channel: {}, size is: {}, data: {}",
-                         embInfo.name, TRAIN_CHANNEL_ID, keyCountSize, VectorToString(keyCountVec));
+                LOG_INFO("Emb table: {}, channel: {}, size is: {}, data: {}", embInfo.name, TRAIN_CHANNEL_ID,
+                         keyCountSize, VectorToString(keyCountVec));
 
                 // 更新delta表
                 std::lock_guard<std::mutex> lock(keyCountUpdateMtx);
@@ -1179,7 +1187,7 @@ void HybridMgmt::updateDeltaInfo(const string& embName, vector<int64_t>& keyCoun
     auto& embMap = deltaMap[embName];
     for (int i = 0; i < keyCountSize; i += KEY_COUNT_ELEMENT_NUM) {
         emb_key_t key = keyCountVec[i];
-        int64_t recentCount = keyCountVec[i+1];
+        int64_t recentCount = keyCountVec[i + 1];
         KeyInfo& keyInfo = embMap[key];
         keyInfo.totalCount += recentCount;
         keyInfo.recentCount += recentCount;
@@ -1317,8 +1325,8 @@ bool HybridMgmt::ProcessEmbInfoL3Storage(const EmbBaseInfo& info)
     auto uniqueKeys = GetUniqueKeys(info, remainBatchOut, isEos);
     if (isEos) {
         EosL1Que[info.name].Pushv(make_pair(true, info.channelId));
-        LOG_DEBUG("[LQK] enqueue EosL1Que SSD, table:{}, batchId:{}, channelId:{}", info.name,
-                  info.batchId, info.channelId);
+        LOG_DEBUG("Enqueue on EosL1Que L3Storage, table:{}, batchId:{}, channelId:{}", info.name, info.batchId,
+                  info.channelId);
     }
 
     if (uniqueKeys.empty()) {
@@ -1527,20 +1535,17 @@ bool HybridMgmt::EmbeddingReceiveDDR(const EmbTaskInfo& info, float*& ptr, vecto
     lastRecvFinishCV[currentKey].wait(lastRecvFinishLocker, [info, this] {
         return (hybridMgmtBlock->lastRecvFinishStep[info.name][info.channelId] == info.batchId) || mutexDestroy;
     });
+
+    pair<bool, int> eosChannel = EosL2Que[info.name].WaitAndPop();
     if (!isRunning) {
         return false;
     }
-    pair<bool, int> keyChannel = EosL2Que[info.name].WaitAndPop();
-    if (keyChannel.first) {
+    string nextKey = MakeKeyName(info.cvNotifyIndex, info.name, info.channelId);
+    if (eosChannel.first) {
         isEos = true;
-        LOG_INFO("EmbeddingReceiveDDR get eos from channel: {}", keyChannel.second);
-        bool sendAllChannel = false;
-        if (!alreadyTrainOnce) {
-            // predict场景
-            sendAllChannel = true;
-        }
-        KEY_PROCESS_INSTANCE->SendEos(info.name, info.batchId, keyChannel.second, sendAllChannel);
-        cvLastRecvFinishMap[info.name][info.cvNotifyIndex].notify_all();
+        LOG_INFO("EmbeddingReceiveDDR get eos from channel: {}", eosChannel.second);
+        KEY_PROCESS_INSTANCE->SendEos(info.name, info.batchId, eosChannel.second);
+        lastRecvFinishCV[nextKey].notify_all();
         return true;
     }
 
@@ -1580,7 +1585,6 @@ bool HybridMgmt::EmbeddingReceiveDDR(const EmbTaskInfo& info, float*& ptr, vecto
     LOG_DEBUG("table:{}, accumulate batchId:{}, thread:{}, EmbeddingRecvTC(ms):{}", info.name, info.batchId,
               info.threadIdx, EmbeddingRecvTC.ElapsedMS());
     hybridMgmtBlock->lastRecvFinishStep[info.name][info.channelId]++;
-    string nextKey = MakeKeyName(info.cvNotifyIndex, info.name, info.channelId);
     lastRecvFinishCV[nextKey].notify_all();
 
     return true;
@@ -1735,21 +1739,17 @@ bool HybridMgmt::EmbeddingReceiveL3Storage(const EmbTaskInfo& info, float*& ptr,
     lastRecvFinishCV[currentKey].wait(lastRecvFinishLocker, [info, this] {
         return (hybridMgmtBlock->lastRecvFinishStep[info.name][info.channelId] == info.batchId) || mutexDestroy;
     });
+
+    pair<bool, int> eosChannel = EosL1Que[info.name].WaitAndPop();
     if (!isRunning) {
         return false;
     }
-
-    pair<bool, int> keyChannel = EosL1Que[info.name].WaitAndPop();
-    if (keyChannel.first) {
+    string nextKey = MakeKeyName(info.cvNotifyIndex, info.name, info.channelId);
+    if (eosChannel.first) {
         isEos = true;
-        LOG_INFO("EmbeddingReceiveL3Storage get eos from channel: {}", keyChannel.second);
-        bool sendAllChannel = false;
-        if (!alreadyTrainOnce) {
-            // predict场景
-            sendAllChannel = true;
-        }
-        KEY_PROCESS_INSTANCE->SendEos(info.name, info.batchId, keyChannel.second, sendAllChannel);
-        cvLastRecvFinishMap[info.name][info.cvNotifyIndex].notify_all();
+        LOG_INFO("EmbeddingReceiveL3Storage get eos from channel: {}", eosChannel.second);
+        KEY_PROCESS_INSTANCE->SendEos(info.name, info.batchId, eosChannel.second);
+        lastRecvFinishCV[nextKey].notify_all();
         return true;
     }
 
@@ -1788,7 +1788,6 @@ bool HybridMgmt::EmbeddingReceiveL3Storage(const EmbTaskInfo& info, float*& ptr,
     LOG_DEBUG("table:{}, accumulate batchId:{}, channelId:{}, thread:{}, EmbeddingRecvTC(ms):{}", info.name.c_str(),
               info.batchId, info.channelId, info.threadIdx, EmbeddingRecvTC.ElapsedMS());
     hybridMgmtBlock->lastRecvFinishStep[info.name][info.channelId]++;
-    string nextKey = MakeKeyName(info.cvNotifyIndex, info.name, info.channelId);
     lastRecvFinishCV[nextKey].notify_all();
     return true;
 }
@@ -1964,6 +1963,7 @@ void HybridMgmt::HandleDataSwapForL3Storage(const EmbBaseInfo& info, vector<uint
     HBMSwapKeyForL3StorageQue[info.name + SWAP_OUT_STR][info.channelId].Pushv(hbmSwapInfo.swapOutL3StorageKeys);
     HBMSwapKeyForL3StorageQue[info.name + ADDR_STR][info.channelId].Pushv(hbmSwapInfo.swapOutL3StorageAddrOffs);
 
+    // normal status
     EosL1Que[info.name].Pushv(make_pair(false, info.channelId));
 }
 
@@ -1997,7 +1997,7 @@ bool HybridMgmt::BuildH2DEmbedding(const EmbTaskInfo& info, vector<Tensor>& h2dE
 
 vector<uint64_t> HybridMgmt::GetUniqueKeys(const EmbBaseInfo& info, bool& remainBatchOut, bool& isEos)
 {
-    auto uniqueKeys = KEY_PROCESS_INSTANCE->GetUniqueKeys(info, isEos, lookUpSwapInAddrsPushId);
+    auto uniqueKeys = KEY_PROCESS_INSTANCE->GetUniqueKeys(info, isEos);
     if (isEos) {
         HandleEosCase(info, remainBatchOut);
         return uniqueKeys;
@@ -2164,9 +2164,8 @@ void HybridMgmt::EnqueueSwapInfo(const EmbBaseInfo& info, pair<vector<uint64_t>,
     CheckLookupAddrSuccessDDR();
 
     EosL1Que[info.name].Pushv(make_pair(false, info.channelId));
-    LOG_DEBUG("enqueue EosL1Que, normal status,  table:{}, batchId:{}, channelId:{}, EosL1Que.size: {}", info.name,
+    LOG_DEBUG("Enqueue on EosL1Que, normal status,  table:{}, batchId:{}, channelId:{}, EosL1Que.size: {}", info.name,
               info.batchId, info.channelId, EosL1Que.size());
-
 }
 
 void HybridMgmt::BackUpTrainStatus()

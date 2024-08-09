@@ -17,13 +17,13 @@ See the License for the specific language governing permissions and
 #define MX_REC_EMB_MGMT_H
 
 #include <array>
-#include <memory>
-#include <unordered_set>
-#include <vector>
-#include <mutex>
 #include <atomic>
 #include <condition_variable>
+#include <memory>
+#include <mutex>
 #include <thread>
+#include <unordered_set>
+#include <vector>
 
 #include "absl/container/flat_hash_map.h"
 #include "emb_table/embedding_table.h"
@@ -37,8 +37,8 @@ See the License for the specific language governing permissions and
 #include "utils/config.h"
 #include "utils/singleton.h"
 #include "utils/task_queue.h"
-#include "utils/time_cost.h"
 #include "utils/thread_pool.h"
+#include "utils/time_cost.h"
 
 namespace MxRec {
 using namespace std;
@@ -169,8 +169,8 @@ public:
     std::map<std::string, TaskQueue<std::vector<float*>>[MAX_CHANNEL_NUM]> HBMSwapAddrsQue;
     std::map<std::string, TaskQueue<std::vector<float*>>[MAX_CHANNEL_NUM]> DDRSwapAddrsQue;
 
-    std::map<std::string, TaskQueue<pair<bool,int>>> EosL1Que;  // pair <isEos, channelId>
-    std::map<std::string, TaskQueue<pair<bool,int>>> EosL2Que;
+    std::map<std::string, TaskQueue<pair<bool, int>>> EosL1Que;  // pair <isEos, channelId>
+    std::map<std::string, TaskQueue<pair<bool, int>>> EosL2Que;
 
     std::mutex evictMut;
 
@@ -237,8 +237,8 @@ private:
     bool isRunning;
     bool isLoad{false};
     bool isInitialized{false};
-    bool alreadyTrainOnce = false;  // 用于判断是否为predict模式
-    bool isBackUpTrainStatus = false; // whether the train state has been backed up
+    bool alreadyTrainOnce = false;     // 用于判断是否为predict模式
+    bool isBackUpTrainStatus = false;  // whether the train state has been backed up
     bool isIncrementalCkpt;
     map<string, absl::flat_hash_map<emb_key_t, KeyInfo>> deltaMap;
     absl::flat_hash_map<string, int> keyBatchIdMap;

@@ -14,10 +14,10 @@ See the License for the specific language governing permissions and
 ==============================================================================*/
 #include "key_process.h"
 
+#include <mpi.h>
+
 #include <cstddef>
 #include <iostream>
-
-#include <mpi.h>
 
 #include "emb_table/embedding_mgmt.h"
 #include "hd_transfer/hd_transfer.h"
@@ -41,8 +41,7 @@ void KeyProcess::SetupHotEmbUpdateStep()
 }
 
 bool KeyProcess::Initialize(const RankInfo& rInfo, const vector<EmbInfo>& eInfos,
-                            const vector<ThresholdValue>& thresholdValues,
-                            int seed, bool isIncrementalCkpt)
+                            const vector<ThresholdValue>& thresholdValues, int seed, bool isIncrementalCkpt)
 {
     readySendEosCnt[TRAIN_CHANNEL_ID].store(0);
     readySendEosCnt[EVAL_CHANNEL_ID].store(0);
@@ -259,7 +258,7 @@ void KeyProcess::KeyProcessTaskWithFastUnique(int channel, int threadId)
         while (true) {
             TimeCost getAndProcessTC;
             TimeCost getBatchDataTC;
-            batch = GetBatchData(channel, threadId); // get batch data from SingletonQueue<EmbBatchT>
+            batch = GetBatchData(channel, threadId);  // get batch data from SingletonQueue<EmbBatchT>
             LOG_DEBUG("getBatchDataTC(ms):{}", getBatchDataTC.ElapsedMS());
             if (batch == nullptr) {
                 break;
@@ -305,8 +304,9 @@ void KeyProcess::KeyProcessTask(int channel, int threadId)
             if (!KeyProcessTaskHelper(batch, channel, threadId)) {
                 break;
             }
-            LOG_INFO(KEY_PROCESS "getAndProcessTC(ms):{}, key process cost:{},"
-                                 " get data time(ms):{}, batch name:{}, channelId:{}, threadId:{}, batchId:{}, isEos:{}",
+            LOG_INFO(KEY_PROCESS
+                     "getAndProcessTC(ms):{}, key process cost:{},"
+                     " get data time(ms):{}, batch name:{}, channelId:{}, threadId:{}, batchId:{}, isEos:{}",
                      getAndProcessTC.ElapsedMS(), processDataTime.ElapsedMS(), getBatchTime, batch->name,
                      batch->channel, threadId, batch->batchId, batch->isEos);
             int queueIndex = threadId + (MAX_KEY_PROCESS_THREAD * batch->channel);
@@ -319,16 +319,16 @@ void KeyProcess::KeyProcessTask(int channel, int threadId)
     LOG_INFO(KEY_PROCESS "KeyProcessTask exit. rank:{} channelId:{}, threadId:{}", rankInfo.rankId, channel, threadId);
 }
 
-void KeyProcess::HashSplitHelper(const unique_ptr <EmbBatchT>& batch, vector <KeysT>& splitKeys,
-                                 vector <int32_t>& restore, vector <int32_t>& hotPos,
-                                 vector <vector<uint32_t>>& keyCount, vector<emb_key_t>& keyCountVec)
+void KeyProcess::HashSplitHelper(const unique_ptr<EmbBatchT>& batch, vector<KeysT>& splitKeys, vector<int32_t>& restore,
+                                 vector<int32_t>& hotPos, vector<vector<uint32_t>>& keyCount,
+                                 vector<emb_key_t>& keyCountVec)
 {
     TimeCost uniqueTc;
     if (m_featureAdmitAndEvict.GetFunctionSwitch() &&
         FeatureAdmitAndEvict::m_embStatus[batch->name] != SingleEmbTableStatus::SETS_NONE) {
         tie(splitKeys, restore, keyCount) = HashSplitWithFAAE(batch);  // 按存储dev id切分并去重
     } else {
-        tie(splitKeys, restore, hotPos, keyCountVec) = HotHashSplit(batch);   // 按存储dev id切分并去重
+        tie(splitKeys, restore, hotPos, keyCountVec) = HotHashSplit(batch);  // 按存储dev id切分并去重
     }
     LOG_DEBUG("uniqueTc(ms):{}", uniqueTc.ElapsedMS());
 }
@@ -400,23 +400,25 @@ bool KeyProcess::KeyProcessTaskHelperWithFastUnique(unique_ptr<EmbBatchT>& batch
 bool KeyProcess::KeyProcessTaskHelper(unique_ptr<EmbBatchT>& batch, int channel, int threadId)
 {
     if (batch->isEos) {
-        if (!rankInfo.isDDR) { // HBM
-//            auto tensors = make_unique<vector<Tensor>>();
+        if (!rankInfo.isDDR) {  // HBM
+                                //            auto tensors = make_unique<vector<Tensor>>();
             std::unique_lock<std::mutex> lockGuard(mut);
-//            storage.push_front(move(tensors));
-            infoList[batch->name][batch->channel].push(make_tuple(batch->batchId, batch->name, batch->isEos, storage.begin()));
+            //            storage.push_front(move(tensors));
+            infoList[batch->name][batch->channel].push(
+                make_tuple(batch->batchId, batch->name, batch->isEos, storage.begin()));
             lockGuard.unlock();
-            LOG_INFO("KeyProcessTaskHelper hbm eos, batch name:{}, batch id: {}, channelId:{} threadId:{}",
-                     batch->name, batch->batchId, batch->channel, threadId);
+            LOG_INFO("KeyProcessTaskHelper hbm eos, batch name:{}, batch id: {}, channelId:{} threadId:{}", batch->name,
+                     batch->batchId, batch->channel, threadId);
             return true;
         }
         // DDR
         vector<uint64_t> uniqueKeys;
         std::unique_lock<std::mutex> lockGuard(mut);
-        uniqueKeysList[batch->name][batch->channel].push(make_tuple(batch->batchId, batch->name, batch->isEos, move(uniqueKeys)));
+        uniqueKeysList[batch->name][batch->channel].push(
+            make_tuple(batch->batchId, batch->name, batch->isEos, move(uniqueKeys)));
         lockGuard.unlock();
-        LOG_INFO("KeyProcessTaskHelper ddr eos, batch name:{}, batch id: {}, channelId:{} threadId:{}",
-                 batch->name, batch->batchId, batch->channel, threadId);
+        LOG_INFO("KeyProcessTaskHelper ddr eos, batch name:{}, batch id: {}, channelId:{} threadId:{}", batch->name,
+                 batch->batchId, batch->channel, threadId);
         return true;
     }
     vector<KeysT> splitKeys;
@@ -449,10 +451,14 @@ bool KeyProcess::KeyProcessTaskHelper(unique_ptr<EmbBatchT>& batch, int channel,
 
     // without host, just device, all embedding vectors were stored in device
     // map key to offset directly by lookup keyOffsetMap (hashmap)
-    if (!rankInfo.isDDR) { EmbeddingMgmt::Instance()->Key2Offset(batch->name, lookupKeys, channel); }
+    if (!rankInfo.isDDR) {
+        EmbeddingMgmt::Instance()->Key2Offset(batch->name, lookupKeys, channel);
+    }
 
     // Static all2all，need send count
-    if (!rankInfo.useStatic) { SendA2A(scAll, batch->name, batch->channel, batch->batchId); }
+    if (!rankInfo.useStatic) {
+        SendA2A(scAll, batch->name, batch->channel, batch->batchId);
+    }
 
     TimeCost pushResultTC;
     auto tensors = make_unique<vector<Tensor>>();
@@ -554,7 +560,8 @@ void KeyProcess::PushResultDDR(unique_ptr<EmbBatchT>& batch, unique_ptr<vector<T
     std::unique_lock<std::mutex> lockGuard(mut);
     storage.push_front(move(tensors));
     infoList[batch->name][batch->channel].push(make_tuple(batch->batchId, batch->name, batch->isEos, storage.begin()));
-    uniqueKeysList[batch->name][batch->channel].push(make_tuple(batch->batchId, batch->name, batch->isEos, move(uniqueKeys)));
+    uniqueKeysList[batch->name][batch->channel].push(
+        make_tuple(batch->batchId, batch->name, batch->isEos, move(uniqueKeys)));
     restoreVecSecList[batch->name][batch->channel].push(make_tuple(batch->batchId, batch->name, move(restoreVecSec)));
     lockGuard.unlock();
 }
@@ -563,8 +570,8 @@ void KeyProcess::PushKeyCountHBM(unique_ptr<EmbBatchT>& batch, unique_ptr<vector
 {
     std::unique_lock<std::mutex> lockGuard(mut);
     keyCountStorage.push_front(move(tensors));
-    keyCountInfoList[batch->name][batch->channel].push(make_tuple(batch->batchId, batch->name,
-                                                                  keyCountStorage.begin()));
+    keyCountInfoList[batch->name][batch->channel].push(
+        make_tuple(batch->batchId, batch->name, batch->isEos, keyCountStorage.begin()));
     lockGuard.unlock();
     LOG_INFO("Push key count to list success.");
 }
@@ -945,8 +952,8 @@ tuple<vector<KeysT>, vector<int32_t>, vector<vector<uint32_t>>> KeyProcess::Hash
     return {splitKeys, restore, keyCount};
 }
 
-tuple<vector<KeysT>, vector<int32_t>, vector<int>, vector<emb_key_t>> KeyProcess::HotHashSplit(const
-unique_ptr<EmbBatchT>& batch)
+tuple<vector<KeysT>, vector<int32_t>, vector<int>, vector<emb_key_t>> KeyProcess::HotHashSplit(
+    const unique_ptr<EmbBatchT>& batch)
 {
     EASY_FUNCTION(profiler::colors::Gold)
     emb_key_t* batchData = batch->sample.data();
@@ -1017,7 +1024,7 @@ unique_ptr<EmbBatchT>& batch)
     UpdateHotMap(keyCountMapByEmbName, hotEmbTotCount[batch->name], batch->batchId % hotEmbUpdateStep == 0,
                  batch->name);
     AddCountStartToHotPos(splitKeys, hotPos, hotPosDev, batch);
-    return { splitKeys, restore, hotPos, keyCountVec };
+    return {splitKeys, restore, hotPos, keyCountVec};
 }
 
 void KeyProcess::AddCountStartToHotPos(vector<KeysT>& splitKeys, vector<int>& hotPos, const vector<int>& hotPosDev,
@@ -1212,7 +1219,7 @@ T KeyProcess::GetInfo(info_list_t<T>& list, const EmbBaseInfo& info)
     return move(t);
 }
 
-template<class T>
+template <class T>
 T KeyProcess::GetKeyCountVec(info_list_t<T>& list, const EmbBaseInfo& info)
 {
     std::lock_guard<std::mutex> lockGuard(mut);
@@ -1255,8 +1262,7 @@ vector<uint64_t> KeyProcess::GetUniqueKeys(const EmbBaseInfo& info, bool& isEos)
             auto infoVec = GetInfo(uniqueKeysList, info);
             isEos = get<bool>(infoVec);
             if (isEos) {
-                LOG_WARN(KEY_PROCESS "GetUniqueKeys eos! {}[{}]:{}",
-                         info.name, info.channelId, info.batchId);
+                LOG_WARN(KEY_PROCESS "GetUniqueKeys eos! {}[{}]:{}", info.name, info.channelId, info.batchId);
                 break;
             }
             ret = get<std::vector<uint64_t>>(infoVec);
@@ -1272,42 +1278,6 @@ vector<uint64_t> KeyProcess::GetUniqueKeys(const EmbBaseInfo& info, bool& isEos)
         }
     }
     return ret;
-}
-
-bool KeyProcess::IsGetUniqueKeysEos(const EmbBaseInfo& info, std::chrono::_V2::system_clock::time_point& startTime)
-{
-    HybridMgmtBlock* hybridMgmtBlock = Singleton<HybridMgmtBlock>::GetInstance();
-    auto endTime = std::chrono::system_clock::now();
-
-    // readEmbKey start with 0
-    int readEmbKeyBatchId = hybridMgmtBlock->readEmbedBatchId[info.channelId] - 1;
-    // 避免eos在keyProcess还未处理完数据时插队到通道前面
-    std::chrono::duration<double> elapsedTime = endTime - startTime;
-    if (info.batchId != 0 && elapsedTime.count() >= timeoutGetUniqueKeysEmpty) {
-        LOG_DEBUG("table:{}, channelId:{}, isNeedSendEos:{}, current batchId:{}, L1 pipeline readEmbKeyBatchId:{}, "
-                  "L2 pipeline lookUpSwapAddrsPushId:{}, L3 pipeline h2dNextBatchId:{}",
-                  info.name, info.channelId, isNeedSendEos[info.channelId], info.batchId, readEmbKeyBatchId,
-                  hybridMgmtBlock->lookUpSwapAddrsPushId[info.name][info.channelId],
-                  hybridMgmtBlock->h2dNextBatchId[info.name][info.channelId]);
-        startTime = std::chrono::system_clock::now();
-    }
-    // Check '>= readEmbedBatchIdAll' condition to avoid send eos before handle all batch data from readEmbKey Op.
-    if (isNeedSendEos[info.channelId] && readEmbKeyBatchId < info.batchId &&
-        hybridMgmtBlock->h2dNextBatchId[info.name][info.channelId] ==
-        hybridMgmtBlock->lookUpSwapAddrsPushId[info.name][info.channelId] &&
-        hybridMgmtBlock->h2dNextBatchId[info.name][info.channelId] >=
-        hybridMgmtBlock->readEmbedBatchId[info.channelId]) {
-        LOG_INFO("table:{}, channelId:{} current batchId:{}, GetUniqueKeys eos, L1 pipeline readEmbKeyBatchId:{}, "
-                 "L2 pipeline hybridBatchId:{}, L3 pipeline lookUpSwapAddrsPushId:{}, L4 pipeline h2dNextBatchId:{}",
-                 info.name, info.channelId, info.batchId, readEmbKeyBatchId,
-                 hybridMgmtBlock->hybridBatchId[info.channelId],
-                 hybridMgmtBlock->lookUpSwapAddrsPushId[info.name][info.channelId],
-                 hybridMgmtBlock->h2dNextBatchId[info.name][info.channelId]);
-        return true;
-    }
-    LOG_TRACE("getting uniqueKeys failed, table:{}, channel:{}, mgmt batchId:{}, readEmbKey batchId:{}, list is empty",
-              info.name, info.channelId, info.batchId, readEmbKeyBatchId);
-    return false;
 }
 
 std::vector<int32_t> KeyProcess::GetRestoreVecSec(const EmbBaseInfo& info)
@@ -1619,29 +1589,6 @@ void KeyProcess::SetEos(int status, int channelId)
     LOG_INFO("isNeedSendEos status is changed, channel:{}, before status:{}, input status:{}", channelId,
              isNeedSendEos[channelId], status);
     isNeedSendEos[channelId] = (status == 1);
-}
-
-bool KeyProcess::IsGetInfoVecEos(int batch, const string& embName, int channel)
-{
-    HybridMgmtBlock* hybridMgmtBlock = Singleton<HybridMgmtBlock>::GetInstance();
-
-    // 避免eos在keyProcess还未处理完数据时插队到通道前面, readEmbKey真实的次数是readEmbedBatchId减1
-    int readEmbKeyBatchId = hybridMgmtBlock->readEmbedBatchId[channel] - 1;
-    if (rankInfo.isDDR) {
-        if (isNeedSendEos[channel] && readEmbKeyBatchId < batch &&
-            hybridMgmtBlock->h2dNextBatchId[embName][channel] == batch) {
-            LOG_ERROR("channelId:{} batchId:{}, GetInfoVec eos, code should not reach here", channel, batch);
-            throw runtime_error("GetInfoVec eos, code should not reach here");
-        }
-    } else {
-        LOG_TRACE("table:{}, channelId:{}, readEmbKeyBatchId:{}, batchId:{}, isNeedSendEos:{}", embName, channel,
-                  readEmbKeyBatchId, batch, isNeedSendEos[channel]);
-        if (isNeedSendEos[channel] && readEmbKeyBatchId < batch) {
-            LOG_INFO("table:{}, channelId:{} batchId:{}, GetInfoVec eos", embName, channel, batch);
-            return true;
-        }
-    }
-    return false;
 }
 
 void KeyProcess::SendEosTensor(const std::string& embName, int channel)

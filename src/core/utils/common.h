@@ -187,8 +187,7 @@ struct Batch {
     bool CheckAndSetEos()
     {
         for (int i = 0; i < 8; i++) {
-            if (sample[i] != 0)
-            {
+            if (sample[i] != 0) {
                 return false;
             }
         }
@@ -527,14 +526,13 @@ struct KeySendInfo {
 };
 
 struct KeyInfo {
-    int64_t lastUseTime;       // 最后使用时间
-    int64_t recentCount;       // 最近使用次数
-    bool isChanged;            // 是否有变更
-    int64_t batchID;           // batch id
-    int64_t totalCount;        // key总使用次数
+    int64_t lastUseTime;  // 最后使用时间
+    int64_t recentCount;  // 最近使用次数
+    bool isChanged;       // 是否有变更
+    int64_t batchID;      // batch id
+    int64_t totalCount;   // key总使用次数
 
-    KeyInfo(): lastUseTime(0), recentCount(0), isChanged(false),
-               batchID(0), totalCount(0) {}
+    KeyInfo() : lastUseTime(0), recentCount(0), isChanged(false), batchID(0), totalCount(0) {}
 };
 
 using EmbMemT = absl::flat_hash_map<std::string, HostEmbTable>;
@@ -602,7 +600,6 @@ enum class CkptDataType {
 };
 
 std::string CkptDataTypeName(CkptDataType type);
-
 
 enum CTRLogLevel {  // can't use enum class due to compatibility for AccCTR
     DEBUG = 0,

@@ -311,10 +311,6 @@ public:
 
     string DumpSplitKeys(vector<vector<emb_key_t>>& splitKeys) const;
 
-    bool IsGetInfoVecEos(int batch, const string& embName, int channel);
-
-    bool IsGetUniqueKeysEos(const EmbBaseInfo& info, std::chrono::_V2::system_clock::time_point& startTime);
-
     void SendEosTensor(const std::string& embName, int channel);
 };
 
