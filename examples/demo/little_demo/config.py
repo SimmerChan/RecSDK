@@ -66,6 +66,7 @@ class Config:
         self.eviction_threshold = 2
 
         rank_size = get_rank_size()
+        # test
         coefficient = 1.1
         if rank_size != 0:
             max_ui_send_cnt = max(self.item_feat_cnt, self.user_feat_cnt)
