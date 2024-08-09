@@ -15,7 +15,6 @@ See the License for the specific language governing permissions and
 
 #include "error.h"
 
-#include <cstdint>
 #include <string>
 
 #include "absl/strings/str_format.h"
@@ -43,7 +42,7 @@ std::string Error::TypeAsString() const noexcept
         case ErrorType::IO_ERROR:
             return "IOError";
         case ErrorType::ACL_ERROR:
-            return "AscendCError";
+            return "AscendCLError";
         default:
             return "UnknownError";
     }
@@ -65,7 +64,7 @@ std::string Error::ModAsString() const noexcept
         case ModuleName::KEY_PROCESS:
             return "KeyProcess";
         case ModuleName::L3_STORAGE:
-            return "L3Storge";
+            return "L3Storage";
         case ModuleName::SSD_ENGINE:
             return "SsdEngine";
         case ModuleName::UTILS:

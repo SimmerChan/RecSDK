@@ -16,31 +16,30 @@ See the License for the specific language governing permissions and
 #ifndef MXREC_CORE_UTILS_ERROR_H
 #define MXREC_CORE_UTILS_ERROR_H
 
-#include <cstdint>
 #include <string>
 
 namespace MxRec {
 
 enum class ErrorType {
-    NOT_FOUND = 1,
-    FILE_NOT_EXIST = 2,
-    NOT_SUPPORTED = 3,
-    INVALID_ARGUMENT = 4,
-    IO_ERROR = 5,
-    ACL_ERROR = 6,
+    NOT_FOUND,
+    FILE_NOT_EXIST,
+    NOT_SUPPORTED,
+    INVALID_ARGUMENT,
+    IO_ERROR,
+    ACL_ERROR,
     UNKNOWN,
 };
 
 enum class ModuleName {
-    CHECK_POINT = 1,
-    EMB_TABLE = 2,
-    FILE_SYSTEM = 3,
-    HD_TRANSFER = 4,
-    HYBRID_MGMT = 5,
-    KEY_PROCESS = 6,
-    L3_STORAGE = 7,
-    SSD_ENGINE = 8,
-    UTILS = 9,
+    CHECK_POINT,
+    EMB_TABLE,
+    FILE_SYSTEM,
+    HD_TRANSFER,
+    HYBRID_MGMT,
+    KEY_PROCESS,
+    L3_STORAGE,
+    SSD_ENGINE,
+    UTILS,
 };
 
 class Error {
