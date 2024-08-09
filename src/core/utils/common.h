@@ -121,9 +121,9 @@ using freq_num_t = int64_t;
 using EmbNameT = std::string;
 using KeysT = std::vector<emb_key_t>;
 using LookupKeyT = std::tuple<int, EmbNameT, KeysT>;  // batch_id quarry_lable keys_vector
-using UinqueKeyT = std::tuple<int, EmbNameT, std::vector<uint64_t>>;
+using UinqueKeyT = std::tuple<int, EmbNameT, bool, std::vector<uint64_t>>;
 using RestoreVecSecT = std::tuple<int, EmbNameT, std::vector<int32_t>>;
-using TensorInfoT = std::tuple<int, EmbNameT, std::list<std::unique_ptr<std::vector<Tensor>>>::iterator>;
+using TensorInfoT = std::tuple<int, EmbNameT, bool, std::list<std::unique_ptr<std::vector<Tensor>>>::iterator>;
 
 namespace HybridOption {
 const unsigned int USE_STATIC = 0x001;
@@ -184,11 +184,24 @@ struct Batch {
         return s;
     }
 
+    bool CheckAndSetEos()
+    {
+        for (int i = 0; i < 8; i++) {
+            if (sample[i] != 0)
+            {
+                return false;
+            }
+        }
+        isEos = true;
+        return true;
+    }
+
     std::vector<T> sample;
     std::string name;
     size_t batchSize;
     int batchId;
     int channel = 0;
+    bool isEos = false;
     time_t timestamp{-1};
 };
 
