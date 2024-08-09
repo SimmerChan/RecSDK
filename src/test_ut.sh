@@ -141,6 +141,7 @@ cmake -DCMAKE_BUILD_TYPE=Debug \
     -DASCEND_PATH=/usr/local/Ascend/ascend-toolkit/latest \
     -DABSEIL_PATH="${python_path}"/lib/python3.7/site-packages/"${TF_DIR}" \
     -DSECUREC_PATH="${ROOT_DIR}"/../opensource/securec \
+    -DTHIRD_PARTY_PATH="${ROOT_DIR}"/third_party \
     -DBUILD_TESTS=on -DCOVERAGE=on "$(dirname "${PWD}")"
 
 make -j8
