@@ -35,8 +35,8 @@ if [ ! -d ${opensource_path} ]; then
 fi
 
 function install_expected(){
-  MODULE_PATH="$MxRec_DIR"/third_party/expected
-  cd "$MODULE_PATH"
+  # MODULE_PATH="$MxRec_DIR"/third_party/expected
+  cd "$MxRec_DIR"
   git submodule init && git submodule update
   cd -
 }
