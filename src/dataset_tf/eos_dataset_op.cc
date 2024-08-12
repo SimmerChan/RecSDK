@@ -310,13 +310,6 @@ private:
                               tensor_shape.DebugString());
                 }
             }
-//            if (!is_second_eos && *end_of_sequence) {
-//                is_second_eos = true;
-//                *end_of_sequence = false;
-//                *out_tensors = CreateOutputVecTensor();
-//            } else if (is_second_eos) {
-//                *end_of_sequence = true;
-//            }
 
             auto keyProcess = Singleton<KeyProcess>::GetInstance();
             auto datasetId = dataset()->id_;
@@ -336,8 +329,10 @@ private:
                 MPI_Iallreduce(MPI_IN_PLACE, &getNextStatus, 1, MPI_INT, MPI_SUM, g_comm[channelId],
                                &req);
                 CheckCommFinished(req, channelId);
-
-                keyProcess->EnqueueEosBatch(iter_times_, dataset()->channelId_);
+                // Max step is achieved, no need to send eos.
+                if (outSize == 0) {
+                    keyProcess->EnqueueEosBatch(iter_times_, dataset()->channelId_);
+                }
                 LOG_DEBUG("[ACTIVE] GetNext eos was triggered actively, channel: {}, iter: {}",
                           dataset()->channelId_,
                           iter_times_);
@@ -352,7 +347,10 @@ private:
 
             if (getNextStatus < g_rankSize) {
                 *end_of_sequence = true;
-                keyProcess->EnqueueEosBatch(iter_times_, dataset()->channelId_);
+                // Max step is achieved, no need to send eos.
+                if (outSize == 0) {
+                    keyProcess->EnqueueEosBatch(iter_times_, dataset()->channelId_);
+                }
                 LOG_DEBUG(
                     "[PASSIVE] GetNext eos was triggered passively, channel: {}, iter: {}, sum: {}",
                     dataset()->channelId_, iter_times_, getNextStatus);
@@ -407,7 +405,6 @@ private:
         GUARDED_BY(mu_);
         std::unique_ptr <IteratorBase> input_impl_
         GUARDED_BY(mu_);
-//        bool is_second_eos = false;
     };
 
     const DatasetBase *input_;

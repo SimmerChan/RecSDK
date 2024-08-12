@@ -278,6 +278,7 @@ namespace MxRec {
                 batchData->name = embNames.at(i);
                 size_t len = splits(i);
                 batchData->channel = channelId;
+                batchData->isEos = false;
                 batchData->batchId = ids[0];
                 batchData->sample.resize(len);
                 if (isTimestamp) {
@@ -466,6 +467,7 @@ namespace MxRec {
                 batchData->name = embNames.at(i);
                 size_t len = splits.at(i);
                 batchData->channel = channelId;
+                batchData->isEos = false;
                 batchData->batchId = batchId;
                 batchData->sample.resize(len);
                 if (isTimestamp) {
