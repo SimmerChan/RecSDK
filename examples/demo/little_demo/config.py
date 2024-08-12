@@ -88,6 +88,7 @@ class Config:
         self.user_hashtable_threshold = 1
         self.item_hashtable_dim = 8
         self.item_hashtable_threshold = 1
+        # test
 
         self.learning_rate = 0.01
 
