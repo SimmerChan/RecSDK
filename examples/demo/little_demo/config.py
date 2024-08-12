@@ -34,10 +34,11 @@ try:
     USE_DETERMINISTIC = bool(int(os.getenv("USE_DETERMINISTIC", 0)))
     MULTI_LOOKUP_TIMES = int(os.getenv("MULTI_LOOKUP_TIMES", 2))
     PRECISION_CHECK = bool(int(os.getenv("PRECISION_CHECK", 0)))
+    USE_DP = bool(int(os.getenv("USE_DP", 0)))
 except ValueError as err:
     raise ValueError("please correctly config USE_DYNAMIC or USE_DYNAMIC_EXPANSION or "
-                        "USE_MULTI_LOOKUP or USE_MODIFY_GRAPH or USE_TIMESTAMP or USE_ONE_SHOT or USE_DETERMINISTIC"
-                        "only 0 or 1 is supported.") from err
+                     "USE_MULTI_LOOKUP or USE_MODIFY_GRAPH or USE_TIMESTAMP or USE_ONE_SHOT or USE_DETERMINISTIC"
+                     "or USE_DP only 0 or 1 is supported.") from err
 
 
 class Config:
@@ -56,9 +57,9 @@ class Config:
         self.label_type = tf.float32
         self.value_type = tf.float32
 
-        self.item_range = 80000 * get_rank_size()
-        self.user_range = 200000 * get_rank_size()
-        self.category_range = 5000 * get_rank_size()
+        self.item_range = 80000 * get_rank_size() if not USE_DP else 80000
+        self.user_range = 200000 * get_rank_size() if not USE_DP else 200000
+        self.category_range = 5000 * get_rank_size() if not USE_DP else 5000
         self.item_feat_cnt = 16
         self.user_feat_cnt = 8
         self.category_feat_cnt = 3
@@ -71,11 +72,13 @@ class Config:
             max_ui_send_cnt = max(self.item_feat_cnt, self.user_feat_cnt)
             max_ui_range = max(self.item_range, self.user_range)
             self.item_send_cnt = min(int(self.batch_size * self.item_feat_cnt * coefficient),
-                                     math.ceil(self.item_range / rank_size))
-            self.item_vocab_size = max(self.item_send_cnt * rank_size * rank_size, self.item_range)
+                                     math.ceil(self.item_range / rank_size)) if not USE_DP else self.item_range
+            self.item_vocab_size = max(self.item_send_cnt * rank_size * rank_size, self.item_range) if not USE_DP \
+                else max(self.item_send_cnt * rank_size, self.item_range)
             self.user_send_cnt = min(int(self.batch_size * max_ui_send_cnt * coefficient),
-                                     math.ceil(max_ui_range / rank_size))
-            self.user_vocab_size = max(self.user_send_cnt * rank_size * rank_size, self.user_range)
+                                     math.ceil(max_ui_range / rank_size)) if not USE_DP else self.user_range
+            self.user_vocab_size = max(self.user_send_cnt * rank_size * rank_size, self.user_range) if not USE_DP \
+                else max(self.user_send_cnt * rank_size, self.user_range)
             self.category_send_cnt = min(int(self.batch_size * self.category_feat_cnt * coefficient),
                                          math.ceil(self.category_range / rank_size))
         else:
@@ -85,6 +88,7 @@ class Config:
         self.user_hashtable_threshold = 1
         self.item_hashtable_dim = 8
         self.item_hashtable_threshold = 1
+        # test
 
         self.learning_rate = 0.01
 
@@ -147,7 +151,7 @@ def construct_op_dump_config(npu_custom_op):
     npu_custom_op.parameter_map["dump_mode"].s = tf.compat.as_bytes(dump_mode)
 
     table_list = ["user_table", "item_table"]
-    
+
     dump_op_info = {"table_list": table_list,
                     "dump_mode": dump_mode}
     PrecisionDumpInfo.add_item("dump_op_info", dump_op_info)
@@ -160,7 +164,7 @@ def construct_op_dump_config(npu_custom_op):
 
         update_by_id_offset = [f"LazyAdam_0/update_{table_name}/ScatterNdAdd_2",
                                f"LazyAdam_0/update_{table_name}/ScatterNdAdd",
-                               f"LazyAdam_0/update_{table_name}/ScatterNdAdd_1"] 
+                               f"LazyAdam_0/update_{table_name}/ScatterNdAdd_1"]
         lookup_table_byaddress = [f"{table_name}//{table_name}_lookup/EmbeddingLookupByAddress"]
         update_grad_byaddress = [f"LazyAdamByAddress_0/update_{table_name}//{table_name}_lookup/"
                                  f"id_offsets/{table_name}/GetNext/EmbeddingUpdateByAddress"]
@@ -184,7 +188,7 @@ def construct_op_dump_config(npu_custom_op):
 def construct_npu_sess_config(dump_data=False):
     session_config = tf.compat.v1.ConfigProto(allow_soft_placement=False,
                                               log_device_placement=False)
-    
+
     session_config.gpu_options.allow_growth = True
     custom_op = session_config.graph_options.rewrite_options.custom_optimizers.add()
     custom_op.name = "NpuOptimizer"
