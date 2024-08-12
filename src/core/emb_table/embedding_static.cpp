@@ -90,18 +90,18 @@ void EmbeddingStatic::SaveKey(const string& savePath, bool saveDelta, const map<
     deviceKey.clear();
     deviceOffset.clear();
 
-    for (const auto& it: keyOffsetMap) {
-        // When saving a delta model, you need to first extract the keys from deltaMap[name] where isChanged is true
-        // from the keyOffsetMap.
-        if (saveDelta) {
-            auto result = keyInfo.find(it.first);
-            if (result == keyInfo.end() || !result->second.isChanged) {
-                continue;
-            }
+    if (saveDelta) {
+        for (const auto& it : keyInfo) {
+            deviceKey.push_back(it.first);
+            deviceOffset.push_back(keyOffsetMap[it.first]);
         }
-        deviceKey.push_back(it.first);
-        deviceOffset.push_back(it.second);
+    } else {
+        for (const auto& it: keyOffsetMap) {
+            deviceKey.push_back(it.first);
+            deviceOffset.push_back(it.second);
+        }
     }
+
     LOG_INFO("Device key size: {}, device offset size: {}.", deviceKey.size(), deviceOffset.size());
 
     if (fileSystemPtr_ == nullptr) {

@@ -143,15 +143,16 @@ void EmbeddingDynamic::SaveKey(const string& savePath, bool saveDelta, const map
     deviceKey.clear();
     embAddress.clear();
 
-    for (const auto &it: keyOffsetMap) {
-        if (saveDelta) {
-            auto result = keyInfo.find(it.first);
-            if (result == keyInfo.end() || !result->second.isChanged) {
-                continue;
-            }
+    if (saveDelta) {
+        for (const auto& it : keyInfo) {
+            deviceKey.push_back(it.first);
+            embAddress.push_back(keyOffsetMap[it.first]);
         }
-        deviceKey.push_back(it.first);
-        embAddress.push_back(it.second);
+    } else {
+        for (const auto &it: keyOffsetMap) {
+            deviceKey.push_back(it.first);
+            embAddress.push_back(it.second);
+        }
     }
 
     if (fileSystemPtr_ == nullptr) {
