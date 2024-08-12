@@ -38,6 +38,12 @@ opensource_path="${ROOT_DIR}"/../opensource
 acc_ctr_path="${ROOT_DIR}"/src/AccCTR
 export LD_LIBRARY_PATH="${acc_ctr_path}"/output/ock_ctr_common/lib:$LD_LIBRARY_PATH
 
+function install_expected(){
+  cd "$ROOT_DIR"
+  git submodule init && git submodule update
+  cd -
+}
+
 function prepare_googletest(){
   cd ${opensource_path}
   if [ ! -d googletest-release-1.8.1 ]; then
@@ -101,6 +107,7 @@ function prepare_pybind(){
   fi
 }
 
+install_expected
 prepare_pybind
 echo "opensource path:${opensource_path}"
 prepare_googletest
