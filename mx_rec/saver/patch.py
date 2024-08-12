@@ -291,7 +291,7 @@ def save(self, sess, save_path, global_step=None, latest_filename=None, meta_gra
                 write_delta_export_time_ms(save_dir, {delta_model_version: int(save_cost_time * 1000)})
             update_model_index(save_dir, model_index_info)
 
-            # When saving base model, clear delta model directories
+            # 当保存base的时候清空delta目录
             if not save_delta:
                 clear_delta_models(save_dir)
     comm.Barrier()
