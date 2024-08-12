@@ -184,17 +184,6 @@ struct Batch {
         return s;
     }
 
-    bool CheckAndSetEos()
-    {
-        for (int i = 0; i < 8; i++) {
-            if (sample[i] != 0) {
-                return false;
-            }
-        }
-        isEos = true;
-        return true;
-    }
-
     std::vector<T> sample;
     std::string name;
     size_t batchSize;

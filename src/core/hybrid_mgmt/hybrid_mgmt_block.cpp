@@ -187,9 +187,6 @@ void HybridMgmtBlock::ResetAll(int channelId)
     LOG_DEBUG(HYBRID_BLOCKING + "after reset block status,"
                                 " channelId:{}, pythonBatchId:{}, readEmbedBatchId:{}, hybridBatchId:{}",
               channelId, pythonBatchId[channelId], readEmbedBatchId[channelId], hybridBatchId[channelId]);
-
-    LOG_DEBUG("Start to reset isNeedSendEos");
-    Singleton<KeyProcess>::GetInstance()->SetEos(0, channelId);
 }
 
 /// 检查当前的步数是否可以进行save

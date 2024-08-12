@@ -156,9 +156,11 @@ public:
         }
     }
 
-    void SetEos(int status, int channelId);
+    void EnqueEosBatch(int64_t batchNum, int channelId);
 
     void SendEos(const string& embName, int batchId, int channel);
+
+    void HandleEos(unique_ptr<EmbBatchT>& batch, int channel, int threadId);
 
     bool isRunning{false};
 
@@ -206,12 +208,8 @@ public:
     int hotEmbUpdateStep = HOT_EMB_UPDATE_STEP_DEFAULT;
     bool isWithFAAE;
 
-    // for end-of-sequence case
-    bool isNeedSendEos[2] = {false, false};  // 表示各表通道0、1的eos状态
     atomic<int> readySendEosCnt[2];
     atomic<int> finishSendEosCnt[2];
-    const double timeoutGetUniqueKeys = 30.0;      // 如果超时仍未获取到数据将触发EOS
-    const double timeoutGetUniqueKeysEmpty = 1.0;  // 如果超时仍未获取到数据将打印信息
 
     void InitHotEmbTotCount(const EmbInfo& info, const RankInfo& rInfo);
 
