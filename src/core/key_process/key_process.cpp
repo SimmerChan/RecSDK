@@ -306,10 +306,10 @@ void KeyProcess::KeyProcessTask(int channel, int threadId)
 
             bool isKeyProcessTaskSuccess;
             if (embInfos[batch->name].isDp) {
-                // Data parallel key process.
+                // Data parallel key processing.
                 isKeyProcessTaskSuccess = KeyProcessTaskHelperForDp(batch, channel, threadId);
             } else {
-                // Model parallel key process.
+                // Model parallel key processing.
                 isKeyProcessTaskSuccess = KeyProcessTaskHelper(batch, channel, threadId);
             }
             if (!isKeyProcessTaskSuccess) {
