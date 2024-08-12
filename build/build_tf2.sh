@@ -35,7 +35,6 @@ if [ ! -d ${opensource_path} ]; then
 fi
 
 function install_expected(){
-  # MODULE_PATH="$MxRec_DIR"/third_party/expected
   cd "$MxRec_DIR"
   git submodule init && git submodule update
   cd -
@@ -120,7 +119,20 @@ function collect_so_file()
 
 # start to build MxRec
 echo "----------------          install     expected          ----------------"
-install_expected
+max_attempts=5
+attempt=1
+until [ $attempt -gt $max_attempts ]
+do
+    install_expected && break
+    echo "Attempt $attempt to install cpp-expected failed! Trying again in 10 seconds..."
+    attempt=$((attempt + 1))
+    sleep 10
+done
+
+if [ $attempt -gt $max_attempts ]; then
+    echo "To install cpp-expected failed after $max_attempts attempts."
+    exit 1
+fi
 echo "----------------          compile     securec           ----------------"
 compile_securec
 echo "----------------          compile     AccCTR            ----------------"
