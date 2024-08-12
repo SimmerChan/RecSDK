@@ -133,7 +133,6 @@ if [ $attempt -gt $max_attempts ]; then
     echo "To install cpp-expected failed after $max_attempts attempts."
     exit 1
 fi
-install_expected
 echo "----------------          compile     securec           ----------------"
 compile_securec
 echo "----------------          compile     AccCTR            ----------------"
