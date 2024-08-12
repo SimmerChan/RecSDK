@@ -482,9 +482,7 @@ bool KeyProcess::KeyProcessTaskHelper(unique_ptr<EmbBatchT>& batch, int channel,
 void KeyProcess::HandleEos(unique_ptr<EmbBatchT>& batch, int channel, int threadId)
 {
     if (!rankInfo.isDDR) {  // HBM
-                            //            auto tensors = make_unique<vector<Tensor>>();
         std::unique_lock<std::mutex> lockGuard(mut);
-        //            storage.push_front(move(tensors));
         infoList[batch->name][batch->channel].push(
             make_tuple(batch->batchId, batch->name, batch->isEos, storage.begin()));
         lockGuard.unlock();
@@ -1588,9 +1586,9 @@ void KeyProcess::RecordKeyCountMap(const unique_ptr<EmbBatchT>& batch)
     }
 }
 
-void KeyProcess::EnqueEosBatch(int64_t batchNum, int channelId)
+void KeyProcess::EnqueueEosBatch(int64_t batchNum, int channelId)
 {
-    LOG_INFO("DataSet eos, channel:{}, eos number:{}", channelId, batchNum);
+    LOG_INFO("Enqueue data set eos on batch queue, channel:{}, eos number:{}", channelId, batchNum);
     int threadNum = GetThreadNumEnv();
     int batchQueueId = int(batchNum % threadNum) + (MAX_KEY_PROCESS_THREAD * channelId);
     auto queue = SingletonQueue<EmbBatchT>::GetInstances(batchQueueId);
@@ -1599,6 +1597,7 @@ void KeyProcess::EnqueEosBatch(int64_t batchNum, int channelId)
         batchData->name = emb.first;
         batchData->channel = channelId;
         batchData->batchId = batchNum;
+        batchData->sample = {0, 0, 0, 0, 0, 0, 0, 0}; // fake data
         batchData->isEos = true;
         queue->Pushv(move(batchData));
     }

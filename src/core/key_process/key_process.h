@@ -156,7 +156,7 @@ public:
         }
     }
 
-    void EnqueEosBatch(int64_t batchNum, int channelId);
+    void EnqueueEosBatch(int64_t batchNum, int channelId);
 
     void SendEos(const string& embName, int batchId, int channel);
 

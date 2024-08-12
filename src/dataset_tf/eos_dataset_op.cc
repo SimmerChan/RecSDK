@@ -295,13 +295,13 @@ private:
             }
             TF_RETURN_IF_ERROR(input_impl_->GetNext(ctx, out_tensors, end_of_sequence));
 
-            // todo debug print
+            // Out size equals to zero when batch eos.
             int outSize = out_tensors->size();
             if (outSize > 0) {
                 for (const auto& t : *out_tensors) {
                     DataType tensor_type = t.dtype();
                     TensorShape tensor_shape = t.shape();
-                    LOG_INFO("[LQK] GetNext eos, channel: {}, iter: {}, outTensor size: {}, tensor_type: {}, "
+                    LOG_DEBUG("Iterator getNext eos, channel: {}, iter: {}, outTensor size: {}, tensor_type: {}, "
                               "tensor_shape: {}",
                               dataset()->channelId_,
                               iter_times_,
@@ -337,7 +337,7 @@ private:
                                &req);
                 CheckCommFinished(req, channelId);
 
-                keyProcess->EnqueEosBatch(iter_times_, dataset()->channelId_);
+                keyProcess->EnqueueEosBatch(iter_times_, dataset()->channelId_);
                 LOG_DEBUG("[ACTIVE] GetNext eos was triggered actively, channel: {}, iter: {}",
                           dataset()->channelId_,
                           iter_times_);
@@ -352,7 +352,7 @@ private:
 
             if (getNextStatus < g_rankSize) {
                 *end_of_sequence = true;
-                keyProcess->EnqueEosBatch(iter_times_, dataset()->channelId_);
+                keyProcess->EnqueueEosBatch(iter_times_, dataset()->channelId_);
                 LOG_DEBUG(
                     "[PASSIVE] GetNext eos was triggered passively, channel: {}, iter: {}, sum: {}",
                     dataset()->channelId_, iter_times_, getNextStatus);
