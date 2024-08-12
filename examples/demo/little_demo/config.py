@@ -82,6 +82,7 @@ class Config:
 
         self.vocabulary_size = 500000
         self.feat_cnt = 1
+        # test
 
         rank_size = get_rank_size()
         coefficient = 1.1
