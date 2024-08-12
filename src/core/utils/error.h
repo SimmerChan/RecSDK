@@ -16,13 +16,14 @@ See the License for the specific language governing permissions and
 #ifndef MXREC_CORE_UTILS_ERROR_H
 #define MXREC_CORE_UTILS_ERROR_H
 
+#include <cstdint>
 #include <string>
 
 #include "tl/expected.hpp"
 
 namespace MxRec {
 
-enum class ErrorType {
+enum class ErrorType: uint8_t {
     NOT_FOUND,
     FILE_NOT_EXIST,
     NOT_SUPPORTED,
@@ -32,7 +33,7 @@ enum class ErrorType {
     UNKNOWN,
 };
 
-enum class ModuleName {
+enum class ModuleName: uint8_t {
     CHECK_POINT,
     EMB_TABLE,
     FILE_SYSTEM,
