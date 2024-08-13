@@ -40,7 +40,8 @@ export LD_LIBRARY_PATH="${acc_ctr_path}"/output/ock_ctr_common/lib:$LD_LIBRARY_P
 
 function install_expected(){
   cd "$ROOT_DIR"
-  cmd="git submodule init && git submodule update"
+  git submodule init
+  cmd="git submodule update"
   # retry five times
   $cmd || $cmd || $cmd || $cmd || $cmd
   cd -
