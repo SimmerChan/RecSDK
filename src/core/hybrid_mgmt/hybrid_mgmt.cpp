@@ -1212,7 +1212,8 @@ void HybridMgmt::EmbeddingLookUpAndSendDDR(int batchId, int index, const EmbInfo
 
     auto isSuccess = EmbeddingLookUpDDR(info, h2dEmb);
     if (!isSuccess) {
-        LOG_INFO("HybridMgmt is not running");
+        LOG_INFO("HybridMgmt is not running when [LookUpAndSendDDR], table:{}, batchId:{}, channel:{}", embInfo.name,
+                 batchId, channelId);
         return;
     }
     EmbeddingSendDDR(info, h2dEmb);
@@ -1237,7 +1238,9 @@ void HybridMgmt::EmbeddingReceiveAndUpdateDDR(int batchId, int index, const EmbI
     bool isEos = false;
     auto isSuccess = EmbeddingReceiveDDR(info, ptr, swapOutAddrs, isEos);
     if (!isSuccess) {
-        LOG_INFO("HybridMgmt is not running");
+        LOG_INFO("HybridMgmt is not running or receive empty data when [ReceiveAndUpdateDDR], table:{}, batchId:{}, "
+                 "channel:{}",
+                 embInfo.name, batchId, channelId);
         return;
     }
     if (!isEos) {
@@ -1262,7 +1265,8 @@ void HybridMgmt::EmbeddingLookUpAndSendL3Storage(int batchId, int index, const E
 
     auto isSuccess = EmbeddingLookUpL3Storage(info, h2dEmb);
     if (!isSuccess) {
-        LOG_INFO("HybridMgmt is not running");
+        LOG_INFO("HybridMgmt is not running when [LookUpAndSendL3Storage], table:{}, batchId:{}, channel:{}",
+                 embInfo.name, batchId, channelId);
         return;
     }
 
@@ -1287,7 +1291,13 @@ void HybridMgmt::EmbeddingReceiveAndUpdateL3Storage(int batchId, int index, cons
     vector<float*> swapOutAddrs;
     int64_t dims0 = 0;
     bool isEos = false;
-    EmbeddingReceiveL3Storage(info, ptr, swapOutAddrs, dims0, isEos);
+    auto isSuccess = EmbeddingReceiveL3Storage(info, ptr, swapOutAddrs, dims0, isEos);
+    if (!isSuccess) {
+        LOG_INFO("HybridMgmt is not running or receive empty data when [LookUpAndSendL3Storage], table:{}, batchId:{}, "
+                 "channel:{}",
+                 embInfo.name, batchId, channelId);
+        return;
+    }
     if (!isEos) {
         EmbeddingUpdateL3Storage(info, ptr, swapOutAddrs, dims0);
     }
