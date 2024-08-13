@@ -442,22 +442,7 @@ void HybridMgmt::Destroy()
     }
     // 先发送停止信号mgmt，先停止新lookup查询, 解除queue的限制防止卡住
     isRunning = false;
-
     mutexDestroy = true;
-    for (const auto& embInfo : mgmtEmbInfo) {
-        for (int index = 0; index < EMBEDDING_THREAD_NUM; index++) {
-            string trainKey = MakeKeyName(index, embInfo.name, TRAIN_CHANNEL_ID);
-            lastUpdateFinishCV[trainKey].notify_all();
-            lastLookUpFinishCV[trainKey].notify_all();
-            lastSendFinishCV[trainKey].notify_all();
-            lastRecvFinishCV[trainKey].notify_all();
-            string evalKey = MakeKeyName(index, embInfo.name, EVAL_CHANNEL_ID);
-            lastUpdateFinishCV[evalKey].notify_all();
-            lastLookUpFinishCV[evalKey].notify_all();
-            lastSendFinishCV[evalKey].notify_all();
-            lastRecvFinishCV[evalKey].notify_all();
-        }
-    }
     cvCheckSave.notify_all();  // 防止save异常退出场景阻塞在EvalTask
 
     {
@@ -474,11 +459,14 @@ void HybridMgmt::Destroy()
     for (auto& t : procThreads) {
         t->join();
     }
+    procThreads.clear();
+
     if (cacheManager != nullptr) {
         cacheManager = nullptr;
     }
     JoinEmbeddingCacheThread();
-    procThreads.clear();
+    LOG_DEBUG(MGMT + "destroy EmbeddingCacheThread end.");
+
     // 等待并销毁接收key的线程
     for (auto& t : receiveKeyThreads) {
         t.join();
@@ -1470,38 +1458,44 @@ void HybridMgmt::InitEmbeddingCache(const vector<EmbInfo>& embInfos)
 
 void HybridMgmt::JoinEmbeddingCacheThread()
 {
-    for (auto& p : EosL1Que) {
-        p.second[TRAIN_CHANNEL_ID].DestroyQueue();
-        p.second[EVAL_CHANNEL_ID].DestroyQueue();
+    for (int channelId = 0; channelId < MAX_CHANNEL_NUM; channelId++) {
+        // Let ReceiveAndUpdate & LookupAndSend thread stop.
+        for (const auto& embInfo : mgmtEmbInfo) {
+            for (int index = 0; index < EMBEDDING_THREAD_NUM; index++) {
+                string key = MakeSwapCVName(index, embInfo.name, channelId);
+                lastUpdateFinishCV[key].notify_all();
+                lastLookUpFinishCV[key].notify_all();
+                lastSendFinishCV[key].notify_all();
+                lastRecvFinishCV[key].notify_all();
+            }
+        }
+
+        for (auto& p : EosL1Que) {
+            p.second[channelId].DestroyQueue();
+        }
+        for (auto& p : EosL2Que) {
+            p.second[channelId].DestroyQueue();
+        }
+        for (auto& p : HBMSwapAddrsQue) {
+            p.second[channelId].DestroyQueue();
+        }
+        for (auto& p : HBMSwapKeyQue) {
+            p.second[channelId].DestroyQueue();
+        }
+        for (auto& p : HBMSwapKeyForL3StorageQue) {
+            p.second[channelId].DestroyQueue();
+        }
+        for (auto& p : DDRSwapKeyQue) {
+            p.second[channelId].DestroyQueue();
+        }
+        for (auto& p : DDRSwapKeyForL3StorageQue) {
+            p.second[channelId].DestroyQueue();
+        }
+        for (auto& p : DDRSwapAddrsQue) {
+            p.second[channelId].DestroyQueue();
+        }
     }
-    for (auto& p : EosL2Que) {
-        p.second[TRAIN_CHANNEL_ID].DestroyQueue();
-        p.second[EVAL_CHANNEL_ID].DestroyQueue();
-    }
-    for (auto& p : HBMSwapAddrsQue) {
-        p.second[TRAIN_CHANNEL_ID].DestroyQueue();
-        p.second[EVAL_CHANNEL_ID].DestroyQueue();
-    }
-    for (auto& p : HBMSwapKeyQue) {
-        p.second[TRAIN_CHANNEL_ID].DestroyQueue();
-        p.second[EVAL_CHANNEL_ID].DestroyQueue();
-    }
-    for (auto& p : HBMSwapKeyForL3StorageQue) {
-        p.second[TRAIN_CHANNEL_ID].DestroyQueue();
-        p.second[EVAL_CHANNEL_ID].DestroyQueue();
-    }
-    for (auto& p : DDRSwapKeyQue) {
-        p.second[TRAIN_CHANNEL_ID].DestroyQueue();
-        p.second[EVAL_CHANNEL_ID].DestroyQueue();
-    }
-    for (auto& p : DDRSwapKeyForL3StorageQue) {
-        p.second[TRAIN_CHANNEL_ID].DestroyQueue();
-        p.second[EVAL_CHANNEL_ID].DestroyQueue();
-    }
-    for (auto& p : DDRSwapAddrsQue) {
-        p.second[TRAIN_CHANNEL_ID].DestroyQueue();
-        p.second[EVAL_CHANNEL_ID].DestroyQueue();
-    }
+
     for (auto& t : EmbeddingLookUpAndSendThreadPool) {
         t.join();
     }
@@ -1527,7 +1521,7 @@ void HybridMgmt::HandleEosCase(const EmbBaseInfo& info, bool& remainBatchOut)
 
 bool HybridMgmt::EmbeddingReceiveDDR(const EmbTaskInfo& info, float*& ptr, vector<float*>& swapOutAddrs, bool& isEos)
 {
-    string currentKey = MakeKeyName(info.threadIdx, info.name, info.channelId);
+    string currentKey = MakeSwapCVName(info.threadIdx, info.name, info.channelId);
     std::unique_lock<std::mutex> lastRecvFinishLocker(lastRecvFinishMutex[currentKey]);
     lastRecvFinishCV[currentKey].wait(lastRecvFinishLocker, [info, this] {
         return (hybridMgmtBlock->lastRecvFinishStep[info.name][info.channelId] == info.batchId) || mutexDestroy;
@@ -1537,7 +1531,7 @@ bool HybridMgmt::EmbeddingReceiveDDR(const EmbTaskInfo& info, float*& ptr, vecto
     if (!isRunning) {
         return false;
     }
-    string nextKey = MakeKeyName(info.cvNotifyIndex, info.name, info.channelId);
+    string nextKey = MakeSwapCVName(info.cvNotifyIndex, info.name, info.channelId);
     if (isEos) {
         LOG_DEBUG("EmbeddingReceiveDDR get eos, table:{}, batchId:{}, channel: {}", info.name, info.batchId,
                   info.channelId);
@@ -1589,7 +1583,7 @@ bool HybridMgmt::EmbeddingReceiveDDR(const EmbTaskInfo& info, float*& ptr, vecto
 
 void HybridMgmt::EmbeddingUpdateDDR(const EmbTaskInfo& info, const float* embPtr, vector<float*>& swapOutAddrs)
 {
-    string currentKey = MakeKeyName(info.threadIdx, info.name, info.channelId);
+    string currentKey = MakeSwapCVName(info.threadIdx, info.name, info.channelId);
     std::unique_lock<std::mutex> lastUpdateFinishLocker(lastUpdateFinishMutex[currentKey]);
     lastUpdateFinishCV[currentKey].wait(lastUpdateFinishLocker, [info, this] {
         return (hybridMgmtBlock->lastUpdateFinishStep[info.name][info.channelId] == info.batchId) || mutexDestroy;
@@ -1619,13 +1613,13 @@ void HybridMgmt::EmbeddingUpdateDDR(const EmbTaskInfo& info, const float* embPtr
     }
 
     hybridMgmtBlock->lastUpdateFinishStep[info.name][info.channelId]++;
-    string nextKey = MakeKeyName(info.cvNotifyIndex, info.name, info.channelId);
+    string nextKey = MakeSwapCVName(info.cvNotifyIndex, info.name, info.channelId);
     lastUpdateFinishCV[nextKey].notify_all();
 }
 
 bool HybridMgmt::EmbeddingLookUpDDR(const EmbTaskInfo& info, vector<Tensor>& h2dEmb)
 {
-    string currentKey = MakeKeyName(info.threadIdx, info.name, info.channelId);
+    string currentKey = MakeSwapCVName(info.threadIdx, info.name, info.channelId);
     std::unique_lock<std::mutex> lastUpdateFinishLocker(lastUpdateFinishMutex[currentKey]);
     lastUpdateFinishCV[currentKey].wait(lastUpdateFinishLocker, [info, this] {
         return (hybridMgmtBlock->lastUpdateFinishStep[info.name][info.channelId] >= info.batchId) || mutexDestroy;
@@ -1648,7 +1642,7 @@ bool HybridMgmt::EmbeddingLookUpDDR(const EmbTaskInfo& info, vector<Tensor>& h2d
     }
 
     hybridMgmtBlock->lastLookUpFinishStep[info.name][info.channelId]++;
-    string nextKey = MakeKeyName(info.cvNotifyIndex, info.name, info.channelId);
+    string nextKey = MakeSwapCVName(info.cvNotifyIndex, info.name, info.channelId);
     lastLookUpFinishCV[nextKey].notify_all();
 
     return true;
@@ -1656,7 +1650,7 @@ bool HybridMgmt::EmbeddingLookUpDDR(const EmbTaskInfo& info, vector<Tensor>& h2d
 
 void HybridMgmt::EmbeddingSendDDR(const EmbTaskInfo& info, vector<Tensor>& h2dEmb)
 {
-    string currentKey = MakeKeyName(info.threadIdx, info.name, info.channelId);
+    string currentKey = MakeSwapCVName(info.threadIdx, info.name, info.channelId);
     std::unique_lock<std::mutex> lastSendFinishLocker(lastSendFinishMutex[currentKey]);
     lastSendFinishCV[currentKey].wait(lastSendFinishLocker, [info, this] {
         return (hybridMgmtBlock->lastSendFinishStep[info.name][info.channelId] == info.batchId) || mutexDestroy;
@@ -1665,7 +1659,7 @@ void HybridMgmt::EmbeddingSendDDR(const EmbTaskInfo& info, vector<Tensor>& h2dEm
     // 区分通道发送
     hdTransfer->Send(TransferChannel::H2D, h2dEmb, info.channelId, info.name, info.batchId);
     hybridMgmtBlock->lastSendFinishStep[info.name][info.channelId]++;
-    string nextKey = MakeKeyName(info.cvNotifyIndex, info.name, info.channelId);
+    string nextKey = MakeSwapCVName(info.cvNotifyIndex, info.name, info.channelId);
     lastSendFinishCV[nextKey].notify_all();
     LOG_DEBUG("table:{}, accumulate batchId:{}, thread:{}, SendH2DEmbTC(ms):{}", info.name, info.batchId,
               info.threadIdx, SendTC.ElapsedMS());
@@ -1680,6 +1674,7 @@ void HybridMgmt::EmbeddingSendDDR(const EmbTaskInfo& info, vector<Tensor>& h2dEm
 void HybridMgmt::CreateEmbeddingLookUpAndSendThread(int index, const EmbInfo& embInfo, int channelId)
 {
     auto fn = [index, embInfo, channelId, this]() {
+        LOG_DEBUG(MGMT + "Create LookUpAndSendThread, table:{}, index:{}, channel:{}", embInfo.name, index, channelId);
         while (true) {
             lookUpAndSendBatchIdMtx[channelId].lock();
             if (hybridMgmtBlock->lookUpAndSendTableBatchId[embInfo.name][channelId] % EMBEDDING_THREAD_NUM == index) {
@@ -1695,6 +1690,8 @@ void HybridMgmt::CreateEmbeddingLookUpAndSendThread(int index, const EmbInfo& em
                 lookUpAndSendBatchIdMtx[channelId].unlock();
             }
             if (!isRunning) {
+                LOG_DEBUG(MGMT + "Destroy LookUpAndSendThread, table:{}, index:{}, channel:{}, batchId:{}",
+                          embInfo.name, index, channelId, hybridMgmtBlock->receiveAndUpdateTableBatchId[embInfo.name][channelId]);
                 return;
             }
         }
@@ -1705,6 +1702,7 @@ void HybridMgmt::CreateEmbeddingLookUpAndSendThread(int index, const EmbInfo& em
 void HybridMgmt::CreateEmbeddingReceiveAndUpdateThread(int index, const EmbInfo& embInfo, int channelId)
 {
     auto fn = [index, embInfo, channelId, this]() {
+        LOG_DEBUG(MGMT + "Create ReceiveAndUpdateThread, table:{}, index:{}, channel:{}", embInfo.name, index, channelId);
         while (true) {
             receiveAndUpdateBatchIdMtx[channelId].lock();
             if (hybridMgmtBlock->receiveAndUpdateTableBatchId[embInfo.name][channelId] % EMBEDDING_THREAD_NUM ==
@@ -1721,6 +1719,8 @@ void HybridMgmt::CreateEmbeddingReceiveAndUpdateThread(int index, const EmbInfo&
                 receiveAndUpdateBatchIdMtx[channelId].unlock();
             }
             if (!isRunning) {
+                LOG_DEBUG(MGMT + "Destroy ReceiveAndUpdateThread, table:{}, index:{}, channel:{}, batchId:{}",
+                          embInfo.name, index, channelId, hybridMgmtBlock->receiveAndUpdateTableBatchId[embInfo.name][channelId]);
                 return;
             }
         }
@@ -1731,7 +1731,7 @@ void HybridMgmt::CreateEmbeddingReceiveAndUpdateThread(int index, const EmbInfo&
 bool HybridMgmt::EmbeddingReceiveL3Storage(const EmbTaskInfo& info, float*& ptr, vector<float*>& swapOutAddrs,
                                            int64_t& dims0, bool& isEos)
 {
-    string currentKey = MakeKeyName(info.threadIdx, info.name, info.channelId);
+    string currentKey = MakeSwapCVName(info.threadIdx, info.name, info.channelId);
     std::unique_lock<std::mutex> lastRecvFinishLocker(lastRecvFinishMutex[currentKey]);
     lastRecvFinishCV[currentKey].wait(lastRecvFinishLocker, [info, this] {
         return (hybridMgmtBlock->lastRecvFinishStep[info.name][info.channelId] == info.batchId) || mutexDestroy;
@@ -1741,7 +1741,7 @@ bool HybridMgmt::EmbeddingReceiveL3Storage(const EmbTaskInfo& info, float*& ptr,
     if (!isRunning) {
         return false;
     }
-    string nextKey = MakeKeyName(info.cvNotifyIndex, info.name, info.channelId);
+    string nextKey = MakeSwapCVName(info.cvNotifyIndex, info.name, info.channelId);
     if (isEos) {
         LOG_DEBUG("EmbeddingReceiveL3Storage get eos, table:{}, batchId:{}, channel: {}", info.name, info.batchId,
                   info.channelId);
@@ -1792,7 +1792,7 @@ bool HybridMgmt::EmbeddingReceiveL3Storage(const EmbTaskInfo& info, float*& ptr,
 void HybridMgmt::EmbeddingUpdateL3Storage(const EmbTaskInfo& info, float* embPtr, vector<float*>& swapOutAddrs,
                                           int64_t& dims0)
 {
-    string currentKey = MakeKeyName(info.threadIdx, info.name, info.channelId);
+    string currentKey = MakeSwapCVName(info.threadIdx, info.name, info.channelId);
     std::unique_lock<std::mutex> lastUpdateFinishLocker(lastUpdateFinishMutex[currentKey]);
     lastUpdateFinishCV[currentKey].wait(lastUpdateFinishLocker, [info, this] {
         return (hybridMgmtBlock->lastUpdateFinishStep[info.name][info.channelId] == info.batchId) || mutexDestroy;
@@ -1836,13 +1836,13 @@ void HybridMgmt::EmbeddingUpdateL3Storage(const EmbTaskInfo& info, float* embPtr
               info.batchId, info.channelId, info.threadIdx, L3StorageUpdateTC.ElapsedMS());
 
     hybridMgmtBlock->lastUpdateFinishStep[info.name][info.channelId]++;
-    string nextKey = MakeKeyName(info.cvNotifyIndex, info.name, info.channelId);
+    string nextKey = MakeSwapCVName(info.cvNotifyIndex, info.name, info.channelId);
     lastUpdateFinishCV[nextKey].notify_all();
 }
 
 bool HybridMgmt::EmbeddingLookUpL3Storage(const EmbTaskInfo& info, vector<Tensor>& h2dEmb)
 {
-    string currentKey = MakeKeyName(info.threadIdx, info.name, info.channelId);
+    string currentKey = MakeSwapCVName(info.threadIdx, info.name, info.channelId);
     std::unique_lock<std::mutex> lastUpdateFinishLocker(lastUpdateFinishMutex[currentKey]);
     lastUpdateFinishCV[currentKey].wait(lastUpdateFinishLocker, [info, this] {
         return (hybridMgmtBlock->lastUpdateFinishStep[info.name][info.channelId] >= info.batchId) || mutexDestroy;
@@ -1889,7 +1889,7 @@ bool HybridMgmt::EmbeddingLookUpL3Storage(const EmbTaskInfo& info, vector<Tensor
     }
 
     hybridMgmtBlock->lastLookUpFinishStep[info.name][info.channelId]++;
-    string nextKey = MakeKeyName(info.cvNotifyIndex, info.name, info.channelId);
+    string nextKey = MakeSwapCVName(info.cvNotifyIndex, info.name, info.channelId);
     lastLookUpFinishCV[nextKey].notify_all();
 
     return true;
@@ -1897,7 +1897,7 @@ bool HybridMgmt::EmbeddingLookUpL3Storage(const EmbTaskInfo& info, vector<Tensor
 
 void HybridMgmt::EmbeddingSendL3Storage(const EmbTaskInfo& info, vector<Tensor>& h2dEmb)
 {
-    string currentKey = MakeKeyName(info.threadIdx, info.name, info.channelId);
+    string currentKey = MakeSwapCVName(info.threadIdx, info.name, info.channelId);
     std::unique_lock<std::mutex> lastSendFinishLocker(lastSendFinishMutex[currentKey]);
     lastSendFinishCV[currentKey].wait(lastSendFinishLocker, [info, this] {
         return (hybridMgmtBlock->lastSendFinishStep[info.name][info.channelId] == info.batchId) || mutexDestroy;
@@ -1906,7 +1906,7 @@ void HybridMgmt::EmbeddingSendL3Storage(const EmbTaskInfo& info, vector<Tensor>&
     // 区分通道发送
     hdTransfer->Send(TransferChannel::H2D, h2dEmb, info.channelId, info.name, info.batchId);
     hybridMgmtBlock->lastSendFinishStep[info.name][info.channelId]++;
-    string nextKey = MakeKeyName(info.cvNotifyIndex, info.name, info.channelId);
+    string nextKey = MakeSwapCVName(info.cvNotifyIndex, info.name, info.channelId);
     lastSendFinishCV[nextKey].notify_all();
     LOG_DEBUG("table:{}, channelId:{}, accumulate batchId:{}, thread:{}, SendH2DEmbTC(ms):{}", info.name.c_str(),
               info.channelId, info.batchId, info.threadIdx, SendTC.ElapsedMS());

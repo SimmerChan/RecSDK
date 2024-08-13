@@ -622,7 +622,7 @@ bool CheckFilePermission(const string& filePath);
 
 int GetStepFromPath(const string& loadPath);
 
-string MakeKeyName(int id, const string& tableName, int channelId);
+string MakeSwapCVName(int id, const string& tableName, int channelId);
 }  // end namespace MxRec
 
 #define KEY_PROCESS "\033[45m[KeyProcess]\033[0m "
