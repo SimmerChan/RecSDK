@@ -16,7 +16,9 @@
 # ==============================================================================
 
 import argparse
+import logging
 import os
+import stat
 
 import tensorflow as tf
 from graph_partition import GraphPartitioner
@@ -37,11 +39,17 @@ if __name__ == "__main__":
     partition_to_first_heavy_load = False
     #########################################################
 
-    output_filepath = os.path.join(args.output_path, args.output_filename)
+    try:
+        output_filepath = os.path.join(args.output_path, args.output_filename)
+        output_filepath = os.path.realpath(output_filepath)
+        model_path = os.path.realpath(args.model_path)
+    except Exception as ex:
+        logging.error(ex)
+        sys.exit(1)
 
     with tf.compat.v1.Session() as sess:
         meta_graph = tf.compat.v1.saved_model.loader.load(
-            sess, ["serve"], args.model_path
+            sess, ["serve"], model_path
         )
         ops = sess.graph.get_operations()
         graph_partitioner = GraphPartitioner()
@@ -54,18 +62,16 @@ if __name__ == "__main__":
 
     res_string = "[[" + inputs + "," + outputs + "]]"
 
-    ori_test = open("template.cfg")
-    template = ori_test.read()
-    output = template.replace("#value@in_out_pair#", res_string)
-    if os.path.exists(output_filepath):
-        os.remove(output_filepath)
+    with os.fdopen(os.open("template.cfg", os.O_RDONLY)) as ori_cfg:
+        template = ori_cfg.read()
+        output = template.replace("#value@in_out_pair#", res_string)
+        if os.path.exists(output_filepath):
+            os.remove(output_filepath)
 
-    # open text file
-    text_file = os.fdopen(os.open(output_filepath, os.O_WRONLY | os.O_CREAT, 0o666, "w"))
+        # create and write new cfg
+        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+        mode = stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH
+        with os.fdopen(os.open(output_filepath, flags, mode), "w") as file:
+            file.write(output)
 
-    # write string to file
-    n = text_file.write(output)
 
-    # close file
-    text_file.close()
-    ori_test.close()
