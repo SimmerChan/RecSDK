@@ -37,7 +37,7 @@ fi
 function install_expected(){
   cd "$MxRec_DIR"
   git submodule init
-  cmd="git submodule update"
+  cmd="git submodule update || sleep 10"
   # retry five times
   $cmd || $cmd || $cmd || $cmd || $cmd
   cd -
