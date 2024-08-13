@@ -535,16 +535,6 @@ void HybridMgmt::EvalTask(TaskType type)
             LOG_DEBUG("eval channel block, python batch id:{}, hybridBatchId:{}",
                       hybridMgmtBlock->pythonBatchId[EVAL_CHANNEL_ID], evalBatchId);
 
-            if (hybridMgmtBlock->pythonBatchId[EVAL_CHANNEL_ID] >= hybridMgmtBlock->hybridBatchId[EVAL_CHANNEL_ID]) {
-                hybridMgmtBlock->Wake(TRAIN_CHANNEL_ID);
-            } else if (!isRunning) {
-                return;
-            }
-            else {
-                std::this_thread::sleep_for(SLEEP_MS);
-                continue;
-            }
-
             LOG_DEBUG("wake TrainTask");
             hybridMgmtBlock->DoBlock(EVAL_CHANNEL_ID);
         }
@@ -712,9 +702,9 @@ bool HybridMgmt::ProcessEmbInfoDDR(const EmbBaseInfo& info)
     bool isEos = false;
     auto uniqueKeys = GetUniqueKeys(info, remainBatchOut, isEos);
     if (isEos) {
-        EosL1Que[info.name].Pushv(make_pair(true, info.channelId));
-        LOG_DEBUG("Enqueue on EosL1Que, table:{}, batchId:{}, channelId:{}, EosL1Que size: {}", info.name,
-                  info.batchId, info.channelId, EosL1Que.size());
+        EosL1Que[info.name][info.channelId].Pushv(true);
+        LOG_DEBUG("Enqueue on EosL1Que, eos status! table:{}, batchId:{}, channelId:{}, EosL1Que size: {}", info.name,
+                  info.batchId, info.channelId, EosL1Que[info.name][info.channelId].Size());
     }
     if (uniqueKeys.empty()) {
         return remainBatchOut;
@@ -995,21 +985,16 @@ void HybridMgmt::LookUpSwapAddrs(const string& embName, int channelId)
     std::string swapOutName = embName + SWAP_OUT_STR;
     std::vector<float*> addrs;
     while (isRunning && lookupAddrSuccess) {
-        pair<bool, int> eosChannel = EosL1Que[embName].WaitAndPop();
+        bool isEos = EosL1Que[embName][channelId].WaitAndPop();
         if (!isRunning) {
             return;
         }
-        if (eosChannel.first) {
-            EosL2Que[embName].Pushv(make_pair(true, eosChannel.second));
-            LOG_DEBUG(
-                "Enqueue on EosL2Que, table:{}, batchId:{}, channelId:{}, EosL1Que size:{}, EosL2Que.size: {}",
-                embName, id, eosChannel.second, EosL1Que.size(), EosL2Que.size());
-            continue;
-        } else {
-            EosL2Que[embName].Pushv(make_pair(false, eosChannel.second));
-            LOG_DEBUG("Enqueue on EosL2Que, normal status, table:{}, batchId:{}, channelId:{}, EosL1Que size:{}, "
+        EosL2Que[embName][channelId].Pushv(isEos);
+        if (isEos) {
+            LOG_DEBUG("Enqueue on EosL2Que, eos status! table:{}, batchId:{}, channelId:{}, EosL1Que size:{}, "
                       "EosL2Que.size: {}",
-                      embName, id, eosChannel.second, EosL1Que.size(), EosL2Que.size());
+                      embName, id, channelId, EosL1Que[embName][channelId].Size(), EosL2Que[embName][channelId].Size());
+            continue;
         }
 
         // swap in
@@ -1324,9 +1309,9 @@ bool HybridMgmt::ProcessEmbInfoL3Storage(const EmbBaseInfo& info)
     bool isEos = false;
     auto uniqueKeys = GetUniqueKeys(info, remainBatchOut, isEos);
     if (isEos) {
-        EosL1Que[info.name].Pushv(make_pair(true, info.channelId));
-        LOG_DEBUG("Enqueue on EosL1Que L3Storage, table:{}, batchId:{}, channelId:{}", info.name, info.batchId,
-                  info.channelId);
+        EosL1Que[info.name][info.channelId].Pushv(true);
+        LOG_DEBUG("Enqueue on EosL1Que L3Storage, eos status! table:{}, batchId:{}, channelId:{}", info.name,
+                  info.batchId, info.channelId);
     }
 
     if (uniqueKeys.empty()) {
@@ -1476,10 +1461,12 @@ void HybridMgmt::InitEmbeddingCache(const vector<EmbInfo>& embInfos)
 void HybridMgmt::JoinEmbeddingCacheThread()
 {
     for (auto& p : EosL1Que) {
-        p.second.DestroyQueue();
+        p.second[TRAIN_CHANNEL_ID].DestroyQueue();
+        p.second[EVAL_CHANNEL_ID].DestroyQueue();
     }
     for (auto& p : EosL2Que) {
-        p.second.DestroyQueue();
+        p.second[TRAIN_CHANNEL_ID].DestroyQueue();
+        p.second[EVAL_CHANNEL_ID].DestroyQueue();
     }
     for (auto& p : HBMSwapAddrsQue) {
         p.second[TRAIN_CHANNEL_ID].DestroyQueue();
@@ -1536,15 +1523,15 @@ bool HybridMgmt::EmbeddingReceiveDDR(const EmbTaskInfo& info, float*& ptr, vecto
         return (hybridMgmtBlock->lastRecvFinishStep[info.name][info.channelId] == info.batchId) || mutexDestroy;
     });
 
-    pair<bool, int> eosChannel = EosL2Que[info.name].WaitAndPop();
+    isEos = EosL2Que[info.name][info.channelId].WaitAndPop();
     if (!isRunning) {
         return false;
     }
     string nextKey = MakeKeyName(info.cvNotifyIndex, info.name, info.channelId);
-    if (eosChannel.first) {
-        isEos = true;
-        LOG_INFO("EmbeddingReceiveDDR get eos from channel: {}", eosChannel.second);
-        KEY_PROCESS_INSTANCE->SendEos(info.name, info.batchId, eosChannel.second);
+    if (isEos) {
+        LOG_DEBUG("EmbeddingReceiveDDR get eos, table:{}, batchId:{}, channel: {}", info.name, info.batchId,
+                  info.channelId);
+        KEY_PROCESS_INSTANCE->SendEos(info.name, info.batchId, info.channelId);
         lastRecvFinishCV[nextKey].notify_all();
         return true;
     }
@@ -1740,15 +1727,15 @@ bool HybridMgmt::EmbeddingReceiveL3Storage(const EmbTaskInfo& info, float*& ptr,
         return (hybridMgmtBlock->lastRecvFinishStep[info.name][info.channelId] == info.batchId) || mutexDestroy;
     });
 
-    pair<bool, int> eosChannel = EosL1Que[info.name].WaitAndPop();
+    isEos = EosL1Que[info.name][info.channelId].WaitAndPop();
     if (!isRunning) {
         return false;
     }
     string nextKey = MakeKeyName(info.cvNotifyIndex, info.name, info.channelId);
-    if (eosChannel.first) {
-        isEos = true;
-        LOG_INFO("EmbeddingReceiveL3Storage get eos from channel: {}", eosChannel.second);
-        KEY_PROCESS_INSTANCE->SendEos(info.name, info.batchId, eosChannel.second);
+    if (isEos) {
+        LOG_DEBUG("EmbeddingReceiveL3Storage get eos, table:{}, batchId:{}, channel: {}", info.name, info.batchId,
+                  info.channelId);
+        KEY_PROCESS_INSTANCE->SendEos(info.name, info.batchId, info.channelId);
         lastRecvFinishCV[nextKey].notify_all();
         return true;
     }
@@ -1964,7 +1951,7 @@ void HybridMgmt::HandleDataSwapForL3Storage(const EmbBaseInfo& info, vector<uint
     HBMSwapKeyForL3StorageQue[info.name + ADDR_STR][info.channelId].Pushv(hbmSwapInfo.swapOutL3StorageAddrOffs);
 
     // normal status
-    EosL1Que[info.name].Pushv(make_pair(false, info.channelId));
+    EosL1Que[info.name][info.channelId].Pushv(false);
 }
 
 bool HybridMgmt::BuildH2DEmbedding(const EmbTaskInfo& info, vector<Tensor>& h2dEmb)
@@ -2155,17 +2142,16 @@ void HybridMgmt::EnqueueSwapInfo(const EmbBaseInfo& info, pair<vector<uint64_t>,
 {
     auto& swapInKeys = swapInKoPair.first;
     auto& swapOutKeys = swapOutKoPair.first;
-
-    LOG_DEBUG("enqueue HBMSwapKeyQue table:{}, batchId:{}, channelId:{}, swapInSize:{}, swapOutSize:{}", info.name,
-              info.batchId, info.channelId, swapInKeys.size(), swapOutKeys.size());
     HBMSwapKeyQue[info.name + SWAP_OUT_STR][info.channelId].Pushv(swapOutKeys);
     HBMSwapKeyQue[info.name + SWAP_IN_STR][info.channelId].Pushv(swapInKeys);
 
     CheckLookupAddrSuccessDDR();
 
-    EosL1Que[info.name].Pushv(make_pair(false, info.channelId));
-    LOG_DEBUG("Enqueue on EosL1Que, normal status,  table:{}, batchId:{}, channelId:{}, EosL1Que.size: {}", info.name,
-              info.batchId, info.channelId, EosL1Que.size());
+    EosL1Que[info.name][info.channelId].Pushv(false);
+    LOG_DEBUG("Enqueue on HBMSwapKeyQue and EosL1Que, table:{}, batchId:{}, channelId:{}, swapInSize:{}, "
+              "swapOutSize:{}, EosL1Que.size: {}",
+              info.name, info.batchId, info.channelId, swapInKeys.size(), swapOutKeys.size(),
+              EosL1Que[info.name][info.channelId].Size());
 }
 
 void HybridMgmt::BackUpTrainStatus()

@@ -169,8 +169,8 @@ public:
     std::map<std::string, TaskQueue<std::vector<float*>>[MAX_CHANNEL_NUM]> HBMSwapAddrsQue;
     std::map<std::string, TaskQueue<std::vector<float*>>[MAX_CHANNEL_NUM]> DDRSwapAddrsQue;
 
-    std::map<std::string, TaskQueue<pair<bool, int>>> EosL1Que;  // pair <isEos, channelId>
-    std::map<std::string, TaskQueue<pair<bool, int>>> EosL2Que;
+    std::map<std::string, TaskQueue<bool>[MAX_CHANNEL_NUM]> EosL1Que;
+    std::map<std::string, TaskQueue<bool>[MAX_CHANNEL_NUM]> EosL2Que;
 
     std::mutex evictMut;
 
