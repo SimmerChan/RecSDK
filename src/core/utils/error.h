@@ -48,7 +48,7 @@ enum class ModuleName: uint8_t {
 class Error {
 public:
     Error() = delete;
-    Error(ModuleName mod, ErrorType e, const std::string& msg) : mod_(mod), e_(e), msg_(msg) {}
+    Error(ModuleName mod, ErrorType e, const std::string& msg) : mod_(mod), err_(e), msg_(msg) {}
 
     std::string ToString() const;
 
@@ -57,7 +57,7 @@ private:
     std::string ModAsString() const noexcept;
 
     ModuleName mod_;
-    ErrorType e_;
+    ErrorType err_;
     std::string msg_;
 };
 

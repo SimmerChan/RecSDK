@@ -123,10 +123,16 @@ max_attempts=5
 attempt=1
 until [ $attempt -gt $max_attempts ]
 do
-    install_expected && break
+  install_expected
+  result=$?
+  if [[ $result -eq 0 ]]
+  then
+    break   
+  else
     echo "Attempt $attempt to install cpp-expected failed! Trying again in 10 seconds..."
     attempt=$((attempt + 1))
     sleep 10
+  fi
 done
 
 if [ $attempt -gt $max_attempts ]; then

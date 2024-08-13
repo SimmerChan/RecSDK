@@ -30,7 +30,7 @@ std::string Error::ToString() const
 
 std::string Error::TypeAsString() const noexcept
 {
-    switch (this->e_) {
+    switch (this->err_) {
         case ErrorType::NOT_FOUND:
             return "NotFound";
         case ErrorType::FILE_NOT_EXIST:
