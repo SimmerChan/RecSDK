@@ -301,7 +301,7 @@ private:
                 for (const auto& t : *out_tensors) {
                     DataType tensor_type = t.dtype();
                     TensorShape tensor_shape = t.shape();
-                    LOG_TRACE("Iterator getNext normal, channel: {}, iter: {}, outTensor size: {}, tensor_type: {}, "
+                    LOG_DEBUG("Iterator getNext normal, channel: {}, iter: {}, outTensor size: {}, tensor_type: {}, "
                               "tensor_shape: {}",
                               dataset()->channelId_,
                               iter_times_,
@@ -332,10 +332,9 @@ private:
                 MPI_Iallreduce(MPI_IN_PLACE, &getNextStatus, 1, MPI_INT, MPI_SUM, g_comm[channelId],
                                &req);
                 CheckCommFinished(req, channelId);
-                // Max step is achieved, no need to send eos.
-                if (outSize == 0) {
-                    keyProcess->EnqueueEosBatch(iter_times_, dataset()->channelId_);
-                }
+
+                keyProcess->EnqueueEosBatch(iter_times_, dataset()->channelId_);
+
                 LOG_DEBUG("[ACTIVE] GetNext eos was triggered actively, channel: {}, iter: {}",
                           dataset()->channelId_,
                           iter_times_);
@@ -350,10 +349,9 @@ private:
 
             if (getNextStatus < g_rankSize) {
                 *end_of_sequence = true;
-                // Max step is achieved, no need to send eos.
-                if (outSize == 0) {
-                    keyProcess->EnqueueEosBatch(iter_times_, dataset()->channelId_);
-                }
+
+                keyProcess->EnqueueEosBatch(iter_times_, dataset()->channelId_);
+
                 LOG_DEBUG(
                     "[PASSIVE] GetNext eos was triggered passively, channel: {}, iter: {}, sum: {}",
                     dataset()->channelId_, iter_times_, getNextStatus);
