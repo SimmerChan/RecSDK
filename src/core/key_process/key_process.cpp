@@ -14,21 +14,21 @@ See the License for the specific language governing permissions and
 ==============================================================================*/
 #include "key_process.h"
 
+#include <absl/container/flat_hash_set.h>
+#include <mpi.h>
+
 #include <cstddef>
 #include <iostream>
 
-#include <mpi.h>
-#include <absl/container/flat_hash_set.h>
-
+#include "emb_table/embedding_mgmt.h"
+#include "hd_transfer/hd_transfer.h"
+#include "ock_ctr_common/include/error_code.h"
 #include "utils/common.h"
+#include "utils/config.h"
 #include "utils/logger.h"
 #include "utils/safe_queue.h"
 #include "utils/singleton.h"
 #include "utils/time_cost.h"
-#include "utils/config.h"
-#include "emb_table/embedding_mgmt.h"
-#include "hd_transfer/hd_transfer.h"
-#include "ock_ctr_common/include/error_code.h"
 
 using namespace std;
 using namespace chrono;
@@ -463,6 +463,10 @@ KeysT KeyProcess::BroadcastGlobalDpIdUnique(const unique_ptr<EmbBatchT>& batch, 
 
 bool KeyProcess::KeyProcessTaskHelperForDp(unique_ptr<EmbBatchT>& batch, int channel, int threadId)
 {
+    if (batch->isEos) {
+        HandleEos(batch, channel, threadId);
+        return true;
+    }
     vector<KeysT> splitKeys;
     vector<int32_t> restore;
     vector<int32_t> hotPos;
@@ -1021,7 +1025,7 @@ auto KeyProcess::ProcessSplitKeys(const unique_ptr<EmbBatchT>& batch, int id, ve
              batch->batchId);
 
     // 使用静态all2all通信：发送或接受量为预置固定值 scInfo[batch->name] = 65536 / rankSize 经验值
-    if (rankInfo.useStatic) { // maybe move after all2all
+    if (rankInfo.useStatic) {  // maybe move after all2all
         ProcessKeysWithStatic(batch, splitKeys);
     }
 
@@ -1031,7 +1035,7 @@ auto KeyProcess::ProcessSplitKeys(const unique_ptr<EmbBatchT>& batch, int id, ve
         LOG_DEBUG(KEY_PROCESS "channelId:{} threadId:{} batchId:{}, batchName:{}, MPI_Allgatherv finish."
                               " processSplitKeysTC(ms):{}",
                   batch->channel, id, batch->batchId, batch->name, processSplitKeysTC.ElapsedMS());
-        return { keyRecv, scAll, ss };
+        return {keyRecv, scAll, ss};
     }
 
     KeysT keySend;
@@ -1379,8 +1383,7 @@ vector<int> KeyProcess::GetScAll(const vector<int>& keyScLocal, int commId, cons
     LOG_DEBUG("channelId:{} threadId:{} batchId:{}, GetScAll start.", batch->channel, commId, batch->batchId);
 
     // allgather keyScLocal(key all2all keyScLocal = device all2all rc)
-    auto retCode = MPI_Allgather(keyScLocal.data(), sendAndRecvCount, MPI_INT,
-                                 scAll.data(), sendAndRecvCount, MPI_INT,
+    auto retCode = MPI_Allgather(keyScLocal.data(), sendAndRecvCount, MPI_INT, scAll.data(), sendAndRecvCount, MPI_INT,
                                  comm[batch->channel][commId]);
     if (retCode != MPI_SUCCESS) {
         LOG_ERROR("rank {} commId {}, MPI_Allgather failed:{}", rankInfo.rankId, commId, retCode);
@@ -1826,11 +1829,11 @@ void KeyProcess::EnqueueEosBatch(int64_t batchNum, int channelId)
     int batchQueueId = int(batchNum % threadNum) + (MAX_KEY_PROCESS_THREAD * channelId);
     auto queue = SingletonQueue<EmbBatchT>::GetInstances(batchQueueId);
     for (auto& emb : embInfos) {
-        auto batchData = queue->GetOne(); // get dirty or empty data block
+        auto batchData = queue->GetOne();  // get dirty or empty data block
         batchData->name = emb.first;
         batchData->channel = channelId;
         batchData->batchId = batchNum;
-        batchData->sample = {0, 0, 0, 0, 0, 0, 0, 0}; // fake data
+        batchData->sample = {0, 0, 0, 0, 0, 0, 0, 0};  // fake data
         batchData->isEos = true;
         queue->Pushv(move(batchData));
     }

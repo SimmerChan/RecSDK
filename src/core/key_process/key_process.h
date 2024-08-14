@@ -68,9 +68,6 @@ private:
     const char* errorMessage;
 };
 
-constexpr int MPI_ABNORMAL_SEND_VALUE = 0;  // MPI异常通信时发送0
-constexpr int MPI_NORMAL_SEND_VALUE = 1;    // MPI正常通信时发送1
-
 class EmptyList : public std::exception {};
 
 class WrongListTop : public std::exception {};
@@ -78,7 +75,7 @@ class WrongListTop : public std::exception {};
 class KeyProcess {
 public:
     bool Initialize(const RankInfo& rInfo, const vector<EmbInfo>& eInfos,
-                   const vector<ThresholdValue>& thresholdValues = {}, int seed = 0, bool isIncrementalCkpt = false);
+                    const vector<ThresholdValue>& thresholdValues = {}, int seed = 0, bool isIncrementalCkpt = false);
 
     unique_ptr<vector<Tensor>> GetInfoVec(const EmbBaseInfo& info, ProcessedInfo type, bool& isEos);
 
@@ -200,7 +197,7 @@ public:
 
     bool isRunning{false};
 
-    bool isIncrementalCheckpoint {false};
+    bool isIncrementalCheckpoint{false};
 
     std::mutex destroyMutex;
     std::mutex eosMutex;
@@ -209,10 +206,8 @@ public:
         return embInfos.find(embName) != embInfos.end();
     };
 
-    GTEST_PRIVATE :
-
-        int
-        Start();
+GTEST_PRIVATE :
+    int Start();
 
     template <class T>
     T GetInfo(info_list_t<T>& list, const EmbBaseInfo& info);
@@ -273,7 +268,7 @@ public:
     void GetUniqueConfig(ock::ctr::UniqueConf& uniqueConf);
 
     void InitializeUnique(ock::ctr::UniqueConf& uniqueConf, size_t& preBatchSize, bool& uniqueInitialize,
-                          const unique_ptr <EmbBatchT>& batch, ock::ctr::UniquePtr& unique);
+                          const unique_ptr<EmbBatchT>& batch, ock::ctr::UniquePtr& unique);
 
     void ProcessBatchWithFastUnique(const unique_ptr<EmbBatchT>& batch, ock::ctr::UniquePtr& unique, int id,
                                     UniqueInfo& uniqueInfoOut);
@@ -285,8 +280,8 @@ public:
 
     auto HashSplit(const unique_ptr<EmbBatchT>& batch) const -> tuple<vector<KeysT>, vector<int32_t>>;
 
-    auto HotHashSplit(const unique_ptr<EmbBatchT>& batch) -> tuple<vector<KeysT>, vector<int32_t>, vector<int>,
-            vector<emb_key_t>>;
+    auto HotHashSplit(const unique_ptr<EmbBatchT>& batch)
+        -> tuple<vector<KeysT>, vector<int32_t>, vector<int>, vector<emb_key_t>>;
 
     void PaddingAlltoallVC(vector<KeysT>& splitKeys) const;
 
@@ -339,12 +334,11 @@ public:
     vector<uint32_t> GetCountRecv(const unique_ptr<EmbBatchT>& batch, int id, vector<vector<uint32_t>>& keyCount,
                                   vector<int> scAll, vector<int> ss);
 
-    void HashSplitHelper(const unique_ptr <EmbBatchT>& batch, vector <KeysT>& splitKeys,
-                         vector <int32_t>& restore, vector <int32_t>& hotPos,
-                         vector <vector<uint32_t>>& keyCount, vector<emb_key_t>& keyCountVec);
+    void HashSplitHelper(const unique_ptr<EmbBatchT>& batch, vector<KeysT>& splitKeys, vector<int32_t>& restore,
+                         vector<int32_t>& hotPos, vector<vector<uint32_t>>& keyCount, vector<emb_key_t>& keyCountVec);
 
-    vector<uint32_t> GetCountRecvForDp(const unique_ptr<EmbBatchT>& batch, const int id,
-                                       vector<uint32_t>& keyCount, vector<int> scAll);
+    vector<uint32_t> GetCountRecvForDp(const unique_ptr<EmbBatchT>& batch, const int id, vector<uint32_t>& keyCount,
+                                       vector<int> scAll);
 
     KeysT FeatureAdmitForDp(KeysT& lookupKeys, KeysT& globalDpIdVec);
 
