@@ -301,7 +301,7 @@ private:
                 for (const auto& t : *out_tensors) {
                     DataType tensor_type = t.dtype();
                     TensorShape tensor_shape = t.shape();
-                    LOG_DEBUG("Iterator getNext normal, channel: {}, iter: {}, outTensor size: {}, tensor_type: {}, "
+                    LOG_TRACE("Iterator getNext normal, channel: {}, iter: {}, outTensor size: {}, tensor_type: {}, "
                               "tensor_shape: {}",
                               dataset()->channelId_,
                               iter_times_,

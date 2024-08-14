@@ -452,17 +452,19 @@ void HybridMgmt::Destroy()
         LOG_DEBUG(MGMT + "destroy hdTransfer end.");
     }
 
+    JoinEmbeddingCacheThread();
+    LOG_DEBUG(MGMT + "destroy EmbeddingCacheThread end.");
+
     hybridMgmtBlock->Destroy();
     for (auto& t : procThreads) {
         t->join();
     }
     procThreads.clear();
+    LOG_DEBUG(MGMT + "destroy parseKeyThread end.");
 
     if (cacheManager != nullptr) {
         cacheManager = nullptr;
     }
-    JoinEmbeddingCacheThread();
-    LOG_DEBUG(MGMT + "destroy EmbeddingCacheThread end.");
 
     // 等待并销毁接收key的线程
     for (auto& t : receiveKeyThreads) {
@@ -1186,7 +1188,7 @@ void HybridMgmt::EmbeddingLookUpAndSendDDR(int batchId, int index, const EmbInfo
 
     auto isSuccess = EmbeddingLookUpDDR(info, h2dEmb);
     if (!isSuccess) {
-        LOG_INFO("HybridMgmt is not running when [LookUpAndSendDDR], table:{}, batchId:{}, channel:{}", embInfo.name,
+        LOG_DEBUG("HybridMgmt is not running when [LookUpAndSendDDR], table:{}, batchId:{}, channel:{}", embInfo.name,
                  batchId, channelId);
         return;
     }
@@ -1212,7 +1214,7 @@ void HybridMgmt::EmbeddingReceiveAndUpdateDDR(int batchId, int index, const EmbI
     bool isEos = false;
     auto isSuccess = EmbeddingReceiveDDR(info, ptr, swapOutAddrs, isEos);
     if (!isSuccess) {
-        LOG_INFO("HybridMgmt is not running or receive empty data when [ReceiveAndUpdateDDR], table:{}, batchId:{}, "
+        LOG_DEBUG("HybridMgmt is not running or receive empty data when [ReceiveAndUpdateDDR], table:{}, batchId:{}, "
                  "channel:{}",
                  embInfo.name, batchId, channelId);
         return;
@@ -1239,7 +1241,7 @@ void HybridMgmt::EmbeddingLookUpAndSendL3Storage(int batchId, int index, const E
 
     auto isSuccess = EmbeddingLookUpL3Storage(info, h2dEmb);
     if (!isSuccess) {
-        LOG_INFO("HybridMgmt is not running when [LookUpAndSendL3Storage], table:{}, batchId:{}, channel:{}",
+        LOG_DEBUG("HybridMgmt is not running when [LookUpAndSendL3Storage], table:{}, batchId:{}, channel:{}",
                  embInfo.name, batchId, channelId);
         return;
     }
@@ -1267,7 +1269,7 @@ void HybridMgmt::EmbeddingReceiveAndUpdateL3Storage(int batchId, int index, cons
     bool isEos = false;
     auto isSuccess = EmbeddingReceiveL3Storage(info, ptr, swapOutAddrs, dims0, isEos);
     if (!isSuccess) {
-        LOG_INFO("HybridMgmt is not running or receive empty data when [LookUpAndSendL3Storage], table:{}, batchId:{}, "
+        LOG_DEBUG("HybridMgmt is not running or receive empty data when [LookUpAndSendL3Storage], table:{}, batchId:{}, "
                  "channel:{}",
                  embInfo.name, batchId, channelId);
         return;
@@ -1500,7 +1502,9 @@ bool HybridMgmt::EmbeddingReceiveDDR(const EmbTaskInfo& info, float*& ptr, vecto
     lastRecvFinishCV[currentKey].wait(lastRecvFinishLocker, [info, this] {
         return (hybridMgmtBlock->lastRecvFinishStep[info.name][info.channelId] == info.batchId) || mutexDestroy;
     });
-
+    if (!isRunning) {
+        return false;
+    }
     isEos = EosL2Que[info.name][info.channelId].WaitAndPop();
     if (!isRunning) {
         return false;
@@ -1710,7 +1714,9 @@ bool HybridMgmt::EmbeddingReceiveL3Storage(const EmbTaskInfo& info, float*& ptr,
     lastRecvFinishCV[currentKey].wait(lastRecvFinishLocker, [info, this] {
         return (hybridMgmtBlock->lastRecvFinishStep[info.name][info.channelId] == info.batchId) || mutexDestroy;
     });
-
+    if (!isRunning) {
+        return false;
+    }
     isEos = EosL1Que[info.name][info.channelId].WaitAndPop();
     if (!isRunning) {
         return false;
