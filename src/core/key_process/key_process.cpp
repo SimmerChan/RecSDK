@@ -1265,7 +1265,7 @@ vector<uint64_t> KeyProcess::GetUniqueKeys(const EmbBaseInfo& info, bool& isEos)
             auto infoVec = GetInfo(uniqueKeysList, info);
             isEos = get<bool>(infoVec);
             if (isEos) {
-                LOG_WARN(KEY_PROCESS "GetUniqueKeys eos! {}[{}]:{}", info.name, info.channelId, info.batchId);
+                LOG_INFO(KEY_PROCESS "GetUniqueKeys eos! {}[{}]:{}", info.name, info.channelId, info.batchId);
                 break;
             }
             ret = get<std::vector<uint64_t>>(infoVec);
@@ -1404,7 +1404,7 @@ unique_ptr<vector<Tensor>> KeyProcess::GetInfoVec(const EmbBaseInfo& info, Proce
             auto infoVec = GetInfo(*list, info);
             isEos = get<bool>(infoVec);
             if (isEos) {
-                LOG_WARN(KEY_PROCESS "GetInfoVec eos! {}[{}]:{}", info.name, info.channelId, info.batchId);
+                LOG_INFO(KEY_PROCESS "GetInfoVec eos! {}[{}]:{}", info.name, info.channelId, info.batchId);
                 break;
             }
             auto it = get<std::list<unique_ptr<vector<Tensor>>>::iterator>(infoVec);

@@ -184,9 +184,6 @@ public:
     std::map<std::string, std::vector<std::vector<uint64_t>>> trainTestSwitchInfoStore{};
     std::atomic<bool> lookupAddrSuccess{true};
 
-    std::mutex saveMutex;
-    std::condition_variable cvCheckSave;
-
     unique_ptr<ThreadPool> threadPool;
 
     void SetFeatureTypeForLoad(vector<CkptFeatureType>& loadFeatures);
@@ -261,8 +258,6 @@ private:
     void InitDataPipelineForL3Storage(const string& embName, int extEmbeddingSize);
 
     void JoinEmbeddingCacheThread();
-
-    void HandleEosCase(const EmbBaseInfo& info, bool& remainBatchOut);
 
     bool EmbeddingReceiveDDR(const EmbTaskInfo& info, float*& ptr, vector<float*>& swapOutAddrs, bool& isEos);
 

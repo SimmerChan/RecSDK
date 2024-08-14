@@ -211,8 +211,6 @@ void HybridMgmt::Save(const string& savePath, bool saveDelta)
     LOG_INFO(MGMT + "End to save {} model.", saveModelType);
     // 数据处理线程释放锁
     KEY_PROCESS_INSTANCE->LoadSaveUnlock();
-    hybridMgmtBlock->FinishSave();
-    cvCheckSave.notify_all();
 #endif
 }
 
@@ -443,7 +441,6 @@ void HybridMgmt::Destroy()
     // 先发送停止信号mgmt，先停止新lookup查询, 解除queue的限制防止卡住
     isRunning = false;
     mutexDestroy = true;
-    cvCheckSave.notify_all();  // 防止save异常退出场景阻塞在EvalTask
 
     {
         // 获取锁 避免KeyProcess中手动发送结束信息时通道关闭
@@ -486,17 +483,16 @@ void HybridMgmt::Destroy()
 void HybridMgmt::TrainTask(TaskType type)
 {
 #ifndef GTEST
-    int channelId = TRAIN_CHANNEL_ID;
-    int& theTrainBatchId = hybridMgmtBlock->hybridBatchId[channelId];
+    int& theTrainBatchId = hybridMgmtBlock->hybridBatchId[TRAIN_CHANNEL_ID];
     do {
-        hybridMgmtBlock->CheckAndSetBlock(channelId);
-        if (hybridMgmtBlock->GetBlockStatus(channelId)) {
-            hybridMgmtBlock->DoBlock(channelId);
+        hybridMgmtBlock->CheckAndSetBlock(TRAIN_CHANNEL_ID);
+        if (hybridMgmtBlock->GetBlockStatus(TRAIN_CHANNEL_ID)) {
+            hybridMgmtBlock->DoBlock(TRAIN_CHANNEL_ID);
         }
         if (!isRunning) {
             return;
         }
-        LOG_INFO(HYBRID_BLOCKING + "hybrid start task channel {} batch {}", channelId, theTrainBatchId);
+        LOG_INFO(HYBRID_BLOCKING + "hybrid start task channel {} batch {}", TRAIN_CHANNEL_ID, theTrainBatchId);
         if (isBackUpTrainStatus) {
             RecoverTrainStatus();
         }
@@ -515,15 +511,6 @@ void HybridMgmt::EvalTask(TaskType type)
     do {
         hybridMgmtBlock->CheckAndSetBlock(EVAL_CHANNEL_ID);
         if (hybridMgmtBlock->GetBlockStatus(EVAL_CHANNEL_ID)) {
-            LOG_DEBUG("eval channel block at batchId:{}, needWaitSave:{}", evalBatchId,
-                      hybridMgmtBlock->IsNeedWaitSave());
-            std::unique_lock<std::mutex> checkSaveLocker(saveMutex);
-            cvCheckSave.wait(checkSaveLocker, [this] { return !hybridMgmtBlock->IsNeedWaitSave() || mutexDestroy; });
-
-            LOG_DEBUG("eval channel block, python batch id:{}, hybridBatchId:{}",
-                      hybridMgmtBlock->pythonBatchId[EVAL_CHANNEL_ID], evalBatchId);
-
-            LOG_DEBUG("wake TrainTask");
             hybridMgmtBlock->DoBlock(EVAL_CHANNEL_ID);
         }
         if (!isRunning) {
@@ -629,14 +616,13 @@ bool HybridMgmt::ProcessEmbInfoHBM(const EmbBaseInfo& info, bool isGrad)
     bool isEos = false;
     auto infoVecs = KEY_PROCESS_INSTANCE->GetInfoVec(info, ProcessedInfo::RESTORE, isEos);
     if (isEos) {
-        HandleEosCase(info, remainBatchOut);
-        return remainBatchOut;
+        KEY_PROCESS_INSTANCE->SendEos(info.name, info.batchId, info.channelId);
+        return false;
     }
     if (infoVecs == nullptr) {
-        LOG_INFO(MGMT + "table:{}, channelId:{} batchId:{}, ParseKeys infoVecs empty !", info.name, info.channelId,
+        LOG_WARN(MGMT + "table:{}, channelId:{} batchId:{}, ParseKeys infoVecs empty !", info.name, info.channelId,
                  info.batchId);
-        remainBatchOut = false;
-        return remainBatchOut;
+        return false;
     }
     LOG_DEBUG("table:{}, channelId:{} batchId:{}, ParseKeysHBM GetInfoVec end", info.name, info.channelId,
               info.batchId);
@@ -644,7 +630,7 @@ bool HybridMgmt::ProcessEmbInfoHBM(const EmbBaseInfo& info, bool isGrad)
     // 动态shape场景下，获取all2all向量（通信量矩阵）
     SendAll2AllVec(info, remainBatchOut);
     if (!remainBatchOut) {
-        return remainBatchOut;
+        return false;
     }
 
     // 发送查询向量
@@ -1507,18 +1493,6 @@ void HybridMgmt::JoinEmbeddingCacheThread()
     }
 }
 
-void HybridMgmt::HandleEosCase(const EmbBaseInfo& info, bool& remainBatchOut)
-{
-    // Predict do not need to be blocked.
-    if (info.channelId == EVAL_CHANNEL_ID && alreadyTrainOnce) {
-        // Eval after train.
-        hybridMgmtBlock->SetBlockStatus(EVAL_CHANNEL_ID, true);
-        LOG_INFO("GetUniqueKeys get eos from eval channel, SetBlockStatus=true");
-    }
-    KEY_PROCESS_INSTANCE->SendEos(info.name, info.batchId, info.channelId);
-    remainBatchOut = false;
-}
-
 bool HybridMgmt::EmbeddingReceiveDDR(const EmbTaskInfo& info, float*& ptr, vector<float*>& swapOutAddrs, bool& isEos)
 {
     string currentKey = MakeSwapCVName(info.threadIdx, info.name, info.channelId);
@@ -1995,8 +1969,9 @@ bool HybridMgmt::BuildH2DEmbedding(const EmbTaskInfo& info, vector<Tensor>& h2dE
 vector<uint64_t> HybridMgmt::GetUniqueKeys(const EmbBaseInfo& info, bool& remainBatchOut, bool& isEos)
 {
     auto uniqueKeys = KEY_PROCESS_INSTANCE->GetUniqueKeys(info, isEos);
+    // DDR eos send in swap pipeline.
     if (isEos) {
-        HandleEosCase(info, remainBatchOut);
+        remainBatchOut = false;
         return uniqueKeys;
     }
     if (uniqueKeys.empty()) {

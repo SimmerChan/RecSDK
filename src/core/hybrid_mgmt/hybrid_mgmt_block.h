@@ -76,11 +76,7 @@ namespace MxRec {
 
         void ResetAll(int channelId);
 
-        int CheckSaveEmbMapValid();
-
         bool GetBlockStatus(int channelId);
-
-        void SetBlockStatus(int channelId, bool block);
 
         void SetRankInfo(RankInfo ri);
 
@@ -90,19 +86,12 @@ namespace MxRec {
 
         void Destroy();
 
-        void Wake(int channelId);
-
-        bool IsNeedWaitSave();
-
-        void FinishSave();
-
     private:
         // 控制通道阻塞的变量
         bool isBlock[MAX_CHANNEL_NUM] = {true, true};
         // 控制训练了多少步进行保存的步数
         int saveInterval = 0;
         RankInfo rankInfo;
-        bool finishSave = true;
     };
 
     class HybridMgmtBlockingException : public std::exception {
