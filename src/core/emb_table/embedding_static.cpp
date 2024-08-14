@@ -92,8 +92,13 @@ void EmbeddingStatic::SaveKey(const string& savePath, bool saveDelta, const map<
 
     if (saveDelta) {
         for (const auto& it : keyInfo) {
-            deviceKey.push_back(it.first);
-            deviceOffset.push_back(keyOffsetMap[it.first]);
+            auto result = keyOffsetMap.find(it.first);
+            if (result == keyOffsetMap.end()) {
+                LOG_DEBUG("Key: {} not in keyOffsetMap.");
+                continue;
+            }
+            deviceKey.push_back(result->first);
+            deviceOffset.push_back(result->second);
         }
     } else {
         for (const auto& it: keyOffsetMap) {
@@ -102,7 +107,8 @@ void EmbeddingStatic::SaveKey(const string& savePath, bool saveDelta, const map<
         }
     }
 
-    LOG_INFO("Device key size: {}, device offset size: {}.", deviceKey.size(), deviceOffset.size());
+    LOG_INFO("Get device keys and offsets, table: {}, save path: {}, rank id: {}, device key size: {}, device offset "
+             "size: {}.", name, savePath, rankId_, deviceKey.size(), deviceOffset.size());
 
     if (fileSystemPtr_ == nullptr) {
         throw runtime_error("failed to obtain the file system pointer, the file system pointer is null.");

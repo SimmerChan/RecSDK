@@ -243,7 +243,7 @@ public:
     auto HashSplit(const unique_ptr<EmbBatchT>& batch) const -> tuple<vector<KeysT>, vector<int32_t>>;
 
     auto HotHashSplit(const unique_ptr<EmbBatchT>& batch) -> tuple<vector<KeysT>, vector<int32_t>, vector<int>,
-            vector<emb_key_t>>;
+            vector<vector<uint32_t>>>;
 
     void PaddingAlltoallVC(vector<KeysT>& splitKeys) const;
 
@@ -296,8 +296,7 @@ public:
                                   vector<int> scAll, vector<int> ss);
 
     void HashSplitHelper(const unique_ptr <EmbBatchT>& batch, vector <KeysT>& splitKeys,
-                         vector <int32_t>& restore, vector <int32_t>& hotPos,
-                         vector <vector<uint32_t>>& keyCount, vector<emb_key_t>& keyCountVec);
+                         vector <int32_t>& restore, vector <int32_t>& hotPos, vector <vector<uint32_t>>& keyCount);
 
     template <class T>
     inline vector<T> Count2Start(const vector<T>& count) const
