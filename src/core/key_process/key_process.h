@@ -200,7 +200,7 @@ public:
     bool isIncrementalCheckpoint{false};
 
     std::mutex destroyMutex;
-    std::mutex eosMutex;
+
     inline bool HasEmbName(const string& embName)
     {
         return embInfos.find(embName) != embInfos.end();

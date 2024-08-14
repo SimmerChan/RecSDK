@@ -1679,7 +1679,6 @@ unique_ptr<vector<Tensor>> KeyProcess::GetKCInfoVec(const EmbBaseInfo& info)
             keyCountStorage.erase(it);
             break;
         } catch (EmptyList&) {
-            unique_lock<mutex> lockEosGuard(eosMutex);
             LOG_TRACE("getting info failed, list is empty.");
             this_thread::sleep_for(1ms);
         } catch (WrongListTop&) {
