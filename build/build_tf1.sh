@@ -35,12 +35,15 @@ if [ ! -d ${opensource_path} ]; then
 fi
 
 function install_expected(){
-  cd "$MxRec_DIR"
-  git submodule init
-  cmd="git submodule update"
-  # retry five times
-  $cmd || sleep 10 || $cmd || sleep 10 || $cmd || sleep 10 || $cmd || sleep 10 || $cmd
-  cd -
+  dir="$MxRec_DIR"/third_party/expected
+  if [ -z "$(ls -A "$dir")" ]; then
+    cd "$MxRec_DIR"
+    git submodule init
+    cmd="git submodule update"
+    # retry five times
+    $cmd || sleep 10 || $cmd || sleep 10 || $cmd || sleep 10 || $cmd || sleep 10 || $cmd
+    cd -
+  fi
 }
 
 function prepare_pybind(){
