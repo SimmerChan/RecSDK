@@ -51,23 +51,23 @@ std::string Error::TypeAsString() const noexcept
 std::string Error::ModAsString() const noexcept
 {
     switch (this->mod_) {
-        case ModuleName::CHECK_POINT:
+        case ModuleName::CHECK_POINT_:
             return "CheckPoint";
-        case ModuleName::EMB_TABLE:
+        case ModuleName::EMB_TABLE_:
             return "EmbTable";
-        case ModuleName::FILE_SYSTEM:
+        case ModuleName::FILE_SYSTEM_:
             return "FileSystem";
-        case ModuleName::HD_TRANSFER:
+        case ModuleName::HD_TRANSFER_:
             return "HdTransfer";
-        case ModuleName::HYBRID_MGMT:
+        case ModuleName::HYBRID_MGMT_:
             return "HybridMgmt";
-        case ModuleName::KEY_PROCESS:
+        case ModuleName::KEY_PROCESS_:
             return "KeyProcess";
-        case ModuleName::L3_STORAGE:
+        case ModuleName::L3_STORAGE_:
             return "L3Storage";
-        case ModuleName::SSD_ENGINE:
+        case ModuleName::SSD_ENGINE_:
             return "SsdEngine";
-        case ModuleName::UTILS:
+        case ModuleName::UTILS_:
             return "Utils";
         default:
             return "UnknownModule";
