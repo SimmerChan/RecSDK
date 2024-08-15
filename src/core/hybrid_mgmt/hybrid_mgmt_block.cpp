@@ -174,7 +174,7 @@ void HybridMgmtBlock::ResetAll(int channelId)
         b.second[channelId] = 0;
     }
     // L3 data pipeline, swap
-    for (auto& b : h2dNextBatchId) {
+    for (auto& b : h2dSendBatchId) {
         b.second[channelId] = 0;
     }
 
@@ -191,6 +191,11 @@ void HybridMgmtBlock::ResetAll(int channelId)
 bool HybridMgmtBlock::GetBlockStatus(int channelId)
 {
     return isBlock[channelId];
+}
+
+void HybridMgmtBlock::SetBlockStatus(int channelId, bool block)
+{
+    isBlock[channelId] = block;
 }
 
 void HybridMgmtBlock::Destroy()
