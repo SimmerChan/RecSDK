@@ -413,7 +413,7 @@ bool KeyProcess::KeyProcessTaskHelper(unique_ptr<EmbBatchT>& batch, int channel,
         FeatureAdmitAndEvict::m_embStatus[batch->name] != SingleEmbTableStatus::SETS_NONE) {
         countRecv = GetCountRecv(batch, threadId, keyCount, scAll, ss);
     }
-    if (isIncrementalCheckpoint) {
+    if (isIncrementalCheckpoint && !channel) {
         countRecv = GetCountRecv(batch, threadId, keyCount, scAll, ss);
         map<emb_key_t, emb_key_t> tmpKeyCountMap;
         auto keySize = lookupKeys.size();
@@ -453,7 +453,7 @@ bool KeyProcess::KeyProcessTaskHelper(unique_ptr<EmbBatchT>& batch, int channel,
 
     // 将keyCountVec放进tensor里并推到一个队列里
     auto keyCountTensors = make_unique<vector<Tensor>>();
-    if (isIncrementalCheckpoint) {
+    if (isIncrementalCheckpoint && !channel) {
         keyCountTensors->push_back(Vec2TensorI64(keyCountVec));
     }
 
@@ -464,7 +464,7 @@ bool KeyProcess::KeyProcessTaskHelper(unique_ptr<EmbBatchT>& batch, int channel,
         PushGlobalUniqueTensors(tensors, lookupKeys, channel);
         tensors->push_back(rankInfo.useDynamicExpansion ? Vec2TensorI64(lookupKeys) : Vec2TensorI32(lookupKeys));
         PushResultHBM(batch, move(tensors));
-        if (isIncrementalCheckpoint) {
+        if (isIncrementalCheckpoint && !channel) {
             PushKeyCountHBM(batch, move(keyCountTensors));
         }
     } else {
