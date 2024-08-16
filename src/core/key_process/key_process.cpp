@@ -331,7 +331,7 @@ void KeyProcess::KeyProcessTask(int channel, int threadId)
 
 void KeyProcess::HashSplitHelper(const unique_ptr <EmbBatchT>& batch, vector <KeysT>& splitKeys,
                                  vector <int32_t>& restore, vector <int32_t>& hotPos,
-                                 vector <vector<uint32_t>>& keyCount, vector<emb_key_t>& keyCountVec)
+                                 vector <vector<uint32_t>>& keyCount)
 {
     TimeCost uniqueTc;
     // Deduplicate the Key, and model parallel requires bucketing, data parallel does not.
@@ -339,7 +339,7 @@ void KeyProcess::HashSplitHelper(const unique_ptr <EmbBatchT>& batch, vector <Ke
         FeatureAdmitAndEvict::m_embStatus[batch->name] != SingleEmbTableStatus::SETS_NONE) {
         tie(splitKeys, restore, keyCount) = HashSplitWithFAAE(batch, embInfos[batch->name].isDp);
     } else {
-        tie(splitKeys, restore, hotPos, keyCountVec) = HotHashSplit(batch);
+        tie(splitKeys, restore, hotPos, keyCount) = HotHashSplit(batch);
     }
     LOG_DEBUG("uniqueTc(ms):{}", uniqueTc.ElapsedMS());
 }
@@ -470,7 +470,7 @@ bool KeyProcess::KeyProcessTaskHelperForDp(unique_ptr<EmbBatchT>& batch, int cha
     vector<vector<uint32_t>> keyCount;
     vector<emb_key_t> keyCountVec;
     TimeCost totalTimeCost = TimeCost();
-    HashSplitHelper(batch, splitKeys, restore, hotPos, keyCount, keyCountVec);
+    HashSplitHelper(batch, splitKeys, restore, hotPos, keyCount);
 
     vector<int> scAll;
     vector<int> ss;
@@ -548,13 +548,26 @@ bool KeyProcess::KeyProcessTaskHelper(unique_ptr<EmbBatchT>& batch, int channel,
     vector<vector<uint32_t>> keyCount;
     vector<emb_key_t> keyCountVec;
     TimeCost totalTimeCost = TimeCost();
-    HashSplitHelper(batch, splitKeys, restore, hotPos, keyCount, keyCountVec);
+    HashSplitHelper(batch, splitKeys, restore, hotPos, keyCount);
     auto [lookupKeys, scAll, ss] = ProcessSplitKeys(batch, threadId, splitKeys);
 
     vector<uint32_t> countRecv;
     if (m_featureAdmitAndEvict.GetFunctionSwitch() &&
         FeatureAdmitAndEvict::m_embStatus[batch->name] != SingleEmbTableStatus::SETS_NONE) {
         countRecv = GetCountRecv(batch, threadId, keyCount, scAll, ss);
+    }
+    if (isIncrementalCheckpoint && channel == 0) {
+        countRecv = GetCountRecv(batch, threadId, keyCount, scAll, ss);
+        map<emb_key_t, emb_key_t> tmpKeyCountMap;
+        auto keySize = lookupKeys.size();
+        for (int i = 0; i < keySize; ++i) {
+            tmpKeyCountMap[lookupKeys[i]] += countRecv[i];
+        }
+        auto tmpKeyCountMapSize = tmpKeyCountMap.size();
+        for (const auto& it : tmpKeyCountMap) {
+            keyCountVec.push_back(it.first);
+            keyCountVec.push_back(it.second);
+        }
     }
     std::lock_guard<std::mutex> lock(loadSaveMut[channel][threadId]);
     RecordKeyCountMap(batch);
@@ -583,7 +596,7 @@ bool KeyProcess::KeyProcessTaskHelper(unique_ptr<EmbBatchT>& batch, int channel,
 
     // 将keyCountVec放进tensor里并推到一个队列里
     auto keyCountTensors = make_unique<vector<Tensor>>();
-    if (isIncrementalCheckpoint) {
+    if (isIncrementalCheckpoint && channel == 0) {
         keyCountTensors->push_back(Vec2TensorI64(keyCountVec));
     }
 
@@ -594,7 +607,7 @@ bool KeyProcess::KeyProcessTaskHelper(unique_ptr<EmbBatchT>& batch, int channel,
         PushGlobalUniqueTensors(tensors, lookupKeys, channel);
         tensors->push_back(rankInfo.useDynamicExpansion ? Vec2TensorI64(lookupKeys) : Vec2TensorI32(lookupKeys));
         PushResultHBM(batch, move(tensors));
-        if (isIncrementalCheckpoint) {
+        if (isIncrementalCheckpoint && channel == 0) {
             PushKeyCountHBM(batch, move(keyCountTensors));
         }
     } else {
@@ -1177,7 +1190,7 @@ tuple<vector<KeysT>, vector<int32_t>, vector<vector<uint32_t>>> KeyProcess::Hash
     return {splitKeys, restore, keyCount};
 }
 
-tuple<vector<KeysT>, vector<int32_t>, vector<int>, vector<emb_key_t>> KeyProcess::HotHashSplit(const
+tuple<vector<KeysT>, vector<int32_t>, vector<int>, vector<vector<uint32_t>>> KeyProcess::HotHashSplit(const
 unique_ptr<EmbBatchT>& batch)
 {
     EASY_FUNCTION(profiler::colors::Gold)
@@ -1185,10 +1198,9 @@ unique_ptr<EmbBatchT>& batch)
     size_t miniBs = batch->Size();
     vector<KeysT> splitKeys(rankInfo.rankSize);
     vector<int32_t> restore(batch->Size());
-    absl::flat_hash_map<emb_key_t, int> uKey;  // 用于去重查询
+    absl::flat_hash_map<emb_key_t, std::pair<int, uint32_t>> uKey;  // 用于去重查询
     absl::flat_hash_map<emb_key_t, int> keyCountMapByEmbName;
-    absl::flat_hash_map<emb_key_t, emb_key_t> keyCountOneBatch;
-    vector<emb_key_t> keyCountVec;
+    vector<vector<uint32_t>> keyCount(rankInfo.rankSize);
     std::shared_lock<std::shared_mutex> lock(g_smut);
     auto hotMap = hotKey[batch->name];
     lock.unlock();
@@ -1201,12 +1213,10 @@ unique_ptr<EmbBatchT>& batch)
         if (batch->batchId % hotEmbUpdateStep == 0) {
             keyCountMapByEmbName[key]++;
         }
-        if (isIncrementalCheckpoint) {
-            keyCountOneBatch[key]++;
-        }
         auto result = uKey.find(key);
         if (result != uKey.end()) {  // // already in splitKeys
-            restore[i] = result->second;
+            restore[i] = result->second.first;
+            uKey[key].second++;
             continue;
         }
 
@@ -1235,16 +1245,18 @@ unique_ptr<EmbBatchT>& batch)
             // restore记录去重后key在桶内偏移量（用于计算恢复向量）
             restore[i] = static_cast<int32_t>(splitKeys[devId].size() + (hotOffset - 1));
         }
-        uKey[key] = restore[i];
+        uKey[key].first = restore[i];
+        uKey[key].second = 1;
     }
-    if (isIncrementalCheckpoint) {
-        for (auto& it : keyCountOneBatch) {
-            keyCountVec.emplace_back(it.first);
-            keyCountVec.emplace_back(it.second);
+    // Process key count in splitKeys
+    for (int j = 0; j < rankInfo.rankSize; ++j) {
+        vector<uint32_t> count;
+        for (size_t k = 0; k < splitKeys[j].size(); ++k) {
+            count.emplace_back(uKey[splitKeys[j][k]].second);
         }
+        keyCount[j] = count;
     }
-    LOG_INFO(KEY_PROCESS "Hot hash split, batch id: {}, batch name: {}, channel: {}, kc size: {}, data: {}",
-             batch->batchId, batch->name, batch->channel, keyCountVec.size(), VectorToString(keyCountVec));
+
     if (GlogConfig::gStatOn) {
         size_t uniqueKeyNum = 0;
         for (int devId = 0; devId < rankInfo.rankSize; ++devId) {
@@ -1260,7 +1272,7 @@ unique_ptr<EmbBatchT>& batch)
     if (!embInfos[batch->name].isDp) {
         AddCountStartToHotPos(splitKeys, hotPos, hotPosDev, batch);
     }
-    return {splitKeys, restore, hotPos, keyCountVec};
+    return {splitKeys, restore, hotPos, keyCount};
 }
 
 void KeyProcess::AddCountStartToHotPos(vector<KeysT>& splitKeys, vector<int>& hotPos, const vector<int>& hotPosDev,
