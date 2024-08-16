@@ -21,11 +21,13 @@ import os
 import stat
 
 import tensorflow as tf
+
 from graph_partition import GraphPartitioner
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="")
     parser.add_argument("--model_path", type=str, default="./")
+    parser.add_argument("--tars_name", type=str, default="serve")
     parser.add_argument("--output_path", type=str, default="./")
     parser.add_argument("--output_filename", type=str, default="config.cfg")
     args = parser.parse_args()
@@ -39,17 +41,13 @@ if __name__ == "__main__":
     partition_to_first_heavy_load = False
     #########################################################
 
-    try:
-        output_filepath = os.path.join(args.output_path, args.output_filename)
-        output_filepath = os.path.realpath(output_filepath)
-        model_path = os.path.realpath(args.model_path)
-    except Exception as ex:
-        logging.error(ex)
-        sys.exit(1)
+    output_filepath = os.path.join(args.output_path, args.output_filename)
+    output_filepath = os.path.realpath(output_filepath)
+    model_path = os.path.realpath(args.model_path)
 
     with tf.compat.v1.Session() as sess:
         meta_graph = tf.compat.v1.saved_model.loader.load(
-            sess, ["serve"], model_path
+            sess, [args.tars_name], model_path
         )
         ops = sess.graph.get_operations()
         graph_partitioner = GraphPartitioner()
@@ -64,14 +62,13 @@ if __name__ == "__main__":
 
     with os.fdopen(os.open("template.cfg", os.O_RDONLY)) as ori_cfg:
         template = ori_cfg.read()
-        output = template.replace("#value@in_out_pair#", res_string)
-        if os.path.exists(output_filepath):
-            os.remove(output_filepath)
 
-        # create and write new cfg
-        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
-        mode = stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH
-        with os.fdopen(os.open(output_filepath, flags, mode), "w") as file:
-            file.write(output)
+    output = template.replace("#value@in_out_pair#", res_string)
+    if os.path.exists(output_filepath):
+        os.remove(output_filepath)
 
-
+    # create and write new cfg
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    mode = stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP
+    with os.fdopen(os.open(output_filepath, flags, mode), "w") as file:
+        file.write(output)

@@ -31,7 +31,7 @@ b.执行如下命令，在“tf_adapter”文件夹下拷贝存放“libpython3.
 > cp /usr/local/python3.7.5/lib/libpython3.7m.so.1.0 .<br>
 ln -s libpython3.7m.so.1.0 libpython3.7m.so<br>
 
-c.执行如下命令，在“tf_adapter”文件夹下拷贝存放“_tf_adapter.so”文件，并将“_tf_adapter.so”文件名修改为“lib_tf_adapter.so”。
+c.执行如下命令，在“tf_adapter”文件夹下拷贝存放“_tf_adapter.so”文件，并将“_tf_adapter.so”文件拷贝一份为“lib_tf_adapter.so”。
 >cp /home/HwHiAiUser/Ascend/tfplugin/latest/python/site-packages/npu_bridge/_tf_adapter.so .<br>
 cp _tf_adapter.so lib_tf_adapter.so<br>
 
@@ -129,8 +129,8 @@ server.sh/client.sh
 # 使用切图工具
 1.进入目录：mxrec/tools/graph_partition,修改gen_config.py中的模型目录
 2.执行 python3 gen_config.py，使用生成的test1.cfg文件启动模型，使用方法如下：
-> python3 gen_config.py --output_path . --output_filename test1.cfg --model_path savedmodel_path<br>
-+ 参数解释：output_path(输出路径),output_filename(输出文件名),model_path(输入模型路径)<br>
+> python3 gen_config.py --output_path . --tars_name serve --output_filename test1.cfg --model_path savedmodel_path<br>
++ 参数解释：output_path(输出路径),tars_name(模型tags名字多个以逗号隔开),output_filename(输出文件名),model_path(输入模型路径)<br>
 + 得到输出文件后，替换服务启动脚本中--platform_config_file参数选项即可生效
 
 # 性能优化
