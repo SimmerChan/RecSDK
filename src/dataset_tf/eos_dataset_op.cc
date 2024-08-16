@@ -191,99 +191,6 @@ private:
         }
 
 #endif
-        int64_t GetTensorElementNum(size_t index) {
-            PartialTensorShape tensor_shape = dataset()->output_shapes()[index];
-            int64_t element_number = 1LL;
-            for (int32_t i = 0; i < tensor_shape.dims(); i++) {
-                element_number *= tensor_shape.dim_size(i);
-            }
-            return element_number;
-        }
-
-        bool IsUnknowShape(const PartialTensorShape& output_shapes) const {
-            if (output_shapes.unknown_rank()) {
-                return true;
-            }
-            for (int32_t i = 0; i < output_shapes.dims(); i++) {
-                if (output_shapes.dim_size(i) == -1) {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        Tensor CreateTensorByShape(const PartialTensorShape& output_shapes, const DataType& tensor_data_type) {
-            TensorShape tf_shape;
-            for (int32_t i = 0; i < output_shapes.dims(); i++) {
-                tf_shape.AddDim(output_shapes.dim_size(i));
-            }
-            LOG_INFO("[LQK] CreateTensorByShape, tensor shape: {}", tf_shape.DebugString());
-
-            Tensor tmp(tensor_data_type, tf_shape);
-            auto tensor_data = const_cast<char *>(tmp.tensor_data().data());
-            auto tensor_size = tmp.tensor_data().size();
-            LOG_INFO("[LQK] KnownShape, create tensor: {}， tensor size: {}, tensor.NumElements:{}",
-                     tmp.DebugString(), tensor_size, tmp.NumElements());
-
-            memset_s(tensor_data, tensor_size, 0, tensor_size);
-
-            LOG_INFO("[LQK] KnownShape, after memset tensor: {}", tmp.DebugString());
-
-            return tmp;
-        }
-
-        std::vector<Tensor> CreateOutputVecTensor()
-        {
-            size_t output_shape_size = dataset()->output_shapes().size();
-            size_t output_type_size = dataset()->output_dtypes().size();
-            LOG_INFO("[LQK] output_shape_size: {}, output_type_size: {}", output_shape_size, output_type_size);
-            if (output_shape_size != output_type_size) {
-                LOG_ERROR("[LQK] output_shape_size: {} is not equal to output_type_size: {}", output_shape_size,
-                          output_type_size);
-                return {};
-            }
-            std::vector<Tensor> result;
-            for (size_t i = 0UL; i < output_shape_size; i++) {
-                DataType tensor_data_type = dataset()->output_dtypes().at(i);
-                if (tensor_data_type == DT_STRING) {
-                    LOG_ERROR("[LQK] current tensor type is DT_STRING");
-                    return{};
-                }
-                LOG_INFO("[LQK] current tensor type is: {}", tensor_data_type);
-                LOG_INFO("[LQK] current tensor dim is: {}, dim[0].dim_Size is {}", dataset()->output_shapes()[i].dims(),
-                         dataset()->output_shapes()[i].dim_size(0));
-                if (dataset()->output_shapes()[i].dims() == 2) {
-                    LOG_INFO("[LQK] current tensor dim[1].dim_Size is {}", dataset()->output_shapes()[i].dim_size(1));
-                }
-                if (IsUnknowShape(dataset()->output_shapes()[i])) {
-                    LOG_INFO("[LQK] output shape is unknown shape");
-                    Tensor tensor(tensor_data_type, TensorShape({8, 1}));
-                    if (dataset()->output_shapes()[i].dims() == -1) {
-                        tensor = Tensor(tensor_data_type, TensorShape({1}));
-                    }
-
-                    // 获取指针
-                    auto tensor_data = const_cast<char *>(tensor.tensor_data().data());
-                    auto tensor_size = tensor.tensor_data().size();
-                    LOG_INFO("[LQK] IsUnknowShape, create tensor: {}， tensor size: {}, tensor.NumElements:{}",
-                             tensor.DebugString(), tensor_size, tensor.NumElements());
-
-                    memset_s(tensor_data, tensor_size, 0, tensor_size);
-
-                    LOG_INFO("[LQK] IsUnknowShape, after memset tensor: {}", tensor.DebugString());
-
-                    result.push_back(tensor);
-                    continue;
-                }
-                Tensor a = CreateTensorByShape(dataset()->output_shapes()[i], tensor_data_type);
-                LOG_INFO("[LQK] success create know shape tensor: {}", a.DebugString());
-
-                result.push_back(a);
-            }
-            return result;
-        }
-
-
         Status
         GetNextInternal(IteratorContext *ctx, std::vector <Tensor> *out_tensors,
                         bool *end_of_sequence) override
@@ -315,7 +222,6 @@ private:
             }
 
             auto keyProcess = Singleton<KeyProcess>::GetInstance();
-            auto datasetId = dataset()->id_;
             auto channelId = dataset()->channelId_;
             if (channelId == 0 && iter_times_ == dataset()->maxTrainSteps_) {
                 *end_of_sequence = true;

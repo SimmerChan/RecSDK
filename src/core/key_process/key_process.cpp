@@ -1823,7 +1823,7 @@ void KeyProcess::RecordKeyCountMap(const unique_ptr<EmbBatchT>& batch)
 
 void KeyProcess::EnqueueEosBatch(int64_t batchNum, int channelId)
 {
-    LOG_INFO("Enqueue data set eos on batch queue, channel:{}, eos number:{}", channelId, batchNum);
+    LOG_INFO("Enqueue dataSet eos on batch queue, channel:{}, eos number:{}", channelId, batchNum);
     int threadNum = GetThreadNumEnv();
     int batchQueueId = int(batchNum % threadNum) + (MAX_KEY_PROCESS_THREAD * channelId);
     auto queue = SingletonQueue<EmbBatchT>::GetInstances(batchQueueId);
