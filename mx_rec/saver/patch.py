@@ -279,21 +279,22 @@ def save(self, sess, save_path, global_step=None, latest_filename=None, meta_gra
         if write_meta_graph:
             write_meta_graph_task(self, checkpoint_file=checkpoint_file, meta_graph_suffix=meta_graph_suffix, sess=sess,
                                   strip_default_attrs=strip_default_attrs, save_debug_info=save_debug_info)
-    comm.Barrier()
-    if is_incremental_checkpoint:
-        save_cost_time = time.time() - start_save_time
-        save_dir, _ = os.path.split(save_path)
-        export_tag = "Seconds" if save_delta else "DueTime"
-        model_index_info = {"timestamp": str(int(start_save_time)), "export_tag": export_tag, "type": saved_model_type,
-                            "global_step": int(global_step), "cost_ms": int(save_cost_time * 1000)}
-        if save_delta:
-            delta_model_version = "delta_" + str(int(global_step))
-            write_delta_export_time_ms(save_dir, {delta_model_version: int(save_cost_time * 1000)})
-        update_model_index(save_dir, model_index_info)
+        if is_incremental_checkpoint:
+            save_cost_time = time.time() - start_save_time
+            save_dir, _ = os.path.split(save_path)
+            export_tag = "Seconds" if save_delta else "DueTime"
+            model_index_info = {"timestamp": str(int(start_save_time)), "export_tag": export_tag,
+                                "type": saved_model_type, "global_step": int(global_step),
+                                "cost_ms": int(save_cost_time * 1000)}
+            if save_delta:
+                delta_model_version = "delta_" + str(int(global_step))
+                write_delta_export_time_ms(save_dir, {delta_model_version: int(save_cost_time * 1000)})
+            update_model_index(save_dir, model_index_info)
 
-        # 当保存base的时候清空delta目录
-        if not save_delta:
-            clear_delta_models(save_dir)
+            # When saving base model, clear delta model directories.
+            if not save_delta:
+                clear_delta_models(save_dir)
+    comm.Barrier()
     return model_checkpoint_path
 
 
@@ -309,22 +310,24 @@ def restore(self, sess, save_path):
     restore_model_version = ConfigInitializer.get_instance().restore_model_version
 
     directory, base_name = os.path.split(save_path)
+    model_type = BASE_MODEL
     if is_incremental_checkpoint:
+        model_type = get_model_type_by_version(directory, base_name.split("-")[1])
         if not restore_model_version:
             # open incremental checkpoint and restore_model_version is none, then restore the latest model
-            restore_model_version = base_name.split("-")[1]
-            model_type = get_model_type_by_version(directory, restore_model_version)
             if model_type == DELTA_MODEL:
                 # get the newest base model and then restore delta models one by one
-                base_model, delta_models = get_base_and_delta_models(directory, restore_model_version)
+                base_model, delta_models = get_base_and_delta_models(directory, base_name.split("-")[1])
                 delta_models_str = " ".join(delta_models)
                 logger.info(f"Restore %s model from base model: %s and delta models: %s.", model_type, base_model,
                             delta_models_str)
                 read_base_delta_and_write(directory, base_model, delta_models)
-            save_path = os.path.join(directory, base_name)
         else:
             base_name = base_name.split("-")[0] + "-" + restore_model_version
             model_type = get_model_type_by_version(directory, restore_model_version)
+            if not model_type:
+                logger.error("Get model type by version failed, %s step model not exists.", restore_model_version)
+                raise ValueError(f"Get model type by version failed, {restore_model_version} step model not exists.")
             if model_type == DELTA_MODEL:
                 # get the newest base model and then restore delta models one by one
                 base_model, delta_models = get_base_and_delta_models(directory, restore_model_version)
@@ -332,10 +335,8 @@ def restore(self, sess, save_path):
                 logger.info(f"Restore %s model from base model: %s and delta models: %s.", model_type, base_model,
                             delta_models_str)
                 read_base_delta_and_write(directory, base_model, delta_models)
-            save_path = os.path.join(directory, base_name)
-    else:
-        model_type = BASE_MODEL
-        save_path = os.path.join(directory, base_name)
+
+    save_path = os.path.join(directory, base_name)
 
     if not check_characters_is_valid(save_path):
         raise ValueError("save_path contains invalid characters such as newline, "
