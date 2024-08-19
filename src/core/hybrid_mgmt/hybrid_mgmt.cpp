@@ -285,7 +285,7 @@ bool HybridMgmt::Load(const string& loadPath, vector<string> warmStartTables)
     KEY_PROCESS_INSTANCE->LoadSaveUnlock();
 
     // 执行训练
-    if (isLoad) {
+    if (isLoad && procThreads.empty()) {
         Start();
     }
 #endif
@@ -369,7 +369,7 @@ void HybridMgmt::ReceiveHostMap(AllKeyOffsetMapT receiveKeyOffsetMap)
     }
 
     KEY_PROCESS_INSTANCE->LoadSaveUnlock();
-    if (isLoad) {
+    if (isLoad && procThreads.empty()) {
         Start();
     }
 #endif
