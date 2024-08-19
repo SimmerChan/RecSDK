@@ -283,9 +283,10 @@ def save(self, sess, save_path, global_step=None, latest_filename=None, meta_gra
             save_cost_time = time.time() - start_save_time
             save_dir, _ = os.path.split(save_path)
             export_tag = "Seconds" if save_delta else "DueTime"
-            model_index_info = {"timestamp": str(int(start_save_time)), "export_tag": export_tag,
-                                "type": saved_model_type, "global_step": int(global_step),
-                                "cost_ms": int(save_cost_time * 1000)}
+            model_index_info = {
+                "timestamp": str(int(start_save_time)), "export_tag": export_tag,
+                "type": saved_model_type, "global_step": int(global_step), "cost_ms": int(save_cost_time * 1000)
+            }
             if save_delta:
                 delta_model_version = "delta_" + str(int(global_step))
                 write_delta_export_time_ms(save_dir, {delta_model_version: int(save_cost_time * 1000)})

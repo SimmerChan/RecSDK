@@ -556,14 +556,13 @@ bool KeyProcess::KeyProcessTaskHelper(unique_ptr<EmbBatchT>& batch, int channel,
         FeatureAdmitAndEvict::m_embStatus[batch->name] != SingleEmbTableStatus::SETS_NONE) {
         countRecv = GetCountRecv(batch, threadId, keyCount, scAll, ss);
     }
-    if (isIncrementalCheckpoint && channel == 0) {
+    if (isIncrementalCheckpoint && channel == TRAIN_CHANNEL_ID) {
         countRecv = GetCountRecv(batch, threadId, keyCount, scAll, ss);
         map<emb_key_t, emb_key_t> tmpKeyCountMap;
         auto keySize = lookupKeys.size();
         for (int i = 0; i < keySize; ++i) {
             tmpKeyCountMap[lookupKeys[i]] += countRecv[i];
         }
-        auto tmpKeyCountMapSize = tmpKeyCountMap.size();
         for (const auto& it : tmpKeyCountMap) {
             keyCountVec.push_back(it.first);
             keyCountVec.push_back(it.second);
@@ -596,7 +595,7 @@ bool KeyProcess::KeyProcessTaskHelper(unique_ptr<EmbBatchT>& batch, int channel,
 
     // 将keyCountVec放进tensor里并推到一个队列里
     auto keyCountTensors = make_unique<vector<Tensor>>();
-    if (isIncrementalCheckpoint && channel == 0) {
+    if (isIncrementalCheckpoint && channel == TRAIN_CHANNEL_ID) {
         keyCountTensors->push_back(Vec2TensorI64(keyCountVec));
     }
 
@@ -607,7 +606,7 @@ bool KeyProcess::KeyProcessTaskHelper(unique_ptr<EmbBatchT>& batch, int channel,
         PushGlobalUniqueTensors(tensors, lookupKeys, channel);
         tensors->push_back(rankInfo.useDynamicExpansion ? Vec2TensorI64(lookupKeys) : Vec2TensorI32(lookupKeys));
         PushResultHBM(batch, move(tensors));
-        if (isIncrementalCheckpoint && channel == 0) {
+        if (isIncrementalCheckpoint && channel == TRAIN_CHANNEL_ID) {
             PushKeyCountHBM(batch, move(keyCountTensors));
         }
     } else {
@@ -1249,12 +1248,14 @@ unique_ptr<EmbBatchT>& batch)
         uKey[key].second = 1;
     }
     // Process key count in splitKeys
-    for (int j = 0; j < rankInfo.rankSize; ++j) {
-        vector<uint32_t> count;
-        for (size_t k = 0; k < splitKeys[j].size(); ++k) {
-            count.emplace_back(uKey[splitKeys[j][k]].second);
+    if (isIncrementalCheckpoint) {
+        for (int j = 0; j < rankInfo.rankSize; ++j) {
+            vector<uint32_t> count;
+            for (size_t k = 0; k < splitKeys[j].size(); ++k) {
+                count.emplace_back(uKey[splitKeys[j][k]].second);
+            }
+            keyCount[j] = count;
         }
-        keyCount[j] = count;
     }
 
     if (GlogConfig::gStatOn) {
