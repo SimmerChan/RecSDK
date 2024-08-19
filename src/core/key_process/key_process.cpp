@@ -1916,7 +1916,7 @@ void KeyProcess::WaitSaveEnd()
         loop_cnt++;
     }
 
-    if (loop_cnt > 1 && loop_cnt < SAVE_RECORD_CHECK_TIMES) {
+    if (loop_cnt <= SAVE_RECORD_CHECK_TIMES) {
         LOG_DEBUG("[EOS] table:{}, channelId:{} batchId:{}, before send eos, check save records loop times:{}.",
                   embName, channel, batchId, loop_cnt);
     } else {
