@@ -14,11 +14,11 @@ See the License for the specific language governing permissions and
 ==============================================================================*/
 #include "key_process.h"
 
-#include <absl/container/flat_hash_set.h>
-#include <mpi.h>
-
 #include <cstddef>
 #include <iostream>
+
+#include <absl/container/flat_hash_set.h>
+#include <mpi.h>
 
 #include "emb_table/embedding_mgmt.h"
 #include "hd_transfer/hd_transfer.h"
@@ -601,7 +601,7 @@ bool KeyProcess::KeyProcessTaskHelper(unique_ptr<EmbBatchT>& batch, int channel,
     hotPos.resize(hotEmbTotCount[batch->name], 0);
     tensors->push_back(Vec2TensorI32(hotPos));
 
-    // HBM把restore、unique、idoffset做成了Tensor，放到infolist里面了（hbm第一个get的是tensors）
+    // Tensors contains restore、hotPos、restoreSec&unique、idOffset in order when HBM mode, and is pushed in infolist.
     if (!rankInfo.isDDR) {
         PushGlobalUniqueTensors(tensors, lookupKeys, channel);
         tensors->push_back(rankInfo.useDynamicExpansion ? Vec2TensorI64(lookupKeys) : Vec2TensorI32(lookupKeys));
@@ -609,7 +609,7 @@ bool KeyProcess::KeyProcessTaskHelper(unique_ptr<EmbBatchT>& batch, int channel,
         if (isIncrementalCheckpoint) {
             PushKeyCountHBM(batch, move(keyCountTensors));
         }
-    } else {  // DDR 保留原有的数据结构，idoffset在上层mgmt组装（ddr第一个get的是unique）
+    } else {
         std::vector<uint64_t> lookupKeysUint(lookupKeys.begin(), lookupKeys.end());
         vector<uint64_t> uniqueKeys;
         vector<int32_t> restoreVecSec;

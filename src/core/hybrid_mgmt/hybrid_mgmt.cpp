@@ -1213,7 +1213,7 @@ void HybridMgmt::EmbeddingReceiveAndUpdateDDR(int batchId, int index, const EmbI
     vector<float*> swapOutAddrs;
     auto isSuccess = EmbeddingReceiveDDR(info, ptr, swapOutAddrs);
     if (!isSuccess) {
-        LOG_DEBUG("HybridMgmt is not running or receive empty data when [ReceiveAndUpdateDDR], table:{}, batchId:{}, "
+        LOG_DEBUG("HybridMgmt is not running or receive empty data when [EmbeddingReceiveDDR], table:{}, batchId:{}, "
                   "channel:{}",
                   embInfo.name, batchId, channelId);
         return;
@@ -1267,7 +1267,7 @@ void HybridMgmt::EmbeddingReceiveAndUpdateL3Storage(int batchId, int index, cons
     auto isSuccess = EmbeddingReceiveL3Storage(info, ptr, swapOutAddrs, dims0);
     if (!isSuccess) {
         LOG_DEBUG(
-            "HybridMgmt is not running or receive empty data when [LookUpAndSendL3Storage], table:{}, batchId:{}, "
+            "HybridMgmt is not running or receive empty data when [EmbeddingReceiveL3Storage], table:{}, batchId:{}, "
             "channel:{}",
             embInfo.name, batchId, channelId);
         return;

@@ -204,19 +204,22 @@ private:
 
             // Out size equals to zero when batch eos.
             int outSize = out_tensors->size();
-            if (outSize > 0) {
-                for (const auto& t : *out_tensors) {
-                    DataType tensor_type = t.dtype();
-                    TensorShape tensor_shape = t.shape();
-                    LOG_DEBUG("Iterator getNext normal, channel: {}, iter: {}, outTensor size: {}, tensor_type: {}, "
-                              "tensor_shape: {}",
-                              dataset()->channelId_,
-                              iter_times_,
-                              outSize,
-                              tensor_type,
-                              tensor_shape.DebugString());
+            if (MxRec::Logger::GetLevel() <= MxRec::Logger::DEBUG) {
+                if (outSize > 0) {
+                    for (const auto& t : *out_tensors) {
+                        DataType tensor_type = t.dtype();
+                        TensorShape tensor_shape = t.shape();
+                        LOG_DEBUG("Iterator getNext normal, channel: {}, iter: {}, outTensor size: {}, tensor_type: {}, "
+                                  "tensor_shape: {}",
+                                  dataset()->channelId_,
+                                  iter_times_,
+                                  outSize,
+                                  tensor_type,
+                                  tensor_shape.DebugString());
+                    }
                 }
-            } else {
+            }
+            if (outSize <= 0) {
                 LOG_DEBUG("Iterator getNext eos, channel: {}, iter: {}, outTensor size: {}", dataset()->channelId_,
                           iter_times_, outSize);
             }
