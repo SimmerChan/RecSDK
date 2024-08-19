@@ -1508,6 +1508,7 @@ bool HybridMgmt::EmbeddingReceiveDDR(const EmbTaskInfo& info, float*& ptr, vecto
     if (isEos) {
         LOG_DEBUG("EmbeddingReceiveDDR get eos, table:{}, batchId:{}, channel: {}", info.name, info.batchId,
                   info.channelId);
+        // It cannot return here after send eos, otherwise it will block the next round of switching.
         KEY_PROCESS_INSTANCE->SendEos(info.name, info.batchId, info.channelId);
     }
 
@@ -1721,6 +1722,7 @@ bool HybridMgmt::EmbeddingReceiveL3Storage(const EmbTaskInfo& info, float*& ptr,
     if (isEos) {
         LOG_DEBUG("EmbeddingReceiveL3Storage get eos, table:{}, batchId:{}, channel: {}", info.name, info.batchId,
                   info.channelId);
+        // It cannot return here after send eos, otherwise it will block the next round of switching.
         KEY_PROCESS_INSTANCE->SendEos(info.name, info.batchId, info.channelId);
     }
 
