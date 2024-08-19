@@ -202,30 +202,10 @@ private:
             }
             TF_RETURN_IF_ERROR(input_impl_->GetNext(ctx, out_tensors, end_of_sequence));
 
-            // Out size equals to zero when batch eos.
-            int outSize = out_tensors->size();
-            if (MxRec::Logger::GetLevel() <= MxRec::Logger::DEBUG) {
-                if (outSize > 0) {
-                    for (const auto& t : *out_tensors) {
-                        DataType tensor_type = t.dtype();
-                        TensorShape tensor_shape = t.shape();
-                        LOG_DEBUG("Iterator getNext normal, channel: {}, iter: {}, outTensor size: {}, tensor_type: {}, "
-                                  "tensor_shape: {}",
-                                  dataset()->channelId_,
-                                  iter_times_,
-                                  outSize,
-                                  tensor_type,
-                                  tensor_shape.DebugString());
-                    }
-                }
-            }
-            if (outSize <= 0) {
-                LOG_DEBUG("Iterator getNext eos, channel: {}, iter: {}, outTensor size: {}", dataset()->channelId_,
-                          iter_times_, outSize);
-            }
+            auto channelId = dataset()->channelId_;
+            PrintOutput(out_tensors, channelId);
 
             auto keyProcess = Singleton<KeyProcess>::GetInstance();
-            auto channelId = dataset()->channelId_;
             if (channelId == 0 && iter_times_ == dataset()->maxTrainSteps_) {
                 *end_of_sequence = true;
             }
@@ -302,6 +282,29 @@ private:
             mutex_lock l(mu_);
             TF_RETURN_IF_ERROR(RestoreInput(ctx, reader, input_impl_));
             return Status::OK();
+        }
+
+        void PrintOutput(std::vector <Tensor> *out_tensors, int channelId)
+        {
+            // Out size equals to zero when batch eos.
+            int outSize = out_tensors->size();
+            if (MxRec::Logger::GetLevel() <= MxRec::Logger::DEBUG) {
+                for (const auto& t : *out_tensors) {
+                    DataType tensor_type = t.dtype();
+                    TensorShape tensor_shape = t.shape();
+                    LOG_DEBUG("Iterator getNext normal, channel: {}, iter: {}, outTensor size: {}, "
+                              "tensor_type: {}, tensor_shape: {}",
+                              channelId,
+                              iter_times_,
+                              outSize,
+                              tensor_type,
+                              tensor_shape.DebugString());
+                }
+            }
+            if (outSize <= 0) {
+                LOG_DEBUG("Iterator getNext eos, channel: {}, iter: {}, outTensor size: {}", channelId,
+                          iter_times_, outSize);
+            }
         }
 
     private:
