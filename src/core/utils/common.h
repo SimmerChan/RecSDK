@@ -71,6 +71,7 @@ constexpr int SSD_SIZE_INDEX = 2;
 constexpr int MAX_FILE_NUM = 1000;
 constexpr int EMBEDDING_THREAD_NUM = 2;
 constexpr int HOST_TO_PREFILL_RATIO = 10;
+constexpr int KEY_COUNT_ELEMENT_NUM = 2;
 // for GLOG
 struct GlogConfig {
     static bool gStatOn;
@@ -512,6 +513,17 @@ struct KeySendInfo {
     vector<int32_t> keyCount;
 };
 
+struct KeyInfo {
+    int64_t lastUseTime;       // 最后使用时间
+    int64_t recentCount;       // 最近使用次数
+    bool isChanged;            // 是否有变更
+    int64_t batchID;           // batch id
+    int64_t totalCount;        // key总使用次数
+
+    KeyInfo(): lastUseTime(0), recentCount(0), isChanged(false),
+               batchID(0), totalCount(0) {}
+};
+
 using EmbMemT = absl::flat_hash_map<std::string, HostEmbTable>;
 using OffsetMemT = std::map<EmbNameT, size_t>;
 using KeyOffsetMemT = std::map<EmbNameT, absl::flat_hash_map<emb_key_t, int64_t>>;
@@ -576,41 +588,8 @@ enum class CkptDataType {
     KEY_COUNT_MAP = 13
 };
 
-static std::string CkptDataTypeName(CkptDataType type)
-{
-    switch (type) {
-        case CkptDataType::EMB_INFO:
-            return "EMB_INFO";
-        case CkptDataType::EMB_DATA:
-            return "EMB_DATA";
-        case CkptDataType::EMB_HASHMAP:
-            return "EMB_HASHMAP";
-        case CkptDataType::DEV_OFFSET:
-            return "DEV_OFFSET";
-        case CkptDataType::EMB_CURR_STAT:
-            return "EMB_CURR_STAT";
-        case CkptDataType::NDDR_OFFSET:
-            return "NDDR_OFFSET";
-        case CkptDataType::NDDR_FEATMAP:
-            return "NDDR_FEATMAP";
-        case CkptDataType::TABLE_2_THRESH:
-            return "TABLE_2_THRESH";
-        case CkptDataType::HIST_REC:
-            return "HIST_REC";
-        case CkptDataType::ATTRIBUTE:
-            return "ATTRIBUTE";
-        case CkptDataType::DDR_FREQ_MAP:
-            return "DDR_FREQ_MAP";
-        case CkptDataType::EXCLUDE_FREQ_MAP:
-            return "EXCLUDE_FREQ_MAP";
-        case CkptDataType::EVICT_POS:
-            return "EVICT_POS";
-        case CkptDataType::KEY_COUNT_MAP:
-            return "KEY_COUNT_MAP";
-        default:
-            return "UNKNOWN";
-    }
-}
+std::string CkptDataTypeName(CkptDataType type);
+
 
 enum CTRLogLevel {  // can't use enum class due to compatibility for AccCTR
     DEBUG = 0,
@@ -643,6 +622,8 @@ ostream& operator<<(ostream& ss, MxRec::CkptDataType type);
 bool CheckFilePermission(const string& filePath);
 
 int GetStepFromPath(const string& loadPath);
+
+string MakeKeyName(int id, const string& tableName, int channelId);
 }  // end namespace MxRec
 
 #define KEY_PROCESS "\033[45m[KeyProcess]\033[0m "

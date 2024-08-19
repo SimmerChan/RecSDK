@@ -79,7 +79,7 @@ KeyOffsetMemT EmbeddingMgmt::GetKeyOffsetMap()
 
 void EmbeddingMgmt::EvictKeys(const string& name, const vector<emb_cache_key_t>& keys)
 {
-    LOG_ERROR("evict keys for {}", name);
+    LOG_INFO("evict keys for {}", name);
     if (keys.size() != 0) {
         embeddings[name]->EvictKeys(keys);
     }
@@ -126,14 +126,16 @@ void EmbeddingMgmt::Load(const string& filePath, map<string, unordered_set<emb_c
     }
 }
 
-void EmbeddingMgmt::Save(const string& name, const string& filePath)
+void EmbeddingMgmt::Save(const string& name, const string& filePath, const int pythonBatchId)
 {
+    map<emb_key_t, KeyInfo> keyInfo;
     embeddings[name]->SetFileSystemPtr(filePath);
-    embeddings[name]->Save(filePath);
+    embeddings[name]->Save(filePath, pythonBatchId, false, keyInfo);
     embeddings[name]->UnsetFileSystemPtr();
 }
 
-void EmbeddingMgmt::Save(const string& filePath)
+void EmbeddingMgmt::Save(const string& filePath, const int pythonBatchId, bool saveDelta,
+                         const map<string, map<emb_key_t, KeyInfo>>& keyInfoMap)
 {
     for (auto& tablePair: embeddings) {
         tablePair.second->SetFileSystemPtr(filePath);
@@ -141,8 +143,14 @@ void EmbeddingMgmt::Save(const string& filePath)
     // use multi-thread to prevent receiving save_d2h blocked when table order different between cpp and python
     vector<future<void>> futures;
     for (auto& tablePair: embeddings) {
+        map<emb_key_t, KeyInfo> keyInfo;
+        if (saveDelta) {
+            keyInfo = keyInfoMap.at(tablePair.first);
+        }
         futures.emplace_back(
-            std::async(std::launch::async, [table = tablePair.second, filePath] { table->Save(filePath); }));
+            std::async(std::launch::async,
+                       [table = tablePair.second, filePath, pythonBatchId, saveDelta,
+                        keyInfo] { table->Save(filePath, pythonBatchId, saveDelta, keyInfo); }));
     }
     for (auto& f: futures) {
         f.get();  // get() will repost exception if happened
@@ -194,5 +202,19 @@ void EmbeddingMgmt::SetEmbCacheForEmbTable(const ock::ctr::EmbCacheManagerPtr& e
 {
     for (auto& table: embeddings) {
         table.second->SetEmbCache(embCache);
+    }
+}
+
+void EmbeddingMgmt::BackUpTrainStatusBeforeLoad()
+{
+    for (auto& table: embeddings) {
+        table.second->BackUpTrainStatus();
+    }
+}
+
+void EmbeddingMgmt::RecoverTrainStatus()
+{
+    for (auto& table: embeddings) {
+        table.second->RecoverTrainStatus();
     }
 }
