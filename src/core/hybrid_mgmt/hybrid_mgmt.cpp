@@ -2156,3 +2156,13 @@ void HybridMgmt::GetDeltaModelKeys(const string& savePath, bool saveDelta,
         }
     }
 }
+
+void HybridMgmt::SetSaveOpInfo(bool isSaveEnd)
+{
+    if (isSaveEnd) {
+        KEY_PROCESS_INSTANCE->SetPythonSaveEndInfo();
+    } else {
+        KEY_PROCESS_INSTANCE->SetPythonSaveStartInfo();
+    }
+}
+

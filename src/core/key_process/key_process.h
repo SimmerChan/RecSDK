@@ -70,6 +70,8 @@ private:
 
 constexpr int MPI_ABNORMAL_SEND_VALUE = 0;  // MPI异常通信时发送0
 constexpr int MPI_NORMAL_SEND_VALUE = 1;    // MPI正常通信时发送1
+constexpr int SAVE_RECORD_CHECK_TIMES = 25;
+constexpr size_t SAVE_RECORD_LENGTH = 10;
 
 class EmptyList : public std::exception {};
 
@@ -199,6 +201,10 @@ public:
     bool isRunning{false};
 
     bool isIncrementalCheckpoint {false};
+
+    void SetPythonSaveStartInfo();
+
+    void SetPythonSaveEndInfo();
 
     std::mutex destroyMutex;
     std::mutex eosMutex;
@@ -367,6 +373,8 @@ public:
     bool IsGetUniqueKeysEos(const EmbBaseInfo& info, std::chrono::_V2::system_clock::time_point& startTime);
 
     void SendEosTensor(const std::string& embName, int channel);
+
+    std::vector<bool> saveOpRecords_ = {};
 };
 
 #define KEY_PROCESS_INSTANCE Singleton<KeyProcess>::GetInstance()

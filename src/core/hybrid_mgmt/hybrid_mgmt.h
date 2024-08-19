@@ -142,7 +142,10 @@ public:
 
     void ReceiveKeyThread(const EmbInfo& embInfo);
 
-    GTEST_PRIVATE : bool mutexDestroy{false};
+    void SetSaveOpInfo(bool isSaveEnd);
+
+GTEST_PRIVATE :
+    bool mutexDestroy{false};
     std::mutex lookUpAndSendBatchIdMtx[MAX_CHANNEL_NUM];  // train and eval
     std::mutex receiveAndUpdateBatchIdMtx[MAX_CHANNEL_NUM];
 
