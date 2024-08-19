@@ -169,8 +169,8 @@ void EmbeddingDynamic::SaveKey(const string& savePath, bool saveDelta, const map
         for (const auto& it : keyInfo) {
             auto result = keyOffsetMap.find(it.first);
             if (result == keyOffsetMap.end()) {
-                LOG_DEBUG("Key: {} not in keyOffsetMap.");
-                continue;
+                LOG_ERROR("Key: {} not in keyOffsetMap.", it.first);
+                throw runtime_error(StringFormat("Key: %s not in keyOffsetMap.", it.first));
             }
             deviceKey.push_back(result->first);
             embAddress.push_back(result->second);
