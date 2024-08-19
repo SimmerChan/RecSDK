@@ -1591,15 +1591,7 @@ void KeyProcess::SendEos(const std::string& embName, int batchId, int channel)
         return;
     }
 
-    // 发送eos前，先等待save操作执行完成; 先睡眠3秒，等待可能得保存操作
-    this_thread::sleep_for(3000ms);
-    int loop_cnt = 0;
-    while (!saveOpRecords_.empty() && !saveOpRecords_[saveOpRecords_.size() - 1] && loop_cnt < SAVE_RECORD_CHECK_TIMES) {
-        this_thread::sleep_for(1000ms);
-        loop_cnt++;
-    }
-    LOG_DEBUG("[EOS] table:{}, channelId:{} batchId:{}, before send eos, check save records loop times:{}.",
-              embName, channel, batchId, loop_cnt + 1);
+    WaitSaveEnd();
 
     SendEosTensor(embName, channel);
     destroyMutex.unlock();
@@ -1910,4 +1902,26 @@ void KeyProcess::SetPythonSaveEndInfo()
         this->saveOpRecords_[saveOpRecords_.size() - 1] = true;
     }
     LOG_INFO("Python save operation end.");
+}
+
+void KeyProcess::WaitSaveEnd()
+{
+    // Before sending eos, wait for the save operation to complete.
+    // Sleep for 3 seconds and wait for a possible save operation.
+    this_thread::sleep_for(3000ms);
+    int loop_cnt = 1;
+    while (!saveOpRecords_.empty() && !saveOpRecords_[saveOpRecords_.size() - 1]
+        && loop_cnt <= SAVE_RECORD_CHECK_TIMES) {
+        this_thread::sleep_for(1000ms);
+        loop_cnt++;
+    }
+
+    if (loop_cnt > 1 && loop_cnt < SAVE_RECORD_CHECK_TIMES) {
+        LOG_DEBUG("[EOS] table:{}, channelId:{} batchId:{}, before send eos, check save records loop times:{}.",
+                  embName, channel, batchId, loop_cnt);
+    } else {
+        LOG_WARN("[EOS] table:{}, channelId:{} batchId:{}, before send eos, check save records loop times:{}.",
+                  embName, channel, batchId, loop_cnt);
+    }
+
 }

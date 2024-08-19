@@ -35,6 +35,9 @@ See the License for the specific language governing permissions and
 namespace MxRec {
 using namespace std;
 
+constexpr int SAVE_RECORD_CHECK_TIMES = 25;
+constexpr size_t SAVE_RECORD_LENGTH = 10;
+
 template <class T>
 struct Cmp {
     bool operator()(const T& a, const T& b) const
@@ -67,11 +70,6 @@ public:
 private:
     const char* errorMessage;
 };
-
-constexpr int MPI_ABNORMAL_SEND_VALUE = 0;  // MPI异常通信时发送0
-constexpr int MPI_NORMAL_SEND_VALUE = 1;    // MPI正常通信时发送1
-constexpr int SAVE_RECORD_CHECK_TIMES = 25;
-constexpr size_t SAVE_RECORD_LENGTH = 10;
 
 class EmptyList : public std::exception {};
 
@@ -364,6 +362,8 @@ GTEST_PRIVATE :
     string DumpSplitKeys(vector<vector<emb_key_t>>& splitKeys) const;
 
     void SendEosTensor(const std::string& embName, int channel);
+
+    void WaitSaveEnd();
 
     std::vector<bool> saveOpRecords_ = {};
 };
