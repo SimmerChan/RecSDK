@@ -32,6 +32,7 @@ See the License for the specific language governing permissions and
 #include "utils/common.h"
 #include "utils/logger.h"
 #include "utils/time_cost.h"
+#include "utils/error.h"
 
 using namespace MxRec;
 using namespace std;
@@ -1118,7 +1119,9 @@ void HybridMgmt::ReceiveKeyThread(const EmbInfo& embInfo)
                                     .name = embInfo.name};
                 unique_ptr<vector<Tensor>> keyCountVecInfo = KEY_PROCESS_INSTANCE->GetKCInfoVec(info);
                 if (keyCountVecInfo == nullptr) {
-                    LOG_ERROR("Get key count info vector is empty.");
+                    auto error = MxRec::Error(ModuleName::M_HYBRID_MGMT, ErrorType::NULL_PTR,
+                                              StringFormat("Get key count info vector is empty."));
+                    LOG_ERROR(error.ToString());
                     throw runtime_error("Get key count info vector is empty.");
                 }
                 auto keyCountVecTmp = keyCountVecInfo->at(0).flat<int64>();
