@@ -1511,6 +1511,8 @@ bool HybridMgmt::EmbeddingReceiveDDR(const EmbTaskInfo& info, float*& ptr, vecto
                   info.channelId);
         // It cannot return here after send eos, otherwise it will block the next round of switching.
         KEY_PROCESS_INSTANCE->SendEos(info.name, info.batchId, info.channelId);
+        // Once eos is sent, it will be blocked in [EosL2Que WaitAndPop]. For train mode, it will be finished, but for
+        // eval mode, it will be waked when normal data comes in next turn.
         isEos = EosL2Que[info.name][info.channelId].WaitAndPop();
         if (!isRunning) {
             return false;
@@ -1725,10 +1727,12 @@ bool HybridMgmt::EmbeddingReceiveL3Storage(const EmbTaskInfo& info, float*& ptr,
         return false;
     }
     if (isEos) {
-        LOG_DEBUG("EmbeddingReceiveL3Storage get eos, table:{}, accumulate batchId:{}, channel: {}", info.name, info.batchId,
-                  info.channelId);
+        LOG_DEBUG("EmbeddingReceiveL3Storage get eos, table:{}, accumulate batchId:{}, channel: {}", info.name,
+                  info.batchId, info.channelId);
         // It cannot return here after send eos, otherwise it will block the next round of switching.
         KEY_PROCESS_INSTANCE->SendEos(info.name, info.batchId, info.channelId);
+        // Once eos is sent, it will be blocked in [EosL2Que WaitAndPop]. For train mode, it will be finished, but for
+        // eval mode, it will be waked when normal data comes in next turn.
         isEos = EosL1Que[info.name][info.channelId].WaitAndPop();
         if (!isRunning) {
             return false;
