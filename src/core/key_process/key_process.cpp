@@ -574,6 +574,8 @@ bool KeyProcess::KeyProcessTaskHelper(unique_ptr<EmbBatchT>& batch, int channel,
             keyCountVec.push_back(it.first);
             keyCountVec.push_back(it.second);
         }
+        LOG_INFO("Current batch: {}, emb table:{} , key count size is: {}, key count: {}.", batch->batchId+1,
+                 batch->name, tmpKeyCountMap.size(), VectorToString(keyCountVec));
     }
     std::lock_guard<std::mutex> lock(loadSaveMut[channel][threadId]);
     RecordKeyCountMap(batch);
