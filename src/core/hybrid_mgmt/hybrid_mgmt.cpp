@@ -966,9 +966,10 @@ void HybridMgmt::LookUpAndRemoveAddrs(const EmbTaskInfo& info)
                 auto* newAddr = (float*)malloc(memSize);
                 rc = memcpy_s(newAddr, memSize, addr, memSize);
                 if (rc != 0) {
-                    auto error = Error(
-                        ModuleName::M_HYBRID_MGMT, ErrorType::UNKNOWN,
-                        StringFormat("Memcpy_s failed when DDR swap out, error code: %d. MemSize: %d.", rc, memSize));
+                    auto error = Error(ModuleName::M_HYBRID_MGMT, ErrorType::UNKNOWN,
+                                       StringFormat("Memcpy_s failed when DDR swap out, error code: %d. MemSize: %d. "
+                                                    "You can query the meaning of security function error code.",
+                                                    rc, memSize));
                     LOG_ERROR(error.ToString());
                     throw runtime_error(error.ToString().c_str());
                 }
@@ -1619,7 +1620,7 @@ bool HybridMgmt::EmbeddingReceiveDDR(const EmbTaskInfo& info, float*& ptr, vecto
 
     if (dims[0] != static_cast<int64_t>(swapOutAddrs.size())) {
         auto error =
-            Error(ModuleName::M_HYBRID_MGMT, ErrorType::UNKNOWN,
+            Error(ModuleName::M_HYBRID_MGMT, ErrorType::LOGIC_ERROR,
                   StringFormat(
                       "Receive swap-out emb num %d does not equal to swap-out addrs num %d in [EmbeddingReceiveDDR].",
                       dims[0], swapOutAddrs.size()));
@@ -1650,9 +1651,10 @@ void HybridMgmt::EmbeddingUpdateDDR(const EmbTaskInfo& info, const float* embPtr
     for (uint64_t i = 0; i < swapOutAddrs.size(); i++) {
         auto rc = memcpy_s(swapOutAddrs[i], memSize, embPtr + i * extEmbeddingSize, memSize);
         if (rc != 0) {
-            auto error =
-                Error(ModuleName::M_HYBRID_MGMT, ErrorType::UNKNOWN,
-                      StringFormat("Memcpy_s failed when emb update ddr, error code: %d. MemSize: %d.", rc, memSize));
+            auto error = Error(ModuleName::M_HYBRID_MGMT, ErrorType::UNKNOWN,
+                               StringFormat("Memcpy_s failed when emb update ddr, error code: %d. MemSize: %d. You can "
+                                            "query the meaning of security function error code.",
+                                            rc, memSize));
             LOG_ERROR(error.ToString());
             throw runtime_error(error.ToString().c_str());
         }
@@ -1875,9 +1877,10 @@ void HybridMgmt::EmbeddingUpdateL3Storage(const EmbTaskInfo& info, float* embPtr
     for (uint64_t i = 0; i < swapOutAddrs.size(); i++) {
         auto rc = memcpy_s(swapOutAddrs[i], memSize, embPtr + swapOutDDRAddrOffs[i] * extEmbeddingSize, memSize);
         if (rc != 0) {
-            auto error = Error(
-                ModuleName::M_HYBRID_MGMT, ErrorType::UNKNOWN,
-                StringFormat("Memcpy_s failed when emb update L3Storage, error code: %d. MemSize: %d.", rc, memSize));
+            auto error = Error(ModuleName::M_HYBRID_MGMT, ErrorType::UNKNOWN,
+                               StringFormat("Memcpy_s failed when emb update L3Storage, error code: %d. MemSize: %d. "
+                                            "You can query the meaning of security function error code.",
+                                            rc, memSize));
             LOG_ERROR(error.ToString());
             throw runtime_error(error.ToString().c_str());
         }
@@ -1897,7 +1900,7 @@ void HybridMgmt::EmbeddingUpdateL3Storage(const EmbTaskInfo& info, float* embPtr
     }
 
     if (dims0 != static_cast<int64_t>(swapOutAddrs.size() + swapOutL3StorageKeys.size())) {
-        auto error = Error(ModuleName::M_HYBRID_MGMT, ErrorType::UNKNOWN,
+        auto error = Error(ModuleName::M_HYBRID_MGMT, ErrorType::LOGIC_ERROR,
                            StringFormat("Receive swap-out emb num %d does not equal to addrs num %d for swap-out ddr "
                                         "and %d for swap-out L3Storage in [EmbeddingUpdateL3Storage].",
                                         dims0, swapOutAddrs.size(), swapOutL3StorageKeys.size()));
@@ -2058,9 +2061,10 @@ bool HybridMgmt::BuildH2DEmbedding(const EmbTaskInfo& info, vector<Tensor>& h2dE
     for (uint64_t i = 0; i < swapInAddrs.size(); i++) {
         auto rc = memcpy_s(h2dEmbAddr + i * info.extEmbeddingSize, memSize, swapInAddrs[i], memSize);
         if (rc != 0) {
-            auto error = Error(
-                ModuleName::M_HYBRID_MGMT, ErrorType::UNKNOWN,
-                StringFormat("Memcpy_s failed when emb lookup, error code: %d. MemSize: %d.", rc, memSize));
+            auto error = Error(ModuleName::M_HYBRID_MGMT, ErrorType::UNKNOWN,
+                               StringFormat("Memcpy_s failed when emb lookup, error code: %d. MemSize: %d. You can "
+                                            "query the meaning of security function error code.",
+                                            rc, memSize));
             LOG_ERROR(error.ToString());
             throw runtime_error(error.ToString().c_str());
         }
@@ -2217,9 +2221,9 @@ void HybridMgmt::GetSwapPairsAndKey2Offset(const EmbBaseInfo& info, vector<uint6
     TimeCost GetSwapPairsAndKey2OffsetTC;
     int swapInCode = embCache->GetSwapPairsAndKey2Offset(info.name, uniqueKeys, swapInKoPair, swapOutKoPair);
     if (swapInCode != H_OK) {
-        auto error = Error(
-            ModuleName::M_OCK_CTR, ErrorType::UNKNOWN,
-            StringFormat("Table:%s, [GetSwapPairsAndKey2Offset] failed! error code:%d.", info.name.c_str(), swapInCode));
+        auto error = Error(ModuleName::M_OCK_CTR, ErrorType::UNKNOWN,
+                           StringFormat("Table:%s, [GetSwapPairsAndKey2Offset] failed! error code:%d.",
+                                        info.name.c_str(), swapInCode));
         LOG_ERROR(error.ToString());
         throw runtime_error(error.ToString().c_str());
     }
