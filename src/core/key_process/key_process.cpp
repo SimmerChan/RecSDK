@@ -1088,7 +1088,10 @@ auto KeyProcess::ProcessSplitKeys(const unique_ptr<EmbBatchT>& batch, int id, ve
     int retCode = MPI_Alltoallv(keySend.data(), sc.data(), ss.data(), MPI_INT64_T, keyRecv.data(), rc.data(), rs.data(),
                                 MPI_INT64_T, comm[batch->channel][id]);
     if (retCode != MPI_SUCCESS) {
-        LOG_ERROR("rank {}, MPI_Alltoallv failed:{}", rankInfo.rankId, retCode);
+        auto error = Error(ModuleName::M_KEY_PROCESS, ErrorType::MPI_ERROR,
+                           StringFormat("Rank %d, MPI_Alltoallv failed: %d.", rankInfo.rankId, retCode));
+        LOG_ERROR(error.ToString());
+        throw runtime_error(error.ToString().c_str());
     }
     LOG_DEBUG("uniqueAll2AllTC(ms):{}", uniqueAll2AllTC.ElapsedMS());
 
