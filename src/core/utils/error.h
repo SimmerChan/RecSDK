@@ -31,6 +31,8 @@ enum class ErrorType: uint8_t {
     IO_ERROR,
     ACL_ERROR,
     MPI_ERROR,
+    INFO_LIST_EMPTY,
+    NULL_PTR,
     UNKNOWN,
 };
 

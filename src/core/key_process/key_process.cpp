@@ -29,6 +29,7 @@ See the License for the specific language governing permissions and
 #include "utils/safe_queue.h"
 #include "utils/singleton.h"
 #include "utils/time_cost.h"
+#include "utils/error.h"
 
 using namespace std;
 using namespace chrono;
@@ -1478,7 +1479,9 @@ T KeyProcess::GetKeyCountVec(info_list_t<T>& list, const EmbBaseInfo& info)
 {
     std::lock_guard<std::mutex> lockGuard(mut);
     if (list[info.name][info.channelId].empty()) {
-        LOG_ERROR("get info list is empty.");
+        auto error = MxRec::Error(ModuleName::M_KEY_PROCESS, ErrorType::INFO_LIST_EMPTY,
+                                  StringFormat("Get info list is empty."));
+        LOG_ERROR(error.ToString());
         throw EmptyList();
     }
     auto t = list[info.name][info.channelId].top();
