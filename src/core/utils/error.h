@@ -30,6 +30,10 @@ enum class ErrorType: uint8_t {
     INVALID_ARGUMENT,
     IO_ERROR,
     ACL_ERROR,
+    MPI_ERROR,
+    CONSTRUCT_ERROR,
+    EXECUTION_ORDER_ERROR,
+    LOGIC_ERROR,
     UNKNOWN,
 };
 
@@ -43,6 +47,7 @@ enum class ModuleName: uint8_t {
     M_L3_STORAGE,
     M_SSD_ENGINE,
     M_UTILS,
+    M_OCK_CTR,
 };
 
 class Error {
