@@ -45,8 +45,8 @@ std::string Error::TypeAsString() const noexcept
             return "AscendCLError";
         case ErrorType::MPI_ERROR:
             return "MPIError";
-        case ErrorType::INFO_LIST_EMPTY:
-            return "InfoListEmpty";
+        case ErrorType::LIST_EMPTY:
+            return "ListEmpty";
         case ErrorType::NULL_PTR:
             return "NullPtr";
         default:

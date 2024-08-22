@@ -120,7 +120,9 @@ void EmbeddingStatic::SaveKey(const string& savePath, bool saveDelta, const map<
             auto result = keyOffsetMap.find(it.first);
             if (result == keyOffsetMap.end()) {
                 auto error = MxRec::Error(ModuleName::M_EMB_TABLE, ErrorType::NOT_FOUND,
-                                          StringFormat("Key: %s not in keyOffsetMap.", it.first));
+                                          StringFormat("Key: %s not in keyOffsetMap, please check if deltaMap "
+                                                       "update correctly or get keyInfo from deltaMap is correct.",
+                                                       it.first));
                 LOG_ERROR(error.ToString());
                 throw runtime_error(StringFormat("Key: %s not in keyOffsetMap.", it.first));
             }

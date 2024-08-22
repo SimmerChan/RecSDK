@@ -1107,7 +1107,8 @@ void HybridMgmt::ReceiveKeyThread(const EmbInfo& embInfo)
                 auto aclData = acltdtGetDataItem(hdTransfer->aclDatasetsForIncrementalCkpt[embInfo.name], 0);
                 if (aclData == nullptr) {
                     auto error = MxRec::Error(ModuleName::M_HYBRID_MGMT, ErrorType::ACL_ERROR,
-                                              StringFormat("Acl get tensor data failed."));
+                                              StringFormat("Acl get tensor data failed, please check if the"
+                                                           " dataset and the data item is correct."));
                     LOG_ERROR(error.ToString());
                     throw runtime_error("Acl get tensor data failed.");
                 }
@@ -1123,7 +1124,8 @@ void HybridMgmt::ReceiveKeyThread(const EmbInfo& embInfo)
                 unique_ptr<vector<Tensor>> keyCountVecInfo = KEY_PROCESS_INSTANCE->GetKCInfoVec(info);
                 if (keyCountVecInfo == nullptr) {
                     auto error = MxRec::Error(ModuleName::M_HYBRID_MGMT, ErrorType::NULL_PTR,
-                                              StringFormat("Get key count info vector is empty."));
+                                              StringFormat("Get key count info vector is empty, please "
+                                                           "check if the info is correct."));
                     LOG_ERROR(error.ToString());
                     throw runtime_error("Get key count info vector is empty.");
                 }

@@ -1498,8 +1498,9 @@ T KeyProcess::GetKeyCountVec(info_list_t<T>& list, const EmbBaseInfo& info)
 {
     std::lock_guard<std::mutex> lockGuard(mut);
     if (list[info.name][info.channelId].empty()) {
-        auto error = MxRec::Error(ModuleName::M_KEY_PROCESS, ErrorType::INFO_LIST_EMPTY,
-                                  StringFormat("Get info list is empty."));
+        auto error = MxRec::Error(ModuleName::M_KEY_PROCESS, ErrorType::LIST_EMPTY,
+                                  StringFormat("Get info list is empty, please check if the channel id and"
+                                               " info name is correct, or check if the list is correct."));
         LOG_ERROR(error.ToString());
         throw EmptyList();
     }
