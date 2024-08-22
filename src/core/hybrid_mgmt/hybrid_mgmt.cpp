@@ -1106,6 +1106,9 @@ void HybridMgmt::ReceiveKeyThread(const EmbInfo& embInfo)
                 LOG_INFO("Receive data success, get {} data size: {}.", embInfo.name, ret);
                 auto aclData = acltdtGetDataItem(hdTransfer->aclDatasetsForIncrementalCkpt[embInfo.name], 0);
                 if (aclData == nullptr) {
+                    auto error = MxRec::Error(ModuleName::M_HYBRID_MGMT, ErrorType::ACL_ERROR,
+                                              StringFormat("Acl get tensor data failed."));
+                    LOG_ERROR(error.ToString());
                     throw runtime_error("Acl get tensor data failed.");
                 }
                 auto ptr = reinterpret_cast<int64_t*>(acltdtGetDataAddrFromItem(aclData));
