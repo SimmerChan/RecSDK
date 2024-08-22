@@ -680,7 +680,7 @@ def checkpoint_saver_hook_init(self, checkpoint_dir, save_secs=None, save_steps=
 def after_run_checkpoint_saver_hook(self, run_context, run_values):
     stale_global_step = run_values.results
     if not self._timer.should_trigger_for_step(stale_global_step +
-                                           self._steps_per_run):
+                                               self._steps_per_run):
         return
     # get the real value after train op.
     global_step = run_context.session.run(self._global_step_tensor)
