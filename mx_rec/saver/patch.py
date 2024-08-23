@@ -606,17 +606,21 @@ def should_trigger_for_step(self, step: int) -> bool:
             return True
         return False
 
+    should_trigger = False
     if self._save_checkpoint_due_time is not None:
         if time.time() >= self._last_triggered_base_time + self._save_checkpoint_due_time:
             self._is_delta = False
-            return True
+            should_trigger = True
 
     if self._save_delta_checkpoints_secs is not None:
         if time.time() >= self._last_triggered_delta_time + self._save_delta_checkpoints_secs:
             self._is_delta = True
-            return True
+            should_trigger = True
 
-    return False
+    comm = MPI.COMM_WORLD
+    result = comm.allreduce(should_trigger, op=MPI.LOR)
+
+    return result
 
 
 def update_last_triggered_step(self, step: int) -> (Optional[float], Optional[int]):
