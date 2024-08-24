@@ -363,7 +363,7 @@ GTEST_PRIVATE :
 
     void SendEosTensor(const std::string& embName, int channel);
 
-    void WaitSaveEnd();
+    void WaitSaveEnd(const std::string& embName, int batchId, int channel);
 
     std::vector<bool> saveOpRecords_ = {};
 };

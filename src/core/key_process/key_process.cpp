@@ -1591,7 +1591,7 @@ void KeyProcess::SendEos(const std::string& embName, int batchId, int channel)
         return;
     }
 
-    WaitSaveEnd();
+    WaitSaveEnd(embName, batchId, channel);
 
     SendEosTensor(embName, channel);
     destroyMutex.unlock();
@@ -1904,7 +1904,7 @@ void KeyProcess::SetPythonSaveEndInfo()
     LOG_INFO("Python save operation end.");
 }
 
-void KeyProcess::WaitSaveEnd()
+void KeyProcess::WaitSaveEnd(const std::string& embName, int batchId, int channel)
 {
     // Before sending eos, wait for the save operation to complete.
     // Sleep for 3 seconds and wait for a possible save operation.
