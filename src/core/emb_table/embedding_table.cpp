@@ -96,11 +96,11 @@ const std::vector<int64_t>& EmbeddingTable::GetHostEvictedKeys()
 void EmbeddingTable::EvictInitDeviceEmb()
 {
     if (evictDevPos.size() > devVocabSize) {
-        LOG_ERROR("{} overflow! init evict dev, evictOffset size {} bigger than dev vocabSize {}",
-            name, evictDevPos.size(), devVocabSize);
-        throw runtime_error(
-            Logger::Format("{} overflow! init evict dev, evictOffset size {} bigger than dev vocabSize {}",
-                name, evictDevPos.size(), devVocabSize).c_str());
+        auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::LOGIC_ERROR,
+                           Logger::Format("{} overflow! init evict dev, evictOffset size {} bigger than dev vocabSize {}",
+                                          name, evictDevPos.size(), devVocabSize));
+        LOG_ERROR(error.ToString());
+        throw std::runtime_error(error.ToString().c_str());
     }
 
     vector<Tensor> tmpDataOut;
@@ -159,7 +159,10 @@ void EmbeddingTable::RecoverTrainStatus()
 void EmbeddingTable::MakeDir(const string& dirName)
 {
     if (fileSystemPtr_ == nullptr) {
-        throw runtime_error("failed to obtain the file system pointer, the file system pointer is null.");
+        auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::NULL_PTR,
+                           "failed to obtain the file system pointer, the file system pointer is null.");
+        LOG_ERROR(error.ToString());
+        throw std::runtime_error(error.ToString().c_str());
     }
     fileSystemPtr_->CreateDir(dirName);
 }

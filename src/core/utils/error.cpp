@@ -55,6 +55,10 @@ std::string Error::TypeAsString() const noexcept
             return "ListEmpty";
         case ErrorType::NULL_PTR:
             return "NullPtr";
+        case ErrorType::MEMORY_ERROR:
+            return "MemoryError";
+        case ErrorType::RESOURCE_NOT_ENOUGH:
+            return "ResourceNotEnough";
         default:
             return "UnknownError";
     }
@@ -83,6 +87,8 @@ std::string Error::ModAsString() const noexcept
             return "Utils";
         case ModuleName::M_OCK_CTR:
             return "AccCTR";
+        case ModuleName::M_ACL:
+            return "AscendCL";
         default:
             return "UnknownModule";
     }

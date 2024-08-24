@@ -216,8 +216,10 @@ void EmbeddingDDR::SyncLatestEmbedding(const int pythonBatchId)
     std::vector<std::pair<uint64_t, uint64_t>> koVec;
     int rc = embCache->ExportDeviceKeyOffsetPairs(name, koVec);
     if (rc != ock::ctr::H_OK) {
-        string errMsg = StringFormat("ExportDeviceKeyOffsetPairs failed, table:%s, error code:%d", name.c_str(), rc);
-        throw std::invalid_argument(errMsg);
+        auto error = Error(ModuleName::M_OCK_CTR, ErrorType::LOGIC_ERROR,
+                           StringFormat("ExportDeviceKeyOffsetPairs failed, table:%s, error code:%d", name.c_str(), rc));
+        LOG_ERROR(error.ToString());
+        throw std::invalid_argument(error.ToString().c_str());
     }
     std::vector<uint64_t> swapOutKeys;
     for (const auto& p : koVec) {
@@ -230,7 +232,9 @@ void EmbeddingDDR::SyncLatestEmbedding(const int pythonBatchId)
     LOG_DEBUG("save acltdtGetDatasetSize, size: {}, table:{}", size, name);
     auto aclData = acltdtGetDataItem(hdTransfer->aclDatasets[name][0], 0);
     if (aclData == nullptr) {
-        throw runtime_error("Acl get tensor data from dataset failed.");
+        auto error = Error(ModuleName::M_ACL, ErrorType::NULL_PTR, "Acl get tensor data from dataset failed.");
+        LOG_ERROR(error.ToString());
+        throw runtime_error(error.ToString().c_str());
     }
     auto* ptr = reinterpret_cast<float*>(acltdtGetDataAddrFromItem(aclData));
 
@@ -244,8 +248,10 @@ void EmbeddingDDR::SyncLatestEmbedding(const int pythonBatchId)
         // 在保存之前先更新host的embedding
         rc = embCache->EmbeddingUpdate(name, swapOutKeys, ptr);
         if (rc != ock::ctr::H_OK) {
-            string errMsg = StringFormat("EmbeddingUpdate failed, table:%s, error code:%d", name.c_str(), rc);
-            throw std::invalid_argument(errMsg);
+            auto error = Error(ModuleName::M_OCK_CTR, ErrorType::LOGIC_ERROR,
+                               StringFormat("EmbeddingUpdate failed, table:%s, error code:%d", name.c_str(), rc));
+            LOG_ERROR(error.ToString());
+            throw std::invalid_argument(error.ToString().c_str());
         }
     } else {
         // SSD mode embedding update.
@@ -261,8 +267,10 @@ void EmbeddingDDR::EmbeddingUpdateWithSSD(const vector<uint64_t>& swapOutKeys, f
     vector<float*> swapOutAddrs;
     int rc = embCache->EmbeddingLookupAddrs(name, info.swapOutDDRKeys, swapOutAddrs);
     if (rc != ock::ctr::H_OK) {
-        string errMsg = StringFormat("EmbeddingLookupAddrs failed, table:%s, error code:%d", name.c_str(), rc);
-        throw std::invalid_argument(errMsg);
+        auto error = Error(ModuleName::M_OCK_CTR, ErrorType::LOGIC_ERROR,
+                           StringFormat("EmbeddingLookupAddrs failed, table:%s, error code:%d", name.c_str(), rc));
+        LOG_ERROR(error.ToString());
+        throw std::invalid_argument(error.ToString().c_str());
     }
     uint32_t extEmbeddingSize = embInfo_.extEmbeddingSize;
     uint32_t memSize = extEmbeddingSize * sizeof(float);
@@ -273,8 +281,10 @@ void EmbeddingDDR::EmbeddingUpdateWithSSD(const vector<uint64_t>& swapOutKeys, f
         int errCode = memcpy_s(swapOutAddrs[i], memSize,
                                deviceDataPtr + info.swapOutDDRAddrOffs[i] * extEmbeddingSize, memSize);
         if (errCode != 0) {
-            string errMsg = StringFormat("memcpy_s failed, table:%s, error code:%d", name.c_str(), errCode);
-            throw std::invalid_argument(errMsg);
+            auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::MEMORY_ERROR,
+                               StringFormat("memcpy_s failed, table:%s, error code:%d", name.c_str(), errCode));
+            LOG_ERROR(error.ToString());
+            throw std::invalid_argument(error.ToString().c_str());
         }
     }
     cacheManager_->UpdateL3StorageEmb(name, deviceDataPtr, embInfo_.extEmbeddingSize, info.swapOutL3StorageKeys,
@@ -292,12 +302,17 @@ void EmbeddingDDR::SaveKey(const string& savePath, vector<emb_cache_key_t>& keys
     vector<int64_t> keysCompat(keys.cbegin(), keys.cend());
 
     if (fileSystemPtr_ == nullptr) {
-        throw runtime_error("failed to obtain the file system pointer, the file system pointer is null.");
+        auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::NULL_PTR,
+                           "failed to obtain the file system pointer, the file system pointer is null.");
+        LOG_ERROR(error.ToString());
+        throw std::runtime_error(error.ToString().c_str());
     }
     ssize_t res = fileSystemPtr_->Write(ss.str(), reinterpret_cast<const char *>(keysCompat.data()),
                                         static_cast<size_t>(keys.size() * sizeof(int64_t)));
     if (res == -1) {
-        throw runtime_error("save key failed!");
+        auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::LOGIC_ERROR, "save key failed!");
+        LOG_ERROR(error.ToString());
+        throw std::runtime_error(error.ToString().c_str());
     }
 }
 
@@ -309,14 +324,20 @@ void EmbeddingDDR::SaveEmbedding(const string& savePath, vector<vector<float>>& 
     ss << "slice_" << rankId_ << ".data";
 
     if (fileSystemPtr_ == nullptr) {
-        throw runtime_error("failed to obtain the file system pointer, the file system pointer is null.");
+        auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::NULL_PTR,
+                           "failed to obtain the file system pointer, the file system pointer is null.");
+        LOG_ERROR(error.ToString());
+        throw std::runtime_error(error.ToString().c_str());
     }
     ssize_t writeBytesNum = fileSystemPtr_->Write(ss.str(), embeddings, embSize_);
     ssize_t expectWriteBytes = embeddings.size() * embSize_ * sizeof(float);
     if (writeBytesNum != expectWriteBytes) {
-        string errMsg = StringFormat("Save embedding failed, write expect:%ld, actual:%ld, path:%s .",
-                                     expectWriteBytes, writeBytesNum, savePath.c_str());
-        throw runtime_error(errMsg);
+        auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::LOGIC_ERROR,
+                           StringFormat("Save embedding failed, write expect:%ld, actual:%ld, path:%s .",
+                                        expectWriteBytes, writeBytesNum, savePath.c_str()));
+        LOG_ERROR(error.ToString());
+        throw std::runtime_error(error.ToString().c_str());
+
     }
 }
 
@@ -331,7 +352,9 @@ void EmbeddingDDR::SaveOptimizerSlot(const string& savePath, vector<vector<float
         string errMsg = StringFormat("optimizer slot data size not equal to key size, "
                                      "optimizerSlots.size:%d, keySize:%d",
                                      optimizerSlots.size(), keySize);
-        throw runtime_error(errMsg);
+        auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::LOGIC_ERROR, errMsg);
+        LOG_ERROR(error.ToString());
+        throw std::runtime_error(error.ToString().c_str());
     }
 
     size_t slotIdx = 0;
@@ -351,7 +374,9 @@ void EmbeddingDDR::SaveOptimizerSlot(const string& savePath, vector<vector<float
         if (writeBytesNum != expectWriteBytes) {
             string errMsg = StringFormat("save optimizer slot failed, write expect:%d, actual:%d, path:%s",
                                          expectWriteBytes, writeBytesNum, savePath.c_str());
-            throw runtime_error(errMsg);
+            auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::LOGIC_ERROR, errMsg);
+            LOG_ERROR(error.ToString());
+            throw std::runtime_error(error.ToString().c_str());
         }
 
         slotIdx++;
@@ -360,7 +385,9 @@ void EmbeddingDDR::SaveOptimizerSlot(const string& savePath, vector<vector<float
 
 vector<int64_t> EmbeddingDDR::GetDeviceOffset()
 {
-    throw runtime_error("GetDeviceOffset deprecated in ddr/ssd mode");
+    auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::LOGIC_ERROR, "GetDeviceOffset deprecated in ddr/ssd mode");
+    LOG_ERROR(error.ToString());
+    throw std::runtime_error(error.ToString().c_str());
 }
 
 void EmbeddingDDR::SetOptimizerInfo(OptimizerInfo& optimizerInfo)

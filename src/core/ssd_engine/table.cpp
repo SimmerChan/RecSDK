@@ -15,6 +15,8 @@ See the License for the specific language governing permissions and
 
 #include "table.h"
 
+#include "utils/error.h"
+
 using namespace MxRec;
 
 /// 创建新表
@@ -406,7 +408,10 @@ void Table::SetTablePathToDiskWithSpace()
 
         curSavePathIdx += 1;
         if (curSavePathIdx >= savePaths.size()) {
-            throw runtime_error("all disk's space not enough");
+            auto error = Error(ModuleName::M_SSD_ENGINE, ErrorType::RESOURCE_NOT_ENOUGH,
+                               "All disk's space are not enough.");
+            LOG_ERROR(error.ToString());
+            throw std::runtime_error(error.ToString().c_str());
         }
         curTablePath = fs::absolute(
             savePaths.at(curSavePathIdx) + "/" + saveDirPrefix + GlogConfig::gRankId + "/" + name).string();

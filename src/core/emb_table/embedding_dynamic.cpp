@@ -32,8 +32,11 @@ EmbeddingDynamic::EmbeddingDynamic(const EmbInfo& info, const RankInfo& rankInfo
     if (isDynamic_) {
         auto ret = aclrtSetDevice(static_cast<int32_t>(rankInfo.deviceId));
         if (ret != ACL_ERROR_NONE) {
-            LOG_ERROR("Set device failed, device_id:{}, ret={}", rankInfo.deviceId, ret);
-            throw runtime_error("Acl set device failed!");
+            auto error = Error(ModuleName::M_ACL, ErrorType::NULL_PTR,
+                               StringFormat("Acl set device failed, device_id:%d, ret:%d.",
+                                            rankInfo.deviceId, ret));
+            LOG_ERROR(error.ToString());
+            throw runtime_error(error.ToString().c_str());
         }
         MallocEmbeddingBlock(BLOCK_EMB_NUM);
     }
@@ -194,17 +197,26 @@ void EmbeddingDynamic::SaveKey(const string& savePath, bool saveDelta, const map
              "embAddress size: {}.", name, savePath, rankId_, deviceKey.size(), embAddress.size());
 
     if (fileSystemPtr_ == nullptr) {
-        throw runtime_error("failed to obtain the file system pointer, the file system pointer is null.");
+        auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::NULL_PTR,
+                           "failed to obtain the file system pointer, the file system pointer is null.");
+        LOG_ERROR(error.ToString());
+        throw std::runtime_error(error.ToString().c_str());
     }
     size_t writeSize = static_cast<size_t>(deviceKey.size() * sizeof(int64_t));
     ssize_t res = fileSystemPtr_->Write(ss.str(), reinterpret_cast<const char *>(deviceKey.data()), writeSize);
     if (res == -1) {
-        throw runtime_error(StringFormat("Error: Save keys failed. "
-                                         "An error occurred while writing file: %s.", ss.str().c_str()));
+        auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::LOGIC_ERROR,
+                           StringFormat("Error: Save keys failed. "
+                                        "An error occurred while writing file: %s.", ss.str().c_str()));
+        LOG_ERROR(error.ToString());
+        throw std::runtime_error(error.ToString().c_str());
     }
     if (res != writeSize) {
-        throw runtime_error(StringFormat("Error: Save keys failed. Expected to write %d bytes, "
-                                         "but actually write %d bytes to file %s.", writeSize, res, ss.str().c_str()));
+        auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::LOGIC_ERROR,
+                           StringFormat("Error: Save keys failed. Expected to write %d bytes, "
+                                        "but actually write %d bytes to file %s.", writeSize, res, ss.str().c_str()));
+        LOG_ERROR(error.ToString());
+        throw std::runtime_error(error.ToString().c_str());
     }
 }
 
@@ -242,7 +254,10 @@ void EmbeddingDynamic::SaveEmbData(const string& savePath)
     ss << "slice_" << rankId_ << ".data";
 
     if (fileSystemPtr_ == nullptr) {
-        throw runtime_error("failed to obtain the file system pointer, the file system pointer is null.");
+        auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::NULL_PTR,
+                           "failed to obtain the file system pointer, the file system pointer is null.");
+        LOG_ERROR(error.ToString());
+        throw std::runtime_error(error.ToString().c_str());
     }
     fileSystemPtr_->WriteEmbedding(ss.str(), embSize_, embAddress, deviceId);
 }
@@ -250,7 +265,10 @@ void EmbeddingDynamic::SaveEmbData(const string& savePath)
 void EmbeddingDynamic::SaveOptimData(const string &savePath)
 {
     if (fileSystemPtr_ == nullptr) {
-        throw runtime_error("failed to obtain the file system pointer, the file system pointer is null.");
+        auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::NULL_PTR,
+                           "failed to obtain the file system pointer, the file system pointer is null.");
+        LOG_ERROR(error.ToString());
+        throw std::runtime_error(error.ToString().c_str());
     }
 
     for (const auto &content: optimAddressMap) {
@@ -279,7 +297,10 @@ void EmbeddingDynamic::LoadEmbAndOptim(const string& savePath)
     embedStream << ss.str() << "/" << "embedding/slice.data";
 
     if (fileSystemPtr_ == nullptr) {
-        throw runtime_error("failed to obtain the file system pointer, the file system pointer is null.");
+        auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::NULL_PTR,
+                           "failed to obtain the file system pointer, the file system pointer is null.");
+        LOG_ERROR(error.ToString());
+        throw std::runtime_error(error.ToString().c_str());
     }
     EmbeddingSizeInfo embeddingSizeInfo = {embSize_, extEmbSize_};
     fileSystemPtr_->ReadEmbedding(embedStream.str(), embeddingSizeInfo, firstAddress, rankId_, loadOffset);
@@ -301,28 +322,43 @@ void EmbeddingDynamic::LoadKey(const string& savePath)
     ss << savePath << "/" << name << "/key/slice.data";
 
     if (fileSystemPtr_ == nullptr) {
-        throw runtime_error("failed to obtain the file system pointer, the file system pointer is null.");
+        auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::NULL_PTR,
+                           "failed to obtain the file system pointer, the file system pointer is null.");
+        LOG_ERROR(error.ToString());
+        throw std::runtime_error(error.ToString().c_str());
     }
     size_t fileSize = fileSystemPtr_->GetFileSize(ss.str());
     if (fileSize >= FILE_MAX_SIZE) {
-        throw runtime_error(StringFormat("Error: Load keys failed. "
-                                         "file %s size %d is too big.", ss.str().c_str(), fileSize));
+        auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::LOGIC_ERROR,
+                           StringFormat("Error: Load keys failed. "
+                                        "file %s size %d is too big.", ss.str().c_str(), fileSize));
+        LOG_ERROR(error.ToString());
+        throw std::runtime_error(error.ToString().c_str());
     }
 
     int64_t* buf = static_cast<int64_t*>(malloc(fileSize));
     if (buf == nullptr) {
-        throw runtime_error(StringFormat("Error: Load keys failed. "
-                                         "failed to allocate %d bytes using malloc.", fileSize));
+        auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::LOGIC_ERROR,
+                           StringFormat("Error: Load keys failed. "
+                                        "failed to allocate %d bytes using malloc.", fileSize));
+        LOG_ERROR(error.ToString());
+        throw std::runtime_error(error.ToString().c_str());
     }
 
     ssize_t res = fileSystemPtr_->Read(ss.str(), reinterpret_cast<char*>(buf), fileSize);
     if (res == -1) {
-        throw runtime_error(StringFormat("Error: Load keys failed. "
-                                         "An error occurred while reading file: %s.", ss.str().c_str()));
+        auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::LOGIC_ERROR,
+                           StringFormat("Error: Load keys failed. "
+                                        "An error occurred while reading file: %s.", ss.str().c_str()));
+        LOG_ERROR(error.ToString());
+        throw std::runtime_error(error.ToString().c_str());
     }
     if (res != fileSize) {
-        throw runtime_error(StringFormat("Error: Load keys failed. Expected to read %d bytes, "
-                                         "but actually read %d bytes to file %s.", fileSize, res, ss.str().c_str()));
+        auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::LOGIC_ERROR,
+                           StringFormat("Error: Load keys failed. Expected to read %d bytes, "
+                                        "but actually read %d bytes to file %s.", fileSize, res, ss.str().c_str()));
+        LOG_ERROR(error.ToString());
+        throw std::runtime_error(error.ToString().c_str());
     }
 
     size_t loadKeySize = fileSize / sizeof(int64_t);
@@ -341,8 +377,11 @@ void EmbeddingDynamic::LoadKey(const string& savePath)
     void *newBlock = nullptr;
     aclError ret = aclrtMalloc(&newBlock, static_cast<int>(datasetSize), ACL_MEM_MALLOC_HUGE_FIRST);
     if (ret != ACL_SUCCESS) {
-        throw runtime_error(StringFormat("Error: in dynamic expansion mode, "
-                                         "aclrtMalloc failed, malloc size: %d.", datasetSize));
+        auto error = Error(ModuleName::M_ACL, ErrorType::LOGIC_ERROR,
+                           StringFormat("Error: in dynamic expansion mode, "
+                                        "aclrtMalloc failed, malloc size: %d.", datasetSize));
+        LOG_ERROR(error.ToString());
+        throw runtime_error(error.ToString().c_str());
     }
     // 此处的 newBlock -> first address;
     // 对key_offset map 进行一个恢复操作
