@@ -94,9 +94,7 @@ void EmbeddingDDR::LoadKey(const string &savePath, vector<emb_cache_key_t> &keys
     stringstream ss;
     ss << savePath << "/" << name << "/key/slice.data";
 
-    if (fileSystemPtr_ == nullptr) {
-        throw runtime_error("failed to obtain the file system pointer, the file system pointer is null.");
-    }
+    CheckFileSystemPtr();
 
     size_t fileSize = 0;
     try {
@@ -156,9 +154,7 @@ void EmbeddingDDR::LoadEmbedding(const string &savePath, vector<vector<float>> &
     stringstream embedStream;
     embedStream << ss.str() << "/" << "embedding/slice.data";
 
-    if (fileSystemPtr_ == nullptr) {
-        throw runtime_error("failed to obtain the file system pointer, the file system pointer is null.");
-    }
+    CheckFileSystemPtr();
     ssize_t res = fileSystemPtr_->Read(embedStream.str(), embeddings, 0, hostLoadOffset, embSize_);
     LOG_DEBUG("load embedding done, table:{}, read bytes:{}", name, res);
 }
@@ -179,9 +175,7 @@ void EmbeddingDDR::LoadOptimizerSlot(const string &savePath, vector<vector<float
     stringstream ss;
     ss << savePath << "/" << name;
 
-    if (fileSystemPtr_ == nullptr) {
-        throw runtime_error("failed to obtain the file system pointer, the file system pointer is null.");
-    }
+    CheckFileSystemPtr();
     int64_t slotIdx = 0;
     for (const auto &param: optimParams) {
         stringstream paramStream;
@@ -217,7 +211,8 @@ void EmbeddingDDR::SyncLatestEmbedding(const int pythonBatchId)
     int rc = embCache->ExportDeviceKeyOffsetPairs(name, koVec);
     if (rc != ock::ctr::H_OK) {
         auto error = Error(ModuleName::M_OCK_CTR, ErrorType::LOGIC_ERROR,
-                           StringFormat("ExportDeviceKeyOffsetPairs failed, table:%s, error code:%d", name.c_str(), rc));
+                           StringFormat("ExportDeviceKeyOffsetPairs failed, table:%s, error code:%d",
+                                        name.c_str(), rc));
         LOG_ERROR(error.ToString());
         throw std::invalid_argument(error.ToString().c_str());
     }
@@ -301,12 +296,7 @@ void EmbeddingDDR::SaveKey(const string& savePath, vector<emb_cache_key_t>& keys
     // 暂时向HBM兼容，转成int64_t，后续再归一key类型为uint64_t
     vector<int64_t> keysCompat(keys.cbegin(), keys.cend());
 
-    if (fileSystemPtr_ == nullptr) {
-        auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::NULL_PTR,
-                           "failed to obtain the file system pointer, the file system pointer is null.");
-        LOG_ERROR(error.ToString());
-        throw std::runtime_error(error.ToString().c_str());
-    }
+    CheckFileSystemPtr();
     ssize_t res = fileSystemPtr_->Write(ss.str(), reinterpret_cast<const char *>(keysCompat.data()),
                                         static_cast<size_t>(keys.size() * sizeof(int64_t)));
     if (res == -1) {
@@ -323,12 +313,7 @@ void EmbeddingDDR::SaveEmbedding(const string& savePath, vector<vector<float>>& 
     MakeDir(ss.str());
     ss << "slice_" << rankId_ << ".data";
 
-    if (fileSystemPtr_ == nullptr) {
-        auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::NULL_PTR,
-                           "failed to obtain the file system pointer, the file system pointer is null.");
-        LOG_ERROR(error.ToString());
-        throw std::runtime_error(error.ToString().c_str());
-    }
+    CheckFileSystemPtr();
     ssize_t writeBytesNum = fileSystemPtr_->Write(ss.str(), embeddings, embSize_);
     ssize_t expectWriteBytes = embeddings.size() * embSize_ * sizeof(float);
     if (writeBytesNum != expectWriteBytes) {
@@ -337,7 +322,6 @@ void EmbeddingDDR::SaveEmbedding(const string& savePath, vector<vector<float>>& 
                                         expectWriteBytes, writeBytesNum, savePath.c_str()));
         LOG_ERROR(error.ToString());
         throw std::runtime_error(error.ToString().c_str());
-
     }
 }
 

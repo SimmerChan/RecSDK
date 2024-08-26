@@ -196,12 +196,7 @@ void EmbeddingDynamic::SaveKey(const string& savePath, bool saveDelta, const map
     LOG_INFO("Get device keys and embAddress, table: {}, save path: {}, rank id: {}, device key size: {}, device "
              "embAddress size: {}.", name, savePath, rankId_, deviceKey.size(), embAddress.size());
 
-    if (fileSystemPtr_ == nullptr) {
-        auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::NULL_PTR,
-                           "failed to obtain the file system pointer, the file system pointer is null.");
-        LOG_ERROR(error.ToString());
-        throw std::runtime_error(error.ToString().c_str());
-    }
+    CheckFileSystemPtr();
     size_t writeSize = static_cast<size_t>(deviceKey.size() * sizeof(int64_t));
     ssize_t res = fileSystemPtr_->Write(ss.str(), reinterpret_cast<const char *>(deviceKey.data()), writeSize);
     if (res == -1) {
@@ -253,23 +248,13 @@ void EmbeddingDynamic::SaveEmbData(const string& savePath)
     MakeDir(ss.str());
     ss << "slice_" << rankId_ << ".data";
 
-    if (fileSystemPtr_ == nullptr) {
-        auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::NULL_PTR,
-                           "failed to obtain the file system pointer, the file system pointer is null.");
-        LOG_ERROR(error.ToString());
-        throw std::runtime_error(error.ToString().c_str());
-    }
+    CheckFileSystemPtr();
     fileSystemPtr_->WriteEmbedding(ss.str(), embSize_, embAddress, deviceId);
 }
 
 void EmbeddingDynamic::SaveOptimData(const string &savePath)
 {
-    if (fileSystemPtr_ == nullptr) {
-        auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::NULL_PTR,
-                           "failed to obtain the file system pointer, the file system pointer is null.");
-        LOG_ERROR(error.ToString());
-        throw std::runtime_error(error.ToString().c_str());
-    }
+    CheckFileSystemPtr();
 
     for (const auto &content: optimAddressMap) {
         stringstream ss;
@@ -296,12 +281,7 @@ void EmbeddingDynamic::LoadEmbAndOptim(const string& savePath)
     stringstream embedStream;
     embedStream << ss.str() << "/" << "embedding/slice.data";
 
-    if (fileSystemPtr_ == nullptr) {
-        auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::NULL_PTR,
-                           "failed to obtain the file system pointer, the file system pointer is null.");
-        LOG_ERROR(error.ToString());
-        throw std::runtime_error(error.ToString().c_str());
-    }
+    CheckFileSystemPtr();
     EmbeddingSizeInfo embeddingSizeInfo = {embSize_, extEmbSize_};
     fileSystemPtr_->ReadEmbedding(embedStream.str(), embeddingSizeInfo, firstAddress, rankId_, loadOffset);
 
@@ -318,48 +298,18 @@ void EmbeddingDynamic::LoadEmbAndOptim(const string& savePath)
 
 void EmbeddingDynamic::LoadKey(const string& savePath)
 {
+    CheckFileSystemPtr();
+
     stringstream ss;
     ss << savePath << "/" << name << "/key/slice.data";
-
-    if (fileSystemPtr_ == nullptr) {
-        auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::NULL_PTR,
-                           "failed to obtain the file system pointer, the file system pointer is null.");
-        LOG_ERROR(error.ToString());
-        throw std::runtime_error(error.ToString().c_str());
-    }
     size_t fileSize = fileSystemPtr_->GetFileSize(ss.str());
-    if (fileSize >= FILE_MAX_SIZE) {
-        auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::LOGIC_ERROR,
-                           StringFormat("Error: Load keys failed. "
-                                        "file %s size %d is too big.", ss.str().c_str(), fileSize));
-        LOG_ERROR(error.ToString());
-        throw std::runtime_error(error.ToString().c_str());
-    }
+    CheckReadKeyFileSize(ss.str(), fileSize);
 
     int64_t* buf = static_cast<int64_t*>(malloc(fileSize));
-    if (buf == nullptr) {
-        auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::LOGIC_ERROR,
-                           StringFormat("Error: Load keys failed. "
-                                        "failed to allocate %d bytes using malloc.", fileSize));
-        LOG_ERROR(error.ToString());
-        throw std::runtime_error(error.ToString().c_str());
-    }
+    CheckLoadKeyMallocPtr(buf, fileSize);
 
     ssize_t res = fileSystemPtr_->Read(ss.str(), reinterpret_cast<char*>(buf), fileSize);
-    if (res == -1) {
-        auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::LOGIC_ERROR,
-                           StringFormat("Error: Load keys failed. "
-                                        "An error occurred while reading file: %s.", ss.str().c_str()));
-        LOG_ERROR(error.ToString());
-        throw std::runtime_error(error.ToString().c_str());
-    }
-    if (res != fileSize) {
-        auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::LOGIC_ERROR,
-                           StringFormat("Error: Load keys failed. Expected to read %d bytes, "
-                                        "but actually read %d bytes to file %s.", fileSize, res, ss.str().c_str()));
-        LOG_ERROR(error.ToString());
-        throw std::runtime_error(error.ToString().c_str());
-    }
+    CheckReadKeyFileBytes(res, ss.str(), fileSize);
 
     size_t loadKeySize = fileSize / sizeof(int64_t);
 

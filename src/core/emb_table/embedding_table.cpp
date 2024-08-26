@@ -96,9 +96,10 @@ const std::vector<int64_t>& EmbeddingTable::GetHostEvictedKeys()
 void EmbeddingTable::EvictInitDeviceEmb()
 {
     if (evictDevPos.size() > devVocabSize) {
-        auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::LOGIC_ERROR,
-                           Logger::Format("{} overflow! init evict dev, evictOffset size {} bigger than dev vocabSize {}",
-                                          name, evictDevPos.size(), devVocabSize));
+        auto errMsg = Logger::Format(
+                "{} overflow! init evict dev, evictOffset size {} bigger than dev vocabSize {}",
+                name, evictDevPos.size(), devVocabSize);
+        auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::LOGIC_ERROR, errMsg);
         LOG_ERROR(error.ToString());
         throw std::runtime_error(error.ToString().c_str());
     }
@@ -158,12 +159,7 @@ void EmbeddingTable::RecoverTrainStatus()
 
 void EmbeddingTable::MakeDir(const string& dirName)
 {
-    if (fileSystemPtr_ == nullptr) {
-        auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::NULL_PTR,
-                           "failed to obtain the file system pointer, the file system pointer is null.");
-        LOG_ERROR(error.ToString());
-        throw std::runtime_error(error.ToString().c_str());
-    }
+    CheckFileSystemPtr();
     fileSystemPtr_->CreateDir(dirName);
 }
 
@@ -199,3 +195,58 @@ void EmbeddingTable::SetHDTransfer(HDTransfer *hdTransfer)
 void EmbeddingTable::SetEmbCache(ock::ctr::EmbCacheManagerPtr embCache)
 {
 }
+
+void EmbeddingTable::CheckFileSystemPtr() const
+{
+    if (fileSystemPtr_ != nullptr) {
+        return;
+    }
+    auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::NULL_PTR,
+                       "failed to obtain the file system pointer, the file system pointer is null.");
+    LOG_ERROR(error.ToString());
+    throw std::runtime_error(error.ToString().c_str());
+}
+
+void EmbeddingTable::CheckReadKeyFileSize(const string& fileName, size_t fileSize)
+{
+    if (fileSize < FILE_MAX_SIZE) {
+        return;
+    }
+
+    auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::LOGIC_ERROR,
+                       StringFormat("Error: Load keys failed. "
+                                    "file %s size %d is too big.", fileName.c_str(), fileSize));
+    LOG_ERROR(error.ToString());
+    throw std::runtime_error(error.ToString().c_str());
+}
+
+void EmbeddingTable::CheckLoadKeyMallocPtr(const int64_t* mallocPtr, size_t mallocByteSize)
+{
+    if (mallocPtr != nullptr) {
+        return;
+    }
+    auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::LOGIC_ERROR,
+                       StringFormat("Error: Load keys failed. "
+                                    "failed to allocate %d bytes using malloc.", mallocByteSize));
+    LOG_ERROR(error.ToString());
+    throw std::runtime_error(error.ToString().c_str());
+}
+
+void EmbeddingTable::CheckReadKeyFileBytes(ssize_t readReturnCode, const string& fileName, size_t fileSize)
+{
+    if (readReturnCode == -1) {
+        auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::LOGIC_ERROR,
+                           StringFormat("Error: Load keys failed. "
+                                        "An error occurred while reading file: %s.", fileName.c_str()));
+        LOG_ERROR(error.ToString());
+        throw std::runtime_error(error.ToString().c_str());
+    }
+    if (readReturnCode != fileSize) {
+        auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::LOGIC_ERROR,
+                           StringFormat("Error: Load keys failed. Expected to read %d bytes, "
+                                        "but actually read %d bytes to file %s.", fileSize, readReturnCode, fileName.c_str()));
+        LOG_ERROR(error.ToString());
+        throw std::runtime_error(error.ToString().c_str());
+    }
+}
+
