@@ -334,7 +334,7 @@ void Checkpoint::ReadStream(CkptTransData& transData, const string& dataDir, Ckp
     }
 
     if (readBytesNum == -1) {
-        auto error = Error(ModuleName::M_CHECK_POINT, ErrorType::UNKNOWN,
+        auto error = Error(ModuleName::M_CHECK_POINT, ErrorType::IO_ERROR,
                            StringFormat("Error: Load data failed. data type: %s. "
                                         "An error occurred while reading file: %s.",
                                         CkptDataTypeName(dataType).c_str(), dataDir.c_str()));
@@ -342,7 +342,7 @@ void Checkpoint::ReadStream(CkptTransData& transData, const string& dataDir, Ckp
         throw std::runtime_error(error.ToString().c_str());
     }
     if (readBytesNum != datasetSize) {
-        auto error = Error(ModuleName::M_CHECK_POINT, ErrorType::UNKNOWN,
+        auto error = Error(ModuleName::M_CHECK_POINT, ErrorType::IO_ERROR,
                            StringFormat("Error: Load data failed. data type: %s. "
                                         "Expected to read %d bytes, but actually read %d bytes to file %s.",
                                         CkptDataTypeName(dataType).c_str(), datasetSize, readBytesNum,
