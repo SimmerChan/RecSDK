@@ -277,7 +277,8 @@ void EmbeddingDDR::EmbeddingUpdateWithSSD(const vector<uint64_t>& swapOutKeys, f
                                deviceDataPtr + info.swapOutDDRAddrOffs[i] * extEmbeddingSize, memSize);
         if (errCode != 0) {
             auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::MEMORY_ERROR,
-                               StringFormat("memcpy_s failed, table:%s, error code:%d", name.c_str(), errCode));
+                               StringFormat("memcpy_s failed, table:%s, error code:%d. You can query the meaning"
+                                            " of security function error code.", name.c_str(), errCode));
             LOG_ERROR(error.ToString());
             throw std::invalid_argument(error.ToString().c_str());
         }
@@ -300,7 +301,7 @@ void EmbeddingDDR::SaveKey(const string& savePath, vector<emb_cache_key_t>& keys
     ssize_t res = fileSystemPtr_->Write(ss.str(), reinterpret_cast<const char *>(keysCompat.data()),
                                         static_cast<size_t>(keys.size() * sizeof(int64_t)));
     if (res == -1) {
-        auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::LOGIC_ERROR, "save key failed!");
+        auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::IO_ERROR, "save key failed!");
         LOG_ERROR(error.ToString());
         throw std::runtime_error(error.ToString().c_str());
     }
