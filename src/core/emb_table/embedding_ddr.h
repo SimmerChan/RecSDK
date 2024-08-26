@@ -78,8 +78,6 @@ public:
     void BackUpTrainStatus();
     void RecoverTrainStatus();
 
-    void CheckOckReturnCode();
-
 GTEST_PRIVATE:
 
     void EvictDeleteEmb(const vector<emb_key_t>& keys);

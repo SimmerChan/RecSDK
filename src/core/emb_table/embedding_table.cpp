@@ -97,8 +97,8 @@ void EmbeddingTable::EvictInitDeviceEmb()
 {
     if (evictDevPos.size() > devVocabSize) {
         auto errMsg = Logger::Format(
-                "{} overflow! init evict dev, evictOffset size {} bigger than dev vocabSize {}",
-                name, evictDevPos.size(), devVocabSize);
+            "{} overflow! init evict dev, evictOffset size {} bigger than dev vocabSize {}",
+            name, evictDevPos.size(), devVocabSize);
         auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::LOGIC_ERROR, errMsg);
         LOG_ERROR(error.ToString());
         throw std::runtime_error(error.ToString().c_str());
@@ -242,9 +242,10 @@ void EmbeddingTable::CheckReadKeyFileBytes(ssize_t readReturnCode, const string&
         throw std::runtime_error(error.ToString().c_str());
     }
     if (readReturnCode != fileSize) {
-        auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::LOGIC_ERROR,
-                           StringFormat("Error: Load keys failed. Expected to read %d bytes, "
-                                        "but actually read %d bytes to file %s.", fileSize, readReturnCode, fileName.c_str()));
+        string errMsg = StringFormat(
+            "Error: Load keys failed. Expected to read %d bytes, but actually read %d bytes to file %s.",
+            fileSize, readReturnCode, fileName.c_str());
+        auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::LOGIC_ERROR, errMsg);
         LOG_ERROR(error.ToString());
         throw std::runtime_error(error.ToString().c_str());
     }

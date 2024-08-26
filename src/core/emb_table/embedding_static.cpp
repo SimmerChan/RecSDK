@@ -173,8 +173,8 @@ void EmbeddingStatic::LoadKey(const string& savePath)
     stringstream ss;
     ss << savePath << "/" << name << "/key/slice.data";
     size_t fileSize = fileSystemPtr_->GetFileSize(ss.str());
-    CheckReadKeyFileSize(ss.str(), fileSize);
 
+    CheckReadKeyFileSize(ss.str(), fileSize);
     int64_t* buf = static_cast<int64_t*>(malloc(fileSize));
     CheckLoadKeyMallocPtr(buf, fileSize);
 
