@@ -231,28 +231,13 @@ void HdfsFileSystem::ReadEmbedding(const string& filePath, EmbeddingSizeInfo& em
             hdfs->CloseFile(fs, file);
             auto error = Error(ModuleName::M_FILE_SYSTEM, ErrorType::HDFS_ERROR,
                                StringFormat("Error: hdfsSeek failed with error. file offset: %d",
-                                             offset * embedSizeInfo.embeddingSize * sizeof(float)));
+                                   offset * embedSizeInfo.embeddingSize * sizeof(float)));
             LOG_ERROR(error.ToString());
             throw std::runtime_error(error.ToString().c_str());
         }
 
         tSize res = hdfs->Read(fs, file, row.data(), embedSizeInfo.embeddingSize * sizeof(float));
-        if (res == -1) {
-            hdfs->CloseFile(fs, file);
-            auto error = Error(ModuleName::M_FILE_SYSTEM, ErrorType::HDFS_ERROR,
-                               StringFormat("Error: An error occurred while reading file: %s.", filePath.c_str()));
-            LOG_ERROR(error.ToString());
-            throw std::runtime_error(error.ToString().c_str());
-        }
-        if (res != embedSizeInfo.embeddingSize * sizeof(float)) {
-            hdfs->CloseFile(fs, file);
-            auto error = Error(ModuleName::M_FILE_SYSTEM, ErrorType::LOGIC_ERROR,
-                               StringFormat("Error: Expected to read %d bytes, "
-                                             "but actually read %d bytes from file %s.",
-                                             embedSizeInfo.embeddingSize * sizeof(float), res, filePath.c_str()));
-            LOG_ERROR(error.ToString());
-            throw std::runtime_error(error.ToString().c_str());
-        }
+        CheckHdfsReadRet(file, res, embedSizeInfo.embeddingSize * sizeof(float), filePath);
 
         aclError ret = aclrtMemcpy(floatPtr + i * embedSizeInfo.extendEmbSize,
                                    embedSizeInfo.embeddingSize * sizeof(float),
@@ -287,6 +272,26 @@ void HdfsFileSystem::CheckOpenHdfsFileRet(hdfsFile file, const string& filePath)
     if (!file) {
         auto error = Error(ModuleName::M_FILE_SYSTEM, ErrorType::IO_ERROR,
                            StringFormat("Error: Unable to open hdfs file : %s.", filePath.c_str()));
+        LOG_ERROR(error.ToString());
+        throw std::runtime_error(error.ToString().c_str());
+    }
+}
+
+void HdfsFileSystem::CheckHdfsReadRet(hdfsFile file, tSize res, size_t expectReadBytes, const string& filePath)
+{
+    if (res == -1) {
+        hdfs->CloseFile(fs, file);
+        auto error = Error(ModuleName::M_FILE_SYSTEM, ErrorType::HDFS_ERROR,
+                           StringFormat("Error: An error occurred while reading file: %s.", filePath.c_str()));
+        LOG_ERROR(error.ToString());
+        throw std::runtime_error(error.ToString().c_str());
+    }
+    if (res != expectReadBytes) {
+        hdfs->CloseFile(fs, file);
+        auto error = Error(ModuleName::M_FILE_SYSTEM, ErrorType::LOGIC_ERROR,
+                           StringFormat("Error: Expected to read %d bytes, "
+                                       "but actually read %d bytes from file %s.",
+                                       expectReadBytes, res, filePath.c_str()));
         LOG_ERROR(error.ToString());
         throw std::runtime_error(error.ToString().c_str());
     }

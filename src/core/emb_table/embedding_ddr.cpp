@@ -136,7 +136,7 @@ void EmbeddingDDR::LoadKey(const string &savePath, vector<emb_cache_key_t> &keys
         free(static_cast<void*>(buf));
         auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::IO_ERROR,
                            StringFormat("Error: Load keys failed. Expected to read %d bytes, but actually"
-                                    " read %d bytes to file %s.", fileSize, result, ss.str().c_str()));
+                                        " read %d bytes to file %s.", fileSize, result, ss.str().c_str()));
         LOG_ERROR(error.ToString());
         throw std::runtime_error(error.ToString().c_str());
     }

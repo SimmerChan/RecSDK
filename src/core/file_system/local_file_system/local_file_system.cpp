@@ -177,7 +177,6 @@ void LocalFileSystem::WriteEmbedding(const string& filePath, const int& embeddin
                            StringFormat("Set device failed, device_id:%d", deviceId).c_str());
         LOG_ERROR(error.ToString());
         throw std::runtime_error(error.ToString().c_str());
-
     }
 
     for (size_t i = 0; i < addressArr.size(); i += keyAddrElem) {
