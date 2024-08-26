@@ -78,14 +78,22 @@ void EmbeddingDDR::Load(const string& savePath, map<string, unordered_set<emb_ca
 
     auto rc = embCache->LoadEmbTableInfos(name, keys, embeddings, optimizerSlots);
     if (rc != 0) {
-        throw runtime_error("embCache->LoadEmbTableInfos failed, err code:" + to_string(rc));
+        auto error = Error(ModuleName::M_OCK_CTR, ErrorType::LOGIC_ERROR,
+                           StringFormat("embCache->LoadEmbTableInfos failed, table:%s, error code:%d",
+                                        name.c_str(), rc));
+        LOG_ERROR(error.ToString());
+        throw std::invalid_argument(error.ToString().c_str());
     }
 
     trainKeySet[name].insert(keys.cbegin(), keys.cend());
     // Reset the offsetMapper object to revert to its initialized state after loading
     auto rs = embCache->ResetOffsetMappers();
     if (rs != 0) {
-        throw runtime_error("embCache->ResetOffsetMappers failed, err code: " + to_string(rc));
+        auto error = Error(ModuleName::M_OCK_CTR, ErrorType::LOGIC_ERROR,
+                           StringFormat("embCache->ResetOffsetMappers failed, table:%s, error code:%d",
+                                        name.c_str(), rc));
+        LOG_ERROR(error.ToString());
+        throw std::invalid_argument(error.ToString().c_str());
     }
 }
 
@@ -100,30 +108,35 @@ void EmbeddingDDR::LoadKey(const string &savePath, vector<emb_cache_key_t> &keys
     try {
         fileSize = fileSystemPtr_->GetFileSize(ss.str());
     } catch (exception& e) {
-        string errMsg = StringFormat("open file failed:%s, error code:%d", ss.str().c_str(), strerror(errno));
-        throw runtime_error(errMsg);
+        auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::IO_ERROR, errMsg);
+        LOG_ERROR(error.ToString());
+        throw std::runtime_error(error.ToString().c_str());
     }
     if (fileSize >= FILE_MAX_SIZE) {
         string errMsg = StringFormat("file:%s, size:%d is too big", ss.str().c_str(), fileSize);
-        throw runtime_error(errMsg);
+        auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::IO_ERROR, errMsg);
+        LOG_ERROR(error.ToString());
+        throw std::runtime_error(error.ToString().c_str());
     }
 
     // 暂时向HBM兼容，转成int64_t，后续再归一key类型为uint64_t
     auto buf = static_cast<int64_t*>(malloc(fileSize));
-    if (buf == nullptr) {
-        string errMsg = StringFormat("malloc buffer failed, error code:%d", strerror(errno));
-        throw runtime_error(errMsg);
-    }
+    CheckLoadKeyMallocPtr(buf, fileSize);
     ssize_t result = fileSystemPtr_->Read(ss.str(), reinterpret_cast<char*>(buf), fileSize);
     if (result == -1) {
         free(static_cast<void*>(buf));
         string errMsg = StringFormat("read buffer failed, error code:%d", strerror(errno));
-        throw runtime_error(errMsg);
+        auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::IO_ERROR, errMsg);
+        LOG_ERROR(error.ToString());
+        throw std::runtime_error(error.ToString().c_str());
     }
     if (result != fileSize) {
         free(static_cast<void*>(buf));
-        throw runtime_error(StringFormat("Error: Load keys failed. Expected to read %d bytes, "
-                                         "but actually read %d bytes to file %s.", fileSize, result, ss.str().c_str()));
+        auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::IO_ERROR,
+                           StringFormat("Error: Load keys failed. Expected to read %d bytes, but actually"
+                                    " read %d bytes to file %s.", fileSize, result, ss.str().c_str()));
+        LOG_ERROR(error.ToString());
+        throw std::runtime_error(error.ToString().c_str());
     }
 
     hostLoadOffset.clear();
