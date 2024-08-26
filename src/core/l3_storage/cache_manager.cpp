@@ -298,7 +298,7 @@ void CacheManager::FetchL3StorageEmb2DDR(string tableName, uint32_t extEmbedding
         if (rc != 0) {
             auto error = Error(ModuleName::M_L3_STORAGE, ErrorType::IO_ERROR,
                                Logger::Format("memcpy_s failed, rc:{}. You can query the meaning of security"
-                                        " function error code.", to_string(rc)));
+                                   " function error code.", to_string(rc)));
             LOG_ERROR(error.ToString());
             throw std::runtime_error(error.ToString().c_str());
         }
@@ -382,7 +382,7 @@ void CacheManager::CheckEmbCacheReturnCode(const string& funcName, int retCode)
     }
     auto error = Error(ModuleName::M_L3_STORAGE, ErrorType::LOGIC_ERROR,
                        Logger::Format("Invoke embCache func:{} failed, error code:{}.",
-                                funcName, std::to_string(retCode)));
+                           funcName, std::to_string(retCode)));
     LOG_ERROR(error.ToString());
     throw std::runtime_error(error.ToString().c_str());
 }

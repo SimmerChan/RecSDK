@@ -102,7 +102,6 @@ namespace MxRec {
                                    "l3StorageAvailableSize < existKeys.size().");
                 LOG_ERROR(error.ToString());
                 throw std::invalid_argument(error.ToString().c_str());
-
             }
             return l3StorageAvailableSize - excludeDDRKeyCountMap.size();
         }

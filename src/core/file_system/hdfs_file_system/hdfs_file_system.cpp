@@ -290,8 +290,8 @@ void HdfsFileSystem::CheckHdfsReadRet(hdfsFile file, tSize res, size_t expectRea
         hdfs->CloseFile(fs, file);
         auto error = Error(ModuleName::M_FILE_SYSTEM, ErrorType::LOGIC_ERROR,
                            StringFormat("Error: Expected to read %d bytes, "
-                                       "but actually read %d bytes from file %s.",
-                                       expectReadBytes, res, filePath.c_str()));
+                               "but actually read %d bytes from file %s.",
+                               expectReadBytes, res, filePath.c_str()));
         LOG_ERROR(error.ToString());
         throw std::runtime_error(error.ToString().c_str());
     }
