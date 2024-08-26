@@ -108,7 +108,9 @@ void EmbeddingDDR::LoadKey(const string &savePath, vector<emb_cache_key_t> &keys
     try {
         fileSize = fileSystemPtr_->GetFileSize(ss.str());
     } catch (exception& e) {
-        auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::IO_ERROR, errMsg);
+        auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::IO_ERROR,
+                           StringFormat("open file failed:%s, error code:%d",
+                                        ss.str().c_str(), strerror(errno)));
         LOG_ERROR(error.ToString());
         throw std::runtime_error(error.ToString().c_str());
     }

@@ -55,17 +55,6 @@ namespace MxRec {
         tTime mLastAccess{};    /* the last access time for the file in seconds */
     };
 
-    void CheckObtainHdfsFuncPtr(bool isNullPtr, const string& hdfsFuncName)
-    {
-        if (isNullPtr) {
-            string errMsg = "Failed to obtain the pointer of the function " + hdfsFuncName + " from the libhdfs.";
-            auto error = Error(ModuleName::M_FILE_SYSTEM, ErrorType::HDFS_ERROR, errMsg);
-            LOG_ERROR(error.ToString());
-            throw std::runtime_error(error.ToString().c_str());
-        }
-    }
-
-
     class HdfsWrapper {
     public:
         HdfsWrapper()
@@ -208,6 +197,16 @@ namespace MxRec {
         {
             CheckObtainHdfsFuncPtr(hdfsSeek == nullptr, "hdfsSeek");
             return hdfsSeek(fs, file, desiredPos);
+        }
+
+        static void CheckObtainHdfsFuncPtr(bool isNullPtr, const string& hdfsFuncName)
+        {
+            if (isNullPtr) {
+                string errMsg = "Failed to obtain the pointer of the function " + hdfsFuncName + " from the libhdfs.";
+                auto error = Error(ModuleName::M_FILE_SYSTEM, ErrorType::HDFS_ERROR, errMsg);
+                LOG_ERROR(error.ToString());
+                throw std::runtime_error(error.ToString().c_str());
+            }
         }
 
     GTEST_PRIVATE:
