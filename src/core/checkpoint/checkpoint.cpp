@@ -28,6 +28,7 @@ See the License for the specific language governing permissions and
 #include "ckpt_data_handler/key_freq_map_ckpt/key_freq_map_ckpt.h"
 #include "file_system/file_system_handler.h"
 #include "utils/common.h"
+#include "utils/error.h"
 #include "utils/time_cost.h"
 
 using namespace std;
@@ -143,10 +144,7 @@ void Checkpoint::MakeDataLayerSaveDir(const vector<string>& embNames, const vect
 
 void Checkpoint::MakeSaveDir(const string& dirName) const
 {
-    if (fileSystemPtr == nullptr) {
-        LOG_WARN("please init file system pointer before using. ");
-        throw runtime_error("Nullptr. file system pointer is not initialized. ");
-    }
+    CheckFileSystemPtr();
     fileSystemPtr->CreateDir(dirName);
 }
 
@@ -196,10 +194,7 @@ void Checkpoint::SaveDataset(const vector<string>& embNames, const vector<CkptDa
 
 void Checkpoint::WriteStream(CkptTransData& transData, const string& dataDir, size_t dataSize, CkptDataType dataType)
 {
-    if (fileSystemPtr == nullptr) {
-        LOG_WARN("please init file system pointer before using. ");
-        throw runtime_error("Nullptr. file system pointer is not initialized. ");
-    }
+    CheckFileSystemPtr();
 
     ssize_t writeBytesNum;
     if (int32TransSet.find(dataType) != int32TransSet.end()) {
@@ -212,18 +207,26 @@ void Checkpoint::WriteStream(CkptTransData& transData, const string& dataDir, si
         writeBytesNum =
             fileSystemPtr->Write(dataDir, reinterpret_cast<const char*>(transData.attribute.data()), dataSize);
     } else {
-        throw runtime_error("unknown CkptDataType");
+        auto error = Error(ModuleName::M_CHECK_POINT, ErrorType::UNKNOWN, "Unknown CkptDataType.");
+        LOG_ERROR(error.ToString());
+        throw std::runtime_error(error.ToString().c_str());
     }
 
     if (writeBytesNum == -1) {
-        throw runtime_error(StringFormat("Error: Save data failed. data type: %s. "
-                                         "An error occurred while writing file: %s.",
-                                         CkptDataTypeName(dataType).c_str(), dataDir.c_str()));
+        auto error = Error(ModuleName::M_CHECK_POINT, ErrorType::IO_ERROR,
+                           StringFormat("Error: Save data failed. data type: %s. "
+                                        "An error occurred while writing file: %s.",
+                                        CkptDataTypeName(dataType).c_str(), dataDir.c_str()));
+        LOG_ERROR(error.ToString());
+        throw std::runtime_error(error.ToString().c_str());
     }
     if (writeBytesNum != dataSize) {
-        throw runtime_error(StringFormat("Error: Save data failed. data type: %s. "
-                                         "Expected to write %d bytes, but actually write %d bytes to file %s.",
-                                         CkptDataTypeName(dataType).c_str(), dataSize, writeBytesNum, dataDir.c_str()));
+        auto error = Error(ModuleName::M_CHECK_POINT, ErrorType::IO_ERROR,
+                           StringFormat("Error: Save data failed. data type: %s. "
+                                        "Expected to write %d bytes, but actually write %d bytes to file %s.",
+                                        CkptDataTypeName(dataType).c_str(), dataSize, writeBytesNum, dataDir.c_str()));
+        LOG_ERROR(error.ToString());
+        throw std::runtime_error(error.ToString().c_str());
     }
 }
 
@@ -259,10 +262,7 @@ vector<string> Checkpoint::GetEmbedTableNames()
 vector<string> Checkpoint::GetTableLayerLoadDir()
 {
     vector<string> loadTableDir;
-    if (fileSystemPtr == nullptr) {
-        LOG_WARN("please init file system pointer before using. ");
-        throw runtime_error("Nullptr. file system pointer is not initialized. ");
-    }
+    CheckFileSystemPtr();
     loadTableDir = fileSystemPtr->ListDir(innerDirPath);
     return loadTableDir;
 }
@@ -310,10 +310,7 @@ void Checkpoint::ReadStream(CkptTransData& transData, const string& dataDir, Ckp
         return;
     }
 
-    if (fileSystemPtr == nullptr) {
-        LOG_WARN("please init file system pointer before using. ");
-        throw runtime_error("Nullptr. file system pointer is not initialized. ");
-    }
+    CheckFileSystemPtr();
 
     size_t datasetSize = fileSystemPtr->GetFileSize(dataDir);
     auto resizeSize{datasetSize / dataElmtBytes};
@@ -331,19 +328,27 @@ void Checkpoint::ReadStream(CkptTransData& transData, const string& dataDir, Ckp
     } else if (dataType == CkptDataType::ATTRIBUTE) {
         readBytesNum = fileSystemPtr->Read(dataDir, reinterpret_cast<char*>(transData.attribute.data()), datasetSize);
     } else {
-        throw runtime_error("unknown CkptDataType");
+        auto error = Error(ModuleName::M_CHECK_POINT, ErrorType::UNKNOWN, "Unknown CkptDataType.");
+        LOG_ERROR(error.ToString());
+        throw std::runtime_error(error.ToString().c_str());
     }
 
     if (readBytesNum == -1) {
-        throw runtime_error(StringFormat("Error: Load data failed. data type: %s. "
-                                         "An error occurred while reading file: %s.",
-                                         CkptDataTypeName(dataType).c_str(), dataDir.c_str()));
+        auto error = Error(ModuleName::M_CHECK_POINT, ErrorType::UNKNOWN,
+                           StringFormat("Error: Load data failed. data type: %s. "
+                                        "An error occurred while reading file: %s.",
+                                        CkptDataTypeName(dataType).c_str(), dataDir.c_str()));
+        LOG_ERROR(error.ToString());
+        throw std::runtime_error(error.ToString().c_str());
     }
     if (readBytesNum != datasetSize) {
-        throw runtime_error(StringFormat("Error: Load data failed. data type: %s. "
-                                         "Expected to read %d bytes, but actually read %d bytes to file %s.",
-                                         CkptDataTypeName(dataType).c_str(), datasetSize, readBytesNum,
-                                         dataDir.c_str()));
+        auto error = Error(ModuleName::M_CHECK_POINT, ErrorType::UNKNOWN,
+                           StringFormat("Error: Load data failed. data type: %s. "
+                                        "Expected to read %d bytes, but actually read %d bytes to file %s.",
+                                        CkptDataTypeName(dataType).c_str(), datasetSize, readBytesNum,
+                                        dataDir.c_str()));
+        LOG_ERROR(error.ToString());
+        throw std::runtime_error(error.ToString().c_str());
     }
 }
 
@@ -355,20 +360,22 @@ void Checkpoint::ReadStreamForEmbData(CkptTransData& transData, const string& da
         return;
     }
 
-    if (fileSystemPtr == nullptr) {
-        LOG_WARN("please init file system pointer before using. ");
-        throw runtime_error("Nullptr. file system pointer is not initialized. ");
-    }
+    CheckFileSystemPtr();
 
     auto embDataOuterSize = transData.attribute.at(attribEmbDataOuterIdx);
     if (embDataOuterSize <= 0 || embDataOuterSize > MAX_VOCABULARY_SIZE) {
-        throw runtime_error(StringFormat("Invalid embDataOuterSize :%d", embDataOuterSize).c_str());
+        auto error = Error(ModuleName::M_CHECK_POINT, ErrorType::IO_ERROR,
+                           StringFormat("Invalid embDataOuterSize :%d", embDataOuterSize).c_str());
+        LOG_ERROR(error.ToString());
+        throw std::runtime_error(error.ToString().c_str());
     }
 
     size_t datasetSize = fileSystemPtr->GetFileSize(dataDir);
     if (datasetSize % embDataOuterSize > 0 || datasetSize % dataElmtBytes > 0) {
-        LOG_ERROR("data is missing or incomplete in load file: {}", dataDir);
-        throw runtime_error("unable to load EMB_DATA cause wrong-format saved emb data");
+        auto error = Error(ModuleName::M_CHECK_POINT, ErrorType::IO_ERROR,
+                           StringFormat("data is missing or incomplete in load file: %s", dataDir).c_str());
+        LOG_ERROR(error.ToString());
+        throw std::runtime_error(error.ToString().c_str());
     }
 
     auto loadHostEmbs = ckptData.hostEmbs;
@@ -385,6 +392,19 @@ void Checkpoint::SetTransDataSize(CkptTransData& transData, size_t datasetSize, 
     } else if (dataType == CkptDataType::ATTRIBUTE) {
         transData.attribute.resize(datasetSize);
     } else {
-        throw runtime_error("unknown CkptDataType");
+        auto error = Error(ModuleName::M_CHECK_POINT, ErrorType::UNKNOWN, "Unknown CkptDataType.");
+        LOG_ERROR(error.ToString());
+        throw std::runtime_error(error.ToString().c_str());
     }
+}
+
+void Checkpoint::CheckFileSystemPtr() const
+{
+    if (fileSystemPtr != nullptr) {
+        return;
+    }
+    auto error = Error(ModuleName::M_CHECK_POINT, ErrorType::NULL_PTR,
+                       "FileSystemPtr is null pointer, please init file system pointer before using.");
+    LOG_ERROR(error.ToString());
+    throw std::runtime_error(error.ToString().c_str());
 }

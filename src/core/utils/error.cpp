@@ -59,6 +59,8 @@ std::string Error::TypeAsString() const noexcept
             return "MemoryError";
         case ErrorType::RESOURCE_NOT_ENOUGH:
             return "ResourceNotEnough";
+        case ErrorType::HDFS_ERROR:
+            return "HdfsError";
         default:
             return "UnknownError";
     }

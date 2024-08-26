@@ -38,6 +38,7 @@ enum class ErrorType: uint8_t {
     NULL_PTR,
     MEMORY_ERROR,
     RESOURCE_NOT_ENOUGH,
+    HDFS_ERROR,
     UNKNOWN,
 };
 
