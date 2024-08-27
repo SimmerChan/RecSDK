@@ -286,6 +286,10 @@ void File::Load()
         if (!localFileMeta.eof() && localFileMeta.fail()) {
             ThrowInvalidArgError(ErrorType::IO_ERROR, "File broken while reading key.");
         }
+        // When file is empty, read first key failed and break.
+        if (localFileMeta.eof()) {
+            break;
+        }
 
         localFileMeta.read(reinterpret_cast<char*>(&offset), OFFSET_DATA_LEN);
         if (!localFileMeta.eof() && localFileMeta.fail()) {
