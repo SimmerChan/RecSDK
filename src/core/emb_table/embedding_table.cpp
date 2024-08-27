@@ -97,7 +97,7 @@ void EmbeddingTable::EvictInitDeviceEmb()
 {
     if (evictDevPos.size() > devVocabSize) {
         auto errMsg = Logger::Format(
-            "{} overflow! init evict dev, evictOffset size {} bigger than dev vocabSize {}.",
+            "Table {} overflow! Init evict dev, evictOffset size {} bigger than dev vocabSize {}.",
             name, evictDevPos.size(), devVocabSize);
         auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::LOGIC_ERROR, errMsg);
         LOG_ERROR(error.ToString());
@@ -202,7 +202,7 @@ void EmbeddingTable::CheckFileSystemPtr() const
         return;
     }
     auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::NULL_PTR,
-                       "failed to obtain the file system pointer, the file system pointer is null.");
+                       "Failed to obtain the file system pointer, the file system pointer is null.");
     LOG_ERROR(error.ToString());
     throw std::runtime_error(error.ToString().c_str());
 }
