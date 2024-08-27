@@ -54,7 +54,7 @@ size_t HdfsFileSystem::GetFileSize(const string& filePath)
     hdfsFileInfo* fileInfo = hdfs->GetPathInfo(fs, filePath.c_str());
     if (fileInfo == nullptr) {
         auto error = Error(ModuleName::M_FILE_SYSTEM, ErrorType::HDFS_ERROR,
-                           StringFormat("Unable to get hdfs file info : %s.", filePath.c_str()));
+                           StringFormat("Unable to get hdfs file info: %s.", filePath.c_str()));
         LOG_ERROR(error.ToString());
         throw std::runtime_error(error.ToString().c_str());
     }
@@ -115,7 +115,7 @@ void HdfsFileSystem::WriteEmbedding(const string& filePath, const int& embedding
     if (res != ACL_ERROR_NONE) {
         hdfs->CloseFile(fs, file);
         auto error = Error(ModuleName::M_FILE_SYSTEM, ErrorType::ACL_ERROR,
-                           StringFormat("Set device failed, device_id:%d", deviceId).c_str());
+                           StringFormat("Set device failed, device_id:%d.", deviceId).c_str());
         LOG_ERROR(error.ToString());
         throw std::runtime_error(error.ToString().c_str());
     }
@@ -217,7 +217,7 @@ void HdfsFileSystem::ReadEmbedding(const string& filePath, EmbeddingSizeInfo& em
     auto res = aclrtSetDevice(static_cast<int32_t>(deviceId));
     if (res != ACL_ERROR_NONE) {
         auto error = Error(ModuleName::M_FILE_SYSTEM, ErrorType::ACL_ERROR,
-                           StringFormat("Set device failed, device_id:%d", deviceId).c_str());
+                           StringFormat("Set device failed, device_id:%d.", deviceId).c_str());
         LOG_ERROR(error.ToString());
         throw std::runtime_error(error.ToString().c_str());
     }
@@ -230,7 +230,7 @@ void HdfsFileSystem::ReadEmbedding(const string& filePath, EmbeddingSizeInfo& em
         if (seekRes == -1) {
             hdfs->CloseFile(fs, file);
             auto error = Error(ModuleName::M_FILE_SYSTEM, ErrorType::HDFS_ERROR,
-                               StringFormat("Error: hdfsSeek failed with error. file offset: %d",
+                               StringFormat("Error: hdfsSeek failed with error. file offset: %d.",
                                    offset * embedSizeInfo.embeddingSize * sizeof(float)));
             LOG_ERROR(error.ToString());
             throw std::runtime_error(error.ToString().c_str());
@@ -271,7 +271,7 @@ void HdfsFileSystem::CheckOpenHdfsFileRet(hdfsFile file, const string& filePath)
 {
     if (!file) {
         auto error = Error(ModuleName::M_FILE_SYSTEM, ErrorType::IO_ERROR,
-                           StringFormat("Error: Unable to open hdfs file : %s.", filePath.c_str()));
+                           StringFormat("Error: Unable to open hdfs file: %s.", filePath.c_str()));
         LOG_ERROR(error.ToString());
         throw std::runtime_error(error.ToString().c_str());
     }

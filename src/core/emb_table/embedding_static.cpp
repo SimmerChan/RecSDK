@@ -65,7 +65,7 @@ void EmbeddingStatic::Key2Offset(std::vector<emb_key_t>& keys, int channel)
     }
     if (maxOffset > devVocabSize) {
         auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::LOGIC_ERROR,
-                           StringFormat("dev cache overflow %d > %d", maxOffset, devVocabSize));
+                           StringFormat("Dev cache overflow %d > %d.", maxOffset, devVocabSize));
         LOG_ERROR(error.ToString());
         throw std::runtime_error(error.ToString().c_str());
     }

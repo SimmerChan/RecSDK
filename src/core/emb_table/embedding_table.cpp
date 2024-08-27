@@ -97,7 +97,7 @@ void EmbeddingTable::EvictInitDeviceEmb()
 {
     if (evictDevPos.size() > devVocabSize) {
         auto errMsg = Logger::Format(
-            "{} overflow! init evict dev, evictOffset size {} bigger than dev vocabSize {}",
+            "{} overflow! init evict dev, evictOffset size {} bigger than dev vocabSize {}.",
             name, evictDevPos.size(), devVocabSize);
         auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::LOGIC_ERROR, errMsg);
         LOG_ERROR(error.ToString());
@@ -214,7 +214,7 @@ void EmbeddingTable::CheckReadKeyFileSize(const string& fileName, size_t fileSiz
     }
 
     auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::LOGIC_ERROR,
-                       StringFormat("Error: Load keys failed. "
+                       StringFormat("Error: Load keys failed, "
                                     "file %s size %d is too big.", fileName.c_str(), fileSize));
     LOG_ERROR(error.ToString());
     throw std::runtime_error(error.ToString().c_str());
@@ -227,7 +227,7 @@ void EmbeddingTable::CheckLoadKeyMallocPtr(const int64_t* mallocPtr, size_t mall
     }
     auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::LOGIC_ERROR,
                        StringFormat("Error: Load keys failed. "
-                                    "failed to allocate %d bytes using malloc.", mallocByteSize));
+                                    "Failed to allocate %d bytes using malloc.", mallocByteSize));
     LOG_ERROR(error.ToString());
     throw std::runtime_error(error.ToString().c_str());
 }

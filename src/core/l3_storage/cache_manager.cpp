@@ -297,8 +297,8 @@ void CacheManager::FetchL3StorageEmb2DDR(string tableName, uint32_t extEmbedding
                           extEmbeddingSize * sizeof(float));
         if (rc != 0) {
             auto error = Error(ModuleName::M_L3_STORAGE, ErrorType::IO_ERROR,
-                               Logger::Format("memcpy_s failed, rc:{}. You can query the meaning of security"
-                                   " function error code.", to_string(rc)));
+                               Logger::Format("Invoke memcpy_s failed, rc:{}. You can query the meaning of "
+                                   "security function error code.", to_string(rc)));
             LOG_ERROR(error.ToString());
             throw std::runtime_error(error.ToString().c_str());
         }

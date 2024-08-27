@@ -109,7 +109,7 @@ namespace MxRec {
         void GetAndDeleteLeastFreqDDRKey2L3Storage(uint64_t transNum, const std::vector<uint64_t>& keys,
                                                    std::vector<uint64_t>& DDRSwapOutKeys)
         {
-            LOG_DEBUG("start GetAndDeleteLeastFreqDDRKey2L3Storage, table:{}", tableName);
+            LOG_DEBUG("Start GetAndDeleteLeastFreqDDRKey2L3Storage, table:{}.", tableName);
             std::vector<freq_num_t> DDRSwapOutCounts;
             lfuCache.GetAndDeleteLeastFreqKeyInfo(transNum, keys, DDRSwapOutKeys, DDRSwapOutCounts);
             for (uint64_t i = 0; i < DDRSwapOutKeys.size(); i++) {
