@@ -373,8 +373,7 @@ void Checkpoint::ReadStreamForEmbData(CkptTransData& transData, const string& da
     size_t datasetSize = fileSystemPtr->GetFileSize(dataDir);
     if (datasetSize % embDataOuterSize > 0 || datasetSize % dataElmtBytes > 0) {
         auto error = Error(ModuleName::M_CHECK_POINT, ErrorType::IO_ERROR,
-                           StringFormat("Data is missing or incomplete in load file: %s.",
-                                    dataDir.c_str()));
+                           StringFormat("Data is missing or incomplete in load file: %s.", dataDir.c_str()));
         LOG_ERROR(error.ToString());
         throw std::runtime_error(error.ToString().c_str());
     }

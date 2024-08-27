@@ -503,5 +503,3 @@ void Table::ThrowInvalidArgError(const string& errMsg, ErrorType errorType)
 {
     File::ThrowInvalidArgError(errorType, errMsg);
 }
-
-

@@ -99,7 +99,6 @@ File::File(uint64_t fileID, string& fileDir, string& loadDir, int step) : fileID
 
     if (!fs::copy_file(metaFileToLoad, metaFilePath)) {
         ThrowRuntimeError(ErrorType::IO_ERROR, "Failed to create latest meta file.");
-
     }
     if (!fs::copy_file(dataFileToLoad, dataFilePath)) {
         ThrowRuntimeError(ErrorType::IO_ERROR, "Failed to create latest data file.");
