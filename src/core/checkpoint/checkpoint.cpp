@@ -364,7 +364,6 @@ void Checkpoint::ReadStreamForEmbData(CkptTransData& transData, const string& da
 
     auto embDataOuterSize = transData.attribute.at(attribEmbDataOuterIdx);
     if (embDataOuterSize <= 0 || embDataOuterSize > MAX_VOCABULARY_SIZE) {
-
         auto error = Error(ModuleName::M_CHECK_POINT, ErrorType::INVALID_ARGUMENT,
                            Logger::Format("Invalid embDataOuterSize:{}. The embDataOuterSize does not meet"
                                " the specified range ({}, {}).", embDataOuterSize, 0, MAX_VOCABULARY_SIZE));
