@@ -1897,7 +1897,13 @@ void KeyProcess::SendEosTensor(const std::string& embName, int channel)
         size_t channelSize = 0;
         acltdtQueryChannelSize(transChannels[sendName], &channelSize);
         LOG_INFO("[EOS] Before send eos, channel:{}, size:{}.", sendName, channelSize);
-        SendTensorsByAcl(transChannels[sendName], ACL_TENSOR_DATA_END_OF_SEQUENCE, tensors, isNeedResend);
+        
+        auto status = SendTensorsByAcl(transChannels[sendName], ACL_TENSOR_DATA_END_OF_SEQUENCE, tensors, isNeedResend);
+        if (status != tensorflow::Status::OK()) {
+            LOG_ERROR("Failed to send eos signal to channel=>{}, got error: '{}'.", sendName, status.error_message());
+            throw runtime_error("send eos signal failed!");
+        }
+
         acltdtQueryChannelSize(transChannels[sendName], &channelSize);
         LOG_INFO("[EOS] After send eos, channel:{}, size:{}.", sendName, channelSize);
     }
