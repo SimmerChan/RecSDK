@@ -490,7 +490,7 @@ void Table::CheckIsGraterThanMaxSize() const
                                             totalKeyCnt, maxTableSize);
         auto error = Error(ModuleName::M_SSD_ENGINE, ErrorType::LOGIC_ERROR, errMsg);
         LOG_ERROR(error.ToString());
-        throw std::invalid_argument(error.ToString().c_str());
+        throw std::invalid_argument(error.ToString());
     }
 }
 

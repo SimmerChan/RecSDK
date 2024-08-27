@@ -46,5 +46,5 @@ void CkptDataHandler::SetDatasetForLoadEmb(CkptDataType dataType, string embName
                                    dataType, embName, loadedData.datasetSize);
     auto error = Error(ModuleName::M_CHECK_POINT, ErrorType::UNKNOWN, errMsg);
     LOG_ERROR(error.ToString());
-    throw std::runtime_error(error.ToString().c_str());
+    throw std::runtime_error(error.ToString());
 }

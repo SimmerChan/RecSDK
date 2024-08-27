@@ -205,7 +205,7 @@ namespace MxRec {
                 string errMsg = "Failed to obtain the pointer of the function " + hdfsFuncName + " from the libhdfs.";
                 auto error = Error(ModuleName::M_FILE_SYSTEM, ErrorType::HDFS_ERROR, errMsg);
                 LOG_ERROR(error.ToString());
-                throw std::runtime_error(error.ToString().c_str());
+                throw std::runtime_error(error.ToString());
             }
         }
 
@@ -244,7 +244,7 @@ namespace MxRec {
                 auto error = Error(ModuleName::M_FILE_SYSTEM, ErrorType::HDFS_ERROR,
                                    "Init hdfs wrapper failed when loading libhdfs.so in environment.");
                 LOG_ERROR(error.ToString());
-                throw std::runtime_error(error.ToString().c_str());
+                throw std::runtime_error(error.ToString());
             }
 
             void* funcAddr = dlsym(libhdfs, "hdfsConnect");
@@ -253,13 +253,13 @@ namespace MxRec {
                 auto error = Error(ModuleName::M_FILE_SYSTEM, ErrorType::HDFS_ERROR,
                                    "Init hdfs wrapper failed when getting the path of libhdfs.so.");
                 LOG_ERROR(error.ToString());
-                throw std::runtime_error(error.ToString().c_str());
+                throw std::runtime_error(error.ToString());
             }
             if (!CheckFilePermission(libInfo.dli_fname)) {
                 auto error = Error(ModuleName::M_FILE_SYSTEM, ErrorType::HDFS_ERROR,
                                    "Init hdfs wrapper failed because libhdfs.so is invalid.");
                 LOG_ERROR(error.ToString());
-                throw std::runtime_error(error.ToString().c_str());
+                throw std::runtime_error(error.ToString());
             }
 
             // 获取hdfs库中的函数指针

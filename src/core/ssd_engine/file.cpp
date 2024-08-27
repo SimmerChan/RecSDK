@@ -381,12 +381,12 @@ void File::ThrowRuntimeError(ErrorType errorType, const string& errMsg)
 {
     auto error = Error(ModuleName::M_SSD_ENGINE, errorType, errMsg);
     LOG_ERROR(error.ToString());
-    throw std::runtime_error(error.ToString().c_str());
+    throw std::runtime_error(error.ToString());
 }
 
 void File::ThrowInvalidArgError(ErrorType errorType, const string& errMsg)
 {
     auto error = Error(ModuleName::M_SSD_ENGINE, errorType, errMsg);
     LOG_ERROR(error.ToString());
-    throw std::runtime_error(error.ToString().c_str());
+    throw std::runtime_error(error.ToString());
 }

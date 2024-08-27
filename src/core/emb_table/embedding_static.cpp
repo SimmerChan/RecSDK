@@ -69,7 +69,7 @@ void EmbeddingStatic::Key2Offset(std::vector<emb_key_t>& keys, int channel)
                                        maxOffset, devVocabSize);
         auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::INVALID_ARGUMENT, errMsg);
         LOG_ERROR(error.ToString());
-        throw std::runtime_error(error.ToString().c_str());
+        throw std::runtime_error(error.ToString());
     }
 }
 
@@ -91,7 +91,7 @@ void EmbeddingStatic::Key2OffsetForDp(std::vector<emb_key_t>& keys, int channel)
                 Error(ModuleName::M_EMB_TABLE, ErrorType::NOT_FOUND,
                       StringFormat("LookupKeys contains invalid key %d, the key must exist in the offset map.", key));
             LOG_ERROR(error.ToString());
-            throw runtime_error(error.ToString().c_str());
+            throw runtime_error(error.ToString());
         }
         key = INVALID_KEY_VALUE;
     }
@@ -152,14 +152,14 @@ void EmbeddingStatic::SaveKey(const string& savePath, bool saveDelta, const map<
                            StringFormat("Error: Save keys failed. "
                                         "An error occurred while writing file: %s.", ss.str().c_str()));
         LOG_ERROR(error.ToString());
-        throw std::runtime_error(error.ToString().c_str());
+        throw std::runtime_error(error.ToString());
     }
     if (res != writeSize) {
         auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::LOGIC_ERROR,
                            StringFormat("Error: Save keys failed. Expected to write %d bytes, "
                                         "but actually write %d bytes to file %s.", writeSize, res, ss.str().c_str()));
         LOG_ERROR(error.ToString());
-        throw std::runtime_error(error.ToString().c_str());
+        throw std::runtime_error(error.ToString());
     }
 }
 
@@ -201,7 +201,7 @@ void EmbeddingStatic::LoadKey(const string& savePath)
                            StringFormat("Error: Load keys failed. Load key size :%d exceeds device vocab size: %d.",
                                         loadOffset.size(), devVocabSize));
         LOG_ERROR(error.ToString());
-        throw std::runtime_error(error.ToString().c_str());
+        throw std::runtime_error(error.ToString());
     }
 
     maxOffset = keyOffsetMap.size();

@@ -33,7 +33,7 @@ void CacheManager::Init(ock::ctr::EmbCacheManagerPtr embCachePtr, vector<EmbInfo
         auto error = Error(ModuleName::M_L3_STORAGE, ErrorType::LOGIC_ERROR,
                            "Attribute:level3Storage is nullptr.");
         LOG_ERROR(error.ToString());
-        throw std::runtime_error(error.ToString().c_str());
+        throw std::runtime_error(error.ToString());
     }
 
     this->embCache = std::move(embCachePtr);
@@ -160,7 +160,7 @@ void CacheManager::Load(const std::vector<EmbInfo> &mgmtEmbInfo, int step,
             auto error = Error(ModuleName::M_L3_STORAGE, ErrorType::LOGIC_ERROR,
                                "Serialize failed!");
             LOG_ERROR(error.ToString());
-            throw std::runtime_error(error.ToString().c_str());
+            throw std::runtime_error(error.ToString());
         }
         uint64_t memSize = sizeof(uint64_t) + embInfo.extEmbeddingSize * sizeof(float);
         for (uint64_t i = 0; i < buffer.size(); i += memSize) {
@@ -183,7 +183,7 @@ int64_t CacheManager::GetTableUsage(const string& tableName)
     if (l3Storage == nullptr) {
         auto error = Error(ModuleName::M_L3_STORAGE, ErrorType::LOGIC_ERROR, "L3Storage not init.");
         LOG_ERROR(error.ToString());
-        throw std::runtime_error(error.ToString().c_str());
+        throw std::runtime_error(error.ToString());
     }
     return l3Storage->GetTableUsage(tableName);
 }
@@ -250,7 +250,7 @@ void CacheManager::ProcessSwapInKeys(const string& tableName, const vector<emb_c
                                "L3Storage table size too small, key quantity exceed while transferring DDR data"
                                " to L3Storage.");
             LOG_ERROR(error.ToString());
-            throw std::invalid_argument(error.ToString().c_str());
+            throw std::invalid_argument(error.ToString());
         }
         // DDR--->L3Storage
         keyMapper.GetAndDeleteLeastFreqDDRKey2L3Storage(transNum, swapInKeys, DDRToL3StorageKeys);
@@ -300,7 +300,7 @@ void CacheManager::FetchL3StorageEmb2DDR(string tableName, uint32_t extEmbedding
                                Logger::Format("Invoke memcpy_s failed, rc:{}. You can query the meaning of "
                                    "security function error code.", to_string(rc)));
             LOG_ERROR(error.ToString());
-            throw std::runtime_error(error.ToString().c_str());
+            throw std::runtime_error(error.ToString());
         }
     }
     l3Storage->DeleteEmbeddings(tableName, keys);
@@ -384,5 +384,5 @@ void CacheManager::CheckEmbCacheReturnCode(const string& funcName, int retCode)
                        Logger::Format("Invoke embCache func:{} failed, error code:{}.",
                            funcName, std::to_string(retCode)));
     LOG_ERROR(error.ToString());
-    throw std::runtime_error(error.ToString().c_str());
+    throw std::runtime_error(error.ToString());
 }

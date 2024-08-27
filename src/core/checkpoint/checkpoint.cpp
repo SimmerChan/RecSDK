@@ -209,7 +209,7 @@ void Checkpoint::WriteStream(CkptTransData& transData, const string& dataDir, si
     } else {
         auto error = Error(ModuleName::M_CHECK_POINT, ErrorType::UNKNOWN, "Unknown CkptDataType.");
         LOG_ERROR(error.ToString());
-        throw std::runtime_error(error.ToString().c_str());
+        throw std::runtime_error(error.ToString());
     }
 
     if (writeBytesNum == -1) {
@@ -218,7 +218,7 @@ void Checkpoint::WriteStream(CkptTransData& transData, const string& dataDir, si
                                         "An error occurred while writing file: %s.",
                                         CkptDataTypeName(dataType).c_str(), dataDir.c_str()));
         LOG_ERROR(error.ToString());
-        throw std::runtime_error(error.ToString().c_str());
+        throw std::runtime_error(error.ToString());
     }
     if (writeBytesNum != dataSize) {
         auto error = Error(ModuleName::M_CHECK_POINT, ErrorType::IO_ERROR,
@@ -226,7 +226,7 @@ void Checkpoint::WriteStream(CkptTransData& transData, const string& dataDir, si
                                         "Expected to write %d bytes, but actually write %d bytes to file %s.",
                                         CkptDataTypeName(dataType).c_str(), dataSize, writeBytesNum, dataDir.c_str()));
         LOG_ERROR(error.ToString());
-        throw std::runtime_error(error.ToString().c_str());
+        throw std::runtime_error(error.ToString());
     }
 }
 
@@ -330,7 +330,7 @@ void Checkpoint::ReadStream(CkptTransData& transData, const string& dataDir, Ckp
     } else {
         auto error = Error(ModuleName::M_CHECK_POINT, ErrorType::UNKNOWN, "Unknown CkptDataType.");
         LOG_ERROR(error.ToString());
-        throw std::runtime_error(error.ToString().c_str());
+        throw std::runtime_error(error.ToString());
     }
 
     if (readBytesNum == -1) {
@@ -339,7 +339,7 @@ void Checkpoint::ReadStream(CkptTransData& transData, const string& dataDir, Ckp
                                         "An error occurred while reading file: %s.",
                                         CkptDataTypeName(dataType).c_str(), dataDir.c_str()));
         LOG_ERROR(error.ToString());
-        throw std::runtime_error(error.ToString().c_str());
+        throw std::runtime_error(error.ToString());
     }
     if (readBytesNum != datasetSize) {
         auto error = Error(ModuleName::M_CHECK_POINT, ErrorType::IO_ERROR,
@@ -348,7 +348,7 @@ void Checkpoint::ReadStream(CkptTransData& transData, const string& dataDir, Ckp
                                         CkptDataTypeName(dataType).c_str(), datasetSize, readBytesNum,
                                         dataDir.c_str()));
         LOG_ERROR(error.ToString());
-        throw std::runtime_error(error.ToString().c_str());
+        throw std::runtime_error(error.ToString());
     }
 }
 
@@ -367,7 +367,7 @@ void Checkpoint::ReadStreamForEmbData(CkptTransData& transData, const string& da
         auto error = Error(ModuleName::M_CHECK_POINT, ErrorType::IO_ERROR,
                            StringFormat("Invalid embDataOuterSize :%d", embDataOuterSize).c_str());
         LOG_ERROR(error.ToString());
-        throw std::runtime_error(error.ToString().c_str());
+        throw std::runtime_error(error.ToString());
     }
 
     size_t datasetSize = fileSystemPtr->GetFileSize(dataDir);
@@ -375,7 +375,7 @@ void Checkpoint::ReadStreamForEmbData(CkptTransData& transData, const string& da
         auto error = Error(ModuleName::M_CHECK_POINT, ErrorType::IO_ERROR,
                            StringFormat("Data is missing or incomplete in load file: %s.", dataDir.c_str()));
         LOG_ERROR(error.ToString());
-        throw std::runtime_error(error.ToString().c_str());
+        throw std::runtime_error(error.ToString());
     }
 
     auto loadHostEmbs = ckptData.hostEmbs;
@@ -394,7 +394,7 @@ void Checkpoint::SetTransDataSize(CkptTransData& transData, size_t datasetSize, 
     } else {
         auto error = Error(ModuleName::M_CHECK_POINT, ErrorType::UNKNOWN, "Unknown CkptDataType.");
         LOG_ERROR(error.ToString());
-        throw std::runtime_error(error.ToString().c_str());
+        throw std::runtime_error(error.ToString());
     }
 }
 
@@ -406,5 +406,5 @@ void Checkpoint::CheckFileSystemPtr() const
     auto error = Error(ModuleName::M_CHECK_POINT, ErrorType::NULL_PTR,
                        "FileSystemPtr is null pointer, please init file system pointer before using.");
     LOG_ERROR(error.ToString());
-    throw std::runtime_error(error.ToString().c_str());
+    throw std::runtime_error(error.ToString());
 }

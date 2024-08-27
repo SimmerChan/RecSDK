@@ -223,7 +223,7 @@ void SSDEngine::CheckSSDEngineIsRunning() const
     }
     auto error = Error(ModuleName::M_SSD_ENGINE, ErrorType::LOGIC_ERROR, "SSDEngine not running.");
     LOG_ERROR(error.ToString());
-    throw std::invalid_argument(error.ToString().c_str());
+    throw std::invalid_argument(error.ToString());
 }
 
 void SSDEngine::CheckTableExist(bool isThrowError, const string& tableName)
@@ -232,6 +232,6 @@ void SSDEngine::CheckTableExist(bool isThrowError, const string& tableName)
         auto error = Error(ModuleName::M_SSD_ENGINE, ErrorType::LOGIC_ERROR,
                            Logger::Format("Table:{} not found in 'tableMap'.", tableName));
         LOG_ERROR(error.ToString());
-        throw std::invalid_argument(error.ToString().c_str());
+        throw std::invalid_argument(error.ToString());
     }
 }

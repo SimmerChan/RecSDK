@@ -36,7 +36,7 @@ EmbeddingDynamic::EmbeddingDynamic(const EmbInfo& info, const RankInfo& rankInfo
                                StringFormat("Acl set device failed, device_id:%d, ret:%d.",
                                             rankInfo.deviceId, ret));
             LOG_ERROR(error.ToString());
-            throw runtime_error(error.ToString().c_str());
+            throw runtime_error(error.ToString());
         }
         MallocEmbeddingBlock(BLOCK_EMB_NUM);
     }
@@ -98,7 +98,7 @@ void EmbeddingDynamic::Key2OffsetForDp(std::vector<emb_key_t>& keys, int channel
                 Error(ModuleName::M_EMB_TABLE, ErrorType::NOT_FOUND,
                       StringFormat("LookupKeys contains invalid key %d, the key must exist in the offset map.", key));
             LOG_ERROR(error.ToString());
-            throw runtime_error(error.ToString().c_str());
+            throw runtime_error(error.ToString());
         }
         key = INVALID_DYNAMIC_EXPANSION_ADDR;
     }
@@ -204,14 +204,14 @@ void EmbeddingDynamic::SaveKey(const string& savePath, bool saveDelta, const map
                            StringFormat("Error: Save keys failed. "
                                         "An error occurred while writing file: %s.", ss.str().c_str()));
         LOG_ERROR(error.ToString());
-        throw std::runtime_error(error.ToString().c_str());
+        throw std::runtime_error(error.ToString());
     }
     if (res != writeSize) {
         auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::LOGIC_ERROR,
                            StringFormat("Error: Save keys failed. Expected to write %d bytes, "
                                         "but actually write %d bytes to file %s.", writeSize, res, ss.str().c_str()));
         LOG_ERROR(error.ToString());
-        throw std::runtime_error(error.ToString().c_str());
+        throw std::runtime_error(error.ToString());
     }
 }
 
@@ -331,7 +331,7 @@ void EmbeddingDynamic::LoadKey(const string& savePath)
                            StringFormat("Error: in dynamic expansion mode, "
                                         "aclrtMalloc failed, malloc size: %d.", datasetSize));
         LOG_ERROR(error.ToString());
-        throw runtime_error(error.ToString().c_str());
+        throw runtime_error(error.ToString());
     }
     // 此处的 newBlock -> first address;
     // 对key_offset map 进行一个恢复操作
