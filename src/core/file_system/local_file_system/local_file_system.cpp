@@ -207,7 +207,7 @@ void LocalFileSystem::WriteEmbedding(const string& filePath, const int& embeddin
         ssize_t result = write(fd, row.data(), embeddingSize * sizeof(float));
         if (result != embeddingSize * sizeof(float)) {
             close(fd);
-            auto error = Error(ModuleName::M_FILE_SYSTEM, ErrorType::LOGIC_ERROR, "Error writing to local file, "
+            auto error = Error(ModuleName::M_FILE_SYSTEM, ErrorType::IO_ERROR, "Error writing to local file, "
                                "please check the disk buffer or temporary folder space or file permissions!");
             LOG_ERROR(error.ToString());
             throw std::runtime_error(error.ToString());

@@ -79,7 +79,7 @@ void EmbeddingDDR::Load(const string& savePath, map<string, unordered_set<emb_ca
     auto rc = embCache->LoadEmbTableInfos(name, keys, embeddings, optimizerSlots);
     if (rc != 0) {
         auto error = Error(ModuleName::M_OCK_CTR, ErrorType::LOGIC_ERROR,
-                           StringFormat("embCache->LoadEmbTableInfos failed, table:%s, error code:%d",
+                           StringFormat("Invoke embCache->LoadEmbTableInfos failed, table:%s, error code:%d.",
                                         name.c_str(), rc));
         LOG_ERROR(error.ToString());
         throw std::invalid_argument(error.ToString());
@@ -90,7 +90,7 @@ void EmbeddingDDR::Load(const string& savePath, map<string, unordered_set<emb_ca
     auto rs = embCache->ResetOffsetMappers();
     if (rs != 0) {
         auto error = Error(ModuleName::M_OCK_CTR, ErrorType::LOGIC_ERROR,
-                           StringFormat("embCache->ResetOffsetMappers failed, table:%s, error code:%d",
+                           StringFormat("Invoke embCache->ResetOffsetMappers failed, table:%s, error code:%d.",
                                         name.c_str(), rc));
         LOG_ERROR(error.ToString());
         throw std::invalid_argument(error.ToString());
@@ -109,14 +109,14 @@ void EmbeddingDDR::LoadKey(const string &savePath, vector<emb_cache_key_t> &keys
         fileSize = fileSystemPtr_->GetFileSize(ss.str());
     } catch (exception& e) {
         auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::IO_ERROR,
-                           StringFormat("open file failed:%s, error code:%d",
+                           StringFormat("Open file failed:%s, error code:%d",
                                         ss.str().c_str(), strerror(errno)));
         LOG_ERROR(error.ToString());
         throw std::runtime_error(error.ToString());
     }
     if (fileSize >= FILE_MAX_SIZE) {
-        string errMsg = StringFormat("file:%s, size:%d is too big", ss.str().c_str(), fileSize);
-        auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::IO_ERROR, errMsg);
+        string errMsg = StringFormat("Invalid file:%s, size:%d is too big.", ss.str().c_str(), fileSize);
+        auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::INVALID_ARGUMENT, errMsg);
         LOG_ERROR(error.ToString());
         throw std::runtime_error(error.ToString());
     }
@@ -127,7 +127,7 @@ void EmbeddingDDR::LoadKey(const string &savePath, vector<emb_cache_key_t> &keys
     ssize_t result = fileSystemPtr_->Read(ss.str(), reinterpret_cast<char*>(buf), fileSize);
     if (result == -1) {
         free(static_cast<void*>(buf));
-        string errMsg = StringFormat("read buffer failed, error code:%d", strerror(errno));
+        string errMsg = StringFormat("Read buffer failed, error code:%d.", strerror(errno));
         auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::IO_ERROR, errMsg);
         LOG_ERROR(error.ToString());
         throw std::runtime_error(error.ToString());
@@ -171,13 +171,13 @@ void EmbeddingDDR::LoadEmbedding(const string &savePath, vector<vector<float>> &
 
     CheckFileSystemPtr();
     ssize_t res = fileSystemPtr_->Read(embedStream.str(), embeddings, 0, hostLoadOffset, embSize_);
-    LOG_DEBUG("load embedding done, table:{}, read bytes:{}", name, res);
+    LOG_DEBUG("Load embedding done, table:{}, read bytes:{}.", name, res);
 }
 
 void EmbeddingDDR::LoadOptimizerSlot(const string &savePath, vector<vector<float>> &optimizerSlots)
 {
     if (optimParams.size() == 0) {
-        LOG_DEBUG("optimizer has no slot data to load");
+        LOG_DEBUG("Optimizer has no slot data to load.");
         return;
     }
 
@@ -197,10 +197,10 @@ void EmbeddingDDR::LoadOptimizerSlot(const string &savePath, vector<vector<float
         paramStream << ss.str() << "/" << optimName + "_" + param << "/slice.data";
         ssize_t res = fileSystemPtr_->Read(paramStream.str(), optimizerSlots, slotIdx, hostLoadOffset, embSize_);
         slotIdx++;
-        LOG_DEBUG("load optimizer slot, table:{}, slot:{}, read bytes:{}", name, param, res);
+        LOG_DEBUG("Load optimizer slot, table:{}, slot:{}, read bytes:{}.", name, param, res);
     }
 
-    LOG_DEBUG("load optimizer slot done, table:{}", name);
+    LOG_DEBUG("Load optimizer slot done, table:{}.", name);
 }
 
 void EmbeddingDDR::Save(const string& savePath, const int pythonBatchId, bool saveDelta,
@@ -235,14 +235,15 @@ void EmbeddingDDR::SyncLatestEmbedding(const int pythonBatchId)
     for (const auto& p : koVec) {
         swapOutKeys.push_back(p.first);
     }
-    LOG_DEBUG("save swapOutKeys.size:{}, table:{}", swapOutKeys.size(), name);
+    LOG_DEBUG("Save swapOutKeys.size:{}, table:{}.", swapOutKeys.size(), name);
 
     // 接收python save接口发送的卡内embedding
     auto size = hdTransfer->RecvAcl(TransferChannel::SAVE_D2H, TRAIN_CHANNEL_ID, name, 0, -1);
-    LOG_DEBUG("save acltdtGetDatasetSize, size: {}, table:{}", size, name);
+    LOG_DEBUG("Receive D2H data end with DDR mode, size:{}, table:{}.", size, name);
     auto aclData = acltdtGetDataItem(hdTransfer->aclDatasets[name][0], 0);
     if (aclData == nullptr) {
-        auto error = Error(ModuleName::M_ACL, ErrorType::NULL_PTR, "Acl get tensor data from dataset failed.");
+        auto error = Error(ModuleName::M_ACL, ErrorType::NULL_PTR,
+                           "Failed to get Acl DataItem pointer from Acl Dataset.");
         LOG_ERROR(error.ToString());
         throw runtime_error(error.ToString());
     }
@@ -292,8 +293,8 @@ void EmbeddingDDR::EmbeddingUpdateWithSSD(const vector<uint64_t>& swapOutKeys, f
                                deviceDataPtr + info.swapOutDDRAddrOffs[i] * extEmbeddingSize, memSize);
         if (errCode != 0) {
             auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::MEMORY_ERROR,
-                               StringFormat("memcpy_s failed, table:%s, error code:%d. You can query the meaning"
-                                            " of security function error code.", name.c_str(), errCode));
+                               StringFormat("Invoke memcpy_s failed, table:%s, error code:%d. You can query the "
+                                            "meaning of security function error code.", name.c_str(), errCode));
             LOG_ERROR(error.ToString());
             throw std::invalid_argument(error.ToString());
         }

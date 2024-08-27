@@ -24,7 +24,8 @@ void FeatAdmitNEvictCkpt::SetProcessData(CkptData& processData)
     ClearData();
     if (processData.table2Thresh.empty() || processData.histRec.timestamps.empty() ||
         processData.histRec.historyRecords.empty()) {
-        auto error = Error(ModuleName::M_CHECK_POINT, ErrorType::LOGIC_ERROR, "Missing Feature Admit and Evict data.");
+        auto error = Error(ModuleName::M_CHECK_POINT, ErrorType::LOGIC_ERROR,
+                           "Missing Feature Admit and Evict data. Please check the implementations.");
         LOG_ERROR(error.ToString());
         throw std::runtime_error(error.ToString());
     }
@@ -146,7 +147,8 @@ void FeatAdmitNEvictCkpt::SetHistRec(string embName)
     auto& timestamp = loadHistRec.timestamps[embName];
     auto& histRecs = loadHistRec.historyRecords[embName];
     if (transArr.empty() || attribute.empty()) {
-        auto error = Error(ModuleName::M_CHECK_POINT, ErrorType::LOGIC_ERROR, "TransArr or attribute is empty.");
+        auto error = Error(ModuleName::M_CHECK_POINT, ErrorType::LOGIC_ERROR,
+                           "TransArr or attribute is empty. Please check the implementations.");
         LOG_ERROR(error.ToString());
         throw std::runtime_error(error.ToString());
     }

@@ -207,14 +207,14 @@ void Checkpoint::WriteStream(CkptTransData& transData, const string& dataDir, si
         writeBytesNum =
             fileSystemPtr->Write(dataDir, reinterpret_cast<const char*>(transData.attribute.data()), dataSize);
     } else {
-        auto error = Error(ModuleName::M_CHECK_POINT, ErrorType::UNKNOWN, "Unknown CkptDataType.");
+        auto error = Error(ModuleName::M_CHECK_POINT, ErrorType::LOGIC_ERROR, "Unknown CkptDataType.");
         LOG_ERROR(error.ToString());
         throw std::runtime_error(error.ToString());
     }
 
     if (writeBytesNum == -1) {
         auto error = Error(ModuleName::M_CHECK_POINT, ErrorType::IO_ERROR,
-                           StringFormat("Error: Save data failed. data type: %s. "
+                           StringFormat("Error: Save data failed, data type: %s. "
                                         "An error occurred while writing file: %s.",
                                         CkptDataTypeName(dataType).c_str(), dataDir.c_str()));
         LOG_ERROR(error.ToString());
@@ -328,7 +328,7 @@ void Checkpoint::ReadStream(CkptTransData& transData, const string& dataDir, Ckp
     } else if (dataType == CkptDataType::ATTRIBUTE) {
         readBytesNum = fileSystemPtr->Read(dataDir, reinterpret_cast<char*>(transData.attribute.data()), datasetSize);
     } else {
-        auto error = Error(ModuleName::M_CHECK_POINT, ErrorType::UNKNOWN, "Unknown CkptDataType.");
+        auto error = Error(ModuleName::M_CHECK_POINT, ErrorType::LOGIC_ERROR, "Unknown CkptDataType.");
         LOG_ERROR(error.ToString());
         throw std::runtime_error(error.ToString());
     }
@@ -364,15 +364,17 @@ void Checkpoint::ReadStreamForEmbData(CkptTransData& transData, const string& da
 
     auto embDataOuterSize = transData.attribute.at(attribEmbDataOuterIdx);
     if (embDataOuterSize <= 0 || embDataOuterSize > MAX_VOCABULARY_SIZE) {
-        auto error = Error(ModuleName::M_CHECK_POINT, ErrorType::IO_ERROR,
-                           StringFormat("Invalid embDataOuterSize :%d", embDataOuterSize).c_str());
+
+        auto error = Error(ModuleName::M_CHECK_POINT, ErrorType::INVALID_ARGUMENT,
+                           Logger::Format("Invalid embDataOuterSize:{}. The embDataOuterSize does not meet"
+                               " the specified range ({}, {}).", embDataOuterSize, 0, MAX_VOCABULARY_SIZE));
         LOG_ERROR(error.ToString());
         throw std::runtime_error(error.ToString());
     }
 
     size_t datasetSize = fileSystemPtr->GetFileSize(dataDir);
     if (datasetSize % embDataOuterSize > 0 || datasetSize % dataElmtBytes > 0) {
-        auto error = Error(ModuleName::M_CHECK_POINT, ErrorType::IO_ERROR,
+        auto error = Error(ModuleName::M_CHECK_POINT, ErrorType::INVALID_ARGUMENT,
                            StringFormat("Data is missing or incomplete in load file: %s.", dataDir.c_str()));
         LOG_ERROR(error.ToString());
         throw std::runtime_error(error.ToString());
@@ -392,7 +394,7 @@ void Checkpoint::SetTransDataSize(CkptTransData& transData, size_t datasetSize, 
     } else if (dataType == CkptDataType::ATTRIBUTE) {
         transData.attribute.resize(datasetSize);
     } else {
-        auto error = Error(ModuleName::M_CHECK_POINT, ErrorType::UNKNOWN, "Unknown CkptDataType.");
+        auto error = Error(ModuleName::M_CHECK_POINT, ErrorType::LOGIC_ERROR, "Unknown CkptDataType.");
         LOG_ERROR(error.ToString());
         throw std::runtime_error(error.ToString());
     }
