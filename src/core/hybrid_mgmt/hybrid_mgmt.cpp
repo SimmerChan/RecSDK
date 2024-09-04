@@ -2343,7 +2343,7 @@ void HybridMgmt::GetDeltaModelKeys(const string& savePath, bool saveDelta,
 
 void HybridMgmt::InitPipelineMutexAndCV(const string& embTableName)
 {
-    for (int channelId = 0; channelId <= EVAL_CHANNEL_ID; ++channelId) {
+    for (int channelId = 0; channelId < MAX_CHANNEL_NUM; ++channelId) {
         for (int threadIndex = 0; threadIndex < EMBEDDING_THREAD_NUM; ++threadIndex) {
             string key = MakeSwapCVName(threadIndex, embTableName, channelId);
             lastUpdateFinishMutex[key];
