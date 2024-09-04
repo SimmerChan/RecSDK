@@ -1615,6 +1615,9 @@ void KeyProcess::SendEos(const std::string& embName, int batchId, int channel)
         destroyMutex.unlock();
         return;
     }
+
+    WaitSaveEnd(embName, batchId, channel);
+
     SendEosTensor(embName, channel);
     destroyMutex.unlock();
     LOG_INFO("channelId:{} batchId:{}, the embName:{} SendEos end, release destroyMutex", channel, batchId, embName);
@@ -1902,4 +1905,47 @@ void KeyProcess::SendEosTensor(const std::string& embName, int channel)
         LOG_INFO("[EOS] After send eos, channel:{}, size:{}.", sendName, channelSize);
     }
 #endif
+}
+
+void KeyProcess::SetPythonSaveStartInfo()
+{
+    // Add an element assign false value, indicates a save op start.
+    LOG_INFO("Python save operation start.");
+    this->saveOpRecords_.emplace_back(false);
+}
+
+void KeyProcess::SetPythonSaveEndInfo()
+{
+    if (this->saveOpRecords_.empty()) {
+        throw runtime_error("failed to set save op end because save records is empty.");
+    }
+    // Set the last element as true, indicates a save op end.
+    if (this->saveOpRecords_.size() > SAVE_RECORD_LENGTH) {
+        this->saveOpRecords_.clear();
+        this->saveOpRecords_.emplace_back(true);
+    } else {
+        this->saveOpRecords_[saveOpRecords_.size() - 1] = true;
+    }
+    LOG_INFO("Python save operation end.");
+}
+
+void KeyProcess::WaitSaveEnd(const std::string& embName, int batchId, int channel)
+{
+    // Before sending eos, wait for the save operation to complete.
+    // Sleep for 3 seconds and wait for a possible save operation.
+    this_thread::sleep_for(3000ms);
+    int loop_cnt = 1;
+    while (!saveOpRecords_.empty() && !saveOpRecords_[saveOpRecords_.size() - 1]
+        && loop_cnt <= SAVE_RECORD_CHECK_TIMES) {
+        this_thread::sleep_for(1000ms);
+        loop_cnt++;
+    }
+
+    if (loop_cnt <= SAVE_RECORD_CHECK_TIMES) {
+        LOG_DEBUG("[EOS] table:{}, channelId:{} batchId:{}, before send eos, check save records loop times:{}.",
+            embName, channel, batchId, loop_cnt);
+    } else {
+        LOG_WARN("[EOS] table:{}, channelId:{} batchId:{}, before send eos, check save records loop times:{}.",
+            embName, channel, batchId, loop_cnt);
+    }
 }

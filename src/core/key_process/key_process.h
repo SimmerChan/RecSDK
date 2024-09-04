@@ -35,6 +35,9 @@ See the License for the specific language governing permissions and
 namespace MxRec {
 using namespace std;
 
+constexpr int SAVE_RECORD_CHECK_TIMES = 25;
+constexpr size_t SAVE_RECORD_LENGTH = 10;
+
 template <class T>
 struct Cmp {
     bool operator()(const T& a, const T& b) const
@@ -199,6 +202,10 @@ public:
 
     bool isIncrementalCheckpoint{false};
 
+    void SetPythonSaveStartInfo();
+
+    void SetPythonSaveEndInfo();
+
     std::mutex destroyMutex;
 
     inline bool HasEmbName(const string& embName)
@@ -355,6 +362,10 @@ GTEST_PRIVATE :
     string DumpSplitKeys(vector<vector<emb_key_t>>& splitKeys) const;
 
     void SendEosTensor(const std::string& embName, int channel);
+
+    void WaitSaveEnd(const std::string& embName, int batchId, int channel);
+
+    std::vector<bool> saveOpRecords_ = {};
 };
 
 #define KEY_PROCESS_INSTANCE Singleton<KeyProcess>::GetInstance()

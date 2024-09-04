@@ -250,7 +250,10 @@ def save(self, sess, save_path, global_step=None, latest_filename=None, meta_gra
         tf_logging.warning("TensorFlow's V1 checkpoint format has been deprecated.")
 
     save_check(latest_filename, sess)
-
+    could_invoke_set_save_info = ((not context.executing_eagerly()) and self.sparse_saver and
+                                  self.sparse_saver.config_instance)
+    if could_invoke_set_save_info:
+        self.sparse_saver.config_instance.hybrid_manager_config.set_save_op_info(False)
     if global_step is not None:
         checkpoint_file = get_checkpoint_file(self, global_step, sess, save_path)
     else:
@@ -298,6 +301,9 @@ def save(self, sess, save_path, global_step=None, latest_filename=None, meta_gra
             if not save_delta:
                 clear_delta_models(save_dir)
     comm.Barrier()
+
+    if could_invoke_set_save_info:
+        self.sparse_saver.config_instance.hybrid_manager_config.set_save_op_info(True)
     return model_checkpoint_path
 
 

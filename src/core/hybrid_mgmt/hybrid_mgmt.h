@@ -142,6 +142,8 @@ public:
 
     void ReceiveKeyThread(const EmbInfo& embInfo);
 
+    void SetSaveOpInfo(bool isSaveEnd);
+
 GTEST_PRIVATE :
     volatile bool mutexDestroy{false};  // LookupAndSend & ReceiveAndUpdate Condition_Variable_Wait stop.
     std::mutex lookUpAndSendBatchIdMtx[MAX_CHANNEL_NUM];  // train and eval

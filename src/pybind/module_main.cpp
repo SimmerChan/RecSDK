@@ -236,7 +236,8 @@ namespace {
                 .def("get_table_size", &MxRec::HybridMgmt::GetTableSize, py::arg("table_name"))
                 .def("get_table_capacity", &MxRec::HybridMgmt::GetTableCapacity, py::arg("table_name"))
                 .def("set_optim_info", &MxRec::HybridMgmt::SetOptimizerInfo, py::arg("table_name"),
-                     py::arg("optimizer_info"));
+                     py::arg("optimizer_info"))
+                .def("set_save_op_info", &MxRec::HybridMgmt::SetSaveOpInfo, py::arg("is_save_end"));
     }
 
     void GetThresholdValue(pybind11::module_& m)

@@ -98,3 +98,9 @@ class HybridManagerConfig:
             raise RuntimeError("ASC manager not exist.")
         self.asc_manager.fetch_device_emb()
         logger.debug("request of fetching embedding from device to host for saving has been send")
+
+    def set_save_op_info(self, is_save_end: bool) -> None:
+        if self.asc_manager is None:
+            raise RuntimeError("ASC manager not exist.")
+        self.asc_manager.set_save_op_info(is_save_end)
+        logger.debug("Request to set save op info end.")
