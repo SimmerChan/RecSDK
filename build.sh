@@ -17,6 +17,7 @@
 set -e
 ROOT_DIR=$(dirname "$(readlink -f "$0")")
 
+
 remove()
 {
   if [ -d "$1" ]; then
