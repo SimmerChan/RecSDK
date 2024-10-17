@@ -16,9 +16,10 @@
 # ==============================================================================
 
 __all__ = [
-    "init", "terminate_config_initializer"
+    "init", "terminate_config_initializer", "global_env"
 ]
 
 from mx_rec.util.tf_version_adapter import npu_ops, hccl_ops, NPUCheckpointSaverHook
 from mx_rec.util.initialize import init, terminate_config_initializer
 from mx_rec.util.variable import get_dense_and_sparse_variable
+from mx_rec.util.global_env_conf import global_env
