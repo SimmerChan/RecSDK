@@ -29,7 +29,7 @@ public:
 
     EmbeddingDynamic(const EmbInfo& info, const RankInfo& rankInfo, int inSeed);
 
-    EmbeddingDynamic(constEmbeddingDynamic&) = delete;
+    EmbeddingDynamic(const EmbeddingDynamic&) = delete;
     EmbeddingDynamic& operator=(const EmbeddingDynamic&) = delete;
 
     ~EmbeddingDynamic();

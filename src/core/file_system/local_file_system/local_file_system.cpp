@@ -268,7 +268,7 @@ ssize_t LocalFileSystem::Read(const string& filePath, vector<vector<float>>& fil
     try {
         ValidateReadFile(filePath, GetFileSize(filePath));
     } catch (const std::invalid_argument& e) {
-        close(fd);
+        fclose(fp);
         auto error = Error(ModuleName::M_FILE_SYSTEM, ErrorType::IO_ERROR,
                            StringFormat("Invalid read file path: %s.", e.what()));
         LOG_ERROR(error.ToString());
@@ -288,7 +288,7 @@ ssize_t LocalFileSystem::Read(const string& filePath, vector<vector<float>>& fil
         }
         size_t elementsRead =
             fread(fileContent[embeddingCount].data() + contentOffset * embeddingSize, sizeof(float), embeddingSize, fp);
-        if (elementsRead < embedSizeInfo.embeddingSize && ferror(fp)) {
+        if (elementsRead < embeddingSize && ferror(fp)) {
             fclose(fp);
             auto error = Error(ModuleName::M_FILE_SYSTEM, ErrorType::IO_ERROR,
                                StringFormat("Failed to read file path: %s.", filePath.c_str()));
@@ -328,7 +328,7 @@ void LocalFileSystem::ReadEmbedding(const string& filePath, EmbeddingSizeInfo& e
     try {
         ValidateReadFile(filePath, GetFileSize(filePath));
     } catch (const std::invalid_argument& e) {
-        close(fd);
+        fclose(fp);
         auto error = Error(ModuleName::M_FILE_SYSTEM, ErrorType::IO_ERROR,
                            StringFormat("Invalid read file path: %s.", e.what()));
         LOG_ERROR(error.ToString());
