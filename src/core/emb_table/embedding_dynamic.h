@@ -29,6 +29,9 @@ public:
 
     EmbeddingDynamic(const EmbInfo& info, const RankInfo& rankInfo, int inSeed);
 
+    EmbeddingDynamic(constEmbeddingDynamic&) = delete;
+    EmbeddingDynamic& operator=(const EmbeddingDynamic&) = delete;
+
     ~EmbeddingDynamic();
 
     virtual void Key2Offset(std::vector<emb_key_t>& keys, int channel);

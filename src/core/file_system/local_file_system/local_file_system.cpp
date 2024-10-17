@@ -263,9 +263,14 @@ ssize_t LocalFileSystem::Read(const string& filePath, vector<vector<float>>& fil
                               vector<int64_t> offsetArr, const size_t& embeddingSize)
 {
     FILE *fp = fopen(filePath.c_str(), "rb");
-    if (fp == nullptr) {
+    CheckOpenFileRet(fp, filePath);
+
+    try {
+        ValidateReadFile(filePath, GetFileSize(filePath));
+    } catch (const std::invalid_argument& e) {
+        close(fd);
         auto error = Error(ModuleName::M_FILE_SYSTEM, ErrorType::IO_ERROR,
-                           StringFormat("Failed to open read file: %s.", filePath.c_str()));
+                           StringFormat("Invalid read file path: %s.", e.what()));
         LOG_ERROR(error.ToString());
         throw std::runtime_error(error.ToString());
     }
@@ -273,9 +278,23 @@ ssize_t LocalFileSystem::Read(const string& filePath, vector<vector<float>>& fil
     ssize_t readBytesNum = 0;
     size_t embeddingCount = 0;
     for (const auto& offset: offsetArr) {
-        fseek(fp, offset * embeddingSize * sizeof(float), SEEK_SET);
-        auto res = fread(fileContent[embeddingCount].data()+ contentOffset *embeddingSize, sizeof(float), embeddingSize,
-                         fp);
+        int res = fseek(fp, offset * embeddingSize * sizeof(float), SEEK_SET);
+        if (res != 0) {
+            fclose(fp);
+            auto error = Error(ModuleName::M_FILE_SYSTEM, ErrorType::IO_ERROR,
+                               StringFormat("Failed to seek file path: %s.", filePath.c_str()));
+            LOG_ERROR(error.ToString());
+            throw std::runtime_error(error.ToString());
+        }
+        size_t elementsRead =
+            fread(fileContent[embeddingCount].data() + contentOffset * embeddingSize, sizeof(float), embeddingSize, fp);
+        if (elementsRead < embedSizeInfo.embeddingSize && ferror(fp)) {
+            fclose(fp);
+            auto error = Error(ModuleName::M_FILE_SYSTEM, ErrorType::IO_ERROR,
+                               StringFormat("Failed to read file path: %s.", filePath.c_str()));
+            LOG_ERROR(error.ToString());
+            throw std::runtime_error(error.ToString());
+        }
         embeddingCount++;
         readBytesNum += embeddingSize * sizeof(float);
     }
@@ -295,13 +314,6 @@ void LocalFileSystem::ReadEmbedding(const string& filePath, EmbeddingSizeInfo& e
                                     int deviceId, vector<int64_t> offsetArr)
 {
 #ifndef GTEST
-    FILE *fp = fopen(filePath.c_str(), "rb");
-    if (fp == nullptr) {
-        auto error = Error(ModuleName::M_FILE_SYSTEM, ErrorType::IO_ERROR,
-                           StringFormat("Failed to open read file: %s.", filePath.c_str()));
-        LOG_ERROR(error.ToString());
-        throw std::runtime_error(error.ToString());
-    }
     auto res = aclrtSetDevice(static_cast<int32_t>(deviceId));
     if (res != ACL_ERROR_NONE) {
         auto error = Error(ModuleName::M_FILE_SYSTEM, ErrorType::ACL_ERROR,
@@ -310,20 +322,46 @@ void LocalFileSystem::ReadEmbedding(const string& filePath, EmbeddingSizeInfo& e
         throw std::runtime_error(error.ToString());
     }
 
+    FILE *fp = fopen(filePath.c_str(), "rb");
+    CheckOpenFileRet(fp, filePath);
+
+    try {
+        ValidateReadFile(filePath, GetFileSize(filePath));
+    } catch (const std::invalid_argument& e) {
+        close(fd);
+        auto error = Error(ModuleName::M_FILE_SYSTEM, ErrorType::IO_ERROR,
+                           StringFormat("Invalid read file path: %s.", e.what()));
+        LOG_ERROR(error.ToString());
+        throw std::runtime_error(error.ToString());
+    }
+
     float* floatPtr = reinterpret_cast<float*>(firstAddress);
     auto i = 0;
     for (const auto& offset: offsetArr) {
         vector<float> row(embedSizeInfo.embeddingSize);
-        fseek(fp, offset * embedSizeInfo.embeddingSize * sizeof(float), SEEK_SET);
-        auto res = fread(row.data(), sizeof(float), embedSizeInfo.embeddingSize, fp);
-        try {
-            auto ec = aclrtMemcpy(floatPtr + i * embedSizeInfo.extendEmbSize,
-                                  embedSizeInfo.embeddingSize * sizeof(float),
-                                  row.data(), embedSizeInfo.embeddingSize * sizeof(float), ACL_MEMCPY_HOST_TO_DEVICE);
-        } catch (std::exception& e) {
+        int res = fseek(fp, offset * embedSizeInfo.embeddingSize * sizeof(float), SEEK_SET);
+        if (res != 0) {
+            fclose(fp);
+            auto error = Error(ModuleName::M_FILE_SYSTEM, ErrorType::IO_ERROR,
+                               StringFormat("Failed to seek file path: %s.", filePath.c_str()));
+            LOG_ERROR(error.ToString());
+            throw std::runtime_error(error.ToString());
+        }
+        size_t elementsRead = fread(row.data(), sizeof(float), embedSizeInfo.embeddingSize, fp);
+        if (elementsRead < embedSizeInfo.embeddingSize && ferror(fp)) {
+            fclose(fp);
+            auto error = Error(ModuleName::M_FILE_SYSTEM, ErrorType::IO_ERROR,
+                               StringFormat("Failed to read file path: %s.", filePath.c_str()));
+            LOG_ERROR(error.ToString());
+            throw std::runtime_error(error.ToString());
+        }
+
+        auto ret = aclrtMemcpy(floatPtr + i * embedSizeInfo.extendEmbSize, embedSizeInfo.embeddingSize * sizeof(float),
+                               row.data(), embedSizeInfo.embeddingSize * sizeof(float), ACL_MEMCPY_HOST_TO_DEVICE);
+        if (ret != ACL_SUCCESS) {
             fclose(fp);
             auto error = Error(ModuleName::M_FILE_SYSTEM, ErrorType::ACL_ERROR,
-                               StringFormat("Error happened when acl memory copy from host to device: %s.", e.what()));
+                               StringFormat("Error happened when acl memory copy from host to device, ret=%d.", ret));
             LOG_ERROR(error.ToString());
             throw std::runtime_error(error.ToString());
         }
@@ -331,43 +369,6 @@ void LocalFileSystem::ReadEmbedding(const string& filePath, EmbeddingSizeInfo& e
     }
     fclose(fp);
 #endif
-}
-
-void LocalFileSystem::WriterFn(BufferQueue& queue, int fd, ssize_t& writerBytesNum)
-{
-    while (true) {
-        queue.Pop(writeBuffer);
-        if (writeBuffer.size() == 0) {
-            break;
-        }
-        ssize_t res = write(fd, writeBuffer.data(), writeBuffer.size());
-        if (res == -1) {
-            close(fd);
-            writerBytesNum = -1;
-            break;
-        }
-        writerBytesNum += res;
-        writeBuffer.clear();
-    }
-}
-
-void LocalFileSystem::FillToBuffer(BufferQueue& queue, const char* data, size_t dataSize)
-{
-    size_t dataIdx = 0;
-    while (dataIdx < dataSize) {
-        size_t remainingSpace = BUFFER_SIZE - buffer.size();
-        if (dataSize - dataIdx <= remainingSpace) {
-            buffer.insert(buffer.cend(), data + dataIdx, data + dataSize);
-            return;
-        } else {
-            buffer.insert(buffer.cend(), data + dataIdx, data + dataIdx + remainingSpace);
-            queue.Push(std::move(buffer));
-            if (buffer.capacity() < BUFFER_SIZE) {
-                buffer.reserve(BUFFER_SIZE);
-            }
-            dataIdx += remainingSpace;
-        }
-    }
 }
 
 void LocalFileSystem::CheckOpenFile4Write(const string& filePath, int openRetCode)
@@ -379,4 +380,14 @@ void LocalFileSystem::CheckOpenFile4Write(const string& filePath, int openRetCod
                        StringFormat("Open file %s to write failed.", filePath.c_str()));
     LOG_ERROR(error.ToString());
     throw std::runtime_error(error.ToString());
+}
+
+void LocalFileSystem::CheckOpenFileRet(FILE* fp, const string& filePath)
+{
+    if (fp == nullptr) {
+        auto error = Error(ModuleName::M_FILE_SYSTEM, ErrorType::IO_ERROR,
+                           StringFormat("Failed to open read file: %s.", filePath.c_str()));
+        LOG_ERROR(error.ToString());
+        throw std::runtime_error(error.ToString());
+    }
 }
