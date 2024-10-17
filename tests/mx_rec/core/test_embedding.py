@@ -25,6 +25,7 @@ from mx_rec.core.asc.feature_spec import set_temporary_feature_spec_attribute
 from mx_rec.core.emb.dynamic_sparse_embedding import HBMDynamicSparseEmbedding
 from mx_rec.core.emb.sparse_embedding import HBMSparseEmbedding, ExternalStorageSparseEmbedding
 from mx_rec.optimizers.gradient_descent import create_hash_optimizer
+from mx_rec.util import global_env
 from tests.mx_rec.core.mock_class import MockConfigInitializer
 
 
@@ -115,6 +116,7 @@ class TestCreateTableFunc(unittest.TestCase):
             base_sparse_embedding_config_initializer.get_instance = mock.Mock(return_value=mock_config_initializer)
             emb_validator_config_initializer.get_instance = mock.Mock(return_value=mock_config_initializer)
             lazy_adam_config_initializer.get_instance = mock.Mock(return_value=mock_config_initializer)
+            global_env.cache_mode = None 
 
             # test
             test_table = create_table(key_dtype=tf.int64,
