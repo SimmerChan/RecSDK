@@ -40,6 +40,7 @@ from mx_rec.validator.validator import ClassValidator, StringValidator, SSDFeatu
 from mx_rec.validator.emb_validator import check_emb_multi_lookup_times
 from mx_rec.util.normalization import fix_invalid_table_name
 from mx_rec.util.log import logger
+from mx_rec.util import global_env
 
 
 @para_checker_decorator(check_option_list=[
@@ -226,7 +227,7 @@ def check_and_set_default_voc_size(voc_size_list: List[int], dim_bytes: int):
         voc_size_list[1] = 0
         voc_size_list[2] = 0
         return
-    cache_mode = os.getenv("CACHE_MODE")
+    cache_mode = global_env.cache_mode
     if not cache_mode and voc_size_list[0] <= 1:
         raise ValueError("no cache mode, no use_dynamic_expansion, must input dev-voc")
     if not cache_mode and voc_size_list[1] == 0 and voc_size_list[2] == 0:  # no cache mode, dev-voc not None, use HBM

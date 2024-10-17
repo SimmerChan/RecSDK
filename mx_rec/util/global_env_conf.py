@@ -14,16 +14,36 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-import os
 import dataclasses
+import os
 from dataclasses import dataclass
 
-from mx_rec.constants.constants import EnvOption, RecPyLogLevel, Flag, EMPTY_STR, \
-    DEFAULT_HD_CHANNEL_SIZE, DEFAULT_KP_THREAD_NUM, DEFAULT_FAST_UNIQUE_THREAD_NUM, RecCPPLogLevel, MAX_INT32, \
-    MIN_HD_CHANNEL_SIZE, MAX_HD_CHANNEL_SIZE, MIN_KP_THREAD_NUM, MAX_KP_THREAD_NUM, \
-    MIN_FAST_UNIQUE_THREAD_NUM, MAX_FAST_UNIQUE_THREAD_NUM, DEFAULT_HOT_EMB_UPDATE_STEP, MIN_HOT_EMB_UPDATE_STEP, \
-    MAX_HOT_EMB_UPDATE_STEP, TFDevice, MAX_CM_WORKER_SIZE, MIN_CM_WORKER_SIZE, DEFAULT_CM_WORKER_SIZE
-from mx_rec.validator.validator import para_checker_decorator, OptionValidator, DirectoryValidator, Convert2intValidator
+from mx_rec.constants.constants import (
+    DEFAULT_CM_WORKER_SIZE,
+    DEFAULT_FAST_UNIQUE_THREAD_NUM,
+    DEFAULT_HD_CHANNEL_SIZE,
+    DEFAULT_HOT_EMB_UPDATE_STEP,
+    DEFAULT_KP_THREAD_NUM,
+    EMPTY_STR,
+    MAX_CM_WORKER_SIZE,
+    MAX_FAST_UNIQUE_THREAD_NUM,
+    MAX_HD_CHANNEL_SIZE,
+    MAX_HOT_EMB_UPDATE_STEP,
+    MAX_INT32,
+    MAX_KP_THREAD_NUM,
+    MIN_CM_WORKER_SIZE,
+    MIN_FAST_UNIQUE_THREAD_NUM,
+    MIN_HD_CHANNEL_SIZE,
+    MIN_HOT_EMB_UPDATE_STEP,
+    MIN_KP_THREAD_NUM,
+    CacheModeEnum,
+    EnvOption,
+    Flag,
+    RecCPPLogLevel,
+    RecPyLogLevel,
+    TFDevice,
+)
+from mx_rec.validator.validator import Convert2intValidator, DirectoryValidator, OptionValidator, para_checker_decorator
 
 
 @dataclass
@@ -44,6 +64,7 @@ class RecEnv:
     use_combine_faae: str
     stat_on: str
     record_key_count: str
+    cache_mode: str
 
 
 def get_global_env_conf() -> RecEnv:
@@ -67,34 +88,58 @@ def get_global_env_conf() -> RecEnv:
         glog_stderrthreahold=os.getenv(EnvOption.GLOG_STDERRTHREAHOLD.value, RecCPPLogLevel.INFO.value),
         use_combine_faae=os.getenv(EnvOption.USE_COMBINE_FAAE.value, Flag.FALSE.value),
         stat_on=os.getenv(EnvOption.STAT_ON.value, Flag.FALSE.value),
-        record_key_count=os.getenv(EnvOption.RECORD_KEY_COUNT.value, Flag.FALSE.value)
+        record_key_count=os.getenv(EnvOption.RECORD_KEY_COUNT.value, Flag.FALSE.value),
+        cache_mode=os.getenv(EnvOption.CACHE_MODE.value, CacheModeEnum.HBM.value),
     )
 
     return rec_env
 
 
-@para_checker_decorator(check_option_list=[
-    ("mxrec_log_level", OptionValidator, {"options": [i.value for i in list(RecPyLogLevel)]}),
-    ("rank_table_file", DirectoryValidator, {}, ["check_exists_if_not_empty"]),
-    ("cm_worker_size", Convert2intValidator, {"min_value": MIN_CM_WORKER_SIZE, "max_value": MAX_CM_WORKER_SIZE},
-     ["check_value"]),
-    ("tf_device", OptionValidator, {"options": [i.value for i in list(TFDevice)]}),
-    ("acl_timeout", Convert2intValidator, {"min_value": -1, "max_value": MAX_INT32}, ["check_value"]),
-    ("hd_channel_size", Convert2intValidator,
-     {"min_value": MIN_HD_CHANNEL_SIZE, "max_value": MAX_HD_CHANNEL_SIZE}, ["check_value"]),
-    ("key_process_thread_num", Convert2intValidator,
-     {"min_value": MIN_KP_THREAD_NUM, "max_value": MAX_KP_THREAD_NUM}, ["check_value"]),
-    ("max_unique_thread_num", Convert2intValidator,
-     {"min_value": MIN_FAST_UNIQUE_THREAD_NUM, "max_value": MAX_FAST_UNIQUE_THREAD_NUM}, ["check_value"]),
-    ("fast_unique", OptionValidator, {"options": [i.value for i in list(Flag)]}),
-    ("updateemb_v2", OptionValidator, {"options": [i.value for i in list(Flag)]}),
-    ("hot_emb_update_step", Convert2intValidator,
-     {"min_value": MIN_HOT_EMB_UPDATE_STEP, "max_value": MAX_HOT_EMB_UPDATE_STEP}, ["check_value"]),
-    ("glog_stderrthreahold", OptionValidator, {"options": [i.value for i in list(RecCPPLogLevel)]}),
-    ("use_combine_faae", OptionValidator, {"options": [i.value for i in list(Flag)]}),
-    ("stat_on", OptionValidator, {"options": [i.value for i in list(Flag)]}),
-    ("record_key_count", OptionValidator, {"options": [i.value for i in list(Flag)]})
-])
+@para_checker_decorator(
+    check_option_list=[
+        ("mxrec_log_level", OptionValidator, {"options": [i.value for i in list(RecPyLogLevel)]}),
+        ("rank_table_file", DirectoryValidator, {}, ["check_exists_if_not_empty"]),
+        (
+            "cm_worker_size",
+            Convert2intValidator,
+            {"min_value": MIN_CM_WORKER_SIZE, "max_value": MAX_CM_WORKER_SIZE},
+            ["check_value"],
+        ),
+        ("tf_device", OptionValidator, {"options": [i.value for i in list(TFDevice)]}),
+        ("acl_timeout", Convert2intValidator, {"min_value": -1, "max_value": MAX_INT32}, ["check_value"]),
+        (
+            "hd_channel_size",
+            Convert2intValidator,
+            {"min_value": MIN_HD_CHANNEL_SIZE, "max_value": MAX_HD_CHANNEL_SIZE},
+            ["check_value"],
+        ),
+        (
+            "key_process_thread_num",
+            Convert2intValidator,
+            {"min_value": MIN_KP_THREAD_NUM, "max_value": MAX_KP_THREAD_NUM},
+            ["check_value"],
+        ),
+        (
+            "max_unique_thread_num",
+            Convert2intValidator,
+            {"min_value": MIN_FAST_UNIQUE_THREAD_NUM, "max_value": MAX_FAST_UNIQUE_THREAD_NUM},
+            ["check_value"],
+        ),
+        ("fast_unique", OptionValidator, {"options": [i.value for i in list(Flag)]}),
+        ("updateemb_v2", OptionValidator, {"options": [i.value for i in list(Flag)]}),
+        (
+            "hot_emb_update_step",
+            Convert2intValidator,
+            {"min_value": MIN_HOT_EMB_UPDATE_STEP, "max_value": MAX_HOT_EMB_UPDATE_STEP},
+            ["check_value"],
+        ),
+        ("glog_stderrthreahold", OptionValidator, {"options": [i.value for i in list(RecCPPLogLevel)]}),
+        ("use_combine_faae", OptionValidator, {"options": [i.value for i in list(Flag)]}),
+        ("stat_on", OptionValidator, {"options": [i.value for i in list(Flag)]}),
+        ("record_key_count", OptionValidator, {"options": [i.value for i in list(Flag)]}),
+        ("cache_mode", OptionValidator, {"options": [i.value for i in list(CacheModeEnum)]}),
+    ]
+)
 def check_env(**kwargs):
     pass
 
