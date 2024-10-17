@@ -15,6 +15,7 @@
 # limitations under the License.
 # ==============================================================================
 from enum import Enum
+
 import numpy as np
 
 ASCEND_GLOBAL_HASHTABLE_COLLECTION = "ASCEND_GLOBAL_HASHTABLE_COLLECTION"
@@ -75,7 +76,7 @@ TRAIN_CHANNEL_ID = 0
 EVAL_CHANNEL_ID = 1
 HASHTABLE_COLLECTION_NAME_LENGTH = 30
 MAX_VOCABULARY_SIZE = 10**9
-MAX_DEVICE_VOCABULARY_SIZE = 10 ** 9
+MAX_DEVICE_VOCABULARY_SIZE = 10**9
 
 # RANK INFO
 VALID_DEVICE_ID_LIST = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15"]
@@ -104,11 +105,9 @@ HDFS_FILE_PREFIX = ["viewfs://", "hdfs://"]
 LIBASC_OPS_SO = "libasc_ops.so"
 LIBREC_EOS_OPS_SO = "librec_eos_ops.so"
 
-INVALID_CHARS = frozenset({
-    "\n", "\f", "\r", "\b", "\t", "\v",
-    "\u000D", "\u000A", "\u000C", "\u000B", "\u0009",
-    "\u0008", "\u007F"
-})
+INVALID_CHARS = frozenset(
+    {"\n", "\f", "\r", "\b", "\t", "\v", "\u000d", "\u000a", "\u000c", "\u000b", "\u0009", "\u0008", "\u007f"}
+)
 
 
 class BaseEnum(Enum):
@@ -122,10 +121,12 @@ class BaseEnum(Enum):
             if key_value == mode.value:
                 return mode
 
-        raise KeyError(f"Cannot find a corresponding mode in current Enum "
-                       f"class {cls}, given parameter '{key}[{key.__class__}]' is illegal, "
-                       f"please choose a valid one from "
-                       f"'{list(map(lambda c: c.value, cls))}'.")
+        raise KeyError(
+            f"Cannot find a corresponding mode in current Enum "
+            f"class {cls}, given parameter '{key}[{key.__class__}]' is illegal, "
+            f"please choose a valid one from "
+            f"'{list(map(lambda c: c.value, cls))}'."
+        )
 
 
 class EnvOption(Enum):
@@ -145,6 +146,7 @@ class EnvOption(Enum):
     USE_COMBINE_FAAE = "USE_COMBINE_FAAE"
     STAT_ON = "STAT_ON"
     RECORD_KEY_COUNT = "RECORD_KEY_COUNT"
+    CACHE_MODE = "CACHE_MODE"
 
     # MPI env
     OMPI_COMM_WORLD_SIZE = "OMPI_COMM_WORLD_SIZE"

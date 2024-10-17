@@ -1177,9 +1177,24 @@ void HybridMgmt::ReceiveKeyThread(const EmbInfo& embInfo)
                     LOG_ERROR(error.ToString());
                     throw runtime_error(error.ToString().c_str());
                 }
-                auto ptr = reinterpret_cast<int64_t*>(acltdtGetDataAddrFromItem(aclData));
+                auto ptr = static_cast<int64_t*>(acltdtGetDataAddrFromItem(aclData));
+
+                if (ptr == nullptr) {
+                    auto error = Error(ModuleName::M_CHECK_POINT, ErrorType::NULL_PTR,
+                                       "Failed to parse ACL passing data to timestamp [ReceiveKeyThread].");
+                    LOG_ERROR(error.ToString());
+                    throw runtime_error(error.ToString());
+                }
                 int64_t timeStamp = *ptr;
+
+                if ((ptr + 1) == nullptr) {
+                    auto error = Error(ModuleName::M_CHECK_POINT, ErrorType::NULL_PTR,
+                                       "Failed to parse ACL passing data to global step [ReceiveKeyThread].");
+                    LOG_ERROR(error.ToString());
+                    throw runtime_error(error.ToString());
+                }
                 int64_t globalStep = *(ptr + 1);
+
                 LOG_INFO("Receive {} timeStamp: {}, global step: {}.", embInfo.name, timeStamp, globalStep);
                 // tensorflow获取的global step是从1开始的，但是在key process中batch
                 // id则是从0开始，因此，下面的info中的batchId需要用 globalStep - 1
