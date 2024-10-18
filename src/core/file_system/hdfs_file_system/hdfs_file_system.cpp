@@ -31,7 +31,7 @@ void HdfsFileSystem::CreateDir(const string& dirName)
     int ret = hdfs->CreateDirectory(fs, dirName.c_str());
     if (ret == -1) {
         auto error = Error(ModuleName::M_FILE_SYSTEM, ErrorType::HDFS_ERROR,
-                           StringFormat("Error: Unable to create hdfs directory: %s.", dirName.c_str()));
+                           StringFormat("Unable to create hdfs directory: %s.", dirName.c_str()));
         LOG_ERROR(error.ToString());
         throw std::runtime_error(error.ToString());
     }

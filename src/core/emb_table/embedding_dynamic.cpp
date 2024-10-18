@@ -150,7 +150,7 @@ void EmbeddingDynamic::RandomInit(void* addr, size_t embNum)
                                hostmem.data(), embNum * extEmbSize_ * sizeof(float), ACL_MEMCPY_HOST_TO_DEVICE);
     if (ret != ACL_SUCCESS) {
         auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::ACL_ERROR,
-                           StringFormat("Error: aclrtMemcpy failed, ret=%d.", ret));
+                           StringFormat("Execute aclrtMemcpy from host to device failed, ret=%d.", ret));
         LOG_ERROR(error.ToString());
         throw std::runtime_error(error.ToString());
     }
@@ -291,7 +291,7 @@ void EmbeddingDynamic::LoadEmbAndOptim(const string& savePath)
         fileSystemPtr_->ReadEmbedding(embedStream.str(), embeddingSizeInfo, firstAddress, deviceId, loadOffset);
     } catch (std::runtime_error& e) {
         auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::IO_ERROR,
-                           StringFormat("Error: Failed to read file, error is: %s.", e.what()));
+                           StringFormat("Failed to read file, error is: %s.", e.what()));
         LOG_ERROR(error.ToString());
         throw std::runtime_error(error.ToString());
     }
@@ -306,7 +306,7 @@ void EmbeddingDynamic::LoadEmbAndOptim(const string& savePath)
                                           firstAddress + optimIndex * embSize_ * sizeof(float), deviceId, loadOffset);
         } catch (std::runtime_error& e) {
             auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::IO_ERROR,
-                               StringFormat("Error: Failed to read file, error is: %s.", e.what()));
+                               StringFormat("Failed to read file, error is: %s.", e.what()));
             LOG_ERROR(error.ToString());
             throw std::runtime_error(error.ToString());
         }
@@ -331,8 +331,8 @@ void EmbeddingDynamic::LoadKey(const string& savePath)
         CheckReadKeyFileBytes(res, ss.str(), fileSize);
     } catch (std::runtime_error& e) {
         free(static_cast<void*>(buf));
-        auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::LOGIC_ERROR,
-                           StringFormat("Error: Failed to read file, error is: %s.", e.what()));
+        auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::IO_ERROR,
+                           StringFormat("Failed to read file, error is: %s.", e.what()));
         LOG_ERROR(error.ToString());
         throw std::runtime_error(error.ToString());
     }

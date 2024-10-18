@@ -185,8 +185,8 @@ void EmbeddingStatic::LoadKey(const string& savePath)
         CheckReadKeyFileBytes(res, ss.str(), fileSize);
     } catch (std::runtime_error& e) {
         free(static_cast<void*>(buf));
-        auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::LOGIC_ERROR,
-                           StringFormat("Error: Failed to read file, error is: %s.", e.what()));
+        auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::IO_ERROR,
+                           StringFormat("Failed to read file, error is: %s.", e.what()));
         LOG_ERROR(error.ToString());
         throw std::runtime_error(error.ToString());
     }

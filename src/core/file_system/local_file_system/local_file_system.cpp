@@ -269,7 +269,7 @@ ssize_t LocalFileSystem::Read(const string& filePath, vector<vector<float>>& fil
         ValidateReadFile(filePath, GetFileSize(filePath));
     } catch (const std::invalid_argument& e) {
         fclose(fp);
-        auto error = Error(ModuleName::M_FILE_SYSTEM, ErrorType::IO_ERROR,
+        auto error = Error(ModuleName::M_FILE_SYSTEM, ErrorType::INVALID_ARGUMENT,
                            StringFormat("Invalid read file path: %s.", e.what()));
         LOG_ERROR(error.ToString());
         throw std::runtime_error(error.ToString());
@@ -314,8 +314,7 @@ void LocalFileSystem::ReadEmbedding(const string& filePath, EmbeddingSizeInfo& e
                                     int deviceId, vector<int64_t> offsetArr)
 {
 #ifndef GTEST
-    auto res = aclrtSetDevice(static_cast<int32_t>(deviceId));
-    if (res != ACL_ERROR_NONE) {
+    if (aclrtSetDevice(static_cast<int32_t>(deviceId)) != ACL_ERROR_NONE) {
         auto error = Error(ModuleName::M_FILE_SYSTEM, ErrorType::ACL_ERROR,
                            StringFormat("Set device failed, device_id:%d.", deviceId).c_str());
         LOG_ERROR(error.ToString());
@@ -329,7 +328,7 @@ void LocalFileSystem::ReadEmbedding(const string& filePath, EmbeddingSizeInfo& e
         ValidateReadFile(filePath, GetFileSize(filePath));
     } catch (const std::invalid_argument& e) {
         fclose(fp);
-        auto error = Error(ModuleName::M_FILE_SYSTEM, ErrorType::IO_ERROR,
+        auto error = Error(ModuleName::M_FILE_SYSTEM, ErrorType::INVALID_ARGUMENT,
                            StringFormat("Invalid read file path: %s.", e.what()));
         LOG_ERROR(error.ToString());
         throw std::runtime_error(error.ToString());
@@ -339,8 +338,7 @@ void LocalFileSystem::ReadEmbedding(const string& filePath, EmbeddingSizeInfo& e
     auto i = 0;
     for (const auto& offset: offsetArr) {
         vector<float> row(embedSizeInfo.embeddingSize);
-        int res = fseek(fp, offset * embedSizeInfo.embeddingSize * sizeof(float), SEEK_SET);
-        if (res != 0) {
+        if (fseek(fp, offset * embedSizeInfo.embeddingSize * sizeof(float), SEEK_SET) != 0) {
             fclose(fp);
             auto error = Error(ModuleName::M_FILE_SYSTEM, ErrorType::IO_ERROR,
                                StringFormat("Failed to seek file path: %s.", filePath.c_str()));
