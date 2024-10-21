@@ -28,6 +28,7 @@ else
     exit 1
 fi
 
+
 cmake -DCMAKE_BUILD_TYPE=Release \
     -DTF_PATH="$1" \
     -DOMPI_PATH="$(whereis openmpi)" \
