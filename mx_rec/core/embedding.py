@@ -54,7 +54,7 @@ from mx_rec.util.log import logger
     ("host_vocabulary_size", IntValidator, {"min_value": 0, "max_value": MAX_VOCABULARY_SIZE}, ["check_value"]),
     ("ssd_vocabulary_size", IntValidator, {"min_value": 0, "max_value": MAX_VOCABULARY_SIZE}, ["check_value"]),
     ("ssd_data_path", ListValidator,
-     {"sub_checker": ClassValidator, "list_max_length": MAX_INT32, "skip_non_list_type": True, "classes": str},
+     {"sub_checker": ClassValidator, "list_max_length": MAX_INT32, "classes": str},
      ["check_list_length"]),
     ("is_save", ClassValidator, {"classes": (bool,)}),
     ("is_dp", ClassValidator, {"classes": (bool,)}),
