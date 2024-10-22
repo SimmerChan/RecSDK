@@ -1,5 +1,11 @@
 # mxRec
 
+## 免责声明
+
+本代码仓库中包含多个开发分支，这些分支可能包含未完成、实验性或未测试的功能。在正式发布之前，这些分支不应被用于任何生产环境或依赖关键业务的项目中。请务必仅使用我们的正式发行版本，以确保代码的稳定性和安全性。
+使用开发分支所导致的任何问题、损失或数据损坏，本项目及其贡献者概不负责。
+正式版本请参考mxrec正式release版本 https://gitee.com/ascend/mxrec/releases
+
 ## 产品背景
 
 随着人工智能技术的演进，电商、长短视频、社交等行业对搜索系统、推荐系统以及广告系统的效果诉求越发强烈。在如今互联网发达的时代，大量的用户数据、商品数据、视频资料，使信息剧烈爆炸，也使得搜索推荐广告系统的价值进一步凸显。搜索推荐广告系统的需求增长必然带来对算力的需求，如何部署更大算力并充分发挥算力成为系统管理人员重点关注的问题。
@@ -11,6 +17,20 @@ mxRec作为面向互联网市场搜索推荐广告的应用使能SDK产品，对
 1. 模型训练基础功能。支持单机单卡训练、多机多卡分布式训练，支持基于TensorFlow开发模型。
 2. 推荐场景特有功能。基于mxRec的稀疏表方案，mxRec提供必备功能，如特征保存和加载、特征准入、特征淘汰等。
 3. 大规模稀疏表特有功能。支持加速卡内存、主机内存、主机磁盘多级存储、支持多机存储、支持动态扩容。规模可超10TB。
+
+## 版本配套
+
+| 软件                | 版本            | 下载链接                                                                                                                   |
+|-------------------|---------------|------------------------------------------------------------------------------------------------------------------------|
+| MindX Rec SDK     | 6.0.RC2       | https://www.hiascend.com/zh/developer/download/community/result?module=sdk+cann                                        |
+| CANN              | 8.0.RC2.beta1 | https://www.hiascend.com/zh/developer/download/community/result?module=sdk+cann                                        |
+| TensorFlowAdapter | 8.0.RC2.beta1 | https://www.hiascend.com/developer/download/community/result?module=tf+cann&tf=8.0.RC2.beta1&cann=8.0.RC2.beta1        |
+| Driver            | 23.0.0        | https://www.hiascend.com/hardware/firmware-drivers/community?product=4&model=26&cann=8.0.RC2.beta1&driver=1.0.25.alpha |
+| Firmware          | 23.0.0        | https://www.hiascend.com/hardware/firmware-drivers/community?product=4&model=26&cann=8.0.RC2.beta1&driver=1.0.25.alpha |
+
+## 支持的产品型号
+- Atlas 200T A2 Box16
+- Atlas 800T A2 训练服务器
 
 ## 安装方式
 
@@ -143,7 +163,7 @@ bash test_ut.sh tf2
 
 mxRec所支持的使用环境、功能特性、API接口与使用样例请参考[mxRec用户指南](https://www.hiascend.com/document/detail/zh/mind-sdk/60rc1/mxRec/mxrecug/mxrecug_0001.html)。
 
-## 参考设计
+## 样例
 
 mxRec框架基础镜像，基于TensorFlow 1.15.0、tensorflow2.6.5制作的基础镜像，安装mxRec后即可开始训练，以及样例使用介绍。
 
