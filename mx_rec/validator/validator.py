@@ -14,8 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-
-
+from symbol import factor
 from typing import List, Tuple, Any, Callable, Dict, Optional, Union, Type
 import re
 
@@ -44,7 +43,7 @@ class Validator:
         self.checkers = []
         self.is_valid_state = None
 
-    def register_checker(self, checker: Callable[[Any], bool], msg: str = None):
+    def register_checker(self, checker: Callable[[], bool], msg: str = None):
         self.checkers.append((checker, msg if msg else self.msg))
 
     def check(self):
@@ -63,6 +62,36 @@ class Validator:
             self.check()
         return self.is_valid_state
 
+def build_validator(option: Tuple[Union[str], Type[Validator], Optional[Dict], Optional[List[str]]], value):
+    optional_check_list = None
+    validator_kwargs = {}
+
+    # 解包每个检查项的：待检查参数名，检查器，检查器参数，特定的检查方法
+    option_num = len(option)
+    if option_num == 2:
+        para_list_to_be_check, validator = option
+    elif option_num == 3:
+        para_list_to_be_check, validator, validator_kwargs = option
+    else:
+        para_list_to_be_check, validator, validator_kwargs, optional_check_list = option
+
+    # 更新检查器的参数
+    validator_kwargs.update(
+        {
+            "name": para_list_to_be_check,
+            "value": value
+        }
+    )
+
+    validator_instance = validator(**validator_kwargs)
+
+    # 添加检查器特定的检查方法
+    if optional_check_list and len(optional_check_list) != 0:
+        for optional_check in optional_check_list:
+            getattr(validator_instance, optional_check)()
+
+    # 执行检查
+    return validator_instance
 
 def para_checker_decorator(check_option_list: List[Tuple[Union[List[str], str],
                                                          Type[Validator],
@@ -176,6 +205,104 @@ class ClassValidator(Validator):
                               f"Invalid parameter type of para '{self.name}', "
                               f"not in {self.classes}, but: '{type(self.value)}'")
         return self
+
+
+class ListValidator(Validator):
+    def __init__(self, name, value: Union[List, Tuple], sub_checker: type, optional_check_list: List = None,
+                 list_max_length: int = 0, list_min_length: int = 0, sub_args: dict = {}):
+        super(ListValidator, self).__init__(name, value)
+        if sub_args is None:
+            sub_args = {}
+        self.checker = sub_checker
+        self.optional_check_list = optional_check_list
+        self.sub_args = sub_args
+        self.list_min_length = list_min_length
+        self.list_max_length = list_max_length
+        self.register()
+
+    def register(self):
+        def check_func():
+            if not isinstance(self.value, (List, Tuple)):
+                return False
+
+            if not issubclass(self.checker, Validator):
+                return False
+
+            for elem in self.value:
+                checker = self.checker("element of " + self.name, elem, **self.sub_args)
+                if self.optional_check_list and len(self.optional_check_list) != 0:
+                    for optional_check in self.optional_check_list:
+                        getattr(checker, optional_check)()
+                checker.check()
+
+            return True
+
+        self.register_checker(check_func, f"Invalid List '{self.name}'")
+
+    def check_list_length(self):
+        self.register_checker(lambda: self.list_min_length <= len(self.value) <= self.list_max_length,
+                              f"Invalid length of list '{self.name}', "
+                              f"should between '{self.list_min_length}' and '{self.list_max_length}'")
+        return self
+
+
+class OrValidator(Validator):
+    def __init__(self, name: str, value: any, options):
+        super().__init__(name, value)
+        self.options = options
+        self.register()
+
+    def register(self):
+        def or_check():
+            validators = []
+            for option in self.options:
+                option = (self.name, *option)
+                validators.append(build_validator(option, self.value))
+
+            passed = False
+            wrong_msg = []
+            for validator in validators:
+                try:
+                    validator.check()
+                except ValueError as exp:
+                    wrong_msg.append(str(exp))
+                    continue
+                else:
+                    passed = True
+                    break
+
+            if not passed:
+                raise ValueError(f"Or validator of '{self.name}' check failed, due to {wrong_msg}")
+
+            return True
+
+
+        self.register_checker(or_check)
+
+
+class AndValidator(Validator):
+    def __init__(self, name: str, value: any, options):
+        super().__init__(name, value)
+        self.options = options
+        self.register()
+
+    def register(self):
+        def and_check():
+            validators = []
+            for option in self.options:
+                option = (self.name, *option)
+                validators.append(build_validator(option, self.value))
+
+            for validator in validators:
+                try:
+                    validator.check()
+                except ValueError as exp:
+                    exp.args = (f"And validator of '{self.name}' check failed, due to {str(exp)}", )
+                    raise
+
+            return True
+
+        self.register_checker(and_check)
 
 
 class OptionValidator(Validator):

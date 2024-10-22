@@ -25,25 +25,25 @@ from tensorflow.python.ops.init_ops_v2 import Initializer as InitializerV2
 
 from mx_rec.constants import constants
 from mx_rec.core.asc.feature_spec import FeatureSpec
-from mx_rec.core.emb.base_sparse_embedding import BaseSparseEmbedding
 from mx_rec.core.emb.emb_factory import HBMDynamicSparseEmbeddingFactory, HBMSparseEmbeddingFactory, \
     ExternalStorageSparseEmbeddingFactory
 from mx_rec.constants.constants import (FLOAT32_BYTES, MAX_INT32, All2allGradientsOp, MAX_VOCABULARY_SIZE,
                                         MAX_DEVICE_VOCABULARY_SIZE, CacheModeEnum, DEFAULT_DEVICE_CACHE_MEMORY_SIZE,
                                         DEFAULT_HOST_CACHE_MEMORY_SIZE)
+from mx_rec.core.emb.sparse_embedding import SparseEmbedding
 from mx_rec.graph.constants import AnchorIteratorOp
 from mx_rec.util.communication.hccl_ops import get_rank_size
 from mx_rec.util.initialize import ConfigInitializer
 from mx_rec.validator.validator import ClassValidator, StringValidator, SSDFeatureValidator, \
     para_checker_decorator, IntValidator, NumValidator, OptionValidator, OptionalIntValidator, \
-    OptionalStringValidator, FloatValidator
+    OptionalStringValidator, FloatValidator, ListValidator
 from mx_rec.validator.emb_validator import check_emb_multi_lookup_times
 from mx_rec.util.normalization import fix_invalid_table_name
 from mx_rec.util.log import logger
 
 
 @para_checker_decorator(check_option_list=[
-    ("key_dtype", OptionValidator, {"options": (tf.int64, tf.int32, tf.string)}),
+    ("key_dtype", OptionValidator, {"options": (tf.int64, tf.int32)}),
     ("dim", ClassValidator, {"classes": (int, tf.TensorShape)}),
     ("dim", NumValidator, {"min_value": 1, "max_value": 8192}, ["check_value"]),
     ("name", StringValidator, {"min_len": 1, "max_len": 100}, ["check_string_length", "check_whitelist"]),
@@ -53,7 +53,9 @@ from mx_rec.util.log import logger
      ["check_value"]),
     ("host_vocabulary_size", IntValidator, {"min_value": 0, "max_value": MAX_VOCABULARY_SIZE}, ["check_value"]),
     ("ssd_vocabulary_size", IntValidator, {"min_value": 0, "max_value": MAX_VOCABULARY_SIZE}, ["check_value"]),
-    ("ssd_data_path", ClassValidator, {"classes": (list, tuple)}),
+    ("ssd_data_path", ListValidator,
+     {"sub_checker": ClassValidator, "list_max_length": MAX_INT32, "skip_non_list_type": True, "classes": str},
+     ["check_list_length"]),
     ("is_save", ClassValidator, {"classes": (bool,)}),
     ("is_dp", ClassValidator, {"classes": (bool,)}),
     ("init_param", FloatValidator, {"min_value": -10, "max_value": 10}, ["check_value"]),
@@ -124,7 +126,7 @@ def create_table(key_dtype, dim, name, emb_initializer,
 
 
 @para_checker_decorator(check_option_list=[
-    ("hashtable", ClassValidator, {"classes": (BaseSparseEmbedding,)}),
+    ("hashtable", ClassValidator, {"classes": (SparseEmbedding,)}),
     ("ids", ClassValidator, {"classes": (FeatureSpec, tf.Tensor)}),
     ("is_train", ClassValidator, {"classes": (bool,)}),
     ("send_count", ClassValidator, {"classes": (int, type(None))}),
@@ -137,7 +139,7 @@ def create_table(key_dtype, dim, name, emb_initializer,
     ("is_grad", ClassValidator, {"classes": (bool,)}),
     ("serving_default_value", ClassValidator, {"classes": (tf.Tensor, type(None))})
 ])
-def sparse_lookup(hashtable: BaseSparseEmbedding,
+def sparse_lookup(hashtable: SparseEmbedding,
                   ids: Union[FeatureSpec, tf.Tensor],
                   send_count: Optional[int] = None,
                   is_train: bool = True,
