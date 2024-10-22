@@ -1,5 +1,6 @@
 import logging
 
+
 def get_logger():
     wide_deep = logging.getLogger("wide_deep")
     formatter = logging.Formatter(fmt="[%(asctime)s] [%(levelname)s] %(message)s",

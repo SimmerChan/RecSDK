@@ -1,5 +1,6 @@
 import logging
 
+
 def get_logger():
     dlrm_logger = logging.getLogger("dlrm")
     formatter = logging.Formatter(fmt="[%(asctime)s] [%(levelname)s] %(message)s",

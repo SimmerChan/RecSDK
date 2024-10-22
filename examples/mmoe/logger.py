@@ -1,5 +1,6 @@
 import logging
 
+
 def get_logger():
     mmoe_logger = logging.getLogger("mmoe")
     formatter = logging.Formatter(fmt="[%(asctime)s] [%(levelname)s] %(message)s",

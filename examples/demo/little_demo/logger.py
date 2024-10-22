@@ -1,5 +1,6 @@
 import logging
 
+
 def get_logger():
     demo_logger = logging.getLogger("little_demo")
     formatter = logging.Formatter(fmt="[%(asctime)s] [%(levelname)s] %(message)s",

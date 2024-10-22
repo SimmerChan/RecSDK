@@ -1,5 +1,6 @@
 import logging
 
+
 def get_logger():
     dcnv2_logger = logging.getLogger("DCNv2")
     formatter = logging.Formatter(fmt="[%(asctime)s] [%(levelname)s] %(message)s",
