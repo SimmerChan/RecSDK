@@ -477,23 +477,6 @@ class NumValidator(Validator):
     def __init__(self, name: str, value: Union[int, float], min_value: Union[int, float] = None,
                  max_value: Union[int, float] = None, invalid_options: List = None,
                  constrained_options: List = None, msg: str = ""):
-        if isinstance(value, tf.TensorShape) and value.ndims == 1:
-            value = value.as_list()[0]
-        if isinstance(value, tf.Tensor):
-            sess = tf.Session() if tf.__version__.startswith("1.") else tf.compat.v1.Session()
-            try:
-                value = sess.run(value).item()
-            except Exception as e:
-                # 当前仅支持数值类型Tensor和feed数值类型的tf.PlaceHolder，其它tensor可能会导致程序异常
-                logger.warning("[Validator] Parameter %s is passed, and an exception occurred while getting the value "
-                               "in the tensor: \n%s\n. Ensure that the passed parameter is a constant tensor or "
-                               "a tf.PlaceHolder that feeds a constant value. Otherwise, an exception may occur.",
-                               value, e)
-
-                value = 0 if min_value is None else int(min_value)
-                if isinstance(self, FloatValidator):
-                    value = 0.0 if min_value is None else float(min_value)
-
         super(NumValidator, self).__init__(name, value)
 
         self.min_value = min_value
@@ -542,7 +525,7 @@ class NumValidator(Validator):
             self.register_checker(lambda: self.value < self.max_value,
                                   f"'{self.name}' is bigger than or equal {self.max_value}")
         return self
-
+    
 
 class FloatValidator(NumValidator):
     """
@@ -572,6 +555,32 @@ class IntValidator(NumValidator):
             return isinstance(self.value, int)
 
         self.register_checker(check_type, msg if msg else f"type of '{name}' is not int")
+
+
+class TensorShapeValidator(Validator):
+    def __init__(self, name: str, value: tf.TensorShape, int_checker_args: dict = {}, msg= ""):
+        super().__init__(name, value)
+        self.int_checker_args = int_checker_args
+        self.msg = msg
+        self.register()
+
+    def register(self):
+        def check_tensor_shape():
+            if isinstance(self.value, tf.TensorShape) and self.value.ndims == 1:
+                value = self.value.as_list()[0]
+            else:
+                return False
+
+            int_checker = IntValidator(
+                name = self.name,
+                value = value,
+                **self.int_checker_args,
+            )
+            int_checker.check_value().check()
+            return True
+
+        self.register_checker(check_tensor_shape,
+                              self.msg if self.msg else f"type of '{self.name}' is not TensorShape or ndims is not 1")
 
 
 class OptionalIntValidator(IntValidator):

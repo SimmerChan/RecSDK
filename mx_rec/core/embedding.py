@@ -36,7 +36,7 @@ from mx_rec.util.communication.hccl_ops import get_rank_size
 from mx_rec.util.initialize import ConfigInitializer
 from mx_rec.validator.validator import ClassValidator, StringValidator, SSDFeatureValidator, \
     para_checker_decorator, IntValidator, NumValidator, OptionValidator, OptionalIntValidator, \
-    OptionalStringValidator, FloatValidator, ListValidator
+    OptionalStringValidator, FloatValidator, ListValidator, OrValidator, TensorShapeValidator
 from mx_rec.validator.emb_validator import check_emb_multi_lookup_times
 from mx_rec.util.normalization import fix_invalid_table_name
 from mx_rec.util.log import logger
@@ -44,8 +44,10 @@ from mx_rec.util.log import logger
 
 @para_checker_decorator(check_option_list=[
     ("key_dtype", OptionValidator, {"options": (tf.int64, tf.int32)}),
-    ("dim", ClassValidator, {"classes": (int, tf.TensorShape)}),
-    ("dim", NumValidator, {"min_value": 1, "max_value": 8192}, ["check_value"]),
+    ("dim", OrValidator, {"options": [
+        (IntValidator, {"min_value": 1, "max_value": 8192}, ["check_value"]),
+        (TensorShapeValidator, {"min_value": 1, "max_value": 8192},)
+    ]}),
     ("name", StringValidator, {"min_len": 1, "max_len": 100}, ["check_string_length", "check_whitelist"]),
     ("emb_initializer", ClassValidator, {"classes": (InitializerV1, InitializerV2)}),
     (["ssd_vocabulary_size", "ssd_data_path", "host_vocabulary_size"], SSDFeatureValidator),
