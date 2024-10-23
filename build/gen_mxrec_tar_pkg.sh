@@ -34,8 +34,8 @@ get_version() {
 }
 
 get_version
-echo "MindX SDK mxrec: ${VERSION}\n" >> ./version.info
-echo "Commit ID: ${COMMIT_ID}"
+echo "MindX SDK mxrec: ${VERSION}" >> ./version.info
+echo "Commit ID: ${COMMIT_ID}" >> ./version.info
 
 pkg_dir=mindxsdk-mxrec
 release_tar=Ascend-"${pkg_dir}"_"${VERSION}"_linux-"${ARCH}".tar.gz
