@@ -49,17 +49,6 @@ function gen_tar_file()
   chmod 550 ./build/"${pkg_dir}"/tf1_whl/mx_rec*.whl
   chmod 550 ./build/"${pkg_dir}"/tf2_whl
   chmod 550 ./build/"${pkg_dir}"/tf2_whl/mx_rec*.whl
-  chmod 550 ./build/"${pkg_dir}"/cust_op/
-  chmod 550 ./build/"${pkg_dir}"/cust_op/cust_op_by_addr
-  cd ./build/"${pkg_dir}"/cust_op/cust_op_by_addr
-  chmod 550 *.sh
-  chmod 640 *.json
-  chmod 550 op_host op_kernel op_host/* op_kernel/*
-  cd -
-  cd ./build/"${pkg_dir}"/cust_op/
-  chmod 550 -R fused_lazy_adam
-  chmod 640 fused_lazy_adam/*.json
-  cd -
   cd ./build
   tar -zvcf "${release_tar}" "${pkg_dir}" || {
       warn "compression failed, packages might be broken"
