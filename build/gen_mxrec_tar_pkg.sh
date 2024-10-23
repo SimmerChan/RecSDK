@@ -19,6 +19,7 @@ warn() { echo >&2 -e "\033[1;31m[WARN ][Depend  ] $1\033[1;37m" ; }
 ARCH="$(uname -m)"
 SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
 MxRec_DIR=$(dirname "${SCRIPT_DIR}")
+COMMIT_ID="6a5638394c7faa42cd802dbdd3ddfdb9c2c70db0"
 
 VERSION_FILE="${MxRec_DIR}"/../mindxsdk/build/conf/config.yaml
 get_version() {
@@ -33,7 +34,8 @@ get_version() {
 }
 
 get_version
-echo "MindX SDK mxrec: ${VERSION}" >> ./version.info
+echo "MindX SDK mxrec: ${VERSION}\n" >> ./version.info
+echo "Commit ID: ${COMMIT_ID}"
 
 pkg_dir=mindxsdk-mxrec
 release_tar=Ascend-"${pkg_dir}"_"${VERSION}"_linux-"${ARCH}".tar.gz
@@ -42,8 +44,6 @@ mv version.info "${SCRIPT_DIR}"/"${pkg_dir}"
 function gen_tar_file()
 {
   cd "${MxRec_DIR}"
-  cp -r ./cust_op ./build/"${pkg_dir}"
-  cp -r ./examples  ./build/"${pkg_dir}"
   # change dirs and files 's permission
   chmod 550 ./build/"${pkg_dir}"/tf1_whl
   chmod 550 ./build/"${pkg_dir}"/tf1_whl/mx_rec*.whl
