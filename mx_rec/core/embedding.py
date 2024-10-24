@@ -46,7 +46,7 @@ from mx_rec.util.log import logger
     ("key_dtype", OptionValidator, {"options": (tf.int64, tf.int32)}),
     ("dim", OrValidator, {"options": [
         (IntValidator, {"min_value": 1, "max_value": 8192}, ["check_value"]),
-        (TensorShapeValidator, {"min_value": 1, "max_value": 8192},)
+        (TensorShapeValidator, {"int_checker_args":{"min_value": 1, "max_value": 8192}},)
     ]}),
     ("name", StringValidator, {"min_len": 1, "max_len": 100}, ["check_string_length", "check_whitelist"]),
     ("emb_initializer", ClassValidator, {"classes": (InitializerV1, InitializerV2)}),
@@ -56,7 +56,7 @@ from mx_rec.util.log import logger
     ("host_vocabulary_size", IntValidator, {"min_value": 0, "max_value": MAX_VOCABULARY_SIZE}, ["check_value"]),
     ("ssd_vocabulary_size", IntValidator, {"min_value": 0, "max_value": MAX_VOCABULARY_SIZE}, ["check_value"]),
     ("ssd_data_path", ListValidator,
-     {"sub_checker": ClassValidator, "list_max_length": MAX_INT32, "classes": str},
+     {"sub_checker": ClassValidator, "list_max_length": MAX_INT32, "sub_args": {"classes": str}},
      ["check_list_length"]),
     ("is_save", ClassValidator, {"classes": (bool,)}),
     ("is_dp", ClassValidator, {"classes": (bool,)}),
