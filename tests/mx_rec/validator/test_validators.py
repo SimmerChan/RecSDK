@@ -48,11 +48,11 @@ class ParameterCheckerTest(unittest.TestCase):
         super().tearDown()
 
     def test_length_list_validator(self):
-        self.assertTrue(ListValidator("val", [123, 456], IntValueChecker, list_max_length=2).
+        self.assertTrue(ListValidator("val", [123, 456], IntValidator, list_max_length=2).
                         check_list_length().check().is_valid())
 
         try:
-            (ListValidator("val", [123, 456, 789], IntValueChecker, list_max_length=2).
+            (ListValidator("val", [123, 456, 789], IntValidator, list_max_length=2).
              check_list_length().check().is_valid())
         except ValueError as exp:
             self.assertEqual(type(exp), ValueError)
@@ -60,7 +60,7 @@ class ParameterCheckerTest(unittest.TestCase):
             self.fail("ValueError not raised.")
 
         try:
-            (ListValidator("val", [123], IntValueChecker, list_min_length=2, list_max_length=3).
+            (ListValidator("val", [123], IntValidator, list_min_length=2, list_max_length=3).
              check_list_length().check().is_valid())
         except ValueError as exp:
             self.assertEqual(type(exp), ValueError)
