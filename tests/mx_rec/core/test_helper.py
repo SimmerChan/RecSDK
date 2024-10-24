@@ -72,7 +72,7 @@ class TestGetAscInsertFunc(unittest.TestCase):
 
         from mx_rec.core.asc.helper import get_asc_insert_func
 
-        self.assertTrue(callable(get_asc_insert_func(tgt_key_specs=[])))
+        self.assertTrue(callable(get_asc_insert_func(tgt_key_specs=[FeatureSpec(access_threshold=1)])))
 
     def test_get_asc_insert_func_case5(self):
         """
@@ -82,7 +82,7 @@ class TestGetAscInsertFunc(unittest.TestCase):
         from mx_rec.core.asc.helper import get_asc_insert_func
 
         with self.assertRaises(RuntimeError):
-            get_asc_insert_func(args_index_list=[])
+            get_asc_insert_func(args_index_list=[1])
 
     @mock.patch.multiple("mx_rec.core.asc.helper",
                          get_asc_insert_func_inner=mock.MagicMock(return_value=Callable))
@@ -93,7 +93,7 @@ class TestGetAscInsertFunc(unittest.TestCase):
 
         from mx_rec.core.asc.helper import get_asc_insert_func
 
-        self.assertTrue(callable(get_asc_insert_func(args_index_list=[], table_names=["xxx"])))
+        self.assertTrue(callable(get_asc_insert_func(args_index_list=[1], table_names=["xxx"])))
 
 
 @mock.patch.multiple(
