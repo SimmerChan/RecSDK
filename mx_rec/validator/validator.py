@@ -560,7 +560,7 @@ class IntValidator(NumValidator):
 
 
 class TensorShapeValidator(Validator):
-    def __init__(self, name: str, value: tf.TensorShape, int_checker_args: dict = None, msg = ""):
+    def __init__(self, name: str, value: tf.TensorShape, int_checker_args: dict=None, msg=""):
         super().__init__(name, value)
         self.int_checker_args = int_checker_args if int_checker_args else {}
         self.msg = msg
