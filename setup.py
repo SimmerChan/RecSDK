@@ -53,3 +53,4 @@ if res.returncode:
 res = subprocess.run(["./build/gen_mxrec_tar_pkg.sh"], shell=False)
 if res.returncode:
     raise RuntimeError(f"gen mxrec's tar pkg failed!")
+910c
