@@ -121,3 +121,5 @@ compile_so_file "${tf1_path}"
 echo "---------------- collect so files and mv them to libasc ----------------"
 collect_so_file
 echo "----------------        compile MxRec success!!!!       ----------------"
+
+910C
