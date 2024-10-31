@@ -555,10 +555,6 @@ class BaseSparseEmbedding(metaclass=abc.ABCMeta):
             logger.debug("fp rank size: %s", self._rank_size)
             all2all_args = send_count if self._use_static else result.get("all2all_args")
 
-            unique_embeddings = self.__get_own_emb(local_embeddings, all2all_args)
-            unique_embeddings = tf.concat(
-                [tf.gather(unique_embeddings, result.get("hot_pos"), name="hot_pos"), unique_embeddings], axis=0
-            )
             class_name = self.__class__.__name__
             print("Class name: ", class_name)
             if class_name != "DynamicSparseEmbedding":
@@ -581,8 +577,31 @@ class BaseSparseEmbedding(metaclass=abc.ABCMeta):
             else:
                 local_embeddings = self._get_local_embeddings(table, result, feature_spec, **kwargs)
                 unique_embeddings = self.__get_own_emb(local_embeddings, all2all_args, result.get('unique_shape'), False)
-            unique_embeddings = tf.concat([tf.gather(unique_embeddings, result.get("hot_pos"), name="hot_pos"),
-                                           unique_embeddings], axis=0)
+            class_name = self.__class__.__name__
+            print("Class name: ", class_name)
+            if class_name != "DynamicSparseEmbedding":
+                if ConfigInitializer.get_instance().use_lccl and not self._use_static:
+                    print("start gather all2all fused ")
+
+                    unique_embeddings_ = host_pipeline_ops.lccl_gather_all(emb_table=table,
+                                                                           lookup=tf.abs(result.get("id_offsets")),
+                                                                           send_count_matrix=all2all_args,
+                                                                           shape_vec=result.get('unique_shape'),
+                                                                           peer_mem=peer_mem,
+                                                                           rank=rank_id_,
+                                                                           rank_size=rank_size_,
+                                                                           dim=self._emb_size)
+
+                    unique_embeddings = tf.reshape(unique_embeddings_, [-1, self._emb_size])
+                else:
+                    local_embeddings = self._get_local_embeddings(table, result, feature_spec, **kwargs)
+                    unique_embeddings = self.__get_own_emb(local_embeddings, all2all_args, result.get('unique_shape'), False)
+            else:
+                local_embeddings = self._get_local_embeddings(table, result, feature_spec, **kwargs)
+                unique_embeddings = self.__get_own_emb(local_embeddings, all2all_args, result.get('unique_shape'), False)
+            unique_embeddings = tf.concat(
+                [tf.gather(unique_embeddings, result.get("hot_pos"), name="hot_pos"), unique_embeddings], axis=0
+            )
 
             if self._use_static:
                 unique_embeddings_shape = unique_embeddings.shape.as_list()
