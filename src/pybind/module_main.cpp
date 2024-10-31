@@ -18,6 +18,7 @@ See the License for the specific language governing permissions and
 #include <dsmi_common_interface.h>
 
 #include "lcal_comm.h"
+#include "lcal_comm.h"
 #include "hybrid_mgmt/hybrid_mgmt.h"
 
 namespace py = pybind11;
@@ -66,6 +67,28 @@ namespace {
             throw runtime_error("failed to get device count. ");
         }
         return count;
+    }
+
+    static bool firstGetPeerMem = true;
+
+    vector<int64_t> GetPeerMem(int rank, int rank_size)
+    {
+        int localRankId = rank%16;
+        auto ret = aclrtSetDevice(static_cast<int32_t>(localRankId));
+        if (ret != ACL_ERROR_NONE) {
+            LOG_ERROR("Set device failed, device_id:{}", localRankId);
+            return {};
+        }
+        static Lcal::LcalComm c(rank, rank_size);
+        if (firstGetPeerMem) {
+            c.Init();
+        }
+        firstGetPeerMem = false;
+        static vector <int64_t> peerMem;
+        for (int i = 0; i < rank_size; i++) {
+            peerMem.emplace_back(reinterpret_cast<int64_t>(c.peerMem_[i]));
+        }
+        return peerMem;
     }
 
     static bool firstGetPeerMem = true;
