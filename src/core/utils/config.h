@@ -27,6 +27,7 @@ namespace MxRec {
         const char *const GLOG_STDERR_THRESHOLD = "GLOG_stderrthreshold";
         const char *const USE_COMBINE_FAAE = "USE_COMBINE_FAAE";
         const char *const RECORD_KEY_COUNT = "RECORD_KEY_COUNT";
+        const char *const USE_LCCL = "USE_LCCL";
     };
 
     struct GlobalEnv {
@@ -39,6 +40,7 @@ namespace MxRec {
         static int glogStderrthreshold;
         static bool useCombineFaae;
         static bool recordKeyCount;
+        static bool useLccl;
     };
 
     void ConfigGlobalEnv();

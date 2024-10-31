@@ -19,7 +19,18 @@ from mx_rec.util.initialize import ConfigInitializer
 from mx_rec.util.log import logger
 from mx_rec.util.tf_version_adapter import hccl_ops
 from mx_rec.validator.emb_validator import check_emb_init_params, check_emb_lookup_params
+from mx_rec.util.ops import import_host_pipeline_ops
 
+
+import mxrec_pybind
+from mpi4py import MPI
+comm_ = MPI.COMM_WORLD
+rank_id_ = comm_.Get_rank()
+rank_size_ = comm_.Get_size()
+
+host_pipeline_ops = import_host_pipeline_ops()
+
+peer_mem = None
 
 class BaseSparseEmbedding(metaclass=abc.ABCMeta):
     """
@@ -70,6 +81,13 @@ class BaseSparseEmbedding(metaclass=abc.ABCMeta):
         self._use_static = ConfigInitializer.get_instance().use_static
 
         self._set_slice_vocab_size()
+
+        if ConfigInitializer.get_instance().use_lccl:
+            global peer_mem
+            peer_mem_ = mxrec_pybind.get_peer_mem(rank_id_, rank_size_)
+            print("python peer_mem_ = ", peer_mem_)
+            peer_mem = tf.constant(peer_mem_, dtype=tf.int64)
+
         self._set_ext_emb_size()
 
         self._init_sliced_variable()
@@ -492,24 +510,79 @@ class BaseSparseEmbedding(metaclass=abc.ABCMeta):
                     axis=0,
                 )
                 unique_grads = tf.tensor_scatter_nd_add(cold, tf.expand_dims(result.get("hot_pos"), 1), hot)
-                local_grad = self.__get_own_emb(unique_grads, bp_all2all_args)
+                if ConfigInitializer.get_instance().optimizer_config.optimizer_instance.derivative == 2 and \
+                        ConfigInitializer.get_instance().use_lccl:
+                    def _get_update_grad(local_grad: tf.Tensor, result: dict,
+                                         table: Union[tf.compat.v1.Variable, tf.Tensor]) -> Union[tf.IndexedSlices, tf.Tensor]:
+                        return ops.IndexedSlices(values=local_grad,
+                                                 indices=result,
+                                                 dense_shape=tf.shape(table))
+                    if self._use_static:
+                        send_count_matrix = tf.constant([[bp_all2all_args * self._emb_size] * self._rank_size] * self._rank_size,
+                                                        dtype=tf.int64)
+                    else:
+                        send_count_matrix = bp_all2all_args
+                    unique_local_grad = host_pipeline_ops.lccl_all_uss(send_data=unique_grads,
+                                                                        send_count_matrix=send_count_matrix,
+                                                                        shape_vec= result.get("unique_keys"),
+                                                                        peer_mem=peer_mem,
+                                                                        restore= result.get("restore_vector_second"),
+                                                                        rank=rank_id_,
+                                                                        rank_size=rank_size_,
+                                                                        dim=self._emb_size
+                                                                        )
+                    unique_local_grad = tf.reshape(unique_local_grad, [-1, self._emb_size])
 
-                if self._all2all_gradients_op == All2allGradientsOp.SUM_GRADIENTS_AND_DIV_BY_RANKSIZE:
-                    try:
-                        local_grad = local_grad / get_rank_size()
-                    except ZeroDivisionError as exp:
-                        raise ZeroDivisionError("Rank size cannot be zero.") from exp
+                    if self._all2all_gradients_op == All2allGradientsOp.SUM_GRADIENTS_AND_DIV_BY_RANKSIZE:
+                        try:
+                            unique_local_grad = unique_local_grad / get_rank_size()
+                        except ZeroDivisionError as exp:
+                            raise ZeroDivisionError("Rank size cannot be zero.") from exp
 
-                return self._get_update_grad(local_grad, result, table)
+                    return _get_update_grad(unique_local_grad, result.get("unique_keys"), table)
+
+                else:
+                    local_grad = self.__get_own_emb(unique_grads, bp_all2all_args, result.get('id_offsets'), True)
+
+                    if self._all2all_gradients_op == All2allGradientsOp.SUM_GRADIENTS_AND_DIV_BY_RANKSIZE:
+                        try:
+                            local_grad = local_grad / get_rank_size()
+                        except ZeroDivisionError as exp:
+                            raise ZeroDivisionError("Rank size cannot be zero.") from exp
+
+                    return self._get_update_grad(local_grad, result, table)
 
             logger.debug("fp rank size: %s", self._rank_size)
-            local_embeddings = self._get_local_embeddings(table, result, feature_spec, **kwargs)
             all2all_args = send_count if self._use_static else result.get("all2all_args")
 
             unique_embeddings = self.__get_own_emb(local_embeddings, all2all_args)
             unique_embeddings = tf.concat(
                 [tf.gather(unique_embeddings, result.get("hot_pos"), name="hot_pos"), unique_embeddings], axis=0
             )
+            class_name = self.__class__.__name__
+            print("Class name: ", class_name)
+            if class_name != "DynamicSparseEmbedding":
+                if ConfigInitializer.get_instance().use_lccl and not self._use_static:
+                    print("start gather all2all fused ")
+
+                    unique_embeddings_ = host_pipeline_ops.lccl_gather_all(emb_table=table,
+                                                                           lookup=tf.abs(result.get("id_offsets")),
+                                                                           send_count_matrix=all2all_args,
+                                                                           shape_vec=result.get('unique_shape'),
+                                                                           peer_mem=peer_mem,
+                                                                           rank=rank_id_,
+                                                                           rank_size=rank_size_,
+                                                                           dim=self._emb_size)
+
+                    unique_embeddings = tf.reshape(unique_embeddings_, [-1, self._emb_size])
+                else:
+                    local_embeddings = self._get_local_embeddings(table, result, feature_spec, **kwargs)
+                    unique_embeddings = self.__get_own_emb(local_embeddings, all2all_args, result.get('unique_shape'), False)
+            else:
+                local_embeddings = self._get_local_embeddings(table, result, feature_spec, **kwargs)
+                unique_embeddings = self.__get_own_emb(local_embeddings, all2all_args, result.get('unique_shape'), False)
+            unique_embeddings = tf.concat([tf.gather(unique_embeddings, result.get("hot_pos"), name="hot_pos"),
+                                           unique_embeddings], axis=0)
 
             if self._use_static:
                 unique_embeddings_shape = unique_embeddings.shape.as_list()
@@ -587,18 +660,41 @@ class BaseSparseEmbedding(metaclass=abc.ABCMeta):
 
         if self._use_static:
             emb_send_cnt = tf.constant([all2all_args * self._emb_size] * self._rank_size, dtype=tf.int64)
-            emb_send_offset = tf.constant(
-                [all2all_args * self._emb_size * i for i in range(self._rank_size)], dtype=tf.int64
-            )
-            src_emb = hccl_ops.all_to_all_v(
-                send_data=emb,
-                send_counts=emb_send_cnt,
-                send_displacements=emb_send_offset,
-                recv_counts=emb_send_cnt,
-                recv_displacements=emb_send_offset,
-            )
+            emb_send_offset = tf.constant([all2all_args * self._emb_size * i for i in range(self._rank_size)],
+                                          dtype=tf.int64)
+            if ConfigInitializer.get_instance().use_lccl and is_back:
+                send_count_matrix = tf.constant([[all2all_args * self._emb_size] * self._rank_size] * self._rank_size,
+                                                dtype=tf.int64)
+                vec_info = tf.constant([1] * all2all_args * self._rank_size,
+                                       dtype=tf.int32)
+                vec_info = tf.reshape(vec_info, [-1, 1])
+                src_emb = host_pipeline_ops.lccl_all_to_all(send_data=emb,
+                                                            send_count_matrix=send_count_matrix,
+                                                            shape_vec=vec_info,
+                                                            peer_mem=peer_mem,
+                                                            rank=rank_id_,
+                                                            rank_size=rank_size_,
+                                                            dim=self._emb_size)
+            else:
+                src_emb = hccl_ops.all_to_all_v(send_data=emb,
+                                                send_counts=emb_send_cnt,
+                                                send_displacements=emb_send_offset,
+                                                recv_counts=emb_send_cnt,
+                                                recv_displacements=emb_send_offset)
         else:
-            src_emb = hccl_ops.all_to_all_v_c(send_data=emb, send_count_matrix=all2all_args, rank=self._rank_id)
+            if ConfigInitializer.get_instance().use_lccl:
+                logger.info("start lccl")
+                src_emb = host_pipeline_ops.lccl_all_to_all(send_data=emb,
+                                                            send_count_matrix=all2all_args,
+                                                            shape_vec=vec_info,
+                                                            peer_mem=peer_mem,
+                                                            rank=rank_id_,
+                                                            rank_size=rank_size_,
+                                                            dim=self._emb_size)
+            else:
+                src_emb = hccl_ops.all_to_all_v_c(send_data=emb,
+                                                  send_count_matrix=all2all_args,
+                                                  rank=self._rank_id)
 
         return tf.reshape(src_emb, reshape_info)
 

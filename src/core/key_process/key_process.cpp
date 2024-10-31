@@ -544,6 +544,10 @@ bool KeyProcess::KeyProcessTaskHelper(unique_ptr<EmbBatchT>& batch, int channel,
     vector<vector<uint32_t>> keyCount;
     vector<emb_key_t> keyCountVec;
     HashSplitHelper(batch, splitKeys, restore, hotPos, keyCount);
+    size_t uniqueKeyNum = 0;
+    for (int devId = 0; devId < rankInfo.rankSize; ++devId) {
+        uniqueKeyNum += splitKeys[devId].size();
+    }
     auto [lookupKeys, scAll, ss] = ProcessSplitKeys(batch, threadId, splitKeys);
 
     vector<uint32_t> countRecv;
@@ -603,6 +607,16 @@ bool KeyProcess::KeyProcessTaskHelper(unique_ptr<EmbBatchT>& batch, int channel,
 
     hotPos.resize(hotEmbTotCount[batch->name], 0);
     tensors->push_back(Vec2TensorI32(hotPos));
+
+    vector<float> all2AllRevShape {};
+    LOG_INFO("all2AllRevShape create start, uniqueKeyNum = {}", uniqueKeyNum);
+    all2AllRevShape.resize(uniqueKeyNum, 0);
+    if (GlobalEnv::useLccl && !rankInfo.useStatic) {
+        tensors->push_back(Vec2TensorI32(all2AllRevShape));
+        LOG_INFO("all2AllRevShape create end");
+    } else {
+        LOG_INFO("all2AllRevShape create not end");
+    }
 
     // Tensors contains restore、hotPos、restoreSec&unique、idOffset in order when HBM mode, and is pushed in infolist.
     if (!rankInfo.isDDR) {
