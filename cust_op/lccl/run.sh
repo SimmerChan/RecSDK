@@ -54,7 +54,7 @@ if [ ! -f "config.cmake" ]; then
 fi
 
 # 修改设备环境
-sed -i 's:set(ASCEND_COMPUTE_UNIT ascend910b):set(ASCEND_COMPUTE_UNIT ascend910b ascend910):g' config.cmake
+sed -i 's:"customize":"lccl":g' CMakePresets.json
 
 cd ..
 
