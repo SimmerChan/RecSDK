@@ -314,7 +314,7 @@ class Saver(object):
         if table_instance0.is_hbm:
             self._save_hbm(sess, root_dir, save_delta)
         else:
-            self._save_ddr(sess, root_dir)
+            self._save_ddr(sess, root_dir, save_delta)
         logger.debug(f"Host data was saved.")
 
     def _save_hbm(self, sess, root_dir, save_delta):
@@ -339,7 +339,7 @@ class Saver(object):
         for thread in threads:
             thread.join()
 
-    def _save_ddr(self, sess, root_dir):
+    def _save_ddr(self, sess, root_dir, save_delta):
         # 接受host侧传来的需要swap_out的offset用于更新host侧并保存
         self.config_instance.hybrid_manager_config.fetch_device_emb()
         # In DDR mode, within the save process, the graph has been fixed and cannot execute the get_next op.
@@ -373,7 +373,7 @@ class Saver(object):
             swap_out_op = npu_ops.outfeed_enqueue_op(channel_name=channel_name, inputs=[swap_out])
             # 发送host需要的embedding
             sess.run(swap_out_op)
-        self.config_instance.hybrid_manager_config.save_host_data(root_dir, False)
+        self.config_instance.hybrid_manager_config.save_host_data(root_dir, save_delta)
 
     def _get_valid_dict_data(self, dump_data_dict, table_name):
         host_data = self.config_instance.hybrid_manager_config.get_host_data(table_name)

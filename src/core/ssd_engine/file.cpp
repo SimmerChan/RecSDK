@@ -270,7 +270,7 @@ void File::Save(const string& saveDir, int step)
 
     fs::path dataFileToSave = fs::absolute(saveDir + "/" + to_string(fileID) + ".data." + to_string(step));
     if (fs::exists(dataFileToSave)) {
-        ThrowInvalidArgError(ErrorType::INVALID_ARGUMENT, "Failed to save latst data, file already exist.");
+        ThrowInvalidArgError(ErrorType::INVALID_ARGUMENT, "Failed to save latest data, file already exist.");
     }
     if (!fs::copy_file(dataFilePath, dataFileToSave)) {
         ThrowRuntimeError(ErrorType::IO_ERROR, "Failed to Save latest data.");

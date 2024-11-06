@@ -233,6 +233,27 @@ void EmbeddingDDR::Save(const string& savePath, const int pythonBatchId, bool sa
     auto step = GetStepFromPath(savePath);
     embCache->GetEmbTableInfos(name, keys, embeddings, optimizerSlots);
 
+    if (saveDelta) {
+        // When save delta model, filter keys in keyInfo firstly, and then push back it into deltaKeys.
+        vector<emb_cache_key_t> deltaKeys;
+        vector<vector<float>> deltaEmbeddings;
+        vector<vector<float>> deltaOptimizerSlots;
+        for (size_t i = 0; i < keys.size(); ++i) {
+            if (!keyInfo.count(keys.at(i))) {
+                continue;
+            }
+            deltaKeys.emplace_back(keys.at(i));
+            deltaEmbeddings.emplace_back(embeddings.at(i));
+            if (!optimizerSlots.empty()) {
+                deltaOptimizerSlots.emplace_back(optimizerSlots.at(i));
+            }
+        }
+        SaveKey(savePath, deltaKeys);
+        SaveEmbedding(savePath, deltaEmbeddings);
+        SaveOptimizerSlot(savePath, deltaOptimizerSlots, deltaKeys.size());
+        return;
+    }
+
     SaveKey(savePath, keys);
     SaveEmbedding(savePath, embeddings);
     SaveOptimizerSlot(savePath, optimizerSlots, keys.size());
