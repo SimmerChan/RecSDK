@@ -225,7 +225,7 @@ void EmbeddingDDR::LoadOptimizerSlot(const string &savePath, vector<vector<float
 void EmbeddingDDR::Save(const string& savePath, const int pythonBatchId, bool saveDelta,
                         const map<emb_key_t, KeyInfo>& keyInfo)
 {
-    SyncLatestEmbedding(pythonBatchId);
+    SyncLatestEmbedding(pythonBatchId, saveDelta, keyInfo);
     vector<emb_cache_key_t> keys;
     vector<vector<float>> embeddings;
     vector<vector<float>> optimizerSlots;
@@ -259,7 +259,7 @@ void EmbeddingDDR::Save(const string& savePath, const int pythonBatchId, bool sa
     SaveOptimizerSlot(savePath, optimizerSlots, keys.size());
 }
 
-void EmbeddingDDR::SyncLatestEmbedding(const int pythonBatchId)
+void EmbeddingDDR::SyncLatestEmbedding(const int pythonBatchId, bool saveDelta, const map<emb_key_t, KeyInfo>& keyInfo)
 {
     // 导出host记录的存在于npu的embedding
     std::vector<std::pair<uint64_t, uint64_t>> koVec;
@@ -273,7 +273,13 @@ void EmbeddingDDR::SyncLatestEmbedding(const int pythonBatchId)
     }
     std::vector<uint64_t> swapOutKeys;
     for (const auto& p : koVec) {
-        swapOutKeys.push_back(p.first);
+        if (!saveDelta) {
+            swapOutKeys.push_back(p.first);
+            continue;
+        }
+        if (keyInfo.count(p.first)) {
+            swapOutKeys.push_back(p.first);
+        }
     }
     LOG_DEBUG("SyncLatestEmbedding, table:{}, swapOutKeys.size:{}.", name, swapOutKeys.size());
 

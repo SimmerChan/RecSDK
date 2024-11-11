@@ -56,7 +56,7 @@ namespace MxRec {
 
         void DeleteEmbedding(emb_cache_key_t key);
 
-        void Save(const string& saveDir, int step);
+        void Save(const string& saveDir, int step, bool saveDelta, const map<emb_key_t, KeyInfo>& keyInfo);
 
         vector<emb_cache_key_t> GetKeys();
 

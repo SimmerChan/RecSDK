@@ -46,11 +46,11 @@ namespace MxRec {
 
         void DeleteEmbeddings(vector<emb_cache_key_t>& keys);
 
-        void Save(int step);
+        void Save(int step, bool saveDelta, const map<emb_key_t, KeyInfo>& keyInfo);
 
         uint64_t GetTableAvailableSpace();
 
-        void Compact(bool fullCompact);
+        void Compact(bool fullCompact, bool saveDelta, const map<emb_key_t, KeyInfo>& keyInfo);
 
         uint64_t GetTableUsage();
 

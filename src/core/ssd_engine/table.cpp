@@ -100,10 +100,10 @@ void Table::DeleteEmbeddings(vector<emb_cache_key_t> &keys)
     DeleteEmbeddingsInner(keys);
 }
 
-void Table::Save(int step)
+void Table::Save(int step, bool saveDelta, const map<emb_key_t, KeyInfo>& keyInfo)
 {
     LOG_INFO("start save table:{}, at step:{}", name, step);
-    Compact(true);
+    Compact(true, saveDelta, keyInfo);
 
     lock_guard<mutex> guard(rwLock);
     auto metaFilePath = fs::absolute(curTablePath + "/" + name + ".meta" + "." + to_string(step));
@@ -149,7 +149,7 @@ void Table::Save(int step)
             metaFile.close();
             throw;
         }
-        f->Save(curTablePath, step);
+        f->Save(curTablePath, step, saveDelta, keyInfo);
     }
 
     metaFile.flush();
@@ -338,7 +338,7 @@ vector<vector<float>> Table::FetchEmbeddingsInner(vector<emb_cache_key_t> &keys)
 
 /// 整理数据，将有效数据转移至新文件后，含无效数据的文件将被删除
 /// \param fullCompact 是否执行全量数据清理
-void Table::Compact(bool fullCompact)
+void Table::Compact(bool fullCompact, bool saveDelta, const map<emb_key_t, KeyInfo>& keyInfo)
 {
     lock_guard<mutex> guard(rwLock);
 
@@ -371,7 +371,21 @@ void Table::Compact(bool fullCompact)
         fileSet.erase(f);
         vector<emb_cache_key_t> validKeys = f->GetKeys();
         vector<vector<float>> validEmbs = f->FetchEmbeddings(validKeys);
-        InsertEmbeddingsInner(validKeys, validEmbs);
+        if (saveDelta) {
+            // When save delta model, filter keys in keyInfo firstly, and then push back it into deltaKeys.
+            vector<emb_cache_key_t> deltaValidKeys;
+            vector<vector<float>> deltaValidEmbs;
+            for (size_t i = 0; i < validKeys.size(); ++i) {
+                if (!keyInfo.count(validKeys.at(i))) {
+                    continue;
+                }
+                deltaValidKeys.emplace_back(validKeys.at(i));
+                deltaValidEmbs.emplace_back(validEmbs.at(i));
+            }
+            InsertEmbeddingsInner(deltaValidKeys, deltaValidEmbs);
+        } else {
+            InsertEmbeddingsInner(validKeys, validEmbs);
+        }
     }
     LOG_DEBUG("table:{}, end compact", name);
 }

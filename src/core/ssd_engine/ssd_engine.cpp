@@ -78,7 +78,7 @@ int64_t SSDEngine::GetTableAvailableSpace(const string &tableName)
     return it->second->GetTableAvailableSpace();
 }
 
-void SSDEngine::Save(int step)
+void SSDEngine::Save(int step, bool saveDelta, const map<string, map<emb_key_t, KeyInfo>>& keyInfoMap)
 {
     CheckSSDEngineIsRunning();
 
@@ -88,7 +88,11 @@ void SSDEngine::Save(int step)
     }
 
     for (auto item: as_const(tableMap)) {
-        item.second->Save(step);
+        map<emb_key_t, KeyInfo> keyInfo;
+        if (saveDelta) {
+            keyInfo = keyInfoMap.at(item.first);
+        }
+        item.second->Save(step, saveDelta, keyInfo);
     }
     saveStep = step;
 }
@@ -133,8 +137,9 @@ void SSDEngine::CompactMonitor()
         duration = chrono::duration_cast<std::chrono::seconds>(end - start);
         if (duration >= compactPeriod) {
             LOG_DEBUG("SSDEngine CompactMonitor start compact");
+            map<emb_key_t, KeyInfo> keyInfo;
             for (const auto &item: as_const(tableMap)) {
-                item.second->Compact(false);
+                item.second->Compact(false, false, keyInfo);
             }
             LOG_DEBUG("SSDEngine CompactMonitor end compact");
             start = chrono::high_resolution_clock::now();

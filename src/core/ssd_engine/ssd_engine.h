@@ -45,7 +45,7 @@ namespace MxRec {
 
         vector<vector<float>> FetchEmbeddings(const string &tableName, vector<emb_cache_key_t> &keys);
 
-        void Save(int step);
+        void Save(int step, bool saveDelta, const map<string, map<emb_key_t, KeyInfo>>& keyInfoMap);
 
         void Load(const string &tableName, vector<string> savePaths, uint64_t maxTableSize, int step);
 

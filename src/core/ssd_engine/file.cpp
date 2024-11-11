@@ -228,12 +228,19 @@ void File::DeleteEmbedding(emb_cache_key_t key)
     staleDataCnt += 1;
 }
 
-void File::Save(const string& saveDir, int step)
+void File::Save(const string& saveDir, int step, bool saveDelta, const map<emb_key_t, KeyInfo>& keyInfo)
 {
-    LOG_DEBUG("start save file at step:{}, fileID:{}", step, fileID);
+    LOG_DEBUG("start save file at step:{}, fileID:{}, save dir:{}", step, fileID, saveDir);
 
     // write current meta into meta file
     for (auto [key, offset]: keyToOffset) {
+        if (saveDelta) {
+            if (keyInfo.count(key)) {
+                localFileMeta.write(reinterpret_cast<char const *>(&key), sizeof(key));
+                localFileMeta.write(reinterpret_cast<char const *>(&offset), sizeof(offset));
+            }
+            continue;
+        }
         localFileMeta.write(reinterpret_cast<char const *>(&key), sizeof(key));
         localFileMeta.write(reinterpret_cast<char const *>(&offset), sizeof(offset));
     }
@@ -245,6 +252,11 @@ void File::Save(const string& saveDir, int step)
     localFileMeta.close();
 
     fs::path metaFileToSave = fs::absolute(saveDir + "/" + to_string(fileID) + ".meta." + to_string(step));
+    if (saveDelta) {
+        metaFileToSave = fs::absolute(saveDir + "/" + "delta-" + to_string(fileID) + ".meta." +
+                to_string(step));
+    }
+
     if (fs::exists(metaFileToSave)) {
         ThrowInvalidArgError(ErrorType::INVALID_ARGUMENT, "Failed to save latest meta, file already exist.");
     }
@@ -269,6 +281,10 @@ void File::Save(const string& saveDir, int step)
     localFileData.close();
 
     fs::path dataFileToSave = fs::absolute(saveDir + "/" + to_string(fileID) + ".data." + to_string(step));
+    if (saveDelta) {
+        dataFileToSave = fs::absolute(saveDir + "/" + "delta-" + to_string(fileID) + ".data." + to_string(step));
+    }
+
     if (fs::exists(dataFileToSave)) {
         ThrowInvalidArgError(ErrorType::INVALID_ARGUMENT, "Failed to save latest data, file already exist.");
     }
