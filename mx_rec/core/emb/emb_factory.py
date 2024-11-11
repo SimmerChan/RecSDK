@@ -59,13 +59,3 @@ class ExternalStorageSparseEmbeddingFactory(BaseSparseEmbeddingFactory):
 
     def create_embedding(self, config: dict) -> ExternalStorageSparseEmbedding:
         return ExternalStorageSparseEmbedding(config)
-
-
-@singleton
-class MergeableSparseEmbeddingFactory(BaseSparseEmbeddingFactory):
-    """
-    MergeableSparseEmbedding Factory.
-    """
-
-    def create_embedding(self, table_name: str, config: dict) -> MergeableSparseEmbedding:
-        return MergeableSparseEmbedding(table_name, config)

@@ -4,9 +4,10 @@
 
 import abc
 from collections import defaultdict
-from typing import Optional, Union, Callable
+from typing import Optional, Union, Callable, Dict, Any
 
 import tensorflow as tf
+from tensorflow import Tensor
 from tensorflow.python.ops import array_ops
 
 from mx_rec.constants.constants import All2allGradientsOp, ASCEND_SPARSE_LOOKUP_ENTRANCE, ASCAnchorAttr
@@ -22,11 +23,11 @@ from mx_rec.validator.emb_validator import check_emb_init_params, check_emb_look
 
 class BaseSparseEmbedding(metaclass=abc.ABCMeta):
     """
-    稀疏表基类
+    Abstract base class for sparse embedding table.
     """
 
-    # 自动改图使用的全局字典，以ids和待保存内容的字符串为key
-    anchor_tensor_specs = defaultdict(dict)
+    # Global dict used for graph modification, used id-like tensor and `AnchorAttr` as key.
+    anchor_tensor_specs: Dict[Tensor, Dict[str, Any]] = defaultdict(dict)
 
     def __init__(self, config: dict):
         self._embedding_size = config.get("embedding_size")
@@ -65,30 +66,10 @@ class BaseSparseEmbedding(metaclass=abc.ABCMeta):
         self._device_id = get_device_id()
         self._use_static = ConfigInitializer.get_instance().use_static
 
-        # init variable
         self._set_slice_vocab_size()
-
-        if (
-            ConfigInitializer.get_instance().hybrid_manager_config.freeze
-            and self._table_name in ConfigInitializer.get_instance().sparse_embed_config.name_to_var_dict
-        ):
-            self._variable = tf.compat.v1.get_variable(
-                self._table_name, trainable=False, shape=(self._slice_device_vocabulary_size, self._emb_size)
-            )
-            if not ConfigInitializer.get_instance().use_dynamic_expansion:
-                self.__record(eval_flag=True)
-                tf.compat.v1.add_to_collection(
-                    ConfigInitializer.get_instance().train_params_config.ascend_global_hashtable_collection,
-                    self._variable,
-                )
-
-        else:
-            check_emb_init_params(self._is_hbm, self._embedding_size)
-            self.__initialize_variables()
-            tf.compat.v1.add_to_collection(
-                ConfigInitializer.get_instance().train_params_config.ascend_global_hashtable_collection, self._variable
-            )
         self._set_ext_emb_size()
+
+        self._init_sliced_variable()
 
     @property
     def embedding_size(self):
@@ -238,6 +219,28 @@ class BaseSparseEmbedding(metaclass=abc.ABCMeta):
         is_training: bool,
     ) -> tf.Tensor:
         pass
+
+    def _init_sliced_variable(self):
+        if (
+            ConfigInitializer.get_instance().hybrid_manager_config.freeze
+            and self._table_name in ConfigInitializer.get_instance().sparse_embed_config.name_to_var_dict
+        ):
+            self._variable = tf.compat.v1.get_variable(
+                self._table_name, trainable=False, shape=(self._slice_device_vocabulary_size, self._emb_size)
+            )
+            if not ConfigInitializer.get_instance().use_dynamic_expansion:
+                self._record(eval_flag=True)
+                tf.compat.v1.add_to_collection(
+                    ConfigInitializer.get_instance().train_params_config.ascend_global_hashtable_collection,
+                    self._variable,
+                )
+
+        else:
+            check_emb_init_params(self._is_hbm, self._embedding_size)
+            self._initialize_variables()
+            tf.compat.v1.add_to_collection(
+                ConfigInitializer.get_instance().train_params_config.ascend_global_hashtable_collection, self._variable
+            )
 
     def size(self) -> int:
         """
@@ -519,7 +522,7 @@ class BaseSparseEmbedding(metaclass=abc.ABCMeta):
         with tf.control_dependencies([ddr_control_ops]):
             return self._get_sparse_forward_result(sparse_forward, self._variable, result, is_training)
 
-    def __initialize_variables(self):
+    def _initialize_variables(self):
         initialized_tensor = (
             self._emb_initializer(self._slice_device_vocabulary_size + self._embedding_size) * self._init_param
         )
@@ -528,9 +531,9 @@ class BaseSparseEmbedding(metaclass=abc.ABCMeta):
         # make sure sparse table variable will not be saved and restored within tf checkpoint.
         ConfigInitializer.get_instance().sparse_embed_config.insert_removing_var_list(self._variable.name)
 
-        self.__record()
+        self._record()
 
-    def __record(self, eval_flag=False):
+    def _record(self, eval_flag=False):
         ConfigInitializer.get_instance().sparse_embed_config.insert_table_instance(
             self._table_name, self._variable, self, eval_flag
         )

@@ -16,16 +16,16 @@
 # ==============================================================================
 
 import collections
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, List, Optional
 
 import tensorflow as tf
 from tensorflow.python.ops.init_ops import Initializer as InitializerV1
 from tensorflow.python.ops.init_ops_v2 import Initializer as InitializerV2
 
-from mx_rec.core.emb.emb_factory import MergeableSparseEmbeddingFactory
-from mx_rec.core.emb.sparse_embedding import SparseEmbedding
 from mx_rec.core.emb.mergeable_sparse_embedding import MergeableSparseEmbedding
+from mx_rec.core.emb.sparse_embedding import SparseEmbedding
 from mx_rec.util.singleton import singleton
+from mx_rec.util.log import logger
 
 
 class UnionKey(collections.namedtuple(typename="UnionKey", field_names=["key_dtype", "emb_dim", "initializer_type"])):
@@ -52,48 +52,58 @@ class MergeableEmbeddingTableProxy:
     def __init__(self) -> None:
         self._mtables: List[MergeableSparseEmbedding] = []
         self._ukey_to_mtable: Dict[UnionKey, SparseEmbedding] = {}
-        self._tname_to_mtable: Dict[str, SparseEmbedding] = {}
+        self._stable_to_mtable: Dict[str, SparseEmbedding] = {}
 
-    def create_mergeable_table(self, union_key: UnionKey, table_name: str, config: Dict[str, Any]) -> SparseEmbedding:
+    def create_mergeable_table(
+        self, union_key: UnionKey, small_table_name: str, config: Dict[str, Any]
+    ) -> SparseEmbedding:
         union_key.validate()
 
-        mergeable_table = MergeableSparseEmbeddingFactory().create_embedding(table_name, config=config)
+        mergeable_table = MergeableSparseEmbedding(small_table_name, config=config)
         self._mtables.append(mergeable_table)
 
         self._ukey_to_mtable[union_key] = mergeable_table
-        self._tname_to_mtable[table_name] = mergeable_table
+        self._stable_to_mtable[small_table_name] = mergeable_table
+
+        logger.info(
+            "A new mergeable embedding table '%s' has been created from embedding table '%s'.",
+            mergeable_table.table_name,
+            small_table_name,
+        )
 
         return mergeable_table
 
-    def find_mergeable_table(self, union_key: Optional[UnionKey], table_name: str = "") -> Optional[SparseEmbedding]:
+    def find_mergeable_table(
+        self, union_key: Optional[UnionKey], small_table_name: str = ""
+    ) -> Optional[SparseEmbedding]:
         union_key.validate()
 
-        if union_key and table_name:
+        if union_key and small_table_name:
             raise ValueError(
                 "at most one of union key and table name should be provided, got union key => '{}' and table name => '{}'".format(
-                    union_key, table_name
+                    union_key, small_table_name
                 )
             )
 
-        if not (union_key or table_name):
+        if not (union_key or small_table_name):
             raise ValueError(
                 "at least one of union key and table name should be provided, got union key => '{}' and table name => '{}'".format(
-                    union_key, table_name
+                    union_key, small_table_name
                 )
             )
 
         if not union_key:
-            return self._tname_to_mtable.get(table_name, None)
+            return self._stable_to_mtable.get(small_table_name, None)
 
         return self._ukey_to_mtable.get(union_key, None)
 
     def join_mergeable_table(
-        self, mergeable_table: MergeableSparseEmbedding, table_name: str, config: Dict[str, Any]
+        self, mergeable_table: MergeableSparseEmbedding, small_table_name: str, config: Dict[str, Any]
     ) -> MergeableSparseEmbedding:
-        if table_name in mergeable_table.merged_table_names:
+        if small_table_name in mergeable_table.merged_small_tables:
             raise ValueError(
                 "given table name => '{}' has joined mergeable table => '{}' before".format(
-                    table_name, mergeable_table.name
+                    small_table_name, mergeable_table.name
                 )
             )
 
@@ -101,7 +111,15 @@ class MergeableEmbeddingTableProxy:
         ddr_vocab_size = config["host_vocabulary_size"]
         ssd_vocab_size = config["ssd_vocabulary_size"]
 
-        mergeable_table.merge_in(table_name, hbm_vocab_size, ddr_vocab_size, ssd_vocab_size)
-        self._tname_to_mtable[table_name] = mergeable_table
+        mergeable_table.merge_in(small_table_name, hbm_vocab_size, ddr_vocab_size, ssd_vocab_size)
+        self._stable_to_mtable[small_table_name] = mergeable_table
 
         return mergeable_table
+
+    def init_sliced_variables(self) -> None:
+        for mtable in self._mtables:
+            mtable.init_sliced_variable()
+
+    def replace_mock_variables(self) -> None:
+        for mtable in self._mtables:
+            mtable.replace_mock_variable()

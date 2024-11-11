@@ -35,6 +35,7 @@ from mx_rec.constants.constants import (
     MAX_WHILE_SIZE,
     LIBREC_EOS_OPS_SO,
 )
+from mx_rec.core.embedding_proxy import MergeableEmbeddingTableProxy
 from mx_rec.core.asc.feature_spec import FeatureSpec
 from mx_rec.core.asc.helper import get_asc_insert_func
 from mx_rec.core.asc.manager import start_asc_pipeline
@@ -206,6 +207,10 @@ class _GraphModifier:
             # only eval is used. Therefore, `do_merge_lookup` needs to be invoked during modify graph.
             if not is_training:
                 with self._full_graph.as_default():
+                    mtable_proxy = MergeableEmbeddingTableProxy()
+                    mtable_proxy.init_sliced_variables()
+                    mtable_proxy.replace_mock_variables()
+
                     do_merge_lookup(is_train=False)
                 if "evaluate" in ConfigInitializer.get_instance().train_params_config.bool_gauge_set:
                     logger.debug("In estimator mode, eval re-creates graph each time, so the flag needs to be cleared.")

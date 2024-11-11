@@ -16,6 +16,7 @@
 # ==============================================================================
 
 import os
+import functools
 from typing import Optional, Union
 
 import tensorflow as tf
@@ -192,18 +193,8 @@ def create_table(
         if mtable_proxy.find_mergeable_table(union_key):
             mergeable_table = mtable_proxy.find_mergeable_table(union_key=union_key)
             mtable_proxy.join_mergeable_table(mergeable_table, name, config)
-            logger.info(
-                "Embedding Table '%s' has joined to mergeable embedding table '%s'.",
-                name,
-                mergeable_table.table_name,
-            )
         else:
             mergeable_table = mtable_proxy.create_mergeable_table(union_key, name, config)
-            logger.info(
-                "A new mergeable embedding table '%s' has been created from embedding table '%s'.",
-                mergeable_table.table_name,
-                name,
-            )
 
         return mergeable_table
 
@@ -262,6 +253,32 @@ def sparse_lookup(
     Returns: Tensor for lookup result
 
     """
+
+    if isinstance(hashtable, MergeableSparseEmbedding) and not hashtable.is_var_initialized:
+        mtable: MergeableSparseEmbedding = hashtable
+
+        key_dims = ids.get_shape().as_list()
+        feat_cnt = functools.reduce(lambda x, y: x * y, key_dims[1:])
+        mock_var = mtable.create_mock_variable(feat_cnt)
+
+        deferred_lookup = functools.partial(
+            sparse_lookup,
+            hashtable,
+            ids,
+            send_count,
+            is_train,
+            name,
+            modify_graph,
+            batch,
+            access_and_evict_config,
+            is_grad,
+            serving_default_value,
+            **kwargs,
+        )
+        mtable.register_deferred_lookup(mock_var, deferred_lookup)
+
+        return mock_var
+
     kwargs["is_grad"] = is_grad
     kwargs["is_train"] = is_train
     kwargs["name"] = name if name is not None else hashtable.get_default_lookup_name()
@@ -270,15 +287,15 @@ def sparse_lookup(
     kwargs["access_and_evict_config"] = access_and_evict_config
     kwargs["serving_default_value"] = serving_default_value
 
-    # When performing multiple queries on a single table, if any one of the queries requires gradients (grad),
-    # then the entire table also needs gradients; otherwise, the whole table does not require gradients.
-    # Additionally, in the case of global uniqueness, backend does not need to send data.
-    hashtable.is_grad |= is_grad
-
     # Parameters are supposed to be created innernally.
     kwargs["feature_spec_name_ids_dict"] = None
     kwargs["multi_lookup"] = False
     kwargs["lookup_ids"] = None
+
+    # When performing multiple queries on a single table, if any one of the queries requires gradients (grad),
+    # then the entire table also needs gradients; otherwise, the whole table does not require gradients.
+    # Additionally, in the case of global uniqueness, backend does not need to send data.
+    hashtable.is_grad |= is_grad
 
     logger.info(
         "Lookup: The table name is %s, and the value of `is_grad` in this lookup (lookup name is %s) is %s.",
