@@ -202,23 +202,19 @@ void CacheManager::ProcessSwapOutKeys(const string& tableName, const vector<emb_
     for (size_t i = 0; i < swapOutKeys.size(); ++i) {
         emb_cache_key_t key = swapOutKeys[i];
         if (keyMapper.IsDDRKeyExist(key)) {
-            LOG_INFO("1111 debug, key: {} is in DDR.", key);
             keyMapper.lfuCache.Put(key);
             swapOutDDRKeys.push_back(key);
             swapOutDDRAddrOffs.push_back(i);
         } else if (keyMapper.IsL3StorageKeyExist(key)) {
-            LOG_INFO("1111 debug, key: {} is in SSD.", key);
             keyMapper.excludeDDRKeyCountMap[key]++;
             swapOutL3StorageKeys.push_back(key);
             swapOutL3StorageAddrOffs.push_back(i);
         } else if (availableDDRSize > 0) {
-            LOG_INFO("1111 debug, key: {} is not in DDR and SSD, but DDR has enough space, put it in DDR.", key);
             keyMapper.InsertDDRKey(key);
             swapOutDDRKeys.push_back(key);
             swapOutDDRAddrOffs.push_back(i);
             availableDDRSize--;
         } else {
-            LOG_INFO("1111 debug, key: {} is not in DDR and SSD, but SSD has enough space, put it in SSD.", key);
             keyMapper.InsertL3StorageKey(key);
             swapOutL3StorageKeys.push_back(key);
             swapOutL3StorageAddrOffs.push_back(i);
