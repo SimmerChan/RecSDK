@@ -92,7 +92,9 @@ TEST(Table, WriteAndReadAndDeleteAndCompact)
     }
 
     // full compact, old file will delete, valid data will move to new file
-    tb->Compact(true);
+    bool saveDelta = false;
+    map<emb_key_t, KeyInfo> keyInfo;
+    tb->Compact(true, saveDelta, keyInfo);
     string oldDataFilePath =
         savePath.front() + "/ssd_sparse_model_rank_" + GlogConfig::gRankId + "/" + tbName + "/" + "0.data.latest";
     string oldMetaFilePath =
@@ -130,7 +132,9 @@ TEST(Table, SaveAndLoad)
         embs.emplace_back(emb);
     }
     tbSave->InsertEmbeddings(keys, embs);
-    tbSave->Save(saveStep);
+    bool saveDelta = false;
+    map<emb_key_t, KeyInfo> keyInfo;
+    tbSave->Save(saveStep, saveDelta, keyInfo);
 
     // load
     auto tbLoad = make_shared<Table>(tbName, savePath, maxTableSize, compactThreshold, saveStep);
@@ -169,7 +173,9 @@ TEST(Table, GetTableUsage)
     ASSERT_EQ(keyCntSave, expectKeyCnt);
 
     // check after saving
-    tbSave->Save(saveStep);
+    bool saveDelta = false;
+    map<emb_key_t, KeyInfo> keyInfo;
+    tbSave->Save(saveStep, saveDelta, keyInfo);
     uint64_t keyCntSave2 = tbSave->GetTableUsage();
     ASSERT_EQ(keyCntSave2, expectKeyCnt);
 

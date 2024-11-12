@@ -133,7 +133,9 @@ TEST(File, SaveAndLoad)
     vector<vector<float>> expect = {{1.0, 1.1}};
     fTmp->InsertEmbeddings(key, expect);
     string saveDir = fileDir;  // for test convenience
-    fTmp->Save(saveDir, saveStep);
+    bool saveDelta = false;
+    map<emb_key_t, KeyInfo> keyInfo;
+    fTmp->Save(saveDir, saveStep, saveDelta, keyInfo);
 
     string loadDir = fileDir;  // for test convenience
     auto fLoad = make_shared<File>(0, fileDir, loadDir, saveStep);
