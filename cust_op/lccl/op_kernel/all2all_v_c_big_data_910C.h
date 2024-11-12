@@ -265,7 +265,7 @@ private:
         } else if (copyLen < 0) {
             copyLen = 0;
         }
-        writeQue[idx].DeQue(waitRankListForWrite[idx], waitNumForWrite[idx], waitBlockForWrite[idx]);
+        writeQue[idx].DeQue(waitRankListForWrite[idx], waitNumForWrite[idx], waitBlockForWrite[idx], sliceIdx);
         writeGt = writeQue[idx].EnQue();
         if (copyLen > 0) {
             CpGM2GMPingPong<T>(copyLen * sizeof(T), readGt, writeGt, COPYONLY);
@@ -311,11 +311,6 @@ private:
             CpGM2GMPingPong<T>(copyLen * sizeof(T), readGt, writeGt, COPYONLY);
         }
         sync.SetInnerFlag(magic, sliceIdx, rank, groupCoreIdx[idx] + flagNumPerStage);
-
-        if (sliceIdx == sliceNum[0] - 1){
-            sync.SetInnerFlag(1, 0, rank, groupCoreIdx[idx] + flagNumPerStage);
-            sync.SetInnerFlag(1, 0, groupCoreIdx[idx], rank);
-        }
     }
 
     GlobalTensor <T> inputGt;
