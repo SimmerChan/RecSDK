@@ -88,11 +88,23 @@ public:
         outputGt.SetGlobalBuffer((__gm__ T*)output, outShape*dim* sizeof(T));
 
         int initSize = outShape * dim / coreNumsPerStage / 2;
-        outputGtInit.SetGlobalBuffer((__gm__ T*)output + initSize * blockIdx);
-        sync.SetInnerFlag(magic, 0, rank, blockIdx + 128);
-        pipe_barrier(PIPE_ALL);
-        if (blockIdx < (coreNumsPerStage * 2) ) {
-            AscendC::InitGlobalMemory(outputGtInit, initSize * sizeof(T), (T)(0));
+        if (blockIdx < blockNum) {
+            sync.SetInnerFlag(magic, 0, rank, blockIdx + 128);
+            pipe_barrier(PIPE_ALL);
+            int ubInitNum = UB_SINGLE_DMA_SIZE_MAX / sizeof(T) / 256;
+            for (int i =0; i < ubInitNum; i++) {
+                __ubuf__ T* inputUBList = (__ubuf__ T*)get_imm(i * 256 * sizeof(T));
+                vector_dup(inputUBList, (T)0, 255, 1, 1, 0, 0);
+            }
+            pipe_barrier(PIPE_ALL);
+            __ubuf__ T* inputUBList = (__ubuf__ T*)get_imm(0);
+            while (initSize > 0) {
+                int copyLen = (initSize > UB_SINGLE_DMA_SIZE_MAX/sizeof(T)) ? UB_SINGLE_DMA_SIZE_MAX / sizeof(T) : initSize;
+                copy_ubuf_to_gm_align_b32((__gm__ T*)output + initSize * blockIdx,
+                                            (__ubuf__ T*)inputUBList, 0, 1, copyLen * sizeof(T), 0, 0, 0, 0);
+                initSize -= copyLen;
+            }
+            pipe_barrier(PIPE_ALL);
             sync.SetInnerFlag(magic, 1, rank, blockIdx + 128);
             pipe_barrier(PIPE_ALL);
         }
@@ -283,7 +295,7 @@ private:
         } else if (copyLen < 0) {
             copyLen = 0;
         }
-        writeQue[idx].DeQue(waitRankListForWrite[idx], waitNumForWrite[idx], waitBlockForWrite[idx]);
+        writeQue[idx].DeQue(waitRankListForWrite[idx], waitNumForWrite[idx], waitBlockForWrite[idx], sliceIdx);
         writeGt = writeQue[idx].EnQue();
         if (copyLen > 0) {
             CpGM2GMPingPong<T>(copyLen * sizeof(T), readGt, writeGt, COPYONLY);
@@ -367,11 +379,6 @@ private:
             tempBuffer.FreeTensor(buffer2);
         }
         sync.SetInnerFlag(magic, sliceIdx, rank, groupCoreIdx[idx] + flagNumPerStage);
-
-        if (sliceIdx == sliceNum[0] - 1){
-            sync.SetInnerFlag(1, 0, rank, groupCoreIdx[idx] + flagNumPerStage);
-            sync.SetInnerFlag(1, 0, groupCoreIdx[idx], rank);
-        }
     }
 
     GlobalTensor <T> inputGt;

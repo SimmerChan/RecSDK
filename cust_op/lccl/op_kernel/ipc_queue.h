@@ -85,7 +85,7 @@ public:
      * @param checkCount    数组长度
      * @param checkBlock    校验的读端blockIdx，缺省时使用和当前相同的blockIdx
      */
-    FORCE_INLINE_AICORE void DeQue(int *rankList, int checkCount, int checkBlock = -1)
+    FORCE_INLINE_AICORE void DeQue(int *rankList, int checkCount, int checkBlock, int sliceIdx)
     {
         if (!Full()) {
             return;
@@ -98,7 +98,7 @@ public:
 
         for (int i = 0; i < checkCount; i++) {
 
-            sync->WaitInnerFlag(magic, count, rankList[i], checkBlock);  // 后续改成IPC单独的标志位
+            sync->WaitInnerFlag(magic, sliceIdx-1, rankList[i], checkBlock);  // 后续改成IPC单独的标志位
             pipe_barrier(PIPE_ALL);
 
             int64_t val = sync->GetInnerFlag(rankList[i], checkBlock) & EVENT_ID_MASK;
@@ -106,7 +106,6 @@ public:
                 minIndex = val;
             }
         }
-        count = minIndex + 1;
         front = (minIndex + 1) % depth;
     }
 
