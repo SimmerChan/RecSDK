@@ -116,7 +116,7 @@ public:
             ProducerStage();
         }
         if (coreGroup == CONSUMER_CORE) {
-            for (int i = 0; i < coreNumsPerStage * 2; i++) {
+            for (int i = 0; i < coreNumsPerStage; i++) {
                 sync.WaitInnerFlag(magic, 1, rank, i + 128);
             }
             ConsumerStage();
