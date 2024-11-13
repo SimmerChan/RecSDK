@@ -1,0 +1,41 @@
+#!/bin/bash
+local_rank_size=$1
+host=localhost
+py=$2
+rm -rf /root/atc_data/
+rm -rf /root/ascend/*
+rm -rf kernel_meta_*
+
+mpi_path=/usr/local/openmpi/bin/
+interface="enp61s0f0"
+ulimit -c 0
+export ASCEND_GLOBAL_LOG_LEVEL=0
+export TF_CPP_MIN_LOG_LEVEL=3
+export ASCEND_INSTALL_PATH=/usr/local/Ascend/ascned-toolkit/latest/
+export ASCEND_HOME_PATH=${ASCEND_INSTALL_PATH}
+export PATH=${mpi_path}/bin:$PATH
+export PYTHONPATH=/usr/local/python3.7.5/lib/python3.7/site-packages/mx_rec/libasc:/usr/local/python3.7.5/lib/python3.7/site-packages/:${PYTHONPATH}:/usr/local/Ascend/ascend-toolkit/latest/python/site-packages:{so_path}
+export LD_PRELOAD=/lib64/libgomp.so.1
+export TOOLCHAIN_HOME=${ASCEND_HOME_PATH}/toolkit
+export HCCL_BUFFSIZE=1
+export LD_LIBRARY_PATH=/usr/local/Ascend/tfplugin/8.0.RC2/python/site-packages/npu_bridge/:/usr/local/lib:/usr/local/python3.7.5/lib/python3.7/site-packages/mx_rec/libasc:$LD_LIBRARY_PATH
+
+export BETTER_EXCEPTIONS=1
+mpi_args='-x BIND_INFO="0:48 48:48 96:48" -x SPDLOG_LEVEL=debug -bind-to none'
+
+rm *txt > /dev/null
+rm -rf /root/ascend/log/*
+
+
+for i in $(ipcs -m | tail -n +4 | awk {'print $2}); do
+    ipcrm -m $i
+done
+
+num_process=${local_rank_size}
+host_string=${host//_/:${local_rank_size},node}:${local_rank_size}
+echo run in $host_string
+
+interface="lo"
+env
+horovodrun --network-interface ${interface} -np ${num_process} --mpi-args "${mpi_rags}" -mpi -H localhost:${local_rank_size} \
+    python3.7 ${py} --local_rank_size ${local_rank_size} --hccl_json hccl_json_${local_rank_size}p.json | tee temp.log
