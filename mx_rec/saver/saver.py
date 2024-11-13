@@ -20,6 +20,7 @@ import threading
 import glob
 import struct
 from collections import defaultdict
+from dataclasses import dataclass
 from typing import Dict, List, Union, Generator, Tuple
 
 import numpy as np
@@ -46,6 +47,13 @@ SAVE_DELTA_SPARSE_PATH_PREFIX = "delta-sparse"
 GLOBAL_STEP_STR = "global_step"
 SSD_SAVE_PATH_PREFIX = "ssd_sparse_model_rank_"
 SSD_DATA_FILE_MIN_SIZE = 0
+
+
+@dataclass
+class KeyInfo:
+    offset: int
+    emb_size: int
+    embedding: List[float]
 
 
 # define save model thread
@@ -1082,7 +1090,15 @@ def should_save_sparse_embedding(is_dp: bool, save_path: str) -> bool:
     return False
 
 
-def read_base_delta_and_write_for_ssd(save_dir: str, base_model: str, delta_models: list, rank: int) -> None:
+def read_base_delta_and_write_for_ssd(save_dir: str, base_model: str, delta_models: List[str], rank: int) -> None:
+    """
+    read base model and delta models for incremental restore
+    :param save_dir: model save dir
+    :param base_model: full model step
+    :param delta_models: incremental models
+    :param rank: process id
+    :return:
+    """
     current_ssd_dir = os.path.join(os.path.dirname(save_dir), SSD_SAVE_PATH_PREFIX + str(rank))
     file_validator = FileValidator("current_ssd_dir", current_ssd_dir)
     if not check_file_system_is_hdfs(current_ssd_dir):
@@ -1092,92 +1108,115 @@ def read_base_delta_and_write_for_ssd(save_dir: str, base_model: str, delta_mode
     table_name_set = ConfigInitializer.get_instance().sparse_embed_config.table_name_set
     for table_name in table_name_set:
         key_info_map = defaultdict(list)
-        # read base model's meta file and get file count list
-        _, file_ids = read_table_meta_data(current_ssd_dir, table_name, base_model)
+        # Read base model's meta file and get file count list.
+        file_ids = _read_table_meta_data(current_ssd_dir, table_name, base_model)
         for fid in file_ids:
-            read_key_offset_and_embedding(os.path.join(current_ssd_dir, table_name), base_model, fid, False,
-                                          key_info_map)
-        # read delta model's meta file and get file count list
+            _read_key_offset_and_embedding(os.path.join(current_ssd_dir, table_name), base_model, fid, False,
+                                           key_info_map)
+        # Read delta model's meta file and get file count list.
         for delta_model in delta_models:
-            _, file_ids = read_table_meta_data(current_ssd_dir, table_name, delta_model)
+            file_ids = _read_table_meta_data(current_ssd_dir, table_name, delta_model)
             for fid in file_ids:
-                read_key_offset_and_embedding(os.path.join(current_ssd_dir, table_name), delta_model, fid, True,
-                                              key_info_map)
-        # write key_info_map into new files
-        write_ssd_meta_and_data(current_ssd_dir, table_name, file_ids[0], delta_models[-1], key_info_map)
+                _read_key_offset_and_embedding(os.path.join(current_ssd_dir, table_name), delta_model, fid, True,
+                                               key_info_map)
+        # Write key_info_map into new files.
+        _write_ssd_meta_and_data(current_ssd_dir, table_name, file_ids[0], delta_models[-1], key_info_map)
 
 
-def read_table_meta_data(current_ssd_dir: str, table_name: str, model: str) -> List:
+def _read_table_meta_data(current_ssd_dir: str, table_name: str, model: str) -> List[int]:
+    """
+    read table meta data for SSD
+    :param current_ssd_dir: ssd model saved dir
+    :param table_name: table name
+    :param model: step for saving model
+    :return: [table_name, [fileID]]
+    """
     table_meta_file = os.path.join(current_ssd_dir, table_name, table_name + ".meta." + model)
     with tf.io.gfile.GFile(table_meta_file, 'rb') as file:
         validate_read_file(table_meta_file)
-        # read name_size(4bytes uint32_t)
+        # Read name_size(4bytes uint32_t).
         name_size_data = file.read(UINT32_BYTES)
         if len(name_size_data) < UINT32_BYTES:
             raise EOFError("End of file reached before reading name size, file maybe broken.")
 
-        name_size, = struct.unpack('I', name_size_data)
+        name_size = struct.unpack('I', name_size_data)[0]
 
-        # read name(name_size bytes)
+        # Read name(name_size bytes).
         name_data = file.read(name_size)
         if len(name_data) < name_size:
             raise EOFError("End of file reached before reading name, file maybe broken.")
 
-        name = name_data.decode('utf-8')
-
-        # read fileCnt(8bytes uint64_t)
+        # Read fileCnt(8bytes uint64_t).
         file_cnt_data = file.read(UINT64_BYTES)
         if len(file_cnt_data) < UINT64_BYTES:
             raise EOFError("End of file reached before reading file count, file maybe broken.")
 
-        file_cnt, = struct.unpack('Q', file_cnt_data)
+        file_cnt = struct.unpack('Q', file_cnt_data)[0]
 
-        # read fileCnt fileID(every 8bytes, uint64_t)
+        # Read fileCnt fileID(every 8bytes, uint64_t).
         file_ids = []
         for _ in range(file_cnt):
             fid_data = file.read(UINT64_BYTES)
             if len(fid_data) < UINT64_BYTES:
                 raise EOFError("End of file reached before reading all file IDs, file maybe broken.")
 
-            fid, = struct.unpack('Q', fid_data)
+            fid = struct.unpack('Q', fid_data)[0]
             file_ids.append(fid)
 
-        return [name, file_ids]
+        return file_ids
 
 
-def read_key_offset_and_embedding(current_dir: str, model: str, fid: int, is_delta: bool, key_info_map: dict) -> None:
+def _read_key_offset_and_embedding(current_dir: str, model: str, fid: int, is_delta: bool, key_info_map: dict) -> None:
+    """
+    :param current_dir: save dir
+    :param model: step for saving model
+    :param fid: file ID for SSD
+    :param is_delta: the model is whether full or incremental model
+    :param key_info_map: key info, include key, offset, embedding size and embedding
+    :return:
+    """
     table_meta_file = os.path.join(current_dir, str(fid) + ".meta." + model)
     table_data_file = os.path.join(current_dir, str(fid) + ".data." + model)
     if is_delta:
         table_meta_file = os.path.join(current_dir, "delta-" + str(fid) + ".meta." + model)
         table_data_file = os.path.join(current_dir, "delta-" + str(fid) + ".data." + model)
-    key_offset_gen = read_key_offset(table_meta_file)
-    embedding_data_gen = read_embedding_data(table_data_file)
+    key_offset_gen = _read_key_offset(table_meta_file)
+    embedding_data_gen = _read_embedding_data(table_data_file)
     for (key, offset), (emb_size, embedding) in zip(key_offset_gen, embedding_data_gen):
-        key_info_map[key] = [offset, emb_size, embedding]
+        key_info_map[key] = KeyInfo(offset=offset, emb_size=emb_size, embedding=embedding)
 
 
-def read_key_offset(file_path: str) -> Generator[Tuple[int, int], None, None]:
+def _read_key_offset(file_path: str) -> Generator[Tuple[int, int], None, None]:
+    """
+    read key and offset from meta file
+    :param file_path: meta file dir
+    :return:
+    """
     with tf.io.gfile.GFile(file_path, 'rb') as file:
         if tf.io.gfile.stat(file_path).length == SSD_DATA_FILE_MIN_SIZE:
             return
         validate_read_file(file_path)
         every_key_offset_bytes = UINT64_BYTES + UINT32_BYTES
         while True:
-            # read key(8bytes)and offset(4bytes)
+            # Read key(8bytes)and offset(4bytes).
             data = file.read(every_key_offset_bytes)  # 8bytes key + 4bytes offset
             if len(data) == 0:
                 break
             if len(data) < every_key_offset_bytes:
                 raise EOFError("End of file reached before reading key_offset, meta file maybe broken.")
 
-            # unpack key and offset
+            # Unpack key and offset.
             key = struct.unpack('q', data[:UINT64_BYTES])[0]                           # 'q':8bytes
             offset = struct.unpack('I', data[UINT64_BYTES:every_key_offset_bytes])[0]  # 'I':4bytes
             yield key, offset
 
 
-def read_embedding_data(file_path: str) -> Generator[Tuple[int, List[float]], None, None]:
+def _read_embedding_data(file_path: str) -> Generator[Tuple[int, List[float]], None, None]:
+    """
+    read embedding data from data file
+    :param file_path:
+    :return:
+    """
     with tf.io.gfile.GFile(file_path, 'rb') as file:
         if tf.io.gfile.stat(file_path).length == SSD_DATA_FILE_MIN_SIZE:
             return
@@ -1200,13 +1239,22 @@ def read_embedding_data(file_path: str) -> Generator[Tuple[int, List[float]], No
             yield emb_size, embedding
 
 
-def write_ssd_meta_and_data(current_ssd_dir: str, table_name: str, fid: int, step: str, key_info_map: dict) -> None:
+def _write_ssd_meta_and_data(current_ssd_dir: str, table_name: str, fid: int, step: str, key_info_map: dict) -> None:
+    """
+    write key, offset, embedding size and embedding into new file
+    :param current_ssd_dir: current dir
+    :param table_name: table name
+    :param fid: file ID
+    :param step: the step for saving model
+    :param key_info_map: key info map, include key, offset, embedding size and embedding
+    :return:
+    """
     meta_file_path = os.path.join(current_ssd_dir, table_name, str(fid) + ".meta." + step)
     data_file_path = os.path.join(current_ssd_dir, table_name, str(fid) + ".data." + step)
     if check_file_system_is_hdfs(meta_file_path) and check_file_system_is_hdfs(data_file_path):
         with tf.io.gfile.GFile(meta_file_path, "wb") as meta_file, tf.io.gfile.GFile(data_file_path, "wb") as data_file:
             for key, value in key_info_map.items():
-                offset, emb_size, embedding = value
+                offset, emb_size, embedding = value.offset, value.emb_size, value.embedding
                 meta_file.write(struct.pack('qI', key, offset))
                 data_file.write(struct.pack('q', emb_size))
                 data_file.write(struct.pack(f'{emb_size}f', *embedding))
@@ -1214,7 +1262,7 @@ def write_ssd_meta_and_data(current_ssd_dir: str, table_name: str, fid: int, ste
         with os.fdopen(os.open(meta_file_path, SAVE_FILE_FLAG, SAVE_FILE_MODE), "wb") as meta_file, \
                 os.fdopen(os.open(data_file_path, SAVE_FILE_FLAG, SAVE_FILE_MODE), "wb") as data_file:
             for key, value in key_info_map.items():
-                offset, emb_size, embedding = value
+                offset, emb_size, embedding = value.offset, value.emb_size, value.embedding
                 meta_file.write(struct.pack('qI', key, offset))
                 data_file.write(struct.pack('q', emb_size))
                 data_file.write(struct.pack(f'{emb_size}f', *embedding))

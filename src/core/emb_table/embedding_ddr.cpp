@@ -242,10 +242,10 @@ void EmbeddingDDR::Save(const string& savePath, const int pythonBatchId, bool sa
             if (!keyInfo.count(keys.at(i))) {
                 continue;
             }
-            deltaKeys.emplace_back(keys.at(i));
-            deltaEmbeddings.emplace_back(embeddings.at(i));
+            deltaKeys.push_back(keys.at(i));
+            deltaEmbeddings.push_back(embeddings.at(i));
             if (!optimizerSlots.empty()) {
-                deltaOptimizerSlots.emplace_back(optimizerSlots.at(i));
+                deltaOptimizerSlots.push_back(optimizerSlots.at(i));
             }
         }
         SaveKey(savePath, deltaKeys);

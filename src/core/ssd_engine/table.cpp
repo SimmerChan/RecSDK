@@ -114,11 +114,12 @@ void Table::Save(int step, const map<emb_key_t, KeyInfo>& keyInfo)
     fstream metaFile;
     metaFile.open(metaFilePath, ios::out | ios::trunc | ios::binary);
     if (!metaFile.is_open()) {
+        metaFile.close();
         ThrowRuntimeError("Failed to create table meta file.");
     }
     try {
         fs::permissions(metaFilePath, fs::perms::owner_read | fs::perms::owner_write | fs::perms::group_read);
-    } catch (runtime_error &e) {
+    } catch (runtime_error& e) {
         auto error = Error(ModuleName::M_SSD_ENGINE, ErrorType::UNKNOWN,
                            StringFormat("Fail to change permission of %s.", metaFilePath.c_str()));
         LOG_ERROR(error.ToString());
@@ -176,6 +177,7 @@ void Table::Save(int step)
     fstream metaFile;
     metaFile.open(metaFilePath, ios::out | ios::trunc | ios::binary);
     if (!metaFile.is_open()) {
+        metaFile.close();
         ThrowRuntimeError("Failed to create table meta file.");
     }
     try {
@@ -185,6 +187,7 @@ void Table::Save(int step)
                            StringFormat("Fail to change permission of %s.", metaFilePath.c_str()));
         LOG_ERROR(error.ToString());
         fs::remove_all(metaFilePath);
+        metaFile.close();
         throw;
     }
 
@@ -416,7 +419,7 @@ void Table::Compact(bool fullCompact, const map<emb_key_t, KeyInfo>& keyInfo)
             compactFileList.emplace_back(f);
             continue;
         }
-        if (double(f->GetDataCnt()) * compactThreshold < double(f->GetStaleDataCnt())) {
+        if (double(f->GetDataCnt()) * compactThreshold < static_cast<double>(f->GetStaleDataCnt())) {
             compactFileList.emplace_back(f);
         }
     }
