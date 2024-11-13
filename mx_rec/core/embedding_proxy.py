@@ -16,14 +16,13 @@
 # ==============================================================================
 
 import collections
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import tensorflow as tf
 from tensorflow.python.ops.init_ops import Initializer as InitializerV1
 from tensorflow.python.ops.init_ops_v2 import Initializer as InitializerV2
 
 from mx_rec.core.emb.mergeable_sparse_embedding import MergeableSparseEmbedding
-from mx_rec.core.emb.sparse_embedding import SparseEmbedding
 from mx_rec.util.singleton import singleton
 from mx_rec.util.log import logger
 
@@ -51,12 +50,12 @@ class UnionKey(collections.namedtuple(typename="UnionKey", field_names=["key_dty
 class MergeableEmbeddingTableProxy:
     def __init__(self) -> None:
         self._mtables: List[MergeableSparseEmbedding] = []
-        self._ukey_to_mtable: Dict[UnionKey, SparseEmbedding] = {}
-        self._stable_to_mtable: Dict[str, SparseEmbedding] = {}
+        self._ukey_to_mtable: Dict[UnionKey, MergeableSparseEmbedding] = {}
+        self._stable_to_mtable: Dict[str, MergeableSparseEmbedding] = {}
 
     def create_mergeable_table(
         self, union_key: UnionKey, small_table_name: str, config: Dict[str, Any]
-    ) -> SparseEmbedding:
+    ) -> MergeableSparseEmbedding:
         union_key.validate()
 
         mergeable_table = MergeableSparseEmbedding(small_table_name, config=config)
@@ -73,32 +72,19 @@ class MergeableEmbeddingTableProxy:
 
         return mergeable_table
 
-    def find_mergeable_table(
-        self, union_key: Optional[UnionKey], small_table_name: str = ""
-    ) -> Optional[SparseEmbedding]:
-        union_key.validate()
-
-        if union_key and small_table_name:
-            raise ValueError(
-                "at most one of union key and table name should be provided, got union key => '{}' and table name => '{}'".format(
-                    union_key, small_table_name
-                )
-            )
-
-        if not (union_key or small_table_name):
-            raise ValueError(
-                "at least one of union key and table name should be provided, got union key => '{}' and table name => '{}'".format(
-                    union_key, small_table_name
-                )
-            )
-
-        if not union_key:
-            return self._stable_to_mtable.get(small_table_name, None)
-
-        return self._ukey_to_mtable.get(union_key, None)
+    def find_mergeable_table(self, key: Union[UnionKey, str]) -> Optional[MergeableSparseEmbedding]:
+        if isinstance(key, UnionKey):
+            key.validate()
+            return self._stable_to_mtable.get(key)
+        elif isinstance(key, str):
+            return self._ukey_to_mtable.get(key)
+        else:
+            invalid_type = type(key)
+            ukey_type = type(UnionKey)
+            raise TypeError("not supported key type => '{}', expected '{}' or 'str'".format(invalid_type, ukey_type))
 
     def join_mergeable_table(
-        self, mergeable_table: MergeableSparseEmbedding, small_table_name: str, config: Dict[str, Any]
+        self, mergeable_table: MergeableSparseEmbedding, small_table_name: str
     ) -> MergeableSparseEmbedding:
         if small_table_name in mergeable_table.merged_small_tables:
             raise ValueError(
@@ -107,19 +93,7 @@ class MergeableEmbeddingTableProxy:
                 )
             )
 
-        hbm_vocab_size = config["device_vocabulary_size"]
-        ddr_vocab_size = config["host_vocabulary_size"]
-        ssd_vocab_size = config["ssd_vocabulary_size"]
-
-        mergeable_table.merge_in(small_table_name, hbm_vocab_size, ddr_vocab_size, ssd_vocab_size)
+        mergeable_table.merge_in(small_table_name)
         self._stable_to_mtable[small_table_name] = mergeable_table
 
         return mergeable_table
-
-    def init_sliced_variables(self) -> None:
-        for mtable in self._mtables:
-            mtable.init_sliced_variable()
-
-    def replace_mock_variables(self) -> None:
-        for mtable in self._mtables:
-            mtable.replace_mock_variable()

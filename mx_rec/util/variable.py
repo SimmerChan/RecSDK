@@ -21,13 +21,6 @@ from mx_rec.util.initialize import ConfigInitializer
 
 
 def get_dense_and_sparse_variable():
-    # Runtime import is inevitable due to inappropriate module design.
-    from mx_rec.core.embedding_proxy import MergeableEmbeddingTableProxy
-
-    mtable_proxy = MergeableEmbeddingTableProxy()
-    mtable_proxy.init_sliced_variables()
-    mtable_proxy.replace_mock_variables()
-    
     dense_variables = tf.compat.v1.get_collection(tf.compat.v1.GraphKeys.TRAINABLE_VARIABLES)
     sparse_variables = tf.compat.v1.get_collection(
         ConfigInitializer.get_instance().train_params_config.ascend_global_hashtable_collection)

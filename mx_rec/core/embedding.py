@@ -16,7 +16,6 @@
 # ==============================================================================
 
 import os
-import functools
 from typing import Optional, Union
 
 import tensorflow as tf
@@ -183,6 +182,9 @@ def create_table(
     )
 
     if enable_merge:
+        if not ConfigInitializer.get_instance().use_dynamic_expansion:
+            raise RuntimeError("merge table function requires dynamic expansion mode")
+
         emb_dim = dim.num_elements()
         initializer_type = type(emb_initializer)
         union_key = UnionKey(key_dtype=key_dtype, emb_dim=emb_dim, initializer_type=initializer_type)
@@ -190,9 +192,9 @@ def create_table(
         mtable_proxy = MergeableEmbeddingTableProxy()
         mergeable_table: Optional[MergeableSparseEmbedding] = None
 
-        if mtable_proxy.find_mergeable_table(union_key):
-            mergeable_table = mtable_proxy.find_mergeable_table(union_key=union_key)
-            mtable_proxy.join_mergeable_table(mergeable_table, name, config)
+        mergeable_table = mtable_proxy.find_mergeable_table(union_key=union_key)
+        if mergeable_table:
+            mtable_proxy.join_mergeable_table(mergeable_table, name)
         else:
             mergeable_table = mtable_proxy.create_mergeable_table(union_key, name, config)
 
@@ -253,31 +255,6 @@ def sparse_lookup(
     Returns: Tensor for lookup result
 
     """
-
-    if isinstance(hashtable, MergeableSparseEmbedding) and not hashtable.is_var_initialized:
-        mtable: MergeableSparseEmbedding = hashtable
-
-        key_dims = ids.get_shape().as_list()
-        feat_cnt = functools.reduce(lambda x, y: x * y, key_dims[1:])
-        mock_var = mtable.create_mock_variable(feat_cnt)
-
-        deferred_lookup = functools.partial(
-            sparse_lookup,
-            hashtable,
-            ids,
-            send_count,
-            is_train,
-            name,
-            modify_graph,
-            batch,
-            access_and_evict_config,
-            is_grad,
-            serving_default_value,
-            **kwargs,
-        )
-        mtable.register_deferred_lookup(mock_var, deferred_lookup)
-
-        return mock_var
 
     kwargs["is_grad"] = is_grad
     kwargs["is_train"] = is_train
