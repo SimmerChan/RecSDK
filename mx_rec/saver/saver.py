@@ -1114,21 +1114,21 @@ def read_table_meta_data(current_ssd_dir: str, table_name: str, model: str) -> L
         # read name_size(4bytes uint32_t)
         name_size_data = file.read(UINT32_BYTES)
         if len(name_size_data) < UINT32_BYTES:
-            raise EOFError("End of file reached before reading name size.")
+            raise EOFError("End of file reached before reading name size, file maybe broken.")
 
         name_size, = struct.unpack('I', name_size_data)
 
         # read name(name_size bytes)
         name_data = file.read(name_size)
         if len(name_data) < name_size:
-            raise EOFError("End of file reached before reading name.")
+            raise EOFError("End of file reached before reading name, file maybe broken.")
 
         name = name_data.decode('utf-8')
 
         # read fileCnt(8bytes uint64_t)
         file_cnt_data = file.read(UINT64_BYTES)
         if len(file_cnt_data) < UINT64_BYTES:
-            raise EOFError("End of file reached before reading file count.")
+            raise EOFError("End of file reached before reading file count, file maybe broken.")
 
         file_cnt, = struct.unpack('Q', file_cnt_data)
 
@@ -1137,7 +1137,7 @@ def read_table_meta_data(current_ssd_dir: str, table_name: str, model: str) -> L
         for _ in range(file_cnt):
             fid_data = file.read(UINT64_BYTES)
             if len(fid_data) < UINT64_BYTES:
-                raise EOFError("End of file reached before reading all file IDs.")
+                raise EOFError("End of file reached before reading all file IDs, file maybe broken.")
 
             fid, = struct.unpack('Q', fid_data)
             file_ids.append(fid)
@@ -1166,8 +1166,10 @@ def read_key_offset(file_path: str) -> Generator[Tuple[int, int], None, None]:
         while True:
             # read key(8bytes)and offset(4bytes)
             data = file.read(every_key_offset_bytes)  # 8bytes key + 4bytes offset
-            if not data:
-                break  # file end
+            if len(data) == 0:
+                break
+            if len(data) < every_key_offset_bytes:
+                raise EOFError("End of file reached before reading key_offset, meta file maybe broken.")
 
             # unpack key and offset
             key = struct.unpack('q', data[:UINT64_BYTES])[0]                           # 'q':8bytes
@@ -1182,13 +1184,17 @@ def read_embedding_data(file_path: str) -> Generator[Tuple[int, List[float]], No
         validate_read_file(file_path)
         while True:
             emb_size_data = file.read(UINT64_BYTES)
-            if len(emb_size_data) < UINT64_BYTES:
+            if len(emb_size_data) == 0:
                 break
+            if len(emb_size_data) < UINT64_BYTES:
+                raise EOFError("End of file reached before reading embedding size, data file maybe broken.")
 
             emb_size, = struct.unpack('Q', emb_size_data)
             embeddings_data = file.read(emb_size * FLOAT32_BYTES)
-            if len(embeddings_data) < emb_size * FLOAT32_BYTES:
+            if embeddings_data == 0:
                 break
+            if len(embeddings_data) < emb_size * FLOAT32_BYTES:
+                raise EOFError("End of file reached before reading embedding file, data file maybe broken.")
 
             embedding = list(struct.unpack(f'{emb_size}f', embeddings_data))
             yield emb_size, embedding
