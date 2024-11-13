@@ -195,7 +195,11 @@ void HybridMgmt::Save(const string& savePath, bool saveDelta)
     if (isL3StorageEnabled) {
         LOG_DEBUG(MGMT + "start save L3Storage data");
         auto step = GetStepFromPath(savePath);
-        cacheManager->Save(step, saveDelta, keyInfoMap);
+        if (saveDelta) {
+            cacheManager->Save(step, keyInfoMap);
+        } else {
+            cacheManager->Save(step);
+        }
     }
 
     // 保存特征准入淘汰相关的数据

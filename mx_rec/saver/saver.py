@@ -28,7 +28,7 @@ from tensorflow.python.util import compat
 
 from mx_rec.constants.constants import (
     DataName, DataAttr, MIN_SIZE, MAX_FILE_SIZE, TFDevice, MAX_INT32, HDFS_FILE_PREFIX, TRAIN_CHANNEL_ID,
-    BASE_MODEL, DELTA_MODEL, SAVE_DIR_MODE, SAVE_FILE_MODE, SAVE_FILE_FLAG, SSD_SAVE_PATH_PREFIX
+    BASE_MODEL, DELTA_MODEL, SAVE_DIR_MODE, SAVE_FILE_MODE, SAVE_FILE_FLAG
 )
 from mx_rec.util.communication.hccl_ops import get_rank_id, get_rank_size, get_local_rank_size
 from mx_rec.util.initialize import ConfigInitializer
@@ -44,6 +44,8 @@ from mx_rec.util.tf_version_adapter import npu_ops
 SAVE_SPARSE_PATH_PREFIX = "sparse"
 SAVE_DELTA_SPARSE_PATH_PREFIX = "delta-sparse"
 GLOBAL_STEP_STR = "global_step"
+SSD_SAVE_PATH_PREFIX = "ssd_sparse_model_rank_"
+SSD_DATA_FILE_MIN_SIZE = 0
 
 
 # define save model thread
@@ -1174,7 +1176,7 @@ def read_key_offset(file_path: str) -> Generator[Tuple[int, int], None, None]:
 
 def read_embedding_data(file_path: str) -> Generator[Tuple[int, List[float]], None, None]:
     with tf.io.gfile.GFile(file_path, 'rb') as file:
-        if tf.io.gfile.stat(file_path).length == 0:
+        if tf.io.gfile.stat(file_path).length == SSD_DATA_FILE_MIN_SIZE:
             return
         validate_read_file(file_path)
         while True:
@@ -1194,9 +1196,18 @@ def read_embedding_data(file_path: str) -> Generator[Tuple[int, List[float]], No
 def write_ssd_meta_and_data(current_ssd_dir: str, table_name: str, fid: int, step: str, key_info_map: dict) -> None:
     meta_file_path = os.path.join(current_ssd_dir, table_name, str(fid) + ".meta." + step)
     data_file_path = os.path.join(current_ssd_dir, table_name, str(fid) + ".data." + step)
-    with tf.io.gfile.GFile(meta_file_path, "wb") as meta_file, tf.io.gfile.GFile(data_file_path, "wb") as data_file:
-        for key, value in key_info_map.items():
-            offset, emb_size, embedding = value
-            meta_file.write(struct.pack('qI', key, offset))
-            data_file.write(struct.pack('q', emb_size))
-            data_file.write(struct.pack(f'{emb_size}f', *embedding))
+    if check_file_system_is_hdfs(meta_file_path) and check_file_system_is_hdfs(data_file_path):
+        with tf.io.gfile.GFile(meta_file_path, "wb") as meta_file, tf.io.gfile.GFile(data_file_path, "wb") as data_file:
+            for key, value in key_info_map.items():
+                offset, emb_size, embedding = value
+                meta_file.write(struct.pack('qI', key, offset))
+                data_file.write(struct.pack('q', emb_size))
+                data_file.write(struct.pack(f'{emb_size}f', *embedding))
+    else:
+        with os.fdopen(os.open(meta_file_path, SAVE_FILE_FLAG, SAVE_FILE_MODE), "wb") as meta_file, \
+                os.fdopen(os.open(data_file_path, SAVE_FILE_FLAG, SAVE_FILE_MODE), "wb") as data_file:
+            for key, value in key_info_map.items():
+                offset, emb_size, embedding = value
+                meta_file.write(struct.pack('qI', key, offset))
+                data_file.write(struct.pack('q', emb_size))
+                data_file.write(struct.pack(f'{emb_size}f', *embedding))

@@ -72,9 +72,7 @@ TEST(SSDEngine, CreateAndWriteAndReadAndAutoCompactAndSave)
     ASSERT_EQ(eng->GetTableAvailableSpace(tbName), maxTableSize - keys.size() + deleteKeys.size());
 
     // save
-    bool saveDelta = false;
-    map<string, map<emb_key_t, KeyInfo>> keyInfoMap;
-    eng->Save(saveStep, saveDelta, keyInfoMap);
+    eng->Save(saveStep);
 
     eng->Stop();
     delete eng;
@@ -136,9 +134,7 @@ TEST(SSDEngine, LoadAndRead)
     engSave->InsertEmbeddings(tbName, keys, embeddings);
 
     // save
-    bool saveDelta = false;
-    map<string, map<emb_key_t, KeyInfo>> keyInfoMap;
-    engSave->Save(saveStep, saveDelta, keyInfoMap);
+    engSave->Save(saveStep);
     engSave->Stop();
 
     // load

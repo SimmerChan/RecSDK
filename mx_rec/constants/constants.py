@@ -98,7 +98,6 @@ MAX_DEVICE_ID = 15
 # incremental checkpoint related
 BASE_MODEL = "base"
 DELTA_MODEL = "delta"
-SSD_SAVE_PATH_PREFIX = "ssd_sparse_model_rank_"
 
 # HDFS file system's file prefix
 HDFS_FILE_PREFIX = ["viewfs://", "hdfs://"]

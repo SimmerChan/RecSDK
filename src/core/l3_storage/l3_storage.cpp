@@ -53,7 +53,9 @@ vector<vector<float>> L3Storage::FetchEmbeddings(const string& tableName, vector
     return vector<vector<float>>();
 }
 
-void L3Storage::Save(int step, bool saveDelta, const map<string, map<emb_key_t, KeyInfo>>& keyInfoMap) {}
+void L3Storage::Save(int step, const map<string, map<emb_key_t, KeyInfo>>& keyInfoMap) {}
+
+void L3Storage::Save(int step) {}
 
 void L3Storage::Load(const string& tableName, vector<string> savePaths, uint64_t maxTableSize, int step) {}
 
