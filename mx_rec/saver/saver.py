@@ -1111,7 +1111,7 @@ def read_table_meta_data(current_ssd_dir: str, table_name: str, model: str) -> L
     table_meta_file = os.path.join(current_ssd_dir, table_name, table_name + ".meta." + model)
     with tf.io.gfile.GFile(table_meta_file, 'rb') as file:
         validate_read_file(table_meta_file)
-        # read nameSize(4bytes uint32_t)
+        # read name_size(4bytes uint32_t)
         name_size_data = file.read(4)
         if len(name_size_data) < 4:
             raise EOFError("End of file reached before reading name size.")
@@ -1169,7 +1169,7 @@ def read_key_offset(file_path: str) -> Generator[Tuple[int, int], None, None]:
                 break  # file end
 
             # unpack key and offset
-            key = struct.unpack('q', data[:8])[0]  # 'q':8bytes
+            key = struct.unpack('q', data[:8])[0]       # 'q':8bytes
             offset = struct.unpack('I', data[8:12])[0]  # 'I':4bytes
             yield key, offset
 
