@@ -1159,7 +1159,7 @@ def read_key_offset_and_embedding(current_dir: str, model: str, fid: int, is_del
 
 def read_key_offset(file_path: str) -> Generator[Tuple[int, int], None, None]:
     with tf.io.gfile.GFile(file_path, 'rb') as file:
-        if tf.io.gfile.stat(file_path).length == 0:
+        if tf.io.gfile.stat(file_path).length == SSD_DATA_FILE_MIN_SIZE:
             return
         validate_read_file(file_path)
         while True:
