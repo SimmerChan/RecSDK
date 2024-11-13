@@ -28,7 +28,7 @@ from tensorflow.python.util import compat
 
 from mx_rec.constants.constants import (
     DataName, DataAttr, MIN_SIZE, MAX_FILE_SIZE, TFDevice, MAX_INT32, HDFS_FILE_PREFIX, TRAIN_CHANNEL_ID,
-    BASE_MODEL, DELTA_MODEL, SAVE_DIR_MODE, SAVE_FILE_MODE, SAVE_FILE_FLAG
+    BASE_MODEL, DELTA_MODEL, SAVE_DIR_MODE, SAVE_FILE_MODE, SAVE_FILE_FLAG, FLOAT32_BYTES, UINT64_BYTES, UINT32_BYTES
 )
 from mx_rec.util.communication.hccl_ops import get_rank_id, get_rank_size, get_local_rank_size
 from mx_rec.util.initialize import ConfigInitializer
@@ -1112,8 +1112,8 @@ def read_table_meta_data(current_ssd_dir: str, table_name: str, model: str) -> L
     with tf.io.gfile.GFile(table_meta_file, 'rb') as file:
         validate_read_file(table_meta_file)
         # read name_size(4bytes uint32_t)
-        name_size_data = file.read(4)
-        if len(name_size_data) < 4:
+        name_size_data = file.read(UINT32_BYTES)
+        if len(name_size_data) < UINT32_BYTES:
             raise EOFError("End of file reached before reading name size.")
 
         name_size, = struct.unpack('I', name_size_data)
@@ -1126,8 +1126,8 @@ def read_table_meta_data(current_ssd_dir: str, table_name: str, model: str) -> L
         name = name_data.decode('utf-8')
 
         # read fileCnt(8bytes uint64_t)
-        file_cnt_data = file.read(8)
-        if len(file_cnt_data) < 8:
+        file_cnt_data = file.read(UINT64_BYTES)
+        if len(file_cnt_data) < UINT64_BYTES:
             raise EOFError("End of file reached before reading file count.")
 
         file_cnt, = struct.unpack('Q', file_cnt_data)
@@ -1135,8 +1135,8 @@ def read_table_meta_data(current_ssd_dir: str, table_name: str, model: str) -> L
         # read fileCnt fileID(every 8bytes, uint64_t)
         file_ids = []
         for _ in range(file_cnt):
-            fid_data = file.read(8)
-            if len(fid_data) < 8:
+            fid_data = file.read(UINT64_BYTES)
+            if len(fid_data) < UINT64_BYTES:
                 raise EOFError("End of file reached before reading all file IDs.")
 
             fid, = struct.unpack('Q', fid_data)
@@ -1162,15 +1162,16 @@ def read_key_offset(file_path: str) -> Generator[Tuple[int, int], None, None]:
         if tf.io.gfile.stat(file_path).length == SSD_DATA_FILE_MIN_SIZE:
             return
         validate_read_file(file_path)
+        every_key_offset_bytes = UINT64_BYTES + UINT32_BYTES
         while True:
             # read key(8bytes)and offset(4bytes)
-            data = file.read(12)  # 8bytes key + 4bytes offset
+            data = file.read(every_key_offset_bytes)  # 8bytes key + 4bytes offset
             if not data:
                 break  # file end
 
             # unpack key and offset
-            key = struct.unpack('q', data[:8])[0]       # 'q':8bytes
-            offset = struct.unpack('I', data[8:12])[0]  # 'I':4bytes
+            key = struct.unpack('q', data[:UINT64_BYTES])[0]                           # 'q':8bytes
+            offset = struct.unpack('I', data[UINT64_BYTES:every_key_offset_bytes])[0]  # 'I':4bytes
             yield key, offset
 
 
@@ -1180,17 +1181,17 @@ def read_embedding_data(file_path: str) -> Generator[Tuple[int, List[float]], No
             return
         validate_read_file(file_path)
         while True:
-            emb_size_data = file.read(8)
-            if len(emb_size_data) < 8:
+            emb_size_data = file.read(UINT64_BYTES)
+            if len(emb_size_data) < UINT64_BYTES:
                 break
 
-            embSize, = struct.unpack('Q', emb_size_data)
-            embeddings_data = file.read(embSize * 4)
-            if len(embeddings_data) < embSize * 4:
+            emb_size, = struct.unpack('Q', emb_size_data)
+            embeddings_data = file.read(emb_size * FLOAT32_BYTES)
+            if len(embeddings_data) < emb_size * FLOAT32_BYTES:
                 break
 
-            embedding = list(struct.unpack(f'{embSize}f', embeddings_data))
-            yield embSize, embedding
+            embedding = list(struct.unpack(f'{emb_size}f', embeddings_data))
+            yield emb_size, embedding
 
 
 def write_ssd_meta_and_data(current_ssd_dir: str, table_name: str, fid: int, step: str, key_info_map: dict) -> None:
