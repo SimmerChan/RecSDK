@@ -25,6 +25,8 @@ See the License for the specific language governing permissions and
 #include "acl_channel.h"
 #include "utils/common.h"
 #include "utils/config.h"
+#include "hybrid_mgmt/rma_shm_svm.h"
+#include <unordered_map>
 
 #ifndef TDT_CREATE_CHANNEL
 #define TDT_CREATE_CHANNEL acltdtCreateChannelWithCapacity
@@ -33,6 +35,8 @@ See the License for the specific language governing permissions and
 namespace MxRec {
     using namespace std;
     const std::string MGMT = "\033[32m[Mgmt]\033[0m ";
+    const std::string HD = "\033[32m[HD]\033[0m ";
+    const std::string HOSTEMB = "\033[32m[HostEmb]\033[0m ";
     const int PING_PONG_SIZE = 6;
 
     enum class TransferChannel {
@@ -95,9 +99,15 @@ namespace MxRec {
         void Send(TransferChannel channel, const vector<Tensor>& tensors,
                   int channelId, const string& embName, int batchId = -1);
 
+        vector<Tensor> Recv(TransferChannel channel, int channelId, const string& embName);
+
+        void SendAcl(TransferChannel channel, const float*h2dEmb, int64_t dims[], int channelId, const string& embName,
+                     int batchId);
         size_t RecvAcl(TransferChannel channel, int channelId, const string& embName,
                        int embeddingThreadId, int batchId);
         size_t RecvOffsetsAcl(TransferChannel channel, int channelId, const string& embName);
+        size_t RecvMteShm(TransferChannel channel, int channelId, const string& embName, float*& ptr, int64_t &dim0,
+                          int batchId);
 
         void Destroy();
 
@@ -116,6 +126,14 @@ namespace MxRec {
         std::unordered_map<int, std::set<std::string>> usedChannelsNames; // key是通道0、1
         bool running;
         std::mutex recordChannelMtx;
+
+        void RecvFormatShmData(const int32_t *dataHeader, RmaShmData &queueData);
+        size_t RecvTensorByShm(RmaShmHeader *queueHeader, float*& ptr, int64_t &dim0, bool &emptyFlag);
+        Status SendTensorByShm(string &name, const std::vector<tensorflow::Tensor>& tensors, bool &isNeedResend);
+        void DestroyAclDataset(acltdtDataset *acl_dataset, bool include_data_item);
+        void SendByAclTdt(const string &sendName, const float *send_data, int64_t dims[]);
+        void RmaSend(string &name, const float *sendData, int64_t dims[]);
+        uint32_t localDeviceId;
     };
 }
 #endif // MX_REC_HD_TRANSFER_H

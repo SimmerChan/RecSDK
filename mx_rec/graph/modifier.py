@@ -50,7 +50,9 @@ from mx_rec.util.ops import import_host_pipeline_ops
 from mx_rec.util.perf import performance
 from mx_rec.util.tf_version_adapter import npu_ops
 from mx_rec.validator.validator import para_checker_decorator, ClassValidator
-
+from mx_rec.util.communication.hccl_ops import get_rank_id, get_device_id
+import mxrec_pybind
+rma_pybind = tf.load_op_library("/home/y00806855/dump_develop_pcie/output/librma_dyn_ops.so")
 
 class GraphModifierHook(tf.estimator.SessionRunHook):
     @para_checker_decorator(
@@ -74,8 +76,8 @@ class GraphModifierHook(tf.estimator.SessionRunHook):
 
         self._iterator_type = ConfigInitializer.get_instance().train_params_config.iterator_type
         if self._modify_graph and self._iterator_type not in (
-            AnchorIteratorOp.MAKE_ITERATOR.value,
-            AnchorIteratorOp.ONE_SHOT_ITERATOR.value,
+                AnchorIteratorOp.MAKE_ITERATOR.value,
+                AnchorIteratorOp.ONE_SHOT_ITERATOR.value,
         ):
             raise ValueError("the value of iterator type should be like `MakeIterator` or `OneShotIterator`.")
         logger.debug("In GraphModifierHook, iterator type is `%s`.", self._iterator_type)
@@ -113,11 +115,11 @@ class _GraphModifier:
 
     @staticmethod
     def _get_preprocessing_map_func(
-        graph_def: GraphDef,
-        input_names: List[str],
-        output_names: List[str],
-        batch_tensor_names: List[str] = None,
-        pipeline_input_indexes: List[int] = None,
+            graph_def: GraphDef,
+            input_names: List[str],
+            output_names: List[str],
+            batch_tensor_names: List[str] = None,
+            pipeline_input_indexes: List[int] = None,
     ) -> Callable:
         input_names = check_and_force_list(input_names, str)
         output_names = check_and_force_list(output_names, str)
@@ -300,7 +302,7 @@ class _GraphModifier:
         return get_next_op_map
 
     def _get_sub_graph(
-        self, input_tensors: List[Tensor], output_tensors: List[Tensor]
+            self, input_tensors: List[Tensor], output_tensors: List[Tensor]
     ) -> Tuple[GraphDef, List[str], List[str]]:
         input_tensors = check_and_force_list(input_tensors, tf.Tensor)
         output_tensors = check_and_force_list(output_tensors, tf.Tensor)
@@ -383,11 +385,11 @@ class _GraphModifier:
         return src_dataset
 
     def _get_tgt_dataset(
-        self,
-        src_dataset: DatasetV1Adapter,
-        sub_cutting_point_list: List[Tensor],
-        record: _AnchorRecord,
-        prefetch: int = 10,
+            self,
+            src_dataset: DatasetV1Adapter,
+            sub_cutting_point_list: List[Tensor],
+            record: _AnchorRecord,
+            prefetch: int = 10,
     ) -> DatasetV1Adapter:
         """
         根据原始数据集生成新的数据集实例.
@@ -443,7 +445,7 @@ class _GraphModifier:
         return tgt_dataset
 
     def _update_iterator_getnext(
-        self, get_next_op: Operation, tgt_dataset: DatasetV1Adapter, is_training: bool, record: _AnchorRecord
+            self, get_next_op: Operation, tgt_dataset: DatasetV1Adapter, is_training: bool, record: _AnchorRecord
     ) -> None:
         """
         用新数据集中的`IteratorGetNext`算子替换计算图中原始数据集的`IteratorGetNext`算子，即用新数据集的batch替换原始数据集的batch.
@@ -489,10 +491,10 @@ class _GraphModifier:
         self._update_input_tensor_with_new_batch(record.replacement_spec, new_get_next_op_name, new_batch)
 
     def _update_input_tensor_with_new_batch(
-        self,
-        replacement_specs: DefaultDict[Tensor, List[Tuple[int, Operation]]],
-        new_get_next_op_name: str,
-        new_batch: Dict[str, Tensor],
+            self,
+            replacement_specs: DefaultDict[Tensor, List[Tuple[int, Operation]]],
+            new_get_next_op_name: str,
+            new_batch: Dict[str, Tensor],
     ) -> None:
         """
         用新batch中的IteratorGetNext替换计算图中老batch的IteratorGetNext.
@@ -586,11 +588,11 @@ def _parse_batch(data_args: Any, data_batch: dict, key: str = None):
 
 
 def _get_input_index_list(
-    cutting_point_list: List[Tensor],
-    replacement_specs: DefaultDict[Tensor, List[Tuple[int, Operation]]],
-    mapping_name_list: List[str],
-    base_count: int,
-    timestamp_index: int = None,
+        cutting_point_list: List[Tensor],
+        replacement_specs: DefaultDict[Tensor, List[Tuple[int, Operation]]],
+        mapping_name_list: List[str],
+        base_count: int,
+        timestamp_index: int = None,
 ) -> List[int]:
     input_index_list = []
     for cutting_point in cutting_point_list:
@@ -610,7 +612,7 @@ def _get_input_index_list(
 
 
 def _get_passing_tensor_list(
-    src_tensors: List[Tensor], target_op: Operation
+        src_tensors: List[Tensor], target_op: Operation
 ) -> Tuple[List[Tensor], List[int], List[Tensor]]:
     def get_passing_tensors(src_tensor):
         passing_tensors = []
@@ -744,43 +746,39 @@ def _get_swap_info(table_instance: BaseSparseEmbedding, variable_and_slot_list: 
     if len(variable_and_slot_list) == 0:
         raise RuntimeError("When enable emb_transfer, optimizer should have slots")
 
+    device_id = get_device_id() # int(config.get("device_id"))
     use_static = ConfigInitializer.get_instance().use_static
     max_lookup_vec_size = None
     if use_static:
         max_lookup_vec_size = table_instance.send_count * table_instance.rank_size if not table_instance.is_dp else (
             table_instance.send_count)
 
-    with tf.compat.v1.variable_scope("h2d_emb"):
-        logger.debug('Channel %s_h2d_%s was built for getnext', table_instance.table_name, channel_id)
-        h2d_emb = npu_ops.gen_npu_ops.get_next(
-            output_types=[tf.float32],
-            output_shapes=[[max_lookup_vec_size, table_instance.ext_emb_size]],
-            channel_name=f'{table_instance.table_name}_h2d_{channel_id}')[0]
-
-    logger.debug("h2d_emb shape: %s", h2d_emb)
-
     swap_out_pos = swap_info.swap_out_pos
     swap_in_pos = swap_info.swap_in_pos
+
+    swap_in_pos = tf.cast(swap_in_pos, dtype=tf.int64)
+    swap_out_pos = tf.cast(swap_out_pos, dtype=tf.int64)
+
     if use_static:
         swap_out_pos = swap_out_pos[:swap_info.swap_out_len]
-        h2d_emb = h2d_emb[:swap_info.swap_in_len, :]
         swap_in_pos = swap_in_pos[:swap_info.swap_in_len]
-    swap_outs = [tf.gather(one_table, swap_out_pos) for one_table in variable_and_slot_list]
-    swap_out = tf.concat(swap_outs, axis=1)
-    logger.debug('Channel %s_d2h_%s was built for op outfeed.', table_instance.table_name, channel_id)
 
-    swap_out_op = npu_ops.outfeed_enqueue_op(
-        channel_name=f'{table_instance.table_name}_d2h_{channel_id}', inputs=[swap_out])
-    with tf.control_dependencies([swap_out_op]):
-        nd_swap_pos = tf.expand_dims(swap_in_pos, 1)
-        var_num = len(variable_and_slot_list)
-        h2d_emb_split = tf.split(h2d_emb, var_num, axis=1)
+    rma_shm_host_swap_in = mxrec_pybind.get_shm_mem(f'{table_instance.table_name}_h2d_{channel_id}_{device_id}', device_id, 50)
+    host_shm_swap_in = str(rma_shm_host_swap_in)
 
-        optimizer = ConfigInitializer.get_instance().optimizer_config.get_optimizer_by_table_name(
-            table_instance.table_name)
-        if optimizer is None and channel_id == 1:
-            swap_in_op = [tf.compat.v1.scatter_nd_update(variable_and_slot_list[0], nd_swap_pos, h2d_emb_split[0])]
-        else:
-            swap_in_op = [tf.compat.v1.scatter_nd_update(variable_and_slot_list[i], nd_swap_pos, h2d_emb_split[i])
-                        for i in range(var_num)]
-    return swap_in_op
+    rma_shm_host_swap_out = mxrec_pybind.get_shm_mem(f'{table_instance.table_name}_d2h_{channel_id}_{device_id}', device_id, 50)
+    host_shm_swap_out = str(rma_shm_host_swap_out)
+
+    var_num = len(variable_and_slot_list)
+
+    logger.debug("host swap in addr: %s, host swap out addr: %s, table num: %d, dev %d", host_shm_swap_in, host_shm_swap_out, var_num, device_id)
+
+    optimizer = ConfigInitializer.get_instance().optimizer_config.get_optimizer_by_table_name(
+        table_instance.table_name)
+
+    if optimizer is None and channel_id == 1:
+        swap_op = [rma_pybind.rma_swap(update_table = variable_and_slot_list[0], update_index = swap_in_pos, shm_swap_in = host_shm_swap_in, shm_swap_out = host_shm_swap_out)]
+    else :
+        swap_op = [rma_pybind.rma_swap_multi_tables(table0 = variable_and_slot_list[0], table1 = variable_and_slot_list[1], table2 = variable_and_slot_list[2], swap_in_index = swap_in_pos, swap_out_index = swap_out_pos, shm_swap_in = host_shm_swap_in, shm_swap_out = host_shm_swap_out)]
+
+    return swap_op
