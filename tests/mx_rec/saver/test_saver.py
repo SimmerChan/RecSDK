@@ -16,15 +16,15 @@
 # ==============================================================================
 
 import os
+import struct
 import unittest
 from unittest import mock
 
 import tensorflow as tf
 
-from mx_rec.saver.saver import Saver
+from mx_rec.saver.saver import Saver, SSD_SAVE_PATH_PREFIX, read_base_delta_and_write_for_ssd
 from mx_rec.constants.constants import ASCEND_GLOBAL_HASHTABLE_COLLECTION
-from mx_rec.util.initialize import ConfigInitializer
-from tests.mx_rec.core.mock_class import MockConfigInitializer
+from tests.mx_rec.core.mock_class import MockConfigInitializer, MockSparseEmbedConfig
 from tests.mx_rec.saver.sparse_embedding_mock import SparseEmbeddingMock
 
 table_instance = SparseEmbeddingMock()
@@ -89,6 +89,73 @@ class TestSaver(unittest.TestCase):
 
             tf.compat.v1.add_to_collection(ASCEND_GLOBAL_HASHTABLE_COLLECTION, self.var)
         return self.graph
+
+
+class TestReadSSDModel(unittest.TestCase):
+    """
+    Test read base model and delta models for SSD.
+    """
+    def create_ssd_model_file(self):
+        self.rank_id, self.table_name, self.file_cnt, self.file_id, self.base_model, self.delta_models = \
+            0, "test_table", 1, 0, "0", ["1"]
+        self.keys, self.offsets = [1], [1]
+        self.emb_size, self.embedding = 32, [0.1] * 32
+        # Create 0th step model as base model.
+        table_name_meta_file = os.path.join(SSD_SAVE_PATH_PREFIX + str(self.rank_id), self.table_name,
+                                            self.table_name + ".meta." + self.base_model)
+        tf.io.gfile.makedirs(os.path.join(SSD_SAVE_PATH_PREFIX + str(self.rank_id), self.table_name))
+        with tf.io.gfile.GFile(table_name_meta_file, "wb") as file:
+            file.write(struct.pack("I", len(self.table_name)))
+            file.write(self.table_name.encode("utf-8"))
+            file.write(struct.pack("Q", self.file_cnt))
+            file.write(struct.pack("Q", self.file_id))
+
+        table_meta_file = os.path.join(SSD_SAVE_PATH_PREFIX + str(self.rank_id), self.table_name,
+                                       str(self.file_id) + ".meta." + self.base_model)
+        table_data_file = os.path.join(SSD_SAVE_PATH_PREFIX + str(self.rank_id), self.table_name,
+                                       str(self.file_id) + ".data." + self.base_model)
+        with tf.io.gfile.GFile(table_meta_file, "wb") as f1, tf.io.gfile.GFile(table_data_file, "wb") as f2:
+            f1.write("")
+            f2.write("")
+
+        # Create 1th step model as delta model.
+        for delta in self.delta_models:
+            table_name_meta_file = os.path.join(SSD_SAVE_PATH_PREFIX + str(self.rank_id), self.table_name,
+                                                self.table_name + ".meta." + delta)
+            tf.io.gfile.makedirs(os.path.join(SSD_SAVE_PATH_PREFIX + str(self.rank_id), self.table_name))
+            with tf.io.gfile.GFile(table_name_meta_file, "wb") as file:
+                file.write(struct.pack("I", len(self.table_name)))
+                file.write(self.table_name.encode("utf-8"))
+                file.write(struct.pack("Q", self.file_cnt))
+                file.write(struct.pack("Q", self.file_id))
+
+            meta_file = os.path.join(SSD_SAVE_PATH_PREFIX + str(self.rank_id), self.table_name,
+                                     "delta-" + str(self.file_id) + ".meta." + delta)
+            data_file = os.path.join(SSD_SAVE_PATH_PREFIX + str(self.rank_id), self.table_name,
+                                     "delta-" + str(self.file_id) + ".data." + delta)
+            with tf.io.gfile.GFile(meta_file, "wb") as file:
+                for key, offset in zip(self.keys, self.offsets):
+                    file.write(struct.pack("Q", key))
+                    file.write(struct.pack("I", offset))
+            with tf.io.gfile.GFile(data_file, "wb") as file:
+                file.write(struct.pack("Q", self.emb_size))
+                for emb in self.embedding:
+                    file.write(struct.pack("f", emb))
+
+    @mock.patch("mx_rec.saver.saver.ConfigInitializer")
+    def test_read_base_delta_and_write_for_ssd(self, saver_config_initializer):
+        self.create_ssd_model_file()
+        self.expected_meta_file = os.path.join(SSD_SAVE_PATH_PREFIX + str(self.rank_id), self.table_name,
+                                               str(self.file_id) + ".meta." + self.delta_models[-1])
+        self.expected_data_file = os.path.join(SSD_SAVE_PATH_PREFIX + str(self.rank_id), self.table_name,
+                                               str(self.file_id) + ".data." + self.delta_models[-1])
+        mock_config_initializer = MockConfigInitializer()
+        mock_config_initializer.sparse_embed_config = MockSparseEmbedConfig(table_name_set=[self.table_name])
+        saver_config_initializer.get_instance = mock.Mock(return_value=mock_config_initializer)
+        read_base_delta_and_write_for_ssd("./tmp", self.base_model, self.delta_models, self.rank_id)
+        self.assertTrue(tf.io.gfile.exists(self.expected_meta_file), "New meta file created.")
+        self.assertTrue(tf.io.gfile.exists(self.expected_data_file), "New data file created.")
+        tf.io.gfile.rmtree(SSD_SAVE_PATH_PREFIX + str(self.rank_id))
 
 
 if __name__ == '__main__':
