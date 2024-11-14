@@ -249,7 +249,6 @@ void File::Save(const string& saveDir, int step, const map<emb_key_t, KeyInfo>& 
 
     fs::path metaFileToSave = fs::absolute(saveDir + "/" + "delta-" + to_string(fileID) + ".meta." +
             to_string(step));
-
     if (fs::exists(metaFileToSave)) {
         ThrowInvalidArgError(ErrorType::INVALID_ARGUMENT, "Failed to save latest meta, file already exist.");
     }
@@ -277,7 +276,6 @@ void File::Save(const string& saveDir, int step, const map<emb_key_t, KeyInfo>& 
 
     fs::path dataFileToSave = fs::absolute(saveDir + "/" + "delta-" + to_string(fileID) + ".data." +
             to_string(step));
-
     if (fs::exists(dataFileToSave)) {
         ThrowInvalidArgError(ErrorType::INVALID_ARGUMENT, "Failed to save latest data, file already exist.");
     }
@@ -313,7 +311,6 @@ void File::Save(const string& saveDir, int step)
     localFileMeta.close();
 
     fs::path metaFileToSave = fs::absolute(saveDir + "/" + to_string(fileID) + ".meta." + to_string(step));
-
     if (fs::exists(metaFileToSave)) {
         ThrowInvalidArgError(ErrorType::INVALID_ARGUMENT, "Failed to save latest meta, file already exist.");
     }
@@ -340,7 +337,6 @@ void File::Save(const string& saveDir, int step)
     localFileData.close();
 
     fs::path dataFileToSave = fs::absolute(saveDir + "/" + to_string(fileID) + ".data." + to_string(step));
-
     if (fs::exists(dataFileToSave)) {
         ThrowInvalidArgError(ErrorType::INVALID_ARGUMENT, "Failed to save latest data, file already exist.");
     }
