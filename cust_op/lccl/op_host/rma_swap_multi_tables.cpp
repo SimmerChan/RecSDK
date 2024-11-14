@@ -19,7 +19,7 @@
 #include "register/op_def_registry.h"
 #include "rma_log.h"
 
-constexpr int32_t BLOCK_DIM = 16; // 至少需要4个core
+constexpr int32_t BLOCK_DIM = 48; // 至少需要4个core
 
 namespace optiling {
     constexpr int32_t RMA_DIM_MAX = 2;
@@ -95,18 +95,9 @@ namespace ge {
         }
         y_shape->SetDimNum(1);
         y_shape->SetDim(0, BLOCK_DIM);
-//        y_shape->SetDimNum(2);
-//        y_shape->SetDim(0, 300000);
-//        y_shape->SetDim(0, 32);
 
         return GRAPH_SUCCESS;
     }
-//static ge::graphStatus InferDataType(gert::InferDataTypeContext *context)
-//{
-//    LOG_DEBUG("RmaSwap InferDataType");
-//    auto ret = context->SetOutputDataType(0, ge::DataType::DT_INT64);
-//    return GRAPH_SUCCESS;
-//}
 }
 
 namespace ops {
@@ -144,19 +135,13 @@ namespace ops {
                 .DataType({ ge::DT_INT64, ge::DT_INT64, ge::DT_INT64 })
                 .Format({ ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND })
                 .UnknownShapeFormat({ ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND });
-//            this->Output("output")
-//                .ParamType(REQUIRED)
-//                .DataType({ ge::DT_FLOAT, ge::DT_FLOAT, ge::DT_FLOAT })
-//                .Format({ ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND })
-//                .UnknownShapeFormat({ ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND });
             this->Attr("shm_swap_in").String();
             this->Attr("shm_swap_out").String();
 
             this->SetInferShape(ge::InferShape);
-//        this->SetInferDataType(ge::InferDataType);
 
             this->AICore().SetTiling(optiling::TilingFunc);
-//            this->AICore().AddConfig("ascend910b");
+            this->AICore().AddConfig("ascend910b");
             this->AICore().AddConfig("ascend910_93");
         }
     };

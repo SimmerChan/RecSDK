@@ -1576,7 +1576,6 @@ void HybridMgmt::JoinEmbeddingCacheThread()
     }
 }
 
-#if 1
 bool HybridMgmt::EmbeddingReceiveDDR(const EmbTaskInfo& info, float*& ptr, vector<float*>& swapOutAddrs)
 {
     string currentKey = MakeSwapCVName(info.threadIdx, info.name, info.channelId);
@@ -1633,86 +1632,6 @@ bool HybridMgmt::EmbeddingReceiveDDR(const EmbTaskInfo& info, float*& ptr, vecto
 
     return true;
 }
-#else
-
-bool HybridMgmt::EmbeddingReceiveDDR(const EmbTaskInfo& info, float*& ptr, vector<float*>& swapOutAddrs)
-{
-    string currentKey = MakeSwapCVName(info.threadIdx, info.name, info.channelId);
-    std::unique_lock<std::mutex> lastRecvFinishLocker(lastRecvFinishMutex[currentKey]);
-    lastRecvFinishCV[currentKey].wait(lastRecvFinishLocker, [info, this] {
-        return (hybridMgmtBlock->lastRecvFinishStep[info.name][info.channelId] == info.batchId) || mutexDestroy;
-    });
-    if (!isRunning) {
-        return false;
-    }
-    bool isEos = EosL2Que[info.name][info.channelId].WaitAndPop();
-    if (!isRunning) {
-        return false;
-    }
-    if (isEos) {
-        LOG_DEBUG("EmbeddingReceiveDDR get eos, table:{}, accumulate batchId:{}, channel: {}", info.name, info.batchId,
-                  info.channelId);
-        // It cannot return here after send eos, otherwise it will block the next round of switching.
-        KEY_PROCESS_INSTANCE->SendEos(info.name, info.batchId, info.channelId);
-        // Once eos is sent, it will be blocked in [EosL2Que WaitAndPop]. For train mode, it will be finished, but for
-        // eval mode, it will be waked when normal data comes in next turn.
-        isEos = EosL2Que[info.name][info.channelId].WaitAndPop();
-        if (!isRunning) {
-            return false;
-        }
-    }
-
-    TimeCost EmbeddingRecvTC = TimeCost();
-
-    swapOutAddrs = HBMSwapAddrsQue[info.name + SWAP_OUT_STR][info.channelId].WaitAndPop();
-    if (!isRunning) {
-        return false;
-    }
-    // 等待图执行发送d2h embedding过来
-
-    // 区分通道接收
-    auto size = hdTransfer->RecvAcl(TransferChannel::D2H, info.channelId, info.name, info.threadIdx, info.batchId);
-    if (size == 0) {
-        LOG_WARN(HOSTEMB + "recv empty data");
-        return false;
-    }
-
-    auto aclData = acltdtGetDataItem(hdTransfer->aclDatasets[info.name][info.threadIdx], 0);
-    if (aclData == nullptr) {
-        auto error = Error(ModuleName::M_HYBRID_MGMT, ErrorType::ACL_ERROR,
-                           "Acl get tensor data from dataset failed in [EmbeddingReceiveDDR].");
-        LOG_ERROR(error.ToString());
-        throw runtime_error(error.ToString().c_str());
-    }
-    ptr = reinterpret_cast<float*>(acltdtGetDataAddrFromItem(aclData));
-
-    // 判断拿到的embedding个数是否与swapOutKeys个数相等
-    size_t dimNum = acltdtGetDimNumFromItem(aclData);
-    int64_t dims[dimNum];
-    acltdtGetDimsFromItem(aclData, dims, dimNum);
-
-    LOG_DEBUG(MGMT + "In swap thread, finish receive d2h embedding, table:{}, channelId:{}, accumulate batchId:{}, "
-                     "thread:{}, dims[0]:{}, swapOutAddrs size:{}, EmbeddingRecvTC(ms):{}",
-              info.name, info.channelId, info.batchId, info.threadIdx, dims[0], swapOutAddrs.size(),
-              EmbeddingRecvTC.ElapsedMS());
-
-    if (dims[0] != static_cast<int64_t>(swapOutAddrs.size())) {
-        auto error =
-            Error(ModuleName::M_HYBRID_MGMT, ErrorType::LOGIC_ERROR,
-                  StringFormat(
-                      "Receive swap-out emb num %d does not equal to swap-out addrs num %d in [EmbeddingReceiveDDR].",
-                      dims[0], swapOutAddrs.size()));
-        LOG_ERROR(error.ToString());
-        throw runtime_error(error.ToString().c_str());
-    }
-    hybridMgmtBlock->lastRecvFinishStep[info.name][info.channelId]++;
-
-    string nextKey = MakeSwapCVName(info.cvNotifyIndex, info.name, info.channelId);
-    lastRecvFinishCV[nextKey].notify_all();
-
-    return true;
-}
-#endif
 
 void HybridMgmt::EmbeddingUpdateDDR(const EmbTaskInfo& info, const float* embPtr, vector<float*>& swapOutAddrs)
 {
@@ -1869,66 +1788,6 @@ void HybridMgmt::CreateEmbeddingReceiveAndUpdateThread(int index, const EmbInfo&
     EmbeddingReceiveAndUpdateThreadPool.emplace_back(fn);
 }
 
-#if 1
-bool HybridMgmt::EmbeddingReceiveL3Storage(const EmbTaskInfo& info, float*& ptr, vector<float*>& swapOutAddrs,
-                                           int64_t& dims0)
-{
-    string currentKey = MakeSwapCVName(info.threadIdx, info.name, info.channelId);
-    std::unique_lock<std::mutex> lastRecvFinishLocker(lastRecvFinishMutex[currentKey]);
-    lastRecvFinishCV[currentKey].wait(lastRecvFinishLocker, [info, this] {
-        return (hybridMgmtBlock->lastRecvFinishStep[info.name][info.channelId] == info.batchId) || mutexDestroy;
-    });
-    if (!isRunning) {
-        return false;
-    }
-    bool isEos = EosL1Que[info.name][info.channelId].WaitAndPop();
-    if (!isRunning) {
-        return false;
-    }
-    if (isEos) {
-        LOG_DEBUG("EmbeddingReceiveL3Storage get eos, table:{}, accumulate batchId:{}, channel: {}", info.name,
-                  info.batchId, info.channelId);
-        // It cannot return here after send eos, otherwise it will block the next round of switching.
-        KEY_PROCESS_INSTANCE->SendEos(info.name, info.batchId, info.channelId);
-        // Once eos is sent, it will be blocked in [EosL2Que WaitAndPop]. For train mode, it will be finished, but for
-        // eval mode, it will be waked when normal data comes in next turn.
-        isEos = EosL1Que[info.name][info.channelId].WaitAndPop();
-        if (!isRunning) {
-            return false;
-        }
-    }
-
-    // DDR swap out key need to be removed
-    LookUpAndRemoveAddrs(info);
-
-    TimeCost EmbeddingRecvTC = TimeCost();
-    // finish时会pop空vector，因此需要额外判定isRunning
-    swapOutAddrs = HBMSwapAddrsQue[info.name + SWAP_OUT_STR][info.channelId].WaitAndPop();
-    if (!isRunning) {
-        return false;
-    }
-    // 等待图执行发送d2h embedding过来
-    // 区分通道接收
-    int64_t dim0 = 0;
-    auto size = hdTransfer->RecvMteShm(TransferChannel::D2H, info.channelId, info.name, ptr, dim0, info.batchId);
-    if (size == 0) {
-        LOG_WARN(HOSTEMB + "recv empty data");
-        return false;
-    }
-
-    LOG_DEBUG(MGMT + "In swap thread, finish receive d2h embedding, table:{}, channelId:{}, accumulate batchId:{}, "
-                     "thread:{}, dims[0]:{}, swapOutAddrs size:{}, EmbeddingRecvTC(ms):{}",
-              info.name, info.channelId, info.batchId, info.threadIdx, dim0, swapOutAddrs.size(),
-              EmbeddingRecvTC.ElapsedMS());
-
-    hybridMgmtBlock->lastRecvFinishStep[info.name][info.channelId]++;
-
-    string nextKey = MakeSwapCVName(info.cvNotifyIndex, info.name, info.channelId);
-    lastRecvFinishCV[nextKey].notify_all();
-    return true;
-}
-#else
-
 bool HybridMgmt::EmbeddingReceiveL3Storage(const EmbTaskInfo& info, float*& ptr, vector<float*>& swapOutAddrs,
                                            int64_t& dims0)
 {
@@ -1999,7 +1858,6 @@ bool HybridMgmt::EmbeddingReceiveL3Storage(const EmbTaskInfo& info, float*& ptr,
     lastRecvFinishCV[nextKey].notify_all();
     return true;
 }
-#endif
 
 void HybridMgmt::EmbeddingUpdateL3Storage(const EmbTaskInfo& info, float* embPtr, vector<float*>& swapOutAddrs,
                                           int64_t& dims0)
