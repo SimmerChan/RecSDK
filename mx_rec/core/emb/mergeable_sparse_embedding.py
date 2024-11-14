@@ -15,56 +15,22 @@
 # limitations under the License.
 # ==============================================================================
 
-from typing import Dict, Set, Any, Callable, List, Tuple
-
-from tensorflow import Tensor
+from typing import Dict, Set, Any
 
 from mx_rec.core.emb.dynamic_sparse_embedding import DynamicSparseEmbedding
 from mx_rec.util.log import logger
 
 
 class MergeableSparseEmbedding(DynamicSparseEmbedding):
-    _mtable_id = 0
-
-    _MERGEABLE_TABLE_PREFIX = "mergeable_table"
-
-    def __init__(self, small_table_name: str, config: Dict[str, Any]) -> None:
-        self._validate_small_tname(small_table_name)
-        config["table_name"] = self._gen_mergeable_table_name()
-
+    def __init__(self, config: Dict[str, Any]) -> None:
         super().__init__(config)
-
-        self._mock_var_id: int = 0
-        self._deferred_lookup_funcs: List[Tuple[Tensor, Callable]] = []
-        self._merged_small_tables: Set[str] = {small_table_name}
+        self._merged_small_tables: Set[str] = set()
 
     @property
     def merged_small_tables(self) -> Set[str]:
         return self._merged_small_tables
 
-    @classmethod
-    def _validate_small_tname(cls, tname: str) -> None:
-        if tname.startswith(cls._MERGEABLE_TABLE_PREFIX):
-            raise ValueError(
-                "original table name => '{}' is not supposed to start with '{}'".format(
-                    tname, cls._MERGEABLE_TABLE_PREFIX
-                )
-            )
-
-    @classmethod
-    def _gen_mergeable_table_name(cls) -> str:
-        mergeable_tname = cls._MERGEABLE_TABLE_PREFIX
-
-        if cls._mtable_id != 0:
-            mergeable_tname = "{}_{}".format(mergeable_tname, cls._mtable_id)
-
-        cls._mtable_id += 1
-
-        return mergeable_tname
-
     def merge_in(self, small_table_name: str) -> None:
-        self._validate_small_tname(small_table_name)
-
         if small_table_name in self._merged_small_tables:
             raise ValueError(
                 "given table => '{}' already exists in mergeable table => '{}'".format(

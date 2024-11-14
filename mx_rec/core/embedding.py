@@ -192,7 +192,7 @@ def create_table(
         mtable_proxy = MergeableEmbeddingTableProxy()
         mergeable_table: Optional[MergeableSparseEmbedding] = None
 
-        mergeable_table = mtable_proxy.find_mergeable_table(union_key=union_key)
+        mergeable_table = mtable_proxy.find_mergeable_table(union_key)
         if mergeable_table:
             mtable_proxy.join_mergeable_table(mergeable_table, name)
         else:

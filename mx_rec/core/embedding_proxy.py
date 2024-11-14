@@ -48,19 +48,37 @@ class UnionKey(collections.namedtuple(typename="UnionKey", field_names=["key_dty
 
 @singleton
 class MergeableEmbeddingTableProxy:
+    _MERGEABLE_TABLE_PREFIX = "mergeable_table"
+
     def __init__(self) -> None:
+        self._mtable_id: int = 0
         self._mtables: List[MergeableSparseEmbedding] = []
         self._ukey_to_mtable: Dict[UnionKey, MergeableSparseEmbedding] = {}
         self._stable_to_mtable: Dict[str, MergeableSparseEmbedding] = {}
+
+    def reset(self) -> None:
+        self.__init__()
+
+    @classmethod
+    def _validate_small_tname(cls, tname: str) -> None:
+        if tname.startswith(cls._MERGEABLE_TABLE_PREFIX):
+            raise ValueError(
+                "original table name => '{}' is not supposed to start with '{}'".format(
+                    tname, cls._MERGEABLE_TABLE_PREFIX
+                )
+            )
 
     def create_mergeable_table(
         self, union_key: UnionKey, small_table_name: str, config: Dict[str, Any]
     ) -> MergeableSparseEmbedding:
         union_key.validate()
+        self._validate_small_tname(small_table_name)
 
-        mergeable_table = MergeableSparseEmbedding(small_table_name, config=config)
+        config["table_name"] = self._gen_mergeable_table_name()
+        mergeable_table = MergeableSparseEmbedding(config)
+        mergeable_table.merge_in(small_table_name)
+
         self._mtables.append(mergeable_table)
-
         self._ukey_to_mtable[union_key] = mergeable_table
         self._stable_to_mtable[small_table_name] = mergeable_table
 
@@ -75,9 +93,10 @@ class MergeableEmbeddingTableProxy:
     def find_mergeable_table(self, key: Union[UnionKey, str]) -> Optional[MergeableSparseEmbedding]:
         if isinstance(key, UnionKey):
             key.validate()
-            return self._stable_to_mtable.get(key)
-        elif isinstance(key, str):
             return self._ukey_to_mtable.get(key)
+        elif isinstance(key, str):
+            self._validate_small_tname(key)
+            return self._stable_to_mtable.get(key)
         else:
             invalid_type = type(key)
             ukey_type = type(UnionKey)
@@ -88,8 +107,8 @@ class MergeableEmbeddingTableProxy:
     ) -> MergeableSparseEmbedding:
         if small_table_name in mergeable_table.merged_small_tables:
             raise ValueError(
-                "given table name => '{}' has joined mergeable table => '{}' before".format(
-                    small_table_name, mergeable_table.name
+                "given table name => '{}' has joined mergeable table => '{}' already".format(
+                    small_table_name, mergeable_table.table_name
                 )
             )
 
@@ -97,3 +116,9 @@ class MergeableEmbeddingTableProxy:
         self._stable_to_mtable[small_table_name] = mergeable_table
 
         return mergeable_table
+
+    def _gen_mergeable_table_name(self) -> str:
+        mergeable_tname = "{}_{}".format(self._MERGEABLE_TABLE_PREFIX, self._mtable_id)
+        self._mtable_id += 1
+
+        return mergeable_tname
