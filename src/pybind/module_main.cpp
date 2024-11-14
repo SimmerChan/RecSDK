@@ -70,7 +70,6 @@ namespace {
 
     PYBIND11_MODULE(mxrec_pybind, m)
 {
-    // add by songxy
     m.def("get_shm_mem", &GetShmAddr, py::arg("name"), py::arg("rankId"), py::arg("capacity"));
     m.def("get_shm_host", &GetShmHost, py::arg("name"), py::arg("rankId"));
 
