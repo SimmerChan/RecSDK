@@ -232,62 +232,6 @@ void HDTransfer::Send(TransferChannel channel, const vector<Tensor>& tensors, in
 #endif
 }
 
-void HDTransfer::DestroyAclDataset(acltdtDataset *acl_dataset, bool include_data_item)
-{
-    if (include_data_item) {
-        for (size_t i = 0; i < acltdtGetDatasetSize(acl_dataset); i++) {
-            if (acltdtDestroyDataItem(acltdtGetDataItem(acl_dataset, i)) != ACL_ERROR_NONE) {
-                LOG_ERROR("Acl destroy tensor data failed.");
-            }
-        }
-    }
-    if (acltdtDestroyDataset(acl_dataset) != ACL_ERROR_NONE) {
-        LOG_ERROR("Acl destroy tensor dataset failed.");
-    }
-}
-
-void HDTransfer::SendByAclTdt(const string &sendName, const float *send_data, int64_t dims[RMA_DIM_MAX])
-{
-    int64_t data_len = dims[0] * dims[1] * sizeof(float) * 1L;
-
-    if (send_data == nullptr || data_len == 0) {
-        LOG_ERROR("send data can not be zero");
-        return;
-    }
-
-    LOG_DEBUG("send by {}, create data-set", sendName.c_str());
-    auto acl_dataset = acltdtCreateDataset();
-    if (acl_dataset == nullptr) {
-        LOG_ERROR("Acl create tensor dataset failed");
-        return;
-    }
-
-    LOG_DEBUG("send by {}, create data-item, length is {}", sendName.c_str(), data_len);
-    acltdtDataItem *acl_data =
-        acltdtCreateDataItem(ACL_TENSOR_DATA_TENSOR, dims, RMA_DIM_MAX, ACL_FLOAT, (char *)(send_data), data_len);
-    if (acl_data == nullptr) {
-        LOG_ERROR("acltdtCreateDataItem failed");
-        DestroyAclDataset(acl_dataset, false);
-        return;
-    }
-
-    if (acltdtAddDataItem(acl_dataset, acl_data) != ACL_ERROR_NONE) {
-        LOG_ERROR("acltdtAddDataItem failed");
-        acltdtDestroyDataItem(acl_data);
-        DestroyAclDataset(acl_dataset, false);
-        return;
-    }
-
-    LOG_DEBUG("send by {}, tdt-send start", sendName.c_str());
-    auto aclStatus = acltdtSendTensor(transferChannels[sendName], acl_dataset, -1);
-    if (aclStatus != ACL_ERROR_NONE) {
-        LOG_DEBUG("send by {}, tdt-send failed", sendName.c_str());
-    } else {
-        LOG_DEBUG("send by {}, tdt-send success", sendName.c_str());
-    }
-    DestroyAclDataset(acl_dataset, true);
-}
-
 /// 将tensor发送到channel
 /// \param channel 通道实例
 /// \param tensors 待发送数据
@@ -297,7 +241,6 @@ void HDTransfer::SendByAclTdt(const string &sendName, const float *send_data, in
 void HDTransfer::SendAcl(TransferChannel channel, const float*h2dEmb, int64_t dims[RMA_DIM_MAX], int channelId, const string& embName,
                          int batchId)
 {
-    const bool useRma = true;
     EASY_FUNCTION()
     if (!running) {
         return;
@@ -310,26 +253,18 @@ void HDTransfer::SendAcl(TransferChannel channel, const float*h2dEmb, int64_t di
 
     string sendBatchIdType = "accumulate";
     string sendName;
-    if (useRma) {
-        sendName = StringFormat("%s_%s_%d_%d",
-                                embName.c_str(), TransferChannel2Str(channel).c_str(), channelId, localDeviceId);
-    } else {
-        sendName = StringFormat("%s_%s_%d", embName.c_str(), TransferChannel2Str(channel).c_str(), channelId);
-    }
+    sendName = StringFormat("%s_%s_%d_%d",
+                            embName.c_str(), TransferChannel2Str(channel).c_str(), channelId, localDeviceId);
 
-    LOG_INFO(HD + "hd transfer send:{}, {} batchId:{}", sendName, sendBatchIdType, batchId);
-    LOG_INFO(HD + "hd transfer send:{}, dim-0: {}, dim-1: {}", sendName, dims[0], dims[1]);
+    LOG_INFO("hd transfer send:{}, {} batchId:{}", sendName, sendBatchIdType, batchId);
+    LOG_INFO("hd transfer send:{}, dim-0: {}, dim-1: {}", sendName, dims[0], dims[1]);
 
-    if (useRma) {
-        RmaSend(sendName, h2dEmb, dims);
-    } else {
-        SendByAclTdt(sendName, h2dEmb, dims);
-    }
+    RmaSend(sendName, h2dEmb, dims);
 
     // Records used channel name in training and used to send EOS later.
     RecordTrainingChannelStr(channel, channelId);
 
-    LOG_DEBUG(HD + "hd transfer send end:{}, {} batchId:{}.", sendName, sendBatchIdType, batchId);
+    LOG_DEBUG("hd transfer send end:{}, {} batchId:{}.", sendName, sendBatchIdType, batchId);
 #endif
 }
 
