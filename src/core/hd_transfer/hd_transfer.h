@@ -126,8 +126,6 @@ namespace MxRec {
         void RecvFormatShmData(const int32_t *dataHeader, RmaShmData &queueData);
         size_t RecvTensorByShm(RmaShmHeader *queueHeader, float*& ptr, int64_t &dim0, bool &emptyFlag);
         Status SendTensorByShm(string &name, const std::vector<tensorflow::Tensor>& tensors, bool &isNeedResend);
-        void DestroyAclDataset(acltdtDataset *acl_dataset, bool include_data_item);
-        void SendByAclTdt(const string &sendName, const float *send_data, int64_t dims[]);
         void RmaSend(string &name, const float *sendData, int64_t dims[]);
         uint32_t localDeviceId;
     };
