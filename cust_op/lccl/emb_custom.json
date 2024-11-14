@@ -35,6 +35,18 @@
           "int64"
         ]
       }
+    ],
+    "attr": [
+      {
+        "name": "shm_swap_in",
+        "param_type": "required",
+        "type": "string"
+      },
+      {
+        "name": "shm_swap_out",
+        "param_type": "required",
+        "type": "string"
+      }
     ]
   },
   {
@@ -102,6 +114,18 @@
         "type": [
           "int64"
         ]
+      }
+    ],
+    "attr": [
+      {
+        "name": "shm_swap_in",
+        "param_type": "required",
+        "type": "string"
+      },
+      {
+        "name": "shm_swap_out",
+        "param_type": "required",
+        "type": "string"
       }
     ]
   }
