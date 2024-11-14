@@ -1,0 +1,40 @@
+[
+  {
+    "op": "RmaSwap",
+    "language": "cpp",
+    "input_desc": [
+      {
+        "name": "update_table",
+        "param_type": "required",
+        "format": [
+          "ND"
+        ],
+        "type": [
+          "float32"
+        ]
+      },
+      {
+        "name": "update_index",
+        "param_type": "required",
+        "format": [
+          "ND"
+        ],
+        "type": [
+          "int64"
+        ]
+      }
+    ],
+    "output_desc": [
+      {
+        "name": "output",
+        "param_type": "required",
+        "format": [
+          "ND"
+        ],
+        "type": [
+          "int64"
+        ]
+      }
+    ]
+  }
+]
