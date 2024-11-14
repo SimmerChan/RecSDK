@@ -51,35 +51,6 @@ namespace {
 
 namespace tensorflow {
 
-    REGISTER_OP("RmaReadQueue")
-    .Input("shm_addr: int64")
-    .Output("output_tensor: float32")
-    .Attr("output_types: type")
-    .Attr("output_shapes: shape")
-    .Attr("gshm: string")
-    .SetIsStateful()
-    .SetShapeFn([](::tensorflow::shape_inference::InferenceContext* c) {
-    PartialTensorShape output_shapes;
-    TF_RETURN_IF_ERROR(c->GetAttr("output_shapes", &output_shapes));
-
-    shape_inference::ShapeHandle output_shape_handle;
-    TF_RETURN_IF_ERROR(c->MakeShapeFromPartialTensorShape(
-        output_shapes, &output_shape_handle));
-    c->set_output(0, output_shape_handle);
-
-    return tensorflow::Status::OK();
-});
-
-REGISTER_KERNEL_BUILDER(Name("RmaReadQueue").Device(DEVICE_CPU), CustOps);
-
-REGISTER_OP("RmaWriteQueue")
-.Input("input_tensor: float32")
-.Input("shm_addr: int64")
-.SetIsStateful()
-.SetShapeFn(shape_inference::NoOutputs);
-
-REGISTER_KERNEL_BUILDER(Name("RmaWriteQueue").Device(DEVICE_CPU), CustOps);
-
 REGISTER_OP("RmaSwap")
 .Input("update_table: float32")
 .Input("update_index: int64")

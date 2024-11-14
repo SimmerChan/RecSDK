@@ -1669,7 +1669,7 @@ void HybridMgmt::EmbeddingSendDDR(const EmbTaskInfo& info, float*& h2dEmb, int64
     });
     TimeCost SendTC = TimeCost();
     // 区分通道发送
-    hdTransfer->SendAcl(TransferChannel::H2D, h2dEmb, dims, info.channelId, info.name, info.batchId);
+    hdTransfer->SendMteShm(TransferChannel::H2D, h2dEmb, dims, info.channelId, info.name, info.batchId);
     hybridMgmtBlock->lastSendFinishStep[info.name][info.channelId]++;
     string nextKey = MakeSwapCVName(info.cvNotifyIndex, info.name, info.channelId);
     lastSendFinishCV[nextKey].notify_all();
