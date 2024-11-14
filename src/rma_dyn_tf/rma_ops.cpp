@@ -1,11 +1,18 @@
-/*
- * Copyright (c) Huawei Technologies Co., Ltd. 2021-2022. All rights reserved.
- * Description: dataset ops.
- * Description: tf ops.
- * Author: S00548356
- * Create: 2024
- * History: NA
- */
+/* Copyright 2024. Huawei Technologies Co.,Ltd. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+        limitations under the License.
+==============================================================================*/
+
 #include <algorithm>
 #include <atomic>
 #include <map>
@@ -45,7 +52,6 @@ namespace {
 namespace tensorflow {
 
     REGISTER_OP("RmaReadQueue")
-    //.Input("input_tensor: float32")
     .Input("shm_addr: int64")
     .Output("output_tensor: float32")
     .Attr("output_types: type")
