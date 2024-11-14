@@ -514,15 +514,6 @@ private:
         }
     }
 
-    __aicore__ inline void CopyTableToOutput()
-    {
-        __ubuf__ uint8_t *ub_data_buff = (__ubuf__ uint8_t *)get_imm(RMA_UB_DATA_BUFF_OFFSET);
-        for (int t = 0; t < tableNum; ++t) {
-            gm2gm(100000 * embDimSplit, ub_data_buff,
-                  output + t * 100000 * embDimSplit, updateTables[t]);
-        }
-    }
-
     __aicore__ inline void SyncPreprocess()
     {
         __ubuf__ uint64_t *ub_buff = (__ubuf__ uint64_t *)get_imm(0);
