@@ -102,8 +102,6 @@ public:
 
     OffsetT SendLoadMap(const string tableName);
 
-    void ReceiveHostMap(AllKeyOffsetMapT receiveKeyOffsetMap);
-
     void Start();
 
     void StartThreadForHBM();
@@ -237,7 +235,6 @@ private:
     bool isRunning;
     bool isLoad{false};
     bool isInitialized{false};
-    bool alreadyTrainOnce = false;     // 用于判断是否为predict模式
     bool isBackUpTrainStatus = false;  // whether the train state has been backed up
     bool isIncrementalCkpt;
     map<string, absl::flat_hash_map<emb_key_t, KeyInfo>> deltaMap;
@@ -266,9 +263,9 @@ private:
 
     void EmbeddingUpdateDDR(const EmbTaskInfo& info, const float* embPtr, vector<float*>& swapOutAddrs);
 
-    bool EmbeddingLookUpDDR(const EmbTaskInfo& info, float*&h2dEmb, int64_t dims[]);
+    bool EmbeddingLookUpDDR(const EmbTaskInfo& info, float*& h2dEmb, int64_t dims[]);
 
-    void EmbeddingSendDDR(const EmbTaskInfo& info, float*&h2dEmb, int64_t dims[]);
+    void EmbeddingSendDDR(const EmbTaskInfo& info, float*& h2dEmb, int64_t dims[]);
 
     bool EmbeddingReceiveL3Storage(const EmbTaskInfo& info, float*& ptr, vector<float*>& swapOutAddrs, int64_t& dims0);
 
@@ -285,7 +282,7 @@ private:
     void HandleDataSwapForL3Storage(const EmbBaseInfo& info, vector<uint64_t>& swapInKeys,
                                     vector<uint64_t>& swapOutKeys);
 
-    bool BuildH2DEmbedding(const EmbTaskInfo& info, float*&h2dEmb, int64_t dims[]);
+    bool BuildH2DEmbedding(const EmbTaskInfo& info, float*& h2dEmb, int64_t dims[]);
 
     bool BuildH2DEmbeddingL3Storage(const EmbTaskInfo& info, vector<Tensor>& h2dEmb);
 
