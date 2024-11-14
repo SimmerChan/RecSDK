@@ -97,11 +97,12 @@ namespace MxRec {
         void Send(TransferChannel channel, const vector<Tensor>& tensors,
                   int channelId, const string& embName, int batchId = -1);
 
-        void SendAcl(TransferChannel channel, const float*h2dEmb, int64_t dims[], int channelId, const string& embName,
-                     int batchId);
         size_t RecvAcl(TransferChannel channel, int channelId, const string& embName,
                        int embeddingThreadId, int batchId);
         size_t RecvOffsetsAcl(TransferChannel channel, int channelId, const string& embName);
+
+        void SendMteShm(TransferChannel channel, const float*h2dEmb, int64_t dims[], int channelId, const string& embName,
+                        int batchId);
         size_t RecvMteShm(TransferChannel channel, int channelId, const string& embName, float*& ptr, int64_t &dim0,
                           int batchId);
 
@@ -117,16 +118,13 @@ namespace MxRec {
         void CreateChannel(const uint32_t localRankId, const string& embName, const int channelNum);
         void CreateChannelForIncrementalCkpt(const uint32_t localRankId, const string& embName, const int channelNum);
         void RecordTrainingChannelStr(TransferChannel channel, const int channelId);
+        void SendByShm(string &name, const float *sendData, int64_t dims[]);
+        size_t RecvByShm(RmaShmHeader *queueHeader, float*& ptr, int64_t &dim0, bool &emptyFlag);
 
         std::unordered_map<std::string, acltdtChannelHandle*> transferChannels;
         std::unordered_map<int, std::set<std::string>> usedChannelsNames; // key是通道0、1
         bool running;
         std::mutex recordChannelMtx;
-
-        void RecvFormatShmData(const int32_t *dataHeader, RmaShmData &queueData);
-        size_t RecvTensorByShm(RmaShmHeader *queueHeader, float*& ptr, int64_t &dim0, bool &emptyFlag);
-        Status SendTensorByShm(string &name, const std::vector<tensorflow::Tensor>& tensors, bool &isNeedResend);
-        void RmaSend(string &name, const float *sendData, int64_t dims[]);
         uint32_t localDeviceId;
     };
 }

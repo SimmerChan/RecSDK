@@ -141,7 +141,7 @@ void HDTransfer::CreateChannelForIncrementalCkpt(const uint32_t localRankId, con
     LOG_INFO("Create channel:{}.", sendName);
 }
 
-void HDTransfer::RmaSend(string &name, const float *sendData, int64_t dims[RMA_DIM_MAX])
+void HDTransfer::SendByShm(string &name, const float *sendData, int64_t dims[RMA_DIM_MAX])
 {
     LOG_DEBUG("rma send, shm-name {}", name.c_str());
 
@@ -160,9 +160,9 @@ void HDTransfer::RmaSend(string &name, const float *sendData, int64_t dims[RMA_D
 
     RmaShmData *queueData = (RmaShmData *)ShmEnqueueGetLast(queueHeader, dims);
     if (queueData != nullptr) {
-        LOG_DEBUG("RmaSend data-seq: {}, total-len: {}, data-len: {} readyLen: {}",
+        LOG_DEBUG("SendByShm data-seq: {}, total-len: {}, data-len: {} readyLen: {}",
                   queueData->sequence, queueData->totalLen, queueData->dataLen, queueData->readyLen);
-        LOG_DEBUG("RmaSend dim-num: {}, dim-0: {}, dim-1: {}",
+        LOG_DEBUG("SendByShm dim-num: {}, dim-0: {}, dim-1: {}",
                   queueData->dimNum, queueData->dims[0], queueData->dims[1]);
     }
 
@@ -238,7 +238,7 @@ void HDTransfer::Send(TransferChannel channel, const vector<Tensor>& tensors, in
 /// \param channelId 通道索引（训练/推理）
 /// \param embName 表名
 /// \param batchId 已处理的batch数
-void HDTransfer::SendAcl(TransferChannel channel, const float*h2dEmb, int64_t dims[RMA_DIM_MAX], int channelId, const string& embName,
+void HDTransfer::SendMteShm(TransferChannel channel, const float*h2dEmb, int64_t dims[RMA_DIM_MAX], int channelId, const string& embName,
                          int batchId)
 {
     EASY_FUNCTION()
@@ -259,7 +259,7 @@ void HDTransfer::SendAcl(TransferChannel channel, const float*h2dEmb, int64_t di
     LOG_INFO("hd transfer send:{}, {} batchId:{}", sendName, sendBatchIdType, batchId);
     LOG_INFO("hd transfer send:{}, dim-0: {}, dim-1: {}", sendName, dims[0], dims[1]);
 
-    RmaSend(sendName, h2dEmb, dims);
+    SendByShm(sendName, h2dEmb, dims);
 
     // Records used channel name in training and used to send EOS later.
     RecordTrainingChannelStr(channel, channelId);
@@ -268,7 +268,7 @@ void HDTransfer::SendAcl(TransferChannel channel, const float*h2dEmb, int64_t di
 #endif
 }
 
-size_t HDTransfer::RecvTensorByShm(RmaShmHeader *queueHeader, float*& ptr, int64_t &dim0, bool &emptyFlag)
+size_t HDTransfer::RecvByShm(RmaShmHeader *queueHeader, float*& ptr, int64_t &dim0, bool &emptyFlag)
 {
     if ((queueHeader->seqIn - queueHeader->seqOut) == 0) {
         emptyFlag = true;
@@ -324,7 +324,7 @@ size_t HDTransfer::RecvMteShm(TransferChannel channel, int channelId, const stri
 
     do {
         bool emptyFlag = false;
-        ret = RecvTensorByShm((RmaShmHeader *)shmAddr, ptr, dim0, emptyFlag);
+        ret = RecvByShm((RmaShmHeader *)shmAddr, ptr, dim0, emptyFlag);
         if (!emptyFlag) {
             if (ret == 0) {
                 ret = 1; // 特殊处理空数据
