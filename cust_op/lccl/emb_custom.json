@@ -36,5 +36,73 @@
         ]
       }
     ]
+  },
+  {
+    "op": "RmaSwapMultiTables",
+    "language": "cpp",
+    "input_desc": [
+      {
+        "name": "table0",
+        "param_type": "required",
+        "format": [
+          "ND"
+        ],
+        "type": [
+          "float32"
+        ]
+      },
+      {
+        "name": "table1",
+        "param_type": "required",
+        "format": [
+          "ND"
+        ],
+        "type": [
+          "float32"
+        ]
+      },
+      {
+        "name": "table2",
+        "param_type": "required",
+        "format": [
+          "ND"
+        ],
+        "type": [
+          "float32"
+        ]
+      },
+      {
+        "name": "swap_in_index",
+        "param_type": "required",
+        "format": [
+          "ND"
+        ],
+        "type": [
+          "int64"
+        ]
+      },
+      {
+        "name": "swap_out_index",
+        "param_type": "required",
+        "format": [
+          "ND"
+        ],
+        "type": [
+          "int64"
+        ]
+      }
+    ],
+    "output_desc": [
+      {
+        "name": "output",
+        "param_type": "required",
+        "format": [
+          "ND"
+        ],
+        "type": [
+          "int64"
+        ]
+      }
+    ]
   }
 ]

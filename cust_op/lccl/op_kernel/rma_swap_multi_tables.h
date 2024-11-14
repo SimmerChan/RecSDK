@@ -103,11 +103,6 @@ public:
                 LookUpTable();
             }
         } else {    // 换入
-//            if (processBlockIdx == 0) {
-//                GetNext();
-//            } else {
-//                UpdateTable();
-//            }
             if (processBlockIdx < GET_NEXT_THREAD_NUM) {
                 GetNextMultiThreads();
             } else {
@@ -577,8 +572,6 @@ private:
         do {
             value = GetFlag<int>(ub_buff, syncAllFlag);
         } while(value < blockNum);
-
-//        SetFlag((__ubuf__ uint64_t *)ub_buff, (__gm__ uint64_t *)output + blockIdx, (uint64_t)value);
     }
 private:
     RmaShmHeader queueHeader;

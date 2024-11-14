@@ -374,7 +374,6 @@ uint8_t *ShmEnqueueGetLast(RmaShmHeader *header, int64_t dims[RMA_DIM_MAX])
 
     int64_t queueNum = header->seqIn - header->seqOut;
     if (queueNum == 0) {
-        LOG_ERROR("rma queue is empty.");
         return nullptr;
     }
 

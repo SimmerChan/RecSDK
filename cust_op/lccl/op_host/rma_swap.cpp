@@ -78,8 +78,6 @@ namespace optiling {
         uint32_t sysWorkspaceSize = ascendcPlatform.GetLibApiWorkSpaceSize();
         size_t *currentWorkspace = context->GetWorkspaceSizes(1);
         currentWorkspace[0] = RMA_WORK_SPACE_SIZE + sysWorkspaceSize;
-//    size_t *currentWorkspace = context->GetWorkspaceSizes(1);
-//    currentWorkspace[0] = RMA_WORK_SPACE_SIZE;
 
         return ge::GRAPH_SUCCESS;
     }
@@ -100,12 +98,6 @@ namespace ge {
 
         return GRAPH_SUCCESS;
     }
-//static ge::graphStatus InferDataType(gert::InferDataTypeContext *context)
-//{
-//    LOG_DEBUG("RmaSwap InferDataType");
-//    auto ret = context->SetOutputDataType(0, ge::DataType::DT_INT64);
-//    return GRAPH_SUCCESS;
-//}
 }
 
 namespace ops {
@@ -132,10 +124,9 @@ namespace ops {
             this->Attr("shm_swap_out").String();
 
             this->SetInferShape(ge::InferShape);
-//        this->SetInferDataType(ge::InferDataType);
 
             this->AICore().SetTiling(optiling::TilingFunc);
-//        this->AICore().AddConfig("ascend910b");
+        this->AICore().AddConfig("ascend910b");
             this->AICore().AddConfig("ascend910_93");
         }
     };
