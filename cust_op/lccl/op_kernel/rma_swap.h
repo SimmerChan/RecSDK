@@ -131,10 +131,6 @@ public:
                 UpdateTable(processBlockIdx, processBlockNum);
             }
         }
-//        if (blockIdx == 0) {
-//            CopyTableToOutput();
-//        }
-//        ClearFlag();
     }
 
     __aicore__ inline void LookUpTable(const uint32_t processBlockIdx, const uint32_t processBlockNum)
@@ -380,12 +376,6 @@ private:
         }
     }
 
-    __aicore__ inline void CopyTableToOutput()
-    {
-        __ubuf__ uint8_t *ub_data_buff = (__ubuf__ uint8_t *)get_imm(RMA_UB_DATA_BUFF_OFFSET);
-        gm2gm(100000 * dataHead.dims[1] * sizeof(float), ub_data_buff,
-              output, updateTable);
-    }
 private:
     RmaShmHeader queueHeader;
     RmaShmDataHead dataHead;
