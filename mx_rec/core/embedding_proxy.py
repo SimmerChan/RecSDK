@@ -27,12 +27,23 @@ from mx_rec.util.singleton import singleton
 from mx_rec.util.log import logger
 
 
-class UnionKey(collections.namedtuple(typename="UnionKey", field_names=["key_dtype", "emb_dim", "initializer_type"])):
-    def validate(self) -> None:
-        key_dtype = self.key_dtype
-        if key_dtype not in (tf.int32, tf.int64):
-            raise ValueError("invalid key data type => '{}', expected 'tf.int32' or 'tf.int64'".format(key_dtype))
+class UnionKey(
+    collections.namedtuple(
+        typename="UnionKey",
+        field_names=[
+            "key_dtype",
+            "emb_dim",
+            "initializer_type",
+            "is_save",
+            "is_dp",
+            "init_param",
+            "all2all_gradients_op",
+        ],
+    )
+):
+    """A union key derived from 'namedtuple' determine whether this new table deserve a merge."""
 
+    def validate(self) -> None:
         emb_dim = self.emb_dim
         if not isinstance(emb_dim, int):
             raise TypeError("invalid embedding dimension type => '{}', expected an 'int'".format(emb_dim))
@@ -48,6 +59,14 @@ class UnionKey(collections.namedtuple(typename="UnionKey", field_names=["key_dty
 
 @singleton
 class MergeableEmbeddingTableProxy:
+    """A proxy class used for merging embedding table automatically.
+
+    This class should be a singleton during once graph building process.
+    In estimator mode, train and evalution will build graph seperately,
+    In order to solve the problem of independent graph in evalution of
+    estimator mode, this singleton should be reset after graph modification.
+    """
+
     _MERGEABLE_TABLE_PREFIX = "mergeable_table"
 
     def __init__(self) -> None:
@@ -57,7 +76,9 @@ class MergeableEmbeddingTableProxy:
         self._stable_to_mtable: Dict[str, MergeableSparseEmbedding] = {}
 
     def reset(self) -> None:
+        """Reset singleton after graph modification because graph will be rebuilt in evalution of estimator mode."""
         self.__init__()
+        logger.info("'{}' singleton has been reset after graph was frozen".format(self.__class__))
 
     @classmethod
     def _validate_small_tname(cls, tname: str) -> None:
@@ -74,7 +95,9 @@ class MergeableEmbeddingTableProxy:
         union_key.validate()
         self._validate_small_tname(small_table_name)
 
+        # Due to inheritance restriction, `config` have to update its 'table_name'.
         config["table_name"] = self._gen_mergeable_table_name()
+
         mergeable_table = MergeableSparseEmbedding(config)
         mergeable_table.merge_in(small_table_name)
 
@@ -107,13 +130,18 @@ class MergeableEmbeddingTableProxy:
     ) -> MergeableSparseEmbedding:
         if small_table_name in mergeable_table.merged_small_tables:
             raise ValueError(
-                "given table name => '{}' has joined mergeable table => '{}' already".format(
+                "given table name => '{}' has already joined mergeable table => '{}'.".format(
                     small_table_name, mergeable_table.table_name
                 )
             )
 
         mergeable_table.merge_in(small_table_name)
         self._stable_to_mtable[small_table_name] = mergeable_table
+        logger.info(
+            "Mergeable embedding table '{}' has merged in a new small table '{}'.".format(
+                mergeable_table.table_name, small_table_name
+            )
+        )
 
         return mergeable_table
 

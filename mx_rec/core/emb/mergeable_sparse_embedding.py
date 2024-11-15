@@ -15,19 +15,33 @@
 # limitations under the License.
 # ==============================================================================
 
-from typing import Dict, Set, Any
+from typing import Dict, Any, List
 
 from mx_rec.core.emb.dynamic_sparse_embedding import DynamicSparseEmbedding
-from mx_rec.util.log import logger
 
 
 class MergeableSparseEmbedding(DynamicSparseEmbedding):
     def __init__(self, config: Dict[str, Any]) -> None:
         super().__init__(config)
-        self._merged_small_tables: Set[str] = set()
+        self._merged_small_tables: List[str] = []
+
+    def __str__(self) -> str:
+        safe_attr_keys = ("_table_name", "_merged_small_tables")
+        attrs = [f"'{k}': {v}" for k, v in self.__dict__.items() if k in safe_attr_keys]
+        attr_fmt_str = ", ".join(attrs)
+        fmt_str = "{} => <{}>".format(self.__class__, attr_fmt_str)
+
+        return fmt_str
+
+    def __repr__(self) -> str:
+        attrs = [f"'{k}': {v}" for k, v in self.__dict__.items()]
+        attr_fmt_repr = ", ".join(attrs)
+        fmt_repr = "{} => <{}>".format(self.__class__, attr_fmt_repr)
+
+        return fmt_repr
 
     @property
-    def merged_small_tables(self) -> Set[str]:
+    def merged_small_tables(self) -> List[str]:
         return self._merged_small_tables
 
     def merge_in(self, small_table_name: str) -> None:
@@ -38,8 +52,7 @@ class MergeableSparseEmbedding(DynamicSparseEmbedding):
                 )
             )
 
-        self._merged_small_tables.add(small_table_name)
-        logger.info("Succeed to merge small table '%s' into large table '%s'.", small_table_name, self._table_name)
+        self._merged_small_tables.append(small_table_name)
 
     def _set_slice_vocab_size(self):
         """Device vocabulary size will be forced set to 1 in dynamic expansion mode."""

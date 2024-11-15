@@ -187,7 +187,15 @@ def create_table(
 
         emb_dim = dim.num_elements()
         initializer_type = type(emb_initializer)
-        union_key = UnionKey(key_dtype=key_dtype, emb_dim=emb_dim, initializer_type=initializer_type)
+        union_key = UnionKey(
+            key_dtype=key_dtype,
+            emb_dim=emb_dim,
+            initializer_type=initializer_type,
+            is_save=is_save,
+            is_dp=is_dp,
+            init_param=init_param,
+            all2all_gradients_op=all2all_gradients_op,
+        )
 
         mtable_proxy = MergeableEmbeddingTableProxy()
         mergeable_table: Optional[MergeableSparseEmbedding] = None
