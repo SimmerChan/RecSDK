@@ -241,7 +241,6 @@ void HDTransfer::Send(TransferChannel channel, const vector<Tensor>& tensors, in
 void HDTransfer::SendMteShm(TransferChannel channel, const float*h2dEmb, int64_t dims[RMA_DIM_MAX], int channelId, const string& embName,
                          int batchId)
 {
-    EASY_FUNCTION()
     if (!running) {
         return;
     }
@@ -302,8 +301,6 @@ size_t HDTransfer::RecvByShm(RmaShmHeader *queueHeader, float*& ptr, int64_t &di
 size_t HDTransfer::RecvMteShm(TransferChannel channel, int channelId, const string& embName, float*& ptr, int64_t &dim0,
                               int batchId)
 {
-    EASY_FUNCTION()
-
     size_t ret = 0;
 #ifndef GTEST
     string recvBatchIdType;
