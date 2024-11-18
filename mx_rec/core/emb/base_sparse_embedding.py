@@ -4,20 +4,20 @@
 
 import abc
 from collections import defaultdict
-from typing import Optional, Union, Callable, Dict, Any
+from typing import Any, Callable, Dict, Optional, Union
 
 import tensorflow as tf
 from tensorflow import Tensor
 from tensorflow.python.ops import array_ops
 
-from mx_rec.constants.constants import All2allGradientsOp, ASCEND_SPARSE_LOOKUP_ENTRANCE, ASCAnchorAttr
+from mx_rec.constants.constants import ASCEND_SPARSE_LOOKUP_ENTRANCE, All2allGradientsOp, ASCAnchorAttr
 from mx_rec.core.asc.build_graph import get_preprocessed_tensor_for_asc
-from mx_rec.core.asc.feature_spec import set_temporary_feature_spec_attribute, get_feature_spec, FeatureSpec
+from mx_rec.core.asc.feature_spec import FeatureSpec, get_feature_spec, set_temporary_feature_spec_attribute
 from mx_rec.core.asc.swap_args import SwapArgs, SwapDataType
-from mx_rec.util.communication.hccl_ops import get_rank_size, get_rank_id, get_device_id
-from mx_rec.util.tf_version_adapter import hccl_ops
+from mx_rec.util.communication.hccl_ops import get_device_id, get_rank_id, get_rank_size
 from mx_rec.util.initialize import ConfigInitializer
 from mx_rec.util.log import logger
+from mx_rec.util.tf_version_adapter import hccl_ops
 from mx_rec.validator.emb_validator import check_emb_init_params, check_emb_lookup_params
 
 

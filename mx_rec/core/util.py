@@ -20,12 +20,12 @@ from typing import Tuple
 import tensorflow as tf
 from tensorflow import Tensor
 
-import mx_rec.graph.constants as constants
+from mx_rec.constants import constants
 from mx_rec.util.initialize import ConfigInitializer
 from mx_rec.util.log import logger
 
 
-def mark_orphan_lookup_key(lookup_key: Tensor) -> Tensor:  # noqa: F821
+def mark_orphan_lookup_key(lookup_key: Tensor) -> Tensor:
     """
     Upward search default TF::Graph, mark the key tensor without TF::Dataset as root op.
     """
@@ -33,7 +33,7 @@ def mark_orphan_lookup_key(lookup_key: Tensor) -> Tensor:  # noqa: F821
     subgraph = tf.compat.v1.graph_util.extract_sub_graph(graph_def, [lookup_key.op.name])
 
     for node in subgraph.node:
-        if node.op == constants.AnchorIteratorOp.ITERATOR_GET_NEXT.value:
+        if node.op == "IteratorGetNext":
             return lookup_key
 
     name_prefix = constants.ORPHAN_LOOKUP_KEY_PREFIX
