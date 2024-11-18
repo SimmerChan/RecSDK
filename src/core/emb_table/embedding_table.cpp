@@ -31,8 +31,7 @@ EmbeddingTable::EmbeddingTable(const EmbInfo& info, const RankInfo& rankInfo, in
       embSize_(info.embeddingSize), extEmbSize_(info.extEmbeddingSize),
       embInfo_(info), seed_(inSeed), rankId_(rankInfo.rankId), rankSize_(rankInfo.rankSize)
 {
-    LOG_INFO("Init embedding table:{}, isDynamic:{}, embeddingSize:{}, extEmbeddingSize:{}.",
-             name, isDynamic_, embSize_, extEmbSize_);
+    LOG_INFO("table {} isDynamic = {} embeddingSize {} extSize {}", name, isDynamic_, embSize_, extEmbSize_);
 }
 
 EmbeddingTable::~EmbeddingTable()
@@ -70,7 +69,7 @@ void EmbeddingTable::EvictKeys(const std::vector<emb_cache_key_t>& keys)
     for (size_t i = 0; i < keySize; i++) {
         emb_key_t key = keys[i];
         if (key == INVALID_KEY_VALUE) {
-            LOG_WARN("Evict key is INVALID_KEY_VALUE, table:{}.", name);
+            LOG_WARN("evict key is INVALID_KEY_VALUE!");
             continue;
         }
         const auto& iter = keyOffsetMap.find(key);
@@ -79,9 +78,9 @@ void EmbeddingTable::EvictKeys(const std::vector<emb_cache_key_t>& keys)
         }
         keyOffsetMap.erase(iter);
         evictDevPos.emplace_back(iter->second);
-        LOG_TRACE("EvictKeys table:{}, offset:{}.", name, iter->second);
+        LOG_TRACE("evict embName:{}, offset:{}", name, iter->second);
     }
-    LOG_INFO("EvictKeys table:{}, evict key size:{}.", name, evictDevPos.size());
+    LOG_INFO("EvictKeys: table [{}] evict size on dev:{}", name, evictDevPos.size());
 }
 
 const std::vector<int64_t>& EmbeddingTable::GetEvictedKeys()
@@ -98,7 +97,7 @@ void EmbeddingTable::EvictInitDeviceEmb()
 {
     if (evictDevPos.size() > devVocabSize) {
         auto errMsg = Logger::Format(
-            "Overflow! Init evicted embedding on device, table:{}, evictOffset size:{} bigger than devVocabSize:{}.",
+            "Table {} overflow! Init evict dev, evictOffset size {} bigger than dev vocabSize {}.",
             name, evictDevPos.size(), devVocabSize);
         auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::LOGIC_ERROR, errMsg);
         LOG_ERROR(error.ToString());
@@ -117,7 +116,7 @@ void EmbeddingTable::EvictInitDeviceEmb()
     auto trans = Singleton<HDTransfer>::GetInstance();
     trans->Send(TransferChannel::EVICT, tmpDataOut, TRAIN_CHANNEL_ID, name);
 
-    LOG_INFO("EvictInitDeviceEmb, table:{}, send evict offsetSize:{}.", name, evictDevPos.size());
+    LOG_INFO(KEY_PROCESS "hbm EvictInitDeviceEmb: [{}]! send offsetSize:{}", name, evictDevPos.size());
 }
 
 absl::flat_hash_map<emb_key_t, int64_t> EmbeddingTable::GetKeyOffsetMap()
@@ -203,8 +202,7 @@ void EmbeddingTable::CheckFileSystemPtr() const
         return;
     }
     auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::NULL_PTR,
-                       StringFormat("Failed to obtain the file system pointer,"
-                                    " the file system pointer is null, table:%s.", name.c_str()));
+                       "Failed to obtain the file system pointer, the file system pointer is null.");
     LOG_ERROR(error.ToString());
     throw std::runtime_error(error.ToString());
 }
@@ -216,8 +214,8 @@ void EmbeddingTable::CheckReadKeyFileSize(const string& fileName, size_t fileSiz
     }
 
     auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::LOGIC_ERROR,
-                       StringFormat("Load keys failed, file %s size %d is too big, table:%s.",
-                                    fileName.c_str(), fileSize, name.c_str()));
+                       StringFormat("Error: Load keys failed, "
+                                    "file %s size %d is too big.", fileName.c_str(), fileSize));
     LOG_ERROR(error.ToString());
     throw std::runtime_error(error.ToString());
 }
@@ -228,8 +226,8 @@ void EmbeddingTable::CheckLoadKeyMallocPtr(const int64_t* mallocPtr, size_t mall
         return;
     }
     auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::LOGIC_ERROR,
-                       StringFormat("Load keys failed. Failed to allocate %d bytes using malloc, table:%s.",
-                                    mallocByteSize, name.c_str()));
+                       StringFormat("Error: Load keys failed. "
+                                    "Failed to allocate %d bytes using malloc.", mallocByteSize));
     LOG_ERROR(error.ToString());
     throw std::runtime_error(error.ToString());
 }
@@ -238,15 +236,15 @@ void EmbeddingTable::CheckReadKeyFileBytes(ssize_t readReturnCode, const string&
 {
     if (readReturnCode == -1) {
         auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::LOGIC_ERROR,
-                           StringFormat("Load keys failed. An error occurred while reading file:%s, table:%s.",
-                                        fileName.c_str(), name.c_str()));
+                           StringFormat("Error: Load keys failed. "
+                                        "An error occurred while reading file: %s.", fileName.c_str()));
         LOG_ERROR(error.ToString());
         throw std::runtime_error(error.ToString());
     }
     if (readReturnCode != fileSize) {
         string errMsg = StringFormat(
-            "Load keys failed. Expected to read %d bytes, but actually read %d bytes to file %s, table:%s.",
-            fileSize, readReturnCode, fileName.c_str(), name.c_str());
+            "Error: Load keys failed. Expected to read %d bytes, but actually read %d bytes to file %s.",
+            fileSize, readReturnCode, fileName.c_str());
         auto error = Error(ModuleName::M_EMB_TABLE, ErrorType::LOGIC_ERROR, errMsg);
         LOG_ERROR(error.ToString());
         throw std::runtime_error(error.ToString());

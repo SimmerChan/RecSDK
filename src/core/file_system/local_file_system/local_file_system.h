@@ -17,6 +17,7 @@ See the License for the specific language governing permissions and
 #define MX_REC_LOCAL_FILE_SYSTEM_H
 
 #include "file_system/file_system.h"
+#include "file_system/buffer_queue.h"
 
 namespace MxRec {
     using namespace std;
