@@ -111,7 +111,7 @@ public:
         }
         SyncPostprocess();
     }
-
+private:
     __aicore__ inline void GetQueHead()
     {
         if (blockIdx < processBlockNum) {   // 换出
@@ -482,7 +482,7 @@ public:
             CpUB2GM<uint64_t>(seqOutSwapIn, ub_buff, sizeof(uint64_t));
         }
     }
-private:
+
     __aicore__ inline void ReadHeader(GM_ADDR svm_buff)
     {
         __ubuf__ RmaShmHeader *ub_buff = (__ubuf__ RmaShmHeader *)get_imm(0);
