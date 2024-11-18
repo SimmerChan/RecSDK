@@ -40,13 +40,21 @@ constexpr int32_t HUGEPAGE_ENABLE = 1;
 const uint64_t RMA_SHM_TOTAL_MEM_SIZE = 1 * 1024 * 1024 * 1024 * 1L; // 内存总容量
 constexpr int RMA_SHM_QUEUE_CAPACITY = 50;                           // 队列的最大深度
 constexpr bool RMA_NPU_910C = true;                                 // 910C
-constexpr int32_t RANK_SIZE = 8;
+constexpr int32_t RANK_SIZE = 16;
 
 uint32_t g_pid = 0;
 bool g_aclInit[RANK_SIZE] = {false};
 std::unordered_map<std::string, void *> g_shmSvmMap;
 std::unordered_map<std::string, void *> g_shmAddr;
 std::unordered_map<std::string, int> g_shmId;
+
+typedef enum tagRmaDevModel {
+    MEM_MAP_DEV,
+    SVM_MAP_DEV,
+    PCIE_TH_DEV
+} RmaDevModel_t;
+
+int32_t g_rmaDevModel = SVM_MAP_DEV; // 910C
 
 void InitShmHeader(void *shmHeader, int64_t memSize, int32_t capacity)
 {
@@ -70,52 +78,79 @@ void ResetShmHeader(void *shmHeader)
     header->buffLimit = 0;
 }
 
-void RmaFreeShm(int shmId, void *memory)
+void RmaFreeShm(std::string shmName, void *memory)
 {
-    LOG_INFO("free shm shmid: {}", shmId);
-    (void)shmdt(memory);
-    shmctl(shmId, IPC_RMID, nullptr);
+    if (g_rmaDevModel == HOST_SVM_MAP_DEV) {
+        if (aclrtFreeHost(memory) != ACL_ERROR_NONE) {
+            LOG_ERROR("free host mem failed.");
+        }
+    } else {
+        int shmId = g_shmId[shmName];
+        LOG_INFO("free shm shmid: {}", shmId);
+        (void)shmdt(memory);
+
+        shmctl(shmId, IPC_RMID, nullptr);
+    }
 }
 
 // aicore申请shm内存
 void *RmaCreateShm(std::string shmName, uint64_t memSize, int deviceId, int capacity)
 {
-    struct shmid_ds buf;
-
-    key_t key = static_cast<key_t>(std::hash<std::string> {}(shmName));
+    void *memory = nullptr;
+    if (g_rmaDevModel == HOST_SVM_MAP_DEV) {
+        if (aclrtMallocHost((void **)&memory, memSize) != ACL_ERROR_NONE) {
+            LOG_ERROR("Malloc host memory failed");
+            return nullptr;
+        }
+        (void)aclrtMemset(memory, memSize, 0, memSize);
+        LOG_INFO("create memory {}, size: {} bytes", shmName.c_str(), memSize);
+    } else {
+        struct shmid_ds buf;
+        key_t key = static_cast<key_t>(std::hash<std::string> {}(shmName));
 #if HUGEPAGE_ENABLE
-    int shmId = shmget(key, memSize, IPC_CREAT | 0666 | SHM_HUGETLB);
+        int shmId = shmget(key, memSize, IPC_CREAT | 0666 | SHM_HUGETLB);
 #else
-    int shmId = shmget(key, memSize, IPC_CREAT | 0600); // 0600提供文件所有者有读和写的权限
+        int shmId = shmget(key, memSize, IPC_CREAT | 0600); // 0600提供文件所有者有读和写的权限
 #endif
 
-    LOG_INFO("create shm {}, shmid: {}, size: {} bytes", shmName.c_str(), shmId, memSize);
-    if (shmId == -1) {
-        LOG_ERROR("shmget failed");
-        return nullptr;
+        LOG_INFO("create shm {}, shmid: {}, size: {} bytes", shmName.c_str(), shmId, memSize);
+        if (shmId == -1) {
+            LOG_ERROR("shmget failed");
+            return nullptr;
+        }
+
+        void *memory = nullptr;
+        memory = shmat(shmId, nullptr, 0);
+        if (memory == reinterpret_cast<void *>(-1)) {
+            LOG_ERROR("shmat failed");
+            shmctl(shmId, IPC_RMID, nullptr);
+            return nullptr;
+        }
+
+        shmctl(shmId, IPC_STAT, &buf);
+        (void)memset(memory, 0, memSize);
+        g_shmId.insert(std::make_pair(shmName, shmId));
     }
 
-    void *memory = nullptr;
-    memory = shmat(shmId, nullptr, 0);
-    if (memory == reinterpret_cast<void *>(-1)) {
-        LOG_ERROR("shmat failed");
-        shmctl(shmId, IPC_RMID, nullptr);
-        return nullptr;
+    uint32_t flag;
+    switch (g_rmaDevModel) {
+        case MEM_MAP_DEV:
+            flag = HOST_MEM_MAP_DEV;
+            break;
+        case SVM_MAP_DEV:
+            flag = HOST_SVM_MAP_DEV;
+            break;
+        default :
+            flag = HOST_MEM_MAP_DEV_PCIE_TH;
+            break;
     }
 
-    shmctl(shmId, IPC_STAT, &buf);
-
-    (void)memset(memory, 0, memSize);
-
-    uint32_t flag = RMA_NPU_910C ? HOST_MEM_MAP_DEV : HOST_MEM_MAP_DEV_PCIE_TH;
     void *svmMem = nullptr;
     if (halHostRegister(memory, memSize, flag, deviceId, &svmMem) != DRV_ERROR_NONE) {
         LOG_ERROR("rank {} halHostRegister failed", deviceId);
-        RmaFreeShm(shmId, memory);
+        RmaFreeShm(shmName, memory);
         return nullptr;
     }
-
-    g_shmId.insert(std::make_pair(shmName, shmId));
 
     g_shmAddr.insert(std::make_pair(shmName, memory));
 
@@ -190,9 +225,9 @@ void FreeShmAddr(int deviceId)
 
     for (auto &pair : g_shmAddr) {
         halHostUnregister(pair.second, deviceId);
-        RmaFreeShm(g_shmId[pair.first], pair.second);
+        RmaFreeShm(pair.first, pair.second);
         pair.second = nullptr;
-        LOG_INFO("rank {} free shm shmid: {} success", deviceId, g_shmId[pair.first]);
+        LOG_INFO("rank {} free memory: {} success", deviceId, pair.first.c_str());
     }
     g_shmAddr.clear();
     g_shmId.clear();
