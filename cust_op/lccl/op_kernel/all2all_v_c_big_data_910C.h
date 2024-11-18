@@ -307,7 +307,7 @@ private:
         }
         readGt = readQue[idx].ReadFront();
         if (copyLen > 0) {
-            writeGt = outputGt[sliceIdx * queElemLen + revOffset[idx]];
+            writeGt = outputGt[sliceIdx * queElemLen + outputOffset[idx]];
             CpGM2GMPingPong<T>(copyLen * sizeof(T), readGt, writeGt, COPYONLY);
         }
         sync.SetInnerFlag(magic, sliceIdx, rank, groupCoreIdx[idx] + flagNumPerStage);
