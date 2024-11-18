@@ -106,11 +106,11 @@ public:
 
     void CheckFileSystemPtr() const;
 
-    void CheckReadKeyFileSize(const string& fileName, size_t fileSize) ;
+    static void CheckReadKeyFileSize(const string& fileName, size_t fileSize) ;
 
-    void CheckLoadKeyMallocPtr(const int64_t* mallocPtr, size_t mallocByteSize) ;
+    static void CheckLoadKeyMallocPtr(const int64_t* mallocPtr, size_t mallocByteSize) ;
 
-    void CheckReadKeyFileBytes(ssize_t readReturnCode, const string& fileName, size_t fileSize) ;
+    static void CheckReadKeyFileBytes(ssize_t readReturnCode, const string& fileName, size_t fileSize) ;
 
     std::string name;
     size_t hostVocabSize;

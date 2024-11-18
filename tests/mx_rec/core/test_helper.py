@@ -272,7 +272,7 @@ class TestDoInsertFunc(unittest.TestCase):
 
         from mx_rec.core.asc.helper import do_insert
 
-        args = tuple([{"key1": 1}, tuple([1])])
+        args = dict()
         insert_tensor = []
         splits = []
         table_names = []

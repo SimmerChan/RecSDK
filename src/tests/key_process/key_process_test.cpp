@@ -16,6 +16,7 @@ See the License for the specific language governing permissions and
 #include <random>
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
+#include <easy/profiler.h>
 
 #include "utils/common.h"
 #include "key_process/key_process.h"

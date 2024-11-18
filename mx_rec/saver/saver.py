@@ -18,6 +18,7 @@ import json
 import os
 import threading
 import glob
+import shutil
 from collections import defaultdict
 from typing import Dict, List, Union
 
@@ -25,16 +26,13 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.python.util import compat
 
-from mx_rec.constants.constants import (
-    DataName, DataAttr, MIN_SIZE, MAX_FILE_SIZE, TFDevice, MAX_INT32, HDFS_FILE_PREFIX, TRAIN_CHANNEL_ID,
-    BASE_MODEL, DELTA_MODEL, SAVE_DIR_MODE, SAVE_FILE_MODE, SAVE_FILE_FLAG
-)
+from mx_rec.constants.constants import DataName, DataAttr, MIN_SIZE, MAX_FILE_SIZE, Flag, TFDevice, \
+    MAX_INT32, HDFS_FILE_PREFIX, TRAIN_CHANNEL_ID, BASE_MODEL, DELTA_MODEL
 from mx_rec.util.communication.hccl_ops import get_rank_id, get_rank_size, get_local_rank_size
 from mx_rec.util.initialize import ConfigInitializer
 from mx_rec.util.perf import performance
-from mx_rec.validator.validator import (
-    DirectoryValidator, FileValidator, para_checker_decorator, ClassValidator, IntValidator, OptionalStringValidator,
-)
+from mx_rec.validator.validator import DirectoryValidator, FileValidator, para_checker_decorator, ClassValidator, \
+    IntValidator, OptionalStringValidator
 from mx_rec.util.global_env_conf import global_env
 from mx_rec.util.log import logger
 from mx_rec.optimizers.base import CustomizedOptimizer
@@ -89,10 +87,7 @@ class Saver(object):
         else:
             table_dir = os.path.join(root_dir, "HashTable", "HBM", table_name)
         try:
-            if check_file_system_is_hdfs(table_dir):
-                tf.io.gfile.makedirs(table_dir)
-            else:
-                os.makedirs(table_dir, SAVE_DIR_MODE, exist_ok=True)
+            tf.io.gfile.makedirs(table_dir)
         except Exception as err:
             raise RuntimeError(f"make dir {table_dir} for saving sparse table failed!") from err
 
@@ -161,10 +156,7 @@ class Saver(object):
 
         if not tf.io.gfile.exists(saving_path):
             try:
-                if check_file_system_is_hdfs(saving_path):
-                    tf.io.gfile.makedirs(saving_path)
-                else:
-                    os.makedirs(saving_path, SAVE_DIR_MODE, exist_ok=True)
+                tf.io.gfile.makedirs(saving_path)
             except Exception as err:
                 raise RuntimeError(f"make dir {saving_path} for saving sparse table failed!") from err
             logger.info("Saving_path '%s' has been made.", saving_path)
@@ -176,13 +168,8 @@ class Saver(object):
                 logger.info("checkpoints num %d > max_to_keep %d delete %s",
                             len(self._last_checkponts), self.max_to_keep,
                             self._last_checkponts[0])
-                checkpoint_path = self._last_checkponts.pop(0)
-                file_validator = FileValidator("checkpoint_path", checkpoint_path)
-                if not check_file_system_is_hdfs(checkpoint_path):
-                    file_validator.check_not_soft_link()
-                file_validator.check()
                 try:
-                    tf.io.gfile.rmtree(checkpoint_path)
+                    tf.io.gfile.rmtree(self._last_checkponts.pop(0))
                 except tf.errors.NotFoundError as e:
                     logger.warning("oldest checkpoint file is not exist, maybe it has been deleted.")
 
@@ -218,10 +205,6 @@ class Saver(object):
 
         self._restore(sess, reading_path, warm_start_tables)
         if model_type == DELTA_MODEL:
-            file_validator = FileValidator("reading_path", reading_path)
-            if not check_file_system_is_hdfs(reading_path):
-                file_validator.check_not_soft_link()
-            file_validator.check()
             try:
                 tf.io.gfile.rmtree(reading_path)
             except tf.errors.NotFoundError:
@@ -288,7 +271,9 @@ class Saver(object):
                     attribute = attribute.tostring()
                     file.write(attribute)
             else:
-                with os.fdopen(os.open(attribute_dir, SAVE_FILE_FLAG, SAVE_FILE_MODE), "wb") as file:
+                file_flags = os.O_WRONLY | os.O_CREAT
+                file_mode = 0o640
+                with os.fdopen(os.open(attribute_dir, file_flags, file_mode), "wb") as file:
                     file.write(attribute.tostring())
 
     def get_warm_start_dict(self, table_list):
@@ -563,23 +548,16 @@ def generate_file_name(suffix):
 
 def write_binary_data(writing_path: str, suffix: int, data: np.ndarray):
     try:
-        if check_file_system_is_hdfs(writing_path):
-            tf.io.gfile.makedirs(writing_path)
-        else:
-            os.makedirs(writing_path, SAVE_DIR_MODE, exist_ok=True)
+        tf.io.gfile.makedirs(writing_path)
     except Exception as err:
         raise RuntimeError(f"make dir {writing_path} for writing data failed!") from err
-    data_file, _ = generate_file_name(suffix)
+    data_file, attribute_file = generate_file_name(suffix)
     target_data_dir = os.path.join(writing_path, data_file)
     # append mode of hdfs system supports not well when the file not exists.
-    write_mode = "wb" if not tf.io.gfile.exists(target_data_dir) else "ab"
-    if check_file_system_is_hdfs(target_data_dir):
-        with tf.io.gfile.GFile(target_data_dir, write_mode) as file:
-            data = data.tostring()
-            file.write(data)
-    else:
-        with os.fdopen(os.open(target_data_dir, SAVE_FILE_FLAG, SAVE_FILE_MODE), write_mode) as file:
-            file.write(data.tostring())
+    file_mode = "wb" if not tf.io.gfile.exists(target_data_dir) else "ab"
+    with tf.io.gfile.GFile(target_data_dir, file_mode) as file:
+        data = data.tostring()
+        file.write(data)
 
 
 def read_binary_data(reading_path: str, data_name: str, table_name: str, load_offset) -> dict:
@@ -728,7 +706,9 @@ def merge_multi_files(upper_dir: str):
     if check_file_system_is_hdfs(outfile_path):
         outfile = tf.io.gfile.GFile(outfile_path, "wb")
     else:
-        outfile = os.fdopen(os.open(outfile_path, SAVE_FILE_FLAG, SAVE_FILE_MODE), "wb")
+        file_flags = os.O_WRONLY | os.O_CREAT
+        file_mode = 0o640
+        outfile = os.fdopen(os.open(outfile_path, file_flags, file_mode), "wb")
     
     for file in data_files:
         file_dir = os.path.join(upper_dir, file)
@@ -815,7 +795,9 @@ def update_model_index(save_dir: str, model_index: Dict[str, Union[str, int]]):
             dir_validator.check()
         except ValueError as e:
             raise ValueError(f"save_dir:{save_dir} can't be soft link") from e
-        with os.fdopen(os.open(model_index_file, SAVE_FILE_FLAG, SAVE_FILE_MODE), "w") as f:
+        file_flags = os.O_WRONLY | os.O_CREAT
+        file_mode = 0o640
+        with os.fdopen(os.open(model_index_file, file_flags, file_mode), "w") as f:
             json.dump(model_index_list, f, ensure_ascii=False, separators=(",", ": "), indent=4)
 
 
@@ -831,9 +813,11 @@ def write_delta_export_time_ms(save_dir: str, delta_export_time_ms: dict):
             dir_validator.check()
         except ValueError as e:
             raise ValueError(f"save_dir:{save_dir} can't be soft link") from e
-        with os.fdopen(os.open(delta_export_time_ms_file, SAVE_FILE_FLAG, SAVE_FILE_MODE), "w") as f:
+        file_flags = os.O_WRONLY | os.O_CREAT
+        file_mode = 0o640
+        with os.fdopen(os.open(delta_export_time_ms_file, file_flags, file_mode), "w") as f:
             json.dump(delta_export_time_ms, f, indent=4)
-
+            
 
 def get_model_type_by_version(save_dir: str, model_version: str):
     model_index_file = os.path.join(save_dir, "model_index.json")
@@ -958,7 +942,8 @@ def write_base_table_to_file(save_dir: str, base_table: dict):
                 if check_file_system_is_hdfs(writing_path):
                     tf.io.gfile.makedirs(writing_path)
                 else:
-                    os.makedirs(writing_path, SAVE_DIR_MODE, exist_ok=True)
+                    dir_mode = 0o750
+                    os.makedirs(writing_path, dir_mode, exist_ok=True)
             except Exception as err:
                 raise RuntimeError(f"Create dir {writing_path} for writing data failed!") from err
             
@@ -974,9 +959,11 @@ def write_base_table_to_file(save_dir: str, base_table: dict):
                 with tf.io.gfile.GFile(target_data_dir, "wb") as file:
                     file.write(v.tostring())
             else:
-                with os.fdopen(os.open(target_attribute_dir, SAVE_FILE_FLAG, SAVE_FILE_MODE), "wb") as file:
+                file_flags = os.O_WRONLY | os.O_CREAT
+                file_mode = 0o640
+                with os.fdopen(os.open(target_attribute_dir, file_flags, file_mode), "wb") as file:
                     file.write(attribute.tostring())
-                with os.fdopen(os.open(target_data_dir, SAVE_FILE_FLAG, SAVE_FILE_MODE), "wb") as file:
+                with os.fdopen(os.open(target_data_dir, file_flags, file_mode), "wb") as file:
                     file.write(v.tostring())
 
 

@@ -67,10 +67,14 @@ RUN source /etc/profile && gcc -v && tar -zxvf openmpi-4.1.5.tar.gz && \
 ENV LD_LIBRARY_PATH=/usr/local/openmpi/lib:$LD_LIBRARY_PATH \
     PATH=/usr/local/openmpi/bin:$PATH
 
+# 6.安装easy_profile
+RUN source /etc/profile && gcc -v && tar -zxf v2.1.0 && \
+    cd easy_profiler-2.1.0 && mkdir -p build && cd build && cmake .. && make -j && make install && \
+    cd ../../ && rm -rf easy_profiler-2.1.0*
 
 SHELL ["/usr/bin/scl", "enable", "devtoolset-7"]
 
-# 6.安装python3.7.5
+# 7.安装python3.7.5
 RUN source /etc/profile && gcc -v && tar -xvf Python-3.7.5.tar.xz && \
     cd Python-3.7.5 && \
     mkdir -p build && cd build && \
@@ -89,7 +93,7 @@ RUN mkdir ~/.pip && touch ~/.pip/pip.conf && \
     echo "index-url=http://pypi.douban.com/simple/" >> ~/.pip/pip.conf && \
     echo "timeout=200" >> ~/.pip/pip.conf
 
-# 7.安装hdf5
+# 8.安装hdf5
 RUN source /etc/profile && gcc -v && tar -zxvf hdf5-1.10.5.tar.gz && \
     cd hdf5-1.10.5 && \
     ./configure --prefix=/usr/local/hdf5 && \
@@ -102,7 +106,7 @@ RUN ln -s /usr/local/hdf5/lib/libhdf5.so /usr/lib/libhdf5.so && \
 
 ENV CC=/usr/lib64/openmpi/bin/mpicc
 
-# 8.安装python包
+# 9.安装python包
 RUN pip3.7 install -U pip && \
     pip3.7 install numpy && \
     pip3.7 install decorator && \
@@ -130,20 +134,20 @@ RUN pip3.7 install -U pip && \
 # 安装mpi4py时使用该环境变量，安装完成后取消
 RUN unset CC
 
-# 9.设置驱动路径环境变量
+# 10.设置驱动路径环境变量
 ARG ASCEND_BASE=/usr/local/Ascend
 ENV LD_LIBRARY_PATH=$ASCEND_BASE/driver/lib64:$ASCEND_BASE/driver/lib64/common:$ASCEND_BASE/driver/lib64/driver:$LD_LIBRARY_PATH
 
-# 10.CANN相关参数
+# 11.CANN相关参数
 ARG TOOLKIT_PKG=Ascend-cann-toolkit*.run
 ARG TOOLKIT_PATH=$ASCEND_BASE/ascend-toolkit/latest
 
-# 11.TF相关
+# 12.TF相关
 ARG TFPLUGIN_PKG=Ascend-cann-tfplugin*.run
 # MODIFIED TF=1.15.0 or TF=2.6.5，在arm环境下换成对应的whl包
 ARG TF_PKG=tensorflow-cpu==
 
-# 12.安装ascend-toolkit和tfplugin，及其他python依赖包
+# 13.安装ascend-toolkit和tfplugin，及其他python依赖包
 RUN umask 0022 && \
     mkdir -p $ASCEND_BASE/driver && \
     cp version.info $ASCEND_BASE/driver/ && \
@@ -164,9 +168,9 @@ RUN umask 0022 && \
     rm -rf $ASCEND_BASE/driver && \
     rm -rf /etc/ascend_install.info
 
-# 13.安装mxRec，确认安装tf1或tf2
+# 14.安装mxRec，确认安装tf1或tf2
 RUN tar -zxvf Ascend-mindxsdk-mxrec*.tar.gz && \
     pip3 install mindxsdk-mxrec/{tf1|tf2}_whl/mx_rec-*.whl --force-reinstall
 
-# 14.清理临时目录
+# 15.清理临时目录
 RUN rm -rf ./*
