@@ -52,7 +52,7 @@ public:
         this->dim = dim;
         this->restorePtr = restore;
         this->outputPtr = output;
-        this->coreNumsPerStage = rankSize > 16 ? 16 : rankSize;
+        this->coreNumsPerStage = 16;
         this->ipcBufferSize = ipc;
 
         blockIdx = GetBlockIdx();
@@ -183,6 +183,7 @@ private:
 
     __aicore__ inline void ProducerDataSlice()
     {
+        maxSliceNum = 0;
         for (auto i = 0; i < rankNumPerCore; ++i) {
             // 当前核负责的rank， 因为是基于trackRankSize计算的groupCoreIdx，所以要乘RANK_SIZE_TWO
             targetRank[i] = groupCoreIdx[i] / coreNumPerRank;
@@ -205,11 +206,15 @@ private:
                       inputLen[i], sendOffset[i]);
             // 当前核负责的数据切片数，能分成一个que中的多少小块
             sliceNum[i] = CeilDiv(inputLen[i], queElemLen);
+            if (sliceNum[i] > maxSliceNum) {
+                maxSliceNum = sliceNum[i];
+            }
         }
     }
 
     __aicore__ inline void ConsumerDataSlice()
     {
+        maxSliceNum = 0;
         for (auto i = 0; i < rankNumPerCore; ++i) {
             // 当前核负责的rank
             targetRank[i] = groupCoreIdx[i] / coreNumPerRank;
@@ -232,6 +237,9 @@ private:
                       outputLen[i], revOffset[i]);
             // 当前核负责的数据切片数
             sliceNum[i] = CeilDiv(outputLen[i], queElemLen);
+            if (sliceNum[i] > maxSliceNum) {
+                maxSliceNum =sliceNum[i];
+            }
         }
     }
 
@@ -263,7 +271,7 @@ private:
             // 写共享内存队列时，需要等待当前rank
             waitRankListForWrite[i][0] = targetRank[i];
             waitNumForWrite[i] = 1;
-            waitBlockForWrite[i] = rank + flagNumPerStage;
+            waitBlockForWrite[i] = rank * coreNumPerRank + groupCoreIdx[i] % coreNumPerRank + flagNumPerStage;
         }
         InputToSharePipeline();
     }
@@ -275,7 +283,7 @@ private:
             flagValue[i] = -1;  // 统一赋值为-1，便于后续小于判断
         }
         // 以最多切片sliceNum[0]为切片数进行循环，切片数不足的不拷贝
-        for (auto sliceIdx = 0; sliceIdx < sliceNum[0]; ++sliceIdx) {
+        for (auto sliceIdx = 0; sliceIdx < maxSliceNum; ++sliceIdx) {
             for (auto i = 0; i < rankNumPerCore; ++i) {
                 if (targetRank[i] == INVALID_RANK_NUM) {
                     continue;
@@ -300,7 +308,7 @@ private:
         if (copyLen > 0) {
             CpGM2GMPingPong<T>(copyLen * sizeof(T), readGt, writeGt, COPYONLY);
         }
-        sync.SetInnerFlag(magic, sliceIdx, rank, targetRank[idx]);
+        sync.SetInnerFlag(magic, sliceIdx, rank, groupCoreIdx[idx]);
     }
 
     __aicore__ inline void ConsumerStage()
@@ -310,7 +318,7 @@ private:
             flagValue[i] = -1;
         }
         // 以最多切片sliceNum[0]为切片数进行循环，切片数不足的不拷贝
-        for (auto sliceIdx = 0; sliceIdx < sliceNum[0]; ++sliceIdx) {
+        for (auto sliceIdx = 0; sliceIdx < maxSliceNum; ++sliceIdx) {
             for (auto i = 0; i < rankNumPerCore; ++i) {
                 if (targetRank[i] == INVALID_RANK_NUM) {
                     continue;
@@ -332,8 +340,8 @@ private:
 
         // 拉取本rank数据
         if (flagValue < sliceIdx) {
-            sync.WaitInnerFlag(magic, sliceIdx, groupCoreIdx[idx], rank);
-            flagValue = sync.GetInnerFlag(groupCoreIdx[idx], rank) & EVENT_ID_MASK;
+            sync.WaitInnerFlag(magic, sliceIdx, targetRank[idx], rank * coreNumPerRank + groupCoreIdx[idx] % coreNumPerRank);
+            flagValue = sync.GetInnerFlag(targetRank[idx], rank * coreNumPerRank + groupCoreIdx[idx] % coreNumPerRank) & EVENT_ID_MASK;
         }
         readGt = readQue[idx].ReadFront();
 
@@ -379,6 +387,10 @@ private:
             tempBuffer.FreeTensor(buffer2);
         }
         sync.SetInnerFlag(magic, sliceIdx, rank, groupCoreIdx[idx] + flagNumPerStage);
+        if (sliceIdx == sliceNum[idx] - 1) {
+            sync.SetInnerFlag(1, 0, rank, groupCoreIdx[idx] + flagNumPerStage);
+            sync.SetInnerFlag(1, 0, targetRank[idx], rank * coreNumPerRank + groupCoreIdx[idx] % coreNumPerRank);
+        }
     }
 
     GlobalTensor <T> inputGt;
@@ -401,6 +413,7 @@ private:
     int waitNumForWrite[MULTI_RANK_SIZE];  // 写共享内存时，需要等待的数量
     int waitBlockForWrite[MULTI_RANK_SIZE];  // 写共享内存时，需要等待的标志位
 
+    int64_t maxSliceNum;
     int64_t dim;
     int64_t queLen;
     int64_t queSize;
