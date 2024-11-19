@@ -37,6 +37,7 @@ from tensorflow.python.training.optimizer import Optimizer
 from tensorflow.python.client.session import BaseSession
 
 from mx_rec.constants import constants
+from mx_rec.core.embedding_proxy import MergeableEmbeddingTableProxy
 from mx_rec.util.initialize import ConfigInitializer
 from mx_rec.util.tf_version_adapter import NPUCheckpointSaverHook
 from mx_rec.graph.merge_lookup import do_merge_lookup
@@ -307,6 +308,7 @@ def scale_loss(self: Optimizer, loss_value: tf.Tensor) -> tf.Tensor:
     """
 
     logger.debug("Enter patch 'Optimizer._scale_loss'.")
+
     # In train mode, merge lookup must be completed during compute gradients.
     # Ensure that the backward of graph is constructed and the gradient calculation is correct.
     do_merge_lookup(is_train=True)
