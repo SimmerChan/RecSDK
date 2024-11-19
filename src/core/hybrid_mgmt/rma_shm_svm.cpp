@@ -39,7 +39,6 @@ drvError_t rtDeviceGetBareTgid(uint32_t *pid);
 constexpr int32_t HUGEPAGE_ENABLE = 1;
 const uint64_t RMA_SHM_TOTAL_MEM_SIZE = 1 * 1024 * 1024 * 1024 * 1L; // 内存总容量
 constexpr int RMA_SHM_QUEUE_CAPACITY = 50;                           // 队列的最大深度
-constexpr bool RMA_NPU_910C = true;                                 // 910C
 constexpr int32_t RANK_SIZE = 16;
 
 uint32_t g_pid = 0;
@@ -90,6 +89,7 @@ void RmaFreeShm(std::string shmName, void *memory)
         (void)shmdt(memory);
 
         shmctl(shmId, IPC_RMID, nullptr);
+        g_shmId.erase(shmName);
     }
 }
 
