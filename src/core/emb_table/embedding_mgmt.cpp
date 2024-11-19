@@ -89,7 +89,7 @@ unordered_set<int64_t> EmbeddingMgmt::GetPaddingKeysOffset(const std::string& na
 
 void EmbeddingMgmt::EvictKeys(const string& name, const vector<emb_cache_key_t>& keys)
 {
-    LOG_INFO("evict keys for {}", name);
+    LOG_INFO("Evict keys for table:{}", name);
     if (keys.size() != 0) {
         embeddings[name]->EvictKeys(keys);
     }
