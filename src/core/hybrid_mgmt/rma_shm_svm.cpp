@@ -80,7 +80,7 @@ void ResetShmHeader(void *shmHeader)
 
 void RmaFreeShm(std::string shmName, void *memory)
 {
-    if (g_rmaDevModel == HOST_SVM_MAP_DEV) {
+    if (g_rmaDevModel == SVM_MAP_DEV) {
         if (aclrtFreeHost(memory) != ACL_ERROR_NONE) {
             LOG_ERROR("free host mem failed.");
         }
@@ -97,7 +97,7 @@ void RmaFreeShm(std::string shmName, void *memory)
 void *RmaCreateShm(std::string shmName, uint64_t memSize, int deviceId, int capacity)
 {
     void *memory = nullptr;
-    if (g_rmaDevModel == HOST_SVM_MAP_DEV) {
+    if (g_rmaDevModel == SVM_MAP_DEV) {
         if (aclrtMallocHost((void **)&memory, memSize) != ACL_ERROR_NONE) {
             LOG_ERROR("Malloc host memory failed");
             return nullptr;
