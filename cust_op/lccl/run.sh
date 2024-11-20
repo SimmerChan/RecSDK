@@ -17,6 +17,8 @@
 #set -e
 #source /etc/profile
 
+CHIP_TYPE="910_93"  # 支持：910B 910_93
+
 # 查找msopgen的路径，加入到环境变量PATH中
 msopgen_path=$(find /usr/local/Ascend/ -name msopgen | grep bin)
 parent_dir=$(dirname "$msopgen_path")
@@ -24,8 +26,15 @@ export PATH=$parent_dir:$PATH
 
 # 利用msopgen生成可编译文件
 rm -rf ./custom_op
-msopgen gen -i emb_custom.json -f tf -c ai_core-ascend910b1 -lan cpp -out ./custom_op -m 0 -op RmaSwap
-msopgen gen -i emb_custom.json -f tf -c ai_core-ascend910b1 -lan cpp -out ./custom_op -m 1 -op RmaSwapMultiTables
+if [ "$CHIP_TYPE" == "910B" ]; then
+  msopgen gen -i emb_custom.json -f tf -c ai_core-ascend910b1 -lan cpp -out ./custom_op -m 0 -op RmaSwap
+  msopgen gen -i emb_custom.json -f tf -c ai_core-ascend910b1 -lan cpp -out ./custom_op -m 1 -op RmaSwapMultiTables
+elif [ "$CHIP_TYPE" == "910_93" ]; then
+  msopgen gen -i emb_custom.json -f tf -c ai_core-ascend910_93 -lan cpp -out ./custom_op -m 0 -op RmaSwap
+  msopgen gen -i emb_custom.json -f tf -c ai_core-ascend910_93 -lan cpp -out ./custom_op -m 1 -op RmaSwapMultiTables
+else
+  echo "Unsupported chip type $CHIP_TYPE"
+fi
 
 cp -rf op_kernel custom_op/
 cp -rf op_host custom_op/
@@ -53,7 +62,13 @@ if [ ! -f "config.cmake" ]; then
 fi
 
 # 修改设备环境
-sed -i 's:set(ASCEND_COMPUTE_UNIT ascend910b):set(ASCEND_COMPUTE_UNIT ascend910b ascend910):g' config.cmake
+if [ "$CHIP_TYPE" == "910B" ]; then
+  sed -i 's:set(ASCEND_COMPUTE_UNIT ascend910b):set(ASCEND_COMPUTE_UNIT ascend910b ascend910):g' config.cmake
+elif [ "$CHIP_TYPE" == "910_93" ]; then
+  sed -i 's:set(ASCEND_COMPUTE_UNIT ascend910_93):set(ASCEND_COMPUTE_UNIT ascend910_93 ascend910):g' config.cmake
+else
+  echo "Unsupported chip type $CHIP_TYPE"
+fi
 
 cd ..
 
