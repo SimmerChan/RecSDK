@@ -119,7 +119,6 @@ void *RmaCreateShm(std::string shmName, uint64_t memSize, int deviceId, int capa
             return nullptr;
         }
 
-        void *memory = nullptr;
         memory = shmat(shmId, nullptr, 0);
         if (memory == reinterpret_cast<void *>(-1)) {
             LOG_ERROR("shmat failed");
