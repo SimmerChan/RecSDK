@@ -1220,16 +1220,26 @@ void HybridMgmt::EmbeddingLookUpAndSendDDR(int batchId, int index, const EmbInfo
                         .extEmbeddingSize = embInfo.extEmbeddingSize,
                         .channelId = channelId,
                         .name = embInfo.name};
-
-    float *h2dEmb = nullptr;
-    int64_t dims[2] = {0};
-    auto isSuccess = EmbeddingLookUpDDR(info, h2dEmb, dims);
-    if (!isSuccess) {
-        LOG_DEBUG("HybridMgmt is not running when [LookUpAndSendDDR], table:{}, batchId:{}, channel:{}", embInfo.name,
-                  batchId, channelId);
-        return;
+    if (GlobalEnv::useShmSwap) {
+        float *h2dEmb = nullptr;
+        int64_t dims[2] = {0};
+        auto isSuccess = EmbeddingLookUpDDR(info, h2dEmb, dims);
+        if (!isSuccess) {
+            LOG_DEBUG("HybridMgmt is not running when [LookUpAndSendDDR], table:{}, batchId:{}, channel:{}",
+                      embInfo.name, batchId, channelId);
+            return;
+        }
+        EmbeddingSendDDR(info, h2dEmb, dims);
+    } else {
+        vector<Tensor> h2dEmb;
+        auto isSuccess = EmbeddingLookUpDDR(info, h2dEmb);
+        if (!isSuccess) {
+            LOG_DEBUG("HybridMgmt is not running when [LookUpAndSendDDR], table:{}, batchId:{}, channel:{}",
+                      embInfo.name, batchId, channelId);
+            return;
+        }
+        EmbeddingSendDDR(info, h2dEmb);
     }
-    EmbeddingSendDDR(info, h2dEmb, dims);
 }
 
 void HybridMgmt::EmbeddingReceiveAndUpdateDDR(int batchId, int index, const EmbInfo& embInfo, int channelId)
@@ -1566,17 +1576,49 @@ bool HybridMgmt::EmbeddingReceiveDDR(const EmbTaskInfo& info, float*& ptr, vecto
 
     // 区分通道接收
     int64_t dim0 = 0;
-    auto size = hdTransfer->RecvMteShm(TransferChannel::D2H, info.channelId, info.name, ptr, dim0, info.batchId);
+    size_t size = 0;
+    if (GlobalEnv::useShmSwap) {
+        size = hdTransfer->RecvMteShm(TransferChannel::D2H, info.channelId, info.name, ptr, dim0, info.batchId);
+    } else {
+        size = hdTransfer->RecvAcl(TransferChannel::D2H, info.channelId, info.name, info.threadIdx, info.batchId);
+    }
     if (size == 0) {
         LOG_WARN("Recv empty data, table:{}, channelId:{}, accumulate batchId:{}.",
                  info.name, info.channelId, info.batchId);
         return false;
     }
 
+    if (!GlobalEnv::useShmSwap) {
+        auto aclData = acltdtGetDataItem(hdTransfer->aclDatasets[info.name][info.threadIdx], 0);
+        if (aclData == nullptr) {
+            auto error = Error(ModuleName::M_HYBRID_MGMT, ErrorType::ACL_ERROR,
+                               "Acl get tensor data from dataset failed in [EmbeddingReceiveDDR].");
+            LOG_ERROR(error.ToString());
+            throw runtime_error(error.ToString().c_str());
+        }
+        ptr = reinterpret_cast<float*>(acltdtGetDataAddrFromItem(aclData));
+
+        // 判断拿到的embedding个数是否与swapOutKeys个数相等
+        size_t dimNum = acltdtGetDimNumFromItem(aclData);
+        int64_t dims[dimNum];
+        acltdtGetDimsFromItem(aclData, dims, dimNum);
+        dim0 = dims[0];
+    }
+
     LOG_DEBUG(MGMT + "In swap thread, finish receive d2h embedding, table:{}, channelId:{}, accumulate batchId:{}, "
                      "thread:{}, dims[0]:{}, swapOutAddrs size:{}, EmbeddingRecvTC(ms):{}",
               info.name, info.channelId, info.batchId, info.threadIdx, dim0, swapOutAddrs.size(),
               EmbeddingRecvTC.ElapsedMS());
+
+    if (dim0 != static_cast<int64_t>(swapOutAddrs.size())) {
+        auto error =
+            Error(ModuleName::M_HYBRID_MGMT, ErrorType::LOGIC_ERROR,
+                  StringFormat(
+                      "Receive swap-out emb num %d does not equal to swap-out addrs num %d in [EmbeddingReceiveDDR].",
+                      dim0, swapOutAddrs.size()));
+        LOG_ERROR(error.ToString());
+        throw runtime_error(error.ToString().c_str());
+    }
 
     hybridMgmtBlock->lastRecvFinishStep[info.name][info.channelId]++;
 
@@ -1626,6 +1668,40 @@ void HybridMgmt::EmbeddingUpdateDDR(const EmbTaskInfo& info, const float* embPtr
     lastUpdateFinishCV[nextKey].notify_all();
 }
 
+bool HybridMgmt::EmbeddingLookUpDDR(const EmbTaskInfo& info, vector<Tensor>& h2dEmb)
+{
+    string currentKey = MakeSwapCVName(info.threadIdx, info.name, info.channelId);
+    std::unique_lock<std::mutex> lastUpdateFinishLocker(lastUpdateFinishMutex[currentKey]);
+    lastUpdateFinishCV[currentKey].wait(lastUpdateFinishLocker, [info, this] {
+        return (hybridMgmtBlock->lastUpdateFinishStep[info.name][info.channelId] >= info.batchId) || mutexDestroy;
+    });
+    if (!isRunning) {
+        return false;
+    }
+
+    std::unique_lock<std::mutex> lastLookUpFinishLocker(lastLookUpFinishMutex[currentKey]);
+    lastLookUpFinishCV[currentKey].wait(lastLookUpFinishLocker, [info, this] {
+        return (hybridMgmtBlock->lastLookUpFinishStep[info.name][info.channelId] == info.batchId) || mutexDestroy;
+    });
+    if (!isRunning) {
+        return false;
+    }
+
+    bool isSuccess = BuildH2DEmbedding(info, h2dEmb);
+    if (!isSuccess) {
+        return false;
+    }
+
+    hybridMgmtBlock->lastLookUpFinishStep[info.name][info.channelId]++;
+    string nextKey = MakeSwapCVName(info.cvNotifyIndex, info.name, info.channelId);
+    lastLookUpFinishCV[nextKey].notify_all();
+
+    LOG_DEBUG(MGMT + "In swap thread, finish embedding lookup, table:{}, channelId:{}, accumulate batchId:{}, "
+                     "thread:{}",
+              info.name, info.channelId, info.batchId, info.threadIdx);
+    return true;
+}
+
 bool HybridMgmt::EmbeddingLookUpDDR(const EmbTaskInfo& info, float*&h2dEmb, int64_t dims[2])
 {
     string currentKey = MakeSwapCVName(info.threadIdx, info.name, info.channelId);
@@ -1658,6 +1734,27 @@ bool HybridMgmt::EmbeddingLookUpDDR(const EmbTaskInfo& info, float*&h2dEmb, int6
                      "thread:{}",
               info.name, info.channelId, info.batchId, info.threadIdx);
     return true;
+}
+
+void HybridMgmt::EmbeddingSendDDR(const EmbTaskInfo& info, vector<Tensor>& h2dEmb)
+{
+    string currentKey = MakeSwapCVName(info.threadIdx, info.name, info.channelId);
+    std::unique_lock<std::mutex> lastSendFinishLocker(lastSendFinishMutex[currentKey]);
+    lastSendFinishCV[currentKey].wait(lastSendFinishLocker, [info, this] {
+        return (hybridMgmtBlock->lastSendFinishStep[info.name][info.channelId] == info.batchId) || mutexDestroy;
+    });
+    TimeCost SendTC = TimeCost();
+    // 区分通道发送
+    hdTransfer->Send(TransferChannel::H2D, h2dEmb, info.channelId, info.name, info.batchId);
+    hybridMgmtBlock->lastSendFinishStep[info.name][info.channelId]++;
+    string nextKey = MakeSwapCVName(info.cvNotifyIndex, info.name, info.channelId);
+    lastSendFinishCV[nextKey].notify_all();
+
+    LOG_DEBUG(MGMT + "In swap thread, finish send h2d embedding, table:{}, channelId:{}, batchId:{}, accumulate "
+                     "batchId:{}, thread:{}, SendH2DEmbTC(ms):{}",
+              info.name, info.channelId, hybridMgmtBlock->h2dSendBatchId[info.name][info.channelId], info.batchId,
+              info.threadIdx, SendTC.ElapsedMS());
+    hybridMgmtBlock->h2dSendBatchId[info.name][info.channelId]++;
 }
 
 void HybridMgmt::EmbeddingSendDDR(const EmbTaskInfo& info, float*& h2dEmb, int64_t dims[2])
@@ -1927,7 +2024,7 @@ bool HybridMgmt::EmbeddingLookUpL3Storage(const EmbTaskInfo& info, vector<Tensor
     LOG_DEBUG("table:{}, accumulate batchId:{}, channelId:{}, thread:{}, fetchL3StorageEmb2DDRTC(ms):{}",
               info.name.c_str(), info.batchId, info.channelId, info.threadIdx, fetchL3StorageEmb2DDRTC.ElapsedMS());
 
-    bool isSuccess = BuildH2DEmbeddingL3Storage(info, h2dEmb);
+    bool isSuccess = BuildH2DEmbedding(info, h2dEmb);
     if (!isSuccess) {
         return false;
     }
@@ -2063,7 +2160,7 @@ bool HybridMgmt::BuildH2DEmbedding(const EmbTaskInfo& info, float*&h2dEmb, int64
     return true;
 }
 
-bool HybridMgmt::BuildH2DEmbeddingL3Storage(const EmbTaskInfo& info, vector<Tensor>& h2dEmb)
+bool HybridMgmt::BuildH2DEmbedding(const EmbTaskInfo& info, vector<Tensor>& h2dEmb)
 {
     std::vector<float*> swapInAddrs = HBMSwapAddrsQue[info.name + SWAP_IN_STR][info.channelId].WaitAndPop();
     if (!isRunning) {
@@ -2089,8 +2186,8 @@ bool HybridMgmt::BuildH2DEmbeddingL3Storage(const EmbTaskInfo& info, vector<Tens
         }
     }
     LOG_DEBUG(
-        "[BuildH2DEmbeddingL3Storage] table:{}, channel:{}, thread:{}, accumulate batchId:{}, emb size:{},"
-        "emb samples:{}, embeddingLookupTC(ms):{}",
+        "[BuildH2DEmbedding] table:{}, channel:{}, thread:{}, accumulate batchId:{}, emb size:{}, emb samples:{}, "
+        "embeddingLookupTC(ms):{}",
         info.name.c_str(), info.channelId, info.threadIdx, info.batchId, swapInAddrs.size(),
         FloatPtrToLimitStr(h2dEmbAddr, swapInAddrs.size() * info.extEmbeddingSize), embeddingLookupTC.ElapsedMS());
     return true;
