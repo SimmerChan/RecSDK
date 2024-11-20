@@ -49,11 +49,11 @@ std::unordered_map<std::string, int> g_shmId;
 
 typedef enum tagRmaDevModel {
     MEM_MAP_DEV,
-    SVM_MAP_DEV,
-    PCIE_TH_DEV
+    SVM_MAP_DEV,    // 910C
+    PCIE_TH_DEV     // 910B
 } RmaDevModel_t;
 
-int32_t g_rmaDevModel = SVM_MAP_DEV; // 910C
+int32_t g_rmaDevModel = PCIE_TH_DEV;
 
 void InitShmHeader(void *shmHeader, int64_t memSize, int32_t capacity)
 {
@@ -93,9 +93,25 @@ void RmaFreeShm(std::string shmName, void *memory)
     }
 }
 
+bool isPrefix(const std::string& str, const std::string& prefix) {
+    if (prefix.length() > str.length()) {
+        return false;
+    }
+    return str.compare(0, prefix.length(), prefix) == 0;
+}
+
 // aicore申请shm内存
 void *RmaCreateShm(std::string shmName, uint64_t memSize, int deviceId, int capacity)
 {
+    string chipName = MxRec::GetChipName(deviceId);
+    if (isPrefix(chipName, "910B")) {
+        g_rmaDevModel = PCIE_TH_DEV;
+    } else if (isPrefix(chipName, "910_93")) {
+        g_rmaDevModel = SVM_MAP_DEV;
+    } else {
+        LOG_ERROR("Unsupported chip type {}.", chipName);
+        return nullptr;
+    }
     void *memory = nullptr;
     if (g_rmaDevModel == SVM_MAP_DEV) {
         if (aclrtMallocHost((void **)&memory, memSize) != ACL_ERROR_NONE) {
