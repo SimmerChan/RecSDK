@@ -34,6 +34,23 @@ int HDTransfer::Init(const vector<EmbInfo>& embInfos, uint32_t localRankId, bool
     LOG_INFO("Start aclInit, rank:{}.", localRankId);
     // 使用AscendCL接口开发应用时，必须先调用aclInit接口，否则可能会导致后续系统内部资源初始化出错，进而导致其它业务异常。
     // 三阶段需要初始化aclInit
+    if (!GlobalEnv::useShmSwap) {
+        LOG_INFO("useShmSwap is false");
+        aclError retOk = aclInit(nullptr);
+        LOG_INFO("End aclInit, rank:{}.", localRankId);
+        if (retOk != ACL_SUCCESS) {
+            LOG_ERROR("aclInit failed, rank:{}, errno:{}.", localRankId, retOk);
+            return false;
+        }
+        LOG_INFO("Start aclrtSetDevice, rank:{}.", localRankId);
+        // 指定当前进程或线程中用于运算的Device，同时隐式创建默认Context
+        auto ret = aclrtSetDevice(static_cast<int32_t>(localRankId));
+        if (ret != ACL_ERROR_NONE) {
+            LOG_ERROR("aclrtSetDevice failed, rank:{}, error:{}.", localRankId, ret);
+            return false;
+        }
+        LOG_INFO("End aclrtSetDevice, rank:{}.", localRankId);
+    }
     for (const auto& embInfo : embInfos) {
         auto embName = embInfo.name;
         for (int i = 0; i < MAX_CHANNEL_NUM; ++i) {
@@ -90,7 +107,9 @@ void HDTransfer::Destroy()
             }
         }
     }
-    FreeShmAddr(localDeviceId);
+    if (GlobalEnv::useShmSwap) {
+        FreeShmAddr(localDeviceId);
+    }
     aclFinalize();
 #endif
 }
@@ -446,8 +465,9 @@ void HDTransfer::ClearTransChannel(int channelId)
     }
 
     acltdtDestroyDataset(trashDataset);
-
-    ClearShmQueue();
+    if (GlobalEnv::useShmSwap) {
+        ClearShmQueue();
+    }
 }
 
 void HDTransfer::RecordTrainingChannelStr(TransferChannel channel, const int channelId)

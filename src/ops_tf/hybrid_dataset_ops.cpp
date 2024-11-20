@@ -682,4 +682,35 @@ namespace tensorflow {
         .SetIsStateful()
         .SetShapeFn(::tensorflow::shape_inference::UnknownShape);
     REGISTER_KERNEL_BUILDER(Name("LazyAdam").Device(DEVICE_CPU), MxRec::CustOps);
+
+    REGISTER_OP("RmaSwap")
+    .Input("update_table: float32")
+    .Input("update_index: int64")
+    .Output("output: int64")
+    .Attr("shm_swap_in: string")
+    .Attr("shm_swap_out: string")
+    .SetIsStateful()
+    .SetShapeFn([](::tensorflow::shape_inference::InferenceContext* c) {
+    c->set_output(0, c->MakeShape({8}));
+    return tensorflow::Status::OK();
+    });
+
+    REGISTER_KERNEL_BUILDER(Name("RmaSwap").Device(DEVICE_CPU), CustOps);
+
+    REGISTER_OP("RmaSwapMultiTables")
+    .Input("table0: float32")
+    .Input("table1: float32")
+    .Input("table2: float32")
+    .Input("swap_in_index: int64")
+    .Input("swap_out_index: int64")
+    .Output("output: int64")
+    .Attr("shm_swap_in: string")
+    .Attr("shm_swap_out: string")
+    .SetIsStateful()
+    .SetShapeFn([](::tensorflow::shape_inference::InferenceContext* c) {
+    c->set_output(0, c->MakeShape({48}));
+    return tensorflow::Status::OK();
+    });
+
+    REGISTER_KERNEL_BUILDER(Name("RmaSwapMultiTables").Device(DEVICE_CPU), CustOps);
 }

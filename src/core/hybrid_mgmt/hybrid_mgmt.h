@@ -263,7 +263,11 @@ private:
 
     void EmbeddingUpdateDDR(const EmbTaskInfo& info, const float* embPtr, vector<float*>& swapOutAddrs);
 
+    bool EmbeddingLookUpDDR(const EmbTaskInfo& info, vector<Tensor>& h2dEmb);
+
     bool EmbeddingLookUpDDR(const EmbTaskInfo& info, float*& h2dEmb, int64_t dims[]);
+
+    void EmbeddingSendDDR(const EmbTaskInfo& info, vector<Tensor>& h2dEmb);
 
     void EmbeddingSendDDR(const EmbTaskInfo& info, float*& h2dEmb, int64_t dims[]);
 
@@ -284,7 +288,7 @@ private:
 
     bool BuildH2DEmbedding(const EmbTaskInfo& info, float*& h2dEmb, int64_t dims[]);
 
-    bool BuildH2DEmbeddingL3Storage(const EmbTaskInfo& info, vector<Tensor>& h2dEmb);
+    bool BuildH2DEmbedding(const EmbTaskInfo& info, vector<Tensor>& h2dEmb);
 
 
     vector<uint64_t> GetUniqueKeys(const EmbBaseInfo& info, bool& remainBatchOut, bool& isEos);
