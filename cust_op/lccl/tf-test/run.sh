@@ -27,7 +27,7 @@ rm *txt > /dev/null
 rm -rf /root/ascend/log/*
 
 
-for i in $(ipcs -m | tail -n +4 | awk {'print $2}); do
+for i in $(ipcs -m | tail -n +4 | awk {'print $2'}); do
     ipcrm -m $i
 done
 
@@ -37,5 +37,5 @@ echo run in $host_string
 
 interface="lo"
 env
-horovodrun --network-interface ${interface} -np ${num_process} --mpi-args "${mpi_rags}" -mpi -H localhost:${local_rank_size} \
+horovodrun --network-interface ${interface} -np ${num_process} --mpi-args "${mpi_rags}" --mpi -H localhost:${local_rank_size} \
     python3.7 ${py} --local_rank_size ${local_rank_size} --hccl_json hccl_json_${local_rank_size}p.json | tee temp.log
