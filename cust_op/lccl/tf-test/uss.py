@@ -9,7 +9,7 @@ from tensorflow.core.protobuf.rewriter_config_pb2 import RewriterConfig
 
 import mxrec_pybind
 
-tf.compat.v1.diable_eager_execution()
+tf.compat.v1.disable_eager_execution()
 comm_pybind = tf.load_op_library("/usr/local/python3.7.5/lib/python3.7/site-packages/mx_rec/libasc/libasc_ops.so")
 
 
@@ -96,7 +96,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     local_rank_size = int(args.local_rank_size)
 
-    com = MPI.COMM_WORLD
+    comm = MPI.COMM_WORLD
     rank_id = comm.Get_rank()
     rank_size = comm.Get_size()
     print(f"rank {rank_id}/{rank_size}")
@@ -115,7 +115,7 @@ if __name__ == "__main__":
     custom_op.parameter_map["mix_compile_mode"].b = True
     custom_op.name = "NpuOptimizer"
     custom_op.parameter_map["precision_mode"].s = tf.compat.as_bytes('must_keep_origin_dtype')
-    sess_config.graph_options,rewrite_options.remapping = RewriterConfig.OFF
+    sess_config.graph_options.rewrite_options.remapping = RewriterConfig.OFF
     custom_op.parameter_map["enable_data_pre_proc"].b = True
     sess_config.gpu_options.allow_growth = True
     custom_op.parameter_map["hcom_parallel"].b = False
@@ -146,7 +146,7 @@ if __name__ == "__main__":
     # 计算send data大小
     random_send_data = np.random.rand(send_count, 1).astype(np.float32).reshape(-1, dim)
 
-    restore = tf.conver_to_tensor(restore, dtype=tf.int32)
+    restore = tf.convert_to_tensor(restore, dtype=tf.int32)
     arr = tf.convert_to_tensor(arr, dtype=tf.int32)
     random_send_data = tf.convert_to_tensor(random_send_data, dtype=tf.float32)
     random_matrix = tf.convert_to_tensor(random_matrix, dtype=tf.int64)
@@ -158,7 +158,7 @@ if __name__ == "__main__":
     # model run parameter
     stop_steps = 100
     # Hybrid end
-    tf.compat.vi.disable_eager_execution()
+    tf.compat.v1.disable_eager_execution()
     ######################################
     model = WideDeep(random_send_data, random_matrix, arr, restore)
 

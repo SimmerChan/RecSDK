@@ -191,7 +191,7 @@ private:
                 continue;
             }
             // 当前核负责的ipcQue
-            readQue[i].Init(&sync, magic, shareAddrs[targetRank[i]] + IPC_DATA_OFFSET + (rank * coreNumPerRank + groupCoreIdx[idx] % coreNumPerRank) * queSize,
+            readQue[i].Init(&sync, magic, shareAddrs[targetRank[i]] + IPC_DATA_OFFSET + (rank * coreNumPerRank + groupCoreIdx[i] % coreNumPerRank) * queSize,
                             queLen, queElemLen);
             // 当前核负责的数据长度和偏移
             revOffset[i] = 0;
@@ -238,7 +238,7 @@ private:
             // 写共享内存队列时，需要等待当前rank
             waitRankListForWrite[i][0] = targetRank[i];
             waitNumForWrite[i] = 1;
-            waitBlockForWrite[i] = rank * coreNumPerRank + groupCoreIdx[idx] % coreNumPerRank + flagNumPerStage;
+            waitBlockForWrite[i] = rank * coreNumPerRank + groupCoreIdx[i] % coreNumPerRank + flagNumPerStage;
         }
         InputToSharePipeline();
     }
@@ -318,7 +318,7 @@ private:
         sync.SetInnerFlag(magic, sliceIdx, rank, groupCoreIdx[idx] + flagNumPerStage);
 
         if (sliceIdx == sliceNum[idx] - 1) {
-            sync.SetInnerFlag(1, 0, groupCoreIdx[idx] + flagNumPerStage);
+            sync.SetInnerFlag(1, 0, rank, groupCoreIdx[idx] + flagNumPerStage);
             sync.SetInnerFlag(1, 0, targetRank[idx], rank * coreNumPerRank + groupCoreIdx[idx] % coreNumPerRank);
         }
     }
