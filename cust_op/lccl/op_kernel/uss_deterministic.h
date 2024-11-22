@@ -1,5 +1,5 @@
 /**
- * Copyright (c) Huawei Technologies Co., Ltd. 2023. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2024. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -103,8 +103,6 @@ public:
             ConsumerStage();
             sync.SetInnerFlag(1, 0, rank, SYNC_FLAG_START + blockIdx - coreNumsPerStage + 1);
         }
-
-        //sync.WaitInnerFlag(1, 0, rank, coreNumsPerStage * 2 - 1 + SYNC_FLAG_START);
     }
 
 private:
@@ -175,7 +173,6 @@ private:
                 continue;
             }
             // 当前核负责的ipcQue
-            // bid = 15, rank = 7, coreNumPerRank = 2
             writeQue[i].Init(&sync, magic, shareAddrs[targetRank[i]] + IPC_DATA_OFFSET +
                                            (rank * coreNumPerRank + blockIdx%coreNumPerRank) * queSize, queLen, queElemLen);
 
@@ -202,7 +199,6 @@ private:
                 continue;
             }
             // 当前核负责的ipcQue
-            // coreNumPerRank = 2, bid = 31, target_rank = 7
             readQue[i].Init(&sync, magic, shareAddrs[rank] + IPC_DATA_OFFSET + (targetRank[i] * coreNumPerRank + blockIdx%coreNumPerRank) * queSize,
                             queLen, queElemLen);
             // 当前核负责的数据长度和偏移
@@ -320,20 +316,6 @@ private:
             flagValue = sync.GetInnerFlag(groupCoreIdx[idx], rank) & EVENT_ID_MASK;
         }
         readGt = readQue[idx].ReadFront();
-
-
-//        int64_t remain = copyLen * sizeof(T);
-//        int64_t offset = 0;
-//        SetAtomicOpType(0);
-//        while (remain > 0) {
-//            CpGM2UB(buffer, (__gm__ T *)readGt[offset].GetPhyAddr(), dim * sizeof(T));
-//
-//            int64_t outIdx = *((__gm__ int32_t *)restorePtr + sliceIdx * queElemLen / dim + outputOffset[idx] / dim + outOffset);
-//            CpUB2GM(((__gm__ T*)outputPtr + outIdx * dim), buffer, dim * sizeof(T));
-//            outOffset +=1;
-//            remain -= UB_SINGLE_DMA_SIZE_MAX;
-//        }
-//        set_atomic_none();
         if (copyLen > 0) {
             LocalTensor<T> buffer1 = tempBuffer.AllocTensor<T>();
             LocalTensor<T> buffer2 = tempBuffer.AllocTensor<T>();

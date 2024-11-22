@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Huawei Technologies Co., Ltd. 2023. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2024. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -218,16 +218,16 @@ FORCE_INLINE_AICORE int64_t GetDataCount(const int64_t dataLen, const int64_t us
 template <typename T1, typename T2>
 FORCE_INLINE_AICORE T1 CeilDiv(T1 a, T2 b)
 {
-if (b == 0) {
-return 0;
-}
-return (a + b - 1) / b;
+    if (b == 0) {
+        return 0;
+    }
+    return (a + b - 1) / b;
 }
 
 // 32字节对齐
 FORCE_INLINE_AICORE int64_t Align(int64_t len)
 {
-return CeilDiv(len, ALIGN_SIZE) * ALIGN_SIZE;
+    return CeilDiv(len, ALIGN_SIZE) * ALIGN_SIZE;
 }
 
 #endif //LCCL_COLLECTIVES_H
