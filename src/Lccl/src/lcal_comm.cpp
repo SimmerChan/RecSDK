@@ -312,9 +312,6 @@ int LcalComm::InitThread()
             }
         }
         peerMem_[i] = localPeerMem[i];
-        if (i == rank_) {
-            continue;
-        }
     }
     SyncCommArgs();
     ASD_LOG(INFO) << "Lccl init multi thread " << rank_ << "/" << rankSize_ << " success";

@@ -1,5 +1,3 @@
-set_source_files_properties(lcal_internal.cpp PROPERTIES COMPILE_FLAGS "-O3")
-
 set(LCAL_SOURCE_FILE
         lcal_comm.cpp
         tools/socket/lcal_sock_exchange.h

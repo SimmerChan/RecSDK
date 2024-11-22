@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef LCCL_ALL2ALLVC_BIG_DATA_910C_H
-#define LCCL_ALL2ALLVC_BIG_DATA_910C_H
+#ifndef LCCL_USS_DETERMINISTIC_H
+#define LCCL_USS_DETERMINISTIC_H
 
 #include "collectives.h"
 #include "ipc_queue.h"
@@ -62,13 +62,10 @@ public:
         peerMemsAddrGm.SetGlobalBuffer((__gm__ int64_t*)peer_mem_addr, rankSize * sizeof (int64_t));
         for (int i = 0; i < rankSize; ++i) {
             shareAddrs[i] = (GM_ADDR)(peerMemsAddrGm.GetValue(i))+
-                            (this->magic % PING_PONG_SIZE) * (IPC_BUFF_MAX_SIZE + IPC_DATA_OFFSET);//todo
+                            (this->magic % PING_PONG_SIZE) * (IPC_BUFF_MAX_SIZE + IPC_DATA_OFFSET);
         }
 
         sync.Init(rank, rankSize, shareAddrs, blockIdx, blockNum);
-//        for (int i = 0; i < rankSize; ++i) {
-//            sync.SetFlag((__gm__ int64_t *)(sync.shareAddrs[i]) + i * FLAG_UNIT_INT_NUM, peerMemsAddrGm.GetValue(i));
-//        }
 
         sendCountMatrixGm.SetGlobalBuffer((__gm__ int64_t*)send_count_matrix, rankSize * rankSize * sizeof (int64_t));
         // 初始化共享内存信息
@@ -428,4 +425,4 @@ private:
     int64_t outputLen[MULTI_RANK_SIZE];  // 当前核负责的output长度（以T计）
 };
 
-#endif // LCCL_ALL2ALLVC_BIG_DATA_910C_H
+#endif // LCCL_USS_DETERMINISTIC_H

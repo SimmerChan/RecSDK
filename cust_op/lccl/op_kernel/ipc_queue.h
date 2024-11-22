@@ -153,7 +153,7 @@ private:
     uint64_t front;     // 头指针
     uint64_t rear;      // 尾指针
     uint64_t count;     // 头指针对应的数据块偏移
-    uint64_t blockNum; // 搬运粒度，fixme：ipcQueue里每一块内存可以存放的当前数据类型的数据个数，命名有点问题
+    uint64_t blockNum; // 搬运粒度
     GlobalTensor<T> buff;
     SyncCollectives *sync;
     int blockIdx;

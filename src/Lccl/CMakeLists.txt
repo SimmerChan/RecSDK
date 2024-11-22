@@ -21,8 +21,8 @@ else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
 endif()
 
-message("== CMAKE_BUILD_TYPE ${CMAKE_BUILD_TYPE}")
-message("== CMAKE_SOURCE_DIR ${CMAKE_SOURCE_DIR}")
+message("CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
+message("CMAKE_SOURCE_DIR: ${CMAKE_SOURCE_DIR}")
 
 # 获取环境变量
 if (DEFINED ENV{ASCEND_HOME_PATH})
@@ -32,7 +32,7 @@ else ()
     set(ASCEND_HOME_PATH /usr/local/Ascend/ascend-toolkit/latest)
 endif ()
 
-message("== ASCEND_HOME_PATH: ${ASCEND_HOME_PATH}")
+message("ASCEND_HOME_PATH: ${ASCEND_HOME_PATH}")
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-error=deprecated-declarations -Wno-deprecated-declarations")
 add_link_options(-Wl,-z,relro,-z,now)
@@ -48,7 +48,7 @@ include_directories(${MPI_INCLUDE_PATH}
         )
 link_directories(${ASCEND_HOME_PATH}/${ARCH}-linux/lib64/)
 
-message("== MPI_FOUND ${MPI_FOUND}")
+message("MPI_FOUND: ${MPI_FOUND}")
 
 set(AIV_ARCH dav-c220-vec)
 set(AIC_ARCH dav-c220-cube)
