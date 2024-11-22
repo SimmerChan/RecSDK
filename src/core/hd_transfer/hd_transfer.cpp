@@ -175,7 +175,6 @@ void HDTransfer::SendByShm(string &name, const float *sendData, int64_t dims[RMA
         return;
     }
     RmaShmHeader *queueHeader = (RmaShmHeader *)shmAddr;
-    auto seq = GetShmSeq(queueHeader);
 
     RmaShmData *queueData = (RmaShmData *)ShmEnqueueGetLast(queueHeader, dims);
     if (queueData != nullptr) {
