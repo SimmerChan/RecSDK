@@ -1,5 +1,5 @@
 /**
- * Copyright (c) Huawei Technologies Co., Ltd. 2023. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2024. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -191,9 +191,8 @@ private:
                 continue;
             }
             // 当前核负责的ipcQue
-            // bid = 15, rank = 7, coreNumPerRank = 2
             writeQue[i].Init(&sync, magic, shareAddrs[targetRank[i]] + IPC_DATA_OFFSET +
-                                           (rank * coreNumPerRank + blockIdx%coreNumPerRank) * queSize, queLen, queElemLen);
+                                           (rank * coreNumPerRank + blockIdx % coreNumPerRank) * queSize, queLen, queElemLen);
 
             // 当前核负责的数据长度和偏移
             sendOffset[i] = 0;
@@ -222,7 +221,6 @@ private:
                 continue;
             }
             // 当前核负责的ipcQue
-            // coreNumPerRank = 2, bid = 31, target_rank = 7
             readQue[i].Init(&sync, magic, shareAddrs[rank] + IPC_DATA_OFFSET + (targetRank[i] * coreNumPerRank + blockIdx%coreNumPerRank) * queSize,
                             queLen, queElemLen);
             // 当前核负责的数据长度和偏移

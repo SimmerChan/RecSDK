@@ -1,5 +1,5 @@
 /**
- * Copyright (c) Huawei Technologies Co., Ltd. 2023. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2024. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -82,11 +82,8 @@ public:
             revLen += sendCountMatrixGm.GetValue(j * rankSize + rank);
         }
         outputGt.SetGlobalBuffer((__gm__ T*)output, revLen* sizeof (T));
-
-//        this->gather_data = output;
         pipe_barrier(PIPE_ALL);
         inputGt.SetGlobalBuffer((__gm__ T*)gather_data, sendLen* sizeof (T));
-        //this->gather_data = output;
         // 初始化共享内存信息
         InitShare();
         // 初始化核分组
@@ -213,7 +210,6 @@ private:
     {
         maxSliceNum = 0;
         for (auto i = 0; i < rankNumPerCore; ++i) {
-            // 当前核负责的rank， 因为是基于trackRankSize计算的groupCoreIdx，所以要乘RANK_SIZE_TWO
             targetRank[i] = groupCoreIdx[i] / coreNumPerRank;
             if (targetRank[i] >= rankSize) {
                 targetRank[i] = INVALID_RANK_NUM;
