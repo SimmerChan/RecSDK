@@ -97,7 +97,7 @@ public:
             dataHead.sequence = queueHeader.seqIn + 1;
 
             const uint32_t processBlockIdx = blockIdx % processBlockNum;
-            emb_cache_swap = usrWorkspace + SWAP_OUT_CACHE_OFFSET;  // 换出缓存10MB
+            embCacheSwap = usrWorkspace + SWAP_OUT_CACHE_OFFSET;  // 换出缓存10MB
             // 换出
             if (processBlockIdx == 0) {
                 OutfeedEnqueue(processBlockNum);
@@ -123,7 +123,7 @@ public:
             dataHead.sequence = queueHeader.seqOut + 1;
 
             const uint32_t processBlockIdx = blockIdx % processBlockNum;
-            emb_cache_swap = usrWorkspace + SWAP_IN_CACHE_OFFSET;    // 换入缓存10MB
+            embCacheSwap = usrWorkspace + SWAP_IN_CACHE_OFFSET;    // 换入缓存10MB
             // 换出
             if (processBlockIdx == 0) {
                 GetNext(processBlockNum);
@@ -152,14 +152,14 @@ public:
             }
             uint64_t embIdx = *((__gm__ uint64_t *)updateIndex + visitedIdx);
             gm2ub(ub_data_buff, updateTable + embIdx * embDim, embDim);
-            ub2gm(emb_cache_swap + cacheRear * embDim, ub_data_buff, embDim);
+            ub2gm(embCacheSwap + cacheRear * embDim, ub_data_buff, embDim);
             cacheRear = (cacheRear + stride) % cacheCapacity;
             visitedIdx += stride;
             SetFlag(ub_buff, lookup_flag, visitedIdx);
         }
     }
     /**
-     * @brief 用一个core做D2H拷贝，从emb_cache_swap拷贝到队列
+     * @brief 用一个core做D2H拷贝，从embCacheSwap拷贝到队列
      */
     __aicore__ inline void OutfeedEnqueue(const uint32_t processBlockNum)
     {
@@ -222,7 +222,7 @@ public:
                 copyCount = cacheCapacity - cacheFront;
             }
             gm2gm(copyCount * dataHead.dims[1] * sizeof(float), ub_data_buff,
-                  svmDataBuff + swapOutCount * embDim, emb_cache_swap + cacheFront * embDim);
+                  svmDataBuff + swapOutCount * embDim, embCacheSwap + cacheFront * embDim);
             cacheFront = (cacheFront + copyCount) % cacheCapacity;
             swapOutCount += copyCount;
             SetFlag(ub_buff, outfeed_count, swapOutCount);
@@ -261,7 +261,7 @@ public:
                 continue;
             }
             uint64_t embIdx = *((__gm__ uint64_t *)updateIndex + visitedIdx);
-            gm2ub(ub_data_buff, emb_cache_swap + cacheFront * embDim, embDim);
+            gm2ub(ub_data_buff, embCacheSwap + cacheFront * embDim, embDim);
             ub2gm(updateTable + embIdx * embDim, ub_data_buff, embDim);
             cacheFront = (visitedIdx + 1) % cacheCapacity;
 
@@ -331,7 +331,7 @@ public:
                     cacheSize = (cacheFront - cacheRear - 1) * embDim;
                 }
                 copySize = (copySize > cacheSize) ? cacheSize : copySize;
-                gm2gm(copySize, ub_data_buff, emb_cache_swap + cacheRear * embDim, svmDataBuff + copyOffset);
+                gm2gm(copySize, ub_data_buff, embCacheSwap + cacheRear * embDim, svmDataBuff + copyOffset);
                 copyOffset += copySize;
                 cacheRear = (copyOffset / embDim) % cacheCapacity;
                 SetFlag(ub_buff, getnext_count, copyOffset / embDim);
@@ -388,7 +388,7 @@ private:
     GM_ADDR swapFlagSwapIn;
     GM_ADDR swapFlagSwapOut;
     uint64_t embDim;        // 每条emb的维度，单位字节
-    GM_ADDR emb_cache_swap;
+    GM_ADDR embCacheSwap;
     uint64_t cacheCapacity; // 数据缓存能容纳的emb条数
     uint64_t cacheFront;    // 数据缓存队列头索引
     uint64_t cacheRear;     // 数据缓存队列尾索引
