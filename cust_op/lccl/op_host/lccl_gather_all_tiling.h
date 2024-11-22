@@ -6,7 +6,6 @@ namespace optiling {
     TILING_DATA_FIELD_DEF(int64_t, rankSize);
     TILING_DATA_FIELD_DEF(int64_t, magic);
     TILING_DATA_FIELD_DEF(int64_t, dim);
-    TILING_DATA_FIELD_DEF(int64_t, ipc);
     END_TILING_DATA_DEF;
 
     REGISTER_TILING_DATA_CLASS(LcclGatherAll, LcclGatherAllTilingData)

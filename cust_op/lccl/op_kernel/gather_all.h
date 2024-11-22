@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef LCCL_ALL2ALLVC_BIG_DATA_910C_H
-#define LCCL_ALL2ALLVC_BIG_DATA_910C_H
+#ifndef LCCL_GatherAll_H
+#define LCCL_GatherAll_H
 
 #include "collectives.h"
 #include "ipc_queue.h"
@@ -23,7 +23,7 @@
 using namespace AscendC;
 
 template <typename T>
-class All2AllVCBigData910C : public Collectives {
+class GatherAll : public Collectives {
     constexpr static int INVALID_RANK_NUM = 0xFFFFFFFF;  // 非法rank
     constexpr static int64_t SHARE_QUE_DEPTH = 16;       // 单个共享队列深度
     constexpr static int64_t MULTI_RANK_SIZE = 32;
@@ -33,14 +33,14 @@ class All2AllVCBigData910C : public Collectives {
     constexpr static int64_t CONSUMER_CORE = 2;  // 消费组，负责从共享内存读出数据，share->output
 
 public:
-    __aicore__ inline All2AllVCBigData910C(int rank, int rankSize, uint32_t extraFlag)
+    __aicore__ inline GatherAll(int rank, int rankSize, uint32_t extraFlag)
         : Collectives(rank, rankSize, extraFlag)
     {
     }
 
     __aicore__ inline void Init(GM_ADDR emb_table, GM_ADDR lookup, GM_ADDR send_count_matrix, GM_ADDR shape_vec,
                                 GM_ADDR peer_mem, GM_ADDR output, int64_t rank, int64_t rankSize, int64_t magic,
-                                int64_t dim, int64_t ipc)
+                                int64_t dim)
     {
         this->root = 0;
         this->len = 0;
@@ -52,7 +52,6 @@ public:
         this->lookup = lookup;
         this->output = output;
         this->coreNumsPerStage = 16;
-        this->ipcBufferSize = ipc;
 
         blockIdx = GetBlockIdx();
         blockNum = GetBlockNum();
@@ -62,10 +61,10 @@ public:
         peerMemsAddrGm.SetGlobalBuffer((__gm__ int64_t*)peer_mem_addr, rankSize * sizeof(int64_t));
         for (int i = 0; i < rankSize; ++i) {
             shareAddrs[i] = (GM_ADDR)(peerMemsAddrGm.GetValue(i)) +
-                            (this->magic % PING_PONG_SIZE) * (ipcBufferSize + IPC_DATA_OFFSET);
+                            (this->magic % PING_PONG_SIZE) * (IPC_BUFF_MAX_SIZE + IPC_DATA_OFFSET);
         }
         this->gather_data = (GM_ADDR)(peerMemsAddrGm.GetValue(rank)) +
-                            ((this->magic + 1) % PING_PONG_SIZE) * (ipcBufferSize + IPC_DATA_OFFSET) + IPC_DATA_OFFSET;
+                            ((this->magic + 1) % PING_PONG_SIZE) * (IPC_BUFF_MAX_SIZE + IPC_DATA_OFFSET) + IPC_DATA_OFFSET;
 
         blockSize = UB_SINGLE_DMA_SIZE_MAX / 2 / (dim * sizeof(T));
         blockSize = (blockSize / 64) * 64 ;  // 64 Byte对齐
@@ -99,33 +98,33 @@ public:
 
     __aicore__ inline void Gather()
     {
-        int TotalNum = sendLen / dim;
-        int GatherNumPerCore = TotalNum / blockNum;
-        int GatherNum = GatherNumPerCore;
+        int totalNum = sendLen / dim;
+        int gatherNumPerCore = totalNum / blockNum;
+        int gatherNum = gatherNumPerCore;
         if (blockIdx == blockNum-1){
-            GatherNum = TotalNum - GatherNumPerCore * (blockNum -1);
+            gatherNum = totalNum - gatherNumPerCore * (blockNum -1);
         }
         __ubuf__ T* inputUBList[2] = {(__ubuf__ T*)get_imm(0), (__ubuf__ T*)get_imm(95*1024)};
         set_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID0);  // MTE2等MTE3
         set_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID1);  // MTE2等MTE3
-        int CopyedNum = 0;
-        int CopyId=0;
-        while (GatherNum > 0) {
-            __ubuf__ T* inputUB = (CopyId % 2) ? inputUBList[0] : inputUBList[1];
-            event_t event_id = (CopyId % 2) ? EVENT_ID0: EVENT_ID1;
+        int copiedNum = 0;
+        int copyId=0;
+        while (gatherNum > 0) {
+            __ubuf__ T* inputUB = (copyId % 2) ? inputUBList[0] : inputUBList[1];
+            event_t event_id = (copyId % 2) ? EVENT_ID0: EVENT_ID1;
             wait_flag(PIPE_MTE3, PIPE_MTE2, event_id);
-            int toCopy = GatherNum < blockSize ? GatherNum : blockSize;
+            int toCopy = gatherNum < blockSize ? gatherNum : blockSize;
             for (int j = 0; j < toCopy; j++) {
-                int embIndex = *((__gm__ int32_t*)lookup + GatherNumPerCore * blockIdx + CopyedNum + j) * dim;
+                int embIndex = *((__gm__ int32_t*)lookup + gatherNumPerCore * blockIdx + copiedNum + j) * dim;
                 CpGM2UB<T>((__ubuf__ T*)inputUB + j * dim, (__gm__ T*)emb_table + embIndex, dim * sizeof(T));
             }
             set_flag(PIPE_MTE2, PIPE_MTE3, event_id);
             wait_flag(PIPE_MTE2, PIPE_MTE3, event_id);
-            CpUB2GM<T>((__gm__ T*)gather_data + dim * (GatherNumPerCore * blockIdx + CopyedNum), (__ubuf__ T*)inputUB, toCopy * dim * sizeof(T));
+            CpUB2GM<T>((__gm__ T*)gather_data + dim * (gatherNumPerCore * blockIdx + copiedNum), (__ubuf__ T*)inputUB, toCopy * dim * sizeof(T));
             set_flag(PIPE_MTE3, PIPE_MTE2, event_id);
-            GatherNum -= toCopy;
-            CopyedNum += toCopy;
-            CopyId += 1;
+            gatherNum -= toCopy;
+            copiedNum += toCopy;
+            copyId += 1;
             set_flag(PIPE_S, PIPE_MTE3, EVENT_ID3); // MTE3等Scalar
             wait_flag(PIPE_S, PIPE_MTE3, EVENT_ID3);
         }
@@ -409,7 +408,6 @@ private:
     int64_t dim;
     int64_t queLen;
     int64_t queSize;
-    int64_t ipcBufferSize;
     int64_t coreNumPerStage;                // 每个阶段使用的核数
     int64_t flagNumPerStage;                // 每个阶段使用的同步标志位数
     int64_t coreNumPerRank;                 // 每个rank数据分配的核数
@@ -430,4 +428,4 @@ private:
     int64_t outputLen[MULTI_RANK_SIZE];     // 当前核负责的output长度（以T计）
 };
 
-#endif  // LCCL_ALL2ALLVC_BIG_DATA_910C_H
+#endif  // LCCL_GatherAll_H

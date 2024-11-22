@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef LCCL_ALL2ALLVC_BIG_DATA_910C_H
-#define LCCL_ALL2ALLVC_BIG_DATA_910C_H
+#ifndef LCCL_ALL2ALL_H
+#define LCCL_ALL2ALL_H
 
 #include "collectives.h"
 #include "ipc_queue.h"
@@ -23,7 +23,7 @@
 using namespace AscendC;
 
 template<typename T>
-class All2AllVCBigData910C : public Collectives {
+class All2All : public Collectives {
 
     constexpr static int INVALID_RANK_NUM = 0xFFFFFFFF;  // 非法rank
     constexpr static int64_t SHARE_QUE_DEPTH = 16;  // 单个共享队列深度
@@ -40,7 +40,7 @@ public:
     }
 
     __aicore__ inline void Init(GM_ADDR input, GM_ADDR send_count_matrix, GM_ADDR shape_vec, GM_ADDR peer_mem, GM_ADDR output,
-                                int64_t rank, int64_t rankSize, int64_t magic, int64_t ipc)
+                                int64_t rank, int64_t rankSize, int64_t magic)
     {
         this->root = 0;
         this->len = 0;
@@ -48,7 +48,6 @@ public:
         this->rank = rank;
         this->rankSize = rankSize;
         this->coreNumsPerStage = 16;
-        this->ipcBufferSize = ipc;
         
         blockIdx = GetBlockIdx();
         blockNum = GetBlockNum();
@@ -58,7 +57,7 @@ public:
         peerMemsAddrGm.SetGlobalBuffer((__gm__ int64_t*)peer_mem_addr, rankSize * sizeof (int64_t));
         for (int i = 0; i < rankSize; ++i) {
             shareAddrs[i] = (GM_ADDR)(peerMemsAddrGm.GetValue(i))+
-                            (this->magic % PING_PONG_SIZE) * (ipcBufferSize + IPC_DATA_OFFSET);//todo
+                            (this->magic % PING_PONG_SIZE) * (IPC_BUFF_MAX_SIZE + IPC_DATA_OFFSET);//todo
         }
 
         sync.Init(rank, rankSize, shareAddrs, blockIdx, blockNum);
@@ -100,7 +99,7 @@ private:
         if (rankSize > coreNumsPerStage) {
             queNum = rankSize;
         }
-        queElemLen = ipcBufferSize / sizeof(T) / queNum / SHARE_QUE_DEPTH;  // 计算共享队列元素大小
+        queElemLen = IPC_BUFF_MAX_SIZE / sizeof(T) / queNum / SHARE_QUE_DEPTH;  // 计算共享队列元素大小
     }
 
     __aicore__ inline void InitCoreGroup()
@@ -154,7 +153,6 @@ private:
     {
         maxSliceNum = 0;
         for (auto i = 0; i < rankNumPerCore; ++i) {
-            // 当前核负责的rank， 因为是基于trackRankSize计算的groupCoreIdx，所以要乘RANK_SIZE_TWO
             targetRank[i] = groupCoreIdx[i] / coreNumPerRank;
             if (targetRank[i] >= rankSize) {
                 targetRank[i] = INVALID_RANK_NUM;
@@ -332,7 +330,6 @@ private:
     int64_t maxSliceNum;
     int64_t revLen = 0;
     int64_t sendLen = 0;
-    int64_t ipcBufferSize;
     int64_t sendOffset[MULTI_RANK_SIZE];
     int64_t revOffset[MULTI_RANK_SIZE];
     int64_t inputDataLen[MULTI_RANK_SIZE];
@@ -364,4 +361,4 @@ private:
     int64_t outputLen[MULTI_RANK_SIZE];  // 当前核负责的output长度（以T计）
 };
 
-#endif // LCCL_ALL2ALLVC_BIG_DATA_910C_H
+#endif // LCCL_ALL2ALL_H

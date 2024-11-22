@@ -1,4 +1,3 @@
-#include <assert.h>
 #include "lccl_all_to_all_tiling.h"
 #include "register/op_def_registry.h"
 
@@ -16,18 +15,10 @@ namespace optiling {
         int rank = static_cast<int>(*rank_);
         int rankSize = static_cast<int>(*rank_Size_);
 
-        int ipcBufferSize = 200 * 1024 * 1024;
-        const char *enviIpcBufferSize = getenv("LCCL_BUFFSIZE");
-        if (enviIpcBufferSize != nullptr) {
-            assert(std::stoi(enviIpcBufferSize) > 50 && "IPC Buffer size must be greater than 50");
-            ipcBufferSize = (std::stoi(enviIpcBufferSize) - 4) / 2 * 1024 * 1024;
-        }
-
         tiling.set_rank(rank);
         tiling.set_rankSize(rankSize);
 
         tiling.set_magic(magic);
-        tiling.set_ipc(ipcBufferSize);
 
         if (rankSize <= 16) {
             context->SetBlockDim(rankSize * 2);
@@ -42,7 +33,7 @@ namespace optiling {
         context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
 
         if(first==1){
-            std::cout << "all2all ; magic = " <<magic<< std::endl;
+            std::cout << "all2all ; magic = " << magic << '\n';
             first=0;
         }
         return ge::GRAPH_SUCCESS;

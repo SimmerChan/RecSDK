@@ -1,4 +1,3 @@
-#include <assert.h>
 #include "lccl_all_uss_tiling.h"
 #include "register/op_def_registry.h"
 
@@ -19,17 +18,9 @@ namespace optiling {
 
         const gert::StorageShape* rev_shape = context->GetInputShape(4); // get emb row num
 
-        int ipcBufferSize = 400 * 1024 * 1024;
-        const char *enviIpcBufferSize = getenv("LCCL_BUFFSIZE");
-        if (enviIpcBufferSize != nullptr) {
-            assert(std::stoi(enviIpcBufferSize) > 50 && "IPC Buffer size must be greater than 50");
-            ipcBufferSize = (std::stoi(enviIpcBufferSize) - 4) / 2 * 1024 * 1024;
-        }
-
         tiling.set_rank(rank);
         tiling.set_dim(dim);
         tiling.set_rankSize(rankSize);
-        tiling.set_ipc(ipcBufferSize);
 
         auto outShape = context->GetInputShape(2)->GetStorageShape();
         tiling.set_outShape(outShape.GetDim(0));
@@ -50,7 +41,7 @@ namespace optiling {
         context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
 
         if(first==1){
-            std::cout << "alluss ; magic = " <<magic<< std::endl;
+            std::cout << "alluss ; magic = " << magic << '\n';
             first=0;
         }
         return ge::GRAPH_SUCCESS;
@@ -63,9 +54,7 @@ namespace ge {
     {
         gert::Shape* y_shape = context->GetOutputShape(0);
         const gert::Shape* rev_shape = context->GetInputShape(2);
-        //std::cout << "lz tiling shape0 : " << rev_shape->GetDim(0) << std::endl;
         const gert::Shape* table_shape = context->GetInputShape(0);
-        //std::cout << "lz tiling shape1 : " << table_shape->GetDim(1) << std::endl;
 
         y_shape->SetDim(0, rev_shape->GetDim(0));
         y_shape->SetDim(1, table_shape->GetDim(1));

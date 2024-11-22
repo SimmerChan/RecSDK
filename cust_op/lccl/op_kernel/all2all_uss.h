@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef LCCL_ALL2ALLVC_BIG_DATA_910C_H
-#define LCCL_ALL2ALLVC_BIG_DATA_910C_H
+#ifndef LCCL_ALLUSS_H
+#define LCCL_ALLUSS_H
 
 #include "kernel_operator.h"
 #include "collectives.h"
@@ -41,7 +41,7 @@ public:
     }
 
     __aicore__ inline void Init(GM_ADDR input, GM_ADDR send_count_matrix, GM_ADDR shape_vec, GM_ADDR peer_mem, GM_ADDR restore,
-                                GM_ADDR output, int64_t rank, int64_t rankSize, int64_t magic, int64_t dim, int64_t outShape, int64_t ipc)
+                                GM_ADDR output, int64_t rank, int64_t rankSize, int64_t magic, int64_t dim, int64_t outShape)
     {
 
         this->root = 0;
@@ -53,7 +53,6 @@ public:
         this->restorePtr = restore;
         this->outputPtr = output;
         this->coreNumsPerStage = 16;
-        this->ipcBufferSize = ipc;
 
         blockIdx = GetBlockIdx();
         blockNum = GetBlockNum();
@@ -63,7 +62,7 @@ public:
         peerMemsAddrGm.SetGlobalBuffer((__gm__ int64_t*)peer_mem_addr, rankSize * sizeof (int64_t));
         for (int i = 0; i < rankSize; ++i) {
             shareAddrs[i] = (GM_ADDR)(peerMemsAddrGm.GetValue(i))+
-                            (this->magic % PING_PONG_SIZE) * (ipcBufferSize + IPC_DATA_OFFSET);//todo
+                            (this->magic % PING_PONG_SIZE) * (IPC_BUFF_MAX_SIZE + IPC_DATA_OFFSET);
         }
 
         sync.Init(rank, rankSize, shareAddrs, blockIdx, blockNum);
@@ -131,7 +130,7 @@ private:
         if (rankSize > coreNumsPerStage) {
             queNum = rankSize;
         }
-        queElemLen = ipcBufferSize / sizeof(T) / queNum / SHARE_QUE_DEPTH;  // 计算共享队列元素大小
+        queElemLen = IPC_BUFF_MAX_SIZE / sizeof(T) / queNum / SHARE_QUE_DEPTH;  // 计算共享队列元素大小
     }
 
     __aicore__ inline void InitCoreGroup()
@@ -417,7 +416,6 @@ private:
     int64_t dim;
     int64_t queLen;
     int64_t queSize;
-    int64_t ipcBufferSize;
     int64_t coreNumPerStage;  // 每个阶段使用的核数
     int64_t flagNumPerStage;  // 每个阶段使用的同步标志位数
     int64_t coreNumPerRank;  // 每个rank数据分配的核数
@@ -439,4 +437,4 @@ private:
     int64_t outputLen[MULTI_RANK_SIZE];  // 当前核负责的output长度（以T计）
 };
 
-#endif // LCCL_ALL2ALLVC_BIG_DATA_910C_H
+#endif // LCCL_ALLUSS_H
