@@ -65,7 +65,6 @@ public:
     uint64_t checkValue)
     {
         *ctrlFlagsUB = checkValue;
-//        ub2gm((__gm__ uint8_t *)ctrlFlagGM, (__ubuf__ uint8_t *)ctrlFlagsUB, sizeof(uint64_t));
         CpUB2GM((__gm__ uint8_t *)ctrlFlagGM, (__ubuf__ uint8_t *)ctrlFlagsUB, sizeof(uint64_t));
     }
 
@@ -73,7 +72,6 @@ public:
     __gm__ uint64_t *ctrlFlagGM, uint64_t checkValue)
     {
         while (true) {
-//            gm2ub((__ubuf__ uint8_t *)ctrlFlagsUB, (__gm__ uint8_t *)ctrlFlagGM, sizeof(uint64_t));
             CpGM2UB((__ubuf__ uint8_t *)ctrlFlagsUB, (__gm__ uint8_t *)ctrlFlagGM, sizeof(uint64_t));
             if (*ctrlFlagsUB == checkValue) {
                 break;
@@ -84,7 +82,6 @@ public:
     template <typename T>
     __attribute__((always_inline)) inline __aicore__ T GetFlag(__ubuf__ T *ctrlFlagsUB, __gm__ T *ctrlFlagGM)
     {
-//        gm2ub((__ubuf__ uint8_t *)ctrlFlagsUB, (__gm__ uint8_t *)ctrlFlagGM, sizeof(T));
         CpGM2UB((__ubuf__ uint8_t *)ctrlFlagsUB, (__gm__ uint8_t *)ctrlFlagGM, sizeof(T));
         return *ctrlFlagsUB;
     }
