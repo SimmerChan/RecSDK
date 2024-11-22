@@ -57,19 +57,19 @@ namespace optiling {
             return ge::GRAPH_FAILED;
         }
 
-        auto gmem_attr_in = attrs->GetStr(0);
-        int32_t *shm_swap_in = (int32_t *)(std::stoul(gmem_attr_in));
-        if (shm_swap_in == nullptr) {
+        auto gmemAttrIn = attrs->GetStr(0);
+        int32_t *shmSwapIn = (int32_t *)(std::stoul(gmemAttrIn));
+        if (shmSwapIn == nullptr) {
             return ge::GRAPH_FAILED;
         }
-        tiling.set_shmSwapIn((uint64_t)shm_swap_in);
+        tiling.set_shmSwapIn((uint64_t)shmSwapIn);
 
-        auto gmem_attr_out = attrs->GetStr(1);
-        int32_t *shm_swap_out = (int32_t *)(std::stoul(gmem_attr_out));
-        if (shm_swap_out == nullptr) {
+        auto gmemAttrOut = attrs->GetStr(1);
+        int32_t *shmSwapOut = (int32_t *)(std::stoul(gmemAttrOut));
+        if (shmSwapOut == nullptr) {
             return ge::GRAPH_FAILED;
         }
-        tiling.set_shmSwapOut((uint64_t)shm_swap_out);
+        tiling.set_shmSwapOut((uint64_t)shmSwapOut);
 
         tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
         context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
@@ -87,14 +87,13 @@ namespace ge {
     static ge::graphStatus InferShape(gert::InferShapeContext *context)
     {
         LOG_DEBUG("RmaSwap InferShape");
-        const gert::Shape *x1_shape = context->GetInputShape(0);
-        gert::Shape *y_shape = context->GetOutputShape(0);
-        if (y_shape == nullptr) {
+        gert::Shape *outputShape = context->GetOutputShape(0);
+        if (outputShape == nullptr) {
             LOG_ERROR("output shape is null");
             return ge::GRAPH_FAILED;
         }
-        y_shape->SetDimNum(1);
-        y_shape->SetDim(0, 8);
+        outputShape->SetDimNum(1);
+        outputShape->SetDim(0, 8);
 
         return GRAPH_SUCCESS;
     }
