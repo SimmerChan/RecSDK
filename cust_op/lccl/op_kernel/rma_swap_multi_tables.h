@@ -91,7 +91,7 @@ public:
      * @tparam swapInLen是置换表项的长度
      * @tparam svmBuffSwapIn换入SVM队列
      * @tparam svmBuffSwapOut换出SVM队列
-     * @tparam usrWorkspace换入换出数据缓存，总22MB，1MB标志位+10MB数据缓存用于换入，1MB标志位+10MB数据缓存用于换出
+     * @tparam usrWorkspace换入换出数据缓存，总202MB，1MB标志位+100MB数据缓存用于换入，1MB标志位+100MB数据缓存用于换出
      */
     __aicore__ inline void Process()
     {
@@ -277,7 +277,6 @@ private:
         while (visitedIdx < swapInLen) {
             if (getnextCount <= visitedIdx || visitedIdx >= freeCount + lookUpCount) {    // 缓存队列空 或者 数据还没换出
                 if (getnextCount < swapInLen) {
-//                    getnextCount = GetFlag2(ub_buff, getnext_count);
                     getnextCount = GetMinFlag(ub_buff, getnextFlags, GET_NEXT_THREAD_NUM);
                 }
                 if (lookUpCount < swapOutLen) {
@@ -540,30 +539,6 @@ private:
         }
     }
 
-    __aicore__ inline void SyncAll()
-    {
-        __ubuf__ int *ub_buff = (__ubuf__ int *)get_imm(0);
-        __gm__ int *syncAllFlag = (__gm__ int *)((__gm__ uint64_t *)swapFlagSwapOut + MAX_BLOCK_NUM * FLAG_UNIT_INT_NUM);
-
-        *ub_buff = 1;
-        PipeBarrier<PIPE_ALL>();
-#ifdef __DAV_C220_VEC__
-        set_atomic_s32();
-        set_atomic_add();
-#endif
-        PipeBarrier<PIPE_ALL>();
-
-        copy_ubuf_to_gm_align_b8(syncAllFlag, ub_buff, 0, 1, 4, 0, 0, 0, 0);
-
-        PipeBarrier<PIPE_ALL>();
-
-        set_atomic_none();
-
-        int value = 0;
-        do {
-            value = GetFlag<int>(ub_buff, syncAllFlag);
-        } while(value < blockNum);
-    }
 private:
     RmaShmHeader queueHeader;
     RmaShmDataHead dataHeadSwapOut;
