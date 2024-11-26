@@ -90,7 +90,6 @@ public:
                     break;
                 }
                 if (times++ > RMA_BLOCKING_TIMES) {
-//                    SetFlag(ub_buff, (__gm__ uint64_t *)output, 1);
                     return;
                 }
             } while(true);
@@ -116,7 +115,6 @@ public:
                 }
                 // 队列为空时进行阻塞，解决host侧和device侧的读写时序问题
                 if (times++ > RMA_BLOCKING_TIMES) {
-//                    SetFlag(ub_buff, (__gm__ uint64_t *)output, 1);
                     return;
                 }
             } while (true);
@@ -255,7 +253,6 @@ public:
         while (visitedIdx < updateLen) {
             if (getnextCount <= visitedIdx || visitedIdx >= lookUpCount) {    // 缓存队列空 或者 数据还没换出
                 getnextCount = GetFlag(ub_buff, getnext_count);
-//                getnextCount = *getnext_count;
                 cacheRear = getnextCount % cacheCapacity;
                 lookUpCount = GetMinFlag(ub_buff, lookUpFlags, processBlockNum - 1);
                 continue;
@@ -267,8 +264,6 @@ public:
 
             SetFlag(ub_buff, update_flag, visitedIdx + 1);
             visitedIdx += stride;
-
-//            SetFlag(ub_buff, (__gm__ uint64_t *)output + blockIdx, getnextCount);
         }
     }
 
@@ -335,7 +330,6 @@ public:
                 copyOffset += copySize;
                 cacheRear = (copyOffset / embDim) % cacheCapacity;
                 SetFlag(ub_buff, getnext_count, copyOffset / embDim);
-//                SetFlag(ub_buff, (__gm__ uint64_t *)output + blockIdx, copyOffset / embDim);
             }
         }
         // 更新队头offset
