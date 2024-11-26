@@ -72,8 +72,6 @@ namespace {
     {
         m.def("get_shm_mem", &GetShmAddr, py::arg("name"), py::arg("rankId"), py::arg("capacity"));
 
-        m.def("get_shm_host", &GetShmHost, py::arg("name"), py::arg("rankId"));
-
         m.def("get_ub_hot_size", &GetUBHotSize, py::arg("device_id"));
 
         m.def("get_logic_id", &GetLogicID, py::arg("physic_id"));

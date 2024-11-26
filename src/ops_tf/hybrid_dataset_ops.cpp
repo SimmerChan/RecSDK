@@ -685,13 +685,14 @@ namespace tensorflow {
 
     REGISTER_OP("RmaSwap")
     .Input("update_table: float32")
-    .Input("update_index: int64")
+    .Input("swap_in_index: int64")
+    .Input("swap_out_index: int64")
     .Output("output: int64")
     .Attr("shm_swap_in: string")
     .Attr("shm_swap_out: string")
     .SetIsStateful()
     .SetShapeFn([](::tensorflow::shape_inference::InferenceContext* c) {
-    c->set_output(0, c->MakeShape({8}));
+    c->set_output(0, c->MakeShape({48}));
     return tensorflow::Status::OK();
     });
 

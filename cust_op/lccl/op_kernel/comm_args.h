@@ -22,7 +22,9 @@
 
 #define FORCE_INLINE_AICORE inline __attribute__((always_inline)) __aicore__
 
+constexpr int32_t MAX_BLOCK_NUM = 48;
 constexpr int64_t FLAG_UNIT_INT_NUM = 4;    // 同步标志位占用长度 4 * 8 B
+constexpr int64_t TIME_OUT = 375000000;     // 超时等待时间   大概5分钟
 
 constexpr int32_t RMA_UB_B4_BUFF_OFFSET = 64;
 constexpr int32_t RMA_UB_B8_BUFF_OFFSET = 128;

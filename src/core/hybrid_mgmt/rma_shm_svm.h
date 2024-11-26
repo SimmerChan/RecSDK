@@ -43,7 +43,6 @@ struct RmaShmData {
     uint64_t readyLen;         /* 已准备好的数据长度，单位byte */
 };
 
-int64_t GetShmHost(std::string name, int rankId);
 int64_t GetShmAddr(std::string name, int rankId, int capacity);
 void *GetHostAddr(std::string name, int rankId);
 void FreeShmAddr(int deviceId);

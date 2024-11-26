@@ -2117,12 +2117,14 @@ bool HybridMgmt::BuildH2DEmbedding(const EmbTaskInfo& info, float*&h2dEmb, int64
     dims[1] = info.extEmbeddingSize;
     std::string sendName = StringFormat("%s_%s_%d_%d",
         info.name.c_str(), TransferChannel2Str(TransferChannel::H2D).c_str(), info.channelId, mgmtRankInfo.deviceId);
-    auto *shmAddr = GetHostAddr(sendName, mgmtRankInfo.deviceId);
-    if (shmAddr == nullptr) {
-        LOG_ERROR("BuildH2DEmbedding shm-addr is invalid");
-        return false;
+    RmaShmHeader *queueHeader = (RmaShmHeader *)GetHostAddr(sendName, mgmtRankInfo.deviceId);
+    if (queueHeader == nullptr) {
+        auto error = Error(ModuleName::M_HYBRID_MGMT, ErrorType::INVALID_ARGUMENT,
+                           StringFormat("Failed to find valid shm for channel: %s device: %d.",
+                                        sendName.c_str(), mgmtRankInfo.deviceId));
+        LOG_ERROR(error.ToString());
+        throw runtime_error(error.ToString());
     }
-    RmaShmHeader *queueHeader = (RmaShmHeader *)shmAddr;
     auto seq = GetShmSeq(queueHeader);
     RmaShmData *queueData = (RmaShmData *)ShmEnqueueHeadRaw(queueHeader, dims, seq);
     uint64_t *readyLen = reinterpret_cast<uint64_t *>(reinterpret_cast<uint8_t *>(queueData) + RMA_SHM_READY_LEN);
@@ -2136,7 +2138,7 @@ bool HybridMgmt::BuildH2DEmbedding(const EmbTaskInfo& info, float*&h2dEmb, int64
     TimeCost embeddingLookupTC = TimeCost();
 
     uint64_t memSize = info.extEmbeddingSize * sizeof(float);
-//#pragma omp parallel for num_threads(MGMT_CPY_THREADS) default(none) shared(swapInAddrs, h2dEmb, info, memSize)
+#pragma omp parallel for num_threads(MGMT_CPY_THREADS) default(none) shared(swapInAddrs, h2dEmb, info, memSize)
     for (uint64_t i = 0; i < swapInAddrs.size(); i++) {
         auto rc = memcpy_s(h2dEmb + i * info.extEmbeddingSize, memSize, swapInAddrs[i], memSize);
         if (rc != 0) {
@@ -2146,9 +2148,6 @@ bool HybridMgmt::BuildH2DEmbedding(const EmbTaskInfo& info, float*&h2dEmb, int64
                                             rc, memSize));
             LOG_ERROR(error.ToString());
             throw runtime_error(error.ToString().c_str());
-        }
-        if (i % 64 == 0) {
-            *readyLen = (i + 1) * memSize;
         }
     }
     *readyLen = dims[0] * memSize;

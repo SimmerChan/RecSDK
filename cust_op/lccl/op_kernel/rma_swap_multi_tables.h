@@ -34,8 +34,6 @@ GM_ADDR svmBuffSwapIn, GM_ADDR svmBuffSwapOut, GM_ADDR usrWorkspace, int32_t dim
 table0, table1, table2, swapInIndex, swapOutIndex, swapInLen, svmBuffSwapIn, svmBuffSwapOut, usrWorkspace, dimNum, dimValue, output
 
 
-constexpr int32_t MAX_BLOCK_NUM = 48;
-
 class RmaSwapMultiTables : Collectives {
 public:
     __aicore__ inline RmaSwapMultiTables() : Collectives() {};
@@ -91,10 +89,15 @@ public:
      * @tparam swapInLen是置换表项的长度
      * @tparam svmBuffSwapIn换入SVM队列
      * @tparam svmBuffSwapOut换出SVM队列
-     * @tparam usrWorkspace换入换出数据缓存，总202MB，1MB标志位+100MB数据缓存用于换入，1MB标志位+100MB数据缓存用于换出
+     * @tparam usrWorkspace换入换出数据缓存，总22MB，1MB标志位+10MB数据缓存用于换入，1MB标志位+10MB数据缓存用于换出
      */
     __aicore__ inline void Process()
     {
+        __ubuf__ uint64_t *ub_buff = (__ubuf__ uint64_t *)get_imm(0);
+        if (GetFlag<uint64_t>(ub_buff, (__gm__ uint64_t *)output + blockIdx) != 0) {
+            SyncPostprocess();
+            return;
+        }
         if (blockIdx < processBlockNum) {   // 换出
             if (processBlockIdx == 0) {
                 OutfeedEnqueue();
@@ -114,16 +117,22 @@ public:
 private:
     __aicore__ inline void GetQueHead()
     {
+        __ubuf__ uint64_t *ub_buff = (__ubuf__ uint64_t *)get_imm(0);
+        SetFlag(ub_buff, (__gm__ uint64_t *)output + blockIdx, 0);
+        uint64_t times = 0;
         if (blockIdx < processBlockNum) {   // 换出
-            int32_t times = 0;
             do {
                 ReadHeader(svmBuffSwapOut);
                 if (queueHeader.seqIn - queueHeader.seqOut < queueHeader.queueCapacity) {
                     break;
                 }
+                if (++times > TIME_OUT) {
+                    SetFlag(ub_buff, (__gm__ uint64_t *)output + blockIdx, 10000);
+                    return;
+                }
             } while(true);
             dataHeadSwapOut.sequence = queueHeader.seqIn + 1;
-            embCacheSwap = usrWorkspace + SWAP_OUT_CACHE_OFFSET;  // 换出缓存10MB
+            embSwapCache = usrWorkspace + SWAP_OUT_CACHE_OFFSET;  // 换出缓存10MB
         } else {    // 换入
             do {
                 ReadHeader(svmBuffSwapIn);
@@ -131,9 +140,13 @@ private:
                     // 队列非空
                     break;
                 }
+                if (++times > TIME_OUT) {
+                    SetFlag(ub_buff, (__gm__ uint64_t *)output + blockIdx, 10000);
+                    return;
+                }
                 // 队列为空时进行阻塞，解决host侧和device侧的读写时序问题
             } while (true);
-            embCacheSwap = usrWorkspace + SWAP_IN_CACHE_OFFSET;    // 换入缓存10MB
+            embSwapCache = usrWorkspace + SWAP_IN_CACHE_OFFSET;    // 换入缓存10MB
         }
     }
 
@@ -150,17 +163,17 @@ private:
         cacheRear = visitedIdx % cacheCapacity;
         uint64_t loopCount = 0;
         while (visitedIdx < swapOutLen) {
-//            if (visitedIdx + stride - outfeedCount >= cacheCapacity - 1) {    // 队列满
-//                outfeedCount = GetFlag2(ub_buff, outfeed_count);
-//                continue;
-//            }
+            if (visitedIdx + 1 - outfeedCount >= cacheCapacity - 1) {    // 队列满
+                outfeedCount = GetFlag2(ub_buff, outfeed_count);
+                continue;
+            }
             uint64_t embIdx = *((__gm__ uint64_t *)swapOutIndex + visitedIdx);
             for (int t = 0; t < tableNum; ++t) {
-                gm2gm(embDimSplit, ub_data_buff, embCacheSwap + cacheRear * embDim + t * embDimSplit, updateTables[t] + embIdx * embDimSplit);
+                gm2gm(embDimSplit, ub_data_buff, embSwapCache + cacheRear * embDim + t * embDimSplit, updateTables[t] + embIdx * embDimSplit);
             }
             cacheRear = (cacheRear + stride) % cacheCapacity;
             visitedIdx += stride;
-            if (loopCount % 32 == 0) {
+            if (loopCount % 8 == 0 || visitedIdx + 1 - outfeedCount >= cacheCapacity - 1) {
                 SetFlag(ub_buff, lookup_flag, visitedIdx);
             }
             loopCount++;
@@ -168,13 +181,13 @@ private:
         SetFlag(ub_buff, lookup_flag, visitedIdx);
     }
     /**
-     * @brief 用一个core做D2H拷贝，从embCacheSwap拷贝到队列
+     * @brief 用一个core做D2H拷贝，从embSwapCache拷贝到队列
      */
     __aicore__ inline void OutfeedEnqueue()
     {
         __ubuf__ uint64_t *ub_buff = (__ubuf__ uint64_t *)get_imm(RMA_UB_B8_BUFF_OFFSET);
         __ubuf__ uint8_t *ub_data_buff = (__ubuf__ uint8_t *)get_imm(RMA_UB_DATA_BUFF_OFFSET);
-        __gm__ uint64_t *outfeed_count = (__gm__ uint64_t *)(usrWorkspace + SWAP_OUT_FLAG_OFFSET);
+        __gm__ uint64_t *outfeed_count = (__gm__ uint64_t *)swapFlagSwapOut;
         __gm__ uint64_t *seqInSwapOut = (__gm__ uint64_t *)svmBuffSwapOut + RmaQueueOffset::RMA_SEQ_IN_OFFSET;
         __gm__ uint64_t *tailSwapOut = (__gm__ uint64_t *)svmBuffSwapOut + RmaQueueOffset::RMA_QUEUE_TAIL_OFFSET;
         __gm__ uint64_t *buffLimitSwapOut = (__gm__ uint64_t *)svmBuffSwapOut + RmaQueueOffset::RMA_BUFF_LIMIT_OFFSET;
@@ -233,17 +246,15 @@ private:
                 copyCount = cacheCapacity - cacheFront;
             }
             gm2gm(copyCount * dataHeadSwapOut.dims[1] * sizeof(float), ub_data_buff,
-                  svmDataBuff + swapOutCount * embDim, embCacheSwap + cacheFront * embDim);
+                  svmDataBuff + swapOutCount * embDim, embSwapCache + cacheFront * embDim);
             cacheFront = (cacheFront + copyCount) % cacheCapacity;
             swapOutCount += copyCount;
-//            if (loopCount % 4 == 0) {
-//                SetFlag(ub_buff, outfeed_count, swapOutCount);
-//                SetFlag(ub_buff, svmReadyCount, swapOutCount);
-//            }
-//            loopCount++;
+            if (loopCount % 4 == 0 || lookUpCount <= swapOutCount) {
+                SetFlag(ub_buff, outfeed_count, swapOutCount);
+            }
+            loopCount++;
         }
-//        SetFlag(ub_buff, outfeed_count, swapOutCount);
-        SetFlag(ub_buff, svmReadyCount, swapOutCount);
+        SetFlag(ub_buff, outfeed_count, swapOutCount);
 
         // 更新seqIn
         *ub_buff = dataHeadSwapOut.sequence;
@@ -286,98 +297,17 @@ private:
             }
             uint64_t embIdx = *((__gm__ uint64_t *)swapInIndex + visitedIdx);
             for (int t = 0; t < tableNum; ++t) {
-                gm2gm(embDimSplit, ub_data_buff, updateTables[t] + embIdx * embDimSplit, embCacheSwap + cacheFront * embDim + t * embDimSplit);
+                gm2gm(embDimSplit, ub_data_buff, updateTables[t] + embIdx * embDimSplit, embSwapCache + cacheFront * embDim + t * embDimSplit);
             }
 
             visitedIdx += stride;
             cacheFront = visitedIdx % cacheCapacity;
-//            if (loopCount % 8 == 0) {
-//                SetFlag(ub_buff, update_flag, visitedIdx);
-//            }
-//            loopCount++;
-        }
-//        SetFlag(ub_buff, update_flag, visitedIdx);
-    }
-
-    __aicore__ inline void GetNext()
-    {
-        __ubuf__ RmaShmDataHead *ub_datahead_buff = (__ubuf__ RmaShmDataHead *)get_imm(0);  // 数据头
-        __ubuf__ uint64_t *ub_buff = (__ubuf__ uint64_t *)get_imm(RMA_UB_B8_BUFF_OFFSET);
-        __ubuf__ uint8_t *ub_data_buff = (__ubuf__ uint8_t *)get_imm(RMA_UB_DATA_BUFF_OFFSET);
-        __gm__ uint64_t *getnext_count = (__gm__ uint64_t *)swapFlagSwapIn;
-
-        __gm__ uint64_t *seqOutSwapIn = (__gm__ uint64_t *)svmBuffSwapIn + RmaQueueOffset::RMA_SEQ_OUT_OFFSET;
-        __gm__ uint64_t *frontSwapIn = (__gm__ uint64_t *)svmBuffSwapIn + RmaQueueOffset::RMA_QUEUE_FRONT_OFFSET;
-        __gm__ uint64_t *buffLimitSwapIn = (__gm__ uint64_t *)svmBuffSwapIn + RmaQueueOffset::RMA_BUFF_LIMIT_OFFSET;
-
-        uint64_t frontOffset = queueHeader.frontOffset;
-        if (queueHeader.buffLimit == frontOffset) {
-            // 队列尾部的数据都已读取完，需要返回到首部
-            frontOffset = RMA_SHM_HEAD_LEN;
-            *ub_buff = frontOffset;
-            CpUB2GM<uint64_t>(frontSwapIn, ub_buff, sizeof(uint64_t));
-
-            // 初始化队列的buffer limit
-            *ub_buff = 0;
-            CpUB2GM<uint64_t>(buffLimitSwapIn, ub_buff, sizeof(uint64_t));
-        }
-        CpGM2UB<uint8_t>((__ubuf__ uint8_t *)ub_datahead_buff, svmBuffSwapIn + frontOffset, RMA_SHM_DATA_HEAD);
-        const uint64_t sizeOfTotalData = ub_datahead_buff->totalLen;
-        const uint64_t sizeOfData = sizeOfTotalData - RMA_SHM_DATA_HEAD; // 减去数据头RMA_SHM_DATA_HEAD
-        uint64_t sequence = ub_datahead_buff->sequence;
-        GM_ADDR svmDataBuff = svmBuffSwapIn + frontOffset + RMA_SHM_DATA_HEAD;
-        __gm__ uint64_t *ready_len = (__gm__ uint64_t *)(svmBuffSwapIn + frontOffset) + RMA_READY_LEN_OFFSET;
-        pipe_barrier(PIPE_ALL);
-
-//        __gm__ uint64_t *updateFlags[MAX_BLOCK_NUM];
-//        for (int i = 1; i < processBlockNum; ++i) {
-//            updateFlags[i - 1] = (__gm__ uint64_t *)swapFlagSwapIn + i * FLAG_UNIT_INT_NUM;
-//        }
-
-        if (sizeOfData > 0) {
-            uint64_t updateCount = 0;   // 单位embDim
-            uint64_t readyLen = 0; // sizeOfData;      // 单位字节
-            uint64_t copyOffset = 0;    // 单位字节
-            uint64_t loopCount = 0;
-            while (copyOffset < sizeOfData) {
-                if (readyLen <= copyOffset || (cacheRear + 1) % cacheCapacity == cacheFront) {
-                    if (readyLen < sizeOfData) {
-                        readyLen = GetFlag2(ub_buff, ready_len);
-                    }
-//                    updateCount = GetMinFlag(ub_buff, updateFlags, processBlockNum - 1);
-//                    cacheFront = updateCount % cacheCapacity;
-                    continue;
-                }
-                uint64_t copySize = readyLen - copyOffset;
-                uint64_t cacheSize = 0;
-
-                if (cacheRear >= cacheFront) {
-                    if (cacheFront == 0) {
-                        cacheSize = (cacheCapacity - cacheRear - 1) * embDim;
-                    } else {
-                        cacheSize = (cacheCapacity - cacheRear) * embDim;
-                    }
-                } else {
-                    cacheSize = (cacheFront - cacheRear - 1) * embDim;
-                }
-
-                copySize = (copySize > cacheSize) ? cacheSize : copySize;
-                gm2gm(copySize, ub_data_buff, embCacheSwap + cacheRear * embDim, svmDataBuff + copyOffset);   // 影响性能
-                copyOffset += copySize;
-                cacheRear = (copyOffset / embDim) % cacheCapacity;
-                if (loopCount % 4 == 0) {
-                    SetFlag(ub_buff, getnext_count, copyOffset / embDim);
-                }
-                loopCount++;
+            if (loopCount % 8 == 0 || getnextCount <= visitedIdx) {
+                SetFlag(ub_buff, update_flag, visitedIdx);
             }
-            SetFlag(ub_buff, getnext_count, copyOffset / embDim);
+            loopCount++;
         }
-        // 更新队头offset
-        *ub_buff = frontOffset + sizeOfTotalData;
-        CpUB2GM<uint64_t>(frontSwapIn, ub_buff, sizeof(uint64_t));
-        // 更新seqOut
-        *ub_buff = sequence;
-        CpUB2GM<uint64_t>(seqOutSwapIn, ub_buff, sizeof(uint64_t));
+        SetFlag(ub_buff, update_flag, visitedIdx);
     }
 
     __aicore__ inline void GetNextMultiThreads()
@@ -416,16 +346,17 @@ private:
 
         if (sizeOfData > 0) {
             uint64_t updateCount = 0;   // 单位embDim
+            uint64_t getnextCount = 0;  // 单位embDim
             uint64_t readyLen = 0; // 单位字节
             uint64_t copyOffset = processBlockIdx * pipeBlockSize;    // 单位字节
             cacheRear = (copyOffset / embDim) % cacheCapacity;
             while (copyOffset < sizeOfData) {
-                if ((readyLen < sizeOfData && readyLen < copyOffset + pipeBlockSize) || (cacheRear + 1) % cacheCapacity == cacheFront) {
+                if ((readyLen < sizeOfData && readyLen < copyOffset + pipeBlockSize) || (getnextCount >= updateCount && getnextCount - updateCount > cacheCapacity)) {
                     if (readyLen < sizeOfData) {
                         readyLen = GetFlag2(ub_buff, ready_len);
                     }
-//                    updateCount = GetMinFlag(ub_buff, updateFlags, processBlockNum - GET_NEXT_THREAD_NUM);
-//                    cacheFront = updateCount % cacheCapacity;
+                    updateCount = GetMinFlag(ub_buff, updateFlags, processBlockNum - GET_NEXT_THREAD_NUM);
+                    cacheFront = updateCount % cacheCapacity;
                     continue;
                 }
                 uint64_t copySize = (copyOffset + pipeBlockSize <= sizeOfData) ? pipeBlockSize : (sizeOfData - copyOffset);
@@ -440,21 +371,20 @@ private:
                 } else {
                     cacheSize = (cacheFront - cacheRear - 1) * embDim;
                 }
-                SetFlag(ub_buff, (__gm__ uint64_t *)output + blockIdx, cacheRear);
 
                 copySize = (copySize > cacheSize) ? cacheSize : copySize;
-                gm2gm(copySize, ub_data_buff, embCacheSwap + cacheRear * embDim, svmDataBuff + copyOffset);   // 影响性能
+                gm2gm(copySize, ub_data_buff, embSwapCache + cacheRear * embDim, svmDataBuff + copyOffset);   // 影响性能
 
                 if (copyOffset + stride >= sizeOfData) {
                     copyOffset = sizeOfData;
                 } else {
                     copyOffset += stride;
                 }
-
-                cacheRear = (copyOffset / embDim) % cacheCapacity;
-                SetFlag(ub_buff, getnext_count, copyOffset / embDim);
+                getnextCount = copyOffset / embDim;
+                cacheRear = getnextCount % cacheCapacity;
+                SetFlag(ub_buff, getnext_count, getnextCount);
             }
-            SetFlag(ub_buff, getnext_count, copyOffset / embDim);
+            SetFlag(ub_buff, getnext_count, getnextCount);
         }
         if (processBlockIdx == 0) {
             __gm__ uint64_t *getnextFlags[MAX_BLOCK_NUM];
@@ -555,7 +485,7 @@ private:
     GM_ADDR swapFlagSwapOut;
     uint64_t embDim;        // 每条emb的维度，单位字节
     uint64_t embDimSplit;   // 分表后每条emb的维度，单位字节
-    GM_ADDR embCacheSwap;
+    GM_ADDR embSwapCache;
     uint64_t cacheCapacity; // 数据缓存能容纳的emb条数
     uint64_t cacheFront;    // 数据缓存队列头索引
     uint64_t cacheRear;     // 数据缓存队列尾索引

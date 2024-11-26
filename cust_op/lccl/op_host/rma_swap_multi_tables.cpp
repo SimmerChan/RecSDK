@@ -19,7 +19,7 @@
 #include "register/op_def_registry.h"
 #include "rma_log.h"
 
-constexpr int32_t BLOCK_DIM = 48; // 至少需要4个core
+constexpr int32_t BLOCK_DIM = 48;
 
 namespace optiling {
     constexpr int32_t RMA_DIM_MAX = 2;

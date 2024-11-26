@@ -49,7 +49,7 @@ std::unordered_map<std::string, int> g_shmId;
 
 typedef enum tagRmaDevModel {
     MEM_MAP_DEV,
-    SVM_MAP_DEV,    // 910C
+    SVM_MAP_DEV,    // 910_93
     PCIE_TH_DEV     // 910B
 } RmaDevModel_t;
 
@@ -209,21 +209,6 @@ int64_t GetShmAddr(std::string name, int rankId, int capacity)
     return reinterpret_cast<int64_t>(g_shmSvmMap[shmName]);
 }
 
-// 仅用于pybind侧调用，获取host侧地址；
-int64_t GetShmHost(std::string name, int rankId)
-{
-    std::string shmName = name + "_" + std::to_string(g_pid);
-    LOG_INFO("rank {}, get shm-name {}", rankId, shmName.c_str());
-
-    auto *hostAddr = g_shmAddr[shmName];
-    if (hostAddr == nullptr) {
-        LOG_ERROR("shm add is invalid");
-        return reinterpret_cast<int64_t>(nullptr);
-    }
-
-    return reinterpret_cast<int64_t>(hostAddr);
-}
-
 // 仅用于hd_transfer的send/recv调用，获取host侧地址；
 void *GetHostAddr(std::string name, int rankId)
 {
@@ -345,10 +330,9 @@ uint8_t *ShmEnqueueHeadRaw(RmaShmHeader *header, int64_t dims[RMA_DIM_MAX], uint
              header->seqIn, header->seqOut, *out, *(out + 1));
     LOG_INFO("head: {}, tail: {}, buff-limit: {}", header->frontOffset, header->tailOffset, header->buffLimit);
 
-    int64_t queueNum = header->seqIn - header->seqOut;
-    if (queueNum >= header->queueCapacity) {
-        LOG_ERROR("rma queue is full, num: {}", queueNum);
-        return nullptr;
+    while (header->seqIn - header->seqOut >= header->queueCapacity) {
+        this_thread::sleep_for(1ms);
+        LOG_DEBUG("rma queue is full, num: {}", header->seqIn - header->seqOut);
     }
 
     dataHead.totalLen = dataSize + RMA_SHM_DATA_HEAD;
