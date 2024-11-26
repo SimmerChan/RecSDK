@@ -183,8 +183,6 @@ void HDTransfer::SendByShm(string &name, const float *sendData, int64_t dims[RMA
         LOG_DEBUG("SendByShm dim-num: {}, dim-0: {}, dim-1: {}",
                   queueData->dimNum, queueData->dims[0], queueData->dims[1]);
     }
-
-    return;
 }
 
 /// 将tensor发送到channel
@@ -269,12 +267,11 @@ void HDTransfer::SendMteShm(TransferChannel channel, const float*h2dEmb, int64_t
 #ifndef GTEST
 
     string sendBatchIdType = "accumulate";
-    string sendName;
-    sendName = StringFormat("%s_%s_%d_%d",
-                            embName.c_str(), TransferChannel2Str(channel).c_str(), channelId, localDeviceId);
+    string sendName = StringFormat("%s_%s_%d_%d",
+                          embName.c_str(), TransferChannel2Str(channel).c_str(), channelId, localDeviceId);
 
     LOG_INFO("hd transfer send:{}, {} batchId:{}", sendName, sendBatchIdType, batchId);
-    LOG_INFO("hd transfer send:{}, dim-0: {}, dim-1: {}", sendName, dims[0], dims[1]);
+    LOG_INFO("hd transfer send:{}, dim-0:{}, dim-1:{}", sendName, dims[0], dims[1]);
 
     SendByShm(sendName, h2dEmb, dims);
 
@@ -351,15 +348,11 @@ size_t HDTransfer::RecvMteShm(TransferChannel channel, int channelId, const stri
         if (!running) {
             return 0;
         }
-    } while (1);
-    if (!running) {
-        return 0;
-    }
+    } while (true);
 
     LOG_INFO("end hd transfer recv:{}, {} batchId:{}, cost:{}ms", recvName, recvBatchIdType, batchId, tc.ElapsedMS());
 #endif
     return ret;
-
 }
 
 /// 接收从device发送过来的数据（D2H）；使用原生的aclTDT接口
