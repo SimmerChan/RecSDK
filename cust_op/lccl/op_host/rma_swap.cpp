@@ -19,10 +19,11 @@
 #include "register/op_def_registry.h"
 #include "rma_log.h"
 
+constexpr int32_t BLOCK_DIM = 48;
+
 namespace optiling {
     constexpr int32_t RMA_DIM_MAX = 2;
-    constexpr int32_t BLOCK_DIM = 4; // 至少需要4个core
-    constexpr int32_t RMA_WORK_SPACE_SIZE = 22 * 1024 * 1024;
+    constexpr int32_t RMA_WORK_SPACE_SIZE = 202 * 1024 * 1024;
 
     static ge::graphStatus TilingFunc(gert::TilingContext *context)
     {
@@ -39,9 +40,8 @@ namespace optiling {
             dims[0] = 1;
             dims[1] = context->GetInputShape(0)->GetStorageShape().GetDim(0);
         } else if (dimNum == 2) {
-            for (int32_t i = 0; i < dimNum; i++) {
-                dims[i] = context->GetInputShape(0)->GetStorageShape().GetDim(i);
-            }
+            dims[0] = context->GetInputTensor(2)->GetShapeSize();
+            dims[1] = context->GetInputShape(0)->GetStorageShape().GetDim(1);
         } else {
             LOG_ERROR("dim-num %d is invalid", dimNum);
             return ge::GRAPH_FAILED;
@@ -93,7 +93,7 @@ namespace ge {
             return ge::GRAPH_FAILED;
         }
         outputShape->SetDimNum(1);
-        outputShape->SetDim(0, 8);
+        outputShape->SetDim(0, BLOCK_DIM);
 
         return GRAPH_SUCCESS;
     }
@@ -109,7 +109,12 @@ namespace ops {
                 .DataType({ ge::DT_FLOAT, ge::DT_FLOAT, ge::DT_FLOAT })
                 .Format({ ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND })
                 .UnknownShapeFormat({ ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND });
-            this->Input("update_index")
+            this->Input("swap_in_index")
+                .ParamType(REQUIRED)
+                .DataType({ ge::DT_INT64, ge::DT_INT64, ge::DT_INT64 })
+                .Format({ ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND })
+                .UnknownShapeFormat({ ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND });
+            this->Input("swap_out_index")
                 .ParamType(REQUIRED)
                 .DataType({ ge::DT_INT64, ge::DT_INT64, ge::DT_INT64 })
                 .Format({ ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND })

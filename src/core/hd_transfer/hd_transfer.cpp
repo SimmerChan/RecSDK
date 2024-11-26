@@ -165,14 +165,17 @@ void HDTransfer::SendByShm(string &name, const float *sendData, int64_t dims[RMA
     LOG_DEBUG("rma send, shm-name {}", name.c_str());
 
     if (sendData == nullptr) {
-        LOG_ERROR("send data can not be zero");
-        return;
+        auto error = Error(ModuleName::M_HD_TRANSFER, ErrorType::NULL_PTR, "Send data can not be nullptr.");
+        LOG_ERROR(error.ToString());
+        throw runtime_error(error.ToString());
     }
 
     auto *shmAddr = GetHostAddr(name, localDeviceId);
     if (shmAddr == nullptr) {
-        LOG_ERROR("shm-addr is invalid");
-        return;
+        auto error = Error(ModuleName::M_HD_TRANSFER, ErrorType::INVALID_ARGUMENT,
+                           StringFormat("Failed to find valid shm for channel: %s device: %d.", name.c_str(), localDeviceId));
+        LOG_ERROR(error.ToString());
+        throw runtime_error(error.ToString());
     }
     RmaShmHeader *queueHeader = (RmaShmHeader *)shmAddr;
 
@@ -293,9 +296,10 @@ size_t HDTransfer::RecvByShm(RmaShmHeader *queueHeader, float*& ptr, int64_t &di
     if (readElem != nullptr) {
         RmaShmData queueData;
         if (memcpy_s(&queueData, sizeof(RmaShmData), readElem, sizeof(RmaShmData)) != EOK) {
-            LOG_ERROR("memcpy failed");
-            emptyFlag = true;
-            return 0;
+            auto error = Error(ModuleName::M_HD_TRANSFER, ErrorType::UNKNOWN,
+                               "Memcpy_s failed when read shm queue item's head.");
+            LOG_ERROR(error.ToString());
+            throw runtime_error(error.ToString());
         }
 
         LOG_DEBUG("shm recv data-seq: {}, total-len: {}", queueData.sequence, queueData.totalLen);
@@ -307,7 +311,6 @@ size_t HDTransfer::RecvByShm(RmaShmHeader *queueHeader, float*& ptr, int64_t &di
         dim0 = queueData.dims[0];
         return queueData.dataLen;
     } else {
-        LOG_ERROR("shm outqueue failed");
         emptyFlag = true;
         return 0;
     }
@@ -330,8 +333,10 @@ size_t HDTransfer::RecvMteShm(TransferChannel channel, int channelId, const stri
 
     auto *shmAddr = GetHostAddr(recvName, localDeviceId);
     if (shmAddr == nullptr) {
-        LOG_ERROR("shm add is invalid");
-        return 0;
+        auto error = Error(ModuleName::M_HD_TRANSFER, ErrorType::INVALID_ARGUMENT,
+                           StringFormat("Failed to find valid shm for channel: %s device: %d.", recvName.c_str(), localDeviceId));
+        LOG_ERROR(error.ToString());
+        throw runtime_error(error.ToString());
     }
 
     do {
