@@ -17,6 +17,7 @@ See the License for the specific language governing permissions and
 #define MX_REC_HD_TRANSFER_H
 
 #include <mutex>
+#include <unordered_map>
 
 #include "acl/acl_base.h"
 #include "acl/acl.h"
@@ -26,7 +27,6 @@ See the License for the specific language governing permissions and
 #include "utils/common.h"
 #include "utils/config.h"
 #include "hybrid_mgmt/rma_shm_svm.h"
-#include <unordered_map>
 
 #ifndef TDT_CREATE_CHANNEL
 #define TDT_CREATE_CHANNEL acltdtCreateChannelWithCapacity
@@ -101,8 +101,8 @@ namespace MxRec {
                        int embeddingThreadId, int batchId);
         size_t RecvOffsetsAcl(TransferChannel channel, int channelId, const string& embName);
 
-        void SendMteShm(TransferChannel channel, const float*h2dEmb, int64_t dims[], int channelId, const string& embName,
-                        int batchId);
+        void SendMteShm(TransferChannel channel, const float*h2dEmb, int64_t dims[], int channelId,
+                        const string& embName, int batchId);
         size_t RecvMteShm(TransferChannel channel, int channelId, const string& embName, float*& ptr, int64_t &dim0,
                           int batchId);
 

@@ -20,8 +20,6 @@
 #include "kernel_operator.h"
 #include <limits.h>
 
-#define FORCE_INLINE_AICORE inline __attribute__((always_inline)) __aicore__
-
 constexpr int32_t MAX_BLOCK_NUM = 48;
 constexpr int64_t FLAG_UNIT_INT_NUM = 4;    // 同步标志位占用长度 4 * 8 B
 constexpr int64_t TIME_OUT = 375000000;     // 超时等待时间   大概5分钟
@@ -32,8 +30,6 @@ constexpr int32_t RMA_UB_DATA_BUFF_OFFSET = 256;
 constexpr int32_t RMA_SHM_HEAD_LEN = 128;      // 队列头长度
 constexpr int32_t RMA_SHM_DATA_HEAD = 56;      // 数据头长度
 constexpr int32_t UNIT_COPY_SIZE = 190 * 1024; // UB复制大小
-constexpr int32_t RMA_THREAD_MAX = 8;
-constexpr int32_t RMA_BLOCKING_TIMES = 2147483647;
 constexpr int32_t RMA_SHAPE_DIM_MAX = 2;
 
 constexpr uint64_t RMA_WORK_SPACE_SIZE = 202 * 1024 * 1024;

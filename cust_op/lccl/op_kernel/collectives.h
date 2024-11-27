@@ -61,8 +61,8 @@ public:
         pipe_barrier(PIPE_ALL);
     }
 
-    __attribute__((always_inline)) inline __aicore__ void SetFlag(__ubuf__ uint64_t *ctrlFlagsUB, __gm__ uint64_t *ctrlFlagGM,
-    uint64_t checkValue)
+    __attribute__((always_inline)) inline __aicore__ void SetFlag(__ubuf__ uint64_t *ctrlFlagsUB,
+                                                                  __gm__ uint64_t *ctrlFlagGM, uint64_t checkValue)
     {
         *ctrlFlagsUB = checkValue;
         CpUB2GM((__gm__ uint8_t *)ctrlFlagGM, (__ubuf__ uint8_t *)ctrlFlagsUB, sizeof(uint64_t));
@@ -86,7 +86,8 @@ public:
         return *ctrlFlagsUB;
     }
 
-    __attribute__((always_inline)) inline __aicore__ uint64_t GetFlag2(__ubuf__ uint64_t *ctrlFlagsUB, __gm__ uint64_t *ctrlFlagGM)
+    __attribute__((always_inline)) inline __aicore__ uint64_t GetFlag2(__ubuf__ uint64_t *ctrlFlagsUB,
+                                                                       __gm__ uint64_t *ctrlFlagGM)
     {
         CpGM2UB((__ubuf__ uint8_t *)ctrlFlagsUB, (__gm__ uint8_t *)ctrlFlagGM, sizeof(uint64_t));
         return *ctrlFlagsUB;
@@ -122,14 +123,6 @@ public:
         ub2gm(dest_buff + UNIT_COPY_SIZE * step, ub_buff, data_size);
     }
 
-    template <typename T1, typename T2>
-    FORCE_INLINE_AICORE T1 CeilDiv(T1 a, T2 b)
-    {
-        if (b == 0) {
-            return 0;
-        }
-        return (a + b - 1) / b;
-    }
 protected:
     int64_t blockIdx;  // 当前aicore序号
     int64_t blockNum;  // 当前rank的总aicore数

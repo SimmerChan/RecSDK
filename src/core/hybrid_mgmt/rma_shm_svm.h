@@ -29,7 +29,7 @@ struct RmaShmHeader {
     uint64_t seqOut;        /* 最新读取的seq */
     uint64_t frontOffset;   /* 可访问的内存地址偏移量 */
     uint64_t tailOffset;    /* 可写入数据的地址偏移量，从队列尾部写入 */
-    uint64_t buffLimit; /* 队列尾部无法写入数据的偏移，标识队列需要返回到头部进行写入 */
+    uint64_t buffLimit;     /* 队列尾部无法写入数据的偏移，标识队列需要返回到头部进行写入 */
 };
 
 // 队列中每个元素的头定义
@@ -44,17 +44,14 @@ struct RmaShmData {
 };
 
 int64_t GetShmAddr(std::string name, int rankId, int capacity);
-void *GetHostAddr(std::string name, int rankId);
+void *GetHostAddr(std::string name);
 void FreeShmAddr(int deviceId);
 uint8_t *ShmOutqueue(RmaShmHeader *header);
-uint8_t *ShmEnqueue(RmaShmHeader *header, void *memData, int64_t memSize, uint64_t sequence);
 int64_t GetShmElemNum(RmaShmHeader *header);
 void SetShmQueueSeqOut(RmaShmHeader *header, uint64_t sequence);
-void SetShmQueueSeqIn(RmaShmHeader *header, uint64_t sequence);
 uint64_t GetShmSeq(RmaShmHeader *queueHeader);
 void ClearShmQueue();
-uint8_t *ShmEnqueueRaw(RmaShmHeader *header, const void *memData, int64_t dims[], uint64_t sequence);
 uint8_t *ShmEnqueueHeadRaw(RmaShmHeader *header, int64_t dims[], uint64_t sequence);
-uint8_t *ShmEnqueueGetFront(RmaShmHeader *header, int64_t dims[]);
 uint8_t *ShmEnqueueGetLast(RmaShmHeader *header, int64_t dims[]);
-#endif
+
+#endif  // RMA_SHM_SVM_H

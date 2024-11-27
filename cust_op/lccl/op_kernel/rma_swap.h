@@ -343,7 +343,8 @@ private:
             uint64_t copyOffset = processBlockIdx * pipeBlockSize;    // 单位字节
             cacheRear = (copyOffset / embDim) % cacheCapacity;
             while (copyOffset < sizeOfData) {
-                if ((readyLen < sizeOfData && readyLen < copyOffset + pipeBlockSize) || (getnextCount >= updateCount && getnextCount - updateCount > cacheCapacity)) {
+                if ((readyLen < sizeOfData && readyLen < copyOffset + pipeBlockSize) ||
+                    (getnextCount >= updateCount && getnextCount - updateCount > cacheCapacity)) {
                     if (readyLen < sizeOfData) {
                         readyLen = GetFlag2(ub_buff, ready_len);
                     }
@@ -351,7 +352,8 @@ private:
                     cacheFront = updateCount % cacheCapacity;
                     continue;
                 }
-                uint64_t copySize = (copyOffset + pipeBlockSize <= sizeOfData) ? pipeBlockSize : (sizeOfData - copyOffset);
+                uint64_t copySize = (copyOffset + pipeBlockSize <= sizeOfData) ?
+                                    pipeBlockSize : (sizeOfData - copyOffset);
                 uint64_t cacheSize = 0;
 
                 if (cacheRear >= cacheFront) {
@@ -365,7 +367,7 @@ private:
                 }
 
                 copySize = (copySize > cacheSize) ? cacheSize : copySize;
-                gm2gm(copySize, ub_data_buff, embSwapCache + cacheRear * embDim, svmDataBuff + copyOffset);   // 影响性能
+                gm2gm(copySize, ub_data_buff, embSwapCache + cacheRear * embDim, svmDataBuff + copyOffset);
 
                 if (copyOffset + stride >= sizeOfData) {
                     copyOffset = sizeOfData;
@@ -431,8 +433,10 @@ private:
             for (int i = 0; i < flagNum * FLAG_UNIT_INT_NUM; ++i) {
                 *(ub_buff + i) = 0;
             }
-            CpUB2GM<uint8_t>(swapFlagSwapIn, (__ubuf__ uint8_t *)ub_buff, flagNum * FLAG_UNIT_INT_NUM * sizeof(uint64_t));
-            CpUB2GM<uint8_t>(swapFlagSwapOut, (__ubuf__ uint8_t *)ub_buff, flagNum * FLAG_UNIT_INT_NUM * sizeof(uint64_t));
+            CpUB2GM<uint8_t>(swapFlagSwapIn, (__ubuf__ uint8_t *)ub_buff,
+                             flagNum * FLAG_UNIT_INT_NUM * sizeof(uint64_t));
+            CpUB2GM<uint8_t>(swapFlagSwapOut, (__ubuf__ uint8_t *)ub_buff,
+                             flagNum * FLAG_UNIT_INT_NUM * sizeof(uint64_t));
         }
     }
 

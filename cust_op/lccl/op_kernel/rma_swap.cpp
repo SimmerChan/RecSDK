@@ -18,7 +18,8 @@
 #include "rma_swap.h"
 using namespace AscendC;
 
-extern "C" __global__ __aicore__ void rma_swap(GM_ADDR updateTable, GM_ADDR swapInIndex, GM_ADDR swapOutIndex, GM_ADDR output, GM_ADDR workspace, GM_ADDR tiling) {
+extern "C" __global__ __aicore__ void rma_swap(GM_ADDR updateTable, GM_ADDR swapInIndex, GM_ADDR swapOutIndex,
+                                               GM_ADDR output, GM_ADDR workspace, GM_ADDR tiling) {
     GET_TILING_DATA(tiling_data, tiling);
 
     GM_ADDR usrWorkspace = AscendC::GetUserWorkspace(workspace); // 获取用户workspace指针。
