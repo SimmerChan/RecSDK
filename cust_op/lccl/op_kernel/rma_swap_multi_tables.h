@@ -31,7 +31,8 @@ GM_ADDR table0, GM_ADDR table1, GM_ADDR table2, GM_ADDR swapInIndex, GM_ADDR swa
 GM_ADDR svmBuffSwapIn, GM_ADDR svmBuffSwapOut, GM_ADDR usrWorkspace, int32_t dimNum, uint64_t *dimValue, GM_ADDR output
 
 #define RMA_SWAP_MULTI_TABLE_ARGS_CALL() \
-table0, table1, table2, swapInIndex, swapOutIndex, swapInLen, svmBuffSwapIn, svmBuffSwapOut, usrWorkspace, dimNum, dimValue, output
+table0, table1, table2, swapInIndex, swapOutIndex, swapInLen, \
+svmBuffSwapIn, svmBuffSwapOut, usrWorkspace, dimNum, dimValue, output
 
 
 class RmaSwapMultiTables : Collectives {
@@ -169,7 +170,8 @@ private:
             }
             uint64_t embIdx = *((__gm__ uint64_t *)swapOutIndex + visitedIdx);
             for (int t = 0; t < tableNum; ++t) {
-                gm2gm(embDimSplit, ub_data_buff, embSwapCache + cacheRear * embDim + t * embDimSplit, updateTables[t] + embIdx * embDimSplit);
+                gm2gm(embDimSplit, ub_data_buff, embSwapCache + cacheRear * embDim + t * embDimSplit,
+                      updateTables[t] + embIdx * embDimSplit);
             }
             cacheRear = (cacheRear + stride) % cacheCapacity;
             visitedIdx += stride;

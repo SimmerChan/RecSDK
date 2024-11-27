@@ -35,7 +35,6 @@ int HDTransfer::Init(const vector<EmbInfo>& embInfos, uint32_t localRankId, bool
     // 使用AscendCL接口开发应用时，必须先调用aclInit接口，否则可能会导致后续系统内部资源初始化出错，进而导致其它业务异常。
     // 三阶段需要初始化aclInit
     if (!GlobalEnv::useShmSwap) {
-        LOG_INFO("useShmSwap is false");
         aclError retOk = aclInit(nullptr);
         LOG_INFO("End aclInit, rank:{}.", localRankId);
         if (retOk != ACL_SUCCESS) {
@@ -170,10 +169,11 @@ void HDTransfer::SendByShm(string &name, const float *sendData, int64_t dims[RMA
         throw runtime_error(error.ToString());
     }
 
-    auto *shmAddr = GetHostAddr(name, localDeviceId);
+    auto *shmAddr = GetHostAddr(name);
     if (shmAddr == nullptr) {
         auto error = Error(ModuleName::M_HD_TRANSFER, ErrorType::INVALID_ARGUMENT,
-                           StringFormat("Failed to find valid shm for channel: %s device: %d.", name.c_str(), localDeviceId));
+                           StringFormat("Failed to find valid shm for channel: %s device: %d.",
+                                        name.c_str(), localDeviceId));
         LOG_ERROR(error.ToString());
         throw runtime_error(error.ToString());
     }
@@ -257,8 +257,8 @@ void HDTransfer::Send(TransferChannel channel, const vector<Tensor>& tensors, in
 /// \param channelId 通道索引（训练/推理）
 /// \param embName 表名
 /// \param batchId 已处理的batch数
-void HDTransfer::SendMteShm(TransferChannel channel, const float*h2dEmb, int64_t dims[RMA_DIM_MAX], int channelId, const string& embName,
-                         int batchId)
+void HDTransfer::SendMteShm(TransferChannel channel, const float*h2dEmb, int64_t dims[RMA_DIM_MAX],
+                            int channelId, const string& embName, int batchId)
 {
     if (!running) {
         return;
@@ -316,8 +316,8 @@ size_t HDTransfer::RecvByShm(RmaShmHeader *queueHeader, float*& ptr, int64_t &di
     }
 }
 
-size_t HDTransfer::RecvMteShm(TransferChannel channel, int channelId, const string& embName, float*& ptr, int64_t &dim0,
-                              int batchId)
+size_t HDTransfer::RecvMteShm(TransferChannel channel, int channelId, const string& embName,
+                              float*& ptr, int64_t &dim0, int batchId)
 {
     size_t ret = 0;
 #ifndef GTEST
@@ -331,10 +331,11 @@ size_t HDTransfer::RecvMteShm(TransferChannel channel, int channelId, const stri
     LOG_DEBUG("shm recv:{}, {} batchId:{}, deviceId:{}", recvName, recvBatchIdType, batchId, localDeviceId);
     TimeCost tc = TimeCost();
 
-    auto *shmAddr = GetHostAddr(recvName, localDeviceId);
+    auto *shmAddr = GetHostAddr(recvName);
     if (shmAddr == nullptr) {
         auto error = Error(ModuleName::M_HD_TRANSFER, ErrorType::INVALID_ARGUMENT,
-                           StringFormat("Failed to find valid shm for channel: %s device: %d.", recvName.c_str(), localDeviceId));
+                           StringFormat("Failed to find valid shm for channel: %s device: %d.",
+                                        recvName.c_str(), localDeviceId));
         LOG_ERROR(error.ToString());
         throw runtime_error(error.ToString());
     }

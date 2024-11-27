@@ -2117,7 +2117,7 @@ bool HybridMgmt::BuildH2DEmbedding(const EmbTaskInfo& info, float*&h2dEmb, int64
     dims[1] = info.extEmbeddingSize;
     std::string sendName = StringFormat("%s_%s_%d_%d",
         info.name.c_str(), TransferChannel2Str(TransferChannel::H2D).c_str(), info.channelId, mgmtRankInfo.deviceId);
-    RmaShmHeader *queueHeader = (RmaShmHeader *)GetHostAddr(sendName, mgmtRankInfo.deviceId);
+    RmaShmHeader *queueHeader = (RmaShmHeader *)GetHostAddr(sendName);
     if (queueHeader == nullptr) {
         auto error = Error(ModuleName::M_HYBRID_MGMT, ErrorType::INVALID_ARGUMENT,
                            StringFormat("Failed to find valid shm for channel: %s device: %d.",
