@@ -63,7 +63,8 @@ def run_eval(load_model, load_sess, filename, sample_num_file, hparams, flag):
     with open(sample_num_file, 'r') as f:
         sample_num = int(f.readlines()[0].strip())
     from mx_rec.util.initialize import ConfigInitializer
-    eval_label = ConfigInitializer.get_instance().train_params_config.get_target_batch(True).get("labels")
+    # Batch is tuple(origin_batch, read_emb_key_op).
+    eval_label = ConfigInitializer.get_instance().train_params_config.get_target_batch(True)[0].get("labels")
     initializer = ConfigInitializer.get_instance().train_params_config.get_initializer(True)
     load_sess.run(initializer, feed_dict={load_model.filenames: [filename]})
     preds = []
