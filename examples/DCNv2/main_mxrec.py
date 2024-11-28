@@ -145,7 +145,8 @@ def evaluate():
         sess.run([eval_iterator.initializer])
     else:
         # 在sess run模式下，若还是使用原来batch中的label去sess run，则会出现getnext超时报错，需要使用新数据集中的batch
-        eval_label = ConfigInitializer.get_instance().train_params_config.get_target_batch(False).get("label")
+        # Batch is tuple(origin_batch, read_emb_key_op).
+        eval_label = ConfigInitializer.get_instance().train_params_config.get_target_batch(False)[0].get("label")
         sess.run([ConfigInitializer.get_instance().train_params_config.get_initializer(False)])
     log_loss_list = []
     pred_list = []

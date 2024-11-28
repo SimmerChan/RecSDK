@@ -151,7 +151,8 @@ def evaluate():
     else:
         # In sess run mode, if the label from the original batch is still used for sess run, 
         # a getnext timeout error will occur, and a new batch from the new dataset needs to be used
-        eval_label = ConfigInitializer.get_instance().train_params_config.get_target_batch(False).get("label")
+        # Batch is tuple(origin_batch, read_emb_key_op).
+        eval_label = ConfigInitializer.get_instance().train_params_config.get_target_batch(False)[0].get("label")
         sess.run([ConfigInitializer.get_instance().train_params_config.get_initializer(False)])
     log_loss_list = []
     pred_income_list = []
