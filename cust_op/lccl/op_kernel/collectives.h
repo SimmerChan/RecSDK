@@ -61,7 +61,6 @@ public:
     }
 
 public:
-    // CpGM2GM接口, op -1时直接拷贝， op 0 2 3分别对应add max min
     template <typename T>
     FORCE_INLINE_AICORE void CpGM2GM(const GlobalTensor<T>& outputGT, const GlobalTensor<T>& inputGT, const uint32_t calCount, int op)
     {
@@ -73,17 +72,20 @@ public:
     FORCE_INLINE_AICORE void CpGM2GMPingPong(int64_t dataSizeRemain, const GlobalTensor<T>& inputGT,
                                              const GlobalTensor<T>& outputGT, int op)
     {
-        __gm__ T *input = const_cast<__gm__ T *>(inputGT.GetPhyAddr());
-        __gm__ T *output = const_cast<__gm__ T *>(outputGT.GetPhyAddr());
-        __ubuf__ T* inputUB[2] = {(__ubuf__ T*)get_imm(96), (__ubuf__ T*)get_imm(97440)};
-        int inputOffsetNum = 0;
-        int outputOffsetNum = 0;
         if (dataSizeRemain <= 0) {
             return;
         }
+        __gm__ T *input = const_cast<__gm__ T *>(inputGT.GetPhyAddr());
+        __gm__ T *output = const_cast<__gm__ T *>(outputGT.GetPhyAddr());
+        // each UB's size is 95 KB
+        const int64_t firstUBStart = 96;
+        const int64_t secondUBStart = 97440;
+        __ubuf__ T* inputUB[2] = {(__ubuf__ T*)get_imm(firstUBStart), (__ubuf__ T*)get_imm(secondUBStart)};
+        int inputOffsetNum = 0;
+        int outputOffsetNum = 0;
 
         pipe_barrier(PIPE_ALL);
-        if (op != -1) {
+        if (op != COPYONLY) {
             SetAtomicDataType<T>();
 #ifdef __DAV_C220_VEC__
             SetAtomicOpType(op);
@@ -113,7 +115,7 @@ public:
 
         set_flag(PIPE_MTE3, PIPE_S, EVENT_ID3); // Scalar等MTE3
         wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID3);
-        if (op != -1) {
+        if (op != COPYONLY) {
             set_atomic_none();
         }
         pipe_barrier(PIPE_ALL);
@@ -124,17 +126,20 @@ public:
     FORCE_INLINE_AICORE void CpGM2GMPingPong(int64_t dataSizeRemain, GM_ADDR inputGT,
                                              GM_ADDR outputGT, int op)
     {
-        __gm__ T *input = (__gm__ T *)inputGT;
-        __gm__ T *output = (__gm__ T *)outputGT;
-        __ubuf__ T* inputUB[2] = {(__ubuf__ T*)get_imm(96), (__ubuf__ T*)get_imm(97440)};
-        int inputOffsetNum = 0;
-        int outputOffsetNum = 0;
         if (dataSizeRemain <= 0) {
             return;
         }
+        __gm__ T *input = (__gm__ T *)inputGT;
+        __gm__ T *output = (__gm__ T *)outputGT;
+        // each UB's size is 95 KB
+        const int64_t firstUBStart = 96;
+        const int64_t secondUBStart = 97440;
+        __ubuf__ T* inputUB[2] = {(__ubuf__ T*)get_imm(firstUBStart), (__ubuf__ T*)get_imm(secondUBStart)};
+        int inputOffsetNum = 0;
+        int outputOffsetNum = 0;
 
         pipe_barrier(PIPE_ALL);
-        if (op != -1) {
+        if (op != COPYONLY) {
             SetAtomicDataType<T>();
 #ifdef __DAV_C220_VEC__
             SetAtomicOpType(op);
@@ -164,7 +169,7 @@ public:
 
         set_flag(PIPE_MTE3, PIPE_S, EVENT_ID3); // Scalar等MTE3
         wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID3);
-        if (op != -1) {
+        if (op != COPYONLY) {
             set_atomic_none();
         }
         pipe_barrier(PIPE_ALL);
@@ -175,7 +180,9 @@ public:
     FORCE_INLINE_AICORE void SetSingleValue2Gm(GM_ADDR gm, T value)
     {
         AscendC::PipeBarrier<PIPE_ALL>();
-        __ubuf__ T *inputUB = (__ubuf__ T*)(96);
+        // each UB's size is 95 KB
+        const int64_t UBStart = 96;
+        __ubuf__ T *inputUB = (__ubuf__ T*)(UBStart);
         *inputUB = value;
         AscendC::PipeBarrier<PIPE_ALL>();
         CpUB2GM((__gm__ T *)gm, inputUB, sizeof(T));

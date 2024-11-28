@@ -83,10 +83,10 @@ public:
         for (int j = 0; j < rankSize; j++) {
             revLen += sendCountMatrixGm.GetValue(j * rankSize + rank);
         }
-        pipe.InitBuffer(tempBuffer, 2, UB_SINGLE_DMA_SIZE_MAX/2);
+        pipe.InitBuffer(tempBuffer, PING_PONG_SIZE, UB_SINGLE_DMA_SIZE_MAX / PING_PONG_SIZE);
         outputGt.SetGlobalBuffer((__gm__ T*)output, outShape*dim* sizeof(T));
 
-        int initSize = outShape * dim / coreNumsPerStage / 2;
+        int initSize = outShape * dim / coreNumsPerStage / PING_PONG_SIZE;
         if (blockIdx < blockNum) {
             sync.SetInnerFlag(magic, 0, rank, blockIdx + 128);
             pipe_barrier(PIPE_ALL);
@@ -359,7 +359,7 @@ private:
                 event_t eventId = (loop & 1) ? EVENT_ID0 : EVENT_ID1;
                 wait_flag(PIPE_MTE3, PIPE_MTE2, eventId);
                 // emb数量
-                int64_t totalNum = remain < UB_SINGLE_DMA_SIZE_MAX / 2? remain / dim / sizeof(T) : UB_SINGLE_DMA_SIZE_MAX / 2 / dim / sizeof(T);
+                int64_t totalNum = remain < UB_SINGLE_DMA_SIZE_MAX / PING_PONG_SIZE ? remain / dim / sizeof(T) : UB_SINGLE_DMA_SIZE_MAX / PING_PONG_SIZE / dim / sizeof(T);
                 __ubuf__ T * buffer = (loop & 1) ? (__ubuf__ T *)buffer1.GetPhyAddr() : (__ubuf__ T *)buffer2.GetPhyAddr();
                 CpGM2UB(buffer, (__gm__ T *)readGt[offset].GetPhyAddr(), totalNum * dim * sizeof(T));
                 offset += totalNum * dim;
@@ -370,7 +370,7 @@ private:
                     CpUB2GM(((__gm__ T*)outputPtr + outIdx * dim), buffer + i * dim, dim * sizeof(T));
                 }
                 set_flag(PIPE_MTE3, PIPE_MTE2, eventId);
-                remain -= UB_SINGLE_DMA_SIZE_MAX/2;
+                remain -= UB_SINGLE_DMA_SIZE_MAX / PING_PONG_SIZE;
                 outOffset += totalNum;
                 loop += 1;
             }
@@ -424,7 +424,7 @@ private:
 
     IpcQueue<T> readQue[MULTI_RANK_SIZE];  // 读端共享内存队列
     IpcQueue<T> writeQue[MULTI_RANK_SIZE];  // 写端共享内存队列
-    TQue<QuePosition::VECIN, 2> tempBuffer; // UB
+    TQue<QuePosition::VECIN, PING_PONG_SIZE> tempBuffer; // UB
     int64_t queElemLen;  // 共享内存队列里每个元素大小（以T计）
 
     int64_t sliceNum[MULTI_RANK_SIZE];  // 当前核负责的数据切片总数
