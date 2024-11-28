@@ -52,7 +52,7 @@ public:
         this->dim = dim;
         this->restorePtr = restore;
         this->outputPtr = output;
-        this->coreNumsPerStage = rankSize > 16 ? 16 : rankSize;
+        this->coreNumsPerStage = 16;
         
         blockIdx = GetBlockIdx();
         blockNum = GetBlockNum();
@@ -332,7 +332,7 @@ private:
             while (remain > 0) {
                 event_t eventId = (loop & 1) ? EVENT_ID0 : EVENT_ID1;
                 wait_flag(PIPE_MTE3, PIPE_MTE2, eventId);
-                // emb数量
+                // emb数量，每次最多拷贝半块UB大小的emb
                 int64_t totalNum = remain < UB_SINGLE_DMA_SIZE_MAX / 2? remain / dim / sizeof(T) : UB_SINGLE_DMA_SIZE_MAX / 2 / dim / sizeof(T);
                 __ubuf__ T * buffer = (loop & 1) ? (__ubuf__ T *)buffer1.GetPhyAddr() : (__ubuf__ T *)buffer2.GetPhyAddr();
                 CpGM2UB(buffer, (__gm__ T *)readGt[offset].GetPhyAddr(), totalNum * dim * sizeof(T));

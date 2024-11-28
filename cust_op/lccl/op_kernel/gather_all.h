@@ -66,7 +66,7 @@ public:
         this->gather_data = (GM_ADDR)(peerMemsAddrGm.GetValue(rank)) +
                             ((this->magic + 1) % PING_PONG_SIZE) * (IPC_BUFF_MAX_SIZE + IPC_DATA_OFFSET) + IPC_DATA_OFFSET;
 
-        blockSize = UB_SINGLE_DMA_SIZE_MAX / 2 / (dim * sizeof(T));
+        blockSize = UB_SINGLE_DMA_SIZE_MAX / PING_PONG_SIZE / (dim * sizeof(T));
         blockSize = (blockSize / 64) * 64 ;  // 64 Byte对齐
 
         sync.Init(rank, rankSize, shareAddrs, blockIdx, blockNum);
@@ -107,8 +107,8 @@ public:
         int copiedNum = 0;
         int copyId=0;
         while (gatherNum > 0) {
-            __ubuf__ T* inputUB = (copyId % 2) ? inputUBList[0] : inputUBList[1];
-            event_t event_id = (copyId % 2) ? EVENT_ID0: EVENT_ID1;
+            __ubuf__ T* inputUB = (copyId % PING_PONG_SIZE) ? inputUBList[0] : inputUBList[1];
+            event_t event_id = (copyId % PING_PONG_SIZE) ? EVENT_ID0: EVENT_ID1;
             wait_flag(PIPE_MTE3, PIPE_MTE2, event_id);
             int toCopy = gatherNum < blockSize ? gatherNum : blockSize;
             for (int j = 0; j < toCopy; j++) {
