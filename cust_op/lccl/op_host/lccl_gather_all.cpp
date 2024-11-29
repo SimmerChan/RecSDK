@@ -104,7 +104,7 @@ namespace ops {
                     .DataType({ge::DT_INT64, ge::DT_INT64, ge::DT_INT64})
                     .Format({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})
                     .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND});
-            this->Output("rev_data")
+            this->Output("recv_data")
                     .ParamType(REQUIRED)
                     .DataType({ge::DT_FLOAT, ge::DT_FLOAT, ge::DT_FLOAT})
                     .Format({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})

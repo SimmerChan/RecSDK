@@ -28,10 +28,8 @@ from tensorflow.core.protobuf.rewriter_config_pb2 import RewriterConfig
 tf.compat.v1.disable_eager_execution()
 comm_pybind = tf.load_op_library("/usr/local/python3.7.5/lib/python3.7/site-packages/mx_rec/libasc/libasc_ops.so")
 
+
 def set_ascend_env(rank, rank_size, local_rank_size, host, file=None, dev_id=-1, dev_index=1):
-    """
-    Ascend相关参数
-    """
     rank = str(rank)
     rank_size = str(rank_size)
     local_rank_size = int(local_rank_size)
@@ -62,7 +60,6 @@ def set_ascend_env(rank, rank_size, local_rank_size, host, file=None, dev_id=-1,
         os.environ["RANK_TABLE_FILE"] = file
     # no else
 
-
     os.environ["HCCL_CONNECT_TIMEOUT"] = "600"
 
     os.environ["JOB_ID"] = "10086"
@@ -72,11 +69,13 @@ def set_ascend_env(rank, rank_size, local_rank_size, host, file=None, dev_id=-1,
     os.environ["EXPERIMENTAL_DYNAMIC_PARTITION"] = "1"
     os.environ["ENABLE_FORCE_V2_CONTROL"] = "1"
 
+
 class WideDeep:
     def __init__(self, input_data, matrix):
         self.lbl_hldr = input_data
         self.matrix = matrix
         self.forward()
+
     def forward(self):
         with tf.control_dependencies([self.lbl_hldr]):
             all2all_result_ = comm_pybind.lccl_all_to_all(send_data=self.lbl_hldr,
@@ -90,6 +89,7 @@ class WideDeep:
 
             self.all2all_result = all2all_result[0]
         return self.all2all_result
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='base')
@@ -124,23 +124,19 @@ if __name__ == "__main__":
 
     global_start_time = time.time()
 
-    
     dim = 128
     emb_len = 2048 * 512
-    # 构造随机8x8矩阵
+    # 8x8 matrix
     random_matrix = np.full((8, 8), emb_len // 8 * dim)
 
-    # 计算rank的send总数
     send_count = 0
     for i in range(rank_size):
         send_count += int(random_matrix[local_rank_id][i])
-    
-    # 计算rev总数
+
     rev_count = 0
     for i in range(rank_size):
         rev_count += int(random_matrix[i][local_rank_id])
 
-    # 计算send data大小
     random_send_data = np.random.rand(send_count, 1).astype(np.float32).reshape(-1, dim)
 
     random_send_data = tf.convert_to_tensor(random_send_data, dtype=tf.float32)

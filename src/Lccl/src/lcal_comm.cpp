@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Huawei Technologies Co., Ltd. 2023. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2024. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -74,16 +74,12 @@ static const std::unordered_map<std::string, ChipName> chipMap = {
     {"Ascend910B3", ChipName::CHIP_910B3},
     {"Ascend910B4", ChipName::CHIP_910B4},
     {"Ascend910B4-1", ChipName::CHIP_910B41},
-    {"Ascend910C1", ChipName::CHIP_910C1},
-    {"Ascend910C2", ChipName::CHIP_910C2},
-    {"Ascend910C3", ChipName::CHIP_910C3},
-    {"Ascend910C4", ChipName::CHIP_910C4},
-    {"Ascend910_9391", ChipName::CHIP_910C1},
-    {"Ascend910_9392", ChipName::CHIP_910C1},
-    {"Ascend910_9381", ChipName::CHIP_910C1},
-    {"Ascend910_9382", ChipName::CHIP_910C1},
-    {"Ascend910_9372", ChipName::CHIP_910C1},
-    {"Ascend910_9361", ChipName::CHIP_910C1},
+    {"Ascend910_9391", ChipName::CHIP_910_9391},
+    {"Ascend910_9381", ChipName::CHIP_910_9381},
+    {"Ascend910_9392", ChipName::CHIP_910_9392},
+    {"Ascend910_9382", ChipName::CHIP_910_9382},
+    {"Ascend910_9372", ChipName::CHIP_910_9372},
+    {"Ascend910_9361", ChipName::CHIP_910_9361},
 };
 
 /**
@@ -100,16 +96,16 @@ ChipName GetChipName()
     char ver[socVerLength];
     auto ret = AsdRtDeviceGetSocVersion(ver, socVerLength);
     if (ret != ASDRT_SUCCESS) {
-        ASD_LOG(WARN) << "rtGetSocVersion failed，不确定功能是否能正常，请谨慎使用";
+        ASD_LOG(WARN) << "rtGetSocVersion failed.";
     }
     string chipName(ver);
-    ASD_LOG(DEBUG) << "rtGetSocVersion -- ver 转string后的结果是 :" << chipName;
+    ASD_LOG(DEBUG) << "rtGetSocVersion -- :" << chipName;
 
     auto it = chipMap.find(chipName);
     if (it != chipMap.end()) {
         curChipName = it->second;
     } else {
-        ASD_LOG(WARN) << "尚不承诺支持的芯片类型，不确定功能是否能正常";
+        ASD_LOG(WARN) << "Unkown chip name.";
     }
     return curChipName;
 }
@@ -119,15 +115,17 @@ uint32_t GetCoreNum(ChipName chipName)
     switch (chipName) {
         case ChipName::CHIP_910B1:
         case ChipName::CHIP_910B2:
-        case ChipName::CHIP_910C1:
-        case ChipName::CHIP_910C2:
+        case ChipName::CHIP_910_9391:
+        case ChipName::CHIP_910_9381:
+        case ChipName::CHIP_910_9392:
+        case ChipName::CHIP_910_9382:
         case ChipName::CHIP_910B2C:
             return AI_CORE_NUM_24;
         case ChipName::CHIP_910B3:
         case ChipName::CHIP_910B4:
         case ChipName::CHIP_910B41:
-        case ChipName::CHIP_910C3:
-        case ChipName::CHIP_910C4:
+        case ChipName::CHIP_910_9372:
+        case ChipName::CHIP_910_9361:
             return AI_CORE_NUM_20;
         case ChipName::CHIP_310P3:
             return AI_CORE_NUM_2;
@@ -178,20 +176,6 @@ int LcalComm::InitCommon()
         ASD_LOG(ERROR) << "EnablePeerAccess failed!";
         return LCAL_ERROR_INTERNAL;
     }
-    const char *lcclDeterministic = getenv("LCCL_DETERMINISTIC");
-    if (lcclDeterministic && (string(lcclDeterministic) == "1" || string(lcclDeterministic) == "true")) {
-        commArgs_.extraFlag |= ExtraFlag::DETERMINISTIC;
-    }
-    const char *lcclQuant = getenv("LCCL_QUANT");
-    if (lcclQuant) {
-        commArgs_.extraFlag |= (string(lcclQuant) == "FP16" ? ExtraFlag::QUANT_FP16 : 0u);
-    }
-    if (GetChipName() == ChipName::CHIP_910B2C) {
-        commArgs_.extraFlag |= ExtraFlag::TOPO_910B2C;
-    }
-    if (GetChipName() >= ChipName::CHIP_910C1) {
-        commArgs_.extraFlag |= ExtraFlag::TOPO_910C;
-    }
 
     localRank_ = rank_ % localRankSize_;
     return LCAL_SUCCESS;
@@ -224,11 +208,6 @@ void LcalComm::FreePeerMem(int8_t *&mem)
 
 int LcalComm::Init()
 {
-    const char *envLcalBuffBytes = getenv("LCCL_BUFFSIZE");
-    if (envLcalBuffBytes != nullptr) {
-        lcalBuffBytes = std::stoi(envLcalBuffBytes) * 1024 * 1024;
-    }
-
     if (inited_) {
         return LCAL_SUCCESS;
     }
@@ -294,7 +273,7 @@ int LcalComm::InitThread()
     }
     static int8_t *localPeerMem[LCAL_MAX_RANK_SIZE] = {};
     aclError aclRet = aclrtMalloc(
-        reinterpret_cast<void **>(&localPeerMem[rank_]), lcalBuffBytes,
+        reinterpret_cast<void **>(&localPeerMem[rank_]), LCAL_BUFF_BYTES,
         (GetChipName() == ChipName::CHIP_310P3) ? ACL_MEM_MALLOC_HUGE_FIRST_P2P : ACL_MEM_MALLOC_HUGE_FIRST);
     if (aclRet != ACL_SUCCESS) {
         ASD_LOG(ERROR) << "InitCommMem failed! ret: " << aclRet;
@@ -439,17 +418,17 @@ int LcalComm::GetDevThread()
 int LcalComm::InitMem()
 {
     // 申请并初始化IpcBuff
-    ASD_LOG(DEBUG) << "maxBuffSize " << lcalBuffBytes;
-    int memRank = (GetChipName() < ChipName::CHIP_910C1) ? localRank_ : rank_;
+    ASD_LOG(DEBUG) << "maxBuffSize " << LCAL_BUFF_BYTES;
+    int memRank = (GetChipName() < ChipName::CHIP_910_9391) ? localRank_ : rank_;
     aclError ret = aclrtMalloc(
-        (void **)&peerMem_[memRank], lcalBuffBytes,
+        (void **)&peerMem_[memRank], LCAL_BUFF_BYTES,
         (GetChipName() == ChipName::CHIP_310P3) ? ACL_MEM_MALLOC_HUGE_FIRST_P2P : ACL_MEM_MALLOC_HUGE_FIRST);
     if (ret != ACL_SUCCESS) {
         ASD_LOG(ERROR) << "allocate device mem error " << __FILE__ << ":" << __LINE__ << " " << ret;
         return LCAL_ERROR_INTERNAL;
     }
     ASD_LOG(DEBUG) << "peerMem[rank" << rank_ << "], allocate finished.";
-    aclrtMemset(peerMem_[memRank], lcalBuffBytes, 0, lcalBuffBytes);
+    aclrtMemset(peerMem_[memRank], LCAL_BUFF_BYTES, 0, LCAL_BUFF_BYTES);
     return LCAL_SUCCESS;
 }
 
@@ -473,7 +452,7 @@ int LcalComm::GetPid(uint32_t *pids)
 
 int LcalComm::GetSidId(int64_t sdids[LCAL_MAX_RANK_SIZE])
 {
-    if ((physicalInfo_.chipName >= ChipName::CHIP_910C1) && (physicalInfo_.chipName < ChipName::RESERVED)) {
+    if ((physicalInfo_.chipName >= ChipName::CHIP_910_9391) && (physicalInfo_.chipName < ChipName::RESERVED)) {
         const int rtModuleTypeSystem = 0;
         const int infoTypeSdid = 26;
         if (AsdRtDeviceGetDeviceInfo(devList_[rank_], rtModuleTypeSystem, infoTypeSdid, &sdids[rank_]) !=
@@ -605,8 +584,8 @@ int LcalComm::OpenIpcMem(const char names[LCAL_MAX_RANK_SIZE][IPC_NAME_SIZE])
 int LcalComm::SetMemoryName(string &name)
 {
     char nameModified[IPC_NAME_SIZE] = {};
-    int memRank = (GetChipName() < ChipName::CHIP_910C1) ? localRank_ : rank_;
-    if (AsdRtIpcSetMemoryName(peerMem_[memRank], lcalBuffBytes, nameModified, IPC_NAME_SIZE) != ASDRT_SUCCESS) {
+    int memRank = (GetChipName() < ChipName::CHIP_910_9391) ? localRank_ : rank_;
+    if (AsdRtIpcSetMemoryName(peerMem_[memRank], LCAL_BUFF_BYTES, nameModified, IPC_NAME_SIZE) != ASDRT_SUCCESS) {
         return LCAL_ERROR_INTERNAL;
     }
     name = nameModified;
@@ -620,7 +599,7 @@ int LcalComm::SetIpcPidSdid(string &name, const uint32_t *pids, const int64_t *s
             continue;
         }
 
-        if (physicalInfo_.chipName < ChipName::CHIP_910C1) {
+        if (physicalInfo_.chipName < ChipName::CHIP_910_9391) {
             // 910B
             int32_t pidInt32 = pids[i];
             int rtRet = AsdRtSetIpcMemPid(name.c_str(), &pidInt32, HCCL_IPC_PID_ARRAY_SIZE);
@@ -629,7 +608,7 @@ int LcalComm::SetIpcPidSdid(string &name, const uint32_t *pids, const int64_t *s
                 return LCAL_ERROR_INTERNAL;
             }
         } else {
-            // 910C
+            // 910_93
             int32_t pidInt32 = pids[i];
             int rtRet = AsdRtSetIpcMemorySuperPodPid(name.c_str(), sdids[i], &pidInt32, HCCL_IPC_PID_ARRAY_SIZE);
             if (rtRet != ASDRT_SUCCESS) {

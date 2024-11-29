@@ -30,9 +30,6 @@ comm_pybind = tf.load_op_library("/usr/local/python3.7.5/lib/python3.7/site-pack
 
 
 def set_ascend_env(rank, rank_size, local_rank_size, host, file=None, dev_id=-1, dev_index=1):
-    """
-    Ascend相关参数
-    """
     rank = str(rank)
     rank_size = str(rank_size)
     local_rank_size = int(local_rank_size)
@@ -63,7 +60,6 @@ def set_ascend_env(rank, rank_size, local_rank_size, host, file=None, dev_id=-1,
         os.environ["RANK_TABLE_FILE"] = file
     # no else
 
-
     os.environ["HCCL_CONNECT_TIMEOUT"] = "600"
 
     os.environ["JOB_ID"] = "10086"
@@ -73,6 +69,7 @@ def set_ascend_env(rank, rank_size, local_rank_size, host, file=None, dev_id=-1,
     os.environ["EXPERIMENTAL_DYNAMIC_PARTITION"] = "1"
     os.environ["ENABLE_FORCE_V2_CONTROL"] = "1"
 
+
 class WideDeep:
     def __init__(self, input_data, matrix, arr, restore):
         self.lbl_hldr = input_data
@@ -80,6 +77,7 @@ class WideDeep:
         self.arr = arr
         self.restore = restore
         self.forward()
+
     def forward(self):
         with tf.control_dependencies([self.lbl_hldr]):
             all2all_result_ = comm_pybind.lccl_all_to_all(send_data=self.lbl_hldr,
@@ -103,6 +101,7 @@ class WideDeep:
             self.all2all_result = all2all_result[0]
             self.alluss_result = alluss_result[0]
         return self.all2all_result, self.alluss_result
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='base')
@@ -139,27 +138,22 @@ if __name__ == "__main__":
 
     global_start_time = time.time()
 
-    
     dim = 128
     emb_len = 2048 * 512
     output_len = emb_len // 2
     restore = np.random.randint(0, output_len, size=emb_len)
     arr = np.random.randint(0, output_len, size=emb_len // 2)
 
-    # 构造随机8x8矩阵
     random_matrix = np.full((8, 8), emb_len // 8 * dim)
 
-    # 计算rank的send总数
     send_count = 0
     for i in range(rank_size):
         send_count += int(random_matrix[local_rank_id][i])
-    
-    # 计算rev总数
+
     rev_count = 0
     for i in range(rank_size):
         rev_count += int(random_matrix[i][local_rank_id])
 
-    # 计算send data大小
     random_send_data = np.random.rand(send_count, 1).astype(np.float32).reshape(-1, dim)
 
     restore = tf.convert_to_tensor(restore, dtype=tf.int32)

@@ -29,6 +29,8 @@ class AllUss : public Collectives {
     constexpr static int INVALID_RANK_NUM = 0xFFFFFFFF;  // 非法rank
     constexpr static int64_t SHARE_QUE_DEPTH = 16;  // 单个共享队列深度
     constexpr static int64_t MULTI_RANK_SIZE = 32;
+    constexpr static int64_t MAX_FLAG_OFFSET = 128;
+    constexpr static int64_t MAX_VDUP_NUM = 255;
 
     constexpr static int64_t IDLER_CORE = 0;  // 闲置的核
     constexpr static int64_t PRODUCER_CORE = 1;  // 生产组，负责向共享内存写入数据，input->share，或者share->share
@@ -88,12 +90,12 @@ public:
 
         int initSize = outShape * dim / coreNumsPerStage / PING_PONG_SIZE;
         if (blockIdx < blockNum) {
-            sync.SetInnerFlag(magic, 0, rank, blockIdx + 128);
+            sync.SetInnerFlag(magic, 0, rank, blockIdx + MAX_FLAG_OFFSET);
             pipe_barrier(PIPE_ALL);
-            int ubInitNum = UB_SINGLE_DMA_SIZE_MAX / sizeof(T) / 256;
+            int ubInitNum = UB_SINGLE_DMA_SIZE_MAX / sizeof(T) / (MAX_VDUP_NUM + 1);
             for (int i =0; i < ubInitNum; i++) {
-                __ubuf__ T* inputUBList = (__ubuf__ T*)get_imm(i * 256 * sizeof(T));
-                vector_dup(inputUBList, (T)0, 255, 1, 1, 0, 0);
+                __ubuf__ T* inputUBList = (__ubuf__ T*)get_imm(i * (MAX_VDUP_NUM + 1) * sizeof(T));
+                vector_dup(inputUBList, (T)0, MAX_VDUP_NUM, 1, 1, 0, 0);
             }
             pipe_barrier(PIPE_ALL);
             __ubuf__ T* inputUBList = (__ubuf__ T*)get_imm(0);
@@ -104,7 +106,7 @@ public:
                 initSize -= copyLen;
             }
             pipe_barrier(PIPE_ALL);
-            sync.SetInnerFlag(magic, 1, rank, blockIdx + 128);
+            sync.SetInnerFlag(magic, 1, rank, blockIdx + MAX_FLAG_OFFSET);
             pipe_barrier(PIPE_ALL);
         }
     }
@@ -116,7 +118,7 @@ public:
         }
         if (coreGroup == CONSUMER_CORE) {
             for (int i = 0; i < coreNumsPerStage; i++) {
-                sync.WaitInnerFlag(magic, 1, rank, i + 128);
+                sync.WaitInnerFlag(magic, 1, rank, i + MAX_FLAG_OFFSET);
             }
             ConsumerStage();
         }
@@ -184,7 +186,6 @@ private:
     {
         maxSliceNum = 0;
         for (auto i = 0; i < rankNumPerCore; ++i) {
-            // 当前核负责的rank， 因为是基于trackRankSize计算的groupCoreIdx，所以要乘RANK_SIZE_TWO
             targetRank[i] = groupCoreIdx[i] / coreNumPerRank;
             if (targetRank[i] >= rankSize) {
                 targetRank[i] = INVALID_RANK_NUM;

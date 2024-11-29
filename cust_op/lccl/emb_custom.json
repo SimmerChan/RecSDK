@@ -46,7 +46,7 @@
         ],
         "output_desc": [
             {
-                "name": "rev_data",
+                "name": "recv_data",
                 "param_type": "required",
                 "format": [
                     "ND","ND","ND"
@@ -131,7 +131,7 @@
         ],
         "output_desc": [
             {
-                "name": "rev_data",
+                "name": "recv_data",
                 "param_type": "required",
                 "format": [
                     "ND","ND","ND"
@@ -216,7 +216,7 @@
         ],
         "output_desc": [
             {
-                "name": "rev_data",
+                "name": "recv_data",
                 "param_type": "required",
                 "format": [
                     "ND","ND","ND"

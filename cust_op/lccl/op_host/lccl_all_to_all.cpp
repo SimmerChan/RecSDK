@@ -36,11 +36,9 @@ namespace optiling {
 
         tiling.set_magic(magic);
 
-        if (rankSize <= 16) {
-            context->SetBlockDim(rankSize * 2);
-        } else{
-            context->SetBlockDim(32);
-        }
+        context->SetBlockDim(32);
+
+        // 参考官网默认值 设置workSpace大小
         uint32_t sysWorkspaceSize = 16 * 1024 * 1024;
         size_t *currentWorkspace = context->GetWorkspaceSizes(1);
         currentWorkspace[0] = sysWorkspaceSize;
@@ -98,7 +96,7 @@ namespace ops {
                     .DataType({ge::DT_INT64})
                     .Format({ge::FORMAT_ND})
                     .UnknownShapeFormat({ge::FORMAT_ND});
-            this->Output("rev_data")
+            this->Output("recv_data")
                     .ParamType(REQUIRED)
                     .DataType({ge::DT_FLOAT})
                     .Format({ge::FORMAT_ND})

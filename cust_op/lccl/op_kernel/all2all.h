@@ -34,7 +34,7 @@ class All2All : public Collectives {
     constexpr static int64_t CONSUMER_CORE = 2;  // 消费组，负责从共享内存读出数据，share->output
 
 public:
-    __aicore__ inline All2AllVCBigData910C(int rank, int rankSize, uint32_t extraFlag)
+    __aicore__ inline All2AllVCBigData91093(int rank, int rankSize, uint32_t extraFlag)
             : Collectives(rank, rankSize, extraFlag)
     {
     }

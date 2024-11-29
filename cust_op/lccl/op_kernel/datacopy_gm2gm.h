@@ -22,6 +22,7 @@ using namespace AscendC;
 
 constexpr int32_t BUFFER_NUM = 1;
 constexpr int32_t TILE_NUM = 2;
+constexpr int32_t UB_OFFSET_START = 64;
 constexpr int32_t BLOCK_SIZE = UB_SINGLE_DMA_SIZE_MAX / TILE_NUM / BUFFER_NUM;
 
 
@@ -77,7 +78,7 @@ public:
     {
         inputGm = inputGt.GetPhyAddr();
         outputGm = outputGt.GetPhyAddr();
-        inputUB = (__ubuf__ T*)get_imm(64);
+        inputUB = (__ubuf__ T*)get_imm(UB_OFFSET_START);
         this->op = op;
         dataSizeRemain = calCount * sizeof(T);
     }

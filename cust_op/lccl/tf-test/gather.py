@@ -28,10 +28,8 @@ from tensorflow.core.protobuf.rewriter_config_pb2 import RewriterConfig
 tf.compat.v1.disable_eager_execution()
 comm_pybind = tf.load_op_library("/usr/local/python3.7.5/lib/python3.7/site-packages/mx_rec/libasc/libasc_ops.so")
 
+
 def set_ascend_env(rank, rank_size, local_rank_size, host, file=None, dev_id=-1, dev_index=1):
-    """
-    Ascend相关参数
-    """
     rank = str(rank)
     rank_size = str(rank_size)
     local_rank_size = int(local_rank_size)
@@ -62,7 +60,6 @@ def set_ascend_env(rank, rank_size, local_rank_size, host, file=None, dev_id=-1,
         os.environ["RANK_TABLE_FILE"] = file
     # no else
 
-
     os.environ["HCCL_CONNECT_TIMEOUT"] = "600"
 
     os.environ["JOB_ID"] = "10086"
@@ -71,6 +68,7 @@ def set_ascend_env(rank, rank_size, local_rank_size, host, file=None, dev_id=-1,
     os.environ["NEW_GE_FE_ID"] = "1"
     os.environ["EXPERIMENTAL_DYNAMIC_PARTITION"] = "1"
     os.environ["ENABLE_FORCE_V2_CONTROL"] = "1"
+
 
 class WideDeep:
     def __init__(self, table, lookup_table, matrix):
@@ -128,7 +126,6 @@ if __name__ == "__main__":
 
     global_start_time = time.time()
 
-    
     dim = 128
     emb_len = 3000000
     look_num = 2048

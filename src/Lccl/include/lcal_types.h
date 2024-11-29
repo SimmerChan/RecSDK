@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Huawei Technologies Co., Ltd. 2023. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2024. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,7 +32,8 @@ constexpr int64_t LCAL_INVALID_VALUE = -1;
 
 // shared buffer size，这里要和collectives.cce文件中的常量联动修改！！！
 
-static int lcalBuffBytes = 804 * 1024 * 1024;
+// set ipc mem size; 200MB is enough
+static int LCAL_BUFF_BYTES = 404 * 1024 * 1024;
 
 enum class ChipName {
     CHIP_310P3 = 0,
@@ -42,10 +43,12 @@ enum class ChipName {
     CHIP_910B4,
     CHIP_910B41,
     CHIP_910B2C,
-    CHIP_910C1,
-    CHIP_910C2,
-    CHIP_910C3,
-    CHIP_910C4,
+    CHIP_910_9391,
+    CHIP_910_9381,
+    CHIP_910_9392,
+    CHIP_910_9382,
+    CHIP_910_9372,
+    CHIP_910_9361,
     RESERVED,
 };
 

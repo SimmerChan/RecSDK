@@ -43,11 +43,7 @@ namespace optiling {
 
         tiling.set_magic(magic);
 
-        if (rankSize <= 16) {
-            context->SetBlockDim(rankSize * 2);
-        } else{
-            context->SetBlockDim(32);
-        }
+        context->SetBlockDim(32);
 
         uint32_t sysWorkspaceSize = 16 * 1024 * 1024;
         size_t *currentWorkspace = context->GetWorkspaceSizes(1);
@@ -111,7 +107,7 @@ namespace ops {
                     .DataType({ge::DT_INT32, ge::DT_INT32, ge::DT_INT32})
                     .Format({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})
                     .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND});
-            this->Output("rev_data")
+            this->Output("recv_data")
                     .ParamType(REQUIRED)
                     .DataType({ge::DT_FLOAT, ge::DT_FLOAT, ge::DT_FLOAT})
                     .Format({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})

@@ -40,12 +40,6 @@ class SwapInfo:
 
 
 def get_restore_vector_second(table_name: str, max_lookup_vec_size: int) -> tf.Tensor:
-    """
-    Get restore vector which is calculated after the second all2all
-    :param table_name: embedding table_name
-    :param max_lookup_vec_size: static shape
-    :return: the restore vector calculated after the second all2all
-    """
     channel_id = 0
     logger.debug('Channel %s_restore_second_%s was built for getnext',
                  table_name, channel_id)
@@ -57,13 +51,6 @@ def get_restore_vector_second(table_name: str, max_lookup_vec_size: int) -> tf.T
     return restore_vector_second
 
 def get_unique_keys(table_name: str, max_lookup_vec_size: int, is_expansion: bool) -> tf.Tensor:
-    """
-    Get the global unique keys which is calculated after the second all2all
-    :param table_name: embedding table_name
-    :param max_lookup_vec_size: static shape
-    :param is_expansion: use dynamic expansion
-    :return: the global unique keys calculated after the second all2all
-    """
     channel_id = 0
     logger.debug('Channel %s_uniquekeys_%s was built for getnext', table_name, channel_id)
     with tf.compat.v1.variable_scope(table_name, reuse=tf.compat.v1.AUTO_REUSE):
@@ -86,8 +73,8 @@ def get_unique_shape(config):
     unique_size = None
     unique_shape = None
 
-    if os.environ.get('USE_LCCL') == '1' :
-        print("get_unique_shape start !")
+    if ConfigInitializer.get_instance().use_lccl:
+        logger.debug("Get_unique_shape start.")
         with tf.compat.v1.variable_scope(config.get(ASCAnchorAttr.TABLE_NAME.value), reuse=tf.compat.v1.AUTO_REUSE):
             unique_shape = npu_ops.gen_npu_ops.get_next(
                 output_types=[tf.int32],

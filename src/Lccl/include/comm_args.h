@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Huawei Technologies Co., Ltd. 2023. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2024. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,15 +46,6 @@ enum Op {
     MIN = 3
 };
 
-struct ExtraFlag {
-    static constexpr uint32_t RDMA = 1;
-    static constexpr uint32_t TOPO_910B2C = 1 << 1;
-    static constexpr uint32_t TOPO_910C = 1 << 2;
-    static constexpr uint32_t DETERMINISTIC = 1 << 3;
-    static constexpr uint32_t QUANT_FP16 = 1 << 4;
-    static constexpr uint32_t QUANT_FP32 = 1 << 5;
-};
-
 struct CommArgs {
     void SetBuff(int8_t* b[LCAL_MAX_RANK_SIZE])
     {
@@ -67,12 +58,8 @@ struct CommArgs {
     int localRank = 0;
     int rankSize = 0; // global rank size
     int localRankSize = 0;
-    uint32_t extraFlag = 0; // 32 bit map，具体每一位的含义就在此文件正上方
-    GM_ADDR peerMems[LCAL_MAX_RANK_SIZE] = {}; // 传入初始化获得的buff，所有allreduce都是同一个参数
-    /**
-     * @param sendCountMatrix 大小是rankSize*rankSize的一维数组
-     * eg: sendCountMatrix[1] 的数值，对应二维数组的[0][1]，表示 卡0 要给 卡1 发送的数据个数
-     */
+    uint32_t extraFlag = 0; // 32 bit map，
+    GM_ADDR peerMems[LCAL_MAX_RANK_SIZE] = {};
     int64_t sendCountMatrix[LCAL_MAX_RANK_SIZE * LCAL_MAX_RANK_SIZE] = {}; // for all2allv
 };
 }
