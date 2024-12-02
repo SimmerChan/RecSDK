@@ -33,7 +33,7 @@ constexpr int32_t UNIT_COPY_SIZE = 190 * 1024; // UB复制大小
 constexpr int32_t RMA_SHAPE_DIM_MAX = 2;
 
 constexpr uint64_t RMA_WORK_SPACE_SIZE = 202 * 1024 * 1024;
-constexpr uint64_t SWAP_CACHE_SIZE = 100 * 1024 * 1024;  // 换入/换出HBM数据缓存区大小为10MB
+constexpr uint64_t SWAP_CACHE_SIZE = 100 * 1024 * 1024;  // 换入/换出数据缓存区大小为10MB
 constexpr uint64_t SWAP_IN_FLAG_OFFSET = 0;             // 换入标志位偏移
 constexpr uint64_t SWAP_IN_CACHE_OFFSET = 1 * 1024 * 1024;  // 换入数据缓存区偏移
 constexpr uint64_t SWAP_OUT_FLAG_OFFSET = 101 * 1024 * 1024; // 换出标志位偏移

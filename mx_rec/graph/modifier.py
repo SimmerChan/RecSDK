@@ -732,6 +732,28 @@ def _get_variable_and_slot_list(each_var, slot_num, table_name, channel_id):
     return variable_and_slot_list
 
 
+def shm_swap(tables, swap_in_index, swap_out_index, shm_swap_in, shm_swap_out):
+    MAX_TABLE_NUM = 6
+    table_list = []
+    table_num = len(tables)
+    for i in range(MAX_TABLE_NUM):
+        if i < table_num:
+            table_list.append(tables[i])
+        else:
+            table_list.append(tables[0])
+    shm_swap_op = host_pipeline_ops.rma_swap_multi_tables(swap_in_index = swap_in_index,
+                                                          swap_out_index = swap_out_index,
+                                                          table_a = table_list[0],
+                                                          table_b = table_list[1],
+                                                          table_c = table_list[2],
+                                                          table_d = table_list[3],
+                                                          table_e = table_list[4],
+                                                          table_f = table_list[5],
+                                                          table_num = table_num,
+                                                          shm_swap_in = shm_swap_in, shm_swap_out = shm_swap_out)
+    return shm_swap_op
+
+
 def _get_swap_info(table_instance: BaseSparseEmbedding, variable_and_slot_list: list,
                    swap_info: SwapInfo, channel_id: int, use_shm_swap: bool = False) -> list:
     """
@@ -780,15 +802,13 @@ def _get_swap_info(table_instance: BaseSparseEmbedding, variable_and_slot_list: 
             table_instance.table_name)
 
         if optimizer is None and channel_id == 1:
-            swap_op = [host_pipeline_ops.rma_swap(update_table = variable_and_slot_list[0],
-                                                  swap_in_index = swap_in_pos, swap_out_index = swap_out_pos,
-                                                  shm_swap_in = host_shm_swap_in, shm_swap_out = host_shm_swap_out)]
+            swap_op = [shm_swap([variable_and_slot_list[0]],
+                                 swap_in_index = swap_in_pos, swap_out_index = swap_out_pos,
+                                 shm_swap_in = host_shm_swap_in, shm_swap_out = host_shm_swap_out)]
         else :
-            swap_op = [host_pipeline_ops.rma_swap_multi_tables(table0 = variable_and_slot_list[0],
-                                                   table1 = variable_and_slot_list[1],
-                                                   table2 = variable_and_slot_list[2],
-                                                   swap_in_index = swap_in_pos, swap_out_index = swap_out_pos,
-                                                   shm_swap_in = host_shm_swap_in, shm_swap_out = host_shm_swap_out)]
+            swap_op = [shm_swap(variable_and_slot_list,
+                                 swap_in_index = swap_in_pos, swap_out_index = swap_out_pos,
+                                 shm_swap_in = host_shm_swap_in, shm_swap_out = host_shm_swap_out)]
         return swap_op
 
     else:

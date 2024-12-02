@@ -19,7 +19,7 @@
 #include <fstream>
 #include <cstdlib>
 #include <string>
-#include <stdio.h>
+#include <cstdio>
 #include "securec.h"
 #include <sys/stat.h>
 #include <sys/shm.h>
@@ -47,17 +47,10 @@ std::unordered_map<std::string, void *> g_shmSvmMap;
 std::unordered_map<std::string, void *> g_shmAddr;
 std::unordered_map<std::string, int> g_shmId;
 
-typedef enum tagRmaDevModel {
-    MEM_MAP_DEV,    // 910_93需要更新驱动支持
-    SVM_MAP_DEV,    // 910_93
-    PCIE_TH_DEV     // 910B
-} RmaDevModel_t;
+RmaDevModel g_rmaDevModel = RmaDevModel::PCIE_TH_DEV;
 
-int32_t g_rmaDevModel = PCIE_TH_DEV;
-
-void InitShmHeader(void *shmHeader, int64_t memSize, int32_t capacity)
+void InitShmHeader(RmaShmHeader *header, int64_t memSize, int32_t capacity)
 {
-    RmaShmHeader *header = (RmaShmHeader *)shmHeader;
     header->totalMemSize = memSize - RMA_SHM_HEAD_LEN;
     header->queueCapacity = capacity;
     header->seqIn = 0;
@@ -67,9 +60,8 @@ void InitShmHeader(void *shmHeader, int64_t memSize, int32_t capacity)
     header->buffLimit = 0;
 }
 
-void ResetShmHeader(void *shmHeader)
+void ResetShmHeader(RmaShmHeader *header)
 {
-    RmaShmHeader *header = (RmaShmHeader *)shmHeader;
     header->seqIn = 0;
     header->seqOut = 0;
     header->frontOffset = RMA_SHM_HEAD_LEN;
@@ -79,7 +71,7 @@ void ResetShmHeader(void *shmHeader)
 
 void RmaFreeShm(std::string shmName, void *memory)
 {
-    if (g_rmaDevModel == SVM_MAP_DEV) {
+    if (g_rmaDevModel == RmaDevModel::SVM_MAP_DEV) {
         if (aclrtFreeHost(memory) != ACL_ERROR_NONE) {
             LOG_WARN("Free host mem failed.");
         }
@@ -93,7 +85,7 @@ void RmaFreeShm(std::string shmName, void *memory)
     }
 }
 
-bool isPrefix(const std::string& str, const std::string& prefix)
+bool IsPrefix(const std::string& str, const std::string& prefix)
 {
     if (prefix.length() > str.length()) {
         return false;
@@ -101,14 +93,14 @@ bool isPrefix(const std::string& str, const std::string& prefix)
     return str.compare(0, prefix.length(), prefix) == 0;
 }
 
-uint32_t GetRegisterFlag(int32_t mode)
+uint32_t GetRegisterFlag(RmaDevModel mode)
 {
     switch (mode) {
-        case MEM_MAP_DEV:
+        case RmaDevModel::MEM_MAP_DEV:
             return HOST_MEM_MAP_DEV;
-        case SVM_MAP_DEV:
+        case RmaDevModel::SVM_MAP_DEV:
             return HOST_SVM_MAP_DEV;
-        default :
+        default:
             return HOST_MEM_MAP_DEV_PCIE_TH;
     }
 }
@@ -117,10 +109,10 @@ uint32_t GetRegisterFlag(int32_t mode)
 void *RmaCreateShm(std::string shmName, uint64_t memSize, int deviceId, int capacity)
 {
     string chipName = GetChipName(deviceId);
-    if (isPrefix(chipName, "910B")) {
-        g_rmaDevModel = PCIE_TH_DEV;
-    } else if (isPrefix(chipName, "910_93")) {
-        g_rmaDevModel = SVM_MAP_DEV;
+    if (IsPrefix(chipName, "910B")) {
+        g_rmaDevModel = RmaDevModel::PCIE_TH_DEV;
+    } else if (IsPrefix(chipName, "910_93")) {
+        g_rmaDevModel = RmaDevModel::SVM_MAP_DEV;
     } else {
         auto error = Error(ModuleName::M_RMA_SHM_SVM, ErrorType::UNKNOWN,
                            StringFormat("Unsupported chip type: %s.", chipName.c_str()));
@@ -128,7 +120,7 @@ void *RmaCreateShm(std::string shmName, uint64_t memSize, int deviceId, int capa
         throw runtime_error(error.ToString());
     }
     void *memory = nullptr;
-    if (g_rmaDevModel == SVM_MAP_DEV) {
+    if (g_rmaDevModel == RmaDevModel::SVM_MAP_DEV) {
         if (aclrtMallocHost((void **)&memory, memSize) != ACL_ERROR_NONE) {
             auto error = Error(ModuleName::M_RMA_SHM_SVM, ErrorType::UNKNOWN,
                                StringFormat("Malloc host memory failed."));
@@ -154,7 +146,7 @@ void *RmaCreateShm(std::string shmName, uint64_t memSize, int deviceId, int capa
         }
 
         memory = shmat(shmId, nullptr, 0);
-        if (memory == reinterpret_cast<void *>(-1)) {
+        if (memory == (void *)-1) {
             shmctl(shmId, IPC_RMID, nullptr);
             auto error = Error(ModuleName::M_RMA_SHM_SVM, ErrorType::UNKNOWN,
                                StringFormat("Shmat failed."));
@@ -163,7 +155,7 @@ void *RmaCreateShm(std::string shmName, uint64_t memSize, int deviceId, int capa
         }
 
         shmctl(shmId, IPC_STAT, &buf);
-        (void)memset(memory, 0, memSize);
+        (void)memset_s(memory, memSize, 0, memSize);
         g_shmId.insert(std::make_pair(shmName, shmId));
         LOG_INFO("Create shm {}, shmid: {}, size: {} bytes successfully.", shmName.c_str(), shmId, memSize);
     }
@@ -181,7 +173,7 @@ void *RmaCreateShm(std::string shmName, uint64_t memSize, int deviceId, int capa
     g_shmAddr.insert(std::make_pair(shmName, memory));
 
     // 初始化队列头
-    InitShmHeader(memory, memSize, capacity);
+    InitShmHeader(reinterpret_cast<RmaShmHeader *>(memory), memSize, capacity);
 
     return svmMem;
 }
@@ -254,7 +246,7 @@ void ClearShmQueue()
 {
     for (auto &pair : g_shmAddr) {
         // 复位队列头
-        ResetShmHeader(pair.second);
+        ResetShmHeader(reinterpret_cast<RmaShmHeader *>(pair.second));
         LOG_INFO("Reset queue: {}", pair.first);
     }
 }

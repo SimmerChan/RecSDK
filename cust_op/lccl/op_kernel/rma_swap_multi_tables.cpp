@@ -18,12 +18,16 @@
 #include "rma_swap_multi_tables.h"
 using namespace AscendC;
 
-extern "C" __global__ __aicore__ void rma_swap_multi_tables(GM_ADDR table0, GM_ADDR table1, GM_ADDR table2,
-                        GM_ADDR swapInIndex, GM_ADDR swapOutIndex, GM_ADDR output, GM_ADDR workspace, GM_ADDR tiling) {
+extern "C" __global__ __aicore__ void rma_swap_multi_tables(GM_ADDR swapInIndex, GM_ADDR swapOutIndex,
+                                                            GM_ADDR table_a, GM_ADDR table_b, GM_ADDR table_c,
+                                                            GM_ADDR table_d, GM_ADDR table_e, GM_ADDR table_f,
+                        GM_ADDR output, GM_ADDR workspace, GM_ADDR tiling) {
     GET_TILING_DATA(tiling_data, tiling);
 
     GM_ADDR usrWorkspace = AscendC::GetUserWorkspace(workspace); // 获取用户workspace指针。
 
+    int tableNum = tiling_data.tableNum;
+    int tableLength = tiling_data.tableLength;
     GM_ADDR svmBuffSwapIn = (GM_ADDR)(tiling_data.shmSwapIn);
     GM_ADDR svmBuffSwapOut = (GM_ADDR)(tiling_data.shmSwapOut);
     uint64_t swapInLen = tiling_data.updateLen;

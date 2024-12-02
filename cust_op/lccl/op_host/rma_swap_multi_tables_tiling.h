@@ -21,6 +21,8 @@
 
 namespace optiling {
     BEGIN_TILING_DATA_DEF(RmaSwapMultiTablesTilingData)
+    TILING_DATA_FIELD_DEF(uint64_t, tableNum);
+    TILING_DATA_FIELD_DEF(uint64_t, tableLength);
     TILING_DATA_FIELD_DEF(uint64_t, shmSwapIn);
     TILING_DATA_FIELD_DEF(uint64_t, shmSwapOut);
     TILING_DATA_FIELD_DEF(uint64_t, updateLen);         // 换入长度
