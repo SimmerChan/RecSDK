@@ -21,6 +21,12 @@ constexpr int32_t RMA_SHM_DATA_HEAD = 56; /* 数据元素的头长度 */
 constexpr int32_t RMA_SHM_READY_LEN = 48; /* 数据元素的头的readyLen偏移 */
 constexpr int32_t RMA_DIM_MAX = 2;
 
+enum class RmaDevModel {
+    MEM_MAP_DEV,    // 910_93需要更新驱动支持
+    SVM_MAP_DEV,    // 910_93
+    PCIE_TH_DEV     // 910B
+};
+
 // 队列头定义
 struct RmaShmHeader {
     uint64_t queueCapacity; /* 队列深度 */

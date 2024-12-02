@@ -1,58 +1,28 @@
 [
   {
-    "op": "RmaSwap",
-    "language": "cpp",
-    "input_desc": [
-      {
-        "name": "update_table",
-        "param_type": "required",
-        "format": [
-          "ND"
-        ],
-        "type": [
-          "float32"
-        ]
-      },
-      {
-        "name": "update_index",
-        "param_type": "required",
-        "format": [
-          "ND"
-        ],
-        "type": [
-          "int64"
-        ]
-      }
-    ],
-    "output_desc": [
-      {
-        "name": "output",
-        "param_type": "required",
-        "format": [
-          "ND"
-        ],
-        "type": [
-          "int64"
-        ]
-      }
-    ],
-    "attr": [
-      {
-        "name": "shm_swap_in",
-        "param_type": "required",
-        "type": "string"
-      },
-      {
-        "name": "shm_swap_out",
-        "param_type": "required",
-        "type": "string"
-      }
-    ]
-  },
-  {
     "op": "RmaSwapMultiTables",
     "language": "cpp",
     "input_desc": [
+      {
+        "name": "swap_in_index",
+        "param_type": "required",
+        "format": [
+          "ND"
+        ],
+        "type": [
+          "int64"
+        ]
+      },
+      {
+        "name": "swap_out_index",
+        "param_type": "required",
+        "format": [
+          "ND"
+        ],
+        "type": [
+          "int64"
+        ]
+      },
       {
         "name": "table0",
         "param_type": "required",
@@ -84,23 +54,33 @@
         ]
       },
       {
-        "name": "swap_in_index",
+        "name": "table3",
         "param_type": "required",
         "format": [
           "ND"
         ],
         "type": [
-          "int64"
+          "float32"
         ]
       },
       {
-        "name": "swap_out_index",
+        "name": "table4",
         "param_type": "required",
         "format": [
           "ND"
         ],
         "type": [
-          "int64"
+          "float32"
+        ]
+      },
+      {
+        "name": "table5",
+        "param_type": "required",
+        "format": [
+          "ND"
+        ],
+        "type": [
+          "float32"
         ]
       }
     ],
@@ -117,6 +97,11 @@
       }
     ],
     "attr": [
+      {
+        "name": "table_num",
+        "param_type": "required",
+        "type": "int"
+      },
       {
         "name": "shm_swap_in",
         "param_type": "required",

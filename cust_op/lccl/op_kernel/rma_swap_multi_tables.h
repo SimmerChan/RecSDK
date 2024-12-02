@@ -20,18 +20,20 @@
 #include "collectives.h"
 using namespace AscendC;
 
-constexpr uint64_t MAX_TABLE_NUM = 3;
+constexpr uint64_t MAX_TABLE_NUM = 6;
 constexpr uint64_t GET_NEXT_THREAD_NUM = 4;
 
 /**
  * @brief updateTables是emb表的list，存的是各个表的地址
  */
 #define RMA_SWAP_MULTI_TABLE_ARGS_FUN() \
-GM_ADDR table0, GM_ADDR table1, GM_ADDR table2, GM_ADDR swapInIndex, GM_ADDR swapOutIndex, uint64_t swapInLen, \
+GM_ADDR table_a, GM_ADDR table_b, GM_ADDR table_c, GM_ADDR table_d, GM_ADDR table_e, GM_ADDR table_f, \
+int tableNum, int tableLength, GM_ADDR swapInIndex, GM_ADDR swapOutIndex, uint64_t swapInLen, \
 GM_ADDR svmBuffSwapIn, GM_ADDR svmBuffSwapOut, GM_ADDR usrWorkspace, int32_t dimNum, uint64_t *dimValue, GM_ADDR output
 
 #define RMA_SWAP_MULTI_TABLE_ARGS_CALL() \
-table0, table1, table2, swapInIndex, swapOutIndex, swapInLen, \
+table_a, table_b, table_c, table_d, table_e, table_f, \
+tableNum, tableLength, swapInIndex, swapOutIndex, swapInLen, \
 svmBuffSwapIn, svmBuffSwapOut, usrWorkspace, dimNum, dimValue, output
 
 
@@ -41,12 +43,16 @@ public:
 
     __aicore__ inline void Init(RMA_SWAP_MULTI_TABLE_ARGS_FUN())
     {
+        __ubuf__ uint64_t *ub_buff = (__ubuf__ uint64_t *)get_imm(0);
         Collectives::Init();
 
-        this->tableNum = MAX_TABLE_NUM;
-        this->updateTables[0] = table0;
-        this->updateTables[1] = table1;
-        this->updateTables[2] = table2;
+        this->tableNum = tableNum;
+        this->updateTables[0] = table_a;
+        this->updateTables[1] = table_b;
+        this->updateTables[2] = table_c;
+        this->updateTables[3] = table_d;
+        this->updateTables[4] = table_e;
+        this->updateTables[5] = table_f;
         this->swapInIndex = swapInIndex;
         this->swapOutIndex = swapOutIndex;
         this->swapInLen = swapInLen;
@@ -63,7 +69,7 @@ public:
         }
         dataHeadSwapOut.dims[dimNum - 1] = dimValue[dimNum - 1] * tableNum;
         embDim = dataHeadSwapOut.dims[1] * sizeof(float);  // rma上每条emb的维度
-        embDimSplit = dimValue[dimNum - 1] * sizeof(float);       // hbm上每个emb的维度，暂时认为都是相同的
+        embDimSplit = dimValue[dimNum - 1] * sizeof(float);       // 每个emb的维度，暂时认为都是相同的
         uint64_t totalLength = swapOutLen * embDim;
         dataHeadSwapOut.totalLen = totalLength + RMA_SHM_DATA_HEAD;
         dataHeadSwapOut.dataLen = totalLength;
@@ -84,8 +90,8 @@ public:
         SyncPreprocess();
     }
     /**
-     * @brief 换入换出融合算子，至少需要4个core，换入换出分别2个，其中用1个core做SVM访问，剩下的core更新或查询HBM表
-     * @tparam updateTables是要再HBM上置换的embedding表
+     * @brief 换入换出融合算子，至少需要4个core，换入换出分别2个，其中用1个core做SVM访问，剩下的core更新或查询表
+     * @tparam updateTables是要再上置换的embedding表
      * @tparam swapInIndex是置换embedding表项的索引
      * @tparam swapInLen是置换表项的长度
      * @tparam svmBuffSwapIn换入SVM队列

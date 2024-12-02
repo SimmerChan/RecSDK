@@ -32,16 +32,16 @@ namespace optiling {
         context->SetBlockDim(BLOCK_DIM);
         context->SetTilingKey(1);
 
-        auto dimNum = context->GetInputShape(0)->GetStorageShape().GetDimNum();
+        auto dimNum = context->GetInputShape(2)->GetStorageShape().GetDimNum();
 
         // dimValue是一个attr，不能使用vector，只能用数组
         uint64_t dims[RMA_DIM_MAX] = {0};
         if (dimNum == 1) {
             dims[0] = 1;
-            dims[1] = context->GetInputShape(0)->GetStorageShape().GetDim(0);
+            dims[1] = context->GetInputShape(2)->GetStorageShape().GetDim(0);
         } else if (dimNum == 2) {
-            dims[0] = context->GetInputTensor(4)->GetShapeSize();
-            dims[1] = context->GetInputShape(0)->GetStorageShape().GetDim(1);
+            dims[0] = context->GetInputTensor(1)->GetShapeSize();   // 换出索引长度
+            dims[1] = context->GetInputShape(2)->GetStorageShape().GetDim(1);   // emb dim
         } else {
             LOG_ERROR("dim-num %d is invalid", dimNum);
             return ge::GRAPH_FAILED;
@@ -49,7 +49,7 @@ namespace optiling {
         tiling.set_dimValue(dims);
         tiling.set_dimNum(RMA_DIM_MAX);
 
-        uint64_t size = context->GetInputTensor(3)->GetShapeSize();
+        uint64_t size = context->GetInputTensor(0)->GetShapeSize();
         tiling.set_updateLen(size);
 
         auto attrs = context->GetAttrs();
@@ -57,14 +57,22 @@ namespace optiling {
             return ge::GRAPH_FAILED;
         }
 
-        auto gmemAttrIn = attrs->GetStr(0);
+        auto tableNumAttr = attrs->GetInt(0);
+        int tableNum = (int)(*tableNumAttr);
+        if (tableNum <= 0) {
+            LOG_ERROR("Table num: %d is invalid", tableNum);
+            return ge::GRAPH_FAILED;
+        }
+        tiling.set_tableNum(tableNum);
+
+        auto gmemAttrIn = attrs->GetStr(1);
         int32_t *shmSwapIn = (int32_t *)(std::stoul(gmemAttrIn));
         if (shmSwapIn == nullptr) {
             return ge::GRAPH_FAILED;
         }
         tiling.set_shmSwapIn((uint64_t)shmSwapIn);
 
-        auto gmemAttrOut = attrs->GetStr(1);
+        auto gmemAttrOut = attrs->GetStr(2);
         int32_t *shmSwapOut = (int32_t *)(std::stoul(gmemAttrOut));
         if (shmSwapOut == nullptr) {
             return ge::GRAPH_FAILED;
@@ -104,21 +112,6 @@ namespace ops {
     public:
         explicit RmaSwapMultiTables(const char* name) : OpDef(name)
         {
-            this->Input("table0")
-                .ParamType(REQUIRED)
-                .DataType({ ge::DT_FLOAT, ge::DT_FLOAT, ge::DT_FLOAT })
-                .Format({ ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND })
-                .UnknownShapeFormat({ ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND });
-            this->Input("table1")
-                .ParamType(REQUIRED)
-                .DataType({ ge::DT_FLOAT, ge::DT_FLOAT, ge::DT_FLOAT })
-                .Format({ ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND })
-                .UnknownShapeFormat({ ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND });
-            this->Input("table2")
-                .ParamType(REQUIRED)
-                .DataType({ ge::DT_FLOAT, ge::DT_FLOAT, ge::DT_FLOAT })
-                .Format({ ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND })
-                .UnknownShapeFormat({ ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND });
             this->Input("swap_in_index")
                 .ParamType(REQUIRED)
                 .DataType({ ge::DT_INT64, ge::DT_INT64, ge::DT_INT64 })
@@ -129,18 +122,49 @@ namespace ops {
                 .DataType({ ge::DT_INT64, ge::DT_INT64, ge::DT_INT64 })
                 .Format({ ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND })
                 .UnknownShapeFormat({ ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND });
+            this->Input("table_a")
+                .ParamType(REQUIRED)
+                .DataType({ ge::DT_FLOAT, ge::DT_FLOAT, ge::DT_FLOAT })
+                .Format({ ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND })
+                .UnknownShapeFormat({ ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND });
+            this->Input("table_b")
+                .ParamType(REQUIRED)
+                .DataType({ ge::DT_FLOAT, ge::DT_FLOAT, ge::DT_FLOAT })
+                .Format({ ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND })
+                .UnknownShapeFormat({ ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND });
+            this->Input("table_c")
+                .ParamType(REQUIRED)
+                .DataType({ ge::DT_FLOAT, ge::DT_FLOAT, ge::DT_FLOAT })
+                .Format({ ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND })
+                .UnknownShapeFormat({ ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND });
+            this->Input("table_d")
+                .ParamType(REQUIRED)
+                .DataType({ ge::DT_FLOAT, ge::DT_FLOAT, ge::DT_FLOAT })
+                .Format({ ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND })
+                .UnknownShapeFormat({ ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND });
+            this->Input("table_e")
+                .ParamType(REQUIRED)
+                .DataType({ ge::DT_FLOAT, ge::DT_FLOAT, ge::DT_FLOAT })
+                .Format({ ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND })
+                .UnknownShapeFormat({ ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND });
+            this->Input("table_f")
+                .ParamType(REQUIRED)
+                .DataType({ ge::DT_FLOAT, ge::DT_FLOAT, ge::DT_FLOAT })
+                .Format({ ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND })
+                .UnknownShapeFormat({ ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND });
             this->Output("output")
                 .ParamType(REQUIRED)
                 .DataType({ ge::DT_INT64, ge::DT_INT64, ge::DT_INT64 })
                 .Format({ ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND })
                 .UnknownShapeFormat({ ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND });
+            this->Attr("table_num").Int();
             this->Attr("shm_swap_in").String();
             this->Attr("shm_swap_out").String();
 
             this->SetInferShape(ge::InferShape);
 
             this->AICore().SetTiling(optiling::TilingFunc);
-            this->AICore().AddConfig("ascend910b");
+//            this->AICore().AddConfig("ascend910b");
             this->AICore().AddConfig("ascend910_93");
         }
     };
