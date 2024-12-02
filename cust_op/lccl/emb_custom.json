@@ -1,0 +1,117 @@
+[
+  {
+    "op": "RmaSwapMultiTables",
+    "language": "cpp",
+    "input_desc": [
+      {
+        "name": "swap_in_index",
+        "param_type": "required",
+        "format": [
+          "ND"
+        ],
+        "type": [
+          "int64"
+        ]
+      },
+      {
+        "name": "swap_out_index",
+        "param_type": "required",
+        "format": [
+          "ND"
+        ],
+        "type": [
+          "int64"
+        ]
+      },
+      {
+        "name": "table0",
+        "param_type": "required",
+        "format": [
+          "ND"
+        ],
+        "type": [
+          "float32"
+        ]
+      },
+      {
+        "name": "table1",
+        "param_type": "required",
+        "format": [
+          "ND"
+        ],
+        "type": [
+          "float32"
+        ]
+      },
+      {
+        "name": "table2",
+        "param_type": "required",
+        "format": [
+          "ND"
+        ],
+        "type": [
+          "float32"
+        ]
+      },
+      {
+        "name": "table3",
+        "param_type": "required",
+        "format": [
+          "ND"
+        ],
+        "type": [
+          "float32"
+        ]
+      },
+      {
+        "name": "table4",
+        "param_type": "required",
+        "format": [
+          "ND"
+        ],
+        "type": [
+          "float32"
+        ]
+      },
+      {
+        "name": "table5",
+        "param_type": "required",
+        "format": [
+          "ND"
+        ],
+        "type": [
+          "float32"
+        ]
+      }
+    ],
+    "output_desc": [
+      {
+        "name": "output",
+        "param_type": "required",
+        "format": [
+          "ND"
+        ],
+        "type": [
+          "int64"
+        ]
+      }
+    ],
+    "attr": [
+      {
+        "name": "table_num",
+        "param_type": "required",
+        "type": "int"
+      },
+      {
+        "name": "shm_swap_in",
+        "param_type": "required",
+        "type": "string"
+      },
+      {
+        "name": "shm_swap_out",
+        "param_type": "required",
+        "type": "string"
+      }
+    ]
+  }
+]

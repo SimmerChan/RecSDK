@@ -97,6 +97,8 @@ std::string Error::ModAsString() const noexcept
             return "FeatureAdmitAndEvict";
         case ModuleName::M_DATASET_OPS:
             return "DatasetOps";
+        case ModuleName::M_RMA_SHM_SVM:
+            return "RmaShmSvm";
         default:
             return "UnknownModule";
     }

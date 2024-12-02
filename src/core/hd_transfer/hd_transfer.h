@@ -17,6 +17,7 @@ See the License for the specific language governing permissions and
 #define MX_REC_HD_TRANSFER_H
 
 #include <mutex>
+#include <unordered_map>
 
 #include "acl/acl_base.h"
 #include "acl/acl.h"
@@ -25,6 +26,7 @@ See the License for the specific language governing permissions and
 #include "acl_channel.h"
 #include "utils/common.h"
 #include "utils/config.h"
+#include "hybrid_mgmt/rma_shm_svm.h"
 
 #ifndef TDT_CREATE_CHANNEL
 #define TDT_CREATE_CHANNEL acltdtCreateChannelWithCapacity
@@ -99,6 +101,11 @@ namespace MxRec {
                        int embeddingThreadId, int batchId);
         size_t RecvOffsetsAcl(TransferChannel channel, int channelId, const string& embName);
 
+        void SendMteShm(TransferChannel channel, const float*h2dEmb, int64_t dims[], int channelId,
+                        const string& embName, int batchId);
+        size_t RecvMteShm(TransferChannel channel, int channelId, const string& embName, float*& ptr, int64_t &dim0,
+                          int batchId);
+
         void Destroy();
 
         std::unordered_map<std::string, acltdtChannelHandle*> GetTransChannel();
@@ -111,11 +118,14 @@ namespace MxRec {
         void CreateChannel(const uint32_t localRankId, const string& embName, const int channelNum);
         void CreateChannelForIncrementalCkpt(const uint32_t localRankId, const string& embName, const int channelNum);
         void RecordTrainingChannelStr(TransferChannel channel, const int channelId);
+        void SendByShm(string &name, const float *sendData, int64_t dims[]);
+        size_t RecvByShm(RmaShmHeader *queueHeader, float*& ptr, int64_t &dim0, bool &emptyFlag);
 
         std::unordered_map<std::string, acltdtChannelHandle*> transferChannels;
         std::unordered_map<int, std::set<std::string>> usedChannelsNames; // key是通道0、1
         bool running;
         std::mutex recordChannelMtx;
+        uint32_t localDeviceId;
     };
 }
 #endif // MX_REC_HD_TRANSFER_H

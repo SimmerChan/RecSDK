@@ -30,6 +30,8 @@ namespace MxRec {
     int GlobalEnv::glogStderrthreshold = 0;  // 默认info级别
     bool GlobalEnv::useCombineFaae = false;
     bool GlobalEnv::recordKeyCount = false; // 默认不打开记录key count的开关
+    bool GlobalEnv::useShmSwap = false;     // 默认不打开共享内存换入换出的开关
+    bool GlobalEnv::hugeTlbEnable = false;  // 默认不打开大页的开关SHM_HUGETLB
 
     /// 配置环境变量，Python侧已经做了变量值校验，CPP侧直接使用即可；bool类型，1代表true，0代表false
     void ConfigGlobalEnv()
@@ -87,12 +89,24 @@ namespace MxRec {
         if (envRecordKeyCount != nullptr) {
             GlobalEnv::recordKeyCount = (std::stoi(envRecordKeyCount) == 1);
         }
+
+        // 设置共享内存换入换出开关
+        const char *envUseShmSwap = getenv(RecEnvNames::USE_SHM_SWAP);
+        if (envUseShmSwap != nullptr) {
+            GlobalEnv::useShmSwap = (std::stoi(envUseShmSwap) == 1);
+        }
+
+        // 设置共享内存大页使能开关
+        const char *envHugeTlbEnable= getenv(RecEnvNames::HUGE_TLB_ENABLE);
+        if (envHugeTlbEnable != nullptr) {
+            GlobalEnv::hugeTlbEnable = (std::stoi(envHugeTlbEnable) == 1);
+        }
     }
 
     void LogGlobalEnv()
     {
         LOG_DEBUG("Environment variables are: [{}: {}], [{}: {}], [{}: {}], [{}: {}], [{}: {}], "
-                  "[{}: {}], [{}: {}], [{}: {}], [{}: {}].",
+                  "[{}: {}], [{}: {}], [{}: {}], [{}: {}], [{}: {}], [{}: {}].",
                   RecEnvNames::ACL_TIMEOUT, GlobalEnv::aclTimeout,
                   RecEnvNames::HD_CHANNEL_SIZE, GlobalEnv::hdChannelSize,
                   RecEnvNames::KEY_PROCESS_THREAD_NUM, GlobalEnv::keyProcessThreadNum,
@@ -101,6 +115,8 @@ namespace MxRec {
                   RecEnvNames::HOT_EMB_UPDATE_STEP, GlobalEnv::hotEmbUpdateStep,
                   RecEnvNames::GLOG_STDERR_THRESHOLD, GlobalEnv::glogStderrthreshold,
                   RecEnvNames::USE_COMBINE_FAAE, GlobalEnv::useCombineFaae,
-                  RecEnvNames::RECORD_KEY_COUNT, GlobalEnv::recordKeyCount);
+                  RecEnvNames::RECORD_KEY_COUNT, GlobalEnv::recordKeyCount,
+                  RecEnvNames::USE_SHM_SWAP, GlobalEnv::useShmSwap,
+                  RecEnvNames::HUGE_TLB_ENABLE, GlobalEnv::hugeTlbEnable);
     }
 }
