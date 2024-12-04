@@ -125,7 +125,7 @@ private:
     __aicore__ inline bool Full(uint64_t dataSize)
     {
         dataSize += RMA_SHM_DATA_HEAD;
-        if (queueHeader.seqIn - queueHeader.seqOut >= queueHeader.queuqCapacity) {
+        if (queueHeader.seqIn - queueHeader.seqOut >= queueHeader.queueCapacity) {
             return true;
         }
         if (queueHeader.tailOffset + dataSize > queueHeader.totalMemSize) {

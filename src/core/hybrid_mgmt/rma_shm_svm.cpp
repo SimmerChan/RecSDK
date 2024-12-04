@@ -258,7 +258,7 @@ void ClearShmQueue()
 bool Full(RmaShmHeader *queHeader, uint64_t dataSize)
 {
     dataSize += RMA_SHM_DATA_HEAD;
-    if (queHeader->seqIn - queHeader->seqOut >= queHeader->queuqCapacity) {
+    if (queHeader->seqIn - queHeader->seqOut >= queHeader->queueCapacity) {
         return true;
     }
     if (queHeader->tailOffset + dataSize > queHeader->totalMemSize) {
@@ -351,7 +351,7 @@ int64_t GetShmElemNum(RmaShmHeader *header)
     return queueNum;
 }
 
-RmaShmHeader *ShmDequeuePre(RmaShmHeader *queHeader)
+RmaShmData *ShmDequeuePre(RmaShmHeader *queHeader)
 {
     if (queHeader->seqIn - queHeader->seqOutPre <= 0) {
         return nullptr;
@@ -378,7 +378,7 @@ RmaShmHeader *ShmDequeuePre(RmaShmHeader *queHeader)
     return dataHeader;
 }
 
-RmaShmHeader *ShmDequeue(RmaShmHeader *queHeader)
+RmaShmData *ShmDequeue(RmaShmHeader *queHeader)
 {
     if (GetShmElemNum(queHeader) <= 0) {
         return nullptr;

@@ -291,7 +291,7 @@ size_t HDTransfer::RecvByShm(RmaShmHeader *queueHeader, float*& ptr, int64_t &di
     RmaShmData *dataHead = ShmDequeuePre(queueHeader);
     if (dataHead != nullptr) {
         LOG_DEBUG("Shm recv data-seq: {}, total-len: {}, dim-num: {}, dim-0: {}, dim-1: {}.",
-                  queueData->sequence, queueData->totalLen, queueData->dimNum, queueData->dims[0], queueData->dims[1]);
+                  dataHead->sequence, dataHead->totalLen, dataHead->dimNum, dataHead->dims[0], dataHead->dims[1]);
 
         ptr = (float*)(reinterpret_cast<uint8_t *>(dataHead) + sizeof(RmaShmData));
         dim0 = dataHead->dims[0];
