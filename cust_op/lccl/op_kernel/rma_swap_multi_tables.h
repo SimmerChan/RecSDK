@@ -146,7 +146,7 @@ private:
                     break;
                 }
                 if (++times > TIME_OUT) {
-                    SetFlag(ub_buff, (__gm__ uint64_t *)output + blockIdx, 10000);
+                    SetFlag(ub_buff, (__gm__ uint64_t *)output + blockIdx, RMA_QUEUE_TIME_OUT);
                     return;
                 }
                 // The queue is blocked when it is full.
@@ -160,7 +160,7 @@ private:
                     break;
                 }
                 if (++times > TIME_OUT) {
-                    SetFlag(ub_buff, (__gm__ uint64_t *)output + blockIdx, 10000);
+                    SetFlag(ub_buff, (__gm__ uint64_t *)output + blockIdx, RMA_QUEUE_TIME_OUT);
                     return;
                 }
                 // The queue is blocked when it is empty.
@@ -468,9 +468,9 @@ private:
         __gm__ uint64_t *syncAllFlag = (__gm__ uint64_t *)swapFlagSwapIn + MAX_BLOCK_NUM * FLAG_UNIT_INT_NUM;
         if (blockIdx == 0) {
             ClearFlag();
-            SetFlag(ub_buff, syncAllFlag, 10086);
+            SetFlag(ub_buff, syncAllFlag, RMA_PRE_SYNC);
         } else {
-            CheckFlag(ub_buff, syncAllFlag, 10086);
+            CheckFlag(ub_buff, syncAllFlag, RMA_PRE_SYNC);
         }
     }
 
@@ -479,10 +479,10 @@ private:
         __ubuf__ uint64_t *ub_buff = (__ubuf__ uint64_t *)get_imm(0);
         __gm__ uint64_t *syncAllFlag = (__gm__ uint64_t *)swapFlagSwapOut + MAX_BLOCK_NUM * FLAG_UNIT_INT_NUM;
         if (blockIdx != 0) {
-            SetFlag(ub_buff, syncAllFlag + blockIdx * FLAG_UNIT_INT_NUM, 10087);
+            SetFlag(ub_buff, syncAllFlag + blockIdx * FLAG_UNIT_INT_NUM, RMA_POST_SYNC);
         } else {
             for (int i = 1; i < blockNum; ++i) {
-                CheckFlag(ub_buff, syncAllFlag + i * FLAG_UNIT_INT_NUM, 10087);
+                CheckFlag(ub_buff, syncAllFlag + i * FLAG_UNIT_INT_NUM, RMA_POST_SYNC);
             }
             ClearFlag();
         }

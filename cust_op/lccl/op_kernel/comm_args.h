@@ -76,4 +76,10 @@ struct RmaShmDataHead {
 };
 constexpr int32_t RMA_READY_LEN_OFFSET = 6;
 
+// error type
+constexpr uint64_t RMA_QUEUE_TIME_OUT = 10000;
+// sync flag
+constexpr uint64_t RMA_PRE_SYNC = 10086;
+constexpr uint64_t RMA_POST_SYNC = 10087;
+
 #endif // LCCL_COMM_ARGS_H
