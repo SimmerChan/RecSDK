@@ -12,7 +12,6 @@ rights reserved.
  * http://www.apache.org/licenses/LICENSE-2.0
  */
 
-#include <iostream>
 #include <string>
 #include <vector>
 #include "register/register.h"
@@ -23,7 +22,7 @@ rights reserved.
 namespace domi {
 using namespace ge;
 
-static Status AddOptionalPlaceholderForRS(const ge::Operator &tf_op, ge::Graph &graph) {
+static Status AddOptionalPlaceholderForRS(const ge::Operator& tf_op, ge::Graph& graph) {
     ge::AscendString op_name;
     tf_op.GetName(op_name);
     auto npu_fa_op = OperatorFactory::CreateOperator(op_name.GetString(), "RmaSwapMultiTables");
@@ -86,8 +85,6 @@ static Status AddOptionalPlaceholderForRS(const ge::Operator &tf_op, ge::Graph &
     if (!table5_type.empty()) {
         (void)npu_fa_op.SetInput("table_f", inputs[index++]);
     }
-
-    std::cout << "npu_fa_op.GetOutputsSize() = " << npu_fa_op.GetOutputsSize();
 
     std::vector<std::pair<Operator, std::vector<size_t>>> output_indexs;
     std::vector<size_t> node_output_index;

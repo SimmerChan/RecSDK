@@ -29,7 +29,7 @@ public:
         blockNum = GetBlockNum();
     };
 
-    __attribute__((always_inline)) inline __aicore__ void gm2ub(__ubuf__ uint8_t *ub_addr, __gm__ uint8_t *gm_addr,
+    __attribute__((always_inline)) inline __aicore__ void gm2ub(__ubuf__ uint8_t* ub_addr, __gm__ uint8_t* gm_addr,
     size_t data_size)
     {
         copy_gm_to_ubuf_align_b16(ub_addr, gm_addr, 0, 1, data_size, 0, 0, 0, 0);
@@ -37,7 +37,7 @@ public:
         wait_flag(PIPE_MTE2, PIPE_MTE3, EVENT_ID0);
     }
 
-    __attribute__((always_inline)) inline __aicore__ void ub2gm(__gm__ uint8_t *gm_addr, __ubuf__ uint8_t *ub_addr,
+    __attribute__((always_inline)) inline __aicore__ void ub2gm(__gm__ uint8_t* gm_addr, __ubuf__ uint8_t* ub_addr,
     size_t data_size)
     {
         copy_ubuf_to_gm_align_b16(gm_addr, ub_addr, 0, 1, data_size, 0, 0, 0, 0);
@@ -46,7 +46,7 @@ public:
     }
 
     template <typename T>
-    __attribute__((always_inline)) inline __aicore__ void CpUB2GM(__gm__ T *gmAddr, __ubuf__ T *ubAddr, uint32_t size)
+    __attribute__((always_inline)) inline __aicore__ void CpUB2GM(__gm__ T* gmAddr, __ubuf__ T* ubAddr, uint32_t size)
     {
         pipe_barrier(PIPE_ALL);
         copy_ubuf_to_gm_align_b8(gmAddr, ubAddr, 0, 1, size, 0, 0, 0, 0);
@@ -54,22 +54,22 @@ public:
     }
 
     template <typename T>
-    __attribute__((always_inline)) inline __aicore__ void CpGM2UB(__ubuf__ T *ubAddr, __gm__ T *gmAddr, uint32_t size)
+    __attribute__((always_inline)) inline __aicore__ void CpGM2UB(__ubuf__ T* ubAddr, __gm__ T* gmAddr, uint32_t size)
     {
         pipe_barrier(PIPE_ALL);
         copy_gm_to_ubuf_align_b8(ubAddr, gmAddr, 0, 1, size, 0, 0, 0, 0);
         pipe_barrier(PIPE_ALL);
     }
 
-    __attribute__((always_inline)) inline __aicore__ void SetFlag(__ubuf__ uint64_t *ctrlFlagsUB,
-                                                                  __gm__ uint64_t *ctrlFlagGM, uint64_t checkValue)
+    __attribute__((always_inline)) inline __aicore__ void SetFlag(__ubuf__ uint64_t* ctrlFlagsUB,
+                                                                  __gm__ uint64_t* ctrlFlagGM, uint64_t checkValue)
     {
         *ctrlFlagsUB = checkValue;
-        CpUB2GM((__gm__ uint8_t *)ctrlFlagGM, (__ubuf__ uint8_t *)ctrlFlagsUB, sizeof(uint64_t));
+        CpUB2GM((__gm__ uint8_t* )ctrlFlagGM, (__ubuf__ uint8_t *)ctrlFlagsUB, sizeof(uint64_t));
     }
 
-    __attribute__((always_inline)) inline __aicore__ void CheckFlag(__ubuf__ uint64_t *ctrlFlagsUB,
-    __gm__ uint64_t *ctrlFlagGM, uint64_t checkValue)
+    __attribute__((always_inline)) inline __aicore__ void CheckFlag(__ubuf__ uint64_t* ctrlFlagsUB,
+    __gm__ uint64_t* ctrlFlagGM, uint64_t checkValue)
     {
         while (true) {
             CpGM2UB((__ubuf__ uint8_t *)ctrlFlagsUB, (__gm__ uint8_t *)ctrlFlagGM, sizeof(uint64_t));
@@ -80,21 +80,21 @@ public:
     }
 
     template <typename T>
-    __attribute__((always_inline)) inline __aicore__ T GetFlag(__ubuf__ T *ctrlFlagsUB, __gm__ T *ctrlFlagGM)
+    __attribute__((always_inline)) inline __aicore__ T GetFlag(__ubuf__ T* ctrlFlagsUB, __gm__ T* ctrlFlagGM)
     {
         CpGM2UB((__ubuf__ uint8_t *)ctrlFlagsUB, (__gm__ uint8_t *)ctrlFlagGM, sizeof(T));
         return *ctrlFlagsUB;
     }
 
-    __attribute__((always_inline)) inline __aicore__ uint64_t GetFlag2(__ubuf__ uint64_t *ctrlFlagsUB,
-                                                                       __gm__ uint64_t *ctrlFlagGM)
+    __attribute__((always_inline)) inline __aicore__ uint64_t GetFlag2(__ubuf__ uint64_t* ctrlFlagsUB,
+                                                                       __gm__ uint64_t* ctrlFlagGM)
     {
         CpGM2UB((__ubuf__ uint8_t *)ctrlFlagsUB, (__gm__ uint8_t *)ctrlFlagGM, sizeof(uint64_t));
         return *ctrlFlagsUB;
     }
 
-    __attribute__((always_inline)) inline __aicore__ uint64_t GetMinFlag(__ubuf__ uint64_t *ctrlFlagsUB,
-        __gm__ uint64_t **ctrlFlagGMs, int32_t num)
+    __attribute__((always_inline)) inline __aicore__ uint64_t GetMinFlag(__ubuf__ uint64_t* ctrlFlagsUB,
+        __gm__ uint64_t** ctrlFlagGMs, int32_t num)
     {
         uint64_t minFlag = LLONG_MAX;
         for (int i = 0; i < num; ++i) {
@@ -106,7 +106,7 @@ public:
         return minFlag;
     }
 
-    __attribute__((always_inline)) inline __aicore__ void gm2gm(uint64_t data_size, __ubuf__ uint8_t *ub_buff,
+    __attribute__((always_inline)) inline __aicore__ void gm2gm(uint64_t data_size, __ubuf__ uint8_t* ub_buff,
     GM_ADDR dest_buff, GM_ADDR src_buff)
     {
         int32_t step = 0;

@@ -18,6 +18,7 @@
 #define LCCL_RMA_SWAP_MULTI_TABLES_H
 
 #include "collectives.h"
+
 using namespace AscendC;
 
 constexpr uint64_t MAX_TABLE_NUM = 6;
@@ -314,7 +315,8 @@ private:
             }
             uint64_t embIdx = *((__gm__ uint64_t *)swapInIndex + visitedIdx);
             for (int t = 0; t < tableNum; ++t) {
-                gm2gm(embDimSplit, ub_data_buff, updateTables[t] + embIdx * embDimSplit, embSwapCache + cacheFront * embDim + t * embDimSplit);
+                gm2gm(embDimSplit, ub_data_buff, updateTables[t] + embIdx * embDimSplit,
+                      embSwapCache + cacheFront * embDim + t * embDimSplit);
             }
 
             visitedIdx += stride;
@@ -453,8 +455,10 @@ private:
             for (int i = 0; i < flagNum * FLAG_UNIT_INT_NUM; ++i) {
                 *(ub_buff + i) = 0;
             }
-            CpUB2GM<uint8_t>(swapFlagSwapIn, (__ubuf__ uint8_t *)ub_buff, flagNum * FLAG_UNIT_INT_NUM * sizeof(uint64_t));
-            CpUB2GM<uint8_t>(swapFlagSwapOut, (__ubuf__ uint8_t *)ub_buff, flagNum * FLAG_UNIT_INT_NUM * sizeof(uint64_t));
+            CpUB2GM<uint8_t>(swapFlagSwapIn, (__ubuf__ uint8_t *)ub_buff,
+                             flagNum * FLAG_UNIT_INT_NUM * sizeof(uint64_t));
+            CpUB2GM<uint8_t>(swapFlagSwapOut, (__ubuf__ uint8_t *)ub_buff,
+                             flagNum * FLAG_UNIT_INT_NUM * sizeof(uint64_t));
         }
     }
 

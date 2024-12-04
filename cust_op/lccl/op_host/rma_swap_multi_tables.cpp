@@ -15,9 +15,9 @@
  */
 
 #include "tiling/platform/platform_ascendc.h"
-#include "rma_swap_multi_tables_tiling.h"
 #include "register/op_def_registry.h"
 #include "rma_log.h"
+#include "rma_swap_multi_tables_tiling.h"
 
 constexpr int32_t BLOCK_DIM = 48;
 
@@ -25,7 +25,7 @@ namespace optiling {
     constexpr int32_t RMA_DIM_MAX = 2;
     constexpr int32_t RMA_WORK_SPACE_SIZE = 202 * 1024 * 1024;
 
-    static ge::graphStatus TilingFunc(gert::TilingContext *context)
+    static ge::graphStatus TilingFunc(gert::TilingContext* context)
     {
         LOG_DEBUG("Rma TilingFunc");
         RmaSwapMultiTablesTilingData tiling;
@@ -42,7 +42,7 @@ namespace optiling {
             dims[0] = context->GetInputTensor(1)->GetShapeSize();   // swap out index length
             dims[1] = context->GetInputShape(2)->GetStorageShape().GetDim(1);   // emb dim
         } else {
-            LOG_ERROR("dim-num %d is invalid", dimNum);
+            LOG_ERROR("Dim-num %d is invalid.", dimNum);
             return ge::GRAPH_FAILED;
         }
         tiling.set_dimValue(dims);
@@ -59,7 +59,7 @@ namespace optiling {
         auto tableNumAttr = attrs->GetInt(0);
         int tableNum = (int)(*tableNumAttr);
         if (tableNum <= 0) {
-            LOG_ERROR("Table num: %d is invalid", tableNum);
+            LOG_ERROR("Table num: %d is invalid.", tableNum);
             return ge::GRAPH_FAILED;
         }
         tiling.set_tableNum(tableNum);
@@ -91,12 +91,12 @@ namespace optiling {
 }
 
 namespace ge {
-    static ge::graphStatus InferShape(gert::InferShapeContext *context)
+    static ge::graphStatus InferShape(gert::InferShapeContext*c ontext)
     {
-        LOG_DEBUG("RmaSwap InferShape");
+        LOG_DEBUG("RmaSwap InferShape.");
         gert::Shape *outputShape = context->GetOutputShape(0);
         if (outputShape == nullptr) {
-            LOG_ERROR("output shape is null");
+            LOG_ERROR("Output shape is null.");
             return ge::GRAPH_FAILED;
         }
         outputShape->SetDimNum(1);

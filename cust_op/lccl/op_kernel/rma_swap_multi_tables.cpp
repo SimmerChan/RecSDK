@@ -16,6 +16,7 @@
 
 #include "kernel_operator.h"
 #include "rma_swap_multi_tables.h"
+
 using namespace AscendC;
 
 extern "C" __global__ __aicore__ void rma_swap_multi_tables(GM_ADDR swapInIndex, GM_ADDR swapOutIndex,

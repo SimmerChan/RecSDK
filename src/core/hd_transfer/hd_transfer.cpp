@@ -219,7 +219,7 @@ void HDTransfer::Send(TransferChannel channel, const vector<Tensor>& tensors, in
 #endif
 }
 
-void HDTransfer::SendByShm(string &name, const float *sendData, int64_t dims[RMA_DIM_MAX])
+void HDTransfer::SendByShm(string& name, const float* sendData, int64_t dims[RMA_DIM_MAX])
 {
     LOG_DEBUG("rma send, shm-name {}", name.c_str());
 
@@ -254,7 +254,7 @@ void HDTransfer::SendByShm(string &name, const float *sendData, int64_t dims[RMA
 /// \param channelId channel's id(train/eval)
 /// \param embName table name
 /// \param batchId processed batch num
-void HDTransfer::SendMteShm(TransferChannel channel, const float*h2dEmb, int64_t dims[RMA_DIM_MAX],
+void HDTransfer::SendMteShm(TransferChannel channel, const float* h2dEmb, int64_t dims[RMA_DIM_MAX],
                             int channelId, const string& embName, int batchId)
 {
     if (!running) {
@@ -304,7 +304,7 @@ size_t HDTransfer::RecvByShm(RmaShmHeader *queueHeader, float*& ptr, int64_t &di
 }
 
 size_t HDTransfer::RecvMteShm(TransferChannel channel, int channelId, const string& embName,
-                              float*& ptr, int64_t &dim0, int batchId)
+                              float*& ptr, int64_t& dim0, int batchId)
 {
     size_t ret = 0;
 #ifndef GTEST

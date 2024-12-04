@@ -51,16 +51,16 @@ struct RmaShmData {
     uint64_t readyLen;         // data length(B) has been written to queue
 };
 
-bool Full(RmaShmHeader *queHeader, uint64_t dataSize);
+bool Full(RmaShmHeader* queHeader, uint64_t dataSize);
 int64_t GetShmAddr(std::string name, int rankId, int capacity);
 void *GetHostAddr(std::string name);
 void FreeShmAddr(int deviceId);
-RmaShmData *ShmDequeuePre(RmaShmHeader *queHeader);
-RmaShmData *ShmDequeue(RmaShmHeader *queHeader);
-int64_t GetShmElemNum(RmaShmHeader *header);
-uint64_t GetShmSeq(RmaShmHeader *queueHeader);
+RmaShmData *ShmDequeuePre(RmaShmHeader* queHeader);
+RmaShmData *ShmDequeue(RmaShmHeader* queHeader);
+int64_t GetShmElemNum(RmaShmHeader* header);
+uint64_t GetShmSeq(RmaShmHeader* queueHeader);
 void ClearShmQueue();
-uint8_t *ShmEnqueueHeadRaw(RmaShmHeader *header, int64_t dims[], uint64_t sequence);
-uint8_t *ShmEnqueueGetLast(RmaShmHeader *header, int64_t dims[]);
+uint8_t *ShmEnqueueHeadRaw(RmaShmHeader* header, int64_t dims[], uint64_t sequence);
+uint8_t *ShmEnqueueGetLast(RmaShmHeader* header, int64_t dims[]);
 
 #endif  // RMA_SHM_SVM_H

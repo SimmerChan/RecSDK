@@ -14,17 +14,17 @@
  * limitations under the License.
  */
 
-#include <acl/acl.h>
+#include <unordered_map>
 #include <vector>
+#include <string>
 #include <fstream>
 #include <cstdlib>
-#include <string>
 #include <cstdio>
-#include "securec.h"
 #include <sys/stat.h>
 #include <sys/shm.h>
+#include <acl/acl.h>
 #include <driver/ascend_hal_define.h>
-#include <unordered_map>
+#include "securec.h"
 #include "rma_shm_svm.h"
 #include "utils/common.h"
 
@@ -32,9 +32,9 @@ using namespace MxRec;
 using namespace std;
 
 extern "C" {
-drvError_t halHostRegister(void *srcPtr, UINT64 size, UINT32 flag, UINT32 devid, void **dstPtr);
-drvError_t halHostUnregister(void *srcPtr, UINT32 devid);
-drvError_t rtDeviceGetBareTgid(uint32_t *pid);
+drvError_t halHostRegister(void* srcPtr, UINT64 size, UINT32 flag, UINT32 devid, void** dstPtr);
+drvError_t halHostUnregister(void* srcPtr, UINT32 devid);
+drvError_t rtDeviceGetBareTgid(uint32_t* pid);
 }
 
 const uint64_t RMA_SHM_TOTAL_MEM_SIZE = 1 * 1024 * 1024 * 1024 * 1L; // shared memory total size(B)
@@ -49,7 +49,7 @@ std::unordered_map<std::string, int> g_shmId;
 
 RmaDevModel g_rmaDevModel = RmaDevModel::PCIE_TH_DEV;
 
-void InitShmHeader(RmaShmHeader *header, int64_t memSize, int32_t capacity)
+void InitShmHeader(RmaShmHeader* header, int64_t memSize, int32_t capacity)
 {
     header->totalMemSize = memSize - RMA_SHM_HEAD_LEN;
     header->queueCapacity = capacity;
@@ -62,7 +62,7 @@ void InitShmHeader(RmaShmHeader *header, int64_t memSize, int32_t capacity)
     header->frontOffsetPre = RMA_SHM_HEAD_LEN;
 }
 
-void ResetShmHeader(RmaShmHeader *header)
+void ResetShmHeader(RmaShmHeader* header)
 {
     header->seqIn = 0;
     header->seqOut = 0;
@@ -73,7 +73,7 @@ void ResetShmHeader(RmaShmHeader *header)
     header->frontOffsetPre = RMA_SHM_HEAD_LEN;
 }
 
-void RmaFreeShm(std::string shmName, void *memory)
+void RmaFreeShm(std::string shmName, void* memory)
 {
     if (g_rmaDevModel == RmaDevModel::SVM_MAP_DEV) {
         if (aclrtFreeHost(memory) != ACL_ERROR_NONE) {
@@ -240,7 +240,7 @@ void FreeShmAddr(int deviceId)
     }
 }
 
-uint64_t GetShmSeq(RmaShmHeader *queueHeader)
+uint64_t GetShmSeq(RmaShmHeader* queueHeader)
 {
     uint64_t sequence = queueHeader->seqIn;
     return ++sequence;
@@ -254,7 +254,7 @@ void ClearShmQueue()
     }
 }
 
-bool Full(RmaShmHeader *queHeader, uint64_t dataSize)
+bool Full(RmaShmHeader* queHeader, uint64_t dataSize)
 {
     dataSize += RMA_SHM_DATA_HEAD;
     if (queHeader->seqIn - queHeader->seqOut >= queHeader->queueCapacity) {
@@ -273,7 +273,7 @@ bool Full(RmaShmHeader *queHeader, uint64_t dataSize)
     return false;
 }
 
-uint8_t *ShmEnqueueHeadRaw(RmaShmHeader *header, int64_t dims[RMA_DIM_MAX], uint64_t sequence)
+uint8_t *ShmEnqueueHeadRaw(RmaShmHeader* header, int64_t dims[RMA_DIM_MAX], uint64_t sequence)
 {
     int64_t dataSize = dims[0] * dims[1] * sizeof(float) * 1L;
     uint8_t *lastPos = nullptr;
@@ -328,7 +328,7 @@ uint8_t *ShmEnqueueHeadRaw(RmaShmHeader *header, int64_t dims[RMA_DIM_MAX], uint
     return lastPos;
 }
 
-uint8_t *ShmEnqueueGetLast(RmaShmHeader *header, int64_t dims[RMA_DIM_MAX])
+uint8_t *ShmEnqueueGetLast(RmaShmHeader* header, int64_t dims[RMA_DIM_MAX])
 {
     int64_t dataSize = dims[0] * dims[1] * sizeof(float) * 1L;
     int64_t totalSize = dataSize + RMA_SHM_DATA_HEAD;
@@ -344,14 +344,14 @@ uint8_t *ShmEnqueueGetLast(RmaShmHeader *header, int64_t dims[RMA_DIM_MAX])
     return lastPos;
 }
 
-int64_t GetShmElemNum(RmaShmHeader *header)
+int64_t GetShmElemNum(RmaShmHeader* header)
 {
     int64_t queueNum = header->seqIn - header->seqOut;
 
     return queueNum;
 }
 
-RmaShmData *ShmDequeuePre(RmaShmHeader *queHeader)
+RmaShmData *ShmDequeuePre(RmaShmHeader* queHeader)
 {
     if (queHeader->seqIn - queHeader->seqOutPre <= 0) {
         return nullptr;
@@ -378,7 +378,7 @@ RmaShmData *ShmDequeuePre(RmaShmHeader *queHeader)
     return dataHeader;
 }
 
-RmaShmData *ShmDequeue(RmaShmHeader *queHeader)
+RmaShmData *ShmDequeue(RmaShmHeader* queHeader)
 {
     if (GetShmElemNum(queHeader) <= 0) {
         return nullptr;

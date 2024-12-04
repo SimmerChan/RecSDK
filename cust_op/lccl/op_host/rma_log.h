@@ -17,8 +17,8 @@
 #ifndef RMA_LOG_H
 #define RMA_LOG_H
 
-#include <cstdlib>
 #include <string>
+#include <cstdlib>
 
 constexpr int32_t DEBUG_SWITCH = 0;
 

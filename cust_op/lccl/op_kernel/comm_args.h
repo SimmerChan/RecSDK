@@ -17,8 +17,8 @@
 #ifndef LCCL_COMM_ARGS_H
 #define LCCL_COMM_ARGS_H
 
-#include "kernel_operator.h"
 #include <limits.h>
+#include "kernel_operator.h"
 
 constexpr int32_t MAX_BLOCK_NUM = 48;
 constexpr int64_t FLAG_UNIT_INT_NUM = 4;
