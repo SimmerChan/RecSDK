@@ -48,8 +48,8 @@ struct RmaShmHeader {
     uint64_t frontOffset;       // front offset
     uint64_t tailOffset;        // tail offset
     uint64_t buffLimit;
-    uint64_t seqOutPre;         // laset pre-dequeue sequence
-    uint64_t frontOffsetPre;    // laset pre-dequeue front offset
+    uint64_t seqOutPre;         // last pre-dequeue sequence
+    uint64_t frontOffsetPre;    // last pre-dequeue front offset
 };
 
 struct RmaQueueOffset {
