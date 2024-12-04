@@ -36,7 +36,7 @@ cp -rf op_host custom_op/
 cd custom_op
 
 if [ ! -f "CMakePresets.json" ]; then
-  echo "当前目录下不存在cmake.json文件"
+  echo "CMakePresets.json does not exist in current directory"
   exit 1
 fi
 
@@ -47,7 +47,7 @@ sed -i 's:"/usr/local/Ascend/latest":"/usr/local/Ascend/ascend-toolkit/latest":g
 cd cmake
 
 if [ ! -f "config.cmake" ]; then
-  echo "当前目录下不存在cmake.json文件"
+  echo "config.cmake does not exist in current directory"
   exit 1
 fi
 

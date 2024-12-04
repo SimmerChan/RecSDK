@@ -1775,7 +1775,6 @@ void HybridMgmt::EmbeddingSendDDR(const EmbTaskInfo& info, float*& h2dEmb, int64
         return (hybridMgmtBlock->lastSendFinishStep[info.name][info.channelId] == info.batchId) || mutexDestroy;
     });
     TimeCost SendTC = TimeCost();
-    // 区分通道发送
     hdTransfer->SendMteShm(TransferChannel::H2D, h2dEmb, dims, info.channelId, info.name, info.batchId);
     hybridMgmtBlock->lastSendFinishStep[info.name][info.channelId]++;
     string nextKey = MakeSwapCVName(info.cvNotifyIndex, info.name, info.channelId);
