@@ -24,7 +24,7 @@
         ]
       },
       {
-        "name": "table0",
+        "name": "table_a",
         "param_type": "required",
         "format": [
           "ND"
@@ -34,7 +34,7 @@
         ]
       },
       {
-        "name": "table1",
+        "name": "table_b",
         "param_type": "required",
         "format": [
           "ND"
@@ -44,7 +44,7 @@
         ]
       },
       {
-        "name": "table2",
+        "name": "table_c",
         "param_type": "required",
         "format": [
           "ND"
@@ -54,7 +54,7 @@
         ]
       },
       {
-        "name": "table3",
+        "name": "table_d",
         "param_type": "required",
         "format": [
           "ND"
@@ -64,7 +64,7 @@
         ]
       },
       {
-        "name": "table4",
+        "name": "table_e",
         "param_type": "required",
         "format": [
           "ND"
@@ -74,7 +74,7 @@
         ]
       },
       {
-        "name": "table5",
+        "name": "table_f",
         "param_type": "required",
         "format": [
           "ND"

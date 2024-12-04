@@ -91,7 +91,7 @@ namespace optiling {
 }
 
 namespace ge {
-    static ge::graphStatus InferShape(gert::InferShapeContext*c ontext)
+    static ge::graphStatus InferShape(gert::InferShapeContext* context)
     {
         LOG_DEBUG("RmaSwap InferShape.");
         gert::Shape *outputShape = context->GetOutputShape(0);
