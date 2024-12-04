@@ -34,13 +34,12 @@ namespace optiling {
 
         auto dimNum = context->GetInputShape(2)->GetStorageShape().GetDimNum();
 
-        // dimValue是一个attr，不能使用vector，只能用数组
         uint64_t dims[RMA_DIM_MAX] = {0};
         if (dimNum == 1) {
             dims[0] = 1;
             dims[1] = context->GetInputShape(2)->GetStorageShape().GetDim(0);
         } else if (dimNum == 2) {
-            dims[0] = context->GetInputTensor(1)->GetShapeSize();   // 换出索引长度
+            dims[0] = context->GetInputTensor(1)->GetShapeSize();   // swap out index length
             dims[1] = context->GetInputShape(2)->GetStorageShape().GetDim(1);   // emb dim
         } else {
             LOG_ERROR("dim-num %d is invalid", dimNum);

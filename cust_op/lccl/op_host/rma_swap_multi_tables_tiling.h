@@ -25,9 +25,9 @@ namespace optiling {
     TILING_DATA_FIELD_DEF(uint64_t, tableLength);
     TILING_DATA_FIELD_DEF(uint64_t, shmSwapIn);
     TILING_DATA_FIELD_DEF(uint64_t, shmSwapOut);
-    TILING_DATA_FIELD_DEF(uint64_t, updateLen);         // 换入长度
+    TILING_DATA_FIELD_DEF(uint64_t, updateLen);
     TILING_DATA_FIELD_DEF(uint32_t, dimNum);
-    TILING_DATA_FIELD_DEF_ARR(uint64_t, 2, dimValue);   // 换出emb的维度(swap_out_len, emb_dim)
+    TILING_DATA_FIELD_DEF_ARR(uint64_t, 2, dimValue);   // swap_out_len, emb_dim
     END_TILING_DATA_DEF;
 
     REGISTER_TILING_DATA_CLASS(RmaSwapMultiTables, RmaSwapMultiTablesTilingData)

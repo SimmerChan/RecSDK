@@ -16,39 +16,39 @@
 #ifndef RMA_SHM_SVM_H
 #define RMA_SHM_SVM_H
 
-constexpr int32_t RMA_SHM_HEAD_LEN = 128; /* SHM的队列头长度，用于保存全局信息 */
-constexpr int32_t RMA_SHM_DATA_HEAD = 56; /* 数据元素的头长度 */
-constexpr int32_t RMA_SHM_READY_LEN = 48; /* 数据元素的头的readyLen偏移 */
+constexpr int32_t RMA_SHM_HEAD_LEN = 128; // queue's head length
+constexpr int32_t RMA_SHM_DATA_HEAD = 56; // queue item's head length
+constexpr int32_t RMA_SHM_READY_LEN = 48; // offset of readyLen in item's head
 constexpr int32_t RMA_DIM_MAX = 2;
 
 enum class RmaDevModel {
-    MEM_MAP_DEV,    // 910_93需要更新驱动支持
+    MEM_MAP_DEV,    // 910_93 need update driver to support
     SVM_MAP_DEV,    // 910_93
     PCIE_TH_DEV     // 910B
 };
 
-// 队列头定义
+// Queue header definition
 struct RmaShmHeader {
-    uint64_t queueCapacity; /* 队列深度 */
-    uint64_t totalMemSize;  /* 总内存大小 */
-    uint64_t seqIn;         /* 最新写入的seq */
-    uint64_t seqOut;        /* 最新读取的seq */
-    uint64_t frontOffset;   /* 可访问的内存地址偏移量 */
-    uint64_t tailOffset;    /* 可写入数据的地址偏移量，从队列尾部写入 */
-    uint64_t buffLimit;     /* 队列尾部无法写入数据的偏移，标识队列需要返回到头部进行写入 */
-    uint64_t seqOutPre;        /* 出队预取的序列号，只在host多线程出队用 */
-    uint64_t frontOffsetPre;   /* 出队预取的头指针，只在host多线程出队用 */
+    uint64_t queueCapacity;    // depth of queue
+    uint64_t totalMemSize;     // total mem size
+    uint64_t seqIn;            // last enqueue sequence
+    uint64_t seqOut;           // last dequeue sequence
+    uint64_t frontOffset;      // front offset
+    uint64_t tailOffset;       // tail offset
+    uint64_t buffLimit;        // An offset where data cannot be written to the end of the queue
+    uint64_t seqOutPre;        // prefetched sequence
+    uint64_t frontOffsetPre;   // prefetched front offset
 };
 
-// 队列中每个元素的头定义
+// item header definition
 struct RmaShmData {
-    uint64_t totalLen;         /* 每个元素的总长度，单位byte */
-    uint64_t sequence;         /* 元素序列号 */
-    int32_t dataType;          /* 数据类型 */
-    int32_t dimNum;            /* dim的维度数目 */
-    int64_t dims[RMA_DIM_MAX]; /* shape值 */
-    uint64_t dataLen;          /* 数据长度，单位byte */
-    uint64_t readyLen;         /* 已准备好的数据长度，单位byte */
+    uint64_t totalLen;         // item total length(B) = dataLen + RMA_SHM_DATA_HEAD
+    uint64_t sequence;         // item sequence
+    int32_t dataType;          // data type {0:float32}
+    int32_t dimNum;            // data's dim num
+    int64_t dims[RMA_DIM_MAX]; // shape value
+    uint64_t dataLen;          // data length(B)
+    uint64_t readyLen;         // data length(B) has been written to queue
 };
 
 bool Full(RmaShmHeader *queHeader, uint64_t dataSize);

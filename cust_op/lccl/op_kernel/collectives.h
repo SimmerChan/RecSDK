@@ -33,7 +33,7 @@ public:
     size_t data_size)
     {
         copy_gm_to_ubuf_align_b16(ub_addr, gm_addr, 0, 1, data_size, 0, 0, 0, 0);
-        set_flag(PIPE_MTE2, PIPE_MTE3, EVENT_ID0); // 3等2，mte2负责gm2ub
+        set_flag(PIPE_MTE2, PIPE_MTE3, EVENT_ID0);
         wait_flag(PIPE_MTE2, PIPE_MTE3, EVENT_ID0);
     }
 
@@ -41,7 +41,7 @@ public:
     size_t data_size)
     {
         copy_ubuf_to_gm_align_b16(gm_addr, ub_addr, 0, 1, data_size, 0, 0, 0, 0);
-        set_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID1); // 2等3
+        set_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID1);
         wait_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID1);
     }
 
@@ -124,8 +124,8 @@ public:
     }
 
 protected:
-    int64_t blockIdx;  // 当前aicore序号
-    int64_t blockNum;  // 当前rank的总aicore数
+    int64_t blockIdx;
+    int64_t blockNum;
 };
 
 #endif //LCCL_COLLECTIVES_H

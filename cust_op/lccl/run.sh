@@ -14,17 +14,12 @@
 # limitations under the License.
 # ==============================================================================
 
-#set -e
-#source /etc/profile
+CHIP_TYPE="910_93"  # support：910B 910_93
 
-CHIP_TYPE="910_93"  # 支持：910B 910_93
-
-# 查找msopgen的路径，加入到环境变量PATH中
 msopgen_path=$(find /usr/local/Ascend/ -name msopgen | grep bin)
 parent_dir=$(dirname "$msopgen_path")
 export PATH=$parent_dir:$PATH
 
-# 利用msopgen生成可编译文件
 rm -rf ./custom_op
 if [ "$CHIP_TYPE" == "910B" ]; then
   msopgen gen -i emb_custom.json -f tf -c ai_core-ascend910b1 -lan cpp -out ./custom_op -m 0 -op RmaSwapMultiTables
@@ -36,34 +31,26 @@ fi
 
 cp -rf op_kernel custom_op/
 cp -rf op_host custom_op/
-# 算子修改为optional输入时需要编译自定义的tf plugin
 #cp -rf tf_plugin/*.cc custom_op/framework/tf_plugin/
 
 cd custom_op
 
-# 判断当前目录下是否存在CMakePresets.json文件
 if [ ! -f "CMakePresets.json" ]; then
   echo "当前目录下不存在cmake.json文件"
   exit 1
 fi
 
-# 禁止生成CRC校验和
 sed -i 's/--nomd5/--nomd5 --nocrc/g' ./cmake/makeself.cmake
 
-# 修改cann安装路径
 sed -i 's:"/usr/local/Ascend/latest":"/usr/local/Ascend/ascend-toolkit/latest":g' CMakePresets.json
-# 修改算子安装路径
-#sed -i 's:"customize":"custom_op":g' CMakePresets.json
 
 cd cmake
 
-# 判断当前目录下是否存在config.cmake文件
 if [ ! -f "config.cmake" ]; then
   echo "当前目录下不存在cmake.json文件"
   exit 1
 fi
 
-# 修改设备环境
 if [ "$CHIP_TYPE" == "910B" ]; then
   sed -i 's:set(ASCEND_COMPUTE_UNIT ascend910b):set(ASCEND_COMPUTE_UNIT ascend910b ascend910):g' config.cmake
 elif [ "$CHIP_TYPE" == "910_93" ]; then
@@ -76,7 +63,6 @@ cd ..
 
 bash build.sh
 
-# 安装编译成功的算子包
 bash ./build_out/custom_opp*.run
 
 cd ..

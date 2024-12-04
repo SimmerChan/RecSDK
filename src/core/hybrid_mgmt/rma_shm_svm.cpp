@@ -37,8 +37,8 @@ drvError_t halHostUnregister(void *srcPtr, UINT32 devid);
 drvError_t rtDeviceGetBareTgid(uint32_t *pid);
 }
 
-const uint64_t RMA_SHM_TOTAL_MEM_SIZE = 1 * 1024 * 1024 * 1024 * 1L; // 共享内存总容量 单位B
-constexpr int RMA_SHM_QUEUE_CAPACITY = 50;                           // 队列的最大深度
+const uint64_t RMA_SHM_TOTAL_MEM_SIZE = 1 * 1024 * 1024 * 1024 * 1L; // shared memory total size(B)
+constexpr int RMA_SHM_QUEUE_CAPACITY = 50;                           // max depth
 constexpr int32_t MAX_RANK_SIZE = 4095;
 
 uint32_t g_pid = 0;
@@ -109,7 +109,7 @@ uint32_t GetRegisterFlag(RmaDevModel mode)
     }
 }
 
-// aicore申请shm内存
+// malloc shared memory
 void *RmaCreateShm(std::string shmName, uint64_t memSize, int deviceId, int capacity)
 {
     string chipName = GetChipName(deviceId);
@@ -176,13 +176,13 @@ void *RmaCreateShm(std::string shmName, uint64_t memSize, int deviceId, int capa
 
     g_shmAddr.insert(std::make_pair(shmName, memory));
 
-    // 初始化队列头
+    // init queue head
     InitShmHeader(reinterpret_cast<RmaShmHeader *>(memory), memSize, capacity);
 
     return svmMem;
 }
 
-// 仅用于pybind侧调用，创建共享内存
+// for pybind call, create shm
 int64_t GetShmAddr(std::string name, int deviceId, int capacity)
 {
     auto memSize = RMA_SHM_TOTAL_MEM_SIZE;
@@ -209,7 +209,7 @@ int64_t GetShmAddr(std::string name, int deviceId, int capacity)
     return reinterpret_cast<int64_t>(g_shmSvmMap[shmName]);
 }
 
-// 仅用于hd_transfer的send/recv调用，获取host侧地址；
+// get shm's ddr address for send and recive
 void *GetHostAddr(std::string name)
 {
     std::string shmName = name + "_" + std::to_string(g_pid);
@@ -249,7 +249,6 @@ uint64_t GetShmSeq(RmaShmHeader *queueHeader)
 void ClearShmQueue()
 {
     for (auto &pair : g_shmAddr) {
-        // 复位队列头
         ResetShmHeader(reinterpret_cast<RmaShmHeader *>(pair.second));
         LOG_INFO("Reset queue: {}", pair.first);
     }
@@ -298,7 +297,8 @@ uint8_t *ShmEnqueueHeadRaw(RmaShmHeader *header, int64_t dims[RMA_DIM_MAX], uint
     dataHead.readyLen = 0;
 
     if (header->tailOffset + dataSize > header->totalMemSize) {
-        // 如果队列尾部的空余放不下新插入的数据，则从队列头部插入，当前约束队列不够大，不会被写满
+        // If the empty space at the end of the queue cannot accommodate the newly inserted data,
+        // it is inserted from the head of the queue
         lastPos = reinterpret_cast<uint8_t *>(header) + RMA_SHM_HEAD_LEN;
         if (memcpy_s(lastPos, RMA_SHM_DATA_HEAD, &dataHead, RMA_SHM_DATA_HEAD) != EOK) {
             auto error = Error(ModuleName::M_RMA_SHM_SVM, ErrorType::UNKNOWN,
@@ -306,10 +306,10 @@ uint8_t *ShmEnqueueHeadRaw(RmaShmHeader *header, int64_t dims[RMA_DIM_MAX], uint
             LOG_ERROR(error.ToString());
             throw runtime_error(error.ToString());
         }
-        header->buffLimit = header->tailOffset; // 标识该位置后面无可读取的数据，需要返回到队列首部
-        header->tailOffset = RMA_SHM_HEAD_LEN + dataHead.totalLen; // 从队列首部开始偏移
+        // Indicates that there is no data to read after this location and needs to be returned to the queue header
+        header->buffLimit = header->tailOffset;
+        header->tailOffset = RMA_SHM_HEAD_LEN + dataHead.totalLen; // Offset from the head of the queue
     } else {
-        // 正常顺序入队列
         lastPos = reinterpret_cast<uint8_t *>(header) + header->tailOffset;
         if (memcpy_s(lastPos, RMA_SHM_DATA_HEAD, &dataHead, RMA_SHM_DATA_HEAD) != EOK) {
             auto error = Error(ModuleName::M_RMA_SHM_SVM, ErrorType::UNKNOWN,
@@ -317,10 +317,10 @@ uint8_t *ShmEnqueueHeadRaw(RmaShmHeader *header, int64_t dims[RMA_DIM_MAX], uint
             LOG_ERROR(error.ToString());
             throw runtime_error(error.ToString());
         }
-        header->tailOffset += dataHead.totalLen; // 尾部往后偏移，指导下一个元素的插入位置
+        header->tailOffset += dataHead.totalLen;
     }
 
-    header->seqIn = sequence; // 更新队列头的Seq
+    header->seqIn = sequence;
 
     LOG_INFO("After enqueue, capacity: {}, seq-in: {}, seq-out: {}, head: {}, tail: {}, buff-limit: {}.",
              header->queueCapacity, header->seqIn, header->seqOut,

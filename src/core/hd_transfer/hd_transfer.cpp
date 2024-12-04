@@ -157,34 +157,6 @@ void HDTransfer::CreateChannelForIncrementalCkpt(const uint32_t localRankId, con
     LOG_INFO("Create channel:{}.", sendName);
 }
 
-void HDTransfer::SendByShm(string &name, const float *sendData, int64_t dims[RMA_DIM_MAX])
-{
-    LOG_DEBUG("rma send, shm-name {}", name.c_str());
-
-    if (sendData == nullptr) {
-        auto error = Error(ModuleName::M_HD_TRANSFER, ErrorType::NULL_PTR, "Send data can not be nullptr.");
-        LOG_ERROR(error.ToString());
-        throw runtime_error(error.ToString());
-    }
-
-    auto *shmAddr = GetHostAddr(name);
-    if (shmAddr == nullptr) {
-        auto error = Error(ModuleName::M_HD_TRANSFER, ErrorType::INVALID_ARGUMENT,
-                           StringFormat("Failed to find valid shm for channel: %s device: %d.",
-                                        name.c_str(), localDeviceId));
-        LOG_ERROR(error.ToString());
-        throw runtime_error(error.ToString());
-    }
-    RmaShmHeader *queueHeader = (RmaShmHeader *)shmAddr;
-
-    RmaShmData *queueData = (RmaShmData *)ShmEnqueueGetLast(queueHeader, dims);
-    if (queueData != nullptr) {
-        LOG_DEBUG("SendByShm data-seq: {}, total-len: {}, data-len: {} readyLen: {}, dim-num: {}, dim-0: {}, dim-1: {}.",
-                  queueData->sequence, queueData->totalLen, queueData->dataLen, queueData->readyLen,
-                  queueData->dimNum, queueData->dims[0], queueData->dims[1]);
-    }
-}
-
 /// 将tensor发送到channel
 /// \param channel 通道实例
 /// \param tensors 待发送数据
@@ -247,12 +219,41 @@ void HDTransfer::Send(TransferChannel channel, const vector<Tensor>& tensors, in
 #endif
 }
 
-/// 将tensor发送到channel
-/// \param channel 通道实例
-/// \param tensors 待发送数据
-/// \param channelId 通道索引（训练/推理）
-/// \param embName 表名
-/// \param batchId 已处理的batch数
+void HDTransfer::SendByShm(string &name, const float *sendData, int64_t dims[RMA_DIM_MAX])
+{
+    LOG_DEBUG("rma send, shm-name {}", name.c_str());
+
+    if (sendData == nullptr) {
+        auto error = Error(ModuleName::M_HD_TRANSFER, ErrorType::NULL_PTR, "Send data can not be nullptr.");
+        LOG_ERROR(error.ToString());
+        throw runtime_error(error.ToString());
+    }
+
+    auto *shmAddr = GetHostAddr(name);
+    if (shmAddr == nullptr) {
+        auto error = Error(ModuleName::M_HD_TRANSFER, ErrorType::INVALID_ARGUMENT,
+                           StringFormat("Failed to find valid shm for channel: %s device: %d.",
+                                        name.c_str(), localDeviceId));
+        LOG_ERROR(error.ToString());
+        throw runtime_error(error.ToString());
+    }
+    RmaShmHeader *queueHeader = (RmaShmHeader *)shmAddr;
+
+    RmaShmData *queueData = (RmaShmData *)ShmEnqueueGetLast(queueHeader, dims);
+    if (queueData != nullptr) {
+        LOG_DEBUG("SendByShm data-seq: {}, total-len: {}, data-len: {} readyLen: {}, dim-num: {}, dim-0: {}, dim-1: {}.",
+                  queueData->sequence, queueData->totalLen, queueData->dataLen, queueData->readyLen,
+                  queueData->dimNum, queueData->dims[0], queueData->dims[1]);
+    }
+}
+
+/// send h2dEmb to swap in channel
+/// \param channel channel type
+/// \param h2dEmb send data
+/// \param dims shape of send data
+/// \param channelId channel's id(train/eval)
+/// \param embName table name
+/// \param batchId processed batch num
 void HDTransfer::SendMteShm(TransferChannel channel, const float*h2dEmb, int64_t dims[RMA_DIM_MAX],
                             int channelId, const string& embName, int batchId)
 {
@@ -269,8 +270,8 @@ void HDTransfer::SendMteShm(TransferChannel channel, const float*h2dEmb, int64_t
     string sendName = StringFormat("%s_%s_%d_%d",
                           embName.c_str(), TransferChannel2Str(channel).c_str(), channelId, localDeviceId);
 
-    LOG_INFO("Start sending, channelName:{}, sendBatchIdType:{}, batchId:{}, shape:[{}, {}].", sendName, sendBatchIdType,
-             batchId, dims[0], dims[1]);
+    LOG_INFO("Start sending, channelName:{}, sendBatchIdType:{}, batchId:{}, shape:[{}, {}].",
+             sendName, sendBatchIdType, batchId, dims[0], dims[1]);
 
     SendByShm(sendName, h2dEmb, dims);
 

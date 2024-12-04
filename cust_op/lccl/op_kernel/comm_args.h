@@ -21,38 +21,37 @@
 #include <limits.h>
 
 constexpr int32_t MAX_BLOCK_NUM = 48;
-constexpr int64_t FLAG_UNIT_INT_NUM = 4;    // 同步标志位占用长度 4 * 8 B
-constexpr int64_t TIME_OUT = 375000000;     // 超时等待时间   大概5分钟
+constexpr int64_t FLAG_UNIT_INT_NUM = 4;
+constexpr int64_t TIME_OUT = 375000000;     // timeout. about 5 minits
 
 constexpr int32_t RMA_UB_B4_BUFF_OFFSET = 64;
 constexpr int32_t RMA_UB_B8_BUFF_OFFSET = 128;
 constexpr int32_t RMA_UB_DATA_BUFF_OFFSET = 256;
-constexpr int32_t RMA_SHM_HEAD_LEN = 128;      // 队列头长度
-constexpr int32_t RMA_SHM_DATA_HEAD = 56;      // 数据头长度
-constexpr int32_t UNIT_COPY_SIZE = 190 * 1024; // UB复制大小
+constexpr int32_t RMA_SHM_HEAD_LEN = 128;      // length of queue head
+constexpr int32_t RMA_SHM_DATA_HEAD = 56;      // length of data's head
+constexpr int32_t UNIT_COPY_SIZE = 190 * 1024;
 constexpr int32_t RMA_SHAPE_DIM_MAX = 2;
 
 constexpr uint64_t RMA_WORK_SPACE_SIZE = 202 * 1024 * 1024;
-constexpr uint64_t SWAP_CACHE_SIZE = 100 * 1024 * 1024;  // 换入/换出数据缓存区大小为10MB
-constexpr uint64_t SWAP_IN_FLAG_OFFSET = 0;             // 换入标志位偏移
-constexpr uint64_t SWAP_IN_CACHE_OFFSET = 1 * 1024 * 1024;  // 换入数据缓存区偏移
-constexpr uint64_t SWAP_OUT_FLAG_OFFSET = 101 * 1024 * 1024; // 换出标志位偏移
-constexpr uint64_t SWAP_OUT_CACHE_OFFSET = 102 * 1024 * 1024;// 换出数据缓存区偏移
+constexpr uint64_t SWAP_CACHE_SIZE = 100 * 1024 * 1024;        // cache size
+constexpr uint64_t SWAP_IN_FLAG_OFFSET = 0;                    // offset of flags
+constexpr uint64_t SWAP_IN_CACHE_OFFSET = 1 * 1024 * 1024;     // data cache offset
+constexpr uint64_t SWAP_OUT_FLAG_OFFSET = 101 * 1024 * 1024;   // offset of flags
+constexpr uint64_t SWAP_OUT_CACHE_OFFSET = 102 * 1024 * 1024;  // data cache offset
 
-// 队列头定义
+// queue's head
 struct RmaShmHeader {
-    uint64_t queueCapacity;     // 队列容量/深度
-    uint64_t totalMemSize;      // 总内存占用
-    uint64_t seqIn;             // 入队序列号
-    uint64_t seqOut;            // 出队序列号
-    uint64_t frontOffset;       // 队列头元素偏移
-    uint64_t tailOffset;        // 队列尾元素偏移
+    uint64_t queueCapacity;     // queue's capacity or depth
+    uint64_t totalMemSize;      // total memory size(B)
+    uint64_t seqIn;             // last enqueue sequence
+    uint64_t seqOut;            // last dequeue sequence
+    uint64_t frontOffset;       // front offset
+    uint64_t tailOffset;        // tail offset
     uint64_t buffLimit;
-    uint64_t seqOutPre;
-    uint64_t frontOffsetPre;
+    uint64_t seqOutPre;         // laset pre-dequeue sequence
+    uint64_t frontOffsetPre;    // laset pre-dequeue front offset
 };
 
-// 队列头各参数偏移，8字节为单位
 struct RmaQueueOffset {
     static constexpr int32_t RMA_CAPACITY_OFFSET = 0;
     static constexpr int32_t RMA_TOTAL_SIZE_OFFSET = 1;
@@ -65,15 +64,15 @@ struct RmaQueueOffset {
     static constexpr int32_t RMA_QUEUE_FRONT_PRE_OFFSET = 8;
 };
 
-// 队列中每个元素的头定义
+// data's head
 struct RmaShmDataHead {
-    uint64_t totalLen;                  /* 每个元素的总长度，单位byte */
-    uint64_t sequence;                  /* 元素序列号 */
-    int32_t dataType;                   /* 数据类型 */
-    int32_t dimNum;                     /* dim的维度数目 */
-    int64_t dims[RMA_SHAPE_DIM_MAX];    /* shape值 */
-    uint64_t dataLen;                   /* 数据长度，单位byte */
-    uint64_t readyLen;                  /* 已准备好的数据长度，单位byte */
+    uint64_t totalLen;                  // queue item's total length(B) = dataLen + RMA_SHM_DATA_HEAD
+    uint64_t sequence;                  // item's sequence
+    int32_t dataType;                   // data type: {0:float32}
+    int32_t dimNum;
+    int64_t dims[RMA_SHAPE_DIM_MAX];
+    uint64_t dataLen;                   // data size(B)
+    uint64_t readyLen;                  // data size has been written to queue(use to pipe)
 };
 constexpr int32_t RMA_READY_LEN_OFFSET = 6;
 
