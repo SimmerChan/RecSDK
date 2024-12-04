@@ -428,6 +428,6 @@ uint8_t *GetDataAddr(RmaShmData* dataHeader)
 
 void SetReadyLen(RmaShmData* dataHeader, uint64_t value)
 {
-    uint64_t readyLen = reinterpret_cast<uint64_t *>(reinterpret_cast<uint8_t *>(dataHeader) + RMA_SHM_READY_LEN);
+    uint64_t *readyLen = reinterpret_cast<uint64_t *>(reinterpret_cast<uint8_t *>(dataHeader) + RMA_SHM_READY_LEN);
     *readyLen = value;
 }

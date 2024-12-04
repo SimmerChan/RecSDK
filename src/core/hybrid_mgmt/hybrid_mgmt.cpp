@@ -2131,7 +2131,7 @@ bool HybridMgmt::BuildH2DEmbedding(const EmbTaskInfo& info, float*& h2dEmb, int6
     if (h2dEmb == nullptr) {
         auto error = Error(ModuleName::M_HYBRID_MGMT, ErrorType::INVALID_ARGUMENT,
                            StringFormat("Failed to malloc memory from shm channel: %s.",
-                                        channelName.c_str()));
+                                        sendName.c_str()));
         LOG_ERROR(error.ToString());
         throw runtime_error(error.ToString());
     }
