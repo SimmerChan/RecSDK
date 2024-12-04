@@ -128,4 +128,4 @@ protected:
     int64_t blockNum;
 };
 
-#endif //LCCL_COLLECTIVES_H
+#endif // LCCL_COLLECTIVES_H

@@ -2114,7 +2114,7 @@ void HybridMgmt::HandleDataSwapForL3Storage(const EmbBaseInfo& info, vector<uint
     EosL1Que[info.name][info.channelId].Pushv(false);
 }
 
-bool HybridMgmt::BuildH2DEmbedding(const EmbTaskInfo& info, float*&h2dEmb, int64_t dims[2])
+bool HybridMgmt::BuildH2DEmbedding(const EmbTaskInfo& info, float*& h2dEmb, int64_t dims[RMA_DIM_MAX])
 {
     std::vector<float*> swapInAddrs = HBMSwapAddrsQue[info.name + SWAP_IN_STR][info.channelId].WaitAndPop();
     if (!isRunning) {
@@ -2126,24 +2126,15 @@ bool HybridMgmt::BuildH2DEmbedding(const EmbTaskInfo& info, float*&h2dEmb, int64
     dims[1] = info.extEmbeddingSize;
     std::string sendName = StringFormat("%s_%s_%d_%d",
         info.name.c_str(), TransferChannel2Str(TransferChannel::H2D).c_str(), info.channelId, mgmtRankInfo.deviceId);
-    RmaShmHeader *queueHeader = (RmaShmHeader *)GetHostAddr(sendName);
-    if (queueHeader == nullptr) {
+    auto dataHeader = MallocFromShm(sendName, dims);
+    h2dEmb = reinterpret_cast<float *>(GetDataAddr(dataHeader));
+    if (h2dEmb == nullptr) {
         auto error = Error(ModuleName::M_HYBRID_MGMT, ErrorType::INVALID_ARGUMENT,
-                           StringFormat("Failed to find valid shm for channel: %s device: %d.",
-                                        sendName.c_str(), mgmtRankInfo.deviceId));
+                           StringFormat("Failed to malloc memory from shm channel: %s.",
+                                        channelName.c_str()));
         LOG_ERROR(error.ToString());
         throw runtime_error(error.ToString());
     }
-    auto seq = GetShmSeq(queueHeader);
-    RmaShmData *queueData = (RmaShmData *)ShmEnqueueHeadRaw(queueHeader, dims, seq);
-    uint64_t *readyLen = reinterpret_cast<uint64_t *>(reinterpret_cast<uint8_t *>(queueData) + RMA_SHM_READY_LEN);
-
-    h2dEmb = reinterpret_cast<float *>(reinterpret_cast<uint8_t *>(queueData) + RMA_SHM_DATA_HEAD);
-    if (h2dEmb == nullptr) {
-        LOG_ERROR("malloc failed");
-        return false;
-    }
-
     TimeCost embeddingLookupTC = TimeCost();
 
     uint64_t memSize = info.extEmbeddingSize * sizeof(float);
@@ -2159,7 +2150,7 @@ bool HybridMgmt::BuildH2DEmbedding(const EmbTaskInfo& info, float*&h2dEmb, int64
             throw runtime_error(error.ToString().c_str());
         }
     }
-    *readyLen = dims[0] * memSize;
+    SetReadyLen(dataHeader, dims[0] * memSize);
     LOG_DEBUG(
         "[BuildH2DEmbedding] table:{}, channel:{}, thread:{}, accumulate batchId:{}, emb size:{}, emb samples:{}, "
         "embeddingLookupTC(ms):{}",

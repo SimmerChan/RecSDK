@@ -38,7 +38,7 @@ namespace optiling {
         if (dimNum == 1) {
             dims[0] = 1;
             dims[1] = context->GetInputShape(2)->GetStorageShape().GetDim(0);
-        } else if (dimNum == 2) {
+        } else if (dimNum == RMA_DIM_MAX) {
             dims[0] = context->GetInputTensor(1)->GetShapeSize();   // swap out index length
             dims[1] = context->GetInputShape(2)->GetStorageShape().GetDim(1);   // emb dim
         } else {

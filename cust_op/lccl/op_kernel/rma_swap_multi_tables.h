@@ -513,4 +513,4 @@ private:
     uint32_t processBlockIdx;
 };
 
-#endif //LCCL_RMA_SWAP_MULTI_TABLES_H
+#endif // LCCL_RMA_SWAP_MULTI_TABLES_H

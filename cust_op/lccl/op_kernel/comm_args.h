@@ -76,4 +76,4 @@ struct RmaShmDataHead {
 };
 constexpr int32_t RMA_READY_LEN_OFFSET = 6;
 
-#endif //LCCL_COMM_ARGS_H
+#endif // LCCL_COMM_ARGS_H

@@ -60,6 +60,9 @@ RmaShmData *ShmDequeue(RmaShmHeader* queHeader);
 int64_t GetShmElemNum(RmaShmHeader* header);
 uint64_t GetShmSeq(RmaShmHeader* queueHeader);
 void ClearShmQueue();
+RmaShmData *MallocFromShm(std::string channelName, int64_t dims[]);
+uint8_t *GetDataAddr(RmaShmData* dataHeader);
+void SetReadyLen(RmaShmData* dataHeader, uint64_t value);
 uint8_t *ShmEnqueueHeadRaw(RmaShmHeader* header, int64_t dims[], uint64_t sequence);
 uint8_t *ShmEnqueueGetLast(RmaShmHeader* header, int64_t dims[]);
 
