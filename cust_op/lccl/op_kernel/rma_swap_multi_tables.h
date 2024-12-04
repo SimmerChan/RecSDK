@@ -122,6 +122,25 @@ public:
         SyncPostprocess();
     }
 private:
+    __aicore__ inline bool Full(uint64_t dataSize)
+    {
+        dataSize += RMA_SHM_DATA_HEAD;
+        if (queueHeader.seqIn - queueHeader.seqOut >= queueHeader.queuqCapacity) {
+            return true;
+        }
+        if (queueHeader.tailOffset + dataSize > queueHeader.totalMemSize) {
+            if (dataSize + RMA_SHM_HEAD_SIZE > queueHeader.frontOffset) {
+                return true;
+            }
+        } else {
+            if (queueHeader.tailOffset < queueHeader.frontOffset &&
+                        queueHeader.tailOffset + dataSize >= queueHeader.frontOffset) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     __aicore__ inline void GetQueHead()
     {
         __ubuf__ uint64_t *ub_buff = (__ubuf__ uint64_t *)get_imm(0);
@@ -130,7 +149,7 @@ private:
         if (blockIdx < processBlockNum) {   // 换出
             do {
                 ReadHeader(svmBuffSwapOut);
-                if (queueHeader.seqIn - queueHeader.seqOut < queueHeader.queueCapacity) {
+                if (!Full(dataHeadSwapOut.dataLen)) {
                     break;
                 }
                 if (++times > TIME_OUT) {

@@ -48,6 +48,8 @@ struct RmaShmHeader {
     uint64_t frontOffset;       // 队列头元素偏移
     uint64_t tailOffset;        // 队列尾元素偏移
     uint64_t buffLimit;
+    uint64_t seqOutPre;
+    uint64_t frontOffsetPre;
 };
 
 // 队列头各参数偏移，8字节为单位
@@ -59,6 +61,8 @@ struct RmaQueueOffset {
     static constexpr int32_t RMA_QUEUE_FRONT_OFFSET = 4;
     static constexpr int32_t RMA_QUEUE_TAIL_OFFSET = 5;
     static constexpr int32_t RMA_BUFF_LIMIT_OFFSET = 6;
+    static constexpr int32_t RMA_SEQ_OUT_PRE_OFFSET = 7;
+    static constexpr int32_t RMA_QUEUE_FRONT_PRE_OFFSET = 8;
 };
 
 // 队列中每个元素的头定义

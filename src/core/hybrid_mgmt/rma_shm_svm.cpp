@@ -58,6 +58,8 @@ void InitShmHeader(RmaShmHeader *header, int64_t memSize, int32_t capacity)
     header->frontOffset = RMA_SHM_HEAD_LEN;
     header->tailOffset = RMA_SHM_HEAD_LEN;
     header->buffLimit = 0;
+    header->seqOutPre = 0;
+    header->frontOffsetPre = RMA_SHM_HEAD_LEN;
 }
 
 void ResetShmHeader(RmaShmHeader *header)
@@ -67,6 +69,8 @@ void ResetShmHeader(RmaShmHeader *header)
     header->frontOffset = RMA_SHM_HEAD_LEN;
     header->tailOffset = RMA_SHM_HEAD_LEN;
     header->buffLimit = 0;
+    header->seqOutPre = 0;
+    header->frontOffsetPre = RMA_SHM_HEAD_LEN;
 }
 
 void RmaFreeShm(std::string shmName, void *memory)
@@ -251,6 +255,25 @@ void ClearShmQueue()
     }
 }
 
+bool Full(RmaShmHeader *queHeader, uint64_t dataSize)
+{
+    dataSize += RMA_SHM_DATA_SIZE;
+    if (queHeader->seqIn - queHeader->seqOut >= queHeader->queuqCapacity) {
+        return true;
+    }
+    if (queHeader->tailOffset + dataSize > queHeader->totalMemSize) {
+        if (dataSize + RMA_SHM_HEAD_SIZE > queHeader->frontOffset) {
+            return true;
+        }
+    } else {
+        if (queHeader->tailOffset < queHeader->frontOffset &&
+                    queHeader->tailOffset + dataSize >= queHeader->frontOffset) {
+            return true;
+        }
+    }
+    return false;
+}
+
 uint8_t *ShmEnqueueHeadRaw(RmaShmHeader *header, int64_t dims[RMA_DIM_MAX], uint64_t sequence)
 {
     int64_t dataSize = dims[0] * dims[1] * sizeof(float) * 1L;
@@ -261,7 +284,7 @@ uint8_t *ShmEnqueueHeadRaw(RmaShmHeader *header, int64_t dims[RMA_DIM_MAX], uint
              header->queueCapacity, header->seqIn, header->seqOut,
              header->frontOffset, header->tailOffset, header->buffLimit);
 
-    while (header->seqIn - header->seqOut >= header->queueCapacity) {
+    while (Full(header, dataSize)) {
         this_thread::sleep_for(1ms);
     }
 
@@ -328,46 +351,57 @@ int64_t GetShmElemNum(RmaShmHeader *header)
     return queueNum;
 }
 
-
-uint8_t *ShmOutqueue(RmaShmHeader *header)
+RmaShmHeader *ShmDequeuePre(RmaShmHeader *queHeader)
 {
-    RmaShmHeader rmaHeader;
-    uint64_t dataLen = 0;
-
-    if (memcpy_s(&rmaHeader, sizeof(RmaShmHeader), header, sizeof(RmaShmHeader)) != EOK) {
-        auto error = Error(ModuleName::M_RMA_SHM_SVM, ErrorType::UNKNOWN,
-                           StringFormat("Queue head memcpy failed."));
-        LOG_ERROR(error.ToString());
-        throw runtime_error(error.ToString());
-    }
-
-    if (GetShmElemNum(&rmaHeader) <= 0) {
+    if (queHeader->seqIn - queHeader->seqOutPre <= 0) {
         return nullptr;
     }
 
-    LOG_INFO("Before outqueue, capacity: {}, seq-in: {}, seq-out: {}, offset: {}, tail: {}, buff-limit: {}.",
-             rmaHeader.queueCapacity, rmaHeader.seqIn, rmaHeader.seqOut,
-             rmaHeader.frontOffset, rmaHeader.tailOffset, rmaHeader.buffLimit);
+    LOG_DEBUG("Before pre-dequeue, seq-in: {}, seq-out: {}, front: {}, tail: {}, buff-limit: {}.",
+             queHeader->seqIn, queHeader->seqOutPre,
+             queHeader->frontOffsetPre, queHeader->tailOffset, queHeader->buffLimit);
 
-    uint8_t *lastPos = nullptr;
-    if (rmaHeader.frontOffset == rmaHeader.buffLimit) { // 队列尾部的数据都已读取完，需要返回到首部
-        header->frontOffset = RMA_SHM_HEAD_LEN;
-        header->buffLimit = 0;
-        lastPos = reinterpret_cast<uint8_t *>(header) + RMA_SHM_HEAD_LEN;
-    } else {
-        lastPos = reinterpret_cast<uint8_t *>(header) + rmaHeader.frontOffset;
+    if (queHeader->frontOffsetPre == queHeader->buffLimit) {
+        queHeader->frontOffsetPre = RMA_SHM_HEAD_LEN;
     }
 
-    dataLen = ((RmaShmData *)lastPos)->totalLen;
-    header->frontOffset += dataLen;
+    RmaShmData *dataHeader = reinterpret_cast<RmaShmData *>(
+                                reinterpret_cast<uint8_t *>(queHeader) + queHeader->frontOffsetPre);
 
-    LOG_INFO("After outqueue, seq-in: {}, seq-out: {}, data-len: {}, offset: {}, tail: {}, buff-limit: {}.",
-             header->seqIn, header->seqOut, dataLen, header->frontOffset, header->tailOffset, header->buffLimit);
+    uint64_t dataLen = dataHeader->totalLen;
+    queHeader->frontOffsetPre += dataLen;
+    queHeader->seqOutPre = dataHeader->sequence;
 
-    return lastPos;
+    LOG_DEBUG("After pre-dequeue, data-len: {}, seq-in: {}, seq-out: {}, front: {}, tail: {}, buff-limit: {}.",
+             dataLen, queHeader->seqIn, queHeader->seqOutPre,
+             queHeader->frontOffsetPre, queHeader->tailOffset, queHeader->buffLimit);
+    return dataHeader;
 }
 
-void SetShmQueueSeqOut(RmaShmHeader *header, uint64_t sequence)
+RmaShmHeader *ShmDequeue(RmaShmHeader *queHeader)
 {
-    header->seqOut = sequence;
+    if (GetShmElemNum(queHeader) <= 0) {
+        return nullptr;
+    }
+
+    LOG_DEBUG("Before dequeue, seq-in: {}, seq-out: {}, front: {}, tail: {}, buff-limit: {}.",
+             queHeader->seqIn, queHeader->seqOut,
+             queHeader->frontOffset, queHeader->tailOffset, queHeader->buffLimit);
+
+    if (queHeader->frontOffset == queHeader->buffLimit) {
+        queHeader->frontOffset = RMA_SHM_HEAD_LEN;
+        queHeader->buffLimit = 0;
+    }
+
+    RmaShmData *dataHeader = reinterpret_cast<RmaShmData *>(
+                                reinterpret_cast<uint8_t *>(queHeader) + queHeader->frontOffset);
+
+    uint64_t dataLen = dataHeader->totalLen;
+    queHeader->frontOffset += dataLen;
+    queHeader->seqOut = dataHeader->sequence;
+
+    LOG_DEBUG("After dequeue, data-len: {}, seq-in: {}, seq-out: {}, front: {}, tail: {}, buff-limit: {}.",
+             dataLen, queHeader->seqIn, queHeader->seqOut,
+             queHeader->frontOffset, queHeader->tailOffset, queHeader->buffLimit);
+    return dataHeader;
 }

@@ -1274,6 +1274,9 @@ void HybridMgmt::EmbeddingReceiveAndUpdateDDR(int batchId, int index, const EmbI
         return;
     }
     EmbeddingUpdateDDR(info, ptr, swapOutAddrs);
+    if (GlobalEnv::useShmSwap) {
+        hdTransfer->DequeueShm(TransferChannel::D2H, info.channelId, info.name);
+    }
 }
 
 void HybridMgmt::EmbeddingLookUpAndSendL3Storage(int batchId, int index, const EmbInfo& embInfo, int channelId)
@@ -1590,7 +1593,7 @@ bool HybridMgmt::EmbeddingReceiveDDR(const EmbTaskInfo& info, float*& ptr, vecto
     } else {
         size = hdTransfer->RecvAcl(TransferChannel::D2H, info.channelId, info.name, info.threadIdx, info.batchId);
     }
-    if (size == 0) {
+    if (size == 0 && !GlobalEnv::useShmSwap) {
         LOG_WARN("Recv empty data, table:{}, channelId:{}, accumulate batchId:{}.",
                  info.name, info.channelId, info.batchId);
         return false;

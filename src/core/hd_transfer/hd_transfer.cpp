@@ -179,9 +179,8 @@ void HDTransfer::SendByShm(string &name, const float *sendData, int64_t dims[RMA
 
     RmaShmData *queueData = (RmaShmData *)ShmEnqueueGetLast(queueHeader, dims);
     if (queueData != nullptr) {
-        LOG_DEBUG("SendByShm data-seq: {}, total-len: {}, data-len: {} readyLen: {}",
-                  queueData->sequence, queueData->totalLen, queueData->dataLen, queueData->readyLen);
-        LOG_DEBUG("SendByShm dim-num: {}, dim-0: {}, dim-1: {}",
+        LOG_DEBUG("SendByShm data-seq: {}, total-len: {}, data-len: {} readyLen: {}, dim-num: {}, dim-0: {}, dim-1: {}.",
+                  queueData->sequence, queueData->totalLen, queueData->dataLen, queueData->readyLen,
                   queueData->dimNum, queueData->dims[0], queueData->dims[1]);
     }
 }
@@ -270,15 +269,15 @@ void HDTransfer::SendMteShm(TransferChannel channel, const float*h2dEmb, int64_t
     string sendName = StringFormat("%s_%s_%d_%d",
                           embName.c_str(), TransferChannel2Str(channel).c_str(), channelId, localDeviceId);
 
-    LOG_INFO("hd transfer send:{}, {} batchId:{}", sendName, sendBatchIdType, batchId);
-    LOG_INFO("hd transfer send:{}, dim-0:{}, dim-1:{}", sendName, dims[0], dims[1]);
+    LOG_INFO("Start sending, channelName:{}, sendBatchIdType:{}, batchId:{}, shape:[{}, {}].", sendName, sendBatchIdType,
+             batchId, dims[0], dims[1]);
 
     SendByShm(sendName, h2dEmb, dims);
 
     // Records used channel name in training and used to send EOS later.
     RecordTrainingChannelStr(channel, channelId);
 
-    LOG_DEBUG("hd transfer send end:{}, {} batchId:{}.", sendName, sendBatchIdType, batchId);
+    LOG_DEBUG("End sending, channelName:{}, sendBatchIdType:{}, batchId:{}.", sendName, sendBatchIdType, batchId);
 #endif
 }
 
@@ -289,24 +288,14 @@ size_t HDTransfer::RecvByShm(RmaShmHeader *queueHeader, float*& ptr, int64_t &di
         return 0;
     }
 
-    auto readElem = ShmOutqueue(queueHeader);
-    if (readElem != nullptr) {
-        RmaShmData queueData;
-        if (memcpy_s(&queueData, sizeof(RmaShmData), readElem, sizeof(RmaShmData)) != EOK) {
-            auto error = Error(ModuleName::M_HD_TRANSFER, ErrorType::UNKNOWN,
-                               "Memcpy_s failed when read shm queue item's head.");
-            LOG_ERROR(error.ToString());
-            throw runtime_error(error.ToString());
-        }
+    RmaShmData *dataHead = ShmDequeuePre(queueHeader);
+    if (dataHead != nullptr) {
+        LOG_DEBUG("Shm recv data-seq: {}, total-len: {}, dim-num: {}, dim-0: {}, dim-1: {}.",
+                  queueData->sequence, queueData->totalLen, queueData->dimNum, queueData->dims[0], queueData->dims[1]);
 
-        LOG_DEBUG("shm recv data-seq: {}, total-len: {}", queueData.sequence, queueData.totalLen);
-        LOG_DEBUG("dim-num: {}, dim-0: {}, dim-1: {}", queueData.dimNum, queueData.dims[0], queueData.dims[1]);
-
-        SetShmQueueSeqOut(queueHeader, queueData.sequence);
-        LOG_DEBUG("shm outqueue success");
-        ptr = (float*)(readElem + sizeof(RmaShmData));
-        dim0 = queueData.dims[0];
-        return queueData.dataLen;
+        ptr = (float*)(reinterpret_cast<uint8_t *>(dataHead) + sizeof(RmaShmData));
+        dim0 = dataHead->dims[0];
+        return dataHead->dataLen;
     } else {
         emptyFlag = true;
         return 0;
@@ -325,7 +314,7 @@ size_t HDTransfer::RecvMteShm(TransferChannel channel, int channelId, const stri
 
     string recvName = StringFormat("%s_%s_%d_%d", embName.c_str(), TransferChannel2Str(channel).c_str(),
                                    channelId, localDeviceId);
-    LOG_DEBUG("shm recv:{}, {} batchId:{}, deviceId:{}", recvName, recvBatchIdType, batchId, localDeviceId);
+    LOG_DEBUG("Start receive, channelName:{}, recvBatchIdType:{}, batchId:{}.", recvName, recvBatchIdType, batchId);
     TimeCost tc = TimeCost();
 
     auto *shmAddr = GetHostAddr(recvName);
@@ -341,10 +330,6 @@ size_t HDTransfer::RecvMteShm(TransferChannel channel, int channelId, const stri
         bool emptyFlag = false;
         ret = RecvByShm((RmaShmHeader *)shmAddr, ptr, dim0, emptyFlag);
         if (!emptyFlag) {
-            if (ret == 0) {
-                ret = 1; // 特殊处理空数据
-            }
-            LOG_INFO("hd transfer recv success:{}, {} batchId:{}, size:{}", recvName, recvBatchIdType, batchId, ret);
             break;
         }
 
@@ -353,9 +338,27 @@ size_t HDTransfer::RecvMteShm(TransferChannel channel, int channelId, const stri
         }
     } while (true);
 
-    LOG_INFO("end hd transfer recv:{}, {} batchId:{}, cost:{}ms", recvName, recvBatchIdType, batchId, tc.ElapsedMS());
+    LOG_INFO("End receive, channelName:{}, recvBatchIdType{}, batchId:{}, cost:{}ms.", recvName, recvBatchIdType,
+             batchId, tc.ElapsedMS());
 #endif
     return ret;
+}
+
+void HDTransfer::DequeueShm(TransferChannel channel, int channelId, const string& embName)
+{
+    string recvName = StringFormat("%s_%s_%d_%d", embName.c_str(), TransferChannel2Str(channel).c_str(),
+                                   channelId, localDeviceId);
+    RmaShmHeader *queueHeader = (RmaShmHeader *)GetHostAddr(recvName);
+    if (queueHeader == nullptr) {
+        auto error = Error(ModuleName::M_HD_TRANSFER, ErrorType::INVALID_ARGUMENT,
+                           StringFormat("Failed to find valid shm for channel: %s device: %d.",
+                                        recvName.c_str(), localDeviceId));
+        LOG_ERROR(error.ToString());
+        throw runtime_error(error.ToString());
+    }
+    if (ShmDequeue(queueHeader) == nullptr) {
+        LOG_DEBUG("Shm queue {} is already empty.", recvName);
+    }
 }
 
 /// 接收从device发送过来的数据（D2H）；使用原生的aclTDT接口

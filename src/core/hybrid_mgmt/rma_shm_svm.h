@@ -36,6 +36,8 @@ struct RmaShmHeader {
     uint64_t frontOffset;   /* 可访问的内存地址偏移量 */
     uint64_t tailOffset;    /* 可写入数据的地址偏移量，从队列尾部写入 */
     uint64_t buffLimit;     /* 队列尾部无法写入数据的偏移，标识队列需要返回到头部进行写入 */
+    uint64_t seqOutPre;        /* 出队预取的序列号，只在host多线程出队用 */
+    uint64_t frontOffsetPre;   /* 出队预取的头指针，只在host多线程出队用 */
 };
 
 // 队列中每个元素的头定义
@@ -49,12 +51,13 @@ struct RmaShmData {
     uint64_t readyLen;         /* 已准备好的数据长度，单位byte */
 };
 
+bool Full(RmaShmHeader *queHeader, uint64_t dataSize);
 int64_t GetShmAddr(std::string name, int rankId, int capacity);
 void *GetHostAddr(std::string name);
 void FreeShmAddr(int deviceId);
-uint8_t *ShmOutqueue(RmaShmHeader *header);
+RmaShmHeader *ShmDequeuePre(RmaShmHeader *queHeader);
+RmaShmHeader *ShmDequeue(RmaShmHeader *queHeader);
 int64_t GetShmElemNum(RmaShmHeader *header);
-void SetShmQueueSeqOut(RmaShmHeader *header, uint64_t sequence);
 uint64_t GetShmSeq(RmaShmHeader *queueHeader);
 void ClearShmQueue();
 uint8_t *ShmEnqueueHeadRaw(RmaShmHeader *header, int64_t dims[], uint64_t sequence);
