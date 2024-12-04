@@ -257,12 +257,12 @@ void ClearShmQueue()
 
 bool Full(RmaShmHeader *queHeader, uint64_t dataSize)
 {
-    dataSize += RMA_SHM_DATA_SIZE;
+    dataSize += RMA_SHM_DATA_HEAD;
     if (queHeader->seqIn - queHeader->seqOut >= queHeader->queuqCapacity) {
         return true;
     }
     if (queHeader->tailOffset + dataSize > queHeader->totalMemSize) {
-        if (dataSize + RMA_SHM_HEAD_SIZE > queHeader->frontOffset) {
+        if (dataSize + RMA_SHM_HEAD_LEN > queHeader->frontOffset) {
             return true;
         }
     } else {

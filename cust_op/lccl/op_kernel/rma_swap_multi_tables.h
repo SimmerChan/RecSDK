@@ -129,7 +129,7 @@ private:
             return true;
         }
         if (queueHeader.tailOffset + dataSize > queueHeader.totalMemSize) {
-            if (dataSize + RMA_SHM_HEAD_SIZE > queueHeader.frontOffset) {
+            if (dataSize + RMA_SHM_HEAD_LEN > queueHeader.frontOffset) {
                 return true;
             }
         } else {

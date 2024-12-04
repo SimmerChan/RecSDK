@@ -107,7 +107,7 @@ public:
     size_t RecvMteShm(TransferChannel channel, int channelId, const string& embName, float*& ptr, int64_t &dim0,
                       int batchId);
 
-    void DequeueShm(TransferChannel channel, int channelId, const string& embName)
+    void DequeueShm(TransferChannel channel, int channelId, const string& embName);
 
     void Destroy();
 
