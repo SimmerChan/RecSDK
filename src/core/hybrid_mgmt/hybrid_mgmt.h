@@ -270,11 +270,9 @@ private:
 
     bool EmbeddingLookUpDDR(const EmbTaskInfo& info, vector<Tensor>& h2dEmb);
 
-    bool EmbeddingLookUpDDR(const EmbTaskInfo& info, float*& h2dEmb, int64_t dims[]);
+    bool EmbeddingBuildAndSendDDR(const EmbTaskInfo& info, float*& h2dEmb, int64_t dims[]);
 
     void EmbeddingSendDDR(const EmbTaskInfo& info, vector<Tensor>& h2dEmb);
-
-    void EmbeddingSendDDR(const EmbTaskInfo& info, float*& h2dEmb, int64_t dims[]);
 
     bool EmbeddingReceiveL3Storage(const EmbTaskInfo& info, float*& ptr, vector<float*>& swapOutAddrs, int64_t& dims0);
 
@@ -291,7 +289,7 @@ private:
     void HandleDataSwapForL3Storage(const EmbBaseInfo& info, vector<uint64_t>& swapInKeys,
                                     vector<uint64_t>& swapOutKeys);
 
-    bool BuildH2DEmbedding(const EmbTaskInfo& info, float*& h2dEmb, int64_t dims[]);
+    bool BuildAndSendH2DEmbedding(const EmbTaskInfo& info, float*& h2dEmb, int64_t dims[]);
 
     bool BuildH2DEmbedding(const EmbTaskInfo& info, vector<Tensor>& h2dEmb);
 

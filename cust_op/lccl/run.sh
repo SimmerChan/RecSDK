@@ -31,7 +31,6 @@ fi
 
 cp -rf op_kernel custom_op/
 cp -rf op_host custom_op/
-#cp -rf tf_plugin/*.cc custom_op/framework/tf_plugin/
 
 cd custom_op
 

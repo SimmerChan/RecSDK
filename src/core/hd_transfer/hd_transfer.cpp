@@ -219,69 +219,6 @@ void HDTransfer::Send(TransferChannel channel, const vector<Tensor>& tensors, in
 #endif
 }
 
-void HDTransfer::SendByShm(string& name, const float* sendData, int64_t dims[RMA_DIM_MAX])
-{
-    LOG_DEBUG("rma send, shm-name {}", name.c_str());
-
-    if (sendData == nullptr) {
-        auto error = Error(ModuleName::M_HD_TRANSFER, ErrorType::NULL_PTR, "Send data can not be nullptr.");
-        LOG_ERROR(error.ToString());
-        throw runtime_error(error.ToString());
-    }
-
-    auto *shmAddr = GetHostAddr(name);
-    if (shmAddr == nullptr) {
-        auto error = Error(ModuleName::M_HD_TRANSFER, ErrorType::INVALID_ARGUMENT,
-                           StringFormat("Failed to find valid shm for channel: %s device: %d.",
-                                        name.c_str(), localDeviceId));
-        LOG_ERROR(error.ToString());
-        throw runtime_error(error.ToString());
-    }
-    RmaShmHeader *queueHeader = (RmaShmHeader *)shmAddr;
-
-    RmaShmData *queueData = (RmaShmData *)ShmEnqueueGetLast(queueHeader, dims);
-    if (queueData != nullptr) {
-        LOG_DEBUG("SendByShm data-seq: {}, total-len: {}, data-len: {} readyLen: {}, dim-num: {}, dim-0: {}, dim-1: {}.",
-                  queueData->sequence, queueData->totalLen, queueData->dataLen, queueData->readyLen,
-                  queueData->dimNum, queueData->dims[0], queueData->dims[1]);
-    }
-}
-
-/// send h2dEmb to swap in channel
-/// \param channel channel type
-/// \param h2dEmb send data
-/// \param dims shape of send data
-/// \param channelId channel's id(train/eval)
-/// \param embName table name
-/// \param batchId processed batch num
-void HDTransfer::SendMteShm(TransferChannel channel, const float* h2dEmb, int64_t dims[RMA_DIM_MAX],
-                            int channelId, const string& embName, int batchId)
-{
-    if (!running) {
-        return;
-    }
-    if (h2dEmb == nullptr) {
-        return;
-    }
-
-#ifndef GTEST
-
-    string sendBatchIdType = "accumulate";
-    string sendName = StringFormat("%s_%s_%d_%d",
-                          embName.c_str(), TransferChannel2Str(channel).c_str(), channelId, localDeviceId);
-
-    LOG_INFO("Start sending, channelName:{}, sendBatchIdType:{}, batchId:{}, shape:[{}, {}].",
-             sendName, sendBatchIdType, batchId, dims[0], dims[1]);
-
-    SendByShm(sendName, h2dEmb, dims);
-
-    // Records used channel name in training and used to send EOS later.
-    RecordTrainingChannelStr(channel, channelId);
-
-    LOG_DEBUG("End sending, channelName:{}, sendBatchIdType:{}, batchId:{}.", sendName, sendBatchIdType, batchId);
-#endif
-}
-
 size_t HDTransfer::RecvByShm(RmaShmHeader *queueHeader, float*& ptr, int64_t &dim0, bool &emptyFlag)
 {
     if ((queueHeader->seqIn - queueHeader->seqOut) == 0) {
@@ -294,13 +231,13 @@ size_t HDTransfer::RecvByShm(RmaShmHeader *queueHeader, float*& ptr, int64_t &di
         LOG_DEBUG("Shm recv data-seq: {}, total-len: {}, dim-num: {}, dim-0: {}, dim-1: {}.",
                   dataHead->sequence, dataHead->totalLen, dataHead->dimNum, dataHead->dims[0], dataHead->dims[1]);
 
-        ptr = (float*)(reinterpret_cast<uint8_t *>(dataHead) + sizeof(RmaShmData));
+        ptr = (float*)GetDataAddr(dataHead);
         dim0 = dataHead->dims[0];
+        emptyFlag = false;
         return dataHead->dataLen;
-    } else {
-        emptyFlag = true;
-        return 0;
     }
+    emptyFlag = true;
+    return 0;
 }
 
 size_t HDTransfer::RecvMteShm(TransferChannel channel, int channelId, const string& embName,

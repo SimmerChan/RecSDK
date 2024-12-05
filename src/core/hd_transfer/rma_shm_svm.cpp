@@ -100,8 +100,6 @@ bool IsPrefix(const std::string& str, const std::string& prefix)
 uint32_t GetRegisterFlag(RmaDevModel mode)
 {
     switch (mode) {
-        case RmaDevModel::MEM_MAP_DEV:
-            return HOST_MEM_MAP_DEV;
         case RmaDevModel::SVM_MAP_DEV:
             return HOST_SVM_MAP_DEV;
         default:
@@ -325,22 +323,6 @@ uint8_t *ShmEnqueueHeadRaw(RmaShmHeader* header, int64_t dims[RMA_DIM_MAX], uint
     LOG_INFO("After enqueue, capacity: {}, seq-in: {}, seq-out: {}, head: {}, tail: {}, buff-limit: {}.",
              header->queueCapacity, header->seqIn, header->seqOut,
              header->frontOffset, header->tailOffset, header->buffLimit);
-    return lastPos;
-}
-
-uint8_t *ShmEnqueueGetLast(RmaShmHeader* header, int64_t dims[RMA_DIM_MAX])
-{
-    int64_t dataSize = dims[0] * dims[1] * sizeof(float) * 1L;
-    int64_t totalSize = dataSize + RMA_SHM_DATA_HEAD;
-    uint8_t *lastPos = nullptr;
-
-    int64_t queueNum = header->seqIn - header->seqOut;
-    if (queueNum == 0) {
-        return nullptr;
-    }
-
-    lastPos = reinterpret_cast<uint8_t *>(header) + (header->tailOffset - totalSize);
-
     return lastPos;
 }
 

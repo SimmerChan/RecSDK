@@ -22,7 +22,6 @@ constexpr int32_t RMA_SHM_READY_LEN = 48; // offset of readyLen in item's head
 constexpr int32_t RMA_DIM_MAX = 2;
 
 enum class RmaDevModel {
-    MEM_MAP_DEV,    // 910_93 need update driver to support
     SVM_MAP_DEV,    // 910_93
     PCIE_TH_DEV     // 910B
 };
@@ -64,6 +63,5 @@ RmaShmData *MallocFromShm(std::string channelName, int64_t dims[]);
 uint8_t *GetDataAddr(RmaShmData* dataHeader);
 void SetReadyLen(RmaShmData* dataHeader, uint64_t value);
 uint8_t *ShmEnqueueHeadRaw(RmaShmHeader* header, int64_t dims[], uint64_t sequence);
-uint8_t *ShmEnqueueGetLast(RmaShmHeader* header, int64_t dims[]);
 
 #endif  // RMA_SHM_SVM_H

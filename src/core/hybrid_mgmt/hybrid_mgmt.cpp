@@ -1231,13 +1231,12 @@ void HybridMgmt::EmbeddingLookUpAndSendDDR(int batchId, int index, const EmbInfo
     if (GlobalEnv::useShmSwap) {
         float *h2dEmb = nullptr;
         int64_t dims[2] = {0};
-        auto isSuccess = EmbeddingLookUpDDR(info, h2dEmb, dims);
+        auto isSuccess = EmbeddingBuildAndSendDDR(info, h2dEmb, dims);
         if (!isSuccess) {
             LOG_DEBUG("HybridMgmt is not running when [LookUpAndSendDDR], table:{}, batchId:{}, channel:{}",
                       embInfo.name, batchId, channelId);
             return;
         }
-        EmbeddingSendDDR(info, h2dEmb, dims);
     } else {
         vector<Tensor> h2dEmb;
         auto isSuccess = EmbeddingLookUpDDR(info, h2dEmb);
@@ -1712,7 +1711,7 @@ bool HybridMgmt::EmbeddingLookUpDDR(const EmbTaskInfo& info, vector<Tensor>& h2d
     return true;
 }
 
-bool HybridMgmt::EmbeddingLookUpDDR(const EmbTaskInfo& info, float*&h2dEmb, int64_t dims[2])
+bool HybridMgmt::EmbeddingBuildAndSendDDR(const EmbTaskInfo& info, float*& h2dEmb, int64_t dims[2])
 {
     string currentKey = MakeSwapCVName(info.threadIdx, info.name, info.channelId);
     std::unique_lock<std::mutex> lastUpdateFinishLocker(lastUpdateFinishMutex[currentKey]);
@@ -1731,7 +1730,7 @@ bool HybridMgmt::EmbeddingLookUpDDR(const EmbTaskInfo& info, float*&h2dEmb, int6
         return false;
     }
 
-    bool isSuccess = BuildH2DEmbedding(info, h2dEmb, dims);
+    bool isSuccess = BuildAndSendH2DEmbedding(info, h2dEmb, dims);
     if (!isSuccess) {
         return false;
     }
@@ -1756,26 +1755,6 @@ void HybridMgmt::EmbeddingSendDDR(const EmbTaskInfo& info, vector<Tensor>& h2dEm
     TimeCost SendTC = TimeCost();
     // 区分通道发送
     hdTransfer->Send(TransferChannel::H2D, h2dEmb, info.channelId, info.name, info.batchId);
-    hybridMgmtBlock->lastSendFinishStep[info.name][info.channelId]++;
-    string nextKey = MakeSwapCVName(info.cvNotifyIndex, info.name, info.channelId);
-    lastSendFinishCV[nextKey].notify_all();
-
-    LOG_DEBUG(MGMT + "In swap thread, finish send h2d embedding, table:{}, channelId:{}, batchId:{}, accumulate "
-                     "batchId:{}, thread:{}, SendH2DEmbTC(ms):{}",
-              info.name, info.channelId, hybridMgmtBlock->h2dSendBatchId[info.name][info.channelId], info.batchId,
-              info.threadIdx, SendTC.ElapsedMS());
-    hybridMgmtBlock->h2dSendBatchId[info.name][info.channelId]++;
-}
-
-void HybridMgmt::EmbeddingSendDDR(const EmbTaskInfo& info, float*& h2dEmb, int64_t dims[2])
-{
-    string currentKey = MakeSwapCVName(info.threadIdx, info.name, info.channelId);
-    std::unique_lock<std::mutex> lastSendFinishLocker(lastSendFinishMutex[currentKey]);
-    lastSendFinishCV[currentKey].wait(lastSendFinishLocker, [info, this] {
-        return (hybridMgmtBlock->lastSendFinishStep[info.name][info.channelId] == info.batchId) || mutexDestroy;
-    });
-    TimeCost SendTC = TimeCost();
-    hdTransfer->SendMteShm(TransferChannel::H2D, h2dEmb, dims, info.channelId, info.name, info.batchId);
     hybridMgmtBlock->lastSendFinishStep[info.name][info.channelId]++;
     string nextKey = MakeSwapCVName(info.cvNotifyIndex, info.name, info.channelId);
     lastSendFinishCV[nextKey].notify_all();
@@ -2114,7 +2093,7 @@ void HybridMgmt::HandleDataSwapForL3Storage(const EmbBaseInfo& info, vector<uint
     EosL1Que[info.name][info.channelId].Pushv(false);
 }
 
-bool HybridMgmt::BuildH2DEmbedding(const EmbTaskInfo& info, float*& h2dEmb, int64_t dims[RMA_DIM_MAX])
+bool HybridMgmt::BuildAndSendH2DEmbedding(const EmbTaskInfo& info, float*& h2dEmb, int64_t dims[RMA_DIM_MAX])
 {
     std::vector<float*> swapInAddrs = HBMSwapAddrsQue[info.name + SWAP_IN_STR][info.channelId].WaitAndPop();
     if (!isRunning) {
@@ -2152,7 +2131,7 @@ bool HybridMgmt::BuildH2DEmbedding(const EmbTaskInfo& info, float*& h2dEmb, int6
     }
     SetReadyLen(dataHeader, dims[0] * memSize);
     LOG_DEBUG(
-        "[BuildH2DEmbedding] table:{}, channel:{}, thread:{}, accumulate batchId:{}, emb size:{}, emb samples:{}, "
+        "[BuildAndSendH2DEmbedding] table:{}, channel:{}, thread:{}, accumulate batchId:{}, emb size:{}, emb samples:{}, "
         "embeddingLookupTC(ms):{}",
         info.name.c_str(), info.channelId, info.threadIdx, info.batchId, swapInAddrs.size(),
         FloatPtrToLimitStr(h2dEmb, swapInAddrs.size() * info.extEmbeddingSize), embeddingLookupTC.ElapsedMS());

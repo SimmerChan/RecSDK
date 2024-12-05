@@ -102,8 +102,6 @@ public:
     size_t RecvAcl(TransferChannel channel, int channelId, const string& embName, int embeddingThreadId, int batchId);
     size_t RecvOffsetsAcl(TransferChannel channel, int channelId, const string& embName);
 
-    void SendMteShm(TransferChannel channel, const float* h2dEmb, int64_t dims[], int channelId,
-                    const string& embName, int batchId);
     size_t RecvMteShm(TransferChannel channel, int channelId, const string& embName, float*& ptr, int64_t& dim0,
                       int batchId);
 
@@ -121,7 +119,6 @@ private:
     void CreateChannel(const uint32_t localRankId, const string& embName, const int channelNum);
     void CreateChannelForIncrementalCkpt(const uint32_t localRankId, const string& embName, const int channelNum);
     void RecordTrainingChannelStr(TransferChannel channel, const int channelId);
-    void SendByShm(string &name, const float* sendData, int64_t dims[]);
     size_t RecvByShm(RmaShmHeader* queueHeader, float*& ptr, int64_t& dim0, bool& emptyFlag);
 
     std::unordered_map<std::string, acltdtChannelHandle*> transferChannels;
