@@ -36,6 +36,7 @@ union LcalSocketAddress {
     struct sockaddr_in6 sin6;
 };
 
+// 区分高位和低位信息
 constexpr uint64_t LCAL_MAGIC = 0xdddd0000dddd0000;
 struct LcalBootstrapHandle {
     uint64_t magic;

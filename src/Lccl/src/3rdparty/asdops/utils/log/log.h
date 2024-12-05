@@ -53,7 +53,7 @@ public:
     {
         static int level = -1;
         if (level == -1) {
-            const char *env_val = std::getenv("ASDOPS_LOG_LEVEL");
+            const char *env_val = std::getenv("MXREC_LOG_LEVEL");
 
             if (env_val == nullptr) {
                 level = LogLevel::INFO;
