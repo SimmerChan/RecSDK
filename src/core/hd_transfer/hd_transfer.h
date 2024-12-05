@@ -25,7 +25,7 @@ See the License for the specific language governing permissions and
 #include "acl_channel.h"
 #include "utils/common.h"
 #include "utils/config.h"
-#include "hybrid_mgmt/rma_shm_svm.h"
+#include "rma_shm_svm.h"
 
 #ifndef TDT_CREATE_CHANNEL
 #define TDT_CREATE_CHANNEL acltdtCreateChannelWithCapacity

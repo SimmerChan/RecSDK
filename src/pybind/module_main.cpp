@@ -18,7 +18,7 @@ See the License for the specific language governing permissions and
 #include <pybind11/stl.h>
 
 #include "hybrid_mgmt/hybrid_mgmt.h"
-#include "hybrid_mgmt/rma_shm_svm.h"
+#include "hd_transfer/rma_shm_svm.h"
 
 namespace py = pybind11;
 using namespace MxRec;
