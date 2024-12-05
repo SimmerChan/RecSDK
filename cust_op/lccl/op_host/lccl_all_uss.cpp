@@ -41,6 +41,12 @@ namespace optiling {
         auto outShape = context->GetInputShape(2)->GetStorageShape();
         tiling.set_outShape(outShape.GetDim(0));
 
+        int deterministic = 0;
+        const char *envDeterministic = getenv("USE_DETERMINISTIC");
+        if (envDeterministic != nullptr) {
+            deterministic = std::stoi(envDeterministic);
+        }
+        tiling.set_deterministic(deterministic);
         tiling.set_magic(magic);
 
         context->SetBlockDim(32);

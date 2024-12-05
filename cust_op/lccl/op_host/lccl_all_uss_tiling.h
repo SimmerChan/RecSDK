@@ -21,6 +21,7 @@ namespace optiling {
     TILING_DATA_FIELD_DEF(int64_t, rank);
     TILING_DATA_FIELD_DEF(int64_t, rankSize);
     TILING_DATA_FIELD_DEF(int64_t, magic);
+    TILING_DATA_FIELD_DEF(int64_t, deterministic);
     TILING_DATA_FIELD_DEF(int64_t, dim);
     TILING_DATA_FIELD_DEF(int64_t, outShape);
     END_TILING_DATA_DEF;

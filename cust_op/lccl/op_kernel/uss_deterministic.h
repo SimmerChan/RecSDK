@@ -23,7 +23,7 @@
 using namespace AscendC;
 
 template<typename T>
-class AllUss : public Collectives {
+class AllUssDeterministic : public Collectives {
 
     constexpr static int INVALID_RANK_NUM = 0xFFFFFFFF;  // 非法rank
     constexpr static int64_t SHARE_QUE_DEPTH = 16;  // 单个共享队列深度
@@ -36,7 +36,7 @@ class AllUss : public Collectives {
     constexpr static int64_t SYNC_FLAG_START = 128; // 用于确定性计算的同步符号位置
 
 public:
-    __aicore__ inline AllUss(int rank, int rankSize, uint32_t extraFlag)
+    __aicore__ inline AllUssDeterministic(int rank, int rankSize, uint32_t extraFlag)
             : Collectives(rank, rankSize, extraFlag)
     {
     }
