@@ -390,7 +390,7 @@ RmaShmData *ShmDequeue(RmaShmHeader* queHeader)
 
 RmaShmData *MallocFromShm(std::string channelName, int64_t dims[RMA_DIM_MAX])
 {
-    RmaShmHeader *queueHeader = (RmaShmHeader *)GetHostAddr(channelName);
+    RmaShmHeader *queueHeader = reinterpret_cast<RmaShmHeader *>(GetHostAddr(channelName));
     if (queueHeader == nullptr) {
         auto error = Error(ModuleName::M_HYBRID_MGMT, ErrorType::INVALID_ARGUMENT,
                            StringFormat("Failed to find valid shm for channel: %s.",
@@ -399,7 +399,7 @@ RmaShmData *MallocFromShm(std::string channelName, int64_t dims[RMA_DIM_MAX])
         throw runtime_error(error.ToString());
     }
     auto seq = GetShmSeq(queueHeader);
-    RmaShmData *dataHeader = (RmaShmData *)ShmEnqueueHeadRaw(queueHeader, dims, seq);
+    RmaShmData *dataHeader = reinterpret_cast<RmaShmData *>(ShmEnqueueHeadRaw(queueHeader, dims, seq));
     return dataHeader;
 }
 

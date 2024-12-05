@@ -1230,7 +1230,7 @@ void HybridMgmt::EmbeddingLookUpAndSendDDR(int batchId, int index, const EmbInfo
                         .name = embInfo.name};
     if (GlobalEnv::useShmSwap) {
         float *h2dEmb = nullptr;
-        int64_t dims[2] = {0};
+        int64_t dims[RMA_DIM_MAX] = {0};
         auto isSuccess = EmbeddingBuildAndSendDDR(info, h2dEmb, dims);
         if (!isSuccess) {
             LOG_DEBUG("HybridMgmt is not running when [LookUpAndSendDDR], table:{}, batchId:{}, channel:{}",
@@ -1711,7 +1711,7 @@ bool HybridMgmt::EmbeddingLookUpDDR(const EmbTaskInfo& info, vector<Tensor>& h2d
     return true;
 }
 
-bool HybridMgmt::EmbeddingBuildAndSendDDR(const EmbTaskInfo& info, float*& h2dEmb, int64_t dims[2])
+bool HybridMgmt::EmbeddingBuildAndSendDDR(const EmbTaskInfo& info, float*& h2dEmb, int64_t dims[RMA_DIM_MAX])
 {
     string currentKey = MakeSwapCVName(info.threadIdx, info.name, info.channelId);
     std::unique_lock<std::mutex> lastUpdateFinishLocker(lastUpdateFinishMutex[currentKey]);

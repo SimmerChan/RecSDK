@@ -231,7 +231,7 @@ size_t HDTransfer::RecvByShm(RmaShmHeader *queueHeader, float*& ptr, int64_t &di
         LOG_DEBUG("Shm recv data-seq: {}, total-len: {}, dim-num: {}, dim-0: {}, dim-1: {}.",
                   dataHead->sequence, dataHead->totalLen, dataHead->dimNum, dataHead->dims[0], dataHead->dims[1]);
 
-        ptr = (float*)GetDataAddr(dataHead);
+        ptr = reinterpret_cast<float*>(GetDataAddr(dataHead));
         dim0 = dataHead->dims[0];
         emptyFlag = false;
         return dataHead->dataLen;
@@ -286,7 +286,7 @@ void HDTransfer::DequeueShm(TransferChannel channel, int channelId, const string
 {
     string recvName = StringFormat("%s_%s_%d_%d", embName.c_str(), TransferChannel2Str(channel).c_str(),
                                    channelId, localDeviceId);
-    RmaShmHeader *queueHeader = (RmaShmHeader *)GetHostAddr(recvName);
+    RmaShmHeader *queueHeader = reinterpret_cast<RmaShmHeader *>(GetHostAddr(recvName));
     if (queueHeader == nullptr) {
         auto error = Error(ModuleName::M_HD_TRANSFER, ErrorType::INVALID_ARGUMENT,
                            StringFormat("Failed to find valid shm for channel: %s device: %d.",
