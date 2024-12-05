@@ -35,22 +35,23 @@ using namespace std;
 const std::string MGMT = "\033[32m[Mgmt]\033[0m ";
 const int PING_PONG_SIZE = 6;
 
-enum class TransferChannel {
-    D2H,
-    RESTORE,
-    RESTORE_SECOND,
-    ALL2ALL,
-    UNIQKEYS,
-    LOOKUP,
-    MASK,
-    EVICT,
-    H2D,
-    SWAP,
-    SAVE_D2H,
-    SAVE_H2D,
-    KEY_D2H,
-    INVALID,
-};
+    enum class TransferChannel {
+        D2H,
+        RESTORE,
+        RESTORE_SECOND,
+        ALL2ALL,
+        UNIQKEYS,
+        LOOKUP,
+        MASK,
+        EVICT,
+        H2D,
+        SWAP,
+        SAVE_D2H,
+        SAVE_H2D,
+        RECVSHAPE,
+        KEY_D2H,
+        INVALID,
+    };
 
 inline string TransferChannel2Str(TransferChannel e)
 {
@@ -71,6 +72,8 @@ inline string TransferChannel2Str(TransferChannel e)
             return "mask";
         case TransferChannel::EVICT:
             return "evict";
+        case TransferChannel::RECVSHAPE:
+            return "recvshape";
         case TransferChannel::H2D:
             return "h2d";
         case TransferChannel::SWAP:

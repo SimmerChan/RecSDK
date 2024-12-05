@@ -1,0 +1,20 @@
+{
+    "server_count":"1",
+    "server_list":[
+        {
+            "device":[
+                { "device_id":"0", "device_ip":"192.168.100.100", "rank_id":"0" },
+                { "device_id":"1", "device_ip":"192.168.100.101", "rank_id":"1" },
+                { "device_id":"2", "device_ip":"192.168.100.102", "rank_id":"2" },
+                { "device_id":"3", "device_ip":"192.168.100.103", "rank_id":"3" },
+                { "device_id":"4", "device_ip":"192.168.100.104", "rank_id":"4" },
+                { "device_id":"5", "device_ip":"192.168.100.105", "rank_id":"5" },
+                { "device_id":"6", "device_ip":"192.168.100.106", "rank_id":"6" },
+                { "device_id":"7", "device_ip":"192.168.100.107", "rank_id":"7" }
+            ],
+            "server_id":"90.90.3.112"
+        }
+    ],
+    "status":"completed",
+    "version":"1.0"
+}
