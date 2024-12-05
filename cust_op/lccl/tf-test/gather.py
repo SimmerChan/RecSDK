@@ -18,6 +18,8 @@
 import argparse
 import os
 import time
+import sys
+import subprocess
 
 import mxrec_pybind
 import numpy as np
@@ -25,8 +27,14 @@ import tensorflow as tf
 from mpi4py import MPI
 from tensorflow.core.protobuf.rewriter_config_pb2 import RewriterConfig
 
+python_path = subprocess.check_output(['which', 'python3.7']).decode('utf-8').strip()
+python_parent_dir = os.path.dirname(os.path.dirname(python_path))
+site_packages_dir = os.path.join(python_parent_dir, 'lib', 'python3.7', 'site-packages')
+mx_rec_dir = os.path.join(site_packages_dir, 'mx_rec')
+print("Mx_rec_dir: ",mx_rec_dir)
+
 tf.compat.v1.disable_eager_execution()
-comm_pybind = tf.load_op_library("/usr/local/python3.7.5/lib/python3.7/site-packages/mx_rec/libasc/libasc_ops.so")
+comm_pybind = tf.load_op_library(mx_rec_dir + "/libasc/libasc_ops.so")
 
 
 def set_ascend_env(rank, rank_size, local_rank_size, host, file=None, dev_id=-1, dev_index=1):
