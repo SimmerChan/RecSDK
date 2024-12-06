@@ -283,7 +283,6 @@ private:
     {
         __ubuf__ uint64_t *ub_buff = (__ubuf__ uint64_t *)get_imm(RMA_UB_B8_BUFF_OFFSET);
         __ubuf__ uint8_t *ub_data_buff = (__ubuf__ uint8_t *)get_imm(RMA_UB_DATA_BUFF_OFFSET);
-        __gm__ uint64_t *getnext_count = (__gm__ uint64_t *)swapFlagSwapIn;
         __gm__ uint64_t *update_flag = (__gm__ uint64_t *)swapFlagSwapIn + processBlockIdx * FLAG_UNIT_INT_NUM;
 
         __gm__ uint64_t *lookUpFlags[MAX_BLOCK_NUM];  // flags of swap out lookup table
@@ -364,9 +363,9 @@ private:
 
         if (sizeOfData > 0) {
             uint64_t updateCount = 0;   // emb count
-            uint64_t getnextCount = 0;  // emb count
             uint64_t readyLen = 0;      // Byte
-            uint64_t copyOffset = processBlockIdx * pipeBlockSize;    // Byte
+            uint64_t copyOffset = processBlockIdx * pipeBlockSize;  // Byte
+            uint64_t getnextCount = copyOffset / embDim;            // emb count
             cacheRear = (copyOffset / embDim) % cacheCapacity;
             while (copyOffset < sizeOfData) {
                 if ((readyLen < sizeOfData && readyLen < copyOffset + pipeBlockSize) ||
