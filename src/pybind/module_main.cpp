@@ -18,6 +18,7 @@ See the License for the specific language governing permissions and
 #include <pybind11/stl.h>
 
 #include "hybrid_mgmt/hybrid_mgmt.h"
+#include "hd_transfer/rma_shm_svm.h"
 
 namespace py = pybind11;
 using namespace MxRec;
@@ -69,6 +70,8 @@ uint32_t GetDeviceCount()
 
 PYBIND11_MODULE(mxrec_pybind, m)
 {
+    m.def("get_shm_mem", &GetShmAddr, py::arg("name"), py::arg("rankId"), py::arg("capacity"));
+
     m.def("get_ub_hot_size", &GetUBHotSize, py::arg("device_id"));
 
     m.def("get_logic_id", &GetLogicID, py::arg("physic_id"));
