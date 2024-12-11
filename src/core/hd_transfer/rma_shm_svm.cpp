@@ -133,7 +133,7 @@ void *RmaCreateShm(std::string shmName, uint64_t memSize, int deviceId, int capa
         LOG_INFO("Create memory {}, size: {} bytes successfully.", shmName.c_str(), memSize);
     } else {
         struct shmid_ds buf;
-        key_t key = static_cast<key_t>(std::hash<std::string> {}(shmName));
+        key_t key = IPC_PRIVATE;    // create new shared memory every time
         int shmId = -1;
         if (GlobalEnv::hugeTlbEnable) {
             shmId = shmget(key, memSize, IPC_CREAT | 0666 | SHM_HUGETLB);
