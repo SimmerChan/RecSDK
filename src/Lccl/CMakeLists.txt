@@ -45,6 +45,7 @@ include_directories(${MPI_INCLUDE_PATH}
         ${ASCEND_HOME_PATH}/${ARCH}-linux/include/experiment/msprof/
         ${CMAKE_CURRENT_SOURCE_DIR}/src/3rdparty/
         ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/src/3rdparty
         )
 link_directories(${ASCEND_HOME_PATH}/${ARCH}-linux/lib64/)
 

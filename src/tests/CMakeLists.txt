@@ -28,7 +28,7 @@ if(NOT EMOCK_LIBRARY)
 endif()
 message("EMOCK_LIBRARY: " ${EMOCK_LIBRARY})
 # src
-file(GLOB_RECURSE MXREC_SRC ${PROJECT_SOURCE_DIR}/core/*.cpp)
+file(GLOB_RECURSE MXREC_SRC ${PROJECT_SOURCE_DIR}/core/*.cpp ${PROJECT_SOURCE_DIR}/Lccl/src/*.cpp)
 message("MXREC_SRC: " ${MXREC_SRC})
 file(GLOB_RECURSE MXREC_TEST_SRC ./*.cpp)
 message("MXREC_TEST_SRC: " ${MXREC_TEST_SRC})
@@ -44,11 +44,25 @@ if(NOT SECUREC_PATH)
 endif()
 
 include_directories(PRIVATE .)
+
+IF (CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "aarch64")
+    SET(ARCH aarch64)
+ELSEIF (CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "x86_64")
+    SET(ARCH x86_64)
+ENDIF ()
 target_include_directories(test_main
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/../core
+        ${CMAKE_CURRENT_SOURCE_DIR}/../Lccl
+        ${CMAKE_CURRENT_SOURCE_DIR}/../Lccl/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/../Lccl/tools/socket
+        ${CMAKE_CURRENT_SOURCE_DIR}/../Lccl/src/3rdparty
         ${ASCEND_DRIVER_PATH}/include
         ${SECUREC_PATH}/include
+        ${ASCEND_PATH}/include/
+        ${ASCEND_PATH}/${ARCH}-linux/include/hccl
+        ${ASCEND_PATH}/${ARCH}-linux/include/experiment/runtime
+        ${ASCEND_PATH}/${ARCH}-linux/include/experiment/msprof
 )
 
 target_link_directories(test_main
@@ -70,6 +84,8 @@ target_link_libraries(test_main PUBLIC ${TF_LIB}
         securec
         OpenMP::OpenMP_CXX ${HDF5_CXX_LIBRARIES}  ${MPI_CXX_LIBRARIES}
         ${PYTHON_LIBRARY} drvdsmi_host
+        ${ASCEND_PATH}/lib64
+        c_sec
         -ldl
         )
 

@@ -19,6 +19,7 @@
 #include <vector>
 #include <string>
 #include <memory>
+#include <ctime>
 
 #include <sys/socket.h>
 #include <ifaddrs.h>
@@ -74,6 +75,7 @@ public:
 
 private:
     void GetIpAndPort();
+    bool isPortOccupied(int port);
     int Prepare();
     int Listen();
     int Accept();

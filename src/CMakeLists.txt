@@ -66,6 +66,7 @@ include_directories(${ASCEND_PATH}/compiler/include)
 include_directories(${ASCEND_PATH}/include/hccl)
 include_directories(${PROJECT_SOURCE_DIR}/core)
 include_directories(${PROJECT_SOURCE_DIR}/Lccl/include)
+include_directories(${PROJECT_SOURCE_DIR}/Lccl/src/3rdparty)
 
 if (DEFINED TF_PATH)
     message("== TF_PATH: ${TF_PATH}")

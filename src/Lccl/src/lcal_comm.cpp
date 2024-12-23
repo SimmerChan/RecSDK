@@ -26,7 +26,6 @@
 #include "asdops/utils/log/log.h"
 #include "../tools/socket/lcal_sock_exchange.h"
 
-#ifdef LCAL_REPO
 #include "runtime/kernel.h"
 #include "runtime/mem.h"
 #include "runtime/dev.h"
@@ -41,7 +40,6 @@
 #define AsdRtDeviceGetSocVersion rtGetSocVersion
 #define AsdRtDeviceGetDeviceInfo rtGetDeviceInfo
 #define ASDRT_SUCCESS 0
-#endif
 
 constexpr int AI_CORE_NUM_24 = 24;
 constexpr int AI_CORE_NUM_20 = 20;

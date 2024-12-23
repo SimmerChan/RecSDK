@@ -11,36 +11,36 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
  ==============================================================================*/
-
-#ifndef OCK_UNIQUE_TEST_H
-#define OCK_UNIQUE_TEST_H
-
 #include <mpi.h>
-#include <gtest/gtest.h>
 #include <vector>
 #include <unordered_set>
 #include <map>
-#include "gtest/gtest.h"
-#include "gmock/gmock.h"
+#include <sstream>
+#include <fstream>
+#include <gtest/gtest.h>
+#include <gmock/gmock.h>
 #include "lcal_comm.h"
-
 
 using namespace std;
 using namespace Lcal;
 
+class LcclTest : public ::testing::Test {
+    protected:
+        void SetUp() override {};
 
-class LcclTest : public testing::Test {
-protected:
-    LcclTest() {};
-    ~LcclTest() {};
-    static void SetUpTestCase();
-    static void TearDownTestCase();
-
-
-    void SetUp() {}
-
-    void TearDown() {}
+        void TearDown() override {};
 };
 
-
-#endif // OCK_UNIQUE_TEST_H
+TEST_F(LcclTest, Initialization)
+{
+    std::cout << "===========Initialization start=============" << std::endl;
+    int rank;
+    int rankSize;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &rankSize);
+    aclError aclRet = aclrtSetDevice(rank);
+    Lcal::LcalComm c(rank, rankSize);
+    auto ret = c.Init();
+    ASSERT_EQ(ret, 0);
+    std::cout << "===========Initialization end=============" << std::endl;
+}
