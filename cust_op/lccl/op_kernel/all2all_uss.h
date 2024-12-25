@@ -18,6 +18,7 @@
 #define LCCL_ALLUSS_H
 
 #include "kernel_operator.h"
+
 #include "collectives.h"
 #include "ipc_queue.h"
 
@@ -86,7 +87,7 @@ public:
             revLen += sendCountMatrixGm.GetValue(j * rankSize + rank);
         }
         pipe.InitBuffer(tempBuffer, PING_PONG_SIZE, UB_SINGLE_DMA_SIZE_MAX / PING_PONG_SIZE);
-        outputGt.SetGlobalBuffer((__gm__ T*)output, outShape*dim* sizeof(T));
+        outputGt.SetGlobalBuffer((__gm__ T*)output, outShape * dim * sizeof(T));
 
         int initSize = outShape * dim / coreNumsPerStage / PING_PONG_SIZE;
         if (blockIdx < blockNum) {
@@ -100,9 +101,10 @@ public:
             pipe_barrier(PIPE_ALL);
             __ubuf__ T* inputUBList = (__ubuf__ T*)get_imm(0);
             while (initSize > 0) {
-                int copyLen = (initSize > UB_SINGLE_DMA_SIZE_MAX/sizeof(T)) ? UB_SINGLE_DMA_SIZE_MAX / sizeof(T) : initSize;
+                int copyLen = (initSize > UB_SINGLE_DMA_SIZE_MAX / sizeof(T)) ?
+                              UB_SINGLE_DMA_SIZE_MAX / sizeof(T) : initSize;
                 copy_ubuf_to_gm_align_b32((__gm__ T*)output + initSize * blockIdx,
-                                            (__ubuf__ T*)inputUBList, 0, 1, copyLen * sizeof(T), 0, 0, 0, 0);
+                                          (__ubuf__ T*)inputUBList, 0, 1, copyLen * sizeof(T), 0, 0, 0, 0);
                 initSize -= copyLen;
             }
             pipe_barrier(PIPE_ALL);
@@ -193,7 +195,7 @@ private:
             }
             // 当前核负责的ipcQue
             writeQue[i].Init(&sync, magic, shareAddrs[targetRank[i]] + IPC_DATA_OFFSET +
-                                           (rank * coreNumPerRank + blockIdx % coreNumPerRank) * queSize, queLen, queElemLen);
+                             (rank * coreNumPerRank + blockIdx % coreNumPerRank) * queSize, queLen, queElemLen);
 
             // 当前核负责的数据长度和偏移
             sendOffset[i] = 0;

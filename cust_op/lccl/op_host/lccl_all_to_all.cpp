@@ -15,10 +15,10 @@
  */
 
 #include "lccl_all_to_all_tiling.h"
+
 #include "register/op_def_registry.h"
 
 static int magic=9;
-static int first=1;
 namespace optiling {
     static ge::graphStatus TilingFunc(gert::TilingContext* context)
     {
@@ -27,9 +27,9 @@ namespace optiling {
         auto sendBuff = context->GetInputTensor(0);
         auto* attrs = context->GetAttrs();
         const auto* rank_ = attrs->GetAttrPointer<int64_t>(0);
-        const auto* rank_Size_ = attrs->GetAttrPointer<int64_t>(1);
+        const auto* rankSize_ = attrs->GetAttrPointer<int64_t>(1);
         int rank = static_cast<int>(*rank_);
-        int rankSize = static_cast<int>(*rank_Size_);
+        int rankSize = static_cast<int>(*rankSize_);
 
         tiling.set_rank(rank);
         tiling.set_rankSize(rankSize);
@@ -46,10 +46,6 @@ namespace optiling {
         tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
         context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
 
-        if(first==1){
-            std::cout << "all2all ; magic = " << magic << '\n';
-            first=0;
-        }
         return ge::GRAPH_SUCCESS;
     }
 }

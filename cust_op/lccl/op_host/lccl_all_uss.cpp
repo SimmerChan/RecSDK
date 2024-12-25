@@ -15,10 +15,10 @@
  */
 
 #include "lccl_all_uss_tiling.h"
+
 #include "register/op_def_registry.h"
 
 static int magic=10;
-static int first=1;
 namespace optiling {
     static ge::graphStatus TilingFunc(gert::TilingContext* context)
     {
@@ -32,7 +32,7 @@ namespace optiling {
         int rank = static_cast<int>(*rank_);
         int rankSize = static_cast<int>(*rank_Size_);
 
-        const gert::StorageShape* rev_shape = context->GetInputShape(4); // get emb row num
+        const gert::StorageShape* rev_shape = context->GetInputShape(4); // Get embedding row num.
 
         tiling.set_rank(rank);
         tiling.set_dim(dim);
@@ -42,7 +42,7 @@ namespace optiling {
         tiling.set_outShape(outShape.GetDim(0));
 
         int deterministic = 0;
-        const char *envDeterministic = getenv("USE_DETERMINISTIC");
+        const char *envDeterministic = getenv("LCCL_DETERMINISTIC");
         if (envDeterministic != nullptr) {
             deterministic = std::stoi(envDeterministic);
         }
@@ -58,10 +58,6 @@ namespace optiling {
         tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
         context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
 
-        if(first==1){
-            std::cout << "alluss ; magic = " << magic << '\n';
-            first=0;
-        }
         return ge::GRAPH_SUCCESS;
     }
 }

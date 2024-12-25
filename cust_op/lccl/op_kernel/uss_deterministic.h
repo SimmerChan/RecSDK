@@ -174,7 +174,7 @@ private:
             }
             // 当前核负责的ipcQue
             writeQue[i].Init(&sync, magic, shareAddrs[targetRank[i]] + IPC_DATA_OFFSET +
-                                           (rank * coreNumPerRank + blockIdx%coreNumPerRank) * queSize, queLen, queElemLen);
+                             (rank * coreNumPerRank + blockIdx%coreNumPerRank) * queSize, queLen, queElemLen);
 
             // 当前核负责的数据长度和偏移
             sendOffset[i] = 0;
@@ -344,7 +344,7 @@ private:
                     CpUB2GM(((__gm__ T*)outputPtr + outIdx * dim), buffer + i * dim, dim * sizeof(T));
                 }
                 set_flag(PIPE_MTE3, PIPE_MTE2, eventId);
-                remain -= UB_SINGLE_DMA_SIZE_MAX/2;
+                remain -= UB_SINGLE_DMA_SIZE_MAX / 2;
                 outOffset += totalNum;
                 loop += 1;
             }

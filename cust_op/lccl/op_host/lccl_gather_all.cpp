@@ -15,11 +15,11 @@
  */
 
 #include "lccl_gather_all_tiling.h"
+
 #include "register/op_def_registry.h"
 
 
 static int magic=8;
-static int first=1;
 namespace optiling {
     static ge::graphStatus TilingFunc(gert::TilingContext* context)
     {
@@ -50,10 +50,6 @@ namespace optiling {
         tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
         context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
 
-        if(first==1){
-            std::cout << "gather_all ; magic = " << magic << '\n';
-            first=0;
-        }
         return ge::GRAPH_SUCCESS;
     }
 }

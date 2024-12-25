@@ -34,7 +34,7 @@ class All2All : public Collectives {
     constexpr static int64_t CONSUMER_CORE = 2;  // 消费组，负责从共享内存读出数据，share->output
 
 public:
-    __aicore__ inline All2AllVCBigData91093(int rank, int rankSize, uint32_t extraFlag)
+    __aicore__ inline All2All(int rank, int rankSize, uint32_t extraFlag)
             : Collectives(rank, rankSize, extraFlag)
     {
     }
@@ -159,8 +159,8 @@ private:
                 continue;
             }
             // 当前核负责的ipcQue
-            writeQue[i].Init(&sync, magic, shareAddrs[rank] + IPC_DATA_OFFSET +
-                                           groupCoreIdx[i] * queSize, queLen, queElemLen);
+            writeQue[i].Init(&sync, magic, shareAddrs[rank] + IPC_DATA_OFFSET + groupCoreIdx[i] * queSize,
+                             queLen, queElemLen);
 
             // 当前核负责的数据长度和偏移
             sendOffset[i] = 0;
