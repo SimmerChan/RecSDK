@@ -35,7 +35,7 @@ endif ()
 message("ASCEND_HOME_PATH: ${ASCEND_HOME_PATH}")
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-error=deprecated-declarations -Wno-deprecated-declarations -fPIC -fstack-protector-all")
-add_link_options(-Wl,-z,relro,-z,now)
+add_link_options(-Wl,-z,relro,-z,now,-z,noexecstack)
 add_link_options(-s)
 
 include_directories(${MPI_INCLUDE_PATH}
