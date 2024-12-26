@@ -18,22 +18,21 @@
 import argparse
 import os
 import time
-import sys
 import subprocess
 
-import mxrec_pybind
 import numpy as np
 import tensorflow as tf
 from mpi4py import MPI
 from tensorflow.core.protobuf.rewriter_config_pb2 import RewriterConfig
 
+import mxrec_pybind
+
+
+tf.compat.v1.disable_eager_execution()
 python_path = subprocess.check_output(['which', 'python3.7']).decode('utf-8').strip()
 python_parent_dir = os.path.dirname(os.path.dirname(python_path))
 site_packages_dir = os.path.join(python_parent_dir, 'lib', 'python3.7', 'site-packages')
 mx_rec_dir = os.path.join(site_packages_dir, 'mx_rec')
-print("Mx_rec_dir: ",mx_rec_dir)
-
-tf.compat.v1.disable_eager_execution()
 comm_pybind = tf.load_op_library(mx_rec_dir + "/libasc/libasc_ops.so")
 
 
@@ -93,10 +92,23 @@ class WideDeep:
                                                           rank=rank_id,
                                                           rank_size=rank_size,
                                                           dim=dim)
-            all2all_result = tf.reshape(all2all_result_, [-1, dim])
-
-            self.all2all_result = all2all_result[0]
+            self.all2all_result = tf.reshape(all2all_result_, [-1, dim])
         return self.all2all_result
+
+
+def verify_result(real_result:np.array, golden:np.array):
+    loss = 1e-4
+    minimum = 10e-10
+    
+    result = np.abs(real_result - golden)
+    deno = np.maximum(np.abs(real_result), np.abs(golden))
+    result_atol = np.less_equal(result, loss)
+    result_rtol = np.less_equal(result / np.add(deno, minimum), loss)
+    if not result_rtol.all() and not result_atol.all():
+        if np.sum(result_rtol == 0) > real_result.size * loss and \
+            np.sum(result_atol == 0) > real_result.size * loss:
+            raise ValueError("precision error")
+    print("all2all precision test pass")
 
 
 if __name__ == "__main__":
@@ -112,6 +124,7 @@ if __name__ == "__main__":
     rank_size = comm.Get_size()
     print(f"rank {rank_id}/{rank_size}")
     local_rank_id = rank_id % rank_size
+    set_ascend_env(rank_id, rank_size, local_rank_size, host=args.hosts, file=args.hccl_json)
 
     peer_mem_ = mxrec_pybind.get_peer_mem(rank_id, rank_size)
     print("python peer_mem_ = ", peer_mem_)
@@ -130,71 +143,70 @@ if __name__ == "__main__":
     custom_op.parameter_map["hcom_parallel"].b = False
     custom_op.parameter_map["op_execute_timeout"].i = 500
 
-    global_start_time = time.time()
-
     dim = 128
-    emb_len = 2048 * 512
+    emb_len = 2048 * rank_size
     # 8x8 matrix
-    random_matrix = np.full((8, 8), emb_len // 8 * dim)
+    send_rows_per_rank = emb_len // rank_size
+    send_count_matrix = np.full((rank_size, rank_size), emb_len // rank_size * dim)
 
     send_count = 0
     for i in range(rank_size):
-        send_count += int(random_matrix[local_rank_id][i])
+        send_count += int(send_count_matrix[local_rank_id][i])
 
     rev_count = 0
     for i in range(rank_size):
-        rev_count += int(random_matrix[i][local_rank_id])
+        rev_count += int(send_count_matrix[i][local_rank_id])
 
-    random_send_data = np.random.rand(send_count, 1).astype(np.float32).reshape(-1, dim)
+    random_send_data_np = np.random.rand(send_count, 1).astype(np.float32).reshape(-1, dim)
+    for i in range(random_send_data_np.shape[0]):
+        for j in range(len(random_send_data_np[i])):
+            random_send_data_np[i][j] = rank_id * 100000 + i
 
-    random_send_data = tf.convert_to_tensor(random_send_data, dtype=tf.float32)
-    random_matrix = tf.convert_to_tensor(random_matrix, dtype=tf.int64)
+    random_send_data = tf.convert_to_tensor(random_send_data_np, dtype=tf.float32)
+    send_count_matrix = tf.convert_to_tensor(send_count_matrix, dtype=tf.int64)
     peer_mem = tf.convert_to_tensor(peer_mem_, dtype=tf.int64)
     shape_vec = tf.constant([1] * (rev_count // dim), dtype=tf.int32)
     shape_vec = tf.convert_to_tensor(shape_vec, dtype=tf.int32)
     shape_vec = tf.reshape(shape_vec, [-1, 1])
 
-    set_ascend_env(rank_id, rank_size, local_rank_size, host=args.hosts, file=args.hccl_json)
 
     # model run parameter
-    stop_steps = 100
-    # Hybrid end
-    tf.compat.v1.disable_eager_execution()
-    ######################################
-    model = WideDeep(random_send_data, random_matrix)
+    stop_steps = 1
+    model = WideDeep(random_send_data, send_count_matrix)
 
     with tf.compat.v1.Session(config=sess_config) as sess:
         sess.run(tf.compat.v1.global_variables_initializer())
 
-        print("============start=============")
+        print("============start all2all test=============")
         # start run loop
-        total_start_time = time.time()
         current_steps = 0
         train_finished = False
         while not train_finished:
             try:
                 current_steps += 1
                 print("current step = ", current_steps)
-                #
-                run_dict = {
-                    "all2all_result": model.all2all_result,
-                }
-                if current_steps == 1:
-                    total_start_time = time.time()
+                run_dict = {"all2all_result": model.all2all_result}
                 start_time = time.time()
                 results = sess.run(fetches=run_dict)
-                print("all2all_result: ", np.array(results.get("all2all_result")))
-
                 end_time = time.time()
-                print(f"current steps: {current_steps}, step time:{(end_time - start_time) * 1000}")
-                if current_steps <= 200:
-                    total_start_time = time.time()
+                print(f"current steps: {current_steps}, time cost(ms):{(end_time - start_time) * 1000}")
                 if current_steps >= stop_steps:
                     comm.Barrier()
-                    print("train finished 0")
+                    print("all2all finished")
                     train_finished = True
-            except tf.errors.OutOfRangeError:
+            except tf.errors.OutOfRangeError as e:
                 comm.Barrier()
-                print("train finished 1")
+                print("all2all test failed with error:{e}")
                 train_finished = True
         MPI.Finalize()
+
+    # check precision
+    expect = random_send_data_np
+    for i in range(expect.shape[0]):
+        for j in range(len(expect[i])):
+            expect[i][j] = int(i / send_rows_per_rank) * 100000 + \
+                           (i % send_rows_per_rank) + send_rows_per_rank * rank_id
+    out = np.array(results.get("all2all_result"))
+    verify_result(out, expect)
+
+    print("============end all2all test=============")
