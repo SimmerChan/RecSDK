@@ -22,7 +22,7 @@ Rec SDK作为面向互联网市场搜索推荐广告的应用使能SDK产品，�
 
 | 软件                | 版本                | 下载链接                                                                                                                  |
 |-------------------|-------------------|-----------------------------------------------------------------------------------------------------------------------|
-| MindX Rec SDK     | 6.0.RC3           | https://gitee.com/ascend/mxrec/releases/tag/6.0.RC3                                                                   |
+| Rec SDK           | 6.0.RC3           | https://gitee.com/ascend/mxrec/releases/tag/6.0.RC3                                                                   |
 | CANN              | 8.0.RC3.alpha003  | https://www.hiascend.com/developer/download/community/result?module=tf+cann&tf=8.0.RC3.alpha003&cann=8.0.RC3.alpha003 |
 | TensorFlowAdapter | 8.0.RC3.alpha003  | https://www.hiascend.com/developer/download/community/result?module=tf+cann&tf=8.0.RC3.alpha003&cann=8.0.RC3.alpha003 |
 | Driver            | 23.0.0            | https://www.hiascend.com/hardware/firmware-drivers/community?product=4&model=26&cann=All&driver=1.0.25.alpha          |
