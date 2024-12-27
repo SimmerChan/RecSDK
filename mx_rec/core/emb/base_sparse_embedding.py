@@ -75,11 +75,9 @@ class BaseSparseEmbedding(metaclass=abc.ABCMeta):
 
         self._set_slice_vocab_size()
 
-        self.rank_id_ = get_rank_id()
-        self.rank_size_ = get_rank_size()
         self.peer_mem = None
         if ConfigInitializer.get_instance().use_lccl:
-            peer_mem_ = mxrec_pybind.get_peer_mem(self.rank_id_, self.rank_size_)
+            peer_mem_ = mxrec_pybind.get_peer_mem(self._rank_id, self._device_id, self._rank_size)
             logger.debug("python peer_mem_ %s.", peer_mem_)
             self.peer_mem = tf.constant(peer_mem_, dtype=tf.int64)
 

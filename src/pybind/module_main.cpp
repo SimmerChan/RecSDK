@@ -70,15 +70,16 @@ uint32_t GetDeviceCount()
 
 static bool firstGetPeerMem = true;
 
-vector<int64_t> GetPeerMem(int rank, int rank_size)
+vector<int64_t> GetPeerMem(int rankId, int deviceId, int rankSize)
 {
-    int localRankId = rank%16;
+    int maxRankPerNode = 16;
+    int localRankId = rankId % maxRankPerNode;
     auto ret = aclrtSetDevice(static_cast<int32_t>(localRankId));
     if (ret != ACL_ERROR_NONE) {
         LOG_ERROR("Set device failed, device_id:{}", localRankId);
         return {};
     }
-    static Lcal::LcalComm c(rank, rank_size);
+    static Lcal::LcalComm c(rankId, rankSize, vector<int>(){deviceId});
     if (firstGetPeerMem) {
         c.Init();
     }
@@ -92,7 +93,7 @@ vector<int64_t> GetPeerMem(int rank, int rank_size)
 
 PYBIND11_MODULE(mxrec_pybind, m)
 {
-    m.def("get_peer_mem", &GetPeerMem, py::arg("rank"), py::arg("rank_size"));
+    m.def("get_peer_mem", &GetPeerMem, py::arg("rank_id"), py::arg("device_id"), py::arg("rank_size"));
 
     m.def("get_ub_hot_size", &GetUBHotSize, py::arg("device_id"));
 
