@@ -75,7 +75,6 @@ public:
 
 private:
     void GetIpAndPort();
-    bool isPortOccupied(int port);
     int Prepare();
     int Listen();
     int Accept();

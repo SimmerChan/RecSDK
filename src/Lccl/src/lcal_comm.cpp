@@ -524,8 +524,9 @@ int LcalComm::InitCommMem()
         return LCAL_ERROR_INTERNAL;
     }
 
-    ASD_LOG(DEBUG) << "rank " << rank_ << " mem name: " << name;
+    ASD_LOG(DEBUG) << "rank:" << rank_ << ", peermem name:" << name << ", name len:" << name.size();
     char names[LCAL_MAX_RANK_SIZE][IPC_NAME_SIZE];
+    name.resize(IPC_NAME_SIZE);
     ret = GetName(name, names);
     if (ret != LCAL_SUCCESS) {
         ASD_LOG(ERROR) << "GetName error! ret: " << ret;
@@ -626,6 +627,7 @@ LcalComm::~LcalComm()
         delete socketExchange_;
         socketExchange_ = nullptr;
     }
+    FreePeerMem(commArgsPtr_);
 }
 
 LcalComm::LcalComm(int rank, int rankSize) : rank_(rank), rankSize_(rankSize)
