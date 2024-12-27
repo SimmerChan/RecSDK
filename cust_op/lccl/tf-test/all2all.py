@@ -121,12 +121,13 @@ if __name__ == "__main__":
 
     comm = MPI.COMM_WORLD
     rank_id = comm.Get_rank()
+    device_id = rank_id
     rank_size = comm.Get_size()
     print(f"rank {rank_id}/{rank_size}")
     local_rank_id = rank_id % rank_size
     set_ascend_env(rank_id, rank_size, local_rank_size, host=args.hosts, file=args.hccl_json)
 
-    peer_mem_ = mxrec_pybind.get_peer_mem(rank_id, rank_size)
+    peer_mem_ = mxrec_pybind.get_peer_mem(rank_id, device_id, rank_size)
     print("python peer_mem_ = ", peer_mem_)
     peer_mem = tf.constant(peer_mem_, dtype=tf.int64)
 

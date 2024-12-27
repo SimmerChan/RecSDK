@@ -28,14 +28,14 @@ export TF_CPP_MIN_LOG_LEVEL=3
 export ASCEND_INSTALL_PATH=/usr/local/Ascend/ascned-toolkit/latest/
 export ASCEND_HOME_PATH=${ASCEND_INSTALL_PATH}
 export PATH=${mpi_path}/bin:$PATH
-export PYTHONPATH=/usr/local/python3.7.5/lib/python3.7/site-packages/mx_rec/libasc:/usr/local/python3.7.5/lib/python3.7/site-packages/:${PYTHONPATH}:/usr/local/Ascend/ascend-toolkit/latest/python/site-packages:{so_path}
+export PYTHONPATH=/usr/local/python3.7.5/lib/python3.7/site-packages/mx_rec/libasc:/usr/local/python3.7.5/lib/python3.7/site-packages/:${PYTHONPATH}:/usr/local/Ascend/ascend-toolkit/latest/python/site-packages
 export LD_PRELOAD=/lib64/libgomp.so.1
 export TOOLCHAIN_HOME=${ASCEND_HOME_PATH}/toolkit
 export HCCL_BUFFSIZE=1
-export LD_LIBRARY_PATH=/usr/local/Ascend/tfplugin/8.0.RC2/python/site-packages/npu_bridge/:/usr/local/lib:/usr/local/python3.7.5/lib/python3.7/site-packages/mx_rec/libasc:$LD_LIBRARY_PATH
+# export LD_LIBRARY_PATH=/usr/local/Ascend/tfplugin/8.0.RC2/python/site-packages/npu_bridge/:/usr/local/lib:/usr/local/python3.7.5/lib/python3.7/site-packages/mx_rec/libasc:$LD_LIBRARY_PATH
 
 export BETTER_EXCEPTIONS=1
-mpi_args='-x BIND_INFO="0:48 48:48 96:48" -x SPDLOG_LEVEL=debug -bind-to none'
+mpi_args='-x BIND_INFO="0:48 48:48 96:48" -x MXREC_LOG_LEVEL=DEBUG -bind-to none'
 
 rm *txt > /dev/null
 rm -rf /root/ascend/log/*

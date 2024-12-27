@@ -18,22 +18,20 @@
 import argparse
 import os
 import time
-import sys
 import subprocess
 
-import mxrec_pybind
 import numpy as np
 import tensorflow as tf
 from mpi4py import MPI
 from tensorflow.core.protobuf.rewriter_config_pb2 import RewriterConfig
 
+import mxrec_pybind
+
+tf.compat.v1.disable_eager_execution()
 python_path = subprocess.check_output(['which', 'python3.7']).decode('utf-8').strip()
 python_parent_dir = os.path.dirname(os.path.dirname(python_path))
 site_packages_dir = os.path.join(python_parent_dir, 'lib', 'python3.7', 'site-packages')
 mx_rec_dir = os.path.join(site_packages_dir, 'mx_rec')
-print("Mx_rec_dir: ",mx_rec_dir)
-
-tf.compat.v1.disable_eager_execution()
 comm_pybind = tf.load_op_library(mx_rec_dir + "/libasc/libasc_ops.so")
 
 
@@ -79,24 +77,40 @@ def set_ascend_env(rank, rank_size, local_rank_size, host, file=None, dev_id=-1,
 
 
 class WideDeep:
-    def __init__(self, table, lookup_table, matrix):
-        self.table = table
-        self.lookup = lookup_table
+    def __init__(self, input_data, matrix, arr, restore):
+        self.lbl_hldr = input_data
         self.matrix = matrix
+        self.arr = arr
+        self.restore = restore
         self.forward()
 
     def forward(self):
-        with tf.control_dependencies([self.table, self.lookup]):
-            src_2 = comm_pybind.lccl_gather_all(emb_table=self.table,
-                                                lookup=self.lookup,
-                                                send_count_matrix=self.matrix,
-                                                shape_vec=shape_vec,
-                                                peer_mem=peer_mem,
-                                                rank=rank_id,
-                                                rank_size=rank_size,
-                                                dim=dim)
-            self.op2 = src2
-        return self.op2
+        with tf.control_dependencies([self.lbl_hldr]):
+            alluss_result_ = comm_pybind.lccl_all_uss(send_data=self.lbl_hldr,
+                                                      send_count_matrix=self.matrix,
+                                                      shape_vec=self.arr,
+                                                      peer_mem=peer_mem,
+                                                      restore=self.restore,
+                                                      rank=rank_id,
+                                                      rank_size=rank_size,
+                                                      dim=dim)
+            self.alluss_result = tf.reshape(alluss_result_, [-1, dim])
+        return self.alluss_result
+
+
+def verify_result(real_result:np.array, golden:np.array):
+    loss = 1e-4
+    minimum = 10e-10
+    
+    result = np.abs(real_result - golden)
+    deno = np.maximum(np.abs(real_result), np.abs(golden))
+    result_atol = np.less_equal(result, loss)
+    result_rtol = np.less_equal(result / np.add(deno, minimum), loss)
+    if not result_rtol.all() and not result_atol.all():
+        if np.sum(result_rtol == 0) > real_result.size * loss and \
+            np.sum(result_atol == 0) > real_result.size * loss:
+            raise ValueError("precision error")
+    print("alluss precision test pass")
 
 
 if __name__ == "__main__":
@@ -109,15 +123,16 @@ if __name__ == "__main__":
 
     comm = MPI.COMM_WORLD
     rank_id = comm.Get_rank()
+    device_id = rank_id
     rank_size = comm.Get_size()
     print(f"rank {rank_id}/{rank_size}")
     local_rank_id = rank_id % rank_size
+    set_ascend_env(rank_id, rank_size, local_rank_size, host=args.hosts, file=args.hccl_json)
 
-    peer_mem_ = mxrec_pybind.get_peer_mem(rank_id, rank_size)
+    peer_mem_ = mxrec_pybind.get_peer_mem(rank_id, device_id, rank_size)
     print("python peer_mem_ = ", peer_mem_)
     peer_mem = tf.constant(peer_mem_, dtype=tf.int64)
 
-    set_ascend_env(rank_id, rank_size, local_rank_size, host=args.hosts, file=args.hccl_json)
 
     # create session
     sess_config = tf.compat.v1.ConfigProto()
@@ -132,65 +147,64 @@ if __name__ == "__main__":
     custom_op.parameter_map["hcom_parallel"].b = False
     custom_op.parameter_map["op_execute_timeout"].i = 500
 
-    global_start_time = time.time()
-
     dim = 128
-    emb_len = 3000000
-    look_num = 2048
-    emb_table = np.random.randn(emb_len, dim)
-    lookup = np.random.randint(0, look_num, size=look_num)
+    emb_len = 2048 * 512
+    output_len = emb_len // 2
+    restore = np.random.randint(0, output_len, size=emb_len)
+    arr = np.random.randint(0, output_len, size=emb_len // 2)
 
-    emb_table = tf.convert_to_tensor(emb_table, dtype=tf.float32)
-    lookup = tf.convert_to_tensor(lookup, dtype=tf.int32)
+    random_matrix = np.full((8, 8), emb_len // 8 * dim)
 
-    random_matrix = np.full((8, 8), lookup // 8 * dim)
+    send_count = 0
+    for i in range(rank_size):
+        send_count += int(random_matrix[local_rank_id][i])
 
+    rev_count = 0
+    for i in range(rank_size):
+        rev_count += int(random_matrix[i][local_rank_id])
+
+    random_send_data = np.random.rand(send_count, 1).astype(np.float32).reshape(-1, dim)
+
+    restore = tf.convert_to_tensor(restore, dtype=tf.int32)
+    arr = tf.convert_to_tensor(arr, dtype=tf.int32)
+    random_send_data = tf.convert_to_tensor(random_send_data, dtype=tf.float32)
     random_matrix = tf.convert_to_tensor(random_matrix, dtype=tf.int64)
     peer_mem = tf.convert_to_tensor(peer_mem_, dtype=tf.int64)
-    shape_vec = tf.constant([1] * look_num, dtype=tf.int32)
+    shape_vec = tf.constant([1] * (rev_count // dim), dtype=tf.int32)
+    shape_vec = tf.convert_to_tensor(shape_vec, dtype=tf.int32)
     shape_vec = tf.reshape(shape_vec, [-1, 1])
 
     # model run parameter
-    stop_steps = 100
-    # Hybrid end
-    tf.compat.v1.disable_eager_execution()
-
-    ######################################
-    model = WideDeep(emb_table, lookup, random_matrix)
+    stop_steps = 1
+    model = WideDeep(random_send_data, random_matrix, arr, restore)
 
     with tf.compat.v1.Session(config=sess_config) as sess:
         sess.run(tf.compat.v1.global_variables_initializer())
 
-        print("============start=============")
+        print("============start alluss test=============")
         # start run loop
-        total_start_time = time.time()
         current_steps = 0
         train_finished = False
         while not train_finished:
             try:
                 current_steps += 1
                 print("current step = ", current_steps)
-                #
                 run_dict = {
-                    "embedding2": model.op2,
+                    "alluss_result": model.alluss_result,
                 }
-                if current_steps == 1:
-                    total_start_time = time.time()
                 start_time = time.time()
                 results = sess.run(fetches=run_dict)
-
-                results1 = np.array(results.get("embedding2"))
-                print('1===', results1[:10])
                 end_time = time.time()
                 print(f"current steps: {current_steps}, step time:{(end_time - start_time) * 1000}")
-                if current_steps <= 200:
-                    total_start_time = time.time()
                 if current_steps >= stop_steps:
                     comm.Barrier()
-                    print("train finished 0")
+                    print("alluss finished")
                     train_finished = True
             except tf.errors.OutOfRangeError:
                 comm.Barrier()
-                print("train finished 1")
+                print("alluss test failed with error:{e}")
                 train_finished = True
         MPI.Finalize()
+
+    # check precision
+    # TODO: 需要先算出all2all结果，然后根据restore计算uss
