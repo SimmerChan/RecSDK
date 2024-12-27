@@ -38,7 +38,6 @@ using namespace std;
 namespace Lcal {
 const std::string LCAL_DEFAULT_SOCK_IP = "127.0.0.1";
 constexpr uint16_t LCAL_DEFAULT_SOCK_PORT = 10067;
-constexpr uint16_t LCAL_MAX_SOCK_PORT = 60999;
 constexpr uint32_t LCAL_MAX_BACK_LOG = 65535;
 
 int ParseIpAndPort(const char* input, std::string &ip, uint16_t &port)
@@ -146,28 +145,6 @@ int LcalSockExchange::GetNodeNum()
     return nodeNum;
 }
 
-bool LcalSockExchange::isPortOccupied(int port) {
-    int sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (sock == -1) {
-        std::cerr << "Could not create socket" << std::endl;
-        return true; // Assume the port is occupied if we can't create a socket
-    }
-
-    struct sockaddr_in addr;
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(port);
-    addr.sin_addr.s_addr = INADDR_ANY;
-
-    // Try to bind the socket to the port
-    if (bind(sock, (struct sockaddr*)&addr, sizeof(addr)) == -1) {
-        close(sock);
-        return true; // Port is occupied
-    }
-
-    close(sock);
-    return false; // Port is free
-}
-
 void LcalSockExchange::GetIpAndPort()
 {
     int serverRank = !rankList_.empty() ? rankList_[0] : 0;
@@ -176,10 +153,6 @@ void LcalSockExchange::GetIpAndPort()
     if (env == nullptr or ParseIpAndPort(env, ip_, port_) != LCAL_SUCCESS) {
         ip_ = LCAL_DEFAULT_SOCK_IP;
         port_ = LCAL_DEFAULT_SOCK_PORT;
-    }
-    while(isPortOccupied(port_)){
-        std::srand(static_cast<unsigned int>(std::time(nullptr)));
-        port_ = (std::rand() % (LCAL_MAX_SOCK_PORT - LCAL_DEFAULT_SOCK_PORT) + LCAL_DEFAULT_SOCK_PORT);
     }
     port_ += serverRank;
     lcalCommId_.handle.addr.sin.sin_family = AF_INET;
