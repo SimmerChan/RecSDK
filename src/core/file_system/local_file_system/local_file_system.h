@@ -45,6 +45,8 @@ namespace MxRec {
         void CheckOpenFileRet(FILE* fp, const string& filePath);
 
         static void CheckOpenFile4Write(const string& filePath, int openRetCode);
+
+        bool CheckFileExist(const string& filePath);
     private:
         const mode_t dirMode;
         const mode_t fileMode;
