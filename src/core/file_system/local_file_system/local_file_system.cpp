@@ -79,7 +79,7 @@ size_t LocalFileSystem::GetFileSize(const string& filePath)
 {
     if (!CheckFileExist(filePath)) {
         auto error = Error(ModuleName::M_FILE_SYSTEM, ErrorType::IO_ERROR,
-                          StringFormat("File: %s open failed, maybe not exists.", filePath.c_str()));
+                           StringFormat("File: %s open failed, maybe not exists.", filePath.c_str()));
         LOG_WARN(error.ToString());
         return 0;
     }
@@ -226,7 +226,7 @@ ssize_t LocalFileSystem::Read(const string& filePath, char* fileContent, size_t 
 {
     if (!CheckFileExist(filePath)) {
         auto error = Error(ModuleName::M_FILE_SYSTEM, ErrorType::IO_ERROR,
-                          StringFormat("File: %s open failed, maybe not exists.", filePath.c_str()));
+                           StringFormat("File: %s open failed, maybe not exists.", filePath.c_str()));
         LOG_WARN(error.ToString());
         return 0;
     }
