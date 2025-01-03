@@ -131,6 +131,12 @@ void FeatAdmitNEvictCkpt::SetTable2Thresh(string embName)
     auto& tens2Thresh = loadTable2Thresh[embName];
 
     tens2Thresh.tableName = embName;
+    if (transArr.empty()) {
+        auto error = Error(ModuleName::M_CHECK_POINT, ErrorType::LOGIC_ERROR,
+                           "TransArr is empty, table2thresh will be set default value.");
+        LOG_WARN(error.ToString());
+        return;
+    }
     tens2Thresh.countThreshold = transArr[countThresholdIdx];
     tens2Thresh.timeThreshold = transArr[timeThresholdIdx];
     tens2Thresh.isEnableSum = (transArr[isSumThresholdIdx] == 1);
@@ -149,8 +155,8 @@ void FeatAdmitNEvictCkpt::SetHistRec(string embName)
     if (transArr.empty() || attribute.empty()) {
         auto error = Error(ModuleName::M_CHECK_POINT, ErrorType::LOGIC_ERROR,
                            "TransArr or attribute is empty. Please check the implementations.");
-        LOG_ERROR(error.ToString());
-        throw std::runtime_error(error.ToString());
+        LOG_WARN(error.ToString());
+        return;
     }
     timestamp = transArr.front();
 

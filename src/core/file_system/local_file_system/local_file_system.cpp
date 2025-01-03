@@ -19,7 +19,6 @@ See the License for the specific language governing permissions and
 #include <iostream>
 #include <dirent.h>
 #include <sys/mman.h>
-#include <thread>
 #include <fcntl.h>
 
 #include "utils/common.h"
@@ -78,6 +77,12 @@ vector<string> LocalFileSystem::ListDir(const string& dirName)
 
 size_t LocalFileSystem::GetFileSize(const string& filePath)
 {
+    if (!CheckFileExist(filePath)) {
+        auto error =Error(ModuleName::M_FILE_SYSTEM, ErrorType::IO_ERROR,
+                          StringFormat("File: %s open failed, maybe not exists.", filePath.c_str()));
+        LOG_WARN(error.ToString());
+        return 0;
+    }
     std::ifstream readFile;
     readFile.open(filePath.c_str(), std::ios::in | std::ios::binary | std::ios::ate);
     if (!readFile.is_open()) {
@@ -219,6 +224,12 @@ void LocalFileSystem::WriteEmbedding(const string& filePath, const int& embeddin
 
 ssize_t LocalFileSystem::Read(const string& filePath, char* fileContent, size_t datasetSize)
 {
+    if (!CheckFileExist(filePath)) {
+        auto error =Error(ModuleName::M_FILE_SYSTEM, ErrorType::IO_ERROR,
+                          StringFormat("File: %s open failed, maybe not exists.", filePath.c_str()));
+        LOG_WARN(error.ToString());
+        return 0;
+    }
     int fd = open(filePath.c_str(), O_RDONLY);
     if (fd == -1) {
         auto error = Error(ModuleName::M_FILE_SYSTEM, ErrorType::IO_ERROR,
@@ -388,4 +399,10 @@ void LocalFileSystem::CheckOpenFileRet(FILE* fp, const string& filePath)
         LOG_ERROR(error.ToString());
         throw std::runtime_error(error.ToString());
     }
+}
+
+bool LocalFileSystem::CheckFileExist(const string& filePath)
+{
+    std::ifstream file(filePath.c_str());
+    return file.is_open();
 }
