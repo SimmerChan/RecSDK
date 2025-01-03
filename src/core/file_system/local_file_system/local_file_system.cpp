@@ -78,7 +78,7 @@ vector<string> LocalFileSystem::ListDir(const string& dirName)
 size_t LocalFileSystem::GetFileSize(const string& filePath)
 {
     if (!CheckFileExist(filePath)) {
-        auto error =Error(ModuleName::M_FILE_SYSTEM, ErrorType::IO_ERROR,
+        auto error = Error(ModuleName::M_FILE_SYSTEM, ErrorType::IO_ERROR,
                           StringFormat("File: %s open failed, maybe not exists.", filePath.c_str()));
         LOG_WARN(error.ToString());
         return 0;
@@ -225,7 +225,7 @@ void LocalFileSystem::WriteEmbedding(const string& filePath, const int& embeddin
 ssize_t LocalFileSystem::Read(const string& filePath, char* fileContent, size_t datasetSize)
 {
     if (!CheckFileExist(filePath)) {
-        auto error =Error(ModuleName::M_FILE_SYSTEM, ErrorType::IO_ERROR,
+        auto error = Error(ModuleName::M_FILE_SYSTEM, ErrorType::IO_ERROR,
                           StringFormat("File: %s open failed, maybe not exists.", filePath.c_str()));
         LOG_WARN(error.ToString());
         return 0;
