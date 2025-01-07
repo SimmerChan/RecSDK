@@ -400,9 +400,3 @@ void LocalFileSystem::CheckOpenFileRet(FILE* fp, const string& filePath)
         throw std::runtime_error(error.ToString());
     }
 }
-
-bool LocalFileSystem::CheckFileExist(const string& filePath)
-{
-    std::ifstream file(filePath.c_str());
-    return file.is_open();
-}
