@@ -283,7 +283,7 @@ void Checkpoint::LoadDataset(const vector<string>& embNames, const vector<CkptDa
             auto dataElmtBytes{dataHandler->GetDataElmtBytes(CkptDataType::ATTRIBUTE)};
             bool flag = saveDataType == CkptDataType::TABLE_2_THRESH || saveDataType == CkptDataType::HIST_REC;
             if (flag && !CheckFileExist(attributeDir)) {
-                LOG_DEBUG("Path: {} is not exists, no need to read it. And set noFeatAdmitAndEvictData true",
+                LOG_DEBUG("Path: {} does not exists, no need to read it. And set noFeatAdmitAndEvictData true",
                           attributeDir);
                 ckptData.noFeatAdmitAndEvictData = true;
                 continue;
