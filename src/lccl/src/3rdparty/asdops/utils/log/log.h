@@ -1,5 +1,5 @@
 /**
- * Copyright (c) Huawei Technologies Co., Ltd. 2023. All rights reserved.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2024. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,9 @@
 #include <iostream>
 #include <sstream>
 #include <string>
-#include <cstdlib> // For std::getenv
+#include <cstdlib>
 #include <cstring>
+#include <unordered_map>
 
 #define ASD_LOG(level) ASD_LOG_##level
 namespace AsdOps {
@@ -35,7 +36,7 @@ struct LogLevel {
 // 定义一个辅助类，用于输出日志并在析构时自动添加换行
 class Log {
 public:
-    Log() {}
+    Log() = default;
 
     ~Log()
     {
@@ -49,33 +50,34 @@ public:
         stream << msg;
         return *this;
     }
+
     static int GetLogLevel()
     {
         static int level = -1;
-        if (level == -1) {
-            const char *env_val = std::getenv("MXREC_LOG_LEVEL");
+        if (level != -1) {
+            return level;
+        }
 
-            if (env_val == nullptr) {
+        const char *env_val = std::getenv("MXREC_LOG_LEVEL");
+        if (env_val == nullptr) {
+            level = LogLevel::INFO;
+        } else {
+            std::string log_level_str = env_val;
+            if (log_level_str == "TRACE") {
+                level = LogLevel::TRACE;
+            } else if (log_level_str == "DEBUG") {
+                level = LogLevel::DEBUG;
+            } else if (log_level_str == "INFO") {
                 level = LogLevel::INFO;
-            } else {
-                std::string log_level_str = env_val;
-
-                // Compare and convert to corresponding log level
-                if (log_level_str == "TRACE") {
-                    level = LogLevel::TRACE;
-                } else if (log_level_str == "DEBUG") {
-                    level = LogLevel::DEBUG;
-                } else if (log_level_str == "INFO") {
-                    level = LogLevel::INFO;
-                } else if (log_level_str == "WARN") {
-                    level = LogLevel::WARN;
-                } else if (log_level_str == "ERROR") {
-                    level = LogLevel::ERROR;
-                }
+            } else if (log_level_str == "WARN") {
+                level = LogLevel::WARN;
+            } else if (log_level_str == "ERROR") {
+                level = LogLevel::ERROR;
             }
         }
         return level;
     }
+
     // Function to extract the filename from a path
     static const char *ExtractFileName(const char *path)
     {

@@ -21,11 +21,13 @@
 extern "C" {
 #endif // __cplusplus
 
-typedef void* LcalCommPtr;
+using LcalCommPtr = void*;
 #define LCAL_UNIQUE_ID_BYTES 128
-typedef struct { char internal[LCAL_UNIQUE_ID_BYTES]; } LcalUniqueId;
+struct LcalUniqueId {
+    char internal[LCAL_UNIQUE_ID_BYTES];
+};
 
-int LcalGetUniqueId(LcalUniqueId *uniqueId);
+int LcalGetUniqueId(LcalUniqueId* uniqueId);
 
 int LcalCommInitRankLocal(int rankSize, int rank, LcalCommPtr* comm);
 

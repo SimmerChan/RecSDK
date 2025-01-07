@@ -13,9 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #include "lcal_sock_exchange.h"
 
-#include <unistd.h>
 #include <cstdlib>
 #include <cerrno>
 #include <cstring>
@@ -25,6 +25,7 @@
 #include <sstream>
 #include <securec.h>
 
+#include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 
@@ -34,13 +35,12 @@
 
 #include "asdops/utils/log/log.h"
 
-using namespace std;
 namespace Lcal {
 const std::string LCAL_DEFAULT_SOCK_IP = "127.0.0.1";
 constexpr uint16_t LCAL_DEFAULT_SOCK_PORT = 10067;
 constexpr uint32_t LCAL_MAX_BACK_LOG = 65535;
 
-int ParseIpAndPort(const char* input, std::string &ip, uint16_t &port)
+int ParseIpAndPort(const char* input, std::string& ip, uint16_t& port)
 {
     if (input == nullptr) {
         return LCAL_INVALID_VALUE;
@@ -71,7 +71,7 @@ LcalSockExchange::~LcalSockExchange()
     Cleanup();
 }
 
-LcalSockExchange::LcalSockExchange(int rank, int rankSize, std::vector<int> &rankList)
+LcalSockExchange::LcalSockExchange(int rank, int rankSize, std::vector<int>& rankList)
     : rank_(rank), rankSize_(rankSize), rankList_(rankList)
 {
 }
@@ -81,10 +81,11 @@ LcalSockExchange::LcalSockExchange(int rank, int rankSize, LcalUniqueId lcalComm
 {
     lcalCommId_.uid = lcalCommId;
 }
-int LcalSockExchange::AllGather(const void *sendBuf, size_t sendSize, void *recvBuf)
+
+int LcalSockExchange::AllGather(const void* sendBuf, size_t sendSize, void* recvBuf)
 {
-    auto uSendBuf = reinterpret_cast<const uint8_t *>(sendBuf);
-    auto uRecvBuf = reinterpret_cast<uint8_t *>(recvBuf);
+    auto uSendBuf = reinterpret_cast<const uint8_t*>(sendBuf);
+    auto uRecvBuf = reinterpret_cast<uint8_t*>(recvBuf);
 
     if (!isInit_ && Prepare() != LCAL_SUCCESS) {
         return LCAL_ERROR_INTERNAL;
@@ -93,9 +94,9 @@ int LcalSockExchange::AllGather(const void *sendBuf, size_t sendSize, void *recv
 
     if (!IsServer()) {
         return ClientSendRecv(uSendBuf, sendSize, uRecvBuf);
-    } else {
-        return ServerRecvSend(uSendBuf, sendSize, uRecvBuf);
     }
+
+    return ServerRecvSend(uSendBuf, sendSize, uRecvBuf);
 }
 
 int LcalSockExchange::GetNodeNum()
@@ -104,9 +105,8 @@ int LcalSockExchange::GetNodeNum()
         return LCAL_ERROR_INTERNAL;
     }
     isInit_ = true;
-    const string filePath = "/proc/sys/kernel/random/boot_id";
-    ifstream fileStream(filePath);
-    stringstream buffer;
+    std::ifstream fileStream(UUID_FILE_PATH);
+    std::stringstream buffer;
     if (fileStream) {
         buffer << fileStream.rdbuf();
         fileStream.close();
@@ -114,7 +114,7 @@ int LcalSockExchange::GetNodeNum()
     const std::string uuid = buffer.str();
     ASD_LOG(DEBUG) << "rank:" << rank_ << " UUID " << uuid;
 
-    set<string> uuidSet {};
+    std::set<std::string> uuidSet {};
     uuidSet.insert(uuid);
     int nodeNum;
     if (IsServer()) {
@@ -221,10 +221,10 @@ int LcalSockExchange::Listen()
     return LCAL_SUCCESS;
 }
 
-int LcalSockExchange::AcceptConnection(int fd, sockaddr_in& clientAddr, socklen_t *sinSize)
+int LcalSockExchange::AcceptConnection(int fd, sockaddr_in& clientAddr, socklen_t* sinSize)
 {
     int clientFd;
-    struct sockaddr* clientAddrPtr = reinterpret_cast<struct sockaddr*>(&clientAddr);
+    auto* clientAddrPtr = reinterpret_cast<struct sockaddr*>(&clientAddr);
 
     do {
         clientFd = accept(fd, clientAddrPtr, sinSize);
@@ -272,7 +272,7 @@ int LcalSockExchange::Accept()
     return LCAL_SUCCESS;
 }
 
-int LcalSockExchange::Send(int fd, const void *sendBuf, size_t sendSize, int flag)
+int LcalSockExchange::Send(int fd, const void* sendBuf, size_t sendSize, int flag)
 {
     do {
         auto ret = send(fd, sendBuf, sendSize, flag);
@@ -365,7 +365,7 @@ int LcalSockExchange::Connect()
 }
 
 template<typename T>
-int LcalSockExchange::ClientSendRecv(const T *sendBuf, size_t sendSize, T *recvBuf)
+int LcalSockExchange::ClientSendRecv(const T* sendBuf, size_t sendSize, T* recvBuf)
 {
     if (Send(fd_, sendBuf, sendSize * sizeof(T), 0) <= 0) {
         ASD_LOG(ERROR) << "Client side " << rank_ << " send buffer failed";
@@ -381,9 +381,13 @@ int LcalSockExchange::ClientSendRecv(const T *sendBuf, size_t sendSize, T *recvB
 }
 
 template<typename T>
-int LcalSockExchange::ServerRecvSend(const T *sendBuf, size_t sendSize, T *recvBuf)
+int LcalSockExchange::ServerRecvSend(const T* sendBuf, size_t sendSize, T* recvBuf)
 {
-    memcpy_s(recvBuf, sendSize * sizeof (T), sendBuf, sendSize * sizeof (T));
+    auto ret = memcpy_s(recvBuf, sendSize * sizeof (T), sendBuf, sendSize * sizeof (T));
+    if (ret != 0) {
+        ASD_LOG(ERROR) << "Server side memcpy_s failed, error code:" << std::to_string(ret);
+        return LCAL_ERROR_INTERNAL;
+    }
 
     for (int i = 1; i < rankSize_; ++i) {
         if (Recv(clientFds_[i], recvBuf + i * sendSize, sendSize * sizeof(T), MSG_WAITALL) <= 0) {
@@ -468,28 +472,6 @@ int BootstrapGetServerIp(LcalSocketAddress& handle)
     handle.sin.sin_family = AF_INET;
     handle.sin.sin_addr.s_addr = inet_addr(ip); // 将IP地址填入sockaddr_in
     handle.sin.sin_port = 0;
-
-    return LCAL_SUCCESS;
-}
-int BootstrapGetUniqueId(struct LcalBootstrapHandle* handle)
-{
-    memset_s(handle, sizeof(LcalBootstrapHandle), 0, sizeof(LcalBootstrapHandle));
-
-    const char* env = getenv("LCAL_COMM_ID");
-    if (env) {
-        ASD_LOG(INFO) << "LCAL_COMM_ID set by environment to " << env;
-        if (GetAddrFromString(&handle->addr, env) != LCAL_SUCCESS) {
-            ASD_LOG(WARN) << ("Invalid LCAL_COMM_ID, please use format: <ipv4>:<port>");
-            return LCAL_INVALID_VALUE;
-        }
-    } else {
-        int ret = BootstrapGetServerIp(handle->addr);
-        if (ret != LCAL_SUCCESS) {
-            ASD_LOG(ERROR) << "lcal BootstrapGetIpPort failed!";
-            return LCAL_ERROR_INTERNAL;
-        }
-    }
-    handle->magic = LCAL_MAGIC;
 
     return LCAL_SUCCESS;
 }

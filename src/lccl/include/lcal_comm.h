@@ -20,9 +20,10 @@
 #include <string>
 #include <unordered_map>
 
-#include <lcal_types.h>
-#include <comm_args.h>
 #include <hccl.h>
+
+#include "lcal_types.h"
+#include "comm_args.h"
 #include "lcal_api.h"
 
 namespace Lcal {
@@ -32,59 +33,56 @@ class LcalSockExchange;
 class LcalComm {
 public:
     LcalComm(int rank, int rankSize);
-    LcalComm(int rank, int rankSize, std::vector<int> &rankList);
+    LcalComm(int rank, int rankSize, std::vector<int>& rankList);
     LcalComm(int rank, int rankSize, LcalUniqueId commId);
     ~LcalComm();
-    LcalComm(const LcalComm &) = delete;
-    LcalComm &operator=(const LcalComm &) = delete;
+    LcalComm(const LcalComm&) = delete;
+    LcalComm &operator=(const LcalComm&) = delete;
     int Init();
     int InitThread();
     int GetRank() const;
     int GetRankSize() const;
     int GetCommSize() const;
-    const PhysicalInfo &GetPhysicalInfo() const;
+    const PhysicalInfo& GetPhysicalInfo() const;
     int8_t* GetCommArgsPtr();
     friend class Lccl;
     friend class Lcoc;
-    friend class LcclTest;
 
-private:
-    int SetMemoryName(std::string &name);
-    int SetIpcPidSdid(std::string &name, const uint32_t *pids, const int64_t *sdids) const;
-    int OpenIpcMem(const char names[LCAL_MAX_RANK_SIZE][IPC_NAME_SIZE]);
-    int GetDev();
-    int GetDevThread();
-    int EnablePeerAccess();
-    int InitCommMem();
-    int InitCommon();
-    void CloseIpcMem();
-    void FreePeerMem(int8_t *&mem);
-    int InitMem();
-    int GetSidId(int64_t sdids[LCAL_MAX_RANK_SIZE]);
-    int GetPid(uint32_t *pids);
-    int GetName(std::string &name, char names[LCAL_MAX_RANK_SIZE][IPC_NAME_SIZE]);
-    int SyncCommArgs();
-
-public:
     int rank_ = 0;  // global rank id
     int rankSize_ = 0;  // global rank size
     int commSize_ = 0;  // local LcalComm size
     int localRank_ = -1;
-    int localRankSize_ = 8;
+    int localRankSize_ = -1;
     int devId_ = 0;
     int64_t magic_ = 1;
     bool inited_ = false;
     std::vector<int> devList_ = {};
     std::vector<int> rankList_ = {};
-
-    // shared ping pong buff，这个地址就是一开始申请在HBM上的，所以host上可以取到，但不能直接修改。
-    int8_t *peerMem_[LCAL_MAX_RANK_SIZE] = {};
+    // Shared ping pong buff，allocate on HBM, host can access but not allow to modify directly.
+    int8_t* peerMem_[LCAL_MAX_RANK_SIZE] = {};
     PhysicalInfo physicalInfo_ = {};
-    CommArgs commArgs_ = {};    // host侧
-    int8_t *commArgsPtr_ = nullptr; // device侧
+    CommArgs commArgs_ = {};  // host
+    int8_t* commArgsPtr_ = nullptr;  // device
     LcalUniqueId commId_ = {};
-    LcalSockExchange *socketExchange_ = nullptr;
+    LcalSockExchange* socketExchange_ = nullptr;
+
+private:
+    int SetMemoryName(std::string& name);
+    int SetIpcPidSdid(std::string& name, const uint32_t* pids, const int64_t* sdids) const;
+    int OpenIpcMem(const char names[LCAL_MAX_RANK_SIZE][IPC_NAME_SIZE]);
+    int GatherDevId();
+    int GatherDevIdThread();
+    int EnablePeerAccess();
+    int InitCommMem();
+    int InitCommon();
+    void CloseIpcMem();
+    void FreePeerMem(int8_t*& mem);
+    int InitMem();
+    int GetSidId(int64_t sdids[LCAL_MAX_RANK_SIZE]);
+    int GetPid(uint32_t pids[LCAL_MAX_RANK_SIZE]);
+    int GetName(std::string& name, char names[LCAL_MAX_RANK_SIZE][IPC_NAME_SIZE]);
+    int SyncCommArgs();
 };
-} // Lcal
+} // namespace Lcal
 
 #endif // LCAL_COMM_H

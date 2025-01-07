@@ -26,16 +26,16 @@
 #endif
 namespace Lcal {
 
-constexpr int LCAL_MAX_RANK_SIZE = 128;
-constexpr int RANK_SIZE_TWO = 2;  // 可用SIO的规模，以及是否需要跨卡搬运数据核的分界规模
-constexpr int64_t FLAG_NUM = 256 * 1024; // 512K个int64
-constexpr int64_t IPC_DATA_OFFSET = 2 * 1024 * 1024; // 前2MB作为flag标志位，之后100MB作为数据存储
+constexpr int LCAL_MAX_RANK_SIZE = 32;  // max tested rank size
+constexpr int RANK_SIZE_TWO = 2;  // for 910_93
+constexpr int64_t FLAG_NUM = 256 * 1024;  // calculate from IPC_DATA_OFFSET, each card get 512K int64 for flag
+constexpr int64_t IPC_DATA_OFFSET = 2 * 1024 * 1024;  // 2MB for flag
 constexpr int64_t SYNC_FLAG_BIT_NUM = 10;
 constexpr int64_t MEM_DMA_UNIT_INT_NUM = 4;
 constexpr int64_t EVENT_ID_MASK = 0xFFFFFFFF;
 constexpr int64_t PING_PONG_SIZE = 2;
 constexpr int64_t UB_SINGLE_DMA_SIZE_MAX = 190 * 1024;
-constexpr int64_t SMALL_DATA_SIZE = 1 * 1024 * 1024;
+constexpr int64_t SMALL_DATA_SIZE = 1 * 1024 * 1024;  // distinguish different op according to data volumn
 constexpr int64_t UB_SINGLE_PING_PONG_ADD_SIZE_MAX = UB_SINGLE_DMA_SIZE_MAX / 2;
 constexpr int UB_ALIGN_SIZE = 32;
 enum Op {
@@ -49,18 +49,23 @@ enum Op {
 struct CommArgs {
     void SetBuff(int8_t* b[LCAL_MAX_RANK_SIZE])
     {
+        if (rankSize > LCAL_MAX_RANK_SIZE) {
+            throw std::invalid_argument(
+                "Max support rank size is " + std::to_string(LCAL_MAX_RANK_SIZE) +
+                ", get:" + std::to_string(rankSize));
+        }
         for (int i = 0; i < rankSize; ++i) {
             peerMems[i] = b[i];
         }
     }
 
-    int rank = 0;           // attr rank_id, global rank
+    int rank = 0;  // attr rank_id, global rank
     int localRank = 0;
-    int rankSize = 0; // global rank size
+    int rankSize = 0;  // global rank size
     int localRankSize = 0;
-    uint32_t extraFlag = 0; // 32 bit map，
+    uint32_t extraFlag = 0;  // 32 bit map，
     GM_ADDR peerMems[LCAL_MAX_RANK_SIZE] = {};
-    int64_t sendCountMatrix[LCAL_MAX_RANK_SIZE * LCAL_MAX_RANK_SIZE] = {}; // for all2allv
+    int64_t sendCountMatrix[LCAL_MAX_RANK_SIZE * LCAL_MAX_RANK_SIZE] = {};  // for all2allv
 };
 }
-#endif //LCCL_COMM_ARGS_H
+#endif // LCCL_COMM_ARGS_H

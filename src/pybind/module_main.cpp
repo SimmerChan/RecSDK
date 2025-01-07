@@ -68,13 +68,12 @@ uint32_t GetDeviceCount()
     return count;
 }
 
-static bool firstGetPeerMem = true;
-
-vector<int64_t> GetPeerMem(int rankId, int deviceId, int rankSize)
+vector<int64_t> GetPeerMem(int32_t rankId, int deviceId, int rankSize)
 {
-    int maxRankPerNode = 16;
-    int localRankId = rankId % maxRankPerNode;
-    auto ret = aclrtSetDevice(static_cast<int32_t>(localRankId));
+    static bool firstGetPeerMem = true;
+    static constexpr int32_t maxRankPerNode = 16;
+    int32_t localRankId = rankId % maxRankPerNode;
+    auto ret = aclrtSetDevice(localRankId);
     if (ret != ACL_ERROR_NONE) {
         LOG_ERROR("Set device failed, device_id:{}", localRankId);
         return {};

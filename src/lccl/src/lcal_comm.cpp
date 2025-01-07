@@ -18,28 +18,23 @@
 #include <chrono>
 #include <vector>
 #include <mutex>
-#include <map>
+#include <unordered_map>
 #include <set>
 #include <thread>
 
 #include <hccl/hccl.h>
 #include "asdops/utils/log/log.h"
-#include "../tools/socket/lcal_sock_exchange.h"
+#include "tools/socket/lcal_sock_exchange.h"
 
 #include "runtime/kernel.h"
 #include "runtime/mem.h"
 #include "runtime/dev.h"
 
-#define AsdRtIpcSetMemoryName rtIpcSetMemoryName
-#define AsdRtIpcOpenMemory rtIpcOpenMemory
-#define AsdRtIpcCloseMemory rtIpcCloseMemory
-#define AsdRtSetIpcMemPid rtSetIpcMemPid
-#define AsdRtSetIpcMemorySuperPodPid rtSetIpcMemorySuperPodPid
-#define AsdRtDeviceGetBareTgid rtDeviceGetBareTgid
-#define AsdRtDeviceGetPairDevicesInfo rtGetPairDevicesInfo
-#define AsdRtDeviceGetSocVersion rtGetSocVersion
-#define AsdRtDeviceGetDeviceInfo rtGetDeviceInfo
-#define ASDRT_SUCCESS 0
+using namespace std;
+using namespace chrono;
+using namespace AsdOps;
+
+namespace Lcal {
 
 constexpr int AI_CORE_NUM_24 = 24;
 constexpr int AI_CORE_NUM_20 = 20;
@@ -55,11 +50,6 @@ enum TopologyType : int {
     TOPOLOGY_HCCS_SW
 };
 
-using namespace std;
-using namespace chrono;
-using namespace AsdOps;
-
-namespace Lcal {
 constexpr int HCCL_IPC_PID_ARRAY_SIZE = 1; // 固定每次只传一个PID数据
 constexpr int LCAL_INIT_TIMEOUT = 600;
 
@@ -83,7 +73,7 @@ static const std::unordered_map<std::string, ChipName> chipMap = {
 /**
  * @brief 用于获取芯片名称
  */
-ChipName GetChipName()
+ChipName& GetChipName()
 {
     // 在分配内存时用到
     static ChipName curChipName = ChipName::RESERVED;
@@ -92,9 +82,10 @@ ChipName GetChipName()
     }
     constexpr int socVerLength = 100; // asd没有相应的宏和常量，这里和asd测试代码中的长度保持一致
     char ver[socVerLength];
-    auto ret = AsdRtDeviceGetSocVersion(ver, socVerLength);
-    if (ret != ASDRT_SUCCESS) {
+    auto ret = rtGetSocVersion(ver, socVerLength);
+    if (ret != 0) {
         ASD_LOG(WARN) << "rtGetSocVersion failed.";
+        return curChipName;
     }
     string chipName(ver);
     ASD_LOG(DEBUG) << "rtGetSocVersion -- :" << chipName;
@@ -139,8 +130,8 @@ bool SkipUnusedChannel910B2C(int curRank, int peerRank, ChipName chipName)
     if (chipName == ChipName::CHIP_910B2C) {
         constexpr int rankSizePerNode = 8;
         // 双节点16P中不用的链路: 不在同一个节点 且rank在节点内序号不同； 在调用时将跳过
-        if ((curRank / rankSizePerNode != peerRank / rankSizePerNode)
-            && (std::abs(curRank - peerRank) != rankSizePerNode)) {
+        if ((curRank / rankSizePerNode != peerRank / rankSizePerNode) &&
+            (std::abs(curRank - peerRank) != rankSizePerNode)) {
             return true;
         }
     }
@@ -185,18 +176,18 @@ void LcalComm::CloseIpcMem()
         if (i == rank_ || peerMem_[i] == nullptr) {
             continue;
         }
-        int ret = AsdRtIpcCloseMemory(reinterpret_cast<void *>(peerMem_[i]));
-        if (ret != ASDRT_SUCCESS) {
+        int ret = rtIpcCloseMemory(reinterpret_cast<void*>(peerMem_[i]));
+        if (ret != 0) {
             ASD_LOG(WARN) << "Close ipc[" << i << "] memory failed! ret: " << ret;
         }
         peerMem_[i] = nullptr;
     }
 }
 
-void LcalComm::FreePeerMem(int8_t *&mem)
+void LcalComm::FreePeerMem(int8_t*& mem)
 {
     if (mem != nullptr) {
-        aclError aclRet = aclrtFree(reinterpret_cast<void *>(mem));
+        aclError aclRet = aclrtFree(reinterpret_cast<void*>(mem));
         if (aclRet != ACL_SUCCESS) {
             ASD_LOG(ERROR) << "Free share memory failed! ret: " << aclRet;
         }
@@ -218,7 +209,7 @@ int LcalComm::Init()
     } else {
         socketExchange_ = new LcalSockExchange(rank_, rankSize_, rankList_);
     }
-    int ret = GetDev();
+    int ret = GatherDevId();
     if (ret != LCAL_SUCCESS) {
         ASD_LOG(ERROR) << "init context failed! ret: " << ret;
         return ret;
@@ -231,7 +222,7 @@ int LcalComm::Init()
         return LCAL_ERROR_INTERNAL;
     }
 
-    ASD_LOG(DEBUG) << "准备InitCommMem localRankSize_ -> " << localRankSize_ << ", localRank_ -> " << localRank_;
+    ASD_LOG(DEBUG) << "Start InitCommMem localRankSize_ -> " << localRankSize_ << ", localRank_ -> " << localRank_;
     if (InitCommMem() != LCAL_SUCCESS) {
         ASD_LOG(ERROR) << "InitCommMem failed!";
         return LCAL_ERROR_INTERNAL;
@@ -259,7 +250,7 @@ int LcalComm::InitThread()
         return LCAL_ERROR_PARA_CHECK_FAIL;
     }
 
-    if (GetDevThread() != LCAL_SUCCESS) {
+    if (GatherDevIdThread() != LCAL_SUCCESS) {
         ASD_LOG(ERROR) << "get devs failed.";
         return LCAL_ERROR_INTERNAL;
     }
@@ -283,7 +274,7 @@ int LcalComm::InitThread()
             this_thread::sleep_for(1ms);
             auto elapsed = duration_cast<seconds>(high_resolution_clock::now() - start);
             if (elapsed.count() > LCAL_INIT_TIMEOUT) {
-                ASD_LOG(ERROR) << "Lccl Init timeout!";
+                ASD_LOG(ERROR) << "LCCL Init timeout!";
                 FreePeerMem(localPeerMem[rank_]);
                 return LCAL_ERROR_TIMEOUT;
             }
@@ -291,7 +282,7 @@ int LcalComm::InitThread()
         peerMem_[i] = localPeerMem[i];
     }
     SyncCommArgs();
-    ASD_LOG(INFO) << "Lccl init multi thread " << rank_ << "/" << rankSize_ << " success";
+    ASD_LOG(INFO) << "LCCL init multi thread " << rank_ << "/" << rankSize_ << " success";
     inited_ = true;
     return LCAL_SUCCESS;
 }
@@ -314,8 +305,8 @@ int LcalComm::EnablePeerAccess()
         }
 
         int64_t value = 0;
-        if (AsdRtDeviceGetPairDevicesInfo(devId_, dev, 0, &value) != ASDRT_SUCCESS) {
-            ASD_LOG(WARN) << devId_ << " 卡和 " << dev << " 卡的卡间链路信息获取失败";
+        if (rtGetPairDevicesInfo(devId_, dev, 0, &value) != 0) {
+            ASD_LOG(WARN) << devId_ << " and " << dev << " get pair info fail.";
         } else {
             ASD_LOG(DEBUG) << devId_ << " <-----> " << dev << ", halGetPairDevicesInfo: *value = " << value;
         }
@@ -335,13 +326,13 @@ int LcalComm::EnablePeerAccess()
 
         // value里的0实际上对应驱动枚举类的 TOPOLOGY_HCCS
         if (physicalInfo_.chipName == ChipName::CHIP_310P3 && value == 0) {
-            ASD_LOG(WARN) << "warn aclrtDeviceEnablePeerAccess is skipped! peerDeviceId = " << dev;
+            ASD_LOG(WARN) << "aclrtDeviceEnablePeerAccess is skipped! peerDeviceId = " << dev;
             continue;
         }
 
         aclError ret = aclrtDeviceEnablePeerAccess(dev, 0);
         if (ret != ACL_SUCCESS) {
-            ASD_LOG(ERROR) << "err aclrtDeviceEnablePeerAccess failed peerDeviceId = " << dev << " ,rank = " << rank_
+            ASD_LOG(ERROR) << "aclrtDeviceEnablePeerAccess failed peerDeviceId = " << dev << " ,rank = " << rank_
                            << ", value = " << value << ", flags = " << 0 << "," << __LINE__ << ": " << ret;
             return LCAL_ERROR_INTERNAL;
         }
@@ -350,7 +341,7 @@ int LcalComm::EnablePeerAccess()
     return LCAL_SUCCESS;
 }
 
-int LcalComm::GetDev()
+int LcalComm::GatherDevId()
 {
     int nodeNum = socketExchange_->GetNodeNum();
     if (nodeNum <= 0 or nodeNum > rankSize_) {
@@ -382,7 +373,7 @@ int LcalComm::GetDev()
     return LCAL_SUCCESS;
 }
 
-int LcalComm::GetDevThread()
+int LcalComm::GatherDevIdThread()
 {
     devList_.resize(rankSize_);
     // get current id and broadcast
@@ -404,7 +395,7 @@ int LcalComm::GetDevThread()
             this_thread::sleep_for(1ms);
             auto elapsed = duration_cast<seconds>(high_resolution_clock::now() - start);
             if (elapsed.count() > LCAL_INIT_TIMEOUT) {
-                ASD_LOG(ERROR) << "Lccl Init timeout!";
+                ASD_LOG(ERROR) << "LCCL Init timeout!";
                 return LCAL_ERROR_TIMEOUT;
             }
         }
@@ -430,9 +421,9 @@ int LcalComm::InitMem()
     return LCAL_SUCCESS;
 }
 
-int LcalComm::GetPid(uint32_t *pids)
+int LcalComm::GetPid(uint32_t pids[LCAL_MAX_RANK_SIZE])
 {
-    if (AsdRtDeviceGetBareTgid(&pids[rank_]) != ASDRT_SUCCESS) {  // 获取docker外的进程id，bare指docker外
+    if (rtDeviceGetBareTgid(&pids[rank_]) != 0) {  // 获取docker外的进程id，bare指docker外
         ASD_LOG(ERROR) << "DeviceGetBareTgid err " << __LINE__;
         return LCAL_ERROR_INTERNAL;
     }
@@ -453,8 +444,7 @@ int LcalComm::GetSidId(int64_t sdids[LCAL_MAX_RANK_SIZE])
     if ((physicalInfo_.chipName >= ChipName::CHIP_910_9391) && (physicalInfo_.chipName < ChipName::RESERVED)) {
         const int rtModuleTypeSystem = 0;
         const int infoTypeSdid = 26;
-        if (AsdRtDeviceGetDeviceInfo(devList_[rank_], rtModuleTypeSystem, infoTypeSdid, &sdids[rank_]) !=
-            ASDRT_SUCCESS) {
+        if (rtGetDeviceInfo(devList_[rank_], rtModuleTypeSystem, infoTypeSdid, &sdids[rank_]) != 0) {
             ASD_LOG(ERROR) << "DeviceGetDeviceInfo err " << __LINE__;
             return LCAL_ERROR_INTERNAL;
         }
@@ -554,8 +544,8 @@ int LcalComm::OpenIpcMem(const char names[LCAL_MAX_RANK_SIZE][IPC_NAME_SIZE])
             if (SkipUnusedChannel910B2C(rank_, i, GetChipName())) {
                 continue;
             }
-            int ret = AsdRtIpcOpenMemory(reinterpret_cast<void **>(&peerMem_[i % localRankSize_]), names[i]);
-            if (ret != ASDRT_SUCCESS) {
+            int ret = rtIpcOpenMemory(reinterpret_cast<void **>(&peerMem_[i % localRankSize_]), names[i]);
+            if (ret != 0) {
                 ASD_LOG(ERROR) << "rank : " << rank_ << " localRank : " << localRank_ << " peerMem: " << i <<
                     " IpcOpenMemory err " << ret;
                 return LCAL_ERROR_INTERNAL;
@@ -568,8 +558,8 @@ int LcalComm::OpenIpcMem(const char names[LCAL_MAX_RANK_SIZE][IPC_NAME_SIZE])
             if (i == rank_) {
                 continue;
             }
-            int ret = AsdRtIpcOpenMemory(reinterpret_cast<void **>(&peerMem_[i]), names[i]);
-            if (ret != ASDRT_SUCCESS) {
+            int ret = rtIpcOpenMemory(reinterpret_cast<void **>(&peerMem_[i]), names[i]);
+            if (ret != 0) {
                 ASD_LOG(ERROR) << "rank : " << rank_ << " localRank : " << localRank_ << " peerMem: " << i <<
                     " IpcOpenMemory err " << ret;
                 return LCAL_ERROR_INTERNAL;
@@ -580,11 +570,11 @@ int LcalComm::OpenIpcMem(const char names[LCAL_MAX_RANK_SIZE][IPC_NAME_SIZE])
     return LCAL_ERROR_INTERNAL;
 }
 
-int LcalComm::SetMemoryName(string &name)
+int LcalComm::SetMemoryName(string& name)
 {
-    char nameModified[IPC_NAME_SIZE] = {};
+    char nameModified[IPC_NAME_SIZE];
     int memRank = (GetChipName() < ChipName::CHIP_910_9391) ? localRank_ : rank_;
-    if (AsdRtIpcSetMemoryName(peerMem_[memRank], LCAL_BUFF_BYTES, nameModified, IPC_NAME_SIZE) != ASDRT_SUCCESS) {
+    if (rtIpcSetMemoryName(peerMem_[memRank], LCAL_BUFF_BYTES, nameModified, IPC_NAME_SIZE) != 0) {
         return LCAL_ERROR_INTERNAL;
     }
     name = nameModified;
@@ -597,20 +587,20 @@ int LcalComm::SetIpcPidSdid(string &name, const uint32_t *pids, const int64_t *s
         if (i == rank_) {
             continue;
         }
-
-        if (physicalInfo_.chipName < ChipName::CHIP_910_9391) {
+        
+        if (regularChip.find(physicalInfo_.chipName) != regularChip.end()) {
             // 910B
             int32_t pidInt32 = pids[i];
-            int rtRet = AsdRtSetIpcMemPid(name.c_str(), &pidInt32, HCCL_IPC_PID_ARRAY_SIZE);
-            if (rtRet != ASDRT_SUCCESS) {
+            int rtRet = rtSetIpcMemPid(name.c_str(), &pidInt32, HCCL_IPC_PID_ARRAY_SIZE);
+            if (rtRet != 0) {
                 ASD_LOG(ERROR) << "err " << rtRet;
                 return LCAL_ERROR_INTERNAL;
             }
         } else {
             // 910_93
             int32_t pidInt32 = pids[i];
-            int rtRet = AsdRtSetIpcMemorySuperPodPid(name.c_str(), sdids[i], &pidInt32, HCCL_IPC_PID_ARRAY_SIZE);
-            if (rtRet != ASDRT_SUCCESS) {
+            int rtRet = rtSetIpcMemorySuperPodPid(name.c_str(), sdids[i], &pidInt32, HCCL_IPC_PID_ARRAY_SIZE);
+            if (rtRet != 0) {
                 ASD_LOG(ERROR) << "err " << rtRet;
                 return LCAL_ERROR_INTERNAL;
             }

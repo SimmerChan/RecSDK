@@ -26,7 +26,7 @@
 #include <net/if.h>
 #include <arpa/inet.h>
 
-#include <lcal_types.h>
+#include "lcal_types.h"
 #include "lcal_api.h"
 
 namespace Lcal {
@@ -37,22 +37,23 @@ union LcalSocketAddress {
     struct sockaddr_in6 sin6;
 };
 
-// 区分高位和低位信息
+const std::string UUID_FILE_PATH = "/proc/sys/kernel/random/boot_id";
+// mask for setting ip and port
 constexpr uint64_t LCAL_MAGIC = 0xdddd0000dddd0000;
+
 struct LcalBootstrapHandle {
     uint64_t magic;
     union LcalSocketAddress addr;
 };
+
 union LcalBootstrap {
     LcalBootstrapHandle handle;
     LcalUniqueId uid;
 };
 
-int BootstrapGetUniqueId(LcalBootstrapHandle *handle);
-
 class LcalSockExchange {
 public:
-    LcalSockExchange(int rank, int rankSize, std::vector<int> &rankList);
+    LcalSockExchange(int rank, int rankSize, std::vector<int>& rankList);
     LcalSockExchange(int rank, int rankSize, LcalUniqueId lcalCommId);
     ~LcalSockExchange();
 
@@ -62,7 +63,7 @@ public:
      * @note recvBuf's space must larger than sendSize * rankSize_
      * @return LCAL_SUCCESS for success, other for failed
      */
-    int AllGather(const void *sendBuf, size_t sendSize, void *recvBuf);
+    int AllGather(const void* sendBuf, size_t sendSize, void* recvBuf);
 
     int GetNodeNum();
 
@@ -78,14 +79,14 @@ private:
     int Prepare();
     int Listen();
     int Accept();
-    int Send(int fd, const void *sendBuf, size_t sendSize, int flag);
-    template <typename T> int Recv(int fd, T *recvBuf, size_t recvSize, int flag);
-    void Close(int &fd);
+    int Send(int fd, const void* sendBuf, size_t sendSize, int flag);
+    template <typename T> int Recv(int fd, T* recvBuf, size_t recvSize, int flag);
+    void Close(int& fd);
     int Connect();
-    int AcceptConnection(int fd, sockaddr_in &clientAddr, socklen_t *sinSize);
+    int AcceptConnection(int fd, sockaddr_in& clientAddr, socklen_t* sinSize);
 
-    template <typename T> int ClientSendRecv(const T *sendBuf, size_t sendSize, T *recvBuf);
-    template <typename T> int ServerRecvSend(const T *sendBuf, size_t sendSize, T *recvBuf);
+    template <typename T> int ClientSendRecv(const T* sendBuf, size_t sendSize, T* recvBuf);
+    template <typename T> int ServerRecvSend(const T* sendBuf, size_t sendSize, T* recvBuf);
     void Cleanup();
 
     bool IsServer();

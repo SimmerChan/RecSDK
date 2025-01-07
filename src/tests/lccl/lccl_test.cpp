@@ -24,10 +24,8 @@ limitations under the License.
 using namespace std;
 using namespace Lcal;
 
-class LcclTest : public ::testing::Test {
-};
 
-TEST_F(LcclTest, Initialization)
+TEST(LcclTest, Initialization)
 {
     std::cout << "===========Initialization start=============" << std::endl;
     int rank;

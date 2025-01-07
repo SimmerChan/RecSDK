@@ -19,6 +19,8 @@
 #include <hccl_types.h>
 #include <map>
 #include <string>
+#include <set>
+
 
 namespace Lcal {
 constexpr int LCAL_SUCCESS = 0;
@@ -30,7 +32,7 @@ constexpr int LCAL_ERROR_TIMEOUT = -5;
 constexpr int LCAL_ERROR_NOT_FOUND = -7;
 constexpr int64_t LCAL_INVALID_VALUE = -1;
 
-static int LCAL_BUFF_BYTES = 404 * 1024 * 1024;
+constexpr int LCAL_BUFF_BYTES = 404 * 1024 * 1024;  // 4MB to store meta info, 400MB to store data
 
 enum class ChipName {
     CHIP_310P3 = 0,
@@ -47,6 +49,16 @@ enum class ChipName {
     CHIP_910_9372,
     CHIP_910_9361,
     RESERVED,
+};
+
+const std::set<ChipName> regularChip = {
+    ChipName::CHIP_310P3,
+    ChipName::CHIP_910B1,
+    ChipName::CHIP_910B2,
+    ChipName::CHIP_910B3,
+    ChipName::CHIP_910B4,
+    ChipName::CHIP_910B41,
+    ChipName::CHIP_910B2C
 };
 
 enum class PhysicalLink {
