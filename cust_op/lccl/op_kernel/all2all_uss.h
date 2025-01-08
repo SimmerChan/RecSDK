@@ -26,7 +26,6 @@ using namespace AscendC;
 
 template<typename T>
 class AllUss : public Collectives {
-
     constexpr static int INVALID_RANK_NUM = 0xFFFFFFFF;  // 非法rank
     constexpr static int64_t SHARE_QUE_DEPTH = 16;  // 单个共享队列深度
     constexpr static int64_t MULTI_RANK_SIZE = 32;
@@ -39,14 +38,14 @@ class AllUss : public Collectives {
 
 public:
     __aicore__ inline AllUss(int rank, int rankSize, uint32_t extraFlag)
-            : Collectives(rank, rankSize, extraFlag)
+        : Collectives(rank, rankSize, extraFlag)
     {
     }
 
-    __aicore__ inline void Init(GM_ADDR input, GM_ADDR send_count_matrix, GM_ADDR shape_vec, GM_ADDR peer_mem, GM_ADDR restore,
-                                GM_ADDR output, int64_t rank, int64_t rankSize, int64_t magic, int64_t dim, int64_t outShape)
+    __aicore__ inline void Init(GM_ADDR input, GM_ADDR send_count_matrix, GM_ADDR shape_vec, GM_ADDR peer_mem,
+                                GM_ADDR restore, GM_ADDR output, int64_t rank, int64_t rankSize,
+                                int64_t magic, int64_t dim, int64_t outShape)
     {
-
         this->root = 0;
         this->len = 0;
         this->magic = magic;
@@ -55,7 +54,7 @@ public:
         this->dim = dim;
         this->restorePtr = restore;
         this->outputPtr = output;
-        this->coreNumsPerStage = 16;
+        this->coreNumsPerStage = 16;  // 16 core for each process stage due to hardware only has max 32 core
 
         blockIdx = GetBlockIdx();
         blockNum = GetBlockNum();
@@ -211,7 +210,9 @@ private:
                 continue;
             }
             // 当前核负责的ipcQue
-            readQue[i].Init(&sync, magic, shareAddrs[rank] + IPC_DATA_OFFSET + (targetRank[i] * coreNumPerRank + blockIdx%coreNumPerRank) * queSize,
+            readQue[i].Init(&sync, magic,
+                            shareAddrs[rank] + IPC_DATA_OFFSET +
+                                (targetRank[i] * coreNumPerRank + blockIdx%coreNumPerRank) * queSize,
                             queLen, queElemLen);
             // 当前核负责的数据长度和偏移
             revOffset[i] = 0;
@@ -327,8 +328,14 @@ private:
 
         // 拉取本rank数据
         if (flagValue < sliceIdx) {
-            sync.WaitInnerFlag(magic, sliceIdx, targetRank[idx], rank * coreNumPerRank + groupCoreIdx[idx] % coreNumPerRank);
-            flagValue = sync.GetInnerFlag(targetRank[idx], rank * coreNumPerRank + groupCoreIdx[idx] % coreNumPerRank) & EVENT_ID_MASK;
+            sync.WaitInnerFlag(
+                magic, sliceIdx, targetRank[idx], rank * coreNumPerRank + groupCoreIdx[idx] % coreNumPerRank);
+        }
+        readGt = readQue[idx].ReadFront();
+
+        if (copyLen > 0) {
+            flagValue = sync.GetInnerFlag(
+                targetRank[idx], rank * coreNumPerRank + groupCoreIdx[idx] % coreNumPerRank) & EVENT_ID_MASK;
             LocalTensor<T> buffer1 = tempBuffer.AllocTensor<T>();
             LocalTensor<T> buffer2 = tempBuffer.AllocTensor<T>();
             int64_t remain = copyLen * sizeof(T);
@@ -345,14 +352,19 @@ private:
                 event_t eventId = (loop & 1) ? EVENT_ID0 : EVENT_ID1;
                 wait_flag(PIPE_MTE3, PIPE_MTE2, eventId);
                 // emb数量
-                int64_t totalNum = remain < UB_SINGLE_DMA_SIZE_MAX / PING_PONG_SIZE ? remain / dim / sizeof(T) : UB_SINGLE_DMA_SIZE_MAX / PING_PONG_SIZE / dim / sizeof(T);
-                __ubuf__ T * buffer = (loop & 1) ? (__ubuf__ T *)buffer1.GetPhyAddr() : (__ubuf__ T *)buffer2.GetPhyAddr();
-                CpGM2UB(buffer, (__gm__ T *)readGt[offset].GetPhyAddr(), totalNum * dim * sizeof(T));
+                int64_t totalNum = remain < UB_SINGLE_DMA_SIZE_MAX / PING_PONG_SIZE ?
+                    remain / dim / sizeof(T) : UB_SINGLE_DMA_SIZE_MAX / PING_PONG_SIZE / dim / sizeof(T);
+                __ubuf__ T* buffer = (loop & 1) ?
+                    (__ubuf__ T*)buffer1.GetPhyAddr() : (__ubuf__ T*)buffer2.GetPhyAddr();
+                CpGM2UB(buffer, (__gm__ T*)readGt[offset].GetPhyAddr(), totalNum * dim * sizeof(T));
                 offset += totalNum * dim;
                 set_flag(PIPE_MTE2, PIPE_MTE3, eventId);
                 wait_flag(PIPE_MTE2, PIPE_MTE3, eventId);
                 for (int i = 0; i < totalNum; i++) {
-                    int64_t outIdx = *((__gm__ int32_t *)restorePtr + sliceIdx * queElemLen / dim + outputOffset[idx] / dim + outOffset + i);
+                    int64_t outIdx = *(
+                        (__gm__ int32_t *)restorePtr + sliceIdx * queElemLen / dim + outputOffset[idx] /
+                        dim + outOffset + i
+                    );
                     CpUB2GM(((__gm__ T*)outputPtr + outIdx * dim), buffer + i * dim, dim * sizeof(T));
                 }
                 set_flag(PIPE_MTE3, PIPE_MTE2, eventId);

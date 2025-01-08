@@ -18,7 +18,8 @@
 
 #include "register/op_def_registry.h"
 
-static int magic=10;
+static int g_magic = 10;
+static int g_blockDim = 32;
 namespace optiling {
     static ge::graphStatus TilingFunc(gert::TilingContext* context)
     {
@@ -47,9 +48,9 @@ namespace optiling {
             deterministic = std::stoi(envDeterministic);
         }
         tiling.set_deterministic(deterministic);
-        tiling.set_magic(magic);
+        tiling.set_magic(g_magic);
 
-        context->SetBlockDim(32);
+        context->SetBlockDim(g_blockDim);
 
         uint32_t sysWorkspaceSize = 16 * 1024 * 1024;
         size_t *currentWorkspace = context->GetWorkspaceSizes(1);
@@ -74,7 +75,14 @@ namespace ge {
         y_shape->SetDim(1, table_shape->GetDim(1));
         y_shape->SetDim(2, 1);
 
-        return GRAPH_SUCCESS;
+        return ge::GRAPH_SUCCESS;
+    }
+
+    static ge::graphStatus InferDataType(gert::InferDataTypeContext* context)
+    {
+        const auto inputDataType = context->GetInputDataType(0);
+        context->SetOutputDataType(0, inputDataType);
+        return ge::GRAPH_SUCCESS;
     }
 }
 
@@ -119,14 +127,13 @@ namespace ops {
             this->Attr("dim").Int();
 
             this->SetInferShape(ge::InferShape);
+            this->SetInferDataType(ge::InferDataType);
 
             this->AICore()
                     .SetTiling(optiling::TilingFunc);
             this->AICore().AddConfig("ascend910b");
             this->AICore().AddConfig("ascend910_93");
-
         }
-
     };
     OP_ADD(LcclAllUss);
 }

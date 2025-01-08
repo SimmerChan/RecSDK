@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#ifndef LCCL_ALL_USS_TILING_H
+#define LCCL_ALL_USS_TILING_H
+
 #include "register/tilingdata_base.h"
 
 namespace optiling {
@@ -28,3 +31,5 @@ namespace optiling {
 
     REGISTER_TILING_DATA_CLASS(LcclAllUss, LcclAllUssTilingData)
 }
+
+#endif

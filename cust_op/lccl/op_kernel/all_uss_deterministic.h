@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef LCCL_USS_DETERMINISTIC_H
-#define LCCL_USS_DETERMINISTIC_H
+#ifndef LCCL_ALL_USS_DETERMINISTIC_H
+#define LCCL_ALL_USS_DETERMINISTIC_H
 
 #include "collectives.h"
 #include "ipc_queue.h"
@@ -24,7 +24,6 @@ using namespace AscendC;
 
 template<typename T>
 class AllUssDeterministic : public Collectives {
-
     constexpr static int INVALID_RANK_NUM = 0xFFFFFFFF;  // 非法rank
     constexpr static int64_t SHARE_QUE_DEPTH = 16;  // 单个共享队列深度
     constexpr static int64_t MULTI_RANK_SIZE = 32;
@@ -38,12 +37,13 @@ class AllUssDeterministic : public Collectives {
 
 public:
     __aicore__ inline AllUssDeterministic(int rank, int rankSize, uint32_t extraFlag)
-            : Collectives(rank, rankSize, extraFlag)
+        : Collectives(rank, rankSize, extraFlag)
     {
     }
 
-    __aicore__ inline void Init(GM_ADDR input, GM_ADDR send_count_matrix, GM_ADDR shape_vec, GM_ADDR peer_mem, GM_ADDR restore,
-                                GM_ADDR output, int64_t rank, int64_t rankSize, int64_t magic, int64_t dim, int64_t outShape)
+    __aicore__ inline void Init(GM_ADDR input, GM_ADDR send_count_matrix, GM_ADDR shape_vec, GM_ADDR peer_mem,
+                                GM_ADDR restore, GM_ADDR output, int64_t rank, int64_t rankSize,
+                                int64_t magic, int64_t dim, int64_t outShape)
     {
         this->root = 0;
         this->len = 0;
@@ -53,6 +53,7 @@ public:
         this->dim = dim;
         this->restorePtr = restore;
         this->outputPtr = output;
+        // max 16 core for each process stage due to hardware only has max 32 core
         this->coreNumsPerStage = rankSize < 16 ? rankSize : 16;
         
         blockIdx = GetBlockIdx();
@@ -85,7 +86,7 @@ public:
             revLen += sendCountMatrixGm.GetValue(j * rankSize + rank);
         }
         pipe.InitBuffer(tempBuffer, PING_PONG_SIZE, UB_SINGLE_DMA_SIZE_MAX / PING_PONG_SIZE);
-        outputGt.SetGlobalBuffer((__gm__ T*)outout, outShape * dim * sizeof(T));
+        outputGt.SetGlobalBuffer((__gm__ T*)output, outShape * dim * sizeof(T));
 
         int initSize = outShape * dim / coreNumsPerStage / PING_PONG_SIZE;
         outputGtInit.SetGlobalBuffer((__gm__ T*)output + initSize * blockIdx);
@@ -100,7 +101,6 @@ public:
 
     __aicore__ inline void Process()
     {
-
         if (coreGroup == PRODUCER_CORE) {
             if (blockIdx != 0) {
                 sync.WaitInnerFlag(1, 0, rank, SYNC_FLAG_START + blockIdx);
@@ -111,6 +111,10 @@ public:
             ProducerStage();
         }
         if (coreGroup == CONSUMER_CORE) {
+            for (int i = 0; i < coreNumsPerStage; i++) {
+                sync.WaitInnerFlag(magic, 1, rank, i + MAX_FLAG_OFFSET);
+            }
+            sync.WaitInnerFlag(1, 0, rank, SYNC_FLAG_START + blockIdx - coreNumsPerStage);
             ConsumerStage();
             sync.SetInnerFlag(1, 0, rank, SYNC_FLAG_START + blockIdx - coreNumsPerStage + 1);
         }
@@ -215,8 +219,12 @@ private:
                 continue;
             }
             // 当前核负责的ipcQue
-            readQue[i].Init(&sync, magic, shareAddrs[rank] + IPC_DATA_OFFSET + (targetRank[i] * coreNumPerRank + blockIdx % coreNumPerRank) * queSize,
-                            queLen, queElemLen);
+            readQue[i].Init(
+                &sync, magic,
+                shareAddrs[rank] + IPC_DATA_OFFSET +
+                    (targetRank[i] * coreNumPerRank + blockIdx % coreNumPerRank) * queSize,
+                queLen, queElemLen
+            );
             // 当前核负责的数据长度和偏移
             revOffset[i] = 0;
             for (int j = 0; j < targetRank[i]; j++) {
@@ -331,8 +339,10 @@ private:
 
         // 拉取本rank数据
         if (flagValue < sliceIdx) {
-            sync.WaitInnerFlag(magic, sliceIdx, targetRank[idx], rank * coreNumPerRank + groupCoreIdx[i] % coreNumPerRank);
-            flagValue = sync.GetInnerFlag(targetRank[idx], rank * coreNumPerRank + groupCoreIdx[i] % coreNumPerRank) & EVENT_ID_MASK;
+            sync.WaitInnerFlag(
+                magic, sliceIdx, targetRank[idx], rank * coreNumPerRank + groupCoreIdx[idx] % coreNumPerRank);
+            flagValue = sync.GetInnerFlag(
+                targetRank[idx], rank * coreNumPerRank + groupCoreIdx[idx] % coreNumPerRank) & EVENT_ID_MASK;
         }
         readGt = readQue[idx].ReadFront();
         if (copyLen > 0) {
@@ -352,14 +362,19 @@ private:
                 event_t eventId = (loop & 1) ? EVENT_ID0 : EVENT_ID1;
                 wait_flag(PIPE_MTE3, PIPE_MTE2, eventId);
                 // emb数量，每次最多拷贝半块UB大小的emb
-                int64_t totalNum = remain < UB_SINGLE_DMA_SIZE_MAX / PING_PONG_SIZE ? remain / dim / sizeof(T) : UB_SINGLE_DMA_SIZE_MAX / PING_PONG_SIZE / dim / sizeof(T);
-                __ubuf__ T * buffer = (loop & 1) ? (__ubuf__ T *)buffer1.GetPhyAddr() : (__ubuf__ T *)buffer2.GetPhyAddr();
+                int64_t totalNum = remain < UB_SINGLE_DMA_SIZE_MAX / PING_PONG_SIZE ?
+                    remain / dim / sizeof(T) : UB_SINGLE_DMA_SIZE_MAX / PING_PONG_SIZE / dim / sizeof(T);
+                __ubuf__ T * buffer = (loop & 1) ?
+                    (__ubuf__ T *)buffer1.GetPhyAddr() : (__ubuf__ T *)buffer2.GetPhyAddr();
                 CpGM2UB(buffer, (__gm__ T *)readGt[offset].GetPhyAddr(), totalNum * dim * sizeof(T));
                 offset += totalNum * dim;
                 set_flag(PIPE_MTE2, PIPE_MTE3, eventId);
                 wait_flag(PIPE_MTE2, PIPE_MTE3, eventId);
                 for (int i = 0; i < totalNum; i++) {
-                    int64_t outIdx = *((__gm__ int32_t *)restorePtr + sliceIdx * queElemLen / dim + outputOffset[idx] / dim + outOffset + i);
+                    int64_t outIdx = *(
+                        (__gm__ int32_t *)restorePtr + sliceIdx * queElemLen / dim +
+                        outputOffset[idx] / dim + outOffset + i
+                    );
                     CpUB2GM(((__gm__ T*)outputPtr + outIdx * dim), buffer + i * dim, dim * sizeof(T));
                 }
                 set_flag(PIPE_MTE3, PIPE_MTE2, eventId);
@@ -378,9 +393,9 @@ private:
         }
         sync.SetInnerFlag(magic, sliceIdx, rank, groupCoreIdx[idx] + flagNumPerStage);
 
-        if (sliceIdx == sliceNum[idx] - 1){
+        if (sliceIdx == sliceNum[idx] - 1) {
             sync.SetInnerFlag(1, 0, rank, groupCoreIdx[idx] + flagNumPerStage);
-            sync.SetInnerFlag(1, 0, targetRank[idx], rank * coreNumPerRank + groupCoreIdx[i] % coreNumPerRank);
+            sync.SetInnerFlag(1, 0, targetRank[idx], rank * coreNumPerRank + groupCoreIdx[idx] % coreNumPerRank);
         }
     }
 
@@ -429,4 +444,4 @@ private:
     int64_t outputLen[MULTI_RANK_SIZE];  // 当前核负责的output长度（以T计）
 };
 
-#endif // LCCL_USS_DETERMINISTIC_H
+#endif // LCCL_ALL_USS_DETERMINISTIC_H

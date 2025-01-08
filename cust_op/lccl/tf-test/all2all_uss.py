@@ -18,7 +18,7 @@
 import argparse
 import os
 import time
-import subprocess
+import logging
 
 import numpy as np
 import tensorflow as tf
@@ -27,19 +27,15 @@ from tensorflow.core.protobuf.rewriter_config_pb2 import RewriterConfig
 
 import mxrec_pybind
 
-tf.compat.v1.disable_eager_execution()
-python_path = subprocess.check_output(['which', 'python3.7']).decode('utf-8').strip()
-python_parent_dir = os.path.dirname(os.path.dirname(python_path))
-site_packages_dir = os.path.join(python_parent_dir, 'lib', 'python3.7', 'site-packages')
-mx_rec_dir = os.path.join(site_packages_dir, 'mx_rec')
-comm_pybind = tf.load_op_library(mx_rec_dir + "/libasc/libasc_ops.so")
+
+logging.basicConfig(level=logging.DEBUG)
+ops_so = tf.load_op_library("/usr/local/python3.7.5/lib/python3.7/site-packages/mx_rec/libasc/libasc_ops.so")
 
 
-def set_ascend_env(rank, rank_size, local_rank_size, host, file=None, dev_id=-1, dev_index=1):
+def set_ascend_env(rank, rank_size, local_rank_size, file=None, dev_id=-1, dev_index=1):
     rank = str(rank)
     rank_size = str(rank_size)
     local_rank_size = int(local_rank_size)
-    host = str(host)
 
     os.environ["MOX_USE_NPU"] = "1"
     os.environ["FUSION_TENSOR_SIZE"] = "2000000000"
@@ -64,7 +60,6 @@ def set_ascend_env(rank, rank_size, local_rank_size, host, file=None, dev_id=-1,
     os.environ["RANK_SIZE"] = rank_size
     if file:
         os.environ["RANK_TABLE_FILE"] = file
-    # no else
 
     os.environ["HCCL_CONNECT_TIMEOUT"] = "600"
 
@@ -86,14 +81,15 @@ class WideDeep:
 
     def forward(self):
         with tf.control_dependencies([self.lbl_hldr]):
-            alluss_result_ = comm_pybind.lccl_all_uss(send_data=self.lbl_hldr,
-                                                      send_count_matrix=self.matrix,
-                                                      shape_vec=self.arr,
-                                                      peer_mem=peer_mem,
-                                                      restore=self.restore,
-                                                      rank=rank_id,
-                                                      rank_size=rank_size,
-                                                      dim=dim)
+            alluss_result_ = ops_so.lccl_all_uss(
+                send_data=self.lbl_hldr,
+                send_count_matrix=self.matrix,
+                shape_vec=self.arr,
+                peer_mem=peer_mem,
+                restore=self.restore,
+                rank=rank_id,
+                rank_size=rank_size,
+                dim=dim)
             self.alluss_result = tf.reshape(alluss_result_, [-1, dim])
         return self.alluss_result
 
@@ -110,27 +106,26 @@ def verify_result(real_result:np.array, golden:np.array):
         if np.sum(result_rtol == 0) > real_result.size * loss and \
             np.sum(result_atol == 0) > real_result.size * loss:
             raise ValueError("precision error")
-    print("AllUss precision test pass")
+    logging.info("AllUss precision test pass")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='base')
     parser.add_argument("--local_rank_size")
-    parser.add_argument("--hosts")
     parser.add_argument("--hccl_json")
     args = parser.parse_args()
     local_rank_size = int(args.local_rank_size)
 
     comm = MPI.COMM_WORLD
     rank_id = comm.Get_rank()
-    device_id = rank_id
+    comm_server_rank_id = 0  # select rank 0 as server for lccl meta info exchange node
     rank_size = comm.Get_size()
-    print(f"rank {rank_id}/{rank_size}")
+    logging.info(f"rank {rank_id}/{rank_size}")
     local_rank_id = rank_id % rank_size
-    set_ascend_env(rank_id, rank_size, local_rank_size, host=args.hosts, file=args.hccl_json)
+    set_ascend_env(rank_id, rank_size, local_rank_size, file=args.hccl_json)
 
-    peer_mem_ = mxrec_pybind.get_peer_mem(rank_id, device_id, rank_size)
-    print("python peer_mem_ = ", peer_mem_)
+    peer_mem_ = mxrec_pybind.get_peer_mem(rank_id, comm_server_rank_id, rank_size)
+    logging.info(f"python peer_mem_ = {peer_mem_}")
     peer_mem = tf.constant(peer_mem_, dtype=tf.int64)
 
 
@@ -182,33 +177,32 @@ if __name__ == "__main__":
     with tf.compat.v1.Session(config=sess_config) as sess:
         sess.run(tf.compat.v1.global_variables_initializer())
 
-        print("============start alluss test=============")
+        logging.info("============start alluss test=============")
         # start run loop
         current_steps = 0
         train_finished = False
         while not train_finished:
             try:
                 current_steps += 1
-                print("current step = ", current_steps)
+                logging.info(f"current step = {current_steps}")
                 run_dict = {
                     "alluss_result": model.alluss_result,
                 }
                 start_time = time.time()
                 results = sess.run(fetches=run_dict)
                 end_time = time.time()
-                print(f"current steps: {current_steps}, step time:{(end_time - start_time) * 1000}")
+                logging.info(f"current steps: {current_steps}, step time:{(end_time - start_time) * 1000}")
                 if current_steps >= stop_steps:
                     comm.Barrier()
-                    print("alluss finished")
+                    logging.info("alluss finished")
                     train_finished = True
             except tf.errors.OutOfRangeError:
                 comm.Barrier()
-                print("alluss test failed with error:{e}")
+                logging.info("alluss test failed with error:{e}")
                 train_finished = True
         MPI.Finalize()
 
     # check precision
-    # TODO: 需要先算出all2all结果，然后根据restore计算uss
     all2all = random_send_data_np
     send_row_per_rank = emb_len // rank_size
     for i in range(all2all.shape[0]):
@@ -220,4 +214,4 @@ if __name__ == "__main__":
     actual = np.array(results.get("alluss_result"))
     verify_result(actual, expect_uss)
 
-    print("============end alluss test=============")
+    logging.info("============end alluss test=============")
