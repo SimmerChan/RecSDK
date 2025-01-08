@@ -15,29 +15,29 @@
 # ==============================================================================
 
 ##################################################################
-#   build_tf1.sh 编译MxRec
+#   build_tf1.sh 编译Rec SDK
 # 编译环境：Python3.7.5 GCC 7.3.0 CMake 3.20.6
 # 代码主要分为两部分：
-# 1、准备编译MxRec所需依赖：pybind11(v2.10.3) securec
-# 2、编译securec、AccCTR以及MxRec
+# 1、准备编译Rec SDK所需依赖：pybind11(v2.10.3) securec
+# 2、编译securec、AccCTR以及Rec SDK
 ##################################################################
 
 set -e
 warn() { echo >&2 -e "\033[1;31m[WARN ][Depend  ] $1\033[1;37m" ; }
 ARCH="$(uname -m)"
 SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
-MxRec_DIR=$(dirname "${SCRIPT_DIR}")
+Rec SDK_DIR=$(dirname "${SCRIPT_DIR}")
 
-opensource_path="${MxRec_DIR}"/../opensource
+opensource_path="${Rec SDK_DIR}"/../opensource
 if [ ! -d ${opensource_path} ]; then
-  echo "user should download dependency packages to mxRec/../opensource directory, see README.md"
+  echo "user should download dependency packages to Rec SDK/../opensource directory, see README.md"
   exit -1
 fi
 
 function install_expected(){
-  dir="$MxRec_DIR"/third_party/expected
+  dir="$Rec SDK_DIR"/third_party/expected
   if [ -z "$(ls -A "$dir")" ]; then
-    cd "$MxRec_DIR"
+    cd "$Rec SDK_DIR"
     git submodule init
     cmd="git submodule update"
     # retry five times
@@ -74,10 +74,10 @@ source /opt/buildtools/tf1_env/bin/activate
 tf1_path=$(dirname "$(dirname "$(which python3.7)")")/lib/python3.7/site-packages/tensorflow_core
 deactivate tf1_env
 
-# 配置MxRec C++代码路径和AccCTR路径
-src_path="${MxRec_DIR}"/src
-acc_ctr_path="${MxRec_DIR}"/src/AccCTR
-cd "${MxRec_DIR}"
+# 配置Rec SDK C++代码路径和AccCTR路径
+src_path="${Rec SDK_DIR}"/src
+acc_ctr_path="${Rec SDK_DIR}"/src/AccCTR
+cd "${Rec SDK_DIR}"
 
 function compile_securec()
 {
@@ -96,7 +96,7 @@ function compile_so_file()
 {
   cd "${src_path}"
   chmod u+x build.sh
-  ./build.sh "$1" "${MxRec_DIR}" "YES"
+  ./build.sh "$1" "${Rec SDK_DIR}" "YES"
   cd ..
 }
 
@@ -115,23 +115,23 @@ function collect_so_file()
   chmod u+x libasc
 
   cp ${acc_ctr_path}/output/ock_ctr_common/lib/* libasc
-  cp -df "${MxRec_DIR}"/output/*.so* libasc
+  cp -df "${Rec SDK_DIR}"/output/*.so* libasc
   cp "${opensource_path}"/securec/lib/libsecurec.so libasc
-  cd "${MxRec_DIR}"
+  cd "${Rec SDK_DIR}"
   touch "${src_path}"/libasc/__init__.py
-  rm -rf "${MxRec_DIR}"/mx_rec/libasc
-  mv "${src_path}"/libasc "${MxRec_DIR}"/mx_rec
+  rm -rf "${Rec SDK_DIR}"/mx_rec/libasc
+  mv "${src_path}"/libasc "${Rec SDK_DIR}"/mx_rec
 }
 
-# start to build MxRec
+# start to build Rec SDK
 echo "----------------          install     expected          ----------------"
 install_expected
 echo "----------------          compile     securec           ----------------"
 compile_securec
 echo "----------------          compile     AccCTR            ----------------"
 compile_acc_ctr_so_file
-echo "----------------          compile MxRec so files        ----------------"
+echo "----------------          compile Rec SDK so files        ----------------"
 compile_so_file "${tf1_path}"
 echo "---------------- collect so files and mv them to libasc ----------------"
 collect_so_file
-echo "----------------        compile MxRec success!!!!       ----------------"
+echo "----------------        compile Rec SDK success!!!!       ----------------"
