@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef LCCL_ALL_TO_ALL_TILING_H
+#define LCCL_ALL_TO_ALL_TILING_H
 
 #include "register/tilingdata_base.h"
 
@@ -26,3 +28,4 @@ namespace optiling {
     REGISTER_TILING_DATA_CLASS(LcclAllToAll, LcclAllToAllTilingData)
 }
 
+#endif  // LCCL_ALL_TO_ALL_TILING_H

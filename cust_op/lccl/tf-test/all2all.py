@@ -19,6 +19,7 @@ import argparse
 import os
 import time
 import subprocess
+import logging
 
 import numpy as np
 import tensorflow as tf
@@ -33,7 +34,7 @@ python_path = subprocess.check_output(['which', 'python3.7']).decode('utf-8').st
 python_parent_dir = os.path.dirname(os.path.dirname(python_path))
 site_packages_dir = os.path.join(python_parent_dir, 'lib', 'python3.7', 'site-packages')
 mx_rec_dir = os.path.join(site_packages_dir, 'mx_rec')
-comm_pybind = tf.load_op_library(mx_rec_dir + "/libasc/libasc_ops.so")
+comm_pybind = tf.load_op_library(os.path.join(mx_rec_dir, "/libasc/libasc_ops.so"))
 
 
 def set_ascend_env(rank, rank_size, local_rank_size, host, file=None, dev_id=-1, dev_index=1):
@@ -108,7 +109,7 @@ def verify_result(real_result:np.array, golden:np.array):
         if np.sum(result_rtol == 0) > real_result.size * loss and \
             np.sum(result_atol == 0) > real_result.size * loss:
             raise ValueError("precision error")
-    print("all2all precision test pass")
+    logging.info("all2all precision test pass")
 
 
 if __name__ == "__main__":
@@ -123,12 +124,12 @@ if __name__ == "__main__":
     rank_id = comm.Get_rank()
     device_id = rank_id
     rank_size = comm.Get_size()
-    print(f"rank {rank_id}/{rank_size}")
+    logging.info(f"rank {rank_id}/{rank_size}")
     local_rank_id = rank_id % rank_size
     set_ascend_env(rank_id, rank_size, local_rank_size, host=args.hosts, file=args.hccl_json)
 
     peer_mem_ = mxrec_pybind.get_peer_mem(rank_id, device_id, rank_size)
-    print("python peer_mem_ = ", peer_mem_)
+    logging.info("python peer_mem_ = ", peer_mem_)
     peer_mem = tf.constant(peer_mem_, dtype=tf.int64)
 
     # create session
@@ -178,26 +179,26 @@ if __name__ == "__main__":
     with tf.compat.v1.Session(config=sess_config) as sess:
         sess.run(tf.compat.v1.global_variables_initializer())
 
-        print("============start all2all test=============")
+        logging.info("============start all2all test=============")
         # start run loop
         current_steps = 0
         train_finished = False
         while not train_finished:
             try:
                 current_steps += 1
-                print("current step = ", current_steps)
+                logging.info("current step = ", current_steps)
                 run_dict = {"all2all_result": model.all2all_result}
                 start_time = time.time()
                 results = sess.run(fetches=run_dict)
                 end_time = time.time()
-                print(f"current steps: {current_steps}, time cost(ms):{(end_time - start_time) * 1000}")
+                logging.info(f"current steps: {current_steps}, time cost(ms):{(end_time - start_time) * 1000}")
                 if current_steps >= stop_steps:
                     comm.Barrier()
-                    print("all2all finished")
+                    logging.info("all2all finished")
                     train_finished = True
             except tf.errors.OutOfRangeError as e:
                 comm.Barrier()
-                print("all2all test failed with error:{e}")
+                logging.info("all2all test failed with error:{e}")
                 train_finished = True
         MPI.Finalize()
 
@@ -210,4 +211,4 @@ if __name__ == "__main__":
     out = np.array(results.get("all2all_result"))
     verify_result(out, expect)
 
-    print("============end all2all test=============")
+    logging.info("============end all2all test=============")

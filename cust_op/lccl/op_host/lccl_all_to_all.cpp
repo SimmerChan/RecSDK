@@ -18,7 +18,8 @@
 
 #include "register/op_def_registry.h"
 
-static int magic=9;
+static int g_magic = 9;
+static int g_blockDim = 32;
 namespace optiling {
     static ge::graphStatus TilingFunc(gert::TilingContext* context)
     {
@@ -34,9 +35,9 @@ namespace optiling {
         tiling.set_rank(rank);
         tiling.set_rankSize(rankSize);
 
-        tiling.set_magic(magic);
+        tiling.set_magic(g_magic);
 
-        context->SetBlockDim(32);
+        context->SetBlockDim(g_blockDim);
 
         // 参考官网默认值 设置workSpace大小
         uint32_t sysWorkspaceSize = 16 * 1024 * 1024;

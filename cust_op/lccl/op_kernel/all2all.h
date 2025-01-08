@@ -24,7 +24,6 @@ using namespace AscendC;
 
 template<typename T>
 class All2All : public Collectives {
-
     constexpr static int INVALID_RANK_NUM = 0xFFFFFFFF;  // 非法rank
     constexpr static int64_t SHARE_QUE_DEPTH = 16;  // 单个共享队列深度
     constexpr static int64_t MULTI_RANK_SIZE = 32;
@@ -35,19 +34,19 @@ class All2All : public Collectives {
 
 public:
     __aicore__ inline All2All(int rank, int rankSize, uint32_t extraFlag)
-            : Collectives(rank, rankSize, extraFlag)
+        : Collectives(rank, rankSize, extraFlag)
     {
     }
 
-    __aicore__ inline void Init(GM_ADDR input, GM_ADDR send_count_matrix, GM_ADDR shape_vec, GM_ADDR peer_mem, GM_ADDR output,
-                                int64_t rank, int64_t rankSize, int64_t magic)
+    __aicore__ inline void Init(GM_ADDR input, GM_ADDR send_count_matrix, GM_ADDR shape_vec, GM_ADDR peer_mem,
+                                GM_ADDR output, int64_t rank, int64_t rankSize, int64_t magic)
     {
         this->root = 0;
         this->len = 0;
         this->magic = magic;
         this->rank = rank;
         this->rankSize = rankSize;
-        this->coreNumsPerStage = 16;
+        this->coreNumsPerStage = 16;  // total 2 stage with 32 core
         
         blockIdx = GetBlockIdx();
         blockNum = GetBlockNum();
@@ -189,8 +188,11 @@ private:
                 continue;
             }
             // 当前核负责的ipcQue
-            readQue[i].Init(&sync, magic, shareAddrs[targetRank[i]] + IPC_DATA_OFFSET + (rank * coreNumPerRank + groupCoreIdx[i] % coreNumPerRank) * queSize,
-                            queLen, queElemLen);
+            readQue[i].Init(
+                &sync, magic,
+                shareAddrs[targetRank[i]] + IPC_DATA_OFFSET +
+                    (rank * coreNumPerRank + groupCoreIdx[i] % coreNumPerRank) * queSize,
+                queLen, queElemLen);
             // 当前核负责的数据长度和偏移
             revOffset[i] = 0;
             for (int j = 0; j < targetRank[i]; j++) {
@@ -305,8 +307,11 @@ private:
 
         // 拉取本rank数据
         if (flagValue < sliceIdx) {
-            sync.WaitInnerFlag(magic, sliceIdx, targetRank[idx], rank * coreNumPerRank + groupCoreIdx[idx] % coreNumPerRank);
-            flagValue = sync.GetInnerFlag(targetRank[idx], rank * coreNumPerRank + groupCoreIdx[idx] % coreNumPerRank) & EVENT_ID_MASK;
+            sync.WaitInnerFlag(magic, sliceIdx,
+                               targetRank[idx], rank * coreNumPerRank + groupCoreIdx[idx] % coreNumPerRank);
+            flagValue = sync.GetInnerFlag(
+                targetRank[idx],
+                rank * coreNumPerRank + groupCoreIdx[idx] % coreNumPerRank) & EVENT_ID_MASK;
         }
         readGt = readQue[idx].ReadFront();
         if (copyLen > 0) {
