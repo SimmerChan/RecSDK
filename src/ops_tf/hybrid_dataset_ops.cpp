@@ -723,7 +723,7 @@ namespace tensorflow {
             TF_RETURN_IF_ERROR(c->WithRankAtLeast(c->input(3), 1, &dataShape));
             tensorflow::shape_inference::DimensionHandle rows = c->Dim(dataShape, 0);
             int64_t shape1 = c->Value(rows);
-            c->set_output(0, c->MakeShape({shape1, dim,1}));
+            c->set_output(0, c->MakeShape({shape1, dim, 1}));
             return Status::OK();
         });
     REGISTER_KERNEL_BUILDER(Name("LcclGatherAll").Device(DEVICE_CPU), MxRec::CustOps);
@@ -746,7 +746,7 @@ namespace tensorflow {
             TF_RETURN_IF_ERROR(c->WithRankAtLeast(c->input(2), 1, &dataShape));
             tensorflow::shape_inference::DimensionHandle rows = c->Dim(dataShape, 0);
             int64_t shape1 = c->Value(rows);
-            c->set_output(0, c->MakeShape({shape1, dim,1}));
+            c->set_output(0, c->MakeShape({shape1, dim, 1}));
             return Status::OK();
         });
     REGISTER_KERNEL_BUILDER(Name("LcclAllUss").Device(DEVICE_CPU), MxRec::CustOps);

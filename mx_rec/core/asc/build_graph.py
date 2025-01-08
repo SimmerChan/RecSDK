@@ -48,6 +48,7 @@ def get_restore_vector_second(table_name: str, max_lookup_vec_size: int) -> tf.T
             channel_name=f'{table_name}_restore_second_{channel_id}')[0]
     return restore_vector_second
 
+
 def get_unique_keys(table_name: str, max_lookup_vec_size: int, is_expansion: bool) -> tf.Tensor:
     channel_id = 0
     logger.debug('Channel %s_uniquekeys_%s was built for getnext', table_name, channel_id)
@@ -65,6 +66,7 @@ def get_unique_keys(table_name: str, max_lookup_vec_size: int, is_expansion: boo
             channel_name=f'{table_name}_uniquekeys_{channel_id}')[0]
         return unique_keys
 
+
 def get_unique_shape(config):
     logger.debug('Channel %s_recvshape_%s was built for getnext', config.get(ASCAnchorAttr.TABLE_NAME.value),
                  config.get(ASCAnchorAttr.CHANNEL_ID.value))
@@ -80,6 +82,7 @@ def get_unique_shape(config):
                 channel_name=f'{config.get(ASCAnchorAttr.TABLE_NAME.value)}'
                              f'_recvshape_{config.get(ASCAnchorAttr.CHANNEL_ID.value)}')[0]
     return unique_shape
+
 
 def get_restore_vector(config):
     logger.debug('Channel %s_restore_%s was built for getnext', config.get(ASCAnchorAttr.TABLE_NAME.value),

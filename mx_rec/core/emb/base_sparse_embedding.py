@@ -26,6 +26,7 @@ import mxrec_pybind
 
 host_pipeline_ops = import_host_pipeline_ops()
 
+
 class BaseSparseEmbedding(metaclass=abc.ABCMeta):
     """
     Abstract base class for sparse embedding table.
@@ -541,17 +542,17 @@ class BaseSparseEmbedding(metaclass=abc.ABCMeta):
             logger.debug("fp rank size: %s", self._rank_size)
             all2all_args = send_count if self._use_static else result.get("all2all_args")
 
-            if ((not ConfigInitializer.get_instance().use_dynamic_expansion) and (not self._use_static)
-                    and ConfigInitializer.get_instance().use_lccl):
-                    unique_embeddings_ = host_pipeline_ops.lccl_gather_all(emb_table=table,
-                                                                           lookup=tf.abs(result.get("id_offsets")),
-                                                                           send_count_matrix=all2all_args,
-                                                                           shape_vec=result.get('unique_shape'),
-                                                                           peer_mem=self.peer_mem,
-                                                                           rank=self.rank_id_,
-                                                                           rank_size=self.rank_size_,
-                                                                           dim=self._emb_size)
-                    unique_embeddings = tf.reshape(unique_embeddings_, [-1, self._emb_size])
+            if ((not ConfigInitializer.get_instance().use_dynamic_expansion) and (not self._use_static) and
+                    ConfigInitializer.get_instance().use_lccl):
+                unique_embeddings_ = host_pipeline_ops.lccl_gather_all(emb_table=table,
+                                                                        lookup=tf.abs(result.get("id_offsets")),
+                                                                        send_count_matrix=all2all_args,
+                                                                        shape_vec=result.get('unique_shape'),
+                                                                        peer_mem=self.peer_mem,
+                                                                        rank=self.rank_id_,
+                                                                        rank_size=self.rank_size_,
+                                                                        dim=self._emb_size)
+                unique_embeddings = tf.reshape(unique_embeddings_, [-1, self._emb_size])
             else:
                 local_embeddings = self._get_local_embeddings(table, result, feature_spec, **kwargs)
                 unique_embeddings = self.__get_own_emb(
