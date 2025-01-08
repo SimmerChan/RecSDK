@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef LCCL_GatherAll_H
-#define LCCL_GatherAll_H
+#ifndef LCCL_GATHER_ALL_H
+#define LCCL_GATHER_ALL_H
 
 #include "collectives.h"
 #include "ipc_queue.h"
@@ -51,7 +51,7 @@ public:
         this->emb_table = emb_table;
         this->lookup = lookup;
         this->output = output;
-        this->coreNumsPerStage = 16;
+        this->coreNumsPerStage = 16; // 16 core for each stage due to hardware has max 32 core
 
         blockIdx = GetBlockIdx();
         blockNum = GetBlockNum();
@@ -64,7 +64,8 @@ public:
                             (this->magic % PING_PONG_SIZE) * (IPC_BUFF_MAX_SIZE + IPC_DATA_OFFSET);
         }
         this->gather_data = (GM_ADDR)(peerMemsAddrGm.GetValue(rank)) +
-                            ((this->magic + 1) % PING_PONG_SIZE) * (IPC_BUFF_MAX_SIZE + IPC_DATA_OFFSET) + IPC_DATA_OFFSET;
+                            ((this->magic + 1) % PING_PONG_SIZE) * (IPC_BUFF_MAX_SIZE + IPC_DATA_OFFSET) +
+                            IPC_DATA_OFFSET;
 
         blockSize = UB_SINGLE_DMA_SIZE_MAX / PING_PONG_SIZE / (dim * sizeof(T));
         blockSize = (blockSize / 64) * 64 ;  // 64 Byte对齐
@@ -92,20 +93,19 @@ public:
         InitDataSlice();
     }
 
-
     __aicore__ inline void Gather()
     {
         int totalNum = sendLen / dim;
         int gatherNumPerCore = totalNum / blockNum;
         int gatherNum = gatherNumPerCore;
-        if (blockIdx == blockNum-1){
+        if (blockIdx == blockNum - 1) {
             gatherNum = totalNum - gatherNumPerCore * (blockNum -1);
         }
         __ubuf__ T* inputUBList[2] = {(__ubuf__ T*)get_imm(0), (__ubuf__ T*)get_imm(95*1024)};
         set_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID0);  // MTE2等MTE3
         set_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID1);  // MTE2等MTE3
         int copiedNum = 0;
-        int copyId=0;
+        int copyId = 0;
         while (gatherNum > 0) {
             __ubuf__ T* inputUB = (copyId % PING_PONG_SIZE) ? inputUBList[0] : inputUBList[1];
             event_t event_id = (copyId % PING_PONG_SIZE) ? EVENT_ID0: EVENT_ID1;
@@ -117,7 +117,9 @@ public:
             }
             set_flag(PIPE_MTE2, PIPE_MTE3, event_id);
             wait_flag(PIPE_MTE2, PIPE_MTE3, event_id);
-            CpUB2GM<T>((__gm__ T*)gather_data + dim * (gatherNumPerCore * blockIdx + copiedNum), (__ubuf__ T*)inputUB, toCopy * dim * sizeof(T));
+            CpUB2GM<T>(
+                (__gm__ T*)gather_data + dim * (gatherNumPerCore * blockIdx + copiedNum),
+                (__ubuf__ T*)inputUB, toCopy * dim * sizeof(T));
             set_flag(PIPE_MTE3, PIPE_MTE2, event_id);
             gatherNum -= toCopy;
             copiedNum += toCopy;
@@ -246,8 +248,11 @@ private:
                 continue;
             }
             // 当前核负责的ipcQue
-            readQue[i].Init(&sync, magic, shareAddrs[targetRank[i]] + IPC_DATA_OFFSET + (rank * coreNumPerRank + groupCoreIdx[i] % coreNumPerRank) * queSize, queLen,
-                            queElemLen);
+            readQue[i].Init(
+                &sync, magic,
+                shareAddrs[targetRank[i]] + IPC_DATA_OFFSET +
+                    (rank * coreNumPerRank + groupCoreIdx[i] % coreNumPerRank) * queSize,
+                queLen, queElemLen);
             // 当前核负责的数据长度和偏移
             revOffset[i] = 0;
             for (int j = 0; j < targetRank[i]; j++) {
@@ -362,8 +367,10 @@ private:
 
         // 拉取本rank数据
         if (flagValue < sliceIdx) {
-            sync.WaitInnerFlag(magic, sliceIdx, targetRank[idx], rank * coreNumPerRank + groupCoreIdx[idx] % coreNumPerRank);
-            flagValue = sync.GetInnerFlag(targetRank[idx], rank * coreNumPerRank + groupCoreIdx[idx] % coreNumPerRank) & EVENT_ID_MASK;
+            sync.WaitInnerFlag(
+                magic, sliceIdx, targetRank[idx], rank * coreNumPerRank + groupCoreIdx[idx] % coreNumPerRank);
+            flagValue = sync.GetInnerFlag(
+                targetRank[idx], rank * coreNumPerRank + groupCoreIdx[idx] % coreNumPerRank) & EVENT_ID_MASK;
         }
         readGt = readQue[idx].ReadFront();
         if (copyLen > 0) {

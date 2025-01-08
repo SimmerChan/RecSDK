@@ -19,7 +19,8 @@
 #include "register/op_def_registry.h"
 
 
-static int magic=8;
+static int g_magic = 8;
+static int g_blockDim = 32;
 namespace optiling {
     static ge::graphStatus TilingFunc(gert::TilingContext* context)
     {
@@ -39,9 +40,9 @@ namespace optiling {
         tiling.set_dim(dim);
         tiling.set_rankSize(rankSize);
 
-        tiling.set_magic(magic);
+        tiling.set_magic(g_magic);
 
-        context->SetBlockDim(32);
+        context->SetBlockDim(g_blockDim);
 
         uint32_t sysWorkspaceSize = 16 * 1024 * 1024;
         size_t *currentWorkspace = context->GetWorkspaceSizes(1);
@@ -75,7 +76,8 @@ namespace ops {
     class LcclGatherAll : public OpDef {
     public:
         explicit LcclGatherAll(const char* name) : OpDef(name)
-        {   this->Input("emb_table")
+        {
+            this->Input("emb_table")
                     .ParamType(REQUIRED)
                     .DataType({ge::DT_FLOAT, ge::DT_FLOAT, ge::DT_FLOAT})
                     .Format({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})
@@ -116,7 +118,6 @@ namespace ops {
             this->AICore().AddConfig("ascend910b");
             this->AICore().AddConfig("ascend910_93");
         }
-
     };
     OP_ADD(LcclGatherAll);
 }

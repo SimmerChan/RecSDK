@@ -19,6 +19,7 @@ import argparse
 import os
 import time
 import subprocess
+import logging
 
 import numpy as np
 import tensorflow as tf
@@ -109,7 +110,7 @@ def verify_result(real_result:np.array, golden:np.array):
         if np.sum(result_rtol == 0) > real_result.size * loss and \
             np.sum(result_atol == 0) > real_result.size * loss:
             raise ValueError("precision error")
-    print("GatherAll precision test pass")
+    logging("GatherAll precision test pass")
 
 
 if __name__ == "__main__":
@@ -124,12 +125,12 @@ if __name__ == "__main__":
     rank_id = comm.Get_rank()
     device_id = rank_id
     rank_size = comm.Get_size()
-    print(f"rank {rank_id}/{rank_size}")
+    logging(f"rank {rank_id}/{rank_size}")
     local_rank_id = rank_id % rank_size
     set_ascend_env(rank_id, rank_size, local_rank_size, host=args.hosts, file=args.hccl_json)
 
     peer_mem_ = mxrec_pybind.get_peer_mem(rank_id, device_id, rank_size)
-    print("python peer_mem_ = ", peer_mem_)
+    logging("python peer_mem_ = ", peer_mem_)
 
     # create session
     sess_config = tf.compat.v1.ConfigProto()
@@ -168,14 +169,14 @@ if __name__ == "__main__":
     with tf.compat.v1.Session(config=sess_config) as sess:
         sess.run(tf.compat.v1.global_variables_initializer())
 
-        print("============start GatherAll test=============")
+        logging("============start GatherAll test=============")
         # start run loop
         current_steps = 0
         train_finished = False
         while not train_finished:
             try:
                 current_steps += 1
-                print("current step = ", current_steps)
+                logging("current step = ", current_steps)
                 run_dict = {
                     "gather_all_result": model.gather_all_result,
                 }
@@ -183,28 +184,28 @@ if __name__ == "__main__":
                 results = sess.run(fetches=run_dict)
                 end_time = time.time()
 
-                print(f"current steps: {current_steps}, time cost(ms):{(end_time - start_time) * 1000}")
+                logging(f"current steps: {current_steps}, time cost(ms):{(end_time - start_time) * 1000}")
                 results_np = np.array(results.get("gather_result"))
                 if current_steps >= stop_steps:
                     comm.Barrier()
-                    print("gather finished")
+                    logging("gather finished")
                     train_finished = True
             except tf.errors.OutOfRangeError:
                 comm.Barrier()
-                print("gather test failed with error:{e}")
+                logging("gather test failed with error:{e}")
                 train_finished = True
         MPI.Finalize()
         
     # check precision
-    # TODO: 需要先算出gather结果，在算all2all结果
     expect_gather = emb_table[lookup_idx]
     
     expect_gather_all = np.array(expect_gather)
     send_row_per_rank = lookup_num // rank_size
     for i in range(expect_gather_all.shape[0]):
         for j in range(expect_gather_all[i]):
-            expect_gather_all[i][j] = int(i / send_row_per_rank) * 100000 + (i % send_row_per_rank) + send_row_per_rank * rank_id
+            expect_gather_all[i][j] = int(i / send_row_per_rank) * 100000 + \
+                (i % send_row_per_rank) + send_row_per_rank * rank_id
     
     actual = np.array(results.get("gather_all_result"))
     verify_result(actual, expect_gather_all)
-    print("============end GatherAll test=============")
+    logging("============end GatherAll test=============")
