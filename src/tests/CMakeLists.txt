@@ -35,7 +35,7 @@ message("MXREC_SRC: " ${MXREC_SRC})
 
 file(GLOB_RECURSE MXREC_TEST_SRC ./*.cpp)
 # lccl test depends on npu, if environment ready, delete line below
-list(REMOVE_ITEM MXREC_TEST_SRC ${PROJECT_SOURCE_DIR}/tests/lccl/lccl_test.cpp)
+list(REMOVE_ITEM MXREC_TEST_SRC ${PROJECT_SOURCE_DIR}/tests/./lccl/lccl_test.cpp)
 message("MXREC_TEST_SRC: " ${MXREC_TEST_SRC})
 
 set(CMAKE_CXX_FLAGS "--coverage")
