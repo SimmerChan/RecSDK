@@ -35,11 +35,11 @@ int HDTransfer::Init(const vector<EmbInfo>& embInfos, uint32_t localRankId, bool
     // 使用AscendCL接口开发应用时，必须先调用aclInit接口，否则可能会导致后续系统内部资源初始化出错，进而导致其它业务异常。
     if (!GlobalEnv::useShmSwap) {
         aclError retOk = aclInit(nullptr);
-        LOG_INFO("End aclInit, rank:{}.", localRankId);
         if (retOk != ACL_SUCCESS) {
             LOG_ERROR("aclInit failed, rank:{}, errno:{}.", localRankId, retOk);
             return false;
         }
+        LOG_INFO("End aclInit, rank:{}.", localRankId);
         LOG_INFO("Start aclrtSetDevice, rank:{}.", localRankId);
         // 指定当前进程或线程中用于运算的Device，同时隐式创建默认Context
         auto ret = aclrtSetDevice(static_cast<int32_t>(localRankId));
