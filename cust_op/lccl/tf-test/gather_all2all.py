@@ -18,7 +18,6 @@
 import argparse
 import os
 import time
-import subprocess
 import logging
 
 import numpy as np
@@ -30,18 +29,14 @@ import mxrec_pybind
 
 
 tf.compat.v1.disable_eager_execution()
-python_path = subprocess.check_output(['which', 'python3.7']).decode('utf-8').strip()
-python_parent_dir = os.path.dirname(os.path.dirname(python_path))
-site_packages_dir = os.path.join(python_parent_dir, 'lib', 'python3.7', 'site-packages')
-mx_rec_dir = os.path.join(site_packages_dir, 'mx_rec')
-comm_pybind = tf.load_op_library(mx_rec_dir + "/libasc/libasc_ops.so")
+logging.basicConfig(level=logging.DEBUG)
+ops_so = tf.load_op_library("/usr/local/python3.7.5/lib/python3.7/site-packages/mx_rec/libasc/libasc_ops.so")
 
 
-def set_ascend_env(rank, rank_size, local_rank_size, host, file=None, dev_id=-1, dev_index=1):
+def set_ascend_env(rank, rank_size, local_rank_size, file=None, dev_id=-1, dev_index=1):
     rank = str(rank)
     rank_size = str(rank_size)
     local_rank_size = int(local_rank_size)
-    host = str(host)
 
     os.environ["MOX_USE_NPU"] = "1"
     os.environ["FUSION_TENSOR_SIZE"] = "2000000000"
@@ -66,7 +61,6 @@ def set_ascend_env(rank, rank_size, local_rank_size, host, file=None, dev_id=-1,
     os.environ["RANK_SIZE"] = rank_size
     if file:
         os.environ["RANK_TABLE_FILE"] = file
-    # no else
 
     os.environ["HCCL_CONNECT_TIMEOUT"] = "600"
 
@@ -79,7 +73,9 @@ def set_ascend_env(rank, rank_size, local_rank_size, host, file=None, dev_id=-1,
 
 
 class WideDeep:
-    def __init__(self, table, lookup_table, matrix):
+    def __init__(self, table, lookup_table, matrix, shape):
+        self.gather_all_result = None
+        self.shape_vec = shape
         self.table = table
         self.lookup = lookup_table
         self.matrix = matrix
@@ -87,21 +83,22 @@ class WideDeep:
 
     def forward(self):
         with tf.control_dependencies([self.table, self.lookup]):
-            self.gather_all_result = comm_pybind.lccl_gather_all(emb_table=self.table,
+            gather_all_result = ops_so.lccl_gather_all(emb_table=self.table,
                                                 lookup=self.lookup,
                                                 send_count_matrix=self.matrix,
-                                                shape_vec=shape_vec,
+                                                shape_vec=self.shape_vec,
                                                 peer_mem=peer_mem,
                                                 rank=rank_id,
                                                 rank_size=rank_size,
                                                 dim=emb_dim)
+            self.gather_all_result = tf.reshape(gather_all_result, gather_all_result.shape[:2])
         return self.gather_all_result
 
 
 def verify_result(real_result:np.array, golden:np.array):
     loss = 1e-4
     minimum = 10e-10
-    
+
     result = np.abs(real_result - golden)
     deno = np.maximum(np.abs(real_result), np.abs(golden))
     result_atol = np.less_equal(result, loss)
@@ -110,27 +107,26 @@ def verify_result(real_result:np.array, golden:np.array):
         if np.sum(result_rtol == 0) > real_result.size * loss and \
             np.sum(result_atol == 0) > real_result.size * loss:
             raise ValueError("precision error")
-    logging("GatherAll precision test pass")
+    logging.info("GatherAll precision test pass")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='base')
     parser.add_argument("--local_rank_size")
-    parser.add_argument("--hosts")
     parser.add_argument("--hccl_json")
     args = parser.parse_args()
     local_rank_size = int(args.local_rank_size)
 
     comm = MPI.COMM_WORLD
     rank_id = comm.Get_rank()
-    device_id = rank_id
+    comm_server_rank_id = 0  # select rank 0 as server for lccl meta info exchange node
     rank_size = comm.Get_size()
-    logging(f"rank {rank_id}/{rank_size}")
+    logging.info(f"rank {rank_id}/{rank_size}")
     local_rank_id = rank_id % rank_size
-    set_ascend_env(rank_id, rank_size, local_rank_size, host=args.hosts, file=args.hccl_json)
+    set_ascend_env(rank_id, rank_size, local_rank_size, file=args.hccl_json)
 
-    peer_mem_ = mxrec_pybind.get_peer_mem(rank_id, device_id, rank_size)
-    logging("python peer_mem_ = ", peer_mem_)
+    peer_mem_ = mxrec_pybind.get_peer_mem(rank_id, comm_server_rank_id, rank_size)
+    logging.info(f"python peer_mem_ = {peer_mem_}")
 
     # create session
     sess_config = tf.compat.v1.ConfigProto()
@@ -148,11 +144,12 @@ if __name__ == "__main__":
     emb_dim = 128
     emb_len = 3000
     lookup_num = 2048
-    
+
     emb_table_np = np.random.randn(emb_len, emb_dim)
     for i in range(emb_table_np.shape[0]):
-        for j in range(emb_table_np[i]):
+        for j in range(len(emb_table_np[i])):
             emb_table_np[i][j] = rank_id * 100000 + i
+
     lookup_idx_np = np.arange(0, lookup_num)
     emb_table = tf.convert_to_tensor(emb_table_np, dtype=tf.float32)
     lookup_idx = tf.convert_to_tensor(lookup_idx_np, dtype=tf.int32)
@@ -160,23 +157,26 @@ if __name__ == "__main__":
     send_count_matrix = np.full((rank_size, rank_size), lookup_num // rank_size * emb_dim)
     send_count_matrix = tf.convert_to_tensor(send_count_matrix, dtype=tf.int64)
 
+    shape_vec = tf.constant([1] * lookup_num, dtype=tf.int32)
+    shape_vec = tf.reshape(shape_vec, [-1, 1])
+
     peer_mem = tf.convert_to_tensor(peer_mem_, dtype=tf.int64)
 
     # model run parameter
     stop_steps = 1
-    model = WideDeep(emb_table, lookup_idx, send_count_matrix)
+    model = WideDeep(emb_table, lookup_idx, send_count_matrix, shape_vec)
 
     with tf.compat.v1.Session(config=sess_config) as sess:
         sess.run(tf.compat.v1.global_variables_initializer())
 
-        logging("============start GatherAll test=============")
+        logging.info("============start GatherAll test=============")
         # start run loop
         current_steps = 0
         train_finished = False
         while not train_finished:
             try:
                 current_steps += 1
-                logging("current step = ", current_steps)
+                logging.info("current step = {current_steps}")
                 run_dict = {
                     "gather_all_result": model.gather_all_result,
                 }
@@ -184,28 +184,26 @@ if __name__ == "__main__":
                 results = sess.run(fetches=run_dict)
                 end_time = time.time()
 
-                logging(f"current steps: {current_steps}, time cost(ms):{(end_time - start_time) * 1000}")
+                logging.info(f"current steps: {current_steps}, time cost(ms):{(end_time - start_time) * 1000}")
                 results_np = np.array(results.get("gather_result"))
                 if current_steps >= stop_steps:
                     comm.Barrier()
-                    logging("gather finished")
+                    logging.info("gather finished")
                     train_finished = True
             except tf.errors.OutOfRangeError:
                 comm.Barrier()
-                logging("gather test failed with error:{e}")
+                logging.info("gather test failed with error:{e}")
                 train_finished = True
         MPI.Finalize()
         
     # check precision
-    expect_gather = emb_table[lookup_idx]
-    
-    expect_gather_all = np.array(expect_gather)
+    expect_gather_all = emb_table_np[lookup_idx_np]
     send_row_per_rank = lookup_num // rank_size
     for i in range(expect_gather_all.shape[0]):
-        for j in range(expect_gather_all[i]):
+        for j in range(len(expect_gather_all[i])):
             expect_gather_all[i][j] = int(i / send_row_per_rank) * 100000 + \
                 (i % send_row_per_rank) + send_row_per_rank * rank_id
     
     actual = np.array(results.get("gather_all_result"))
     verify_result(actual, expect_gather_all)
-    logging("============end GatherAll test=============")
+    logging.info("============end GatherAll test=============")

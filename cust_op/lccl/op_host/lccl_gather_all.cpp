@@ -67,7 +67,14 @@ namespace ge {
         y_shape->SetDim(1, table_shape->GetDim(1));
         y_shape->SetDim(2, 1);
 
-        return GRAPH_SUCCESS;
+        return ge::GRAPH_SUCCESS;
+    }
+
+    static ge::graphStatus InferDataType(gert::InferDataTypeContext* context)
+    {
+        const auto inputDataType = context->GetInputDataType(0);
+        context->SetOutputDataType(0, inputDataType);
+        return ge::GRAPH_SUCCESS;
     }
 }
 
@@ -112,6 +119,7 @@ namespace ops {
             this->Attr("dim").Int();
 
             this->SetInferShape(ge::InferShape);
+            this->SetInferDataType(ge::InferDataType);
 
             this->AICore()
                     .SetTiling(optiling::TilingFunc);
