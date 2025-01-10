@@ -30,18 +30,14 @@ import mxrec_pybind
 
 
 tf.compat.v1.disable_eager_execution()
-python_path = subprocess.check_output(['which', 'python3.7']).decode('utf-8').strip()
-python_parent_dir = os.path.dirname(os.path.dirname(python_path))
-site_packages_dir = os.path.join(python_parent_dir, 'lib', 'python3.7', 'site-packages')
-mx_rec_dir = os.path.join(site_packages_dir, 'mx_rec')
-comm_pybind = tf.load_op_library(os.path.join(mx_rec_dir, "/libasc/libasc_ops.so"))
+logging.basicConfig(level=logging.DEBUG)
+ops_so = tf.load_op_library("/usr/local/python3.7.5/lib/python3.7/site-packages/mx_rec/libasc/libasc_ops.so")
 
 
-def set_ascend_env(rank, rank_size, local_rank_size, host, file=None, dev_id=-1, dev_index=1):
+def set_ascend_env(rank, rank_size, local_rank_size, file=None, dev_id=-1, dev_index=1):
     rank = str(rank)
     rank_size = str(rank_size)
     local_rank_size = int(local_rank_size)
-    host = str(host)
 
     os.environ["MOX_USE_NPU"] = "1"
     os.environ["FUSION_TENSOR_SIZE"] = "2000000000"
@@ -66,7 +62,6 @@ def set_ascend_env(rank, rank_size, local_rank_size, host, file=None, dev_id=-1,
     os.environ["RANK_SIZE"] = rank_size
     if file:
         os.environ["RANK_TABLE_FILE"] = file
-    # no else
 
     os.environ["HCCL_CONNECT_TIMEOUT"] = "600"
 
@@ -86,13 +81,14 @@ class WideDeep:
 
     def forward(self):
         with tf.control_dependencies([self.lbl_hldr]):
-            all2all_result_ = comm_pybind.lccl_all_to_all(send_data=self.lbl_hldr,
-                                                          send_count_matrix=self.matrix,
-                                                          shape_vec=shape_vec,
-                                                          peer_mem=peer_mem,
-                                                          rank=rank_id,
-                                                          rank_size=rank_size,
-                                                          dim=dim)
+            all2all_result_ = ops_so.lccl_all_to_all(
+                send_data=self.lbl_hldr,
+                send_count_matrix=self.matrix,
+                shape_vec=shape_vec,
+                peer_mem=peer_mem,
+                rank=rank_id,
+                rank_size=rank_size,
+                dim=dim)
             self.all2all_result = tf.reshape(all2all_result_, [-1, dim])
         return self.all2all_result
 
@@ -100,7 +96,7 @@ class WideDeep:
 def verify_result(real_result:np.array, golden:np.array):
     loss = 1e-4
     minimum = 10e-10
-    
+
     result = np.abs(real_result - golden)
     deno = np.maximum(np.abs(real_result), np.abs(golden))
     result_atol = np.less_equal(result, loss)
@@ -115,21 +111,20 @@ def verify_result(real_result:np.array, golden:np.array):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='base')
     parser.add_argument("--local_rank_size")
-    parser.add_argument("--hosts")
     parser.add_argument("--hccl_json")
     args = parser.parse_args()
     local_rank_size = int(args.local_rank_size)
 
     comm = MPI.COMM_WORLD
     rank_id = comm.Get_rank()
-    device_id = rank_id
+    comm_server_rank_id = 0  # select rank 0 as server for lccl meta info exchange node
     rank_size = comm.Get_size()
     logging.info(f"rank {rank_id}/{rank_size}")
     local_rank_id = rank_id % rank_size
-    set_ascend_env(rank_id, rank_size, local_rank_size, host=args.hosts, file=args.hccl_json)
+    set_ascend_env(rank_id, rank_size, local_rank_size, file=args.hccl_json)
 
-    peer_mem_ = mxrec_pybind.get_peer_mem(rank_id, device_id, rank_size)
-    logging.info("python peer_mem_ = ", peer_mem_)
+    peer_mem_ = mxrec_pybind.get_peer_mem(rank_id, comm_server_rank_id, rank_size)
+    logging.info(f"python peer_mem_ = {peer_mem_}")
     peer_mem = tf.constant(peer_mem_, dtype=tf.int64)
 
     # create session
@@ -146,7 +141,7 @@ if __name__ == "__main__":
     custom_op.parameter_map["op_execute_timeout"].i = 500
 
     dim = 128
-    emb_len = 2048 * rank_size
+    emb_len = 1000 * rank_size
     # 8x8 matrix
     send_rows_per_rank = emb_len // rank_size
     send_count_matrix = np.full((rank_size, rank_size), emb_len // rank_size * dim)
@@ -186,7 +181,7 @@ if __name__ == "__main__":
         while not train_finished:
             try:
                 current_steps += 1
-                logging.info("current step = ", current_steps)
+                logging.info(f"current step = {current_steps}")
                 run_dict = {"all2all_result": model.all2all_result}
                 start_time = time.time()
                 results = sess.run(fetches=run_dict)
