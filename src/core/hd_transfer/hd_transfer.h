@@ -96,7 +96,7 @@ public:
 
     HDTransfer() = default;
 
-    int Init(const vector<EmbInfo>& embInfos, uint32_t localRankId, bool isIncrementalCkpt);
+    int Init(const vector<EmbInfo>& embInfos, uint32_t localRankId, bool isIncrementalCkpt, bool useLccl);
 
     void Send(TransferChannel channel, const vector<Tensor>& tensors, int channelId, const string& embName,
               int batchId = -1);

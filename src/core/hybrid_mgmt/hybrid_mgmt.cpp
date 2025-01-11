@@ -73,7 +73,8 @@ void HybridMgmt::InitRankInfo(RankInfo& rankInfo, const vector<EmbInfo>& embInfo
 /// \param ifLoad 是否断点续训
 /// \return
 bool HybridMgmt::Initialize(RankInfo rankInfo, const vector<EmbInfo>& embInfos, int seed,
-                            const vector<ThresholdValue>& thresholdValues, bool ifLoad, bool isIncrementalCheckpoint)
+                            const vector<ThresholdValue>& thresholdValues, bool ifLoad,
+                            bool isIncrementalCheckpoint, bool useLccl)
 {
 #ifndef GTEST
     // 环境变量初始化
@@ -109,10 +110,11 @@ bool HybridMgmt::Initialize(RankInfo rankInfo, const vector<EmbInfo>& embInfos, 
     mgmtRankInfo = rankInfo;
     mgmtEmbInfo = embInfos;
     isIncrementalCkpt = isIncrementalCheckpoint;
+    this->useLccl = useLccl;
 
     // 进行acl资源初始化，设置当前训练进程的device，为每张表创建数据传输通道
     hdTransfer = Singleton<MxRec::HDTransfer>::GetInstance();
-    hdTransfer->Init(embInfos, rankInfo.deviceId, isIncrementalCheckpoint);
+    hdTransfer->Init(embInfos, rankInfo.deviceId, isIncrementalCheckpoint, useLccl);
 
     hybridMgmtBlock = Singleton<HybridMgmtBlock>::GetInstance();
     hybridMgmtBlock->SetRankInfo(rankInfo);
@@ -634,7 +636,7 @@ bool HybridMgmt::ProcessEmbInfoHBM(const EmbBaseInfo& info, bool isGrad)
 
     SendPaddingKeysMaskVecHBM(info, infoVecs, isGrad);
 
-    if (GlobalEnv::useLccl && !mgmtRankInfo.useStatic) {
+    if (useLccl && !mgmtRankInfo.useStatic) {
         hdTransfer->Send(TransferChannel::RECVSHAPE, { infoVecs->back() }, info.channelId, info.name);
         infoVecs->pop_back();
     }
