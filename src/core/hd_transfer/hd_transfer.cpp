@@ -118,7 +118,7 @@ void HDTransfer::CreateChannel(const uint32_t localRankId, const string& embName
 #ifndef GTEST
     int channelSize = GlobalEnv::hdChannelSize;
     LOG_INFO("Start create channel, size:{}.", channelSize);
-    for (int c = static_cast<int>(TransferChannel::D2H); c != static_cast<int>(TransferChannel::KEY_D2H); c++) {
+    for (int c = static_cast<int>(TransferChannel::D2H); c != static_cast<int>(TransferChannel::INVALID); c++) {
         if ((c == static_cast<int>(TransferChannel::SAVE_D2H) || c == static_cast<int>(TransferChannel::SAVE_H2D)) &&
             channelNum == EVAL_CHANNEL_ID) {
             continue;
