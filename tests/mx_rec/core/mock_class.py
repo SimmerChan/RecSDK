@@ -272,7 +272,7 @@ class MockHybridMgmt:
     def __init__(self, is_initialized=True):
         def _mock_initialize(
             rank_info=0, emb_info=1, if_load=False, threshold_values=3,
-            is_incremental_checkpoint=False, use_lccl = False
+            is_incremental_checkpoint=False, use_lccl=False
         ):
             return is_initialized
 

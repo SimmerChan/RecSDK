@@ -48,8 +48,8 @@ enum class TransferChannel {
     SWAP,
     SAVE_D2H,
     SAVE_H2D,
-    KEY_D2H,
     RECVSHAPE,
+    KEY_D2H,
     INVALID,
 };
 
