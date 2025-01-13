@@ -110,7 +110,7 @@ bool HybridMgmt::Initialize(RankInfo rankInfo, const vector<EmbInfo>& embInfos, 
     mgmtRankInfo = rankInfo;
     mgmtEmbInfo = embInfos;
     isIncrementalCkpt = isIncrementalCheckpoint;
-    this->useLccl = useLccl;
+    this->enableLccl = useLccl;
 
     // 进行acl资源初始化，设置当前训练进程的device，为每张表创建数据传输通道
     hdTransfer = Singleton<MxRec::HDTransfer>::GetInstance();
@@ -120,7 +120,7 @@ bool HybridMgmt::Initialize(RankInfo rankInfo, const vector<EmbInfo>& embInfos, 
     hybridMgmtBlock->SetRankInfo(rankInfo);
 
     // 启动数据处理线程
-    KEY_PROCESS_INSTANCE->Initialize(rankInfo, embInfos, thresholdValues, seed, isIncrementalCheckpoint, useLccl);
+    KEY_PROCESS_INSTANCE->Initialize(rankInfo, embInfos, thresholdValues, isIncrementalCheckpoint, useLccl);
 
     isRunning = true;
     isL3StorageEnabled = rankInfo.isSSDEnabled;
@@ -636,7 +636,7 @@ bool HybridMgmt::ProcessEmbInfoHBM(const EmbBaseInfo& info, bool isGrad)
 
     SendPaddingKeysMaskVecHBM(info, infoVecs, isGrad);
 
-    if (useLccl && !mgmtRankInfo.useStatic) {
+    if (enableLccl && !mgmtRankInfo.useStatic) {
         hdTransfer->Send(TransferChannel::RECVSHAPE, { infoVecs->back() }, info.channelId, info.name);
         infoVecs->pop_back();
     }

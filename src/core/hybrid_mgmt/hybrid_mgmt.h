@@ -246,7 +246,7 @@ private:
     std::mutex keyCountUpdateMtx;
     std::condition_variable keyCountUpdateCv;
     bool checkConditionMet = false;
-    bool useLccl = false;
+    bool enableLccl = false;
 
     void TrainTask(TaskType type);
 

@@ -75,7 +75,7 @@ class WrongListTop : public std::exception {};
 class KeyProcess {
 public:
     bool Initialize(const RankInfo& rInfo, const vector<EmbInfo>& eInfos,
-                    const vector<ThresholdValue>& thresholdValues = {}, int seed = 0,
+                    const vector<ThresholdValue>& thresholdValues = {},
                     bool isIncrementalCkpt = false, bool useLccl = false);
 
     unique_ptr<vector<Tensor>> GetInfoVec(const EmbBaseInfo& info, ProcessedInfo type, bool& isEos);
@@ -229,7 +229,7 @@ GTEST_PRIVATE :
     map<EmbNameT, int> hotEmbTotCount;
     int hotEmbUpdateStep = HOT_EMB_UPDATE_STEP_DEFAULT;
     bool isWithFAAE;
-    bool useLccl = false;
+    bool enableLccl = false;
 
     atomic<int> readySendEosCnt[2];
     atomic<int> finishSendEosCnt[2];

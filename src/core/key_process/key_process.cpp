@@ -43,7 +43,7 @@ void KeyProcess::SetupHotEmbUpdateStep()
 }
 
 bool KeyProcess::Initialize(const RankInfo& rInfo, const vector<EmbInfo>& eInfos,
-                            const vector<ThresholdValue>& thresholdValues, int seed,
+                            const vector<ThresholdValue>& thresholdValues,
                             bool isIncrementalCkpt, bool useLccl)
 {
     readySendEosCnt[TRAIN_CHANNEL_ID].store(0);
@@ -72,7 +72,7 @@ bool KeyProcess::Initialize(const RankInfo& rInfo, const vector<EmbInfo>& eInfos
     }
     isRunning = true;
     isIncrementalCheckpoint = isIncrementalCkpt;
-    this->useLccl = useLccl;
+    this->enableLccl = useLccl;
 
     // 特征准入与特征淘汰
     if (!thresholdValues.empty()) {
@@ -547,7 +547,7 @@ bool KeyProcess::KeyProcessTaskHelper(unique_ptr<EmbBatchT>& batch, int channel,
     vector<emb_key_t> keyCountVec;
     HashSplitHelper(batch, splitKeys, restore, hotPos, keyCount);
     size_t uniqueKeyNum = 0;
-    if (useLccl && !rankInfo.useStatic) {
+    if (enableLccl && !rankInfo.useStatic) {
         for (int devId = 0; devId < rankInfo.rankSize; ++devId) {
             uniqueKeyNum += splitKeys[devId].size();
         }
@@ -612,7 +612,7 @@ bool KeyProcess::KeyProcessTaskHelper(unique_ptr<EmbBatchT>& batch, int channel,
     hotPos.resize(hotEmbTotCount[batch->name], 0);
     tensors->push_back(Vec2TensorI32(hotPos));
 
-    if (useLccl && !rankInfo.useStatic) {
+    if (enableLccl && !rankInfo.useStatic) {
         vector<float> all2AllRecvShape {};
         LOG_INFO("Create all2AllRecvShape, uniqueKeyNum:{}.", uniqueKeyNum);
         all2AllRecvShape.resize(uniqueKeyNum, 0);
