@@ -583,7 +583,9 @@ bool KeyProcess::KeyProcessTaskHelper(unique_ptr<EmbBatchT>& batch, int channel,
     // without host, just device, all embedding vectors were stored in device
     // map key to offset directly by lookup keyOffsetMap (hashmap)
     if (!rankInfo.isDDR) {
+        TimeCost key2OffsetTc;
         EmbeddingMgmt::Instance()->Key2Offset(batch->name, lookupKeys, channel);
+        LOG_DEBUG("key2Offst(ms):{}, batchId:{}", key2OffsetTc.ElapsedMS(), batch->batchId);
     }
 
     // Static all2all，need send count
