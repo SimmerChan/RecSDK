@@ -37,7 +37,18 @@ EmbeddingStatic::~EmbeddingStatic()
 
 void EmbeddingStatic::Key2Offset(std::vector<emb_key_t>& keys, int channel)
 {
-    for (emb_key_t& key : keys) {
+    auto ret = FindKeyOffset(keys);
+    if (!ret.empty()) {
+        EmplaceKeyOffset(keys, ret, channel);
+    }
+}
+
+std::vector<size_t> EmbeddingStatic::FindKeyOffset(std::vector<emb_key_t>& keys)
+{
+    std::shared_lock<std::shared_mutex> lock(keyOffsetMutex_);
+    std::vector<size_t> newKeysIdx;
+    for (size_t i = 0; i < keys.size(); ++i) {
+        auto& key = keys[i];
         if (key == INVALID_KEY_VALUE) {
             continue;
         }
@@ -46,8 +57,32 @@ void EmbeddingStatic::Key2Offset(std::vector<emb_key_t>& keys, int channel)
             key = offset.value();
             continue;
         }
-        const auto& [newOffset, isvalid] = EmplaceKeyOffset(key, channel);
-        key = newOffset;
+        newKeysIdx.emplace_back(i);
+    }
+    return newKeysIdx;
+}
+
+void EmbeddingStatic::EmplaceKeyOffset(std::vector<emb_key_t>& keys, const std:vector<size_t>& newKeysIdx, int channel)
+{
+    std::unique_lock<std::shared_mutex> lock(keyOffsetMutex_);
+    for (const auto& it : newKeysIdx) {
+        auto& key = keys[it];
+        if (evictDevPos.size() != 0 && channel == TRAIN_CHANNEL_ID) {
+            // 新值, emb有pos可复用
+            auto offset = evictDevPos.back();
+            auto ret = keyOffsetMap.try_emplace(key, offset);
+            if (ret.second) {
+                evictDevPos.pop_back();
+            }
+            key = ret.first->second;
+            continue;
+        } else if (channel != TRAIN_CHANNEL_ID) {
+            key = INVALID_KEY_VALUE;
+            continue;
+        }
+        auto ret = keyOffsetMap.try_emplace(key, maxOffset);
+        maxOffset = ret.second ? ++maxOffset : maxOffset;
+        key = ret.first->second;
     }
     if (maxOffset > devVocabSize) {
         string errMsg = Logger::Format("Device cache overflow! Please set a grater value for `device_vocabulary_size` "

@@ -48,9 +48,9 @@ public:
 
     vector<int64_t> GetDeviceOffset();
 
-    std::optional<int64_t> FindKeyOffset(const emb_key_t& key) const;
+    std::vector<size_t> FindKeyOffset(std::vector<emb_key_t>& keys);
 
-    std::pair<int64_t, bool> EmplaceKeyOffset(const emb_key_t& key, int channel);
+    void EmplaceKeyOffset(std::vector<emb_key_t>& keys, const std:vector<size_t>& newKeysIdx, int channel);
 
 GTEST_PRIVATE:
     void SaveKey(const string& savePath, bool saveDelta, const map<emb_key_t, KeyInfo>& keyInfo);
