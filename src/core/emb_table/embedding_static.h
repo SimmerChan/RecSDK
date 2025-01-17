@@ -50,7 +50,7 @@ public:
 
     std::vector<size_t> FindKeyOffset(std::vector<emb_key_t>& keys);
 
-    void EmplaceKeyOffset(std::vector<emb_key_t>& keys, const std:vector<size_t>& newKeysIdx, int channel);
+    void EmplaceKeyOffset(std::vector<emb_key_t>& keys, const std::vector<size_t>& newKeysIdx, int channel);
 
 GTEST_PRIVATE:
     void SaveKey(const string& savePath, bool saveDelta, const map<emb_key_t, KeyInfo>& keyInfo);

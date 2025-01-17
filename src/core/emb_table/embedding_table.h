@@ -20,7 +20,6 @@ See the License for the specific language governing permissions and
 #include <string>
 #include <vector>
 #include <shared_mutex>
-#include <optional>
 
 #include "utils/common.h"
 #include "utils/error.h"
