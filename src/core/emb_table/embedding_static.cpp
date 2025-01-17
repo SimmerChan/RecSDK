@@ -52,9 +52,9 @@ std::vector<size_t> EmbeddingStatic::FindKeyOffset(std::vector<emb_key_t>& keys)
         if (key == INVALID_KEY_VALUE) {
             continue;
         }
-        auto offset = FindKeyOffset(key);
-        if (offset.has_value()) {
-            key = offset.value();
+        const auto& iter = keyOffsetMap.find(key);
+        if (iter != keyOffsetMap.end()) {
+            key = iter->second;
             continue;
         }
         newKeysIdx.emplace_back(i);
@@ -62,12 +62,12 @@ std::vector<size_t> EmbeddingStatic::FindKeyOffset(std::vector<emb_key_t>& keys)
     return newKeysIdx;
 }
 
-void EmbeddingStatic::EmplaceKeyOffset(std::vector<emb_key_t>& keys, const std:vector<size_t>& newKeysIdx, int channel)
+void EmbeddingStatic::EmplaceKeyOffset(std::vector<emb_key_t>& keys, const std::vector<size_t>& newKeysIdx, int channel)
 {
     std::unique_lock<std::shared_mutex> lock(keyOffsetMutex_);
     for (const auto& it : newKeysIdx) {
         auto& key = keys[it];
-        if (evictDevPos.size() != 0 && channel == TRAIN_CHANNEL_ID) {
+        if (!evictDevPos.empty() && channel == TRAIN_CHANNEL_ID) {
             // 新值, emb有pos可复用
             auto offset = evictDevPos.back();
             auto ret = keyOffsetMap.try_emplace(key, offset);
@@ -92,35 +92,6 @@ void EmbeddingStatic::EmplaceKeyOffset(std::vector<emb_key_t>& keys, const std:v
         LOG_ERROR(error.ToString());
         throw std::runtime_error(error.ToString());
     }
-}
-
-std::optional<int64_t> EmbeddingStatic::FindKeyOffset(const emb_key_t& key) const
-{
-    std::shared_lock<std::shared_mutex> lock(keyOffsetMutex_);
-    auto it = keyOffsetMap.find(key);
-    if (it != keyOffsetMap.end()) {
-        return it->second;
-    }
-    return std::nullopt;
-}
-
-std::pair<int64_t, bool> EmbeddingStatic::EmplaceKeyOffset(const emb_key_t& key, int channel)
-{
-    std::unique_lock<std::shared_mutex> lock(keyOffsetMutex_);
-    if (evictDevPos.size() != 0 && channel == TRAIN_CHANNEL_ID) {
-        // 新值, emb有pos可复用
-        auto offset = evictDevPos.back();
-        auto ret = keyOffsetMap.try_emplace(key, offset);
-        if (ret.second) {
-            evictDevPos.pop_back();
-        }
-        return std::make_pair(ret.first->second, true);
-    } else if (channel != TRAIN_CHANNEL_ID) {
-        return std::make_pair(INVALID_KEY_VALUE, false);
-    }
-    auto ret = keyOffsetMap.try_emplace(key, maxOffset);
-    maxOffset = ret.second ? ++maxOffset : maxOffset;
-    return std::make_pair(ret.first->second, true);
 }
 
 void EmbeddingStatic::Key2OffsetForDp(std::vector<emb_key_t>& keys, int channel)
