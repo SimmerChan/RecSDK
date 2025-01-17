@@ -37,31 +37,17 @@ EmbeddingStatic::~EmbeddingStatic()
 
 void EmbeddingStatic::Key2Offset(std::vector<emb_key_t>& keys, int channel)
 {
-    std::lock_guard<std::mutex> lk(mut_); // lock for PROCESS_THREAD
     for (emb_key_t& key : keys) {
         if (key == INVALID_KEY_VALUE) {
             continue;
         }
-        const auto& iter = keyOffsetMap.find(key);
-        if (iter != keyOffsetMap.end()) {
-            key = iter->second;
+        auto offset = FindKeyOffset(key);
+        if (offset.has_value()) {
+            key = offset.value();
             continue;
         }
-        if (evictDevPos.size() != 0 && channel == TRAIN_CHANNEL_ID) {
-            // 新值, emb有pos可复用
-            size_t offset = evictDevPos.back();
-            keyOffsetMap[key] = offset;
-            key = offset;
-            evictDevPos.pop_back();
-            continue;
-        }
-        // 新值
-        if (channel != TRAIN_CHANNEL_ID) {
-            key = INVALID_KEY_VALUE;
-            continue;
-        }
-        keyOffsetMap[key] = maxOffset;
-        key = maxOffset++;
+        const auto& [newOffset, isvalid] = EmplaceKeyOffset(key, channel);
+        key = newOffset;
     }
     if (maxOffset > devVocabSize) {
         string errMsg = Logger::Format("Device cache overflow! Please set a grater value for `device_vocabulary_size` "
@@ -73,9 +59,38 @@ void EmbeddingStatic::Key2Offset(std::vector<emb_key_t>& keys, int channel)
     }
 }
 
+std::optional<int64_t> EmbeddingStatic::FindKeyOffset(const emb_key_t& key) const
+{
+    std::shared_lock<std::shared_mutex> lock(keyOffsetMutex_);
+    auto it = keyOffsetMap.find(key);
+    if (it != keyOffsetMap.end()) {
+        return it->second;
+    }
+    return std::nullopt;
+}
+
+std::pair<int64_t, bool> EmbeddingStatic::EmplaceKeyOffset(const emb_key_t& key, int channel)
+{
+    std::unique_lock<std::shared_mutex> lock(keyOffsetMutex_);
+    if (evictDevPos.size() != 0 && channel == TRAIN_CHANNEL_ID) {
+        // 新值, emb有pos可复用
+        auto offset = evictDevPos.back();
+        auto ret = keyOffsetMap.try_emplace(key, offset);
+        if (ret.second) {
+            evictDevPos.pop_back();
+        }
+        return std::make_pair(ret.first->second, true);
+    } else if (channel != TRAIN_CHANNEL_ID) {
+        return std::make_pair(INVALID_KEY_VALUE, false);
+    }
+    auto ret = keyOffsetMap.try_emplace(key, maxOffset);
+    maxOffset = ret.second ? ++maxOffset : maxOffset;
+    return std::make_pair(ret.first->second, true);
+}
+
 void EmbeddingStatic::Key2OffsetForDp(std::vector<emb_key_t>& keys, int channel)
 {
-    std::lock_guard<std::mutex> lk(mut_); // lock for PROCESS_THREAD
+    std::unique_lock<std::shared_mutex> lock(keyOffsetMutex_); // lock for PROCESS_THREAD
     for (emb_key_t& key : keys) {
         if (key == INVALID_KEY_VALUE) {
             continue;
