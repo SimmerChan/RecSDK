@@ -26,18 +26,18 @@ set -e
 warn() { echo >&2 -e "\033[1;31m[WARN ][Depend  ] $1\033[1;37m" ; }
 ARCH="$(uname -m)"
 SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
-Rec SDK_DIR=$(dirname "${SCRIPT_DIR}")
+MxRec_DIR=$(dirname "${SCRIPT_DIR}")
 
-opensource_path="${Rec SDK_DIR}"/../opensource
+opensource_path="${MxRec_DIR}"/../opensource
 if [ ! -d ${opensource_path} ]; then
-  echo "user should download dependency packages to Rec SDK/../opensource directory, see README.md"
+  echo "user should download dependency packages to RecSDK/../opensource directory, see README.md"
   exit -1
 fi
 
 function install_expected(){
-  dir="$Rec SDK_DIR"/third_party/expected
+  dir="$MxRec_DIR"/third_party/expected
   if [ -z "$(ls -A "$dir")" ]; then
-    cd "$Rec SDK_DIR"
+    cd "$MxRec_DIR"
     git submodule init
     cmd="git submodule update"
     # retry five times
@@ -75,9 +75,9 @@ tf1_path=$(dirname "$(dirname "$(which python3.7)")")/lib/python3.7/site-package
 deactivate tf1_env
 
 # 配置Rec SDK C++代码路径和AccCTR路径
-src_path="${Rec SDK_DIR}"/src
-acc_ctr_path="${Rec SDK_DIR}"/src/AccCTR
-cd "${Rec SDK_DIR}"
+src_path="${MxRec_DIR}"/src
+acc_ctr_path="${MxRec_DIR}"/src/AccCTR
+cd "${MxRec_DIR}"
 
 function compile_securec()
 {
@@ -96,7 +96,7 @@ function compile_so_file()
 {
   cd "${src_path}"
   chmod u+x build.sh
-  ./build.sh "$1" "${Rec SDK_DIR}" "YES"
+  ./build.sh "$1" "${MxRec_DIR}" "YES"
   cd ..
 }
 
@@ -115,12 +115,12 @@ function collect_so_file()
   chmod u+x libasc
 
   cp ${acc_ctr_path}/output/ock_ctr_common/lib/* libasc
-  cp -df "${Rec SDK_DIR}"/output/*.so* libasc
+  cp -df "${MxRec_DIR}"/output/*.so* libasc
   cp "${opensource_path}"/securec/lib/libsecurec.so libasc
-  cd "${Rec SDK_DIR}"
+  cd "${MxRec_DIR}"
   touch "${src_path}"/libasc/__init__.py
-  rm -rf "${Rec SDK_DIR}"/mx_rec/libasc
-  mv "${src_path}"/libasc "${Rec SDK_DIR}"/mx_rec
+  rm -rf "${MxRec_DIR}"/mx_rec/libasc
+  mv "${src_path}"/libasc "${MxRec_DIR}"/mx_rec
 }
 
 # start to build Rec SDK
