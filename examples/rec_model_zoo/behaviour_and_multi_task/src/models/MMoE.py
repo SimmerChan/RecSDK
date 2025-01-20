@@ -16,16 +16,20 @@
 # ==============================================================================
 
 import os
+import stat
 import glob
 import json
 import random
 import shutil
 import logging
-import tensorflow as tf
+import pytz
 from functools import partial
-from datetime import date, timedelta, datetime
 
+import tensorflow as tf
+from datetime import date, timedelta, datetime
 from npu_bridge.npu_init import NPUEstimator, NPURunConfig
+
+from examples.rec_model_zoo.behaviour_and_multi_task.data.aliccp.step7_gen_spec import flags
 from utils import get_third_nearest_checkpoint, count_params
 
 tf.compat.v1.enable_control_flow_v2()
@@ -37,7 +41,7 @@ MODEL_NAME = "MMoE"
 
 
 def define_flags():
-    FLAGS = tf.app.flags.FLAGS
+    model_config = tf.app.flags.model_cfg
     tf.app.flags.DEFINE_integer("embedding_size", 16, "Embedding size")
     tf.app.flags.DEFINE_integer("batch_size", 4096, "Number of batch size")
     tf.app.flags.DEFINE_float("learning_rate", 0.001, "learning rate")
@@ -55,23 +59,52 @@ def define_flags():
     tf.app.flags.DEFINE_integer("max_seq_len", 50, "max length of sequence")
     tf.app.flags.DEFINE_integer("task_num", 2, "task num")
     tf.app.flags.DEFINE_integer("experts_num", 8, "Number of experts")
-    return FLAGS
+    tf.app.flags.DEFINE_string("log_level", "DEBUG", "log level {DEBUG, INFO, WARNING, ERROR, CRITICAL}")
+    return model_config
 
 
-def parse_example(mode, example):
-    parsed_exapmle = tf.io.parse_example(example, feature_descriptions[mode])
-    input = {}
+def parse_example(mode_type, example):
+    parsed_exapmle = tf.io.parse_example(example, feature_descriptions.get(mode_type))
+    input_dict = {}
     target = {"y": parsed_exapmle["y"], "z": parsed_exapmle["z"]}
     for index, key in enumerate(spec["one_hot_fields"]):
-        input[key] = parsed_exapmle["one_hot_fields"][:, index]
+        input_dict[key] = parsed_exapmle["one_hot_fields"][:, index]
     for key in spec["multi_hot_fields"]:
-        input[key] = parsed_exapmle[key]
+        input_dict[key] = parsed_exapmle[key]
     for key in spec["special_fields"]:
-        input[key] = parsed_exapmle[key]
-    return input, target
+        input_dict[key] = parsed_exapmle[key]
+    return input_dict, target
 
 
-def input_fn(filenames, mode, batch_size=32, num_epochs=1, perform_shuffle=False):
+def json_file_load(json_name, json_path):
+    """
+    Load a JSON file from the specified path.
+
+    Args:
+        json_name (str): The name of the JSON file.
+        json_path (str): The path to the JSON file.
+
+    Returns:
+        dict: The loaded JSON content as a dictionary.
+
+    Raises:
+        FileNotFoundError: If the file is not found.
+        RuntimeError: If there is an error loading the JSON file.
+    """
+    flags = os.O_RDONLY
+    modes = stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH
+    try:
+        with os.fdopen(os.open(json_path, flags, modes), "r") as fp:
+            json_re = json.load(fp)
+    except FileNotFoundError as e:
+        raise FileNotFoundError(f"{json_name} file not found: {e}")
+    except Exception as e:
+        raise RuntimeError(f"Error loading {json_name} file: {e}")
+
+    return json_re
+
+
+def input_fn(filenames, mode_type, batch_size=32, num_epochs=1, perform_shuffle=False):
     dataset = tf.data.TFRecordDataset(filenames)
     if perform_shuffle:
         dataset = dataset.shuffle(buffer_size=500000)
@@ -79,7 +112,7 @@ def input_fn(filenames, mode, batch_size=32, num_epochs=1, perform_shuffle=False
     dataset = dataset.repeat(num_epochs).batch(batch_size, drop_remainder=True).map(
         partial(
             parse_example,
-            mode,
+            mode_type,
         ),
         num_parallel_calls=10
     ).prefetch(100)
@@ -90,7 +123,7 @@ def input_fn(filenames, mode, batch_size=32, num_epochs=1, perform_shuffle=False
     return batch_features, batch_labels
 
 
-def model_fn(features, labels, mode):
+def model_fn(features, labels, mode_type):
     """build Estimator model"""
 
     def embedding_lookup_sparse_fake(params, ids, combiner=None, name=None):
@@ -110,7 +143,7 @@ def model_fn(features, labels, mode):
         for key, vocab_len in spec["vocab_length"].items():
             emb_weights[key] = tf.compat.v1.get_variable(
                 name=key + "_emb_wgts",
-                shape=[vocab_len + 1, FLAGS.embedding_size],
+                shape=[vocab_len + 1, model_cfg.embedding_size],
                 dtype=tf.float32,
                 initializer=tf.random_normal_initializer(stddev=(2 / 512) ** 0.5),
             )
@@ -119,7 +152,7 @@ def model_fn(features, labels, mode):
         for key in ["101", "121", "122", "124", "125", "126", "127", "128", "129",
                     "205", "206", "207", "216", "508", "509", "702", "301"]:
             embeddings[key] = tf.nn.embedding_lookup(emb_weights[key], features[key], name=key + "_embedding_lookup")
-            embeddings[key] = tf.reshape(embeddings[key], [-1, 1, FLAGS.embedding_size])
+            embeddings[key] = tf.reshape(embeddings[key], [-1, 1, model_cfg.embedding_size])
         for key in ["109_14", "110_14", "127_14", "150_14", "210", "853"]:
             embeddings[key] = tf.expand_dims(
                 embedding_lookup_sparse_fake(emb_weights[key], features[key], combiner="sum",
@@ -128,24 +161,25 @@ def model_fn(features, labels, mode):
             )
 
     embedding = tf.concat(
-        [embeddings[field_name] for field_name in spec["one_hot_fields"]] +
-        [embeddings[field_name] for field_name in spec["multi_hot_fields"]] +
-        [embeddings[field_name] for field_name in spec["special_fields"]],
+        [embeddings[field_name] for field_name in spec.get("one_hot_fields")] +
+        [embeddings[field_name] for field_name in spec.get("one_hot_fields")] +
+        [embeddings[field_name] for field_name in spec.get("one_hot_fields")],
         axis=2,
     )  # None * 1 * (23 * E)
 
-    x_deep = tf.reshape(embedding, [-1, 23 * FLAGS.embedding_size])
+    x_deep = tf.reshape(embedding, [-1, 23 * model_cfg.embedding_size])
 
     experts = []
 
     with tf.compat.v1.variable_scope("experts-part"):
-        expert_units = list(map(int, FLAGS.expert_layers.strip().split(',')))
+        expert_units = list(map(int, model_cfg.expert_layers.strip().split(',')))
 
-        for i in range(FLAGS.experts_num):
+        for expert_i in range(model_cfg.experts_num):
             y_dnn = x_deep
-            for j in range(len(expert_units)):
-                y_dnn = tf.contrib.layers.fully_connected(inputs=y_dnn, num_outputs=expert_units[j],
-                                                          activation_fn=tf.nn.relu, scope='expert_%d_mlp_%d' % (i, j))
+            for mlp_j, _ in enumerate(expert_units):
+                y_dnn = tf.contrib.layers.fully_connected(inputs=y_dnn, num_outputs=expert_units[mlp_j],
+                                                          activation_fn=tf.nn.relu,
+                                                          scope='expert_%d_mlp_%d' % (expert_i, mlp_j))
             experts.append(tf.expand_dims(y_dnn, axis=1))  # None * 1 * 256
 
     experts = tf.concat(experts, axis=1)  # None * 8 * 256
@@ -154,10 +188,10 @@ def model_fn(features, labels, mode):
     task_outputs = []
 
     with tf.compat.v1.variable_scope("gate-part"):
-        for i in range(FLAGS.task_num):
+        for i in range(model_cfg.task_num):
             gate_network = tf.contrib.layers.fully_connected(
                 inputs=x_deep,
-                num_outputs=FLAGS.experts_num,
+                num_outputs=model_cfg.experts_num,
                 activation_fn=tf.nn.softmax,
                 scope='gate_%d_mlp' % i)
             gate_network_shape = gate_network.get_shape().as_list()
@@ -170,25 +204,26 @@ def model_fn(features, labels, mode):
             task_outputs.append(tf.reshape(task_out, shape=[-1, task_out_shape[1] * task_out_shape[2]]))
 
     with tf.compat.v1.variable_scope("tower"):
-        tower_units = list(map(int, FLAGS.tower_layers.strip().split(',')))
+        tower_units = list(map(int, model_cfg.tower_layers.strip().split(',')))
 
         def build_tower(tower_input, name):
             y_tower = tower_input
-            for i in range(len(tower_units)):
-                y_tower = tf.contrib.layers.fully_connected(inputs=y_tower, num_outputs=tower_units[i],
-                                                            activation_fn=tf.nn.relu, scope=name + '_tower_mlp_%d' % i)
+            for tower_i, _ in enumerate(tower_units):
+                y_tower = tf.contrib.layers.fully_connected(inputs=y_tower, num_outputs=tower_units[tower_i],
+                                                            activation_fn=tf.nn.relu,
+                                                            scope=name + '_tower_mlp_%d' % tower_i)
             return y_tower
 
         # CTR
         y_ctr = build_tower(task_outputs[0], name='ctr')
-        y_ctr = tf.contrib.layers.fully_connected(inputs=y_ctr, num_outputs=1, activation_fn=None, \
+        y_ctr = tf.contrib.layers.fully_connected(inputs=y_ctr, num_outputs=1, activation_fn=None,
                                                   scope='deep_out_click')
         y_ctr = tf.reshape(y_ctr, [-1, ])
         y_ctr_prediction = tf.sigmoid(y_ctr)
 
         # CVR
         y_cvr = build_tower(task_outputs[1], name='cvr')
-        y_cvr = tf.contrib.layers.fully_connected(inputs=y_cvr, num_outputs=1, activation_fn=None, \
+        y_cvr = tf.contrib.layers.fully_connected(inputs=y_cvr, num_outputs=1, activation_fn=None,
                                                   scope='deep_out_valid_play')
         y_cvr = tf.reshape(y_cvr, [-1, ])
         y_cvr_prediction = tf.sigmoid(y_cvr)
@@ -207,9 +242,9 @@ def model_fn(features, labels, mode):
         )
     }
     # Estimator predict
-    if mode == tf.estimator.ModeKeys.PREDICT:
+    if mode_type == tf.estimator.ModeKeys.PREDICT:
         return tf.estimator.EstimatorSpec(
-            mode=mode, predictions=predictions, export_outputs=export_outputs
+            mode=mode_type, predictions=predictions, export_outputs=export_outputs
         )
 
     # ------build loss function------
@@ -217,7 +252,7 @@ def model_fn(features, labels, mode):
         epsilon = 1e-7
         click_weight = 0.14
         conversion_weight = 0.023
-        ctr_task_wgt = FLAGS.ctr_task_wgt
+        ctr_task_wgt = model_cfg.ctr_task_wgt
 
         ctr_loss = - (1 - click_weight) / click_weight * labels['y'] * tf.math.log(y_ctr_prediction + epsilon) - \
                    (1 - labels['y']) * tf.math.log(1 - y_ctr_prediction + epsilon)
@@ -231,7 +266,7 @@ def model_fn(features, labels, mode):
         loss = ctr_task_wgt * ctr_loss + (1 - ctr_task_wgt) * ctcvr_loss
 
     # Provide an estimator spec for `ModeKeys.EVAL`
-    if mode == tf.estimator.ModeKeys.EVAL:
+    if mode_type == tf.estimator.ModeKeys.EVAL:
         ctr_mask = labels["y"] > 0
         cvr_labels = tf.boolean_mask(labels["z"], ctr_mask)
         cvr_pre = tf.boolean_mask(y_cvr_prediction, ctr_mask)
@@ -242,27 +277,27 @@ def model_fn(features, labels, mode):
             "auc_ctcvr": tf.compat.v1.metrics.auc(labels["z"], y_ctcvr_prediction)
         }
         return tf.estimator.EstimatorSpec(
-            mode=mode,
+            mode=mode_type,
             predictions=predictions,
             loss=loss,
             eval_metric_ops=eval_metric_ops,
         )
 
     # ------bulid optimizer------
-    if FLAGS.optimizer == "Adam":
+    if model_cfg.optimizer == "Adam":
         optimizer = tf.compat.v1.train.AdamOptimizer(
-            learning_rate=FLAGS.learning_rate, beta1=0.9, beta2=0.999, epsilon=1e-8
+            learning_rate=model_cfg.learning_rate, beta1=0.9, beta2=0.999, epsilon=1e-8
         )
-    elif FLAGS.optimizer == "Adagrad":
+    elif model_cfg.optimizer == "Adagrad":
         optimizer = tf.compat.v1.train.AdagradOptimizer(
-            learning_rate=FLAGS.learning_rate, initial_accumulator_value=1e-6
+            learning_rate=model_cfg.learning_rate, initial_accumulator_value=1e-6
         )
-    elif FLAGS.optimizer == "Momentum":
+    elif model_cfg.optimizer == "Momentum":
         optimizer = tf.compat.v1.train.MomentumOptimizer(
-            learning_rate=FLAGS.learning_rate, momentum=0.95
+            learning_rate=model_cfg.learning_rate, momentum=0.95
         )
-    elif FLAGS.optimizer == "SGD":
-        optimizer = tf.compat.v1.train.GradientDescentOptimizer(learning_rate=FLAGS.learning_rate)
+    elif model_cfg.optimizer == "SGD":
+        optimizer = tf.compat.v1.train.GradientDescentOptimizer(learning_rate=model_cfg.learning_rate)
 
     gvs = optimizer.compute_gradients(loss)
 
@@ -275,59 +310,59 @@ def model_fn(features, labels, mode):
     train_op = optimizer.apply_gradients(clipped_gradients, global_step=tf.compat.v1.train.get_global_step())
 
     # Provide an estimator spec for `ModeKeys.TRAIN` modes
-    if mode == tf.estimator.ModeKeys.TRAIN:
+    if mode_type == tf.estimator.ModeKeys.TRAIN:
         return tf.estimator.EstimatorSpec(
-            mode=mode, predictions=predictions, loss=loss, train_op=train_op
+            mode=mode_type, predictions=predictions, loss=loss, train_op=train_op
         )
 
 
-def main():
-    if FLAGS.dt_dir == "":
-        FLAGS.dt_dir = (date.today() + timedelta(-1)).strftime('%Y%m%d')
-    FLAGS.model_dir = FLAGS.model_dir + (date.today() + timedelta(-1)).strftime('%Y%m%d')
+def main(_=None, model_cfg=None):
+    # if model_cfg.dt_dir == "":
+    #     model_cfg.dt_dir = (datetime.now(china_tz) + timedelta(-1)).strftime('%Y%m%d')
+    model_cfg.model_dir = model_cfg.model_dir + datetime.now(china_tz).strftime('%Y%m%d')
 
-    train_order = json.load(open("./order.json"))
-    tr_files = ["%strain/data_train.csv.tfrecord.%s" % (FLAGS.data_dir, index) for index in
+    train_order = json_file_load("train_order", train_order_path)
+
+    tr_files = ["%strain/data_train.csv.tfrecord.%s" % (model_cfg.data_dir, index) for index in
                 train_order["reading_order"]]
-    va_files = glob.glob("%sval/data_val.csv.tfrecord.*" % FLAGS.data_dir)
-    te_files = glob.glob("%stest/data_test.csv.tfrecord.*" % FLAGS.data_dir)
+    va_files = glob.glob("%sval/data_val.csv.tfrecord.*" % model_cfg.data_dir)
+    te_files = glob.glob("%stest/data_test.csv.tfrecord.*" % model_cfg.data_dir)
 
-    if FLAGS.clear_existing_model:
+    if model_cfg.clear_existing_model:
         try:
-            shutil.rmtree(FLAGS.model_dir)
+            shutil.rmtree(model_cfg.model_dir)
         except FileNotFoundError as e:
-            raise FileNotFoundError(f"Model directory not found: {e}")
+            raise FileNotFoundError("Model directory not found: {}".format(e))
         except PermissionError as e:
-            raise PermissionError(f"Permission denied: {e}")
+            raise PermissionError("Permission denied: {}".format(e))
         except Exception as e:
-            raise RuntimeError(f"Error clearing existing model: {e}")
+            raise RuntimeError("Error clearing existing model: {}".format(e))
 
-    spec = json.load(open(FLAGS.data_dir + "spec.json"))
     # ------ for NPU  ------
     config = NPURunConfig(
-        model_dir=FLAGS.model_dir,
+        model_dir=model_cfg.model_dir,
         log_step_count_steps=100, save_summary_steps=100,
-        save_checkpoints_steps=spec["dataset_size"]["train"] // FLAGS.batch_size + 1,
+        save_checkpoints_steps=spec["dataset_size"]["train"] // model_cfg.batch_size + 1,
         session_config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=False)
     )
-    model = NPUEstimator(model_fn=model_fn, model_dir=FLAGS.model_dir, config=config)
+    model = NPUEstimator(model_fn=model_fn, model_dir=model_cfg.model_dir, config=config)
 
     hook = tf.estimator.experimental.stop_if_no_increase_hook(model, "auc_ctr",
                                                               max_steps_without_increase=spec["dataset_size"][
-                                                                                             "train"] // FLAGS.batch_size,
+                                                                                             "train"] // model_cfg.batch_size,
                                                               run_every_secs=None, run_every_steps=10)
     hook_stop = tf.estimator.StopAtStepHook(last_step=200)
 
-    if FLAGS.task_type == "train":
+    if model_cfg.task_type == "train":
         train_spec = tf.estimator.TrainSpec(
-            input_fn=lambda: input_fn(tr_files, num_epochs=None, batch_size=FLAGS.batch_size, perform_shuffle=True,
-                                      mode=tf.estimator.ModeKeys.TRAIN),
+            input_fn=lambda: input_fn(tr_files, num_epochs=None, batch_size=model_cfg.batch_size, perform_shuffle=True,
+                                      mode_type=tf.estimator.ModeKeys.TRAIN),
             hooks=[hook]
         )
 
         test_spec = tf.estimator.EvalSpec(
-            input_fn=lambda: input_fn(va_files, num_epochs=1, batch_size=FLAGS.batch_size,
-                                      mode=tf.estimator.ModeKeys.EVAL),
+            input_fn=lambda: input_fn(va_files, num_epochs=1, batch_size=model_cfg.batch_size,
+                                      mode_type=tf.estimator.ModeKeys.EVAL),
             steps=None,
             start_delay_secs=10,
             throttle_secs=0
@@ -336,55 +371,65 @@ def main():
         tf.estimator.train_and_evaluate(model, train_spec, test_spec)
         logger.info("early stopped, start evaluating....")
         model.evaluate(
-            input_fn=lambda: input_fn(te_files, num_epochs=1, batch_size=FLAGS.batch_size,
-                                      mode=tf.estimator.ModeKeys.PREDICT),
+            input_fn=lambda: input_fn(te_files, num_epochs=1, batch_size=model_cfg.batch_size,
+                                      mode_type=tf.estimator.ModeKeys.PREDICT),
             checkpoint_path=get_third_nearest_checkpoint(model.model_dir))
 
-    elif FLAGS.task_type == "eval":
+    elif model_cfg.task_type == "eval":
         model.evaluate(
-            input_fn=lambda: input_fn(te_files, num_epochs=1, batch_size=FLAGS.batch_size)
+            input_fn=lambda: input_fn(te_files, num_epochs=1, batch_size=model_cfg.batch_size)
         )
 
-    elif FLAGS.task_type == 'infer':
-        preds = model.predict(input_fn=lambda: input_fn(te_files, num_epochs=1, batch_size=FLAGS.batch_size,
-                                                        mode=tf.estimator.ModeKeys.PREDICT),
+    elif model_cfg.task_type == 'infer':
+        preds = model.predict(input_fn=lambda: input_fn(te_files, num_epochs=1, batch_size=model_cfg.batch_size,
+                                                        mode_type=tf.estimator.ModeKeys.PREDICT),
                               predict_keys=["ctr", "cvr", "ctcvr"], hooks=[])
-        with open(FLAGS.data_dir + "/pred.txt", "w") as fo:
+        with open(model_cfg.data_dir + "/pred.txt", "w") as fo:
             for prob in preds:
                 fo.write("%f\t%f\t%f\n" % (prob['ctr'], prob['cvr'], prob['ctcvr']))
 
-    elif FLAGS.task_type == 'profiling_train':
-        model.train(input_fn=lambda: input_fn(tr_files, num_epochs=1, batch_size=FLAGS.batch_size, perform_shuffle=True,
-                                              mode=tf.estimator.ModeKeys.TRAIN),
-                    hooks=[hook_stop])
+    elif model_cfg.task_type == 'profiling_train':
+        model.train(
+            input_fn=lambda: input_fn(tr_files, num_epochs=1, batch_size=model_cfg.batch_size, perform_shuffle=True,
+                                      mode_type=tf.estimator.ModeKeys.TRAIN),
+            hooks=[hook_stop])
 
-    elif FLAGS.task_type == 'profiling_infer':
-        preds = model.predict(input_fn=lambda: input_fn(te_files, num_epochs=1, batch_size=FLAGS.batch_size,
-                                                        mode=tf.estimator.ModeKeys.PREDICT),
+    elif model_cfg.task_type == 'profiling_infer':
+        preds = model.predict(input_fn=lambda: input_fn(te_files, num_epochs=1, batch_size=model_cfg.batch_size,
+                                                        mode_type=tf.estimator.ModeKeys.PREDICT),
                               predict_keys=["ctr", "cvr", "ctcvr"], hooks=[hook_stop])
-        with open(FLAGS.data_dir + "/pred.txt", "w") as fo:
+        with open(model_cfg.data_dir + "/pred.txt", "w") as fo:
             for prob in preds:
                 fo.write("%f\t%f\t%f\n" % (prob['ctr'], prob['cvr'], prob['ctcvr']))
 
 
 if __name__ == "__main__":
 
-    FLAGS = define_flags()
+    model_cfg = define_flags()
     logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG)
-    ch = logging.StreamHandler()
+    log_level = getattr(logging, model_cfg.log_level.upper(), logging.DEBUG)
+    logger.setLevel(log_level)
+    console_hand = logging.StreamHandler()
     formatter = logging.Formatter("%(levelname)s - %(asctime)s: %(message)s")
-    ch.setFormatter(formatter)
-    logger.addHandler(ch)
-    fh = logging.FileHandler(
-        "../logs/aliccp/" + MODEL_NAME + "_" + datetime.now().strftime("%Y_%m_%d_%H_%M_%S") + ".log")
-    fh.setLevel(logging.DEBUG)
+    console_hand.setLevel(log_level)
+    console_hand.setFormatter(formatter)
+    logger.addHandler(console_hand)
+    # Define the timezone for China Standard Time
+    china_tz = pytz.timezone('Asia/Shanghai')
+    logfile_na = MODEL_NAME + "_" + datetime.now(china_tz).strftime("%Y_%m_%d_%H_%M_%S") + ".log"
+    logfile_path = os.path.join("../logs/aliccp/", logfile_na)
+    fh = logging.FileHandler(logfile_path)
+    fh.setLevel(log_level)
     fh.setFormatter(formatter)
     logger.addHandler(fh)
 
-    logger.info("FLAGS: " + str(FLAGS))
+    logger.info("FLAGS: " + str(model_cfg))
 
-    spec = json.load(open(FLAGS.data_dir + "spec.json"))
+    spec_json_path = os.path.join(model_cfg.data_dir, "spec.json")
+    spec = json_file_load("spec", spec_json_path)
+    train_order_path = os.path.join("./", "order.json")
+
+
 
     feature_descriptions = {}
     for mode in [tf.estimator.ModeKeys.TRAIN, tf.estimator.ModeKeys.EVAL, tf.estimator.ModeKeys.PREDICT]:
@@ -399,13 +444,21 @@ if __name__ == "__main__":
             'z': tf.io.FixedLenFeature([], tf.float32),
             'one_hot_fields': tf.io.FixedLenFeature([len(spec["one_hot_fields"])], tf.int64)
         }
-        for mul_fields in spec["multi_hot_fields"]:
-            feature_description[mul_fields] = tf.io.FixedLenFeature([spec[f"{key_map[mode]}_max_length"][mul_fields]],
-                                                                    tf.int64)
-        for mul_fields in spec["special_fields"]:
-            feature_description[mul_fields] = tf.io.FixedLenFeature([spec[f"{key_map[mode]}_max_length"][mul_fields]],
-                                                                    tf.int64)
+        try:
+            for mul_fields in spec.get("multi_hot_fields"):
+                feature_description[mul_fields] = tf.io.FixedLenFeature(
+                    [spec[f"{key_map[mode]}_max_length"][mul_fields]],
+                    tf.int64)
+            for mul_fields in spec["special_fields"]:
+                feature_description[mul_fields] = tf.io.FixedLenFeature(
+                    [spec[f"{key_map[mode]}_max_length"][mul_fields]],
+                    tf.int64)
+        except KeyError as e:
+            raise KeyError(f"Spec file Error loading, please check spec.json,  error description: {e}")
+        except Exception as e:
+            raise RuntimeError(f"Error loading feature description: {e}")
+
         feature_descriptions[mode] = feature_description
 
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.INFO)
-    tf.compat.v1.app.run()
+    tf.compat.v1.app.run(main, argv=[model_cfg])
