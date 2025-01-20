@@ -68,7 +68,7 @@ python == 3.7.5 <br>
     estimator 使用参考链接：
     https://www.tensorflow.org/guide/estimator?hl=zh-cn
 
-`ddr`:   类型：`int`。是否采用Rec SDK的ddr模式。默认值为0。0代表使用HBM模式，1代表使用DDR模式。 <br>
+`ddr`:   类型：`int`。是否采用Rec SDK的ddr模式。默认值为0。0代表使用片上内存模式，1代表使用DDR模式。 <br>
 
 `dynamic_expansion`:   类型：`int`。是否采用动态扩容模式进行训练。默认值为0。0代表不使用动态扩容，1代表使用动态扩容。 <br>
 Rec SDK的ddr模式使用请参考《Rec SDK用户指南》。
