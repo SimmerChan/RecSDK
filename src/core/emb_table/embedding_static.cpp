@@ -81,7 +81,10 @@ void EmbeddingStatic::EmplaceKeyOffset(std::vector<emb_key_t>& keys, const std::
             continue;
         }
         auto ret = keyOffsetMap.try_emplace(key, maxOffset);
-        maxOffset = ret.second ? ++maxOffset : maxOffset;
+        if (ret.second) {
+            RecordPaddingKeysOffset(channel, key, maxOffset);
+            maxOffset++;
+        }
         key = ret.first->second;
     }
     if (maxOffset > devVocabSize) {
