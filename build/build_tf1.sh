@@ -30,7 +30,7 @@ MxRec_DIR=$(dirname "${SCRIPT_DIR}")
 
 opensource_path="${MxRec_DIR}"/../opensource
 if [ ! -d ${opensource_path} ]; then
-  echo "user should download dependency packages to RecSDK/../opensource directory, see README.md"
+  echo "user should download dependency packages to mxRec/../opensource directory, see README.md"
   exit -1
 fi
 
