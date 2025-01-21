@@ -40,7 +40,7 @@ MODEL_NAME = "MMoE"
 
 
 def define_flags():
-    model_conf = tf.app.flags.model_cfg
+    model_conf = tf.app.flags.FLAGS
     tf.app.flags.DEFINE_integer("embedding_size", 16, "Embedding size")
     tf.app.flags.DEFINE_integer("batch_size", 4096, "Number of batch size")
     tf.app.flags.DEFINE_float("learning_rate", 0.001, "learning rate")
@@ -369,14 +369,13 @@ def main(_):
     te_files = glob.glob("%stest/data_test.csv.tfrecord.*" % model_cfg.data_dir)
 
     if model_cfg.clear_existing_model:
-        try:
-            shutil.rmtree(model_cfg.model_dir)
-        except FileNotFoundError as e:
-            raise FileNotFoundError("Model directory not found: {}".format(e)) from e
-        except PermissionError as e:
-            raise PermissionError("Permission denied: {}".format(e)) from e
-        except Exception as e:
-            raise RuntimeError("Error clearing existing model: {}".format(e)) from e
+        if os.path.exists(model_cfg.model_dir):
+            try:
+                shutil.rmtree(model_cfg.model_dir)
+            except PermissionError as e:
+                raise PermissionError("Permission denied: {}".format(e)) from e
+            except Exception as e:
+                raise RuntimeError("Error clearing existing model: {}".format(e)) from e
 
     # ------ for NPU  ------
     config = NPURunConfig(
