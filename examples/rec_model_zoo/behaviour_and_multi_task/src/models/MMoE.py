@@ -22,15 +22,14 @@ import json
 import random
 import shutil
 import logging
-import pytz
+from datetime import datetime
 from functools import partial
 
+import pytz
 import tensorflow as tf
-from datetime import date, timedelta, datetime
-from npu_bridge.npu_init import NPUEstimator, NPURunConfig
 
-from examples.rec_model_zoo.behaviour_and_multi_task.data.aliccp.step7_gen_spec import flags
-from utils import get_third_nearest_checkpoint, count_params
+from npu_bridge.npu_init import NPUEstimator, NPURunConfig
+from utils import get_third_nearest_checkpoint
 
 tf.compat.v1.enable_control_flow_v2()
 tf.compat.v1.enable_resource_variables()
@@ -41,7 +40,7 @@ MODEL_NAME = "MMoE"
 
 
 def define_flags():
-    model_config = tf.app.flags.model_cfg
+    model_conf = tf.app.flags.model_cfg
     tf.app.flags.DEFINE_integer("embedding_size", 16, "Embedding size")
     tf.app.flags.DEFINE_integer("batch_size", 4096, "Number of batch size")
     tf.app.flags.DEFINE_float("learning_rate", 0.001, "learning rate")
@@ -60,10 +59,12 @@ def define_flags():
     tf.app.flags.DEFINE_integer("task_num", 2, "task num")
     tf.app.flags.DEFINE_integer("experts_num", 8, "Number of experts")
     tf.app.flags.DEFINE_string("log_level", "DEBUG", "log level {DEBUG, INFO, WARNING, ERROR, CRITICAL}")
-    return model_config
+    return model_conf
 
 
 def parse_example(mode_type, example):
+    """
+    """
     parsed_exapmle = tf.io.parse_example(example, feature_descriptions.get(mode_type))
     input_dict = {}
     target = {"y": parsed_exapmle["y"], "z": parsed_exapmle["z"]}
@@ -76,20 +77,9 @@ def parse_example(mode_type, example):
     return input_dict, target
 
 
-def json_file_load(json_name, json_path):
+def json_file_load(json_name:str, json_path:str) -> dict:
     """
     Load a JSON file from the specified path.
-
-    Args:
-        json_name (str): The name of the JSON file.
-        json_path (str): The path to the JSON file.
-
-    Returns:
-        dict: The loaded JSON content as a dictionary.
-
-    Raises:
-        FileNotFoundError: If the file is not found.
-        RuntimeError: If there is an error loading the JSON file.
     """
     flags = os.O_RDONLY
     modes = stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH
@@ -301,12 +291,12 @@ def model_fn(features, labels, mode_type):
 
     gvs = optimizer.compute_gradients(loss)
 
-    def ClipIfNotNone(grad):
+    def clip_grad(grad):
         if grad is None:
             return grad
         return tf.clip_by_value(grad, -1, 1)
 
-    clipped_gradients = [(ClipIfNotNone(grad), var) for grad, var in gvs]
+    clipped_gradients = [(clip_grad(grad), var) for grad, var in gvs]
     train_op = optimizer.apply_gradients(clipped_gradients, global_step=tf.compat.v1.train.get_global_step())
 
     # Provide an estimator spec for `ModeKeys.TRAIN` modes
@@ -316,27 +306,27 @@ def model_fn(features, labels, mode_type):
         )
 
 
-def main(_=None, model_cfg=None):
-    # if model_cfg.dt_dir == "":
-    #     model_cfg.dt_dir = (datetime.now(china_tz) + timedelta(-1)).strftime('%Y%m%d')
+def main():
     model_cfg.model_dir = model_cfg.model_dir + datetime.now(china_tz).strftime('%Y%m%d')
 
     train_order = json_file_load("train_order", train_order_path)
 
-    tr_files = ["%strain/data_train.csv.tfrecord.%s" % (model_cfg.data_dir, index) for index in
-                train_order["reading_order"]]
+    tr_files = [
+                "%strain/data_train.csv.tfrecord.%s" % (model_cfg.data_dir, index)
+                for index in train_order["reading_order"]
+                ]
     va_files = glob.glob("%sval/data_val.csv.tfrecord.*" % model_cfg.data_dir)
     te_files = glob.glob("%stest/data_test.csv.tfrecord.*" % model_cfg.data_dir)
 
     if model_cfg.clear_existing_model:
         try:
             shutil.rmtree(model_cfg.model_dir)
-        except FileNotFoundError as e:
-            raise FileNotFoundError("Model directory not found: {}".format(e))
-        except PermissionError as e:
-            raise PermissionError("Permission denied: {}".format(e))
-        except Exception as e:
-            raise RuntimeError("Error clearing existing model: {}".format(e))
+        except FileNotFoundError as err_:
+            raise FileNotFoundError("Model directory not found: {}".format(err_))
+        except PermissionError as err_:
+            raise PermissionError("Permission denied: {}".format(err_))
+        except Exception as err_:
+            raise RuntimeError("Error clearing existing model: {}".format(err_))
 
     # ------ for NPU  ------
     config = NPURunConfig(
@@ -349,7 +339,7 @@ def main(_=None, model_cfg=None):
 
     hook = tf.estimator.experimental.stop_if_no_increase_hook(model, "auc_ctr",
                                                               max_steps_without_increase=spec["dataset_size"][
-                                                                                             "train"] // model_cfg.batch_size,
+                                                              "train"] // model_cfg.batch_size,
                                                               run_every_secs=None, run_every_steps=10)
     hook_stop = tf.estimator.StopAtStepHook(last_step=200)
 
@@ -384,7 +374,9 @@ def main(_=None, model_cfg=None):
         preds = model.predict(input_fn=lambda: input_fn(te_files, num_epochs=1, batch_size=model_cfg.batch_size,
                                                         mode_type=tf.estimator.ModeKeys.PREDICT),
                               predict_keys=["ctr", "cvr", "ctcvr"], hooks=[])
-        with open(model_cfg.data_dir + "/pred.txt", "w") as fo:
+        FLAG = os.O_WRONLY | os.O_TRUNC
+        MODE = stat.S_IWUSR | stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH
+        with os.fdopen(os.open(model_cfg.data_dir + "/pred.txt", FLAG, MODE), 'w') as fo:
             for prob in preds:
                 fo.write("%f\t%f\t%f\n" % (prob['ctr'], prob['cvr'], prob['ctcvr']))
 
@@ -398,7 +390,10 @@ def main(_=None, model_cfg=None):
         preds = model.predict(input_fn=lambda: input_fn(te_files, num_epochs=1, batch_size=model_cfg.batch_size,
                                                         mode_type=tf.estimator.ModeKeys.PREDICT),
                               predict_keys=["ctr", "cvr", "ctcvr"], hooks=[hook_stop])
-        with open(model_cfg.data_dir + "/pred.txt", "w") as fo:
+
+        FLAG = os.O_WRONLY | os.O_TRUNC
+        MODE = stat.S_IWUSR | stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH
+        with os.fdopen(os.open(model_cfg.data_dir + "/pred.txt", FLAG, MODE), 'w') as fo:
             for prob in preds:
                 fo.write("%f\t%f\t%f\n" % (prob['ctr'], prob['cvr'], prob['ctcvr']))
 
@@ -429,8 +424,6 @@ if __name__ == "__main__":
     spec = json_file_load("spec", spec_json_path)
     train_order_path = os.path.join("./", "order.json")
 
-
-
     feature_descriptions = {}
     for mode in [tf.estimator.ModeKeys.TRAIN, tf.estimator.ModeKeys.EVAL, tf.estimator.ModeKeys.PREDICT]:
         key_map = {
@@ -453,12 +446,12 @@ if __name__ == "__main__":
                 feature_description[mul_fields] = tf.io.FixedLenFeature(
                     [spec[f"{key_map[mode]}_max_length"][mul_fields]],
                     tf.int64)
-        except KeyError as e:
-            raise KeyError(f"Spec file Error loading, please check spec.json,  error description: {e}")
-        except Exception as e:
-            raise RuntimeError(f"Error loading feature description: {e}")
+        except KeyError as err_key:
+            raise KeyError("Spec file Error, please check spec.json,  error description: {}".format(err_key))
+        except Exception as err_info:
+            raise RuntimeError("Error loading feature description: {}".format(err_info))
 
         feature_descriptions[mode] = feature_description
 
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.INFO)
-    tf.compat.v1.app.run(main, argv=[model_cfg])
+    tf.compat.v1.app.run()
