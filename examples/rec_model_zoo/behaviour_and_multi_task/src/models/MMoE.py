@@ -151,9 +151,9 @@ def model_fn(features, labels, mode_type):
             )
 
     embedding = tf.concat(
-        [embeddings[field_name] for field_name in spec.get("one_hot_fields")] +
-        [embeddings[field_name] for field_name in spec.get("one_hot_fields")] +
-        [embeddings[field_name] for field_name in spec.get("one_hot_fields")],
+        [embeddings.get(field_name) for field_name in spec.get("one_hot_fields")] +
+        [embeddings.get(field_name) for field_name in spec.get("one_hot_fields")] +
+        [embeddings.get(field_name) for field_name in spec.get("one_hot_fields")],
         axis=2,
     )  # None * 1 * (23 * E)
 
