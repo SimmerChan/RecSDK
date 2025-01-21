@@ -104,9 +104,9 @@ def json_file_load(json_name: str, json_path: str) -> dict:
         with os.fdopen(os.open(json_path, flags, modes), "r") as fp:
             json_re = json.load(fp)
     except FileNotFoundError as e:
-        raise FileNotFoundError(f"{json_name} file not found: {e}")
+        raise FileNotFoundError(f"{json_name} file not found: {e}") from e
     except Exception as e:
-        raise RuntimeError(f"Error loading {json_name} file: {e}")
+        raise RuntimeError(f"Error loading {json_name} file: {e}") from e
 
     return json_re
 
@@ -132,6 +132,19 @@ def input_fn(filenames: list, mode_type: str, batch_size: int = 32, num_epochs: 
     batch_features, batch_labels = iterator.get_next()
 
     return batch_features, batch_labels
+
+
+def dump_pred(preds):
+    """
+    Dump the prediction results to a file.
+    """
+    flags = os.O_WRONLY | os.O_TRUNC
+    modes = stat.S_IWUSR | stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH
+    pred_path = os.path.join(model_cfg.data_dir, "pred.txt")
+    with os.fdopen(os.open(pred_path, flags, modes), "w") as fo:
+        for prob in preds:
+            fo.write("%f\t%f\t%f\n" % (prob['ctr'], prob['cvr'], prob['ctcvr']))
+
 
 
 def model_fn(features, labels, mode_type):
@@ -358,12 +371,12 @@ def main():
     if model_cfg.clear_existing_model:
         try:
             shutil.rmtree(model_cfg.model_dir)
-        except FileNotFoundError as err_:
-            raise FileNotFoundError("Model directory not found: {}".format(err_))
-        except PermissionError as err_:
-            raise PermissionError("Permission denied: {}".format(err_))
-        except Exception as err_:
-            raise RuntimeError("Error clearing existing model: {}".format(err_))
+        except FileNotFoundError as e:
+            raise FileNotFoundError("Model directory not found: {}".format(e)) from e
+        except PermissionError as e:
+            raise PermissionError("Permission denied: {}".format(e)) from e
+        except Exception as e:
+            raise RuntimeError("Error clearing existing model: {}".format(e)) from e
 
     # ------ for NPU  ------
     config = NPURunConfig(
@@ -411,11 +424,7 @@ def main():
         preds = model.predict(input_fn=lambda: input_fn(te_files, num_epochs=1, batch_size=model_cfg.batch_size,
                                                         mode_type=tf.estimator.ModeKeys.PREDICT),
                               predict_keys=["ctr", "cvr", "ctcvr"], hooks=[])
-        flags = os.O_WRONLY | os.O_TRUNC
-        modes = stat.S_IWUSR | stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH
-        with os.fdopen(os.open(model_cfg.data_dir + "/pred.txt", flags, modes), 'w') as fo:
-            for prob in preds:
-                fo.write("%f\t%f\t%f\n" % (prob['ctr'], prob['cvr'], prob['ctcvr']))
+        dump_pred(preds)
 
     elif model_cfg.task_type == 'profiling_train':
         model.train(
@@ -428,11 +437,8 @@ def main():
                                                         mode_type=tf.estimator.ModeKeys.PREDICT),
                               predict_keys=["ctr", "cvr", "ctcvr"], hooks=[hook_stop])
 
-        flags = os.O_WRONLY | os.O_TRUNC
-        modes = stat.S_IWUSR | stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH
-        with os.fdopen(os.open(model_cfg.data_dir + "/pred.txt", flags, modes), 'w') as fo:
-            for prob in preds:
-                fo.write("%f\t%f\t%f\n" % (prob['ctr'], prob['cvr'], prob['ctcvr']))
+        dump_pred(preds)
+
 
 
 if __name__ == "__main__":
@@ -483,10 +489,10 @@ if __name__ == "__main__":
                 feature_description[mul_fields] = tf.io.FixedLenFeature(
                     [spec[f"{key_map[mode]}_max_length"][mul_fields]],
                     tf.int64)
-        except KeyError as err_key:
-            raise KeyError("Spec file Error, please check spec.json,  error description: {}".format(err_key))
-        except Exception as err_info:
-            raise RuntimeError("Error loading feature description: {}".format(err_info))
+        except KeyError as e_key:
+            raise KeyError("Spec file Error, please check spec.json,  error description: {}".format(e_key)) from e_key
+        except Exception as e_info:
+            raise RuntimeError("Error loading feature description: {}".format(e_info)) from e_info
 
         feature_descriptions[mode] = feature_description
 
