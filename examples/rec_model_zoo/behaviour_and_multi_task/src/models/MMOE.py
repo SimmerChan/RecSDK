@@ -36,7 +36,7 @@ tf.compat.v1.enable_resource_variables()
 tf.compat.v1.set_random_seed(2024)
 random.seed(2024)
 
-MODEL_NAME = "MMoE"
+MODEL_NAME = "MMOE"
 
 
 def define_flags():
@@ -202,8 +202,8 @@ def model_fn(features, labels, mode):
 
     embedding = tf.concat(
         [embeddings.get(field_name) for field_name in spec.get("one_hot_fields")] +
-        [embeddings.get(field_name) for field_name in spec.get("one_hot_fields")] +
-        [embeddings.get(field_name) for field_name in spec.get("one_hot_fields")],
+        [embeddings.get(field_name) for field_name in spec.get("multi_hot_fields")] +
+        [embeddings.get(field_name) for field_name in spec.get("special_fields")],
         axis=2,
     )  # None * 1 * (23 * E)
 
