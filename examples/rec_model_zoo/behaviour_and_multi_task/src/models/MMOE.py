@@ -147,7 +147,7 @@ def dump_pred(preds):
 
 
 
-def model_fn(features, labels, mode_type):
+def model_fn(features, labels, mode):
     """build Estimator model"""
 
     def embedding_lookup_sparse_fake(params: tf.Tensor, ids: tf.Tensor, combiner: str = None,
@@ -282,9 +282,9 @@ def model_fn(features, labels, mode_type):
         )
     }
     # Estimator predict
-    if mode_type == tf.estimator.ModeKeys.PREDICT:
+    if mode == tf.estimator.ModeKeys.PREDICT:
         return tf.estimator.EstimatorSpec(
-            mode=mode_type, predictions=predictions, export_outputs=export_outputs
+            mode=mode, predictions=predictions, export_outputs=export_outputs
         )
 
     # ------build loss function------
@@ -306,7 +306,7 @@ def model_fn(features, labels, mode_type):
         loss = ctr_task_wgt * ctr_loss + (1 - ctr_task_wgt) * ctcvr_loss
 
     # Provide an estimator spec for `ModeKeys.EVAL`
-    if mode_type == tf.estimator.ModeKeys.EVAL:
+    if mode == tf.estimator.ModeKeys.EVAL:
         ctr_mask = labels["y"] > 0
         cvr_labels = tf.boolean_mask(labels["z"], ctr_mask)
         cvr_pre = tf.boolean_mask(y_cvr_prediction, ctr_mask)
@@ -317,7 +317,7 @@ def model_fn(features, labels, mode_type):
             "auc_ctcvr": tf.compat.v1.metrics.auc(labels["z"], y_ctcvr_prediction)
         }
         return tf.estimator.EstimatorSpec(
-            mode=mode_type,
+            mode=mode,
             predictions=predictions,
             loss=loss,
             eval_metric_ops=eval_metric_ops,
@@ -350,13 +350,13 @@ def model_fn(features, labels, mode_type):
     train_op = optimizer.apply_gradients(clipped_gradients, global_step=tf.compat.v1.train.get_global_step())
 
     # Provide an estimator spec for `ModeKeys.TRAIN` modes
-    if mode_type == tf.estimator.ModeKeys.TRAIN:
+    if mode == tf.estimator.ModeKeys.TRAIN:
         return tf.estimator.EstimatorSpec(
-            mode=mode_type, predictions=predictions, loss=loss, train_op=train_op
+            mode=mode, predictions=predictions, loss=loss, train_op=train_op
         )
 
 
-def main():
+def main(_):
     model_cfg.model_dir = model_cfg.model_dir + datetime.now(china_tz).strftime('%Y%m%d')
 
     train_order = json_file_load("train_order", train_order_path)
