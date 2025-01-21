@@ -62,22 +62,39 @@ def define_flags():
     return model_conf
 
 
-def parse_example(mode_type, example):
+def parse_example(mode_type: str, example: tf.Tensor) -> tuple:
     """
+    Parse a single example for the given mode type.
+
+    Args:
+        mode_type (str): The mode type (e.g., TRAIN, EVAL, PREDICT).
+        example (tf.Tensor): The serialized example to parse.
+
+    Returns:
+        tuple: A tuple containing the input dictionary and target dictionary.
     """
-    parsed_exapmle = tf.io.parse_example(example, feature_descriptions.get(mode_type))
+    # Parse the example using the feature descriptions for the given mode type
+    parsed_example = tf.io.parse_example(example, feature_descriptions.get(mode_type))
+
     input_dict = {}
-    target = {"y": parsed_exapmle["y"], "z": parsed_exapmle["z"]}
+    target = {"y": parsed_example["y"], "z": parsed_example["z"]}
+
+    # Extract one-hot fields from the parsed example
     for index, key in enumerate(spec["one_hot_fields"]):
-        input_dict[key] = parsed_exapmle["one_hot_fields"][:, index]
+        input_dict[key] = parsed_example["one_hot_fields"][:, index]
+
+    # Extract multi-hot fields from the parsed example
     for key in spec["multi_hot_fields"]:
-        input_dict[key] = parsed_exapmle[key]
+        input_dict[key] = parsed_example[key]
+
+    # Extract special fields from the parsed example
     for key in spec["special_fields"]:
-        input_dict[key] = parsed_exapmle[key]
+        input_dict[key] = parsed_example[key]
+
     return input_dict, target
 
 
-def json_file_load(json_name:str, json_path:str) -> dict:
+def json_file_load(json_name: str, json_path: str) -> dict:
     """
     Load a JSON file from the specified path.
     """
@@ -94,7 +111,11 @@ def json_file_load(json_name:str, json_path:str) -> dict:
     return json_re
 
 
-def input_fn(filenames, mode_type, batch_size=32, num_epochs=1, perform_shuffle=False):
+def input_fn(filenames: list, mode_type: str, batch_size: int = 32, num_epochs: int = 1,
+             perform_shuffle: bool = False) -> tuple:
+    """
+        Input function to create a dataset for training, evaluation, or prediction.
+    """
     dataset = tf.data.TFRecordDataset(filenames)
     if perform_shuffle:
         dataset = dataset.shuffle(buffer_size=500000)
@@ -116,7 +137,23 @@ def input_fn(filenames, mode_type, batch_size=32, num_epochs=1, perform_shuffle=
 def model_fn(features, labels, mode_type):
     """build Estimator model"""
 
-    def embedding_lookup_sparse_fake(params, ids, combiner=None, name=None):
+    def embedding_lookup_sparse_fake(params: tf.Tensor, ids: tf.Tensor, combiner: str = None,
+                                     name: str = None) -> tf.Tensor:
+        """
+        Perform sparse embedding lookup and combine the results.
+
+        Args:
+            params (tf.Tensor): The embedding parameters.
+            ids (tf.Tensor): The sparse IDs to lookup.
+            combiner (str, optional): The combiner method ('sum' or 'mean'). Defaults to None.
+            name (str, optional): The name for the operation. Defaults to None.
+
+        Returns:
+            tf.Tensor: The combined embedding results.
+
+        Raises:
+            ValueError: If the combiner is not 'sum' or 'mean'.
+        """
         dense_mask = tf.expand_dims(tf.cast(ids >= 0, tf.float32), axis=-1)
         ids = tf.where(tf.equal(ids, -1), tf.zeros_like(ids), ids)
         embedding = tf.nn.embedding_lookup(params, ids, name=name + "_dense_lookup") * dense_mask
@@ -312,9 +349,9 @@ def main():
     train_order = json_file_load("train_order", train_order_path)
 
     tr_files = [
-                "%strain/data_train.csv.tfrecord.%s" % (model_cfg.data_dir, index)
-                for index in train_order["reading_order"]
-                ]
+        "%strain/data_train.csv.tfrecord.%s" % (model_cfg.data_dir, index)
+        for index in train_order["reading_order"]
+    ]
     va_files = glob.glob("%sval/data_val.csv.tfrecord.*" % model_cfg.data_dir)
     te_files = glob.glob("%stest/data_test.csv.tfrecord.*" % model_cfg.data_dir)
 
@@ -374,9 +411,9 @@ def main():
         preds = model.predict(input_fn=lambda: input_fn(te_files, num_epochs=1, batch_size=model_cfg.batch_size,
                                                         mode_type=tf.estimator.ModeKeys.PREDICT),
                               predict_keys=["ctr", "cvr", "ctcvr"], hooks=[])
-        FLAG = os.O_WRONLY | os.O_TRUNC
-        MODE = stat.S_IWUSR | stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH
-        with os.fdopen(os.open(model_cfg.data_dir + "/pred.txt", FLAG, MODE), 'w') as fo:
+        flags = os.O_WRONLY | os.O_TRUNC
+        modes = stat.S_IWUSR | stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH
+        with os.fdopen(os.open(model_cfg.data_dir + "/pred.txt", flags, modes), 'w') as fo:
             for prob in preds:
                 fo.write("%f\t%f\t%f\n" % (prob['ctr'], prob['cvr'], prob['ctcvr']))
 
@@ -391,9 +428,9 @@ def main():
                                                         mode_type=tf.estimator.ModeKeys.PREDICT),
                               predict_keys=["ctr", "cvr", "ctcvr"], hooks=[hook_stop])
 
-        FLAG = os.O_WRONLY | os.O_TRUNC
-        MODE = stat.S_IWUSR | stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH
-        with os.fdopen(os.open(model_cfg.data_dir + "/pred.txt", FLAG, MODE), 'w') as fo:
+        flags = os.O_WRONLY | os.O_TRUNC
+        modes = stat.S_IWUSR | stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH
+        with os.fdopen(os.open(model_cfg.data_dir + "/pred.txt", flags, modes), 'w') as fo:
             for prob in preds:
                 fo.write("%f\t%f\t%f\n" % (prob['ctr'], prob['cvr'], prob['ctcvr']))
 
