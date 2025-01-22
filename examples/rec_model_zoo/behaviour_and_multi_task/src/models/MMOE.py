@@ -114,7 +114,7 @@ def json_file_load(json_name: str, json_path: str) -> dict:
 def input_fn(filenames: list, mode_type: str, batch_size: int = 32, num_epochs: int = 1,
              perform_shuffle: bool = False) -> tuple:
     """
-        Input function to create a dataset for training, evaluation, or prediction.
+    Input function to create a dataset for training, evaluation, or prediction.
     """
     dataset = tf.data.TFRecordDataset(filenames)
     if perform_shuffle:
@@ -146,127 +146,184 @@ def dump_pred(preds):
             fo.write("%f\t%f\t%f\n" % (prob['ctr'], prob['cvr'], prob['ctcvr']))
 
 
+def embedding_lookup_sparse_fake(params: tf.Tensor, ids: tf.Tensor, combiner: str = None,
+                                 name: str = None) -> tf.Tensor:
+    """
+    Perform sparse embedding lookup and combine the results.
 
-def model_fn(features, labels, mode):
-    """build Estimator model"""
+    Args:
+        params (tf.Tensor): The embedding parameters.
+        ids (tf.Tensor): The sparse IDs to lookup.
+        combiner (str, optional): The combiner method ('sum' or 'mean'). Defaults to None.
+        name (str, optional): The name for the operation. Defaults to None.
 
-    def embedding_lookup_sparse_fake(params: tf.Tensor, ids: tf.Tensor, combiner: str = None,
-                                     name: str = None) -> tf.Tensor:
-        """
-        Perform sparse embedding lookup and combine the results.
+    Returns:
+        tf.Tensor: The combined embedding results.
 
-        Args:
-            params (tf.Tensor): The embedding parameters.
-            ids (tf.Tensor): The sparse IDs to lookup.
-            combiner (str, optional): The combiner method ('sum' or 'mean'). Defaults to None.
-            name (str, optional): The name for the operation. Defaults to None.
+    Raises:
+        ValueError: If the combiner is not 'sum' or 'mean'.
+    """
 
-        Returns:
-            tf.Tensor: The combined embedding results.
+    # Create a dense mask where valid IDs are marked as 1.0 and invalid IDs as 0.0
+    dense_mask = tf.expand_dims(tf.cast(ids >= 0, tf.float32), axis=-1)
 
-        Raises:
-            ValueError: If the combiner is not 'sum' or 'mean'.
-        """
-        dense_mask = tf.expand_dims(tf.cast(ids >= 0, tf.float32), axis=-1)
-        ids = tf.where(tf.equal(ids, -1), tf.zeros_like(ids), ids)
-        embedding = tf.nn.embedding_lookup(params, ids, name=name + "_dense_lookup") * dense_mask
-        summed_embedding = tf.reduce_sum(embedding, axis=1)
-        if combiner == "sum":
-            return summed_embedding
-        elif combiner == "mean":
-            return summed_embedding / tf.reduce_sum(dense_mask, axis=1)
-        else:
-            raise ValueError("combiner only supoort 'sum', 'mean'")
+    # Replace invalid IDs (-1) with zeros
+    ids = tf.where(tf.equal(ids, -1), tf.zeros_like(ids), ids)
+    embedding = tf.nn.embedding_lookup(params, ids, name=name + "_dense_lookup") * dense_mask
+    summed_embedding = tf.reduce_sum(embedding, axis=1)
+    if combiner == "sum":
+        return summed_embedding
+    elif combiner == "mean":
+        return summed_embedding / tf.reduce_sum(dense_mask, axis=1)
+    else:
+        raise ValueError("combiner only supports 'sum' or 'mean'")
 
-    with tf.compat.v1.variable_scope("Embedding-Layer"):
-        emb_weights = {}
-        for key, vocab_len in spec["vocab_length"].items():
-            emb_weights[key] = tf.compat.v1.get_variable(
-                name=key + "_emb_wgts",
-                shape=[vocab_len + 1, model_cfg.embedding_size],
-                dtype=tf.float32,
-                initializer=tf.random_normal_initializer(stddev=(2 / 512) ** 0.5),
-            )
 
-        embeddings = {}
-        for key in ["101", "121", "122", "124", "125", "126", "127", "128", "129",
-                    "205", "206", "207", "216", "508", "509", "702", "301"]:
-            embeddings[key] = tf.nn.embedding_lookup(emb_weights[key], features[key], name=key + "_embedding_lookup")
-            embeddings[key] = tf.reshape(embeddings[key], [-1, 1, model_cfg.embedding_size])
-        for key in ["109_14", "110_14", "127_14", "150_14", "210", "853"]:
-            embeddings[key] = tf.expand_dims(
-                embedding_lookup_sparse_fake(emb_weights[key], features[key], combiner="sum",
-                                             name=key + "_embedding_lookup"),
-                axis=1
-            )
+def build_embedding_layer(features: dict, spec: dict, model_cfg: object) -> tf.Tensor:
+    """
+    Build the embedding layer for the model.
+
+    Args:
+        features (dict): The input features.
+        spec (dict): The specification dictionary containing vocab lengths and field names.
+        model_cfg (object): The model configuration object containing embedding size.
+
+    Returns:
+        tf.Tensor: The concatenated and reshaped embedding tensor.
+    """
+    emb_weights = {}
+    for key, vocab_len in spec["vocab_length"].items():
+        emb_weights[key] = tf.compat.v1.get_variable(
+            name=key + "_emb_wgts",
+            shape=[vocab_len + 1, model_cfg.embedding_size],
+            dtype=tf.float32,
+            initializer=tf.random_normal_initializer(stddev=(2 / 512) ** 0.5),
+        )
+
+    embeddings = {}
+    for key in ["101", "121", "122", "124", "125", "126", "127", "128", "129", "205", "206", "207", "216", "508", "509",
+                "702", "301"]:
+        embeddings[key] = tf.nn.embedding_lookup(emb_weights[key], features[key], name=key + "_embedding_lookup")
+        embeddings[key] = tf.reshape(embeddings[key], [-1, 1, model_cfg.embedding_size])
+    for key in ["109_14", "110_14", "127_14", "150_14", "210", "853"]:
+        embeddings[key] = tf.expand_dims(
+            embedding_lookup_sparse_fake(emb_weights[key], features[key], combiner="sum",
+                                         name=key + "_embedding_lookup"),
+            axis=1
+        )
 
     embedding = tf.concat(
         [embeddings.get(field_name) for field_name in spec.get("one_hot_fields")] +
         [embeddings.get(field_name) for field_name in spec.get("multi_hot_fields")] +
         [embeddings.get(field_name) for field_name in spec.get("special_fields")],
         axis=2,
-    )  # None * 1 * (23 * E)
+    )
+    return tf.reshape(embedding, [-1, 23 * model_cfg.embedding_size])
 
-    x_deep = tf.reshape(embedding, [-1, 23 * model_cfg.embedding_size])
+def build_experts(x_deep: tf.Tensor, model_cfg: object) -> tf.Tensor:
+    """
+    Build the experts for the model.
 
+    Args:
+        x_deep (tf.Tensor): The input tensor.
+        model_cfg (object): The model configuration object containing expert layers and number of experts.
+
+    Returns:
+        tf.Tensor: The concatenated experts tensor.
+    """
     experts = []
+    expert_units = list(map(int, model_cfg.expert_layers.strip().split(',')))
+    for expert_i in range(model_cfg.experts_num):
+        y_dnn = x_deep
+        for mlp_j, _ in enumerate(expert_units):
+            y_dnn = tf.contrib.layers.fully_connected(inputs=y_dnn, num_outputs=expert_units[mlp_j],
+                                                      activation_fn=tf.nn.relu,
+                                                      scope='expert_%d_mlp_%d' % (expert_i, mlp_j))
+        experts.append(tf.expand_dims(y_dnn, axis=1))
+    return tf.concat(experts, axis=1)
 
-    with tf.compat.v1.variable_scope("experts-part"):
-        expert_units = list(map(int, model_cfg.expert_layers.strip().split(',')))
 
-        for expert_i in range(model_cfg.experts_num):
-            y_dnn = x_deep
-            for mlp_j, _ in enumerate(expert_units):
-                y_dnn = tf.contrib.layers.fully_connected(inputs=y_dnn, num_outputs=expert_units[mlp_j],
-                                                          activation_fn=tf.nn.relu,
-                                                          scope='expert_%d_mlp_%d' % (expert_i, mlp_j))
-            experts.append(tf.expand_dims(y_dnn, axis=1))  # None * 1 * 256
+def build_gate_networks(x_deep: tf.Tensor, model_cfg: object) -> list:
+    """
+    Build the gate networks for the model.
 
-    experts = tf.concat(experts, axis=1)  # None * 8 * 256
+    Args:
+        x_deep (tf.Tensor): The input tensor.
+        model_cfg (object): The model configuration object containing task number and number of experts.
 
+    Returns:
+        list: A list of gate networks tensors.
+    """
     gate_networks = []
+    for i in range(model_cfg.task_num):
+        gate_network = tf.contrib.layers.fully_connected(
+            inputs=x_deep,
+            num_outputs=model_cfg.experts_num,
+            activation_fn=tf.nn.softmax,
+            scope='gate_%d_mlp' % i)
+        gate_network_shape = gate_network.get_shape().as_list()
+        gate_network = tf.reshape(gate_network, shape=[-1, gate_network_shape[1], 1])
+        gate_networks.append(gate_network)
+    return gate_networks
+
+def build_task_outputs(experts: tf.Tensor, gate_networks: list) -> list:
+    """
+    Build the task outputs by combining experts and gate networks.
+
+    Args:
+        experts (tf.Tensor): The tensor containing expert outputs.
+        gate_networks (list): A list of gate network tensors.
+
+    Returns:
+        list: A list of reshaped task output tensors.
+    """
     task_outputs = []
+    for gate_network in gate_networks:
+        task_out = tf.multiply(experts, gate_network)
+        task_out_shape = task_out.get_shape().as_list()
+        task_outputs.append(tf.reshape(task_out, shape=[-1, task_out_shape[1] * task_out_shape[2]]))
+    return task_outputs
 
-    with tf.compat.v1.variable_scope("gate-part"):
-        for i in range(model_cfg.task_num):
-            gate_network = tf.contrib.layers.fully_connected(
-                inputs=x_deep,
-                num_outputs=model_cfg.experts_num,
-                activation_fn=tf.nn.softmax,
-                scope='gate_%d_mlp' % i)
-            gate_network_shape = gate_network.get_shape().as_list()
-            gate_network = tf.reshape(gate_network, shape=[-1, gate_network_shape[1], 1])
-            gate_networks.append(gate_network)
+def build_tower(tower_input: tf.Tensor, name: str, model_cfg: object) -> tf.Tensor:
+    """
+    Build the tower network for a specific task.
 
-        for gate_network in gate_networks:
-            task_out = tf.multiply(experts, gate_network)
-            task_out_shape = task_out.get_shape().as_list()
-            task_outputs.append(tf.reshape(task_out, shape=[-1, task_out_shape[1] * task_out_shape[2]]))
+    Args:
+        tower_input (tf.Tensor): The input tensor for the tower.
+        name (str): The name of the tower.
+        model_cfg (object): The model configuration object containing tower layers.
 
-    with tf.compat.v1.variable_scope("tower"):
-        tower_units = list(map(int, model_cfg.tower_layers.strip().split(',')))
+    Returns:
+        tf.Tensor: The output tensor of the tower network.
+    """
+    tower_units = list(map(int, model_cfg.tower_layers.strip().split(',')))
+    y_tower = tower_input
+    for tower_i, _ in enumerate(tower_units):
+        y_tower = tf.contrib.layers.fully_connected(inputs=y_tower, num_outputs=tower_units[tower_i],
+                                                    activation_fn=tf.nn.relu,
+                                                    scope=name + '_tower_mlp_%d' % tower_i)
+    return y_tower
 
-        def build_tower(tower_input, name):
-            y_tower = tower_input
-            for tower_i, _ in enumerate(tower_units):
-                y_tower = tf.contrib.layers.fully_connected(inputs=y_tower, num_outputs=tower_units[tower_i],
-                                                            activation_fn=tf.nn.relu,
-                                                            scope=name + '_tower_mlp_%d' % tower_i)
-            return y_tower
+def build_predictions(task_outputs: list, model_cfg: object) -> dict:
+    """
+    Build the predictions for the model.
 
-        # CTR
-        y_ctr = build_tower(task_outputs[0], name='ctr')
-        y_ctr = tf.contrib.layers.fully_connected(inputs=y_ctr, num_outputs=1, activation_fn=None,
-                                                  scope='deep_out_click')
-        y_ctr = tf.reshape(y_ctr, [-1, ])
-        y_ctr_prediction = tf.sigmoid(y_ctr)
+    Args:
+        task_outputs (list): A list of task output tensors.
+        model_cfg (object): The model configuration object containing tower layers.
 
-        # CVR
-        y_cvr = build_tower(task_outputs[1], name='cvr')
-        y_cvr = tf.contrib.layers.fully_connected(inputs=y_cvr, num_outputs=1, activation_fn=None,
-                                                  scope='deep_out_valid_play')
-        y_cvr = tf.reshape(y_cvr, [-1, ])
-        y_cvr_prediction = tf.sigmoid(y_cvr)
+    Returns:
+        dict: A dictionary containing the predictions for ctr, cvr, and ctcvr.
+    """
+    y_ctr = build_tower(task_outputs[0], name='ctr', model_cfg=model_cfg)
+    y_ctr = tf.contrib.layers.fully_connected(inputs=y_ctr, num_outputs=1, activation_fn=None, scope='deep_out_click')
+    y_ctr = tf.reshape(y_ctr, [-1, ])
+    y_ctr_prediction = tf.sigmoid(y_ctr)
+
+    y_cvr = build_tower(task_outputs[1], name='cvr', model_cfg=model_cfg)
+    y_cvr = tf.contrib.layers.fully_connected(inputs=y_cvr, num_outputs=1, activation_fn=None, scope='deep_out_valid_play')
+    y_cvr = tf.reshape(y_cvr, [-1, ])
+    y_cvr_prediction = tf.sigmoid(y_cvr)
 
     y_ctcvr_prediction = y_ctr_prediction * y_cvr_prediction
 
@@ -275,55 +332,56 @@ def model_fn(features, labels, mode):
         "cvr": y_cvr_prediction,
         "ctcvr": y_ctcvr_prediction
     }
+    return predictions
 
-    export_outputs = {
-        tf.saved_model.DEFAULT_SERVING_SIGNATURE_DEF_KEY: tf.estimator.export.PredictOutput(
-            predictions
-        )
-    }
-    # Estimator predict
-    if mode == tf.estimator.ModeKeys.PREDICT:
-        return tf.estimator.EstimatorSpec(
-            mode=mode, predictions=predictions, export_outputs=export_outputs
-        )
 
-    # ------build loss function------
-    with tf.compat.v1.variable_scope("loss-function-part"):
-        epsilon = 1e-7
-        click_weight = 0.14
-        conversion_weight = 0.023
-        ctr_task_wgt = model_cfg.ctr_task_wgt
+def build_loss(labels: dict, y_ctr_prediction: tf.Tensor, y_ctcvr_prediction: tf.Tensor,
+               model_cfg: object) -> tf.Tensor:
+    """
+    Build the loss function for the model.
 
-        ctr_loss = - (1 - click_weight) / click_weight * labels['y'] * tf.math.log(y_ctr_prediction + epsilon) - \
-                   (1 - labels['y']) * tf.math.log(1 - y_ctr_prediction + epsilon)
-        ctr_loss = tf.reduce_mean(ctr_loss)
+    Args:
+        labels (dict): A dictionary containing the true labels for ctr and ctcvr.
+        y_ctr_prediction (tf.Tensor): The predicted ctr values.
+        y_ctcvr_prediction (tf.Tensor): The predicted ctcvr values.
+        model_cfg (object): The model configuration object containing loss weights.
 
-        ctcvr_loss = - (1 - conversion_weight) / conversion_weight * labels['z'] * tf.math.log(
-            y_ctcvr_prediction + epsilon) - \
-                     (1 - labels['z']) * tf.math.log(1 - y_ctcvr_prediction + epsilon)
-        ctcvr_loss = tf.reduce_mean(ctcvr_loss)
+    Returns:
+        tf.Tensor: The combined loss tensor.
+    """
+    epsilon = 1e-7
+    # Weight for the click-through rate (CTR) loss component
+    click_weight = 0.14
+    # Weight for the conversion rate (CVR) loss component
+    conversion_weight = 0.023
+    # Weight for the CTR task in the combined loss function
+    ctr_task_wgt = model_cfg.ctr_task_wgt
 
-        loss = ctr_task_wgt * ctr_loss + (1 - ctr_task_wgt) * ctcvr_loss
+    ctr_loss = - (1 - click_weight) / click_weight * labels['y'] * tf.math.log(y_ctr_prediction + epsilon) - \
+               (1 - labels['y']) * tf.math.log(1 - y_ctr_prediction + epsilon)
+    ctr_loss = tf.reduce_mean(ctr_loss)
 
-    # Provide an estimator spec for `ModeKeys.EVAL`
-    if mode == tf.estimator.ModeKeys.EVAL:
-        ctr_mask = labels["y"] > 0
-        cvr_labels = tf.boolean_mask(labels["z"], ctr_mask)
-        cvr_pre = tf.boolean_mask(y_cvr_prediction, ctr_mask)
+    ctcvr_loss = - (1 - conversion_weight) / conversion_weight * labels['z'] * tf.math.log(
+        y_ctcvr_prediction + epsilon) - \
+                 (1 - labels['z']) * tf.math.log(1 - y_ctcvr_prediction + epsilon)
+    ctcvr_loss = tf.reduce_mean(ctcvr_loss)
 
-        eval_metric_ops = {
-            "auc_ctr": tf.compat.v1.metrics.auc(labels["y"], y_ctr_prediction),
-            "auc_cvr": tf.compat.v1.metrics.auc(cvr_labels, cvr_pre),
-            "auc_ctcvr": tf.compat.v1.metrics.auc(labels["z"], y_ctcvr_prediction)
-        }
-        return tf.estimator.EstimatorSpec(
-            mode=mode,
-            predictions=predictions,
-            loss=loss,
-            eval_metric_ops=eval_metric_ops,
-        )
+    return ctr_task_wgt * ctr_loss + (1 - ctr_task_wgt) * ctcvr_loss
 
-    # ------bulid optimizer------
+def build_optimizer(loss: tf.Tensor, model_cfg: object) -> tf.Operation:
+    """
+    Build the optimizer for training.
+
+    Args:
+        loss (tf.Tensor): The loss tensor to minimize.
+        model_cfg (object): The model configuration object containing optimizer settings.
+
+    Returns:
+        tf.Operation: The operation for applying gradients.
+
+    Raises:
+        ValueError: If the optimizer type is not supported.
+    """
     if model_cfg.optimizer == "Adam":
         optimizer = tf.compat.v1.train.AdamOptimizer(
             learning_rate=model_cfg.learning_rate, beta1=0.9, beta2=0.999, epsilon=1e-8
@@ -338,6 +396,8 @@ def model_fn(features, labels, mode):
         )
     elif model_cfg.optimizer == "SGD":
         optimizer = tf.compat.v1.train.GradientDescentOptimizer(learning_rate=model_cfg.learning_rate)
+    else:
+        raise ValueError("Unsupported optimizer type: {}".format(model_cfg.optimizer))
 
     gvs = optimizer.compute_gradients(loss)
 
@@ -347,16 +407,67 @@ def model_fn(features, labels, mode):
         return tf.clip_by_value(grad, -1, 1)
 
     clipped_gradients = [(clip_grad(grad), var) for grad, var in gvs]
-    train_op = optimizer.apply_gradients(clipped_gradients, global_step=tf.compat.v1.train.get_global_step())
+    return optimizer.apply_gradients(clipped_gradients, global_step=tf.compat.v1.train.get_global_step())
 
-    # Provide an estimator spec for `ModeKeys.TRAIN` modes
+
+def model_fn(features: dict, labels: dict, mode: tf.estimator.ModeKeys,
+             model_cfg: object) -> tf.estimator.EstimatorSpec:
+    """
+    Build the model function for the estimator.
+
+    Args:
+        features (dict): The input features.
+        labels (dict): The true labels.
+        mode (tf.estimator.ModeKeys): The mode (TRAIN, EVAL, PREDICT).
+        model_cfg (object): The model configuration object.
+
+    Returns:
+        tf.estimator.EstimatorSpec: The EstimatorSpec object for the given mode.
+    """
+    # Build the embedding layer
+    x_deep = build_embedding_layer(features, spec, model_cfg)
+
+    # Build the experts
+    experts = build_experts(x_deep, model_cfg)
+
+    # Build the gate networks
+    gate_networks = build_gate_networks(x_deep, model_cfg)
+
+    # Build the task outputs
+    task_outputs = build_task_outputs(experts, gate_networks)
+
+    # Build the predictions
+    predictions = build_predictions(task_outputs, model_cfg)
+
+    # Define the export outputs for serving
+    export_outputs = {
+        tf.saved_model.DEFAULT_SERVING_SIGNATURE_DEF_KEY: tf.estimator.export.PredictOutput(predictions)
+    }
+
+    if mode == tf.estimator.ModeKeys.PREDICT:
+        return tf.estimator.EstimatorSpec(mode=mode, predictions=predictions, export_outputs=export_outputs)
+
+    loss = build_loss(labels, predictions["ctr"], predictions["ctcvr"], model_cfg)
+
+    if mode == tf.estimator.ModeKeys.EVAL:
+        ctr_mask = labels["y"] > 0
+        cvr_labels = tf.boolean_mask(labels["z"], ctr_mask)
+        cvr_pre = tf.boolean_mask(predictions["cvr"], ctr_mask)
+
+        eval_metric_ops = {
+            "auc_ctr": tf.compat.v1.metrics.auc(labels["y"], predictions["ctr"]),
+            "auc_cvr": tf.compat.v1.metrics.auc(cvr_labels, cvr_pre),
+            "auc_ctcvr": tf.compat.v1.metrics.auc(labels["z"], predictions["ctcvr"])
+        }
+        return tf.estimator.EstimatorSpec(mode=mode, predictions=predictions, loss=loss, eval_metric_ops=eval_metric_ops)
+
+    train_op = build_optimizer(loss, model_cfg)
+
     if mode == tf.estimator.ModeKeys.TRAIN:
-        return tf.estimator.EstimatorSpec(
-            mode=mode, predictions=predictions, loss=loss, train_op=train_op
-        )
+        return tf.estimator.EstimatorSpec(mode=mode, predictions=predictions, loss=loss, train_op=train_op)
 
 
-def main(_):
+def main(_, model_cfg):
     model_cfg.model_dir = model_cfg.model_dir + datetime.now(china_tz).strftime('%Y%m%d')
 
     train_order = json_file_load("train_order", train_order_path)
@@ -384,7 +495,7 @@ def main(_):
         save_checkpoints_steps=spec["dataset_size"]["train"] // model_cfg.batch_size + 1,
         session_config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=False)
     )
-    model = NPUEstimator(model_fn=model_fn, model_dir=model_cfg.model_dir, config=config)
+    model = NPUEstimator(model_fn=model_fn, model_dir=model_cfg.model_dir, config=config, model_cfg=model_cfg)
 
     hook = tf.estimator.experimental.stop_if_no_increase_hook(model, "auc_ctr",
                                                               max_steps_without_increase=spec["dataset_size"][
@@ -442,9 +553,9 @@ def main(_):
 
 if __name__ == "__main__":
 
-    model_cfg = define_flags()
+    model_config = define_flags()
     logger = logging.getLogger()
-    log_level = getattr(logging, model_cfg.log_level.upper(), logging.DEBUG)
+    log_level = getattr(logging, model_config.log_level.upper(), logging.DEBUG)
     logger.setLevel(log_level)
     console_hand = logging.StreamHandler()
     formatter = logging.Formatter("%(levelname)s - %(asctime)s: %(message)s")
@@ -460,9 +571,9 @@ if __name__ == "__main__":
     fh.setFormatter(formatter)
     logger.addHandler(fh)
 
-    logger.info("FLAGS: " + str(model_cfg))
+    logger.info("FLAGS: " + str(model_config))
 
-    spec_json_path = os.path.join(model_cfg.data_dir, "spec.json")
+    spec_json_path = os.path.join(model_config.data_dir, "spec.json")
     spec = json_file_load("spec", spec_json_path)
     train_order_path = os.path.join("./", "order.json")
 
@@ -496,4 +607,4 @@ if __name__ == "__main__":
         feature_descriptions[mode] = feature_description
 
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.INFO)
-    tf.compat.v1.app.run()
+    tf.compat.v1.app.run(main=main, argv=[model_config])
