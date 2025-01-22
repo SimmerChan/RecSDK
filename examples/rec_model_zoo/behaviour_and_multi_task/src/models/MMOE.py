@@ -134,7 +134,7 @@ def input_fn(filenames: list, mode_type: str, batch_size: int = 32, num_epochs: 
     return batch_features, batch_labels
 
 
-def dump_pred(preds):
+def dump_pred(preds, model_cfg):
     """
     Dump the prediction results to a file.
     """
@@ -534,7 +534,7 @@ def main(_, model_cfg):
         preds = model.predict(input_fn=lambda: input_fn(te_files, num_epochs=1, batch_size=model_cfg.batch_size,
                                                         mode_type=tf.estimator.ModeKeys.PREDICT),
                               predict_keys=["ctr", "cvr", "ctcvr"], hooks=[])
-        dump_pred(preds)
+        dump_pred(preds, model_cfg)
 
     elif model_cfg.task_type == 'profiling_train':
         model.train(
@@ -547,7 +547,7 @@ def main(_, model_cfg):
                                                         mode_type=tf.estimator.ModeKeys.PREDICT),
                               predict_keys=["ctr", "cvr", "ctcvr"], hooks=[hook_stop])
 
-        dump_pred(preds)
+        dump_pred(preds, model_cfg)
 
 
 
