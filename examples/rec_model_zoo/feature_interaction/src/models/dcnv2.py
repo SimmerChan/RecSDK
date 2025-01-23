@@ -94,7 +94,7 @@ def input_fn(filenames: List[str], batch_size: int = 32, field_size: int = 39, n
     return batch_features, batch_labels
 
 
-def embedding_layer(feat_ids: tf.Tensor, feat_vals: tf.Tensor, Feat_Emb_deep: tf.Tensor, field_size: int,
+def embedding_layer(feat_ids: tf.Tensor, feat_vals: tf.Tensor, feat_emb_deep: tf.Tensor, field_size: int,
                     embedding_size: int) -> tf.Tensor:
     """
     Build the embedding layer.
@@ -102,14 +102,14 @@ def embedding_layer(feat_ids: tf.Tensor, feat_vals: tf.Tensor, Feat_Emb_deep: tf
     Args:
         feat_ids (tf.Tensor): Feature IDs.
         feat_vals (tf.Tensor): Feature values.
-        Feat_Emb_deep (tf.Tensor): Embedding weights.
+        feat_emb_deep (tf.Tensor): Embedding weights.
         field_size (int): Number of fields.
         embedding_size (int): Embedding size.
 
     Returns:
         tf.Tensor: Embedding layer output.
     """
-    embeddings_origin_deep = tf.nn.embedding_lookup(Feat_Emb_deep, feat_ids)  # None * F * E
+    embeddings_origin_deep = tf.nn.embedding_lookup(feat_emb_deep, feat_ids)  # None * F * E
     feat_vals = tf.reshape(feat_vals, shape=[-1, field_size, 1])  # None * F * 1
     embeddings_deep = tf.multiply(embeddings_origin_deep, feat_vals)
     return tf.reshape(embeddings_deep, shape=[-1, field_size * embedding_size])  # None * (F * E)
@@ -150,8 +150,9 @@ def deep_layer(deep_inputs: tf.Tensor, layers: List[int]) -> tf.Tensor:
     Returns:
         tf.Tensor: Deep layer output.
     """
-    for i in range(len(layers)):
-        deep_inputs = tf.contrib.layers.fully_connected(inputs=deep_inputs, num_outputs=layers[i], scope='mlp%d' % i)
+    for layer_i, _ in enumerate(layers):
+        deep_inputs = tf.contrib.layers.fully_connected(inputs=deep_inputs, num_outputs=layers[layer_i],
+                                                        scope='mlp%d' % layer_i)
     return deep_inputs
 
 

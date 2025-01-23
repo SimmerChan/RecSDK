@@ -104,7 +104,7 @@ def dump_pred(preds, model_cfg):
             fo.write("%f\n" % (prob['prob']))
 
 
-def logistic_regression(feat_ids: tf.Tensor, feat_vals: tf.Tensor, Feat_Emb_lr: tf.Tensor,
+def logistic_regression(feat_ids: tf.Tensor, feat_vals: tf.Tensor, feat_emb_lrb_lr: tf.Tensor,
                         field_size: int) -> tf.Tensor:
     """
     Build logistic regression part of the model.
@@ -112,14 +112,14 @@ def logistic_regression(feat_ids: tf.Tensor, feat_vals: tf.Tensor, Feat_Emb_lr: 
     Args:
         feat_ids (tf.Tensor): Feature IDs.
         feat_vals (tf.Tensor): Feature values.
-        Feat_Emb_lr (tf.Tensor): Logistic regression weights.
+        feat_emb_lrb_lr (tf.Tensor): Logistic regression weights.
         field_size (int): Number of fields.
 
     Returns:
         tf.Tensor: Logistic regression part of the model.
     """
     with tf.compat.v1.variable_scope("Logistic-Regression"):
-        embeddings_origin_lr = tf.nn.embedding_lookup(Feat_Emb_lr, feat_ids)  # None * F * 1
+        embeddings_origin_lr = tf.nn.embedding_lookup(feat_emb_lrb_lr, feat_ids)  # None * F * 1
         feat_vals = tf.reshape(feat_vals, shape=[-1, field_size, 1])  # None * F * 1
         embeddings_lr = tf.multiply(embeddings_origin_lr, feat_vals)
         lr_bias = tf.compat.v1.get_variable(name='lr_bias', shape=[1], initializer=tf.constant_initializer(0.0))
@@ -187,11 +187,13 @@ def model_fn(features, labels, mode, model_cfg):
     learning_rate = model_cfg["learning_rate"]
 
     # ------bulid weights------
-    Feat_Emb_lr = tf.compat.v1.get_variable(name="emb_lr", shape=[feature_size, 1],
+    feat_emb_lrb_lr = tf.compat.v1.get_variable(name="emb_lr", shape=[feature_size, 1],
                                             initializer=tf.random_normal_initializer(stddev=0.1), )
-    Feat_Emb_ffm = [tf.compat.v1.get_variable(name="emb_ffm_%d" % i, shape=[feature_size, embedding_size],
-                                              initializer=tf.random_normal_initializer(stddev=0.1), ) for i in
-                    range(field_size)]
+
+    feat_emb_ffm = []
+    for field_i in range(field_size):
+        feat_emb_ffm.append(tf.compat.v1.get_variable(name="emb_ffm_%d" % field_i, shape=[feature_size, embedding_size],
+                                                    initializer=tf.random_normal_initializer(stddev=0.1), ))
 
     # ------build feature-------
     feat_ids = features['feat_ids']
@@ -200,8 +202,8 @@ def model_fn(features, labels, mode, model_cfg):
     feat_vals = tf.reshape(feat_vals, shape=[-1, field_size])
 
     # ------build f(x)------
-    lr_part = logistic_regression(feat_ids, feat_vals, Feat_Emb_lr, field_size)
-    ffm_part = field_factorization_machine(feat_ids, feat_vals, Feat_Emb_ffm, field_size)
+    lr_part = logistic_regression(feat_ids, feat_vals, feat_emb_lrb_lr, field_size)
+    ffm_part = field_factorization_machine(feat_ids, feat_vals, feat_emb_ffm, field_size)
 
     y = lr_part + ffm_part
     y = tf.reshape(y, shape=[-1])
