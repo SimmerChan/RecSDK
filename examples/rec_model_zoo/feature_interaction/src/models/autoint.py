@@ -21,20 +21,18 @@ import shutil
 import random
 import logging
 import stat
-from typing import List, Tuple, Dict, Any
+from typing import List, Tuple, Dict
 from datetime import date, timedelta, datetime
 
 import pytz
 import tensorflow as tf
 from npu_bridge.estimator import NPUEstimator, NPURunConfig
 
-from examples.dlrm.model.model import model_cfg
 from utils import get_third_nearest_checkpoint
 
-MODEL_NAME = "AutoInt_plus"
+MODEL_NAME = "AutoInt"
 
 
-#################### CMD Arguments ####################
 def define_flags():
     model_conf = tf.app.flags.FLAGS
     tf.app.flags.DEFINE_integer("feature_size", 2100000, "Number of features")
@@ -54,11 +52,27 @@ def define_flags():
     tf.app.flags.DEFINE_string("servable_model_dir", '', "export servable model for TensorFlow Serving")
     tf.app.flags.DEFINE_string("task_type", 'train', "task type")
     tf.app.flags.DEFINE_boolean("clear_existing_model", True, "clear existing model or not")
+    tf.app.flags.DEFINE_string("log_level", "DEBUG", "log level {DEBUG, INFO, WARNING, ERROR, CRITICAL}")
     return model_conf
 
 
 # ------ Load tfrecord dataset ------
-def input_fn(filenames, batch_size=32, field_size=39, num_epochs=1, perform_shuffle=False):
+def input_fn(filenames: List[str], batch_size: int = 32, field_size: int = 39, num_epochs: int = 1,
+             perform_shuffle: bool = False) -> Tuple[Dict[str, tf.Tensor], tf.Tensor]:
+    """
+    Input function for loading TFRecord dataset.
+
+    Args:
+        filenames (List[str]): List of TFRecord file paths.
+        batch_size (int): Batch size.
+        field_size (int): Number of fields.
+        num_epochs (int): Number of epochs to repeat the dataset.
+        perform_shuffle (bool): Whether to shuffle the dataset.
+
+    Returns:
+        Tuple[Dict[str, tf.Tensor], tf.Tensor]: Batch features and batch labels.
+    """
+
     def extract_fn(data_record):
         features = {
             # Extract features using the keys set during creation
@@ -82,7 +96,7 @@ def input_fn(filenames, batch_size=32, field_size=39, num_epochs=1, perform_shuf
 
 
 def embedding_layer(feat_ids: tf.Tensor, feat_vals: tf.Tensor, feat_emb_deep: tf.Tensor, field_size: int,
-                    ) -> tf.Tensor:
+                   ) -> tf.Tensor:
     """
     Build the embedding layer.
 
@@ -116,22 +130,22 @@ def multihead_attention(x: tf.Tensor, embedding_dim: int, att_embedding_size: in
     Returns:
         tf.Tensor: Multihead attention layer output.
     """
-    w_Q = tf.compat.v1.get_variable(name="weight_Q_%d" % layer_index,
+    w_q = tf.compat.v1.get_variable(name="weight_Q_%d" % layer_index,
                                     shape=[embedding_dim, att_embedding_size * heads_num],
                                     initializer=tf.random_normal_initializer(stddev=0.1))
-    w_K = tf.compat.v1.get_variable(name="weight_K_%d" % layer_index,
+    w_k = tf.compat.v1.get_variable(name="weight_K_%d" % layer_index,
                                     shape=[embedding_dim, att_embedding_size * heads_num],
                                     initializer=tf.random_normal_initializer(stddev=0.1))
-    w_V = tf.compat.v1.get_variable(name="weight_V_%d" % layer_index,
+    w_v = tf.compat.v1.get_variable(name="weight_V_%d" % layer_index,
                                     shape=[embedding_dim, att_embedding_size * heads_num],
                                     initializer=tf.random_normal_initializer(stddev=0.1))
-    w_Res = tf.compat.v1.get_variable(name="weight_Res_%d" % layer_index,
+    w_res = tf.compat.v1.get_variable(name="weight_Res_%d" % layer_index,
                                       shape=[embedding_dim, att_embedding_size * heads_num],
                                       initializer=tf.random_normal_initializer(stddev=0.1))
 
-    query = tf.tensordot(x, w_Q, axes=(-1, 0))
-    key = tf.tensordot(x, w_K, axes=(-1, 0))
-    value = tf.tensordot(x, w_V, axes=(-1, 0))
+    query = tf.tensordot(x, w_q, axes=(-1, 0))
+    key = tf.tensordot(x, w_k, axes=(-1, 0))
+    value = tf.tensordot(x, w_v, axes=(-1, 0))
 
     query = tf.stack(tf.split(query, heads_num, axis=2))
     key = tf.stack(tf.split(key, heads_num, axis=2))
@@ -146,7 +160,7 @@ def multihead_attention(x: tf.Tensor, embedding_dim: int, att_embedding_size: in
     result = tf.concat(tf.split(result, heads_num), axis=-1)
     result = tf.squeeze(result, axis=0)
 
-    result += tf.tensordot(x, w_Res, axes=(-1, 0))
+    result += tf.tensordot(x, w_res, axes=(-1, 0))
     result = tf.nn.relu(result)
 
     return result
@@ -192,49 +206,27 @@ def fc_layer(attention_part: tf.Tensor, field_size: int, embedding_size: int) ->
     return tf.reshape(y, shape=[-1])
 
 
-def deep_layer(embeddings: tf.Tensor, field_size: int, embedding_size: int, layers: List[int]) -> tf.Tensor:
-    """
-    Build the deep layer.
-
-    Args:
-        embeddings (tf.Tensor): Embedding layer output.
-        field_size (int): Number of fields.
-        embedding_size (int): Embedding size.
-        layers (List[int]): List of layer sizes.
-
-    Returns:
-        tf.Tensor: Deep layer output.
-    """
-    deep_inputs = tf.reshape(embeddings, shape=[-1, field_size * embedding_size])
-    for layer_i, _ in enumerate(layers):
-        deep_inputs = tf.contrib.layers.fully_connected(inputs=deep_inputs, num_outputs=layers[layer_i],
-                                                        scope='mlp%d' % layer_i)
-    y_mlp = tf.contrib.layers.fully_connected(inputs=deep_inputs, num_outputs=1, activation_fn=tf.identity,
-                                              scope='mlp_out')
-    return y_mlp
-
-
-def build_optimizer(optimizer_name: str, learning_rate: float) -> tf.compat.v1.train.Optimizer:
+def build_optimizer(learning_rate: float, model_cfg: object) -> tf.Operation:
     """
     Build the optimizer.
 
     Args:
-        optimizer_name (str): Name of the optimizer.
-        learning_rate (float): Learning rate.
+        learning_rate (float): The learning rate.
+        model_cfg (object): The model configuration object.
 
     Returns:
-        tf.compat.v1.train.Optimizer: Optimizer.
+        tf.Operation: The training operation.
     """
-    if optimizer_name == 'Adam':
+    if model_cfg.optimizer == 'Adam':
         return tf.compat.v1.train.AdamOptimizer(learning_rate=learning_rate, beta1=0.9, beta2=0.999, epsilon=1e-8)
-    elif optimizer_name == 'Adagrad':
+    elif model_cfg.optimizer == 'Adagrad':
         return tf.compat.v1.train.AdagradOptimizer(learning_rate=learning_rate, initial_accumulator_value=1e-8)
-    elif optimizer_name == 'Momentum':
+    elif model_cfg.optimizer == 'Momentum':
         return tf.compat.v1.train.MomentumOptimizer(learning_rate=learning_rate, momentum=0.95)
-    elif optimizer_name == 'ftrl':
+    elif model_cfg.optimizer == 'ftrl':
         return tf.compat.v1.train.FtrlOptimizer(learning_rate)
     else:
-        raise ValueError("Unsupported optimizer: {}".format(optimizer_name))
+        raise ValueError("Invalid optimizer type: {}".format(model_cfg.optimizer))
 
 
 def model_fn(features, labels, mode, model_cfg):
@@ -263,12 +255,10 @@ def model_fn(features, labels, mode, model_cfg):
     embeddings = embedding_layer(feat_ids, feat_vals, feat_emb_deep, field_size)
     attention_part = attention_layer(embeddings, attention_layers, embedding_size, att_size, heads_number)
     y = fc_layer(attention_part, field_size, embedding_size)
-    y_mlp = deep_layer(embeddings, field_size, embedding_size, layers)
-
-    y += y_mlp
     y = tf.reshape(y, shape=[-1])
 
     pred = tf.sigmoid(y)
+
     predictions = {"prob": pred}
     export_outputs = {
         tf.saved_model.DEFAULT_SERVING_SIGNATURE_DEF_KEY: tf.estimator.export.PredictOutput(
@@ -295,7 +285,8 @@ def model_fn(features, labels, mode, model_cfg):
     }
 
     # ------bulid optimizer------
-    optimizer = build_optimizer(model_cfg["optimizer"], learning_rate)
+    optimizer = build_optimizer(learning_rate, model_cfg)
+
     train_op = optimizer.minimize(loss, global_step=tf.compat.v1.train.get_global_step())
 
     if mode == tf.estimator.ModeKeys.EVAL:
@@ -314,7 +305,7 @@ def model_fn(features, labels, mode, model_cfg):
             loss=loss,
             train_op=train_op)
     else:
-        raise ValueError("Only support TRAIN, EVAL and PREDICT modes")
+        raise NotImplementedError("Unknown mode: {}".format(mode))
 
 
 def dump_pred(preds, model_cfg):
@@ -331,7 +322,6 @@ def dump_pred(preds, model_cfg):
 
 def main(_, model_cfg):
     # ------check Arguments------
-
     if model_cfg.dt_dir == "":
         model_cfg.dt_dir = (date.today() + timedelta(-1)).strftime('%Y%m%d')
     model_cfg.model_dir = model_cfg.model_dir + model_cfg.dt_dir
@@ -405,8 +395,6 @@ def main(_, model_cfg):
                                                             field_size=model_cfg.field_size),
                                   predict_keys="prob", hooks=[hook_stop])
         dump_pred(preds, model_cfg)
-    else:
-        raise ValueError("Invalid task_type: %s" % model_cfg.task_type)
 
 
 if __name__ == "__main__":
@@ -430,4 +418,4 @@ if __name__ == "__main__":
 
     logger.info("FLAGS: " + str(model_config))
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.INFO)
-    tf.compat.v1.app.run(main=main, argv=[model_cfg])
+    tf.compat.v1.app.run(main=main, argv=[model_config])
