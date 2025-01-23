@@ -56,7 +56,8 @@ def define_flags():
 
 
 # ------ Load tfrecord dataset ------
-def input_fn(filenames: list, batch_size: int = 32, field_size: int = 39, num_epochs: int = 1, perform_shuffle: bool = False) -> tuple:
+def input_fn(filenames: list, batch_size: int = 32, field_size: int = 39, num_epochs: int = 1,
+             perform_shuffle: bool = False) -> tuple:
     """
     Input function for loading TFRecord dataset.
 
@@ -70,6 +71,7 @@ def input_fn(filenames: list, batch_size: int = 32, field_size: int = 39, num_ep
     Returns:
         tuple: A tuple containing batch features and batch labels.
     """
+
     def extract_fn(data_record):
         features = {
             # Extract features using the keys set during creation
@@ -90,6 +92,7 @@ def input_fn(filenames: list, batch_size: int = 32, field_size: int = 39, num_ep
     iterator = tf.compat.v1.data.make_one_shot_iterator(dataset)
     batch_features, batch_labels = iterator.get_next()
     return batch_features, batch_labels
+
 
 def build_optimizer(loss: tf.Tensor, learning_rate: float, model_cfg: object) -> tf.Operation:
     """
@@ -174,9 +177,9 @@ def model_fn(features, labels, mode, model_cfg):
                                         scope_bn='bn_inter', model_cfg=model_cfg)
         deep_inputs = tf.reshape(interactions, shape=[-1, embedding_size * hidden_size])  # None * (E * O)
 
-        for i in range(len(layers)):
-            deep_inputs = tf.contrib.layers.fully_connected(inputs=deep_inputs, num_outputs=layers[i],
-                                                            scope='mlp%d' % i)
+        for layer_i, _ in enumerate(layers):
+            deep_inputs = tf.contrib.layers.fully_connected(inputs=deep_inputs, num_outputs=layers[layer_i],
+                                                            scope='mlp%d' % layer_i)
 
         y_deep = tf.contrib.layers.fully_connected(inputs=deep_inputs, num_outputs=1, activation_fn=tf.identity,
                                                    scope='deep_out')
@@ -185,9 +188,9 @@ def model_fn(features, labels, mode, model_cfg):
     with tf.compat.v1.variable_scope("Plus-Deep-Layer"):
         deep_inputs = tf.reshape(embeddings_deep, shape=[-1, field_size * embedding_size])  # None * (F * E)
 
-        for i in range(len(layers_dnn)):
-            deep_inputs = tf.contrib.layers.fully_connected(inputs=deep_inputs, num_outputs=layers_dnn[i],
-                                                            scope='plus_mlp%d' % i)
+        for dnn_i, _ in enumerate(layers_dnn):
+            deep_inputs = tf.contrib.layers.fully_connected(inputs=deep_inputs, num_outputs=layers_dnn[dnn_i],
+                                                            scope='plus_mlp%d' % dnn_i)
 
         y_deep = tf.contrib.layers.fully_connected(inputs=deep_inputs, num_outputs=1, activation_fn=tf.identity,
                                                    scope='plus_deep_out')
@@ -207,13 +210,6 @@ def model_fn(features, labels, mode, model_cfg):
         tf.saved_model.DEFAULT_SERVING_SIGNATURE_DEF_KEY: tf.estimator.export.PredictOutput(
             predictions)}
 
-    # Provide an estimator spec for `ModeKeys.PREDICT`
-    if mode == tf.estimator.ModeKeys.PREDICT:
-        return tf.estimator.EstimatorSpec(
-            mode=mode,
-            predictions=predictions,
-            export_outputs=export_outputs)
-
     # ------bulid loss------
     loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=y, labels=labels)) \
            + tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=y_d, labels=labels)) \
@@ -230,22 +226,28 @@ def model_fn(features, labels, mode, model_cfg):
     }
 
     train_op = build_optimizer(loss, learning_rate, model_cfg)
-
-    if mode == tf.estimator.ModeKeys.EVAL:
+    # Provide an estimator spec for `ModeKeys.PREDICT`
+    if mode == tf.estimator.ModeKeys.PREDICT:
+        return tf.estimator.EstimatorSpec(
+            mode=mode,
+            predictions=predictions,
+            export_outputs=export_outputs)
+    elif mode == tf.estimator.ModeKeys.EVAL:
         return tf.estimator.EstimatorSpec(
             mode=mode,
             predictions=predictions,
             loss=loss,
             eval_metric_ops=eval_metric_ops,
             train_op=train_op)
-
     # Provide an estimator spec for `ModeKeys.TRAIN` modes
-    if mode == tf.estimator.ModeKeys.TRAIN:
+    elif mode == tf.estimator.ModeKeys.TRAIN:
         return tf.estimator.EstimatorSpec(
             mode=mode,
             predictions=predictions,
             loss=loss,
             train_op=train_op)
+    else:
+        raise NotImplementedError("This mode is not implemented.")
 
 
 def batch_norm_layer(x, train_phase, scope_bn, model_cfg):
@@ -307,8 +309,8 @@ def main(_, model_cfg):
     estimator = NPUEstimator(model_fn=model_fn, model_dir=model_cfg.model_dir, model_cfg=model_cfg, config=config)
 
     hook = tf.estimator.experimental.stop_if_no_increase_hook(estimator, "stop_criterion",
-           max_steps_without_increase=train_size // model_cfg.batch_size,
-           run_every_secs=None, run_every_steps=10)
+                                                              max_steps_without_increase=train_size // model_cfg.batch_size,
+                                                              run_every_secs=None, run_every_steps=10)
     hook_stop = tf.estimator.StopAtStepHook(last_step=200)
     os.makedirs(estimator.eval_dir())
     if model_cfg.task_type == 'train':
