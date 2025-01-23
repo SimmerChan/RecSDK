@@ -174,9 +174,9 @@ def model_fn(features, labels, mode, model_cfg):
                                         scope_bn='bn_inter')
         deep_inputs = tf.reshape(interactions, shape=[-1, embedding_size * hidden_size])  # None * (E * O)
 
-        for i in range(len(layers)):
-            deep_inputs = tf.contrib.layers.fully_connected(inputs=deep_inputs, num_outputs=layers[i],
-                                                            scope='mlp%d' % i)
+        for layer_i, _ in enumerate(layers):
+            deep_inputs = tf.contrib.layers.fully_connected(inputs=deep_inputs, num_outputs=layers[layer_i],
+                                                            scope='mlp%d' % layer_i)
 
         y_deep = tf.contrib.layers.fully_connected(inputs=deep_inputs, num_outputs=1, activation_fn=tf.identity,
                                                    scope='deep_out')
@@ -191,15 +191,9 @@ def model_fn(features, labels, mode, model_cfg):
         tf.saved_model.DEFAULT_SERVING_SIGNATURE_DEF_KEY: tf.estimator.export.PredictOutput(
             predictions)}
 
-    # Provide an estimator spec for `ModeKeys.PREDICT`
-    if mode == tf.estimator.ModeKeys.PREDICT:
-        return tf.estimator.EstimatorSpec(
-            mode=mode,
-            predictions=predictions,
-            export_outputs=export_outputs)
+
 
     # ------bulid loss------
-
     loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=y, labels=labels))
 
     # Provide an estimator spec for `ModeKeys.EVAL`
@@ -215,7 +209,13 @@ def model_fn(features, labels, mode, model_cfg):
     # ------bulid optimizer------
     train_op = build_optimizer(loss, learning_rate, model_cfg)
 
-    if mode == tf.estimator.ModeKeys.EVAL:
+    # Provide an estimator spec for `ModeKeys.PREDICT`
+    if mode == tf.estimator.ModeKeys.PREDICT:
+        return tf.estimator.EstimatorSpec(
+            mode=mode,
+            predictions=predictions,
+            export_outputs=export_outputs)
+    elif mode == tf.estimator.ModeKeys.EVAL:
         return tf.estimator.EstimatorSpec(
             mode=mode,
             predictions=predictions,
@@ -224,12 +224,14 @@ def model_fn(features, labels, mode, model_cfg):
             train_op=train_op)
 
     # Provide an estimator spec for `ModeKeys.TRAIN` modes
-    if mode == tf.estimator.ModeKeys.TRAIN:
+    elif mode == tf.estimator.ModeKeys.TRAIN:
         return tf.estimator.EstimatorSpec(
             mode=mode,
             predictions=predictions,
             loss=loss,
             train_op=train_op)
+    else:
+        raise ValueError("Invalid mode: {}".format(mode))
 
 
 def batch_norm_layer(input_tensor: tf.Tensor, is_training: bool, scope_bn: str, model_cfg: object) -> tf.Tensor:
@@ -299,8 +301,8 @@ def main(_, model_cfg):
     estimator = NPUEstimator(model_fn=model_fn, model_dir=model_cfg.model_dir, model_cfg=model_cfg, config=config)
 
     hook = tf.estimator.experimental.stop_if_no_increase_hook(estimator, "stop_criterion",
-                                                              max_steps_without_increase=train_size // model_cfg.batch_size,
-                                                              run_every_secs=None, run_every_steps=10)
+    max_steps_without_increase=train_size // model_cfg.batch_size,
+    run_every_secs=None, run_every_steps=10)
     hook_stop = tf.estimator.StopAtStepHook(last_step=200)
     os.makedirs(estimator.eval_dir())
     if model_cfg.task_type == 'train':
@@ -339,6 +341,8 @@ def main(_, model_cfg):
                                                             field_size=model_cfg.field_size),
                                   predict_keys="prob", hooks=[hook_stop])
         dump_pred(preds, model_cfg)
+    else:
+        raise ValueError("Invalid task type: {}".format(model_cfg.task_type))
 
 
 if __name__ == "__main__":
