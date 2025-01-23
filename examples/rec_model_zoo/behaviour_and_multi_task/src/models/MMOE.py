@@ -220,6 +220,7 @@ def build_embedding_layer(features: dict, spec: dict, model_cfg: object) -> tf.T
     )
     return tf.reshape(embedding, [-1, 23 * model_cfg.embedding_size])
 
+
 def build_experts(x_deep: tf.Tensor, model_cfg: object) -> tf.Tensor:
     """
     Build the experts for the model.
@@ -266,6 +267,7 @@ def build_gate_networks(x_deep: tf.Tensor, model_cfg: object) -> list:
         gate_networks.append(gate_network)
     return gate_networks
 
+
 def build_task_outputs(experts: tf.Tensor, gate_networks: list) -> list:
     """
     Build the task outputs by combining experts and gate networks.
@@ -283,6 +285,7 @@ def build_task_outputs(experts: tf.Tensor, gate_networks: list) -> list:
         task_out_shape = task_out.get_shape().as_list()
         task_outputs.append(tf.reshape(task_out, shape=[-1, task_out_shape[1] * task_out_shape[2]]))
     return task_outputs
+
 
 def build_tower(tower_input: tf.Tensor, name: str, model_cfg: object) -> tf.Tensor:
     """
@@ -304,6 +307,7 @@ def build_tower(tower_input: tf.Tensor, name: str, model_cfg: object) -> tf.Tens
                                                     scope=name + '_tower_mlp_%d' % tower_i)
     return y_tower
 
+
 def build_predictions(task_outputs: list, model_cfg: object) -> dict:
     """
     Build the predictions for the model.
@@ -321,7 +325,8 @@ def build_predictions(task_outputs: list, model_cfg: object) -> dict:
     y_ctr_prediction = tf.sigmoid(y_ctr)
 
     y_cvr = build_tower(task_outputs[1], name='cvr', model_cfg=model_cfg)
-    y_cvr = tf.contrib.layers.fully_connected(inputs=y_cvr, num_outputs=1, activation_fn=None, scope='deep_out_valid_play')
+    y_cvr = tf.contrib.layers.fully_connected(inputs=y_cvr, num_outputs=1, activation_fn=None,
+                                              scope='deep_out_valid_play')
     y_cvr = tf.reshape(y_cvr, [-1, ])
     y_cvr_prediction = tf.sigmoid(y_cvr)
 
@@ -367,6 +372,7 @@ def build_loss(labels: dict, y_ctr_prediction: tf.Tensor, y_ctcvr_prediction: tf
     ctcvr_loss = tf.reduce_mean(ctcvr_loss)
 
     return ctr_task_wgt * ctr_loss + (1 - ctr_task_wgt) * ctcvr_loss
+
 
 def build_optimizer(loss: tf.Tensor, model_cfg: object) -> tf.Operation:
     """
@@ -443,13 +449,12 @@ def model_fn(features: dict, labels: dict, mode: tf.estimator.ModeKeys,
     export_outputs = {
         tf.saved_model.DEFAULT_SERVING_SIGNATURE_DEF_KEY: tf.estimator.export.PredictOutput(predictions)
     }
+    loss = build_loss(labels, predictions["ctr"], predictions["ctcvr"], model_cfg)
+    train_op = build_optimizer(loss, model_cfg)
 
     if mode == tf.estimator.ModeKeys.PREDICT:
         return tf.estimator.EstimatorSpec(mode=mode, predictions=predictions, export_outputs=export_outputs)
-
-    loss = build_loss(labels, predictions["ctr"], predictions["ctcvr"], model_cfg)
-
-    if mode == tf.estimator.ModeKeys.EVAL:
+    elif mode == tf.estimator.ModeKeys.EVAL:
         ctr_mask = labels["y"] > 0
         cvr_labels = tf.boolean_mask(labels["z"], ctr_mask)
         cvr_pre = tf.boolean_mask(predictions["cvr"], ctr_mask)
@@ -459,12 +464,14 @@ def model_fn(features: dict, labels: dict, mode: tf.estimator.ModeKeys,
             "auc_cvr": tf.compat.v1.metrics.auc(cvr_labels, cvr_pre),
             "auc_ctcvr": tf.compat.v1.metrics.auc(labels["z"], predictions["ctcvr"])
         }
-        return tf.estimator.EstimatorSpec(mode=mode, predictions=predictions, loss=loss, eval_metric_ops=eval_metric_ops)
+        return tf.estimator.EstimatorSpec(mode=mode, predictions=predictions, loss=loss,
+                                          eval_metric_ops=eval_metric_ops)
 
-    train_op = build_optimizer(loss, model_cfg)
-
-    if mode == tf.estimator.ModeKeys.TRAIN:
+    elif mode == tf.estimator.ModeKeys.TRAIN:
         return tf.estimator.EstimatorSpec(mode=mode, predictions=predictions, loss=loss, train_op=train_op)
+    else:
+        raise ValueError("Unsupported mode: {}".format(mode))
+
 
 
 def main(_, model_cfg):
@@ -499,7 +506,7 @@ def main(_, model_cfg):
 
     hook = tf.estimator.experimental.stop_if_no_increase_hook(model, "auc_ctr",
                                                               max_steps_without_increase=spec["dataset_size"][
-                                                              "train"] // model_cfg.batch_size,
+    "train"] // model_cfg.batch_size,
                                                               run_every_secs=None, run_every_steps=10)
     hook_stop = tf.estimator.StopAtStepHook(last_step=200)
 
@@ -550,7 +557,6 @@ def main(_, model_cfg):
         dump_pred(preds, model_cfg)
     else:
         raise ValueError("Unsupported task type: {}".format(model_cfg.task_type))
-
 
 
 if __name__ == "__main__":
