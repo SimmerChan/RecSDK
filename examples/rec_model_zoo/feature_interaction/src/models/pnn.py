@@ -127,32 +127,6 @@ def inner_outer_product(embeddings_deep: tf.Tensor, field_size: int, embedding_s
     return inner_product, outer_product
 
 
-def deep_layer(embeddings_deep: tf.Tensor, inner_product: tf.Tensor, outer_product: tf.Tensor, field_size: int,
-               embedding_size: int, layers: List[int]) -> tf.Tensor:
-    """
-    Build the deep layer.
-
-    Args:
-        embeddings_deep (tf.Tensor): Embedding layer output.
-        inner_product (tf.Tensor): Inner product output.
-        outer_product (tf.Tensor): Outer product output.
-        field_size (int): Number of fields.
-        embedding_size (int): Embedding size.
-        layers (List[int]): List of layer sizes.
-
-    Returns:
-        tf.Tensor: Deep layer output.
-    """
-    emb_for_deep_inputs = tf.reshape(embeddings_deep, shape=[-1, field_size * embedding_size])  # None * (F * E)
-    deep_inputs = tf.concat([emb_for_deep_inputs, inner_product, outer_product], axis=1)
-    for layer_i, _ in enumerate(layers):
-        deep_inputs = tf.contrib.layers.fully_connected(inputs=deep_inputs, num_outputs=layers[layer_i],
-                                                        scope='mlp%d' % layer_i)
-    y_deep = tf.contrib.layers.fully_connected(inputs=deep_inputs, num_outputs=1, activation_fn=tf.identity,
-                                               scope='deep_out')
-    return y_deep
-
-
 def build_optimizer(optimizer_name: str, learning_rate: float) -> tf.compat.v1.train.Optimizer:
     """
     Build the optimizer.
@@ -202,7 +176,17 @@ def model_fn(features, labels, mode, model_cfg):
         embeddings_deep = tf.multiply(embeddings_origin_deep, feat_vals)
 
     inner_product, outer_product = inner_outer_product(embeddings_deep, field_size, embedding_size)
-    y_deep = deep_layer(embeddings_deep, inner_product, outer_product, field_size, embedding_size, layers)
+
+    with tf.compat.v1.variable_scope("Deep-Layer"):
+        emb_for_deep_inputs = tf.reshape(embeddings_deep, shape=[-1, field_size * embedding_size])  # None * (F * E)
+        deep_inputs = tf.concat([emb_for_deep_inputs, inner_product, outer_product], axis=1)
+
+        for i in range(len(layers)):
+            deep_inputs = tf.contrib.layers.fully_connected(inputs=deep_inputs, num_outputs=layers[i],
+                                                            scope='mlp%d' % i)
+
+        y_deep = tf.contrib.layers.fully_connected(inputs=deep_inputs, num_outputs=1, activation_fn=tf.identity,
+                                                   scope='deep_out')
 
     y = tf.reshape(y_deep, shape=[-1])
 
