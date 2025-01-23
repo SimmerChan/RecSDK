@@ -548,6 +548,8 @@ def main(_, model_cfg):
                               predict_keys=["ctr", "cvr", "ctcvr"], hooks=[hook_stop])
 
         dump_pred(preds, model_cfg)
+    else:
+        raise ValueError("Unsupported task type: {}".format(model_cfg.task_type))
 
 
 
