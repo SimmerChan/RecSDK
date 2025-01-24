@@ -279,7 +279,7 @@ void EmbeddingDynamic::SaveOptimData(const string &savePath)
 }
 
 void EmbeddingDynamic::Load(const string& savePath, map<string, unordered_set<emb_cache_key_t>>& trainKeySet,
-                            const vector<string>& warmStartTables)
+                            vector<string>& warmStartTables)
 {
     LoadKey(savePath);
     LoadEmbAndOptim(savePath);
