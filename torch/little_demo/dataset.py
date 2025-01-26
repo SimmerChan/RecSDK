@@ -5,7 +5,6 @@ from dataclasses import dataclass
 import torch_npu
 import torch
 from torch.utils.data.dataset import IterableDataset
-
 from torchrec.streamable import Pipelineable
 from torchrec import KeyedJaggedTensor, JaggedTensor
 

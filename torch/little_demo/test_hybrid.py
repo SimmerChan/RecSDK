@@ -1,5 +1,6 @@
 import os
 import logging
+
 import torch
 import torch.distributed as dist
 from torch.utils.data import DataLoader
@@ -18,6 +19,7 @@ from hybrid_torchrec.distributed.hybrid_train_pipeline import (
 from hybrid_torchrec.distributed.sharding.hybrid_embeddingbag import (
     HybridEmbeddingBagCollectionSharder,
 )
+
 from dataset import RandomRecDataset
 from model import TestModel
 
