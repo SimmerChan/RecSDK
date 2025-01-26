@@ -173,27 +173,28 @@ def model_fn(features, labels, mode, model_cfg):
         dense_ids = {}
         for key in ["101", "121", "122", "124", "125", "126", "127",
                     "128", "129", "205", "508", "509", "702", "301"]:
-            embeddings[key] = tf.nn.embedding_lookup(emb_weights[key], features[key], name=key + "_embedding_lookup")
+            embeddings[key] = tf.nn.embedding_lookup(emb_weights.get(key), features.get(key),
+                                                     name=key + "_embedding_lookup")
             embeddings[key] = tf.reshape(embeddings[key], [-1, 1, model_cfg.embedding_size])
 
         embeddings["853"] = tf.expand_dims(
-            embedding_lookup_sparse_fake(emb_weights["853"], features["853"], combiner="sum",
+            embedding_lookup_sparse_fake(emb_weights.get("853"), features.get("853"), combiner="sum",
                                          name="853" + "_embedding_lookup"),
             axis=1
         )
 
         for key in ["206", "207", "216"]:
-            embeddings[key] = tf.nn.embedding_lookup(emb_weights[key], features[key], name=key + "_embedding_lookup")
+            embeddings[key] = tf.nn.embedding_lookup(emb_weights.get(key), features.get(key), name=key + "_embedding_lookup")
 
-        embeddings["210"] = embedding_lookup_sparse_fake(emb_weights["210"], features["210"], combiner="sum",
+        embeddings["210"] = embedding_lookup_sparse_fake(emb_weights.get("210"), features.get("210"), combiner="sum",
                                                          name="210" + "_embedding_lookup")
 
         for key in ["109_14", "110_14", "127_14", "150_14"]:
-            feature_dense = features[key]
+            feature_dense = features.get(key)
             dense_ids[key] = feature_dense
             dense_mask = tf.expand_dims(tf.cast(feature_dense >= 0, tf.float32), axis=-1)  # None * P * 1
             feature_dense = tf.where(tf.equal(feature_dense, -1), tf.zeros_like(feature_dense), feature_dense)
-            emb = tf.nn.embedding_lookup(emb_weights[key], feature_dense,
+            emb = tf.nn.embedding_lookup(emb_weights.get(key), feature_dense,
                                          name=key + "_embedding_lookup")  # None * P * E
             emb = tf.multiply(emb, dense_mask)
             embeddings[key] = emb
@@ -319,9 +320,10 @@ def main(_, model_cfg):
         model_cfg.dt_dir = (date.today() + timedelta(-1)).strftime('%Y%m%d')
     model_cfg.model_dir = model_cfg.model_dir + (date.today() + timedelta(-1)).strftime('%Y%m%d')
 
-    train_order = json.load(open("./order.json"))
-    tr_files = ["%strain/data_train.csv.tfrecord.%s" % (model_cfg.data_dir, index) for index in
-                train_order["reading_order"]]
+    train_order = json_file_load("train_order", "./order.json")
+    tr_files = []
+    for index in train_order["reading_order"]:
+        tr_files.append("%strain/data_train.csv.tfrecord.%s" % (model_cfg.data_dir, index))
     va_files = glob.glob("%sval/data_val.csv.tfrecord.*" % model_cfg.data_dir)
     te_files = glob.glob("%stest/data_test.csv.tfrecord.*" % model_cfg.data_dir)
 
