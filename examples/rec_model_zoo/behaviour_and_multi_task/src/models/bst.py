@@ -21,6 +21,7 @@ import json
 import random
 import shutil
 import logging
+from dataclasses import dataclass
 from typing import Tuple, Dict, Union, Any
 from datetime import datetime
 from functools import partial
@@ -178,7 +179,7 @@ def build_embedding_layer(features: Dict[str, tf.Tensor], model_cfg) -> Tuple[
             embeddings[key] = tf.reshape(embeddings[key], [-1, 1, model_cfg.embedding_size])
 
         embeddings["853"] = tf.expand_dims(
-            embedding_lookup_sparse_fake(emb_weights["853"], features["853"], combiner="sum",
+            embedding_lookup_sparse_fake(emb_weights.get("853"), features.get("853"), combiner="sum",
                                          name="853" + "_embedding_lookup"),
             axis=1
         )
@@ -186,7 +187,7 @@ def build_embedding_layer(features: Dict[str, tf.Tensor], model_cfg) -> Tuple[
         for key in ["206", "207", "216"]:
             embeddings[key] = tf.nn.embedding_lookup(emb_weights[key], features[key], name=key + "_embedding_lookup")
 
-        embeddings["210"] = embedding_lookup_sparse_fake(emb_weights["210"], features["210"], combiner="sum",
+        embeddings["210"] = embedding_lookup_sparse_fake(emb_weights.get("210"), features.get("210"), combiner="sum",
                                                          name="210" + "_embedding_lookup")
 
         for key in ["109_14", "110_14", "127_14", "150_14"]:
@@ -216,7 +217,7 @@ def build_transformer_layer(embeddings: Dict[str, tf.Tensor], dense_len: Dict[st
     Returns:
         Dict[str, tf.Tensor]: Updated embeddings.
     """
-    with tf.compat.v1.variable_scope("Transformer-layer", reuse=tf.compat.v1.AUTO_REUSE):
+    with (((tf.compat.v1.variable_scope("Transformer-layer", reuse=tf.compat.v1.AUTO_REUSE)))):
         transformer_num = model_cfg.transformer_layers
         heads_num = model_cfg.heads_num
 
@@ -271,8 +272,20 @@ def build_transformer_layer(embeddings: Dict[str, tf.Tensor], dense_len: Dict[st
             outputs = gamma * normalized + beta
             return outputs
 
-        def transformer_layer(inputs, masks, att_embedding_size, heads_num, dropout_rate=0.2, layer_name="key",
-                              layer_index=0):
+        @dataclass
+        class TransformerLayerParams:
+            att_embedding_size: int
+            heads_num: int
+            dropout_rate: float = 0.2
+            layer_name: str = "key"
+            layer_index: int = 0
+
+        def transformer_layer(inputs, masks, params_t: TransformerLayerParams):
+            att_embedding_size = params_t.att_embedding_size
+            heads_num = params_t.heads_num
+            dropout_rate = params_t.dropout_rate
+            layer_name = params_t.layer_name
+            layer_index = params_t.layer_index
             num_units = att_embedding_size * heads_num
             embedding_size = int(inputs.get_shape().as_list()[-1])
 
@@ -363,17 +376,22 @@ def build_transformer_layer(embeddings: Dict[str, tf.Tensor], dense_len: Dict[st
 
             return result
 
+
+
+
         for key in ["109_14", "110_14", "127_14", "150_14"]:
             embeddings[key] = positional_encoding_learn(embeddings[key], maxlen=model_cfg.max_seq_len,
                                                         scope=key + "_pos")
             for i in range(transformer_num):
+                params = TransformerLayerParams(
+                    att_embedding_size=embeddings[key].get_shape().as_list()[-1] // heads_num,
+                    heads_num=heads_num,
+                    layer_name=key,
+                    layer_index=i
+                )
                 embeddings[key] = transformer_layer(inputs=embeddings[key],
                                                     masks=dense_len[key],
-                                                    att_embedding_size=embeddings[key].get_shape().as_list()[
-                                                                           -1] // heads_num,
-                                                    heads_num=heads_num,
-                                                    layer_name=key,
-                                                    layer_index=i)
+                                                    params_t=params)
 
     return embeddings
 
@@ -610,8 +628,10 @@ def main(_, model_cfg):
 
     train_order = json_file_load("order", "./order.json")
 
-    tr_files = ["%strain/data_train.csv.tfrecord.%s" % (model_cfg.data_dir, index) for index in
-                train_order["reading_order"]]
+    tr_files = []
+    for index in train_order["reading_order"]:
+        tr_files.append("%strain/data_train.csv.tfrecord.%s" % (model_cfg.data_dir, index))
+
     va_files = glob.glob("%sval/data_val.csv.tfrecord.*" % model_cfg.data_dir)
     te_files = glob.glob("%stest/data_test.csv.tfrecord.*" % model_cfg.data_dir)
 

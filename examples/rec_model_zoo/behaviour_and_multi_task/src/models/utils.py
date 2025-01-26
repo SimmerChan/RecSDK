@@ -22,6 +22,7 @@ import glob
 import json
 from typing import Dict, List
 
+
 def get_third_nearest_checkpoint(path):
     """
     Retrieves the third most recent checkpoint file from the specified directory.
@@ -43,13 +44,14 @@ def get_third_nearest_checkpoint(path):
         >>> get_third_nearest_checkpoint('/path/to/checkpoints')
         '/path/to/checkpoints/model.ckpt-12345'
     """
-    filenames = glob.glob(path + '/model.ckpt-*.index')
+    filenames = glob.glob(os.path.join(path, 'model.ckpt-*.index'))
     pattern = re.compile(r'model.ckpt-(.*?).index', re.S)
     versions = []
     for filename in filenames:
         versions += [int(re.findall(pattern, filename)[0])]
     versions = sorted(versions)
-    return path+'/model.ckpt-'+str(versions[-3])
+    return os.path.join(path, 'model.ckpt-' + str(versions[-3]))
+
 
 def json_file_load(json_name: str, json_path: str) -> dict:
     """
@@ -66,7 +68,6 @@ def json_file_load(json_name: str, json_path: str) -> dict:
         raise RuntimeError(f"Error loading {json_name} file: {e}") from e
 
     return json_re
-
 
 
 def dump_pred_prob(preds: List[Dict[str, float]], data_dir: str) -> None:
@@ -86,6 +87,7 @@ def dump_pred_prob(preds: List[Dict[str, float]], data_dir: str) -> None:
     with os.fdopen(os.open(pred_path, flags, modes), "w") as fo:
         for prob in preds:
             fo.write("%f\n" % (prob['prob']))
+
 
 def dump_pred_multi(preds, data_dir):
     """
