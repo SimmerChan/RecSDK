@@ -26,9 +26,9 @@ from datetime import date, timedelta, datetime
 import pytz
 import numpy as np
 import tensorflow as tf
+from npu_bridge.npu_init import NPUEstimator, NPURunConfig
 
 from utils import get_third_nearest_checkpoint
-from npu_bridge.npu_init import NPUEstimator, NPURunConfig
 
 MODEL_NAME = "AFN"
 
@@ -95,12 +95,11 @@ def input_fn(filenames: list, batch_size: int = 32, field_size: int = 39, num_ep
     return batch_features, batch_labels
 
 
-def build_optimizer(loss: tf.Tensor, learning_rate: float, model_cfg: object) -> tf.Operation:
+def build_optimizer(learning_rate: float, model_cfg: object) -> tf.Operation:
     """
     Build the optimizer.
 
     Args:
-        loss (tf.Tensor): The loss value.
         learning_rate (float): The learning rate.
         model_cfg (object): The model configuration object.
 
@@ -108,18 +107,15 @@ def build_optimizer(loss: tf.Tensor, learning_rate: float, model_cfg: object) ->
         tf.Operation: The training operation.
     """
     if model_cfg.optimizer == 'Adam':
-        optimizer = tf.compat.v1.train.AdamOptimizer(learning_rate=learning_rate, beta1=0.9, beta2=0.999, epsilon=1e-8)
+        return tf.compat.v1.train.AdamOptimizer(learning_rate=learning_rate, beta1=0.9, beta2=0.999, epsilon=1e-8)
     elif model_cfg.optimizer == 'Adagrad':
-        optimizer = tf.compat.v1.train.AdagradOptimizer(learning_rate=learning_rate, initial_accumulator_value=1e-8)
+        return tf.compat.v1.train.AdagradOptimizer(learning_rate=learning_rate, initial_accumulator_value=1e-8)
     elif model_cfg.optimizer == 'Momentum':
-        optimizer = tf.compat.v1.train.MomentumOptimizer(learning_rate=learning_rate, momentum=0.95)
+        return tf.compat.v1.train.MomentumOptimizer(learning_rate=learning_rate, momentum=0.95)
     elif model_cfg.optimizer == 'ftrl':
-        optimizer = tf.compat.v1.train.FtrlOptimizer(learning_rate)
+        return tf.compat.v1.train.FtrlOptimizer(learning_rate)
     else:
         raise ValueError("Invalid optimizer type: {}".format(model_cfg.optimizer))
-
-    train_op = optimizer.minimize(loss, global_step=tf.compat.v1.train.get_global_step())
-    return train_op
 
 
 def model_fn(features, labels, mode, model_cfg):
@@ -153,12 +149,11 @@ def model_fn(features, labels, mode, model_cfg):
         embeddings_trans = tf.math.log(embeddings_trans, name="log_input")
         embeddings_trans = tf.debugging.check_numerics(embeddings_trans, "log2")
 
+        train_phase = False
         if mode == tf.estimator.ModeKeys.TRAIN:
             train_phase = True
-        else:
-            train_phase = False
 
-        embeddings_trans = batch_norm_layer(embeddings_trans, train_phase=train_phase,
+        embeddings_trans = batch_norm_layer(embeddings_trans, is_training=train_phase, model_cfg=model_cfg,
                                             scope_bn='bn_log')
 
     with tf.compat.v1.variable_scope("Layer-1"):
@@ -170,7 +165,7 @@ def model_fn(features, labels, mode, model_cfg):
 
     with tf.compat.v1.variable_scope("Deep-Layer"):
         interactions = tf.exp(layer1, name="restored_input")  # None * E * O
-        interactions = batch_norm_layer(interactions, train_phase=train_phase,
+        interactions = batch_norm_layer(interactions, is_training=train_phase, model_cfg=model_cfg,
                                         scope_bn='bn_inter')
         deep_inputs = tf.reshape(interactions, shape=[-1, embedding_size * hidden_size])  # None * (E * O)
 
@@ -191,8 +186,6 @@ def model_fn(features, labels, mode, model_cfg):
         tf.saved_model.DEFAULT_SERVING_SIGNATURE_DEF_KEY: tf.estimator.export.PredictOutput(
             predictions)}
 
-
-
     # ------bulid loss------
     loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=y, labels=labels))
 
@@ -207,7 +200,8 @@ def model_fn(features, labels, mode, model_cfg):
     }
 
     # ------bulid optimizer------
-    train_op = build_optimizer(loss, learning_rate, model_cfg)
+    optimizer = build_optimizer(learning_rate, model_cfg)
+    train_op = optimizer.minimize(loss, global_step=tf.compat.v1.train.get_global_step())
 
     # Provide an estimator spec for `ModeKeys.PREDICT`
     if mode == tf.estimator.ModeKeys.PREDICT:
@@ -242,6 +236,7 @@ def batch_norm_layer(input_tensor: tf.Tensor, is_training: bool, scope_bn: str, 
         input_tensor (tf.Tensor): The input tensor to normalize.
         is_training (bool): A boolean indicating whether the model is in training mode.
         scope_bn (str): The scope name for the batch normalization layer.
+        model_cfg (object): The model configuration object.
 
     Returns:
         tf.Tensor: The normalized tensor.
@@ -301,8 +296,7 @@ def main(_, model_cfg):
     estimator = NPUEstimator(model_fn=model_fn, model_dir=model_cfg.model_dir, model_cfg=model_cfg, config=config)
 
     hook = tf.estimator.experimental.stop_if_no_increase_hook(estimator, "stop_criterion",
-    max_steps_without_increase=train_size // model_cfg.batch_size,
-    run_every_secs=None, run_every_steps=10)
+    max_steps_without_increase=train_size // model_cfg.batch_size, run_every_secs=None, run_every_steps=10)
     hook_stop = tf.estimator.StopAtStepHook(last_step=200)
     os.makedirs(estimator.eval_dir())
     if model_cfg.task_type == 'train':
@@ -366,4 +360,4 @@ if __name__ == "__main__":
 
     logger.info("FLAGS: " + str(model_config))
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.INFO)
-    tf.compat.v1.app.run()
+    tf.compat.v1.app.run(main=main, argv=[model_config])
