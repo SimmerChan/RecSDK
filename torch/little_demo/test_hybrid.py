@@ -1,22 +1,26 @@
 import os
-import torch
 import logging
 
+import torch
 import torch.distributed as dist
 from torch.utils.data import DataLoader
 
-from torchrec.optim.apply_optimizer_in_backward import apply_optimizer_in_backward
 from torchrec.optim.keyed import CombinedOptimizer
+from torchrec.distributed import DistributedModelParallel
+from torchrec.distributed.types import ShardingEnv
+from torchrec.optim.apply_optimizer_in_backward import apply_optimizer_in_backward
 from torchrec.distributed.planner import (
     EmbeddingShardingPlanner,
     Topology,
     ParameterConstraints,
 )
-from torchrec.distributed import DistributedModelParallel
-from torchrec.distributed.types import ShardingEnv
 
-from hybrid_torchrec.distributed.hybrid_train_pipeline import HybridTrainPipelineSparseDist
-from hybrid_torchrec.distributed.sharding.hybrid_embeddingbag import HybridEmbeddingBagCollectionSharder
+from hybrid_torchrec.distributed.hybrid_train_pipeline import (
+    HybridTrainPipelineSparseDist,
+)
+from hybrid_torchrec.distributed.sharding.hybrid_embeddingbag import (
+    HybridEmbeddingBagCollectionSharder,
+)
 
 from dataset import RandomRecDataset
 from model import TestModel
@@ -80,13 +84,13 @@ def invoke_main():
 
     plan = planner.collective_plan(test_model, [hybrid_sharder], dist.GroupMember.WORLD)
     logging.info(plan)
-    ddpModel = DistributedModelParallel(
+    ddp_model = DistributedModelParallel(
         test_model, device=torch.device("npu"), plan=plan, sharders=[hybrid_sharder]
     )
-    optimizer = CombinedOptimizer([ddpModel.fused_optimizer])
+    optimizer = CombinedOptimizer([ddp_model.fused_optimizer])
 
     pipeline = HybridTrainPipelineSparseDist(
-        ddpModel, optimizer, device, execute_all_batches=True
+        ddp_model, optimizer, device, execute_all_batches=True
     )
 
     batched_iterator = iter(data_loader)
@@ -95,6 +99,7 @@ def invoke_main():
         logging.info("step %s done", i)
         pipeline.progress(batched_iterator)
     logging.info("demo done")
+
 
 if __name__ == "__main__":
     invoke_main()

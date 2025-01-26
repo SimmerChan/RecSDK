@@ -1,14 +1,14 @@
 import itertools
 from typing import Iterator
 from dataclasses import dataclass
-import numpy as np
 
-import torch
 import torch_npu
+import torch
 from torch.utils.data.dataset import IterableDataset
 
 from torchrec.streamable import Pipelineable
 from torchrec import KeyedJaggedTensor, JaggedTensor
+
 
 @dataclass
 class Batch(Pipelineable):

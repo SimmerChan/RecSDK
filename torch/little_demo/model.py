@@ -1,6 +1,8 @@
 import torch
 from torchrec import EmbeddingBagCollection, EmbeddingBagConfig, PoolingType
+
 from dataset import Batch
+
 
 class TestModel(torch.nn.Module):
     def __init__(self, table_names, feat_names, embed_dims, num_embeds):
