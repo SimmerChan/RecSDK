@@ -555,7 +555,7 @@ def main(_, model_cfg):
     model = NPUEstimator(model_fn=model_fn, model_dir=model_cfg.model_dir, config=config, model_cfg=model_cfg)
 
     hook = tf.estimator.experimental.stop_if_no_increase_hook(model, "auc_ctr",
-    max_steps_without_increase=spec["dataset_size"][ "train"] // model_cfg.batch_size,
+    max_steps_without_increase=spec["dataset_size"]["train"] // model_cfg.batch_size,
     run_every_secs=None, run_every_steps=10)
     hook_stop = tf.estimator.StopAtStepHook(last_step=200)
 
