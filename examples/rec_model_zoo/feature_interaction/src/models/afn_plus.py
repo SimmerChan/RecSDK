@@ -27,6 +27,7 @@ import pytz
 import numpy as np
 import tensorflow as tf
 from npu_bridge.estimator import NPUEstimator, NPURunConfig
+
 from utils import get_third_nearest_checkpoint
 
 MODEL_NAME = "AFN_plus"
