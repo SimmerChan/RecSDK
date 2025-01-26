@@ -1,7 +1,6 @@
 import os
 import logging
 
-import torch
 import torch.distributed as dist
 from torch.utils.data import DataLoader
 from torchrec.optim.keyed import CombinedOptimizer
@@ -22,6 +21,7 @@ from hybrid_torchrec.distributed.sharding.hybrid_embeddingbag import (
 
 from dataset import RandomRecDataset
 from model import TestModel
+import torch
 
 logging.getLogger().setLevel(logging.INFO)
 FEAT_NAMES = [["phone", "clothes"], ["user"]]

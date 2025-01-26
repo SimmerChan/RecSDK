@@ -1,6 +1,6 @@
-import torch
-from torchrec import EmbeddingBagCollection, EmbeddingBagConfig, PoolingType
 from dataset import Batch
+from torchrec import EmbeddingBagCollection, EmbeddingBagConfig, PoolingType
+import torch
 
 
 class TestModel(torch.nn.Module):
