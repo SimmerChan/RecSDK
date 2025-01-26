@@ -23,6 +23,7 @@ from dataset import RandomRecDataset
 from model import TestModel
 import torch
 
+
 logging.getLogger().setLevel(logging.INFO)
 FEAT_NAMES = [["phone", "clothes"], ["user"]]
 TABLE_NAMES = ["product", "user"]
