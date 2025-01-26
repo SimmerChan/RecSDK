@@ -208,7 +208,7 @@ def model_fn(features, labels, mode, model_cfg):
     layers = list(map(int, model_cfg["deep_layers"].split(',')))
 
     # ------bulid weights------
-    Feat_Emb_deep = tf.compat.v1.get_variable(name="emb_deep", shape=[feature_size, embedding_size],
+    feat_emb_deep = tf.compat.v1.get_variable(name="emb_deep", shape=[feature_size, embedding_size],
                                               initializer=tf.random_normal_initializer(stddev=0.1), )
 
     # ------build feature-------
@@ -218,7 +218,7 @@ def model_fn(features, labels, mode, model_cfg):
     feat_vals = tf.reshape(feat_vals, shape=[-1, field_size])
 
     # ------build f(x)------
-    deep_inputs = embedding_layer(feat_ids, feat_vals, Feat_Emb_deep, field_size, embedding_size)
+    deep_inputs = embedding_layer(feat_ids, feat_vals, feat_emb_deep, field_size, embedding_size)
     cross_inputs = deep_inputs
 
     cross_inputs = cross_layer(cross_inputs, cross_num, field_size, embedding_size)

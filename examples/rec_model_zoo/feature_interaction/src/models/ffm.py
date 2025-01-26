@@ -127,7 +127,7 @@ def logistic_regression(feat_ids: tf.Tensor, feat_vals: tf.Tensor, feat_emb_lrb_
     return lr_part
 
 
-def field_factorization_machine(feat_ids: tf.Tensor, feat_vals: tf.Tensor, Feat_Emb_ffm: List[tf.Tensor],
+def field_factorization_machine(feat_ids: tf.Tensor, feat_vals: tf.Tensor, feat_emb_ffm: List[tf.Tensor],
                                 field_size: int) -> tf.Tensor:
     """
     Build field factorization machine part of the model.
@@ -135,14 +135,14 @@ def field_factorization_machine(feat_ids: tf.Tensor, feat_vals: tf.Tensor, Feat_
     Args:
         feat_ids (tf.Tensor): Feature IDs.
         feat_vals (tf.Tensor): Feature values.
-        Feat_Emb_ffm (list): Field factorization machine weights.
+        feat_emb_ffm (list): Field factorization machine weights.
         field_size (int): Number of fields.
 
     Returns:
         tf.Tensor: Field factorization machine part of the model.
     """
     with tf.compat.v1.variable_scope("Field-Factorization-Machine"):
-        xs = [tf.multiply(tf.nn.embedding_lookup(Feat_Emb_ffm[i], feat_ids), feat_vals) for i in range(field_size)]
+        xs = [tf.multiply(tf.nn.embedding_lookup(feat_emb_ffm[i], feat_ids), feat_vals) for i in range(field_size)]
         xs_ = tf.concat(xs, axis=1)  # None * (F * F) * E
         row, col = [], []
         for i in range(field_size - 1):
