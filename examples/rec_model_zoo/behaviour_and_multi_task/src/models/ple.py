@@ -64,15 +64,15 @@ def define_flags():
 
 def parse_example(mode, example):
     parsed_exapmle = tf.io.parse_example(example, feature_descriptions[mode])
-    input = {}
+    input_data = {}
     target = {"y": parsed_exapmle["y"], "z": parsed_exapmle["z"]}
     for index, key in enumerate(spec["one_hot_fields"]):
-        input[key] = parsed_exapmle["one_hot_fields"][:, index]
+        input_data[key] = parsed_exapmle["one_hot_fields"][:, index]
     for key in spec["multi_hot_fields"]:
-        input[key] = parsed_exapmle[key]
+        input_data[key] = parsed_exapmle[key]
     for key in spec["special_fields"]:
-        input[key] = parsed_exapmle[key]
-    return input, target
+        input_data[key] = parsed_exapmle[key]
+    return input_data, target
 
 
 def input_fn(filenames, mode, batch_size=32, num_epochs=1, perform_shuffle=False):
@@ -92,6 +92,7 @@ def input_fn(filenames, mode, batch_size=32, num_epochs=1, perform_shuffle=False
     batch_features, batch_labels = iterator.get_next()
 
     return batch_features, batch_labels
+
 
 def build_optimizer(model_cfg) -> tf.compat.v1.train.Optimizer:
     """
@@ -163,9 +164,9 @@ def model_fn(features, labels, mode, model_cfg):
             )
 
     embedding = tf.concat(
-        [embeddings[field_name] for field_name in spec["one_hot_fields"]] +
-        [embeddings[field_name] for field_name in spec["multi_hot_fields"]] +
-        [embeddings[field_name] for field_name in spec["special_fields"]],
+        [embeddings.get(field_name) for field_name in spec["one_hot_fields"]] +
+        [embeddings.get(field_name) for field_name in spec["multi_hot_fields"]] +
+        [embeddings.get(field_name) for field_name in spec["special_fields"]],
         axis=2,
     )  # None * 1 * (23 * E)
 
@@ -177,9 +178,9 @@ def model_fn(features, labels, mode, model_cfg):
 
         def ple_net(inputs, is_last, level):
             inputs_final = []
-            for input in inputs:
-                input_shape = input.get_shape().as_list()
-                inputs_final.append(tf.reshape(input, shape=[-1, 1, input_shape[1]]))
+            for input_value in inputs:
+                input_shape = input_value.get_shape().as_list()
+                inputs_final.append(tf.reshape(input_value, shape=[-1, 1, input_shape[1]]))
 
             expert_outputs = []
 
@@ -187,11 +188,11 @@ def model_fn(features, labels, mode, model_cfg):
             for i in range(0, model_cfg.task_num):
                 for j in range(0, exp_per_task[i]):
                     inp = inputs_final[i]
-                    for k in range(len(expert_units)):
-                        inp = tf.contrib.layers.fully_connected(inputs=inp, num_outputs=expert_units[k],
+                    for expert_k, _ in enumerate(expert_units):
+                        inp = tf.contrib.layers.fully_connected(inputs=inp, num_outputs=expert_units[expert_k],
                                                                 activation_fn=tf.nn.relu,
                                                                 scope='level_%d_task_%d_expert_%d_mlp_%d' % (
-                                                                    level, i, j, k))
+                                                                    level, i, j, expert_k))
                     expert_outputs.append(inp)  # None * 1 * 256
 
             # shared expert part
@@ -201,7 +202,7 @@ def model_fn(features, labels, mode, model_cfg):
                     inp = tf.contrib.layers.fully_connected(inputs=inp, num_outputs=expert_units[expert_j],
                                                             activation_fn=tf.nn.relu,
                                                             scope='level_%d_shared_expert_%d_mlp_%d' % (
-                                                            level, i, expert_j))
+                                                                level, i, expert_j))
                 expert_outputs.append(inp)  # None * 1 * 256
 
             outputs = []
@@ -219,7 +220,7 @@ def model_fn(features, labels, mode, model_cfg):
                 cur_gate = tf.reshape(cur_gate, shape=[-1, cur_gate_shape[1], 1])
 
                 cur_experts = expert_outputs[i * exp_per_task[i]:(i + 1) * exp_per_task[i]] + \
-                expert_outputs[-int(model_cfg.shared_num):]
+                              expert_outputs[-int(model_cfg.shared_num):]
                 expert_concat = tf.concat(cur_experts, axis=1)  # None * cur_expert_num * 256
                 cur_gate_expert = tf.multiply(expert_concat, cur_gate)
                 cur_gate_expert = tf.reduce_sum(cur_gate_expert, axis=1)  # None * 256
@@ -232,7 +233,8 @@ def model_fn(features, labels, mode, model_cfg):
                     all_expert_num += expert_num
 
                 cur_gate = tf.contrib.layers.fully_connected(inputs=inputs[-1], num_outputs=all_expert_num,
-                activation_fn=tf.nn.softmax, scope='level_%d_shared_gate_mlp' % level)  # None * all_expert_num
+                                                             activation_fn=tf.nn.softmax,
+                                                             scope='level_%d_shared_gate_mlp' % level)  # None * all_expert_num
 
                 cur_gate_shape = cur_gate.get_shape().as_list()
                 cur_gate = tf.reshape(cur_gate, shape=[-1, cur_gate_shape[1], 1])
@@ -392,9 +394,8 @@ def main(_, model_cfg):
     model = NPUEstimator(model_fn=model_fn, model_dir=model_cfg.model_dir, config=config, model_cfg=model_cfg)
 
     hook = tf.estimator.experimental.stop_if_no_increase_hook(model, "auc_ctr",
-                                                              max_steps_without_increase=spec["dataset_size"][
-                                                                                             "train"] // model_cfg.batch_size,
-                                                              run_every_secs=None, run_every_steps=10)
+    max_steps_without_increase=spec["dataset_size"]["train"] // model_cfg.batch_size,
+    run_every_secs=None, run_every_steps=10)
     hook_stop = tf.estimator.StopAtStepHook(last_step=200)
 
     if model_cfg.task_type == "train":
