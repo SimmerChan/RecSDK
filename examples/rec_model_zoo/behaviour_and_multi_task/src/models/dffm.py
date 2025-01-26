@@ -17,13 +17,12 @@
 
 import os
 import glob
-import json
 import random
 import shutil
 import logging
+from dataclasses import dataclass
 from datetime import datetime, date, timedelta
 from functools import partial
-from pickletools import optimize
 
 import pytz
 import tensorflow as tf
@@ -156,13 +155,13 @@ def model_fn(features, labels, mode, model_cfg):
         for key in ["109_14", "110_14", "127_14", "150_14", "210", "853"]:
             embeddings[key] = embedding_lookup_sparse_fake(emb_weights[key], features[key], combiner="sum",
                                                            name=key + "_embedding_lookup")
+    stack_emb = []
+    for field_name in ["101", "109_14", "110_14", "127_14", "150_14", "121",
+                       "122", "124", "125", "126", "127", "128", "129", "205",
+                       "206", "207", "210", "216", "508", "509", "702", "853"]:
+        stack_emb.append(embeddings.get(field_name))
 
-    sparse_input = tf.stack(
-        [embeddings[field_name] for field_name in ["101", "109_14", "110_14", "127_14", "150_14", "121",
-                                                   "122", "124", "125", "126", "127", "128", "129", "205",
-                                                   "206", "207", "210", "216", "508", "509", "702", "853"]],
-        axis=1
-    )  # None * 22 * E
+    sparse_input = tf.stack(stack_emb, axis=1)  # None * 22 * E
 
     with tf.compat.v1.variable_scope("DFFI", reuse=tf.compat.v1.AUTO_REUSE):
         domain_emb = embeddings["301"]
@@ -170,8 +169,12 @@ def model_fn(features, labels, mode, model_cfg):
         # map domain embedding
         meta_dnn_hidden_units = [16, 16]
         meta_dnn_hidden_units = [model_cfg.embedding_size] + meta_dnn_hidden_units
-        meta_param_size = sum([meta_dnn_hidden_units[i] * meta_dnn_hidden_units[i + 1] for i in
-                               range(len(meta_dnn_hidden_units) - 1)])
+
+        meta_para = []
+        for i in range(len(meta_dnn_hidden_units) - 1):
+            meta_para.append(meta_dnn_hidden_units[i] * meta_dnn_hidden_units[i + 1])
+
+        meta_param_size = sum(meta_para)
         domain_vec = tf.contrib.layers.fully_connected(inputs=domain_emb, num_outputs=meta_param_size,
                                                        activation_fn=tf.nn.relu, scope='domain_map_mlp')
         # MetaNet
@@ -253,7 +256,16 @@ def model_fn(features, labels, mode, model_cfg):
             [-1, 1, model_cfg.embedding_size * model_cfg.internal_size]
         )
 
-        def dfub_layer(seqs, masks, q_tar_embedding, k_tar_embedding, v_tar_embedding, scope="targ_hist"):
+        @dataclass
+        class DFUBLayerEmbeddings:
+            q_tar_embedding: tf.Tensor
+            k_tar_embedding: tf.Tensor
+            v_tar_embedding: tf.Tensor
+
+        def dfub_layer(seqs, masks, embeddings_t: DFUBLayerEmbeddings, scope="targ_hist"):
+            q_tar_embedding = embeddings_t.q_tar_embedding
+            k_tar_embedding = embeddings_t.k_tar_embedding
+            v_tar_embedding = embeddings_t.v_tar_embedding
             w_q = tf.compat.v1.get_variable(name="weight_Q_%s" % scope,
                                             shape=[model_cfg.embedding_size, model_cfg.internal_size],
                                             initializer=tf.random_normal_initializer(stddev=0.1), )
@@ -330,7 +342,10 @@ def model_fn(features, labels, mode, model_cfg):
             part1_num = int(0.5 * model_cfg.embedding_size * model_cfg.internal_size)
             part2_num = model_cfg.embedding_size * model_cfg.internal_size - part1_num
             target_emb = tf.concat([part_target_emb[:, :, :part1_num], dfub_domain_emb[:, :, :part2_num]], axis=-1)
-            his_emb_new = dfub_layer(his_emb, hist_mask, target_emb, target_emb, target_emb,
+            target_emb_c = DFUBLayerEmbeddings(q_tar_embedding=target_emb, k_tar_embedding=target_emb,
+                                               v_tar_embedding=target_emb)
+
+            his_emb_new = dfub_layer(his_emb, hist_mask, target_emb_c,
                                      scope="%s_%s" % (target_key, his_key))
             his_emb_new = tf.reduce_sum(his_emb_new, axis=1)
             dfub_output.append(his_emb_new)
@@ -412,7 +427,7 @@ def main(_, model_cfg):
         model_cfg.dt_dir = (date.today() + timedelta(-1)).strftime('%Y%m%d')
     model_cfg.model_dir = model_cfg.model_dir + (date.today() + timedelta(-1)).strftime('%Y%m%d')
 
-    train_order = json.load(open("./order.json"))
+    train_order = json_file_load("train_order", "./order.json")
     tr_files = ["%strain/data_train.csv.tfrecord.%s" % (model_cfg.data_dir, index) for index in
                 train_order["reading_order"]]
     va_files = glob.glob("%sval/data_val.csv.tfrecord.*" % model_cfg.data_dir)
