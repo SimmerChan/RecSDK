@@ -88,6 +88,7 @@ def input_fn(filenames, mode, batch_size=32, num_epochs=1, perform_shuffle=False
 
     return batch_features, batch_labels
 
+
 def build_optimizer(model_cfg) -> tf.compat.v1.train.Optimizer:
     """
     Build the optimizer based on the model configuration.
@@ -159,9 +160,9 @@ def model_fn(features, labels, mode, model_cfg):
             )
 
     embedding = tf.concat(
-        [embeddings[field_name] for field_name in spec["one_hot_fields"]] +
-        [embeddings[field_name] for field_name in spec["multi_hot_fields"]] +
-        [embeddings[field_name] for field_name in spec["special_fields"]],
+        [embeddings.get(field_name) for field_name in spec["one_hot_fields"]] +
+        [embeddings.get(field_name) for field_name in spec["multi_hot_fields"]] +
+        [embeddings.get(field_name) for field_name in spec["special_fields"]],
         axis=2,
     )  # None * 1 * (23 * E)
 
@@ -172,21 +173,22 @@ def model_fn(features, labels, mode, model_cfg):
 
         def build_tower(tower_input, name):
             y_tower = tower_input
-            for i in range(len(tower_units)):
-                y_tower = tf.contrib.layers.fully_connected(inputs=y_tower, num_outputs=tower_units[i],
-                                                            activation_fn=tf.nn.relu, scope=name + '_tower_mlp_%d' % i)
+            for tower_i, _ in enumerate(tower_units):
+                y_tower = tf.contrib.layers.fully_connected(inputs=y_tower, num_outputs=tower_units[tower_i],
+                                                            activation_fn=tf.nn.relu,
+                                                            scope=name + '_tower_mlp_%d' % tower_i)
             return y_tower
 
         # CTR
         y_ctr = build_tower(x_deep, name='ctr')
-        y_ctr = tf.contrib.layers.fully_connected(inputs=y_ctr, num_outputs=1, activation_fn=None, \
+        y_ctr = tf.contrib.layers.fully_connected(inputs=y_ctr, num_outputs=1, activation_fn=None,
                                                   scope='deep_out_click')
         y_ctr = tf.reshape(y_ctr, [-1, ])
         y_ctr_prediction = tf.sigmoid(y_ctr)
 
         # CVR
         y_cvr = build_tower(x_deep, name='cvr')
-        y_cvr = tf.contrib.layers.fully_connected(inputs=y_cvr, num_outputs=1, activation_fn=None, \
+        y_cvr = tf.contrib.layers.fully_connected(inputs=y_cvr, num_outputs=1, activation_fn=None,
                                                   scope='deep_out_valid_play')
         y_cvr = tf.reshape(y_cvr, [-1, ])
         y_cvr_prediction = tf.sigmoid(y_cvr)
