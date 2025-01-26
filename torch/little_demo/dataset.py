@@ -1,12 +1,14 @@
 import itertools
-import torch
-import torch_npu
-import numpy as np
-from dataclasses import dataclass
-from torchrec.streamable import Pipelineable
-from torchrec import KeyedJaggedTensor, JaggedTensor, KeyedTensor
-from torch.utils.data.dataset import IterableDataset
 from typing import Iterator
+from dataclasses import dataclass
+import numpy as np
+
+import torch
+from torch.utils.data.dataset import IterableDataset
+import torch_npu
+
+from torchrec.streamable import Pipelineable
+from torchrec import KeyedJaggedTensor, JaggedTensor
 
 
 @dataclass

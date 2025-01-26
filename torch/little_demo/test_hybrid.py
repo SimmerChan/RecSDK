@@ -1,9 +1,11 @@
 import os
 import torch
-import torchrec
+import logging
+
 import torch.distributed as dist
 from torch.utils.data import DataLoader
-import torchrec.distributed
+
+import torchrec
 from torchrec.optim.apply_optimizer_in_backward import apply_optimizer_in_backward
 from torchrec.optim.keyed import CombinedOptimizer
 from torchrec.distributed.planner import (
@@ -12,15 +14,12 @@ from torchrec.distributed.planner import (
     ParameterConstraints,
 )
 from torchrec.distributed.types import ShardingEnv
-from hybrid_torchrec.distributed.hybrid_train_pipeline import (
-    HybridTrainPipelineSparseDist,
-)
-from hybrid_torchrec.distributed.sharding.hybrid_embeddingbag import (
-    HybridEmbeddingBagCollectionSharder,
-)
+
+from hybrid_torchrec.distributed.hybrid_train_pipeline import HybridTrainPipelineSparseDist
+from hybrid_torchrec.distributed.sharding.hybrid_embeddingbag import  HybridEmbeddingBagCollectionSharder
+
 from dataset import RandomRecDataset
 from model import TestModel
-import logging
 
 logging.getLogger().setLevel(logging.INFO)
 FEAT_NAMES = [["phone", "clothes"], ["user"]]
