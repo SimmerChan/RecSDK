@@ -162,9 +162,9 @@ def model_fn(features, labels, mode, model_cfg):
             )
 
     embedding = tf.concat(
-        [embeddings[field_name] for field_name in spec["one_hot_fields"]] +
-        [embeddings[field_name] for field_name in spec["multi_hot_fields"]] +
-        [embeddings[field_name] for field_name in spec["special_fields"]],
+        [embeddings.get(field_name) for field_name in spec["one_hot_fields"]] +
+        [embeddings.get(field_name) for field_name in spec["multi_hot_fields"]] +
+        [embeddings.get(field_name) for field_name in spec["special_fields"]],
         axis=2,
     )  # None * 1 * (23 * E)
 
@@ -286,8 +286,9 @@ def main(_, model_cfg):
     model_cfg.model_dir = model_cfg.model_dir + (date.today() + timedelta(-1)).strftime('%Y%m%d')
 
     train_order = json_file_load("train_order", "./order.json")
-    tr_files = ["%strain/data_train.csv.tfrecord.%s" % (model_cfg.data_dir, index) for index in
-                train_order["reading_order"]]
+    tr_files = []
+    for index in train_order["reading_order"]:
+        tr_files.append("%strain/data_train.csv.tfrecord.%s" % (model_cfg.data_dir, index))
     va_files = glob.glob("%sval/data_val.csv.tfrecord.*" % model_cfg.data_dir)
     te_files = glob.glob("%stest/data_test.csv.tfrecord.*" % model_cfg.data_dir)
 
