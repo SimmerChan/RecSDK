@@ -150,14 +150,14 @@ def build_optimizer(optimizer_name: str, learning_rate: float) -> tf.compat.v1.t
         raise ValueError("Unsupported optimizer: {}".format(optimizer_name))
 
 
-def model_fn(features, labels, mode, model_cfg):
+def model_fn(features, labels, mode, params):
     """Bulid Model function f(x) for Estimator."""
     # ------hyperparameters----
-    field_size = model_cfg["field_size"]
-    feature_size = model_cfg["feature_size"]
-    embedding_size = model_cfg["embedding_size"]
-    learning_rate = model_cfg["learning_rate"]
-    layers = list(map(int, model_cfg["deep_layers"].split(',')))
+    field_size = params.field_size
+    feature_size = params.feature_size
+    embedding_size = params.embedding_size
+    learning_rate = params.learning_rate
+    layers = list(map(int, params.deep_layers.split(',')))
 
     # ------bulid weights------
     feat_emb_deep = tf.compat.v1.get_variable(name="emb_deep", shape=[feature_size, embedding_size],
@@ -218,7 +218,7 @@ def model_fn(features, labels, mode, model_cfg):
     }
 
     # ------bulid optimizer------
-    optimizer = build_optimizer(model_cfg["optimizer"], learning_rate)
+    optimizer = build_optimizer(params.optimizer, learning_rate)
     train_op = optimizer.minimize(loss, global_step=tf.compat.v1.train.get_global_step())
 
     if mode == tf.estimator.ModeKeys.EVAL:
@@ -252,7 +252,7 @@ def dump_pred(preds, model_cfg):
             fo.write("%f\n" % (prob['prob']))
 
 
-def main(_, model_cfg):
+def main(model_cfg):
     # ------check Arguments------
     if model_cfg.dt_dir == "":
         model_cfg.dt_dir = (date.today() + timedelta(-1)).strftime('%Y%m%d')
@@ -284,7 +284,7 @@ def main(_, model_cfg):
         save_checkpoints_steps=train_size // model_cfg.batch_size + 1,
         session_config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=False)
     )
-    estimator = NPUEstimator(model_fn=model_fn, model_dir=model_cfg.model_dir, model_cfg=model_cfg, config=config)
+    estimator = NPUEstimator(model_fn=model_fn, model_dir=model_cfg.model_dir, params=model_cfg, config=config)
 
     hook = tf.estimator.experimental.stop_if_no_increase_hook(estimator, "stop_criterion",
     max_steps_without_increase=train_size // model_cfg.batch_size, run_every_secs=None, run_every_steps=10)
@@ -344,7 +344,7 @@ if __name__ == "__main__":
     # Define the timezone for China Standard Time
     china_tz = pytz.timezone('Asia/Shanghai')
     logfile_na = MODEL_NAME + "_" + datetime.now(china_tz).strftime("%Y_%m_%d_%H_%M_%S") + ".log"
-    logfile_path = os.path.join("../logs/aliccp/", logfile_na)
+    logfile_path = os.path.join("../logs/criteo/", logfile_na)
     fh = logging.FileHandler(logfile_path)
     fh.setLevel(log_level)
     fh.setFormatter(formatter)
@@ -352,4 +352,4 @@ if __name__ == "__main__":
 
     logger.info("FLAGS: " + str(model_config))
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.INFO)
-    tf.compat.v1.app.run(main=main, argv=[model_config])
+    tf.compat.v1.app.run(main=lambda argv: main(argv[0]), argv=[model_config])
