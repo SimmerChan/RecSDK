@@ -72,7 +72,8 @@ def parse_example(mode_type: str, example: tf.Tensor) -> Tuple[Dict[str, tf.Tens
         example (tf.Tensor): The serialized example to parse.
 
     Returns:
-        Tuple[Dict[str, tf.Tensor], Dict[str, tf.Tensor]]: A tuple containing the input dictionary and target dictionary.
+        Tuple[Dict[str, tf.Tensor], Dict[str, tf.Tensor]]: A tuple containing the
+        input dictionary and target dictionary.
     """
     # Parse the example using the feature descriptions for the given mode type
     parsed_example = tf.io.parse_example(example, feature_descriptions.get(mode_type))
