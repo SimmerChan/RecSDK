@@ -20,6 +20,7 @@ import glob
 import random
 import shutil
 import logging
+from dataclasses import dataclass
 from datetime import datetime, date, timedelta
 from functools import partial
 
@@ -28,6 +29,8 @@ import tensorflow as tf
 from npu_bridge.npu_init import NPUEstimator, NPURunConfig
 
 from utils import get_third_nearest_checkpoint, json_file_load, dump_pred_prob
+
+from cust_op.op_example.attention_fusion.test.test import param_attn_layer
 
 tf.compat.v1.set_random_seed(2024)
 random.seed(2024)
@@ -177,8 +180,8 @@ def model_fn(features, labels, mode, model_cfg):
             )
 
     def long_emb_cat(field_name):
-        dense_embedding = embeddings[field_name]
-        dense_mask = masks[field_name]
+        dense_embedding = embeddings.get(field_name)
+        dense_mask = masks.get(field_name)
         paddings = [[0, 0], [0, model_cfg.max_seq_len], [0, 0]]
         mask_paddings = [[0, 0], [0, 0], [0, model_cfg.max_seq_len]]
         dense_embedding = tf.pad(dense_embedding, paddings, mode="CONSTANT", constant_values=0)
@@ -190,16 +193,26 @@ def model_fn(features, labels, mode, model_cfg):
             tf.slice(dense_mask, [0, 0, 0], [-1, -1, model_cfg.max_seq_len]),
         )
 
+    @dataclass
+    class ShortAttentionParams:
+        attention_dim: int = 64
+        num_heads: int = 1
+        output_dim: int = 16
+        index: int = 0
+        att_name: str = "short"
+
     def short_attention(
             target_input,
             seq_input,
             mask,
-            attention_dim=64,
-            num_heads=1,
-            output_dim=16,
-            index=0,
-            att_name="short"
+            params_s: ShortAttentionParams
     ):
+        attention_dim = params_s.attention_dim
+        num_heads = params_s.num_heads
+        output_dim = params_s.output_dim
+        index = params_s.index
+        att_name = params_s.att_name
+
         query = tf.contrib.layers.fully_connected(
             inputs=target_input,
             num_outputs=attention_dim,
@@ -260,7 +273,18 @@ def model_fn(features, labels, mode, model_cfg):
         hash_code = tf.nn.relu(tf.sign(rotated_vecs))
         return hash_code
 
-    def long_attention(target_input, seq_input, mask, topk=10, index=0, attention_dim=64, num_heads=2):
+    @dataclass
+    class LongAttentionParams:
+        topk: int = 10
+        index: int = 0
+        attention_dim: int = 64
+        num_heads: int = 2
+
+    def long_attention(target_input, seq_input, mask, params_l: LongAttentionParams):
+        topk = params_l.topk
+        index = params_l.index
+        attention_dim = params_l.attention_dim
+        num_heads = params_l.num_heads
 
         random_rotations = hash_weights if model_cfg.reuse_hash else tf.random.normal(
             shape=(target_input.shape[-1], 32), dtype=tf.float32
@@ -277,8 +301,14 @@ def model_fn(features, labels, mode, model_cfg):
         )
         topk_mask = tf.gather(mask, topk_index[..., tf.newaxis], axis=-1, batch_dims=1)
 
-        return short_attention(target_input, topk_emb, topk_mask, index=index, att_name="long",
-                               attention_dim=attention_dim, num_heads=num_heads)
+        params_s = ShortAttentionParams(
+            attention_dim=attention_dim,
+            num_heads=num_heads,
+            index=index,
+            att_name="long"
+        )
+
+        return short_attention(target_input, topk_emb, topk_mask, params_s=params_s)
 
     emb_cats = [long_emb_cat(field) for field in ["109_14", "110_14", "127_14", "150_14"]]
 
@@ -292,9 +322,14 @@ def model_fn(features, labels, mode, model_cfg):
             emb_target = embeddings[target_name]
             emb_short = emb_cat[0]
             mask_short = emb_cat[2]
+            params_s = ShortAttentionParams(
+                attention_dim=model_cfg.attention_dim,
+                num_heads=model_cfg.num_heads,
+                index=index,
+                att_name="short"
+            )
             short_attentions_arr.append(
-                short_attention(emb_target, emb_short, mask=mask_short, index=index, att_name="short",
-                                attention_dim=model_cfg.attention_dim, num_heads=model_cfg.num_heads)
+                short_attention(emb_target, emb_short, mask=mask_short, params_s=params_s)
             )
 
     with tf.variable_scope("long-Attention"):
@@ -305,10 +340,14 @@ def model_fn(features, labels, mode, model_cfg):
             emb_target = embeddings[target_name]
             emb_long = emb_cat[1]
             mask_long = emb_cat[3]
+            params_l = LongAttentionParams(
+                topk=model_cfg.topk,
+                index=index,
+                attention_dim=model_cfg.attention_dim,
+                num_heads=model_cfg.num_heads
+            )
             long_attentions_arr.append(
-                long_attention(emb_target, emb_long, mask=mask_long, index=index,
-                               attention_dim=model_cfg.attention_dim, num_heads=model_cfg.num_heads,
-                               topk=model_cfg.topk)
+                long_attention(emb_target, emb_long, mask=mask_long, params_l=params_l)
             )
 
     embedding = tf.concat(
@@ -378,12 +417,12 @@ def model_fn(features, labels, mode, model_cfg):
 
     gvs = optimizer.compute_gradients(loss)
 
-    def ClipIfNotNone(grad):
+    def clip_if_not_none(grad):
         if grad is None:
             return grad
         return tf.clip_by_value(grad, -1, 1)
 
-    clipped_gradients = [(ClipIfNotNone(grad), var) for grad, var in gvs]
+    clipped_gradients = [(clip_if_not_none(grad), var) for grad, var in gvs]
     train_op = optimizer.apply_gradients(clipped_gradients, global_step=tf.compat.v1.train.get_global_step())
 
     # Provide an estimator spec for `ModeKeys.TRAIN` modes
