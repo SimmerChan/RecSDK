@@ -5,7 +5,6 @@ import logging
 import torch.distributed as dist
 from torch.utils.data import DataLoader
 
-import torchrec
 from torchrec.optim.apply_optimizer_in_backward import apply_optimizer_in_backward
 from torchrec.optim.keyed import CombinedOptimizer
 from torchrec.distributed.planner import (
@@ -13,6 +12,7 @@ from torchrec.distributed.planner import (
     Topology,
     ParameterConstraints,
 )
+from torchrec.distributed import DistributedModelParallel
 from torchrec.distributed.types import ShardingEnv
 
 from hybrid_torchrec.distributed.hybrid_train_pipeline import HybridTrainPipelineSparseDist
@@ -80,7 +80,7 @@ def invoke_main():
 
     plan = planner.collective_plan(test_model, [hybrid_sharder], dist.GroupMember.WORLD)
     logging.info(plan)
-    ddpModel = torchrec.distributed.DistributedModelParallel(
+    ddpModel = DistributedModelParallel(
         test_model, device=torch.device("npu"), plan=plan, sharders=[hybrid_sharder]
     )
     optimizer = CombinedOptimizer([ddpModel.fused_optimizer])

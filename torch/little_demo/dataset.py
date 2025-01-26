@@ -4,12 +4,11 @@ from dataclasses import dataclass
 import numpy as np
 
 import torch
-from torch.utils.data.dataset import IterableDataset
 import torch_npu
+from torch.utils.data.dataset import IterableDataset
 
 from torchrec.streamable import Pipelineable
 from torchrec import KeyedJaggedTensor, JaggedTensor
-
 
 @dataclass
 class Batch(Pipelineable):
