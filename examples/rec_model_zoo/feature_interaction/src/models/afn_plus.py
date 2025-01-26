@@ -183,7 +183,7 @@ def model_fn(features, labels, mode, model_cfg):
 
         y_deep = tf.contrib.layers.fully_connected(inputs=deep_inputs, num_outputs=1, activation_fn=tf.identity,
                                                    scope='deep_out')
-        y_afn = tf.squeeze(tf.reshape(y_deep, shape=[-1]))
+        y_afn = tf.reshape(y_deep, shape=[-1])
 
     with tf.compat.v1.variable_scope("Plus-Deep-Layer"):
         deep_inputs = tf.reshape(embeddings_deep, shape=[-1, field_size * embedding_size])  # None * (F * E)
@@ -309,8 +309,7 @@ def main(_, model_cfg):
     estimator = NPUEstimator(model_fn=model_fn, model_dir=model_cfg.model_dir, model_cfg=model_cfg, config=config)
 
     hook = tf.estimator.experimental.stop_if_no_increase_hook(estimator, "stop_criterion",
-                                                              max_steps_without_increase=train_size // model_cfg.batch_size,
-                                                              run_every_secs=None, run_every_steps=10)
+    max_steps_without_increase=train_size // model_cfg.batch_size, run_every_secs=None, run_every_steps=10)
     hook_stop = tf.estimator.StopAtStepHook(last_step=200)
     os.makedirs(estimator.eval_dir())
     if model_cfg.task_type == 'train':
