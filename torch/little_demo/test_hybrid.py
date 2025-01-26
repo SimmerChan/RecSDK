@@ -1,0 +1,101 @@
+import os
+import torch
+import torchrec
+import torch.distributed as dist
+from torch.utils.data import DataLoader
+import torchrec.distributed
+from torchrec.optim.apply_optimizer_in_backward import apply_optimizer_in_backward
+from torchrec.optim.keyed import CombinedOptimizer
+from torchrec.distributed.planner import (
+    EmbeddingShardingPlanner,
+    Topology,
+    ParameterConstraints,
+)
+from torchrec.distributed.types import ShardingEnv
+from hybrid_torchrec.distributed.hybrid_train_pipeline import (
+    HybridTrainPipelineSparseDist,
+)
+from hybrid_torchrec.distributed.sharding.hybrid_embeddingbag import (
+    HybridEmbeddingBagCollectionSharder,
+)
+from dataset import RandomRecDataset
+from model import TestModel
+import logging
+
+logging.getLogger().setLevel(logging.INFO)
+FEAT_NAMES = [["phone", "clothes"], ["user"]]
+TABLE_NAMES = ["product", "user"]
+EMBEBD_DIMS = [1024, 1024]
+NUM_EMBEBDS = [10240, 10240]
+ID_RANGES = [1024, 1024, 1024]
+BATCH_SIZE = 32
+BATCH_NUM = 32
+
+
+def get_distribute_env():
+    rank = int(os.environ["LOCAL_RANK"])
+    world_size = int(os.environ["WORLD_SIZE"])
+    torch.npu.set_device(rank)
+    return rank, world_size
+
+
+def invoke_main():
+    rank, world_size = get_distribute_env()
+    device = torch.device(f"npu:{rank}")
+    dist.init_process_group(backend="hccl")
+    host_gp = dist.new_group(backend="gloo")
+    host_env = ShardingEnv(world_size=world_size, rank=rank, pg=host_gp)
+
+    dataset = RandomRecDataset(BATCH_SIZE, BATCH_NUM, FEAT_NAMES, ID_RANGES)
+    data_loader = DataLoader(
+        dataset,
+        batch_size=None,
+        batch_sampler=None,
+        pin_memory=True,
+        prefetch_factor=32,
+        pin_memory_device="npu",
+        num_workers=4,
+    )
+
+    test_model = TestModel(TABLE_NAMES, FEAT_NAMES, EMBEBD_DIMS, NUM_EMBEBDS)
+
+    embedding_optimizer = torch.optim.Adagrad
+    optimizer_kwargs = {"lr": 0.001, "eps": 0.1}
+    apply_optimizer_in_backward(
+        embedding_optimizer,
+        test_model.ebc.parameters(),
+        optimizer_kwargs=optimizer_kwargs,
+    )
+
+    # Shard
+    hybrid_sharder = HybridEmbeddingBagCollectionSharder(host_env=host_env)
+    constrans = {
+        table_name: ParameterConstraints(sharding_types=["table_wise"])
+        for table_name in TABLE_NAMES
+    }
+
+    planner = EmbeddingShardingPlanner(
+        topology=Topology(world_size=world_size, compute_device="npu"),
+        constraints=constrans,
+    )
+
+    plan = planner.collective_plan(test_model, [hybrid_sharder], dist.GroupMember.WORLD)
+    logging.info(plan)
+    ddpModel = torchrec.distributed.DistributedModelParallel(
+        test_model, device=torch.device("npu"), plan=plan, sharders=[hybrid_sharder]
+    )
+    optimizer = CombinedOptimizer([ddpModel.fused_optimizer])
+
+    pipeline = HybridTrainPipelineSparseDist(
+        ddpModel, optimizer, device, execute_all_batches=True
+    )
+
+    batched_iterator = iter(data_loader)
+
+    for i in range(20):
+        logging.info("step %s done", i)
+        pipeline.progress(batched_iterator)
+    logging.info("demo done")
+
+if __name__ == "__main__":
+    invoke_main()
