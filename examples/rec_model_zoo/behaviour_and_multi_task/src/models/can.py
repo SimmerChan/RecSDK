@@ -54,20 +54,21 @@ def define_flags():
     tf.app.flags.DEFINE_string("weight_emb_w", "[[12, 6], [6, 4]]", "shape of coaction weight")
     tf.app.flags.DEFINE_string("weight_emb_b", "[0, 0]", "width of coaction bias")
     tf.app.flags.DEFINE_integer("orders", 3, "coaction orders")
+    tf.app.flags.DEFINE_string("log_level", "DEBUG", "log level {DEBUG, INFO, WARNING, ERROR, CRITICAL}")
     return model_conf
 
 
 def parse_example(mode, example):
     parsed_exapmle = tf.io.parse_example(example, feature_descriptions[mode])
-    input = {}
+    input_data = {}
     target = {"y": parsed_exapmle["y"], "z": parsed_exapmle["z"]}
     for index, key in enumerate(spec["one_hot_fields"]):
-        input[key] = parsed_exapmle["one_hot_fields"][:, index]
+        input_data[key] = parsed_exapmle["one_hot_fields"][:, index]
     for key in spec["multi_hot_fields"]:
-        input[key] = parsed_exapmle[key]
+        input_data[key] = parsed_exapmle[key]
     for key in spec["special_fields"]:
-        input[key] = parsed_exapmle[key]
-    return input, target
+        input_data[key] = parsed_exapmle[key]
+    return input_data, target
 
 
 def input_fn(filenames, mode, batch_size=32, num_epochs=1, perform_shuffle=False):
@@ -446,8 +447,9 @@ def main(_, model_cfg):
 
     train_order_path = "./order.json"
     train_order = json_file_load("train_order", train_order_path)
-    tr_files = ["%strain/data_train.csv.tfrecord.%s" % (model_cfg.data_dir, index) for index in
-                train_order["reading_order"]]
+    tr_files = []
+    for index in train_order["reading_order"]:
+        tr_files.append("%strain/data_train.csv.tfrecord.%s" % (model_cfg.data_dir, index))
     va_files = glob.glob("%sval/data_val.csv.tfrecord.*" % model_cfg.data_dir)
     te_files = glob.glob("%stest/data_test.csv.tfrecord.*" % model_cfg.data_dir)
 
@@ -472,9 +474,8 @@ def main(_, model_cfg):
     model = NPUEstimator(model_fn=model_fn, model_dir=model_cfg.model_dir, config=config, model_cfg=model_cfg)
 
     hook = tf.estimator.experimental.stop_if_no_increase_hook(model, "auc_ctr",
-                                                              max_steps_without_increase=spec["dataset_size"][
-                                                                                             "train"] // model_cfg.batch_size,
-                                                              run_every_secs=None, run_every_steps=10)
+    max_steps_without_increase=spec["dataset_size"]["train"] // model_cfg.batch_size,
+    run_every_secs=None, run_every_steps=10)
     hook_stop = tf.estimator.StopAtStepHook(last_step=200)
 
     if model_cfg.task_type == "train":
