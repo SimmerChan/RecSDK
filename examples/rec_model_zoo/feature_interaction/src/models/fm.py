@@ -111,6 +111,7 @@ def build_logistic_regression(feat_ids: tf.Tensor, feat_vals: tf.Tensor, feat_em
         first_order = tf.reduce_sum(embeddings_lr, axis=1) + lr_bias
     return first_order
 
+
 def build_factorization_machine(embeddings_deep: tf.Tensor) -> tf.Tensor:
     """
     Build the factorization machine model.
@@ -126,6 +127,7 @@ def build_factorization_machine(embeddings_deep: tf.Tensor) -> tf.Tensor:
         sum_of_square = tf.reduce_sum(embeddings_deep * embeddings_deep, axis=1, keepdims=True)
         second_order = 0.5 * tf.reduce_sum(square_of_sum - sum_of_square, axis=2, keepdims=False)
     return second_order
+
 
 def build_optimizer(optimizer_name: str, learning_rate: float) -> tf.compat.v1.train.Optimizer:
     """
