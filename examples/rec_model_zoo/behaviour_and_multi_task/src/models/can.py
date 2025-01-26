@@ -359,20 +359,20 @@ def build_optimizer(model_cfg) -> tf.compat.v1.train.Optimizer:
         raise ValueError("Optimizer not supported: {}".format(model_cfg.optimizer))
 
 
-def model_fn(features, labels, mode, model_cfg):
+def model_fn(features, labels, mode, params):
     """build Estimator model"""
 
-    embeddings = build_embedding_layer(features, model_cfg, spec)
+    embeddings = build_embedding_layer(features, params, spec)
 
-    embedding = build_coaction_layer(features, model_cfg, spec, embeddings)
+    embedding = build_coaction_layer(features, params, spec, embeddings)
 
     x_deep = tf.reshape(embedding,
-                        [-1, 23 * model_cfg.embedding_size + 4 * model_cfg.orders * sum(
-                            [w[1] for w in json.loads(model_cfg.weight_emb_w)]) * 10])
+                        [-1, 23 * params.embedding_size + 4 * params.orders * sum(
+                            [w[1] for w in json.loads(params.weight_emb_w)]) * 10])
 
     with tf.compat.v1.variable_scope("MLP-layer"):
         x_deep = tf.layers.batch_normalization(inputs=x_deep, name='bn1')
-        deep_layers = list(map(int, model_cfg.deep_layers.strip().split(",")))
+        deep_layers = list(map(int, params.deep_layers.strip().split(",")))
         for layer_i, _ in enumerate(deep_layers):
             x_deep = tf.contrib.layers.fully_connected(
                 inputs=x_deep,
@@ -419,7 +419,7 @@ def model_fn(features, labels, mode, model_cfg):
         )
 
     # ------bulid optimizer------
-    optimizer = build_optimizer(model_cfg)
+    optimizer = build_optimizer(params)
 
     gvs = optimizer.compute_gradients(loss)
 
@@ -440,7 +440,7 @@ def model_fn(features, labels, mode, model_cfg):
         raise ValueError("mode should be one of tf.estimator.ModeKeys.TRAIN, EVAL, PREDICT")
 
 
-def main(_, model_cfg):
+def main(model_cfg):
     if model_cfg.dt_dir == "":
         model_cfg.dt_dir = (date.today() + timedelta(-1)).strftime('%Y%m%d')
     model_cfg.model_dir = model_cfg.model_dir + datetime.now(china_tz).strftime('%Y%m%d')
@@ -471,7 +471,7 @@ def main(_, model_cfg):
         save_checkpoints_steps=spec["dataset_size"]["train"] // model_cfg.batch_size + 1,
         session_config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=False)
     )
-    model = NPUEstimator(model_fn=model_fn, model_dir=model_cfg.model_dir, config=config, model_cfg=model_cfg)
+    model = NPUEstimator(model_fn=model_fn, model_dir=model_cfg.model_dir, config=config, params=model_cfg)
 
     hook = tf.estimator.experimental.stop_if_no_increase_hook(model, "auc_ctr",
     max_steps_without_increase=spec["dataset_size"]["train"] // model_cfg.batch_size,
@@ -572,4 +572,4 @@ if __name__ == "__main__":
         feature_descriptions[mode] = feature_description
 
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.INFO)
-    tf.compat.v1.app.run(main=main, argv=[model_config])
+    tf.compat.v1.app.run(main=lambda argv: main(argv[0]), argv=[model_config])
