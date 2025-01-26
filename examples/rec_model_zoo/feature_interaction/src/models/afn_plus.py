@@ -121,14 +121,14 @@ def build_optimizer(loss: tf.Tensor, learning_rate: float, model_cfg: object) ->
     return train_op
 
 
-def model_fn(features, labels, mode, model_cfg):
+def model_fn(features, labels, mode, params):
     """Bulid Model function f(x) for Estimator."""
     # ------hyperparameters----
-    field_size = model_cfg["field_size"]
-    feature_size = model_cfg["feature_size"]
-    embedding_size = model_cfg["embedding_size"]
-    learning_rate = model_cfg["learning_rate"]
-    layers = list(map(int, model_cfg["deep_layers"].split(',')))
+    field_size = params.field_size
+    feature_size = params.feature_size
+    embedding_size = params.embedding_size
+    learning_rate = params.learning_rate
+    layers = list(map(int, params.deep_layers.split(',')))
     layers_dnn = [400, 400, 400]
 
     # ------bulid weights------
@@ -163,10 +163,10 @@ def model_fn(features, labels, mode, model_cfg):
             train_phase = False
 
         embeddings_trans = batch_norm_layer(embeddings_trans, train_phase=train_phase,
-                                            scope_bn='bn_log', model_cfg=model_cfg)
+                                            scope_bn='bn_log', model_cfg=params)
 
     with tf.compat.v1.variable_scope("Layer-1"):
-        hidden_size = model_cfg.hidden_size
+        hidden_size = params.hidden_size
         weights = tf.compat.v1.get_variable("h_lr_weights", shape=[field_size, hidden_size],
                                             initializer=tf.random_normal_initializer(stddev=0.1))
         biases = tf.compat.v1.get_variable('biases', [hidden_size], initializer=tf.constant_initializer(0))
@@ -175,7 +175,7 @@ def model_fn(features, labels, mode, model_cfg):
     with tf.compat.v1.variable_scope("Deep-Layer"):
         interactions = tf.exp(layer1, name="restored_input")  # None * E * O
         interactions = batch_norm_layer(interactions, train_phase=train_phase,
-                                        scope_bn='bn_inter', model_cfg=model_cfg)
+                                        scope_bn='bn_inter', model_cfg=params)
         deep_inputs = tf.reshape(interactions, shape=[-1, embedding_size * hidden_size])  # None * (E * O)
 
         for layer_i, _ in enumerate(layers):
@@ -226,7 +226,7 @@ def model_fn(features, labels, mode, model_cfg):
         "stop_criterion": (auc_metric[0] - loss_metric[0], tf.group(auc_metric[1], loss_metric[1]))
     }
 
-    train_op = build_optimizer(loss, learning_rate, model_cfg)
+    train_op = build_optimizer(loss, learning_rate, params)
     # Provide an estimator spec for `ModeKeys.PREDICT`
     if mode == tf.estimator.ModeKeys.PREDICT:
         return tf.estimator.EstimatorSpec(
@@ -275,7 +275,7 @@ def dump_pred(preds, model_cfg):
             fo.write("%f\n" % (prob['prob']))
 
 
-def main(_, model_cfg):
+def main(model_cfg):
     # ------check Arguments------
     if model_cfg.dt_dir == "":
         model_cfg.dt_dir = (date.today() + timedelta(-1)).strftime('%Y%m%d')
@@ -307,7 +307,7 @@ def main(_, model_cfg):
         save_checkpoints_steps=train_size // model_cfg.batch_size + 1,
         session_config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=False)
     )
-    estimator = NPUEstimator(model_fn=model_fn, model_dir=model_cfg.model_dir, model_cfg=model_cfg, config=config)
+    estimator = NPUEstimator(model_fn=model_fn, model_dir=model_cfg.model_dir, params=model_cfg, config=config)
 
     hook = tf.estimator.experimental.stop_if_no_increase_hook(estimator, "stop_criterion",
     max_steps_without_increase=train_size // model_cfg.batch_size, run_every_secs=None, run_every_steps=10)
@@ -368,13 +368,12 @@ if __name__ == "__main__":
     # Define the timezone for China Standard Time
     china_tz = pytz.timezone('Asia/Shanghai')
     logfile_na = MODEL_NAME + "_" + datetime.now(china_tz).strftime("%Y_%m_%d_%H_%M_%S") + ".log"
-    logfile_path = os.path.join("../logs/aliccp/", logfile_na)
+    logfile_path = os.path.join("../logs/criteo/", logfile_na)
     fh = logging.FileHandler(logfile_path)
     fh.setLevel(log_level)
     fh.setFormatter(formatter)
     logger.addHandler(fh)
 
     logger.info("FLAGS: " + str(model_config))
-
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.INFO)
-    tf.compat.v1.app.run(main=main, argv=[model_config])
+    tf.compat.v1.app.run(main=lambda argv: main(argv[0]), argv=[model_config])
