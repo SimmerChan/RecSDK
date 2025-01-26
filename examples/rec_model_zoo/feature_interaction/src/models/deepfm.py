@@ -53,7 +53,6 @@ def define_flags():
     return model_conf
 
 
-
 # ------ Load tfrecord dataset ------
 def input_fn(filenames: List[str], batch_size: int = 32, field_size: int = 39, num_epochs: int = 1,
              perform_shuffle: bool = False) -> Tuple[Dict[str, tf.Tensor], tf.Tensor]:
@@ -145,9 +144,9 @@ def build_deep_layer(embeddings_deep: tf.Tensor, field_size: int, embedding_size
     """
     with tf.compat.v1.variable_scope("Deep-Layer"):
         deep_inputs = tf.reshape(embeddings_deep, shape=[-1, field_size * embedding_size])  # None * (F * E)
-        for i in range(len(layers)):
-            deep_inputs = tf.contrib.layers.fully_connected(inputs=deep_inputs, num_outputs=layers[i],
-                                                            scope='mlp%d' % i)
+        for layer_i, _ in enumerate(layers):
+            deep_inputs = tf.contrib.layers.fully_connected(inputs=deep_inputs, num_outputs=layers[layer_i],
+                                                            scope='mlp%d' % layer_i)
         deep_part = tf.contrib.layers.fully_connected(inputs=deep_inputs, num_outputs=1, activation_fn=tf.identity,
                                                       scope='deep_out')
     return deep_part

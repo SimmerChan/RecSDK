@@ -132,9 +132,9 @@ def build_deep_layer(embeddings_deep: tf.Tensor, inner_product: tf.Tensor, field
     with tf.compat.v1.variable_scope("Deep-Layer"):
         emb_for_deep_inputs = tf.reshape(embeddings_deep, shape=[-1, field_size * embedding_size])  # None * (F * E)
         deep_inputs = tf.concat([emb_for_deep_inputs, inner_product], axis=1)
-        for i in range(len(layers)):
-            deep_inputs = tf.contrib.layers.fully_connected(inputs=deep_inputs, num_outputs=layers[i],
-                                                            scope='mlp%d' % i)
+        for layer_i, _ in enumerate(layers):
+            deep_inputs = tf.contrib.layers.fully_connected(inputs=deep_inputs, num_outputs=layers[layer_i],
+                                                            scope='mlp%d' % layer_i)
         y_deep = tf.contrib.layers.fully_connected(inputs=deep_inputs, num_outputs=1, activation_fn=tf.identity,
                                                    scope='deep_out')
     return y_deep
@@ -173,7 +173,7 @@ def model_fn(features, labels, mode, model_cfg):
     layers = list(map(int, model_cfg["deep_layers"].split(',')))
 
     # ------bulid weights------
-    Feat_Emb_deep = tf.compat.v1.get_variable(name="emb_deep", shape=[feature_size, embedding_size],
+    feat_emb_deep = tf.compat.v1.get_variable(name="emb_deep", shape=[feature_size, embedding_size],
                                               initializer=tf.random_normal_initializer(stddev=0.1), )
 
     # ------build feature-------
@@ -184,7 +184,7 @@ def model_fn(features, labels, mode, model_cfg):
 
     # ------build f(x)------
     with tf.compat.v1.variable_scope("Embedding-Layer"):
-        embeddings_origin_deep = tf.nn.embedding_lookup(Feat_Emb_deep, feat_ids)  # None * F * E
+        embeddings_origin_deep = tf.nn.embedding_lookup(feat_emb_deep, feat_ids)  # None * F * E
         feat_vals = tf.reshape(feat_vals, shape=[-1, field_size, 1])  # None * F * 1
         embeddings_deep = tf.multiply(embeddings_origin_deep, feat_vals)
 
