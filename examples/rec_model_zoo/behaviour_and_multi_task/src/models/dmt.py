@@ -21,6 +21,7 @@ import json
 import random
 import shutil
 import logging
+from dataclasses import dataclass
 from datetime import datetime, date, timedelta
 from functools import partial
 
@@ -29,8 +30,7 @@ import numpy as np
 import tensorflow as tf
 from npu_bridge.npu_init import NPUEstimator, NPURunConfig
 
-from examples.rec_model_zoo.behaviour_and_multi_task.src.models.utils import dump_pred_multi
-from utils import get_third_nearest_checkpoint, json_file_load, dump_pred_prob
+from utils import get_third_nearest_checkpoint, json_file_load, dump_pred_multi
 
 tf.compat.v1.set_random_seed(2024)
 np.random.seed(2024)
@@ -238,8 +238,20 @@ def model_fn(features, labels, mode, model_cfg):
             outputs = gamma * normalized + beta
             return outputs
 
-        def transformer_layer(queries, keys, query_masks, key_masks, att_embedding_size,
-                              heads_num, dropout_rate=0.2, layer_name="q_k", layer_index=0):
+        @dataclass
+        class TransformerLayerParams:
+            att_embedding_size: int
+            heads_num: int
+            dropout_rate: float = 0.2
+            layer_name: str = "q_k"
+            layer_index: int = 0
+
+        def transformer_layer(queries, keys, query_masks, key_masks, params_t: TransformerLayerParams):
+            att_embedding_size = params_t.att_embedding_size
+            heads_num = params_t.heads_num
+            dropout_rate = params_t.dropout_rate
+            layer_name = params_t.layer_name
+            layer_index = params_t.layer_index
             num_units = att_embedding_size * heads_num
             embedding_size = int(keys.get_shape().as_list()[-1])
 
@@ -332,16 +344,17 @@ def model_fn(features, labels, mode, model_cfg):
 
             # encoder
             for i in range(encoder_num):
+                params_en = TransformerLayerParams(
+                    att_embedding_size=embeddings.get(his_key).get_shape().as_list()[-1] // heads_num,
+                    heads_num=heads_num,
+                    layer_name="%s_%s" % (his_key, his_key),
+                    layer_index=i
+                )
                 embeddings[his_key] = transformer_layer(queries=embeddings.get(his_key),
                                                         keys=embeddings.get(his_key),
                                                         query_masks=dense_len.get(his_key),
                                                         key_masks=dense_len.get(his_key),
-                                                        att_embedding_size=
-                                                        embeddings.get(his_key).get_shape().as_list()[
-                                                            -1] // heads_num,
-                                                        heads_num=heads_num,
-                                                        layer_name="%s_%s" % (his_key, his_key),
-                                                        layer_index=i)
+                                                        params_t=params_en)
 
             embeddings[target_key] = positional_encoding_learn(embeddings.get(target_key), maxlen=1,
                                                                scope=target_key + "_pos")
@@ -349,16 +362,17 @@ def model_fn(features, labels, mode, model_cfg):
 
             # decoder
             for j in range(decoder_num):
+                params_de = TransformerLayerParams(
+                    att_embedding_size=embeddings.get(his_key).get_shape().as_list()[-1] // heads_num,
+                    heads_num=heads_num,
+                    layer_name="%s_%s" % (target_key, his_key),
+                    layer_index=j
+                )
                 embeddings[his_key] = transformer_layer(queries=embeddings.get(target_key),
                                                         keys=embeddings.get(his_key),
                                                         query_masks=dense_len.get(target_key),
                                                         key_masks=dense_len.get(his_key),
-                                                        att_embedding_size=
-                                                        embeddings.get(his_key).get_shape().as_list()[
-                                                            -1] // heads_num,
-                                                        heads_num=heads_num,
-                                                        layer_name="%s_%s" % (target_key, his_key),
-                                                        layer_index=j)
+                                                        params_t=params_de)
 
     embedding = tf.concat(
         [embeddings[field_name] for field_name in spec["one_hot_fields"]] +
@@ -511,8 +525,9 @@ def main(_, model_cfg):
     model_cfg.model_dir = model_cfg.model_dir + datetime.now(china_tz).strftime('%Y%m%d')
 
     train_order = json_file_load("train_order", "./order.json")
-    tr_files = ["%strain/data_train.csv.tfrecord.%s" % (model_cfg.data_dir, index) for index in
-                train_order["reading_order"]]
+    tr_files = []
+    for index in train_order["reading_order"]:
+        tr_files.append("%strain/data_train.csv.tfrecord.%s" % (model_cfg.data_dir, index))
     va_files = glob.glob("%sval/data_val.csv.tfrecord.*" % model_cfg.data_dir)
     te_files = glob.glob("%stest/data_test.csv.tfrecord.*" % model_cfg.data_dir)
 
@@ -540,7 +555,7 @@ def main(_, model_cfg):
     model = NPUEstimator(model_fn=model_fn, model_dir=model_cfg.model_dir, config=config, model_cfg=model_cfg)
 
     hook = tf.estimator.experimental.stop_if_no_increase_hook(model, "auc_ctr",
-    max_steps_without_increase=spec["dataset_size"]["train"] // model_cfg.batch_size,
+    max_steps_without_increase=spec["dataset_size"][ "train"] // model_cfg.batch_size,
     run_every_secs=None, run_every_steps=10)
     hook_stop = tf.estimator.StopAtStepHook(last_step=200)
 
