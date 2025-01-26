@@ -1,6 +1,5 @@
 import torch
 from torchrec import EmbeddingBagCollection, EmbeddingBagConfig, PoolingType
-
 from dataset import Batch
 
 

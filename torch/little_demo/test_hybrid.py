@@ -1,10 +1,8 @@
 import os
 import logging
-
 import torch
 import torch.distributed as dist
 from torch.utils.data import DataLoader
-
 from torchrec.optim.keyed import CombinedOptimizer
 from torchrec.distributed import DistributedModelParallel
 from torchrec.distributed.types import ShardingEnv
@@ -14,14 +12,12 @@ from torchrec.distributed.planner import (
     Topology,
     ParameterConstraints,
 )
-
 from hybrid_torchrec.distributed.hybrid_train_pipeline import (
     HybridTrainPipelineSparseDist,
 )
 from hybrid_torchrec.distributed.sharding.hybrid_embeddingbag import (
     HybridEmbeddingBagCollectionSharder,
 )
-
 from dataset import RandomRecDataset
 from model import TestModel
 
