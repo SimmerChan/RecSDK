@@ -58,15 +58,15 @@ def define_flags():
 
 def parse_example(mode, example):
     parsed_exapmle = tf.io.parse_example(example, feature_descriptions[mode])
-    input = {}
+    input_data = {}
     target = {"y": parsed_exapmle["y"], "z": parsed_exapmle["z"]}
     for index, key in enumerate(spec["one_hot_fields"]):
-        input[key] = parsed_exapmle["one_hot_fields"][:, index]
+        input_data[key] = parsed_exapmle["one_hot_fields"][:, index]
     for key in spec["multi_hot_fields"]:
-        input[key] = parsed_exapmle[key]
+        input_data[key] = parsed_exapmle[key]
     for key in spec["special_fields"]:
-        input[key] = parsed_exapmle[key]
-    return input, target
+        input_data[key] = parsed_exapmle[key]
+    return input_data, target
 
 
 def input_fn(filenames, mode, batch_size=32, num_epochs=1, perform_shuffle=False):
@@ -184,7 +184,8 @@ def model_fn(features, labels, mode, model_cfg):
         )
 
         for key in ["206", "207", "216"]:
-            embeddings[key] = tf.nn.embedding_lookup(emb_weights.get(key), features.get(key), name=key + "_embedding_lookup")
+            embeddings[key] = tf.nn.embedding_lookup(emb_weights.get(key), features.get(key),
+                                                     name=key + "_embedding_lookup")
 
         embeddings["210"] = embedding_lookup_sparse_fake(emb_weights.get("210"), features.get("210"), combiner="sum",
                                                          name="210" + "_embedding_lookup")
@@ -352,7 +353,7 @@ def main(_, model_cfg):
 
     hook = tf.estimator.experimental.stop_if_no_increase_hook(model, "auc_ctr",
     max_steps_without_increase=spec["dataset_size"]["train"] // model_cfg.batch_size,
-    run_every_secs=None, run_every_steps=10)
+                                                              run_every_secs=None, run_every_steps=10)
     hook_stop = tf.estimator.StopAtStepHook(last_step=200)
 
     if model_cfg.task_type == "train":
