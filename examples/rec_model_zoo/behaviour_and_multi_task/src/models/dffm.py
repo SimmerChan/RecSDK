@@ -164,7 +164,7 @@ def model_fn(features, labels, mode, model_cfg):
     sparse_input = tf.stack(stack_emb, axis=1)  # None * 22 * E
 
     with tf.compat.v1.variable_scope("DFFI", reuse=tf.compat.v1.AUTO_REUSE):
-        domain_emb = embeddings["301"]
+        domain_emb = embeddings.get("301")
         domain_emb = tf.nn.relu(domain_emb)
         # map domain embedding
         meta_dnn_hidden_units = [16, 16]
@@ -241,7 +241,7 @@ def model_fn(features, labels, mode, model_cfg):
             dfub_his_len[his_key] = tf.reduce_sum(tf.cast(feature_dense >= 0, tf.int32), axis=1, keepdims=True)
             dense_mask = tf.expand_dims(tf.cast(feature_dense >= 0, tf.float32), axis=-1)  # None * P * 1
             feature_dense = tf.where(tf.equal(feature_dense, -1), tf.zeros_like(feature_dense), feature_dense)
-            emb = tf.nn.embedding_lookup(emb_weights[his_key], feature_dense,
+            emb = tf.nn.embedding_lookup(emb_weights.get(his_key), feature_dense,
                                          name=his_key + "_dfub_lookup")  # None * P * E
             dfub_his_emb[his_key] = tf.multiply(emb, dense_mask)
 
@@ -428,8 +428,10 @@ def main(_, model_cfg):
     model_cfg.model_dir = model_cfg.model_dir + (date.today() + timedelta(-1)).strftime('%Y%m%d')
 
     train_order = json_file_load("train_order", "./order.json")
-    tr_files = ["%strain/data_train.csv.tfrecord.%s" % (model_cfg.data_dir, index) for index in
-                train_order["reading_order"]]
+    tr_files = []
+    for index in train_order["reading_order"]:
+        tr_files.append("%strain/data_train.csv.tfrecord.%s" % (model_cfg.data_dir, index))
+
     va_files = glob.glob("%sval/data_val.csv.tfrecord.*" % model_cfg.data_dir)
     te_files = glob.glob("%stest/data_test.csv.tfrecord.*" % model_cfg.data_dir)
 
