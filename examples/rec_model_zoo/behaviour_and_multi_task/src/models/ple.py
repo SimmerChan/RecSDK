@@ -234,7 +234,7 @@ def model_fn(features, labels, mode, model_cfg):
 
                 cur_gate = tf.contrib.layers.fully_connected(inputs=inputs[-1], num_outputs=all_expert_num,
                                                              activation_fn=tf.nn.softmax,
-                                                             scope='level_%d_shared_gate_mlp' % level)  # None * all_expert_num
+                                                             scope='level_%d_shared_gate_mlp' % level)
 
                 cur_gate_shape = cur_gate.get_shape().as_list()
                 cur_gate = tf.reshape(cur_gate, shape=[-1, cur_gate_shape[1], 1])
