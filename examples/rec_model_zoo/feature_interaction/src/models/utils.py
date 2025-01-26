@@ -6,13 +6,13 @@ from typing import Dict, List
 
 
 def get_third_nearest_checkpoint(path):
-    filenames = glob.glob(path + '/model.ckpt-*.index')
+    filenames = glob.glob(os.path.join(path, 'model.ckpt-*.index'))
     pattern = re.compile(r'model.ckpt-(.*?).index', re.S)
     versions = []
     for filename in filenames:
         versions += [int(re.findall(pattern, filename)[0])]
     versions = sorted(versions)
-    return os.path.join(path, 'model.ckpt-'+str(versions[-3]))
+    return os.path.join(path, 'model.ckpt-' + str(versions[-3]))
 
 
 def dump_pred(preds: List[Dict[str, float]], data_dir: str) -> None:
@@ -32,4 +32,3 @@ def dump_pred(preds: List[Dict[str, float]], data_dir: str) -> None:
     with os.fdopen(os.open(pred_path, flags, modes), "w") as fo:
         for prob in preds:
             fo.write("%f\n" % (prob['prob']))
-

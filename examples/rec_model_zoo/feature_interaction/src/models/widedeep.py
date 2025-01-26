@@ -154,9 +154,9 @@ def model_fn(features, labels, mode, model_cfg):
     with tf.compat.v1.variable_scope("Deep-Layer"):
         deep_inputs = tf.reshape(embeddings_deep, shape=[-1, field_size * embedding_size])  # None * (F * E)
 
-        for i in range(len(layers)):
-            deep_inputs = tf.contrib.layers.fully_connected(inputs=deep_inputs, num_outputs=layers[i],
-                                                            scope='mlp%d' % i)
+        for layer_i, _ in enumerate(layers):
+            deep_inputs = tf.contrib.layers.fully_connected(inputs=deep_inputs, num_outputs=layers[layer_i],
+                                                            scope='mlp%d' % layer_i)
 
         deep_part = tf.contrib.layers.fully_connected(inputs=deep_inputs, num_outputs=1, activation_fn=tf.identity,
                                                       scope='deep_out')
