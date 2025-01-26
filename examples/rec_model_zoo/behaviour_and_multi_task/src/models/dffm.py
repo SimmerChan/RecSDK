@@ -36,6 +36,7 @@ random.seed(2024)
 
 MODEL_NAME = "DFFM"
 
+
 def define_flags():
     model_conf = tf.app.flags.FLAGS
     tf.app.flags.DEFINE_integer("embedding_size", 16, "Embedding size")
@@ -55,8 +56,6 @@ def define_flags():
     tf.app.flags.DEFINE_integer("max_seq_len", 50, "max length of sequence")
     tf.app.flags.DEFINE_string("log_level", "DEBUG", "log level {DEBUG, INFO, WARNING, ERROR, CRITICAL}")
     return model_conf
-
-
 
 
 def parse_example(mode, example):
@@ -121,6 +120,7 @@ def build_optimizer(model_cfg) -> tf.compat.v1.train.Optimizer:
         return tf.compat.v1.train.GradientDescentOptimizer(learning_rate=model_cfg.learning_rate)
     else:
         raise ValueError("Optimizer not supported: {}".format(model_cfg.optimizer))
+
 
 def model_fn(features, labels, mode, model_cfg):
     """build Estimator model"""
@@ -412,7 +412,6 @@ def main(_, model_cfg):
         model_cfg.dt_dir = (date.today() + timedelta(-1)).strftime('%Y%m%d')
     model_cfg.model_dir = model_cfg.model_dir + (date.today() + timedelta(-1)).strftime('%Y%m%d')
 
-
     train_order = json.load(open("./order.json"))
     tr_files = ["%strain/data_train.csv.tfrecord.%s" % (model_cfg.data_dir, index) for index in
                 train_order["reading_order"]]
@@ -443,9 +442,8 @@ def main(_, model_cfg):
     model = NPUEstimator(model_fn=model_fn, model_dir=model_cfg.model_dir, config=config, model_cfg=model_cfg)
 
     hook = tf.estimator.experimental.stop_if_no_increase_hook(model, "auc_ctr",
-                                                              max_steps_without_increase=spec["dataset_size"][
-                                                                                             "train"] // model_cfg.batch_size,
-                                                              run_every_secs=None, run_every_steps=10)
+    max_steps_without_increase=spec["dataset_size"]["train"] // model_cfg.batch_size,
+    run_every_secs=None, run_every_steps=10)
     hook_stop = tf.estimator.StopAtStepHook(last_step=200)
 
     if model_cfg.task_type == "train":
@@ -482,9 +480,10 @@ def main(_, model_cfg):
         dump_pred_prob(preds, model_cfg.data_dir)
 
     elif model_cfg.task_type == 'profiling_train':
-        model.train(input_fn=lambda: input_fn(tr_files, num_epochs=1, batch_size=model_cfg.batch_size, perform_shuffle=True,
-                                              mode=tf.estimator.ModeKeys.TRAIN),
-                    hooks=[hook_stop])
+        model.train(
+            input_fn=lambda: input_fn(tr_files, num_epochs=1, batch_size=model_cfg.batch_size, perform_shuffle=True,
+                                      mode=tf.estimator.ModeKeys.TRAIN),
+            hooks=[hook_stop])
 
     elif model_cfg.task_type == 'profiling_infer':
         preds = model.predict(input_fn=lambda: input_fn(te_files, num_epochs=1, batch_size=model_cfg.batch_size,
