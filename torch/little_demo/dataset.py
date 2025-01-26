@@ -37,7 +37,7 @@ class Batch(Pipelineable):
 
 
 class RandomRecDataset(IterableDataset[Batch]):
-    def __init__(self, batch_size, batch_num=32, feat_names=[], id_ranges=[]):
+    def __init__(self, batch_size, batch_num, feat_names, id_ranges):
         super().__init__()
         self.index = 0
         self.names = list(itertools.chain.from_iterable(feat_names))

@@ -16,7 +16,7 @@ from torchrec.distributed import DistributedModelParallel
 from torchrec.distributed.types import ShardingEnv
 
 from hybrid_torchrec.distributed.hybrid_train_pipeline import HybridTrainPipelineSparseDist
-from hybrid_torchrec.distributed.sharding.hybrid_embeddingbag import  HybridEmbeddingBagCollectionSharder
+from hybrid_torchrec.distributed.sharding.hybrid_embeddingbag import HybridEmbeddingBagCollectionSharder
 
 from dataset import RandomRecDataset
 from model import TestModel
