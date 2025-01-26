@@ -24,11 +24,12 @@ import shutil
 import logging
 from datetime import datetime
 from functools import partial
+from typing import Dict, Tuple
 
 import pytz
 import tensorflow as tf
-
 from npu_bridge.npu_init import NPUEstimator, NPURunConfig
+
 from utils import get_third_nearest_checkpoint
 
 tf.compat.v1.enable_control_flow_v2()
@@ -62,7 +63,7 @@ def define_flags():
     return model_conf
 
 
-def parse_example(mode_type: str, example: tf.Tensor) -> tuple:
+def parse_example(mode_type: str, example: tf.Tensor) -> Tuple[Dict[str, tf.Tensor], Dict[str, tf.Tensor]]:
     """
     Parse a single example for the given mode type.
 
@@ -71,7 +72,7 @@ def parse_example(mode_type: str, example: tf.Tensor) -> tuple:
         example (tf.Tensor): The serialized example to parse.
 
     Returns:
-        tuple: A tuple containing the input dictionary and target dictionary.
+        Tuple[Dict[str, tf.Tensor], Dict[str, tf.Tensor]]: A tuple containing the input dictionary and target dictionary.
     """
     # Parse the example using the feature descriptions for the given mode type
     parsed_example = tf.io.parse_example(example, feature_descriptions.get(mode_type))
@@ -218,7 +219,10 @@ def build_embedding_layer(features: dict, spec: dict, model_cfg: object) -> tf.T
         [embeddings.get(field_name) for field_name in spec.get("special_fields")],
         axis=2,
     )
-    return tf.reshape(embedding, [-1, 23 * model_cfg.embedding_size])
+
+    # sparse feature class num
+    embedding_feature_num = 23
+    return tf.reshape(embedding, [-1, embedding_feature_num * model_cfg.embedding_size])
 
 
 def build_experts(x_deep: tf.Tensor, model_cfg: object) -> tf.Tensor:
@@ -473,11 +477,10 @@ def model_fn(features: dict, labels: dict, mode: tf.estimator.ModeKeys,
         raise ValueError("Unsupported mode: {}".format(mode))
 
 
-
 def main(_, model_cfg):
     model_cfg.model_dir = model_cfg.model_dir + datetime.now(china_tz).strftime('%Y%m%d')
 
-    train_order = json_file_load("train_order", train_order_path)
+    train_order = json_file_load("train_order", "./order.json")
 
     tr_files = [
         "%strain/data_train.csv.tfrecord.%s" % (model_cfg.data_dir, index)
@@ -505,9 +508,8 @@ def main(_, model_cfg):
     model = NPUEstimator(model_fn=model_fn, model_dir=model_cfg.model_dir, config=config, model_cfg=model_cfg)
 
     hook = tf.estimator.experimental.stop_if_no_increase_hook(model, "auc_ctr",
-                                                              max_steps_without_increase=spec["dataset_size"][
-    "train"] // model_cfg.batch_size,
-                                                              run_every_secs=None, run_every_steps=10)
+    max_steps_without_increase=spec["dataset_size"]["train"] // model_cfg.batch_size,
+    run_every_secs=None, run_every_steps=10)
     hook_stop = tf.estimator.StopAtStepHook(last_step=200)
 
     if model_cfg.task_type == "train":
@@ -583,7 +585,6 @@ if __name__ == "__main__":
 
     spec_json_path = os.path.join(model_config.data_dir, "spec.json")
     spec = json_file_load("spec", spec_json_path)
-    train_order_path = os.path.join("./", "order.json")
 
     feature_descriptions = {}
     for mode in [tf.estimator.ModeKeys.TRAIN, tf.estimator.ModeKeys.EVAL, tf.estimator.ModeKeys.PREDICT]:
