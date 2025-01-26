@@ -26,7 +26,7 @@ from datetime import date, timedelta, datetime
 import pytz
 import numpy as np
 import tensorflow as tf
-from npu_bridge.estimator import NPUEstimator, NPURunConfig
+from npu_bridge.npu_init import NPUEstimator, NPURunConfig
 
 from utils import get_third_nearest_checkpoint
 
