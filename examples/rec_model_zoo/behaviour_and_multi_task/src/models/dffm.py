@@ -121,7 +121,7 @@ def build_optimizer(model_cfg) -> tf.compat.v1.train.Optimizer:
         raise ValueError("Optimizer not supported: {}".format(model_cfg.optimizer))
 
 
-def model_fn(features, labels, mode, model_cfg):
+def model_fn(features, labels, mode, params):
     """build Estimator model"""
 
     def embedding_lookup_sparse_fake(params, ids, combiner=None, name=None):
@@ -141,7 +141,7 @@ def model_fn(features, labels, mode, model_cfg):
         for key, vocab_len in spec["vocab_length"].items():
             emb_weights[key] = tf.compat.v1.get_variable(
                 name=key + "_emb_wgts",
-                shape=[vocab_len + 1, model_cfg.embedding_size],
+                shape=[vocab_len + 1, params.embedding_size],
                 dtype=tf.float32,
                 initializer=tf.random_normal_initializer(stddev=(2 / 512) ** 0.5),
             )
@@ -168,7 +168,7 @@ def model_fn(features, labels, mode, model_cfg):
         domain_emb = tf.nn.relu(domain_emb)
         # map domain embedding
         meta_dnn_hidden_units = [16, 16]
-        meta_dnn_hidden_units = [model_cfg.embedding_size] + meta_dnn_hidden_units
+        meta_dnn_hidden_units = [params.embedding_size] + meta_dnn_hidden_units
 
         meta_para = []
         for i in range(len(meta_dnn_hidden_units) - 1):
@@ -209,7 +209,7 @@ def model_fn(features, labels, mode, model_cfg):
         q = tf.gather(i_all_embeddings, axis=1, indices=col)
         inner_product = tf.reduce_sum(p * q, axis=2)
 
-    d_layer_input = tf.concat([inner_product, tf.reshape(i_all_embeddings, [-1, 22 * model_cfg.embedding_size * 2])],
+    d_layer_input = tf.concat([inner_product, tf.reshape(i_all_embeddings, [-1, 22 * params.embedding_size * 2])],
                               axis=-1)
 
     with tf.compat.v1.variable_scope("DFUB", reuse=tf.compat.v1.AUTO_REUSE):
@@ -218,7 +218,7 @@ def model_fn(features, labels, mode, model_cfg):
         for target_key in ["206", "207", "210", "216"]:
             target_dfub_weight = tf.compat.v1.get_variable(
                 name=f"target_dfub_emb_weight_{target_key}",
-                shape=[spec["vocab_length"][target_key] + 1, model_cfg.embedding_size * model_cfg.internal_size],
+                shape=[spec["vocab_length"][target_key] + 1, params.embedding_size * params.internal_size],
                 dtype=tf.float32,
                 initializer=tf.random_normal_initializer(stddev=(2 / 512) ** 0.5),
             )
@@ -231,7 +231,7 @@ def model_fn(features, labels, mode, model_cfg):
             else:
                 dfub_target_emb[target_key] = tf.reshape(
                     tf.nn.embedding_lookup(target_dfub_weight, features[target_key], name=target_key + "_dfub_lookup"),
-                    [-1, 1, model_cfg.embedding_size * model_cfg.internal_size]
+                    [-1, 1, params.embedding_size * params.internal_size]
                 )
 
         dfub_his_emb = {}
@@ -247,13 +247,13 @@ def model_fn(features, labels, mode, model_cfg):
 
         domain_dfub_weight = tf.compat.v1.get_variable(
             name=f"domain_dfub_emb_weight",
-            shape=[spec["vocab_length"]["301"] + 1, model_cfg.embedding_size * model_cfg.internal_size],
+            shape=[spec["vocab_length"]["301"] + 1, params.embedding_size * params.internal_size],
             dtype=tf.float32,
             initializer=tf.random_normal_initializer(stddev=(2 / 512) ** 0.5),
         )
         dfub_domain_emb = tf.reshape(
             tf.nn.embedding_lookup(domain_dfub_weight, features["301"], name="domain_dfub_lookup"),
-            [-1, 1, model_cfg.embedding_size * model_cfg.internal_size]
+            [-1, 1, params.embedding_size * params.internal_size]
         )
 
         @dataclass
@@ -267,33 +267,33 @@ def model_fn(features, labels, mode, model_cfg):
             k_tar_embedding = embeddings_t.k_tar_embedding
             v_tar_embedding = embeddings_t.v_tar_embedding
             w_q = tf.compat.v1.get_variable(name="weight_Q_%s" % scope,
-                                            shape=[model_cfg.embedding_size, model_cfg.internal_size],
+                                            shape=[params.embedding_size, params.internal_size],
                                             initializer=tf.random_normal_initializer(stddev=0.1), )
             w_k = tf.compat.v1.get_variable(name="weight_K_%s" % scope,
-                                            shape=[model_cfg.embedding_size, model_cfg.internal_size],
+                                            shape=[params.embedding_size, params.internal_size],
                                             initializer=tf.random_normal_initializer(stddev=0.1), )
             w_v = tf.compat.v1.get_variable(name="weight_V_%s" % scope,
-                                            shape=[model_cfg.embedding_size, model_cfg.internal_size],
+                                            shape=[params.embedding_size, params.internal_size],
                                             initializer=tf.random_normal_initializer(stddev=0.1), )
 
             w_res = tf.compat.v1.get_variable(name="weight_Res_%s" % scope,
-                                              shape=[model_cfg.embedding_size, model_cfg.embedding_size],
+                                              shape=[params.embedding_size, params.embedding_size],
                                               initializer=tf.random_normal_initializer(stddev=0.1), )
 
             queries = tf.tensordot(seqs, w_q, axes=(-1, 0))
             keys = tf.tensordot(seqs, w_k, axes=(-1, 0))
             values = tf.tensordot(seqs, w_v, axes=(-1, 0))
 
-            q_tar_embedding = tf.reshape(q_tar_embedding, [-1, model_cfg.internal_size, model_cfg.embedding_size])
+            q_tar_embedding = tf.reshape(q_tar_embedding, [-1, params.internal_size, params.embedding_size])
             queries = tf.matmul(queries, q_tar_embedding)
-            k_tar_embedding = tf.reshape(k_tar_embedding, [-1, model_cfg.internal_size, model_cfg.embedding_size])
+            k_tar_embedding = tf.reshape(k_tar_embedding, [-1, params.internal_size, params.embedding_size])
             keys = tf.matmul(keys, k_tar_embedding)
-            v_tar_embedding = tf.reshape(v_tar_embedding, [-1, model_cfg.internal_size, model_cfg.embedding_size])
+            v_tar_embedding = tf.reshape(v_tar_embedding, [-1, params.internal_size, params.embedding_size])
             values = tf.matmul(values, v_tar_embedding)
 
-            q_ = tf.concat(tf.split(queries, model_cfg.heads_num, axis=2), axis=0)
-            k_ = tf.concat(tf.split(keys, model_cfg.heads_num, axis=2), axis=0)
-            v_ = tf.concat(tf.split(values, model_cfg.heads_num, axis=2), axis=0)
+            q_ = tf.concat(tf.split(queries, params.heads_num, axis=2), axis=0)
+            k_ = tf.concat(tf.split(keys, params.heads_num, axis=2), axis=0)
+            v_ = tf.concat(tf.split(values, params.heads_num, axis=2), axis=0)
 
             outputs = tf.matmul(q_, k_, transpose_b=True)
 
@@ -305,7 +305,7 @@ def model_fn(features, labels, mode, model_cfg):
             query_masks = tf.squeeze(query_masks, axis=1)
             key_masks = tf.squeeze(key_masks, axis=1)
 
-            key_masks = tf.tile(key_masks, [model_cfg.heads_num, 1])
+            key_masks = tf.tile(key_masks, [params.heads_num, 1])
             key_masks = tf.tile(tf.expand_dims(key_masks, 1), [1, tf.shape(queries)[1], 1])
 
             paddings = tf.ones_like(outputs) * (-2 ** 32 + 1)
@@ -314,7 +314,7 @@ def model_fn(features, labels, mode, model_cfg):
             outputs -= tf.reduce_max(outputs, axis=-1, keepdims=True)
             outputs = tf.nn.softmax(outputs, axis=-1)
 
-            query_masks = tf.tile(query_masks, [model_cfg.heads_num, 1])
+            query_masks = tf.tile(query_masks, [params.heads_num, 1])
 
             query_masks = tf.tile(tf.expand_dims(
                 query_masks, -1), [1, 1, tf.shape(keys)[1]])
@@ -322,7 +322,7 @@ def model_fn(features, labels, mode, model_cfg):
             outputs *= query_masks
 
             result = tf.matmul(outputs, v_)
-            result = tf.concat(tf.split(result, model_cfg.heads_num, axis=0), axis=2)
+            result = tf.concat(tf.split(result, params.heads_num, axis=0), axis=2)
 
             result += tf.tensordot(seqs, w_res, axes=(-1, 0))
 
@@ -339,8 +339,8 @@ def model_fn(features, labels, mode, model_cfg):
             part_target_emb = dfub_target_emb[target_key]
             his_emb = dfub_his_emb[his_key]
             hist_mask = dfub_his_len[his_key]
-            part1_num = int(0.5 * model_cfg.embedding_size * model_cfg.internal_size)
-            part2_num = model_cfg.embedding_size * model_cfg.internal_size - part1_num
+            part1_num = int(0.5 * params.embedding_size * params.internal_size)
+            part2_num = params.embedding_size * params.internal_size - part1_num
             target_emb = tf.concat([part_target_emb[:, :, :part1_num], dfub_domain_emb[:, :, :part2_num]], axis=-1)
             target_emb_c = DFUBLayerEmbeddings(q_tar_embedding=target_emb, k_tar_embedding=target_emb,
                                                v_tar_embedding=target_emb)
@@ -355,7 +355,7 @@ def model_fn(features, labels, mode, model_cfg):
     d_layer_output = tf.concat([d_layer_input, dfub_output_emb], axis=-1)
 
     with tf.compat.v1.variable_scope("MLP-layer"):
-        deep_layers = list(map(int, model_cfg.deep_layers.strip().split(',')))
+        deep_layers = list(map(int, params.deep_layers.strip().split(',')))
 
         for layer_i, _ in enumerate(deep_layers):
             d_layer_output = tf.contrib.layers.fully_connected(inputs=d_layer_output, num_outputs=deep_layers[layer_i],
@@ -403,7 +403,7 @@ def model_fn(features, labels, mode, model_cfg):
         )
 
     # ------bulid optimizer------
-    optimizer = build_optimizer(model_cfg)
+    optimizer = build_optimizer(params)
 
     gvs = optimizer.compute_gradients(loss)
 
@@ -422,7 +422,7 @@ def model_fn(features, labels, mode, model_cfg):
         )
 
 
-def main(_, model_cfg):
+def main(model_cfg):
     if model_cfg.dt_dir == "":
         model_cfg.dt_dir = (date.today() + timedelta(-1)).strftime('%Y%m%d')
     model_cfg.model_dir = model_cfg.model_dir + (date.today() + timedelta(-1)).strftime('%Y%m%d')
@@ -456,7 +456,7 @@ def main(_, model_cfg):
         save_checkpoints_steps=spec["dataset_size"]["train"] // model_cfg.batch_size + 1,
         session_config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=False)
     )
-    model = NPUEstimator(model_fn=model_fn, model_dir=model_cfg.model_dir, config=config, model_cfg=model_cfg)
+    model = NPUEstimator(model_fn=model_fn, model_dir=model_cfg.model_dir, config=config, params=model_cfg)
 
     hook = tf.estimator.experimental.stop_if_no_increase_hook(model, "auc_ctr",
     max_steps_without_increase=spec["dataset_size"]["train"] // model_cfg.batch_size,
@@ -556,4 +556,4 @@ if __name__ == "__main__":
                                                                     tf.int64)
         feature_descriptions[mode] = feature_description
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.INFO)
-    tf.compat.v1.app.run(main=main, argv=[model_config])
+    tf.compat.v1.app.run(main=lambda argv: main(argv[0]), argv=[model_config])
