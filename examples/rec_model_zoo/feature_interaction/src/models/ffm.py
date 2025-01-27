@@ -105,7 +105,7 @@ def dump_pred(preds, model_cfg):
 
 
 def logistic_regression(feat_ids: tf.Tensor, feat_vals: tf.Tensor, feat_emb_lrb_lr: tf.Tensor,
-                        field_size: int) -> tf.Tensor:
+                        field_size: int) -> Tuple[tf.Tensor, tf.Tensor]:
     """
     Build logistic regression part of the model.
 
@@ -116,7 +116,7 @@ def logistic_regression(feat_ids: tf.Tensor, feat_vals: tf.Tensor, feat_emb_lrb_
         field_size (int): Number of fields.
 
     Returns:
-        tf.Tensor: Logistic regression part of the model.
+        Tuple[tf.Tensor, tf.Tensor]: Logistic regression part of the model.
     """
     with tf.compat.v1.variable_scope("Logistic-Regression"):
         embeddings_origin_lr = tf.nn.embedding_lookup(feat_emb_lrb_lr, feat_ids)  # None * F * 1
@@ -124,7 +124,7 @@ def logistic_regression(feat_ids: tf.Tensor, feat_vals: tf.Tensor, feat_emb_lrb_
         embeddings_lr = tf.multiply(embeddings_origin_lr, feat_vals)
         lr_bias = tf.compat.v1.get_variable(name='lr_bias', shape=[1], initializer=tf.constant_initializer(0.0))
         lr_part = tf.reduce_sum(embeddings_lr, axis=1) + lr_bias
-    return lr_part
+    return lr_part, feat_vals
 
 
 def field_factorization_machine(feat_ids: tf.Tensor, feat_vals: tf.Tensor, feat_emb_ffm: List[tf.Tensor],
@@ -202,7 +202,7 @@ def model_fn(features, labels, mode, params):
     feat_vals = tf.reshape(feat_vals, shape=[-1, field_size])
 
     # ------build f(x)------
-    lr_part = logistic_regression(feat_ids, feat_vals, feat_emb_lrb_lr, field_size)
+    lr_part, feat_vals = logistic_regression(feat_ids, feat_vals, feat_emb_lrb_lr, field_size)
     ffm_part = field_factorization_machine(feat_ids, feat_vals, feat_emb_ffm, field_size)
 
     y = lr_part + ffm_part
