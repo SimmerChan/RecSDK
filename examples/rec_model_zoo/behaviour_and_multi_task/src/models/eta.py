@@ -30,7 +30,6 @@ from npu_bridge.npu_init import NPUEstimator, NPURunConfig
 
 from utils import get_third_nearest_checkpoint, json_file_load, dump_pred_prob
 
-from cust_op.op_example.attention_fusion.test.test import param_attn_layer
 
 tf.compat.v1.set_random_seed(2024)
 random.seed(2024)
@@ -126,7 +125,7 @@ def build_optimizer(model_cfg) -> tf.compat.v1.train.Optimizer:
         raise ValueError("Optimizer not supported: {}".format(model_cfg.optimizer))
 
 
-def model_fn(features, labels, mode, model_cfg):
+def model_fn(features, labels, mode, params):
     """build Estimator model"""
 
     def embedding_lookup_sparse_fake(params, ids, combiner=None, name=None):
@@ -143,7 +142,7 @@ def model_fn(features, labels, mode, model_cfg):
 
     hash_weights = tf.compat.v1.get_variable(
         name="hash_weight",
-        shape=(model_cfg.embedding_size, model_cfg.hash_bits),
+        shape=(params.embedding_size, params.hash_bits),
         dtype=tf.float32,
         initializer=tf.random_normal_initializer(),
         trainable=False
@@ -154,7 +153,7 @@ def model_fn(features, labels, mode, model_cfg):
         for key, vocab_len in spec["vocab_length"].items():
             emb_weights[key] = tf.compat.v1.get_variable(
                 name=key + "_emb_wgts",
-                shape=[vocab_len + 1, model_cfg.embedding_size],
+                shape=[vocab_len + 1, params.embedding_size],
                 dtype=tf.float32,
                 initializer=tf.random_normal_initializer(stddev=(2 / 512) ** 0.5),
             )
@@ -165,7 +164,7 @@ def model_fn(features, labels, mode, model_cfg):
                     "205", "206", "207", "216", "508", "509", "702", "301"]:
             embeddings[key] = tf.nn.embedding_lookup(emb_weights.get(key), features.get(key),
                                                      name=key + "_embedding_lookup")
-            embeddings[key] = tf.reshape(embeddings[key], [-1, 1, model_cfg.embedding_size])
+            embeddings[key] = tf.reshape(embeddings[key], [-1, 1, params.embedding_size])
         for key in ["109_14", "110_14", "127_14", "150_14"]:
             feature_dense = features.get(key)
             masks[key] = tf.expand_dims(tf.cast(feature_dense >= 0, tf.bool), axis=1)  # None * P * 1
@@ -182,15 +181,15 @@ def model_fn(features, labels, mode, model_cfg):
     def long_emb_cat(field_name):
         dense_embedding = embeddings.get(field_name)
         dense_mask = masks.get(field_name)
-        paddings = [[0, 0], [0, model_cfg.max_seq_len], [0, 0]]
-        mask_paddings = [[0, 0], [0, 0], [0, model_cfg.max_seq_len]]
+        paddings = [[0, 0], [0, params.max_seq_len], [0, 0]]
+        mask_paddings = [[0, 0], [0, 0], [0, params.max_seq_len]]
         dense_embedding = tf.pad(dense_embedding, paddings, mode="CONSTANT", constant_values=0)
         dense_mask = tf.pad(dense_mask, mask_paddings, mode="CONSTANT", constant_values=0)
         return (
-            tf.slice(dense_embedding, [0, 0, 0], [-1, model_cfg.topk, -1]),
-            tf.slice(dense_embedding, [0, 0, 0], [-1, model_cfg.max_seq_len, -1]),
-            tf.slice(dense_mask, [0, 0, 0], [-1, -1, model_cfg.topk]),
-            tf.slice(dense_mask, [0, 0, 0], [-1, -1, model_cfg.max_seq_len]),
+            tf.slice(dense_embedding, [0, 0, 0], [-1, params.topk, -1]),
+            tf.slice(dense_embedding, [0, 0, 0], [-1, params.max_seq_len, -1]),
+            tf.slice(dense_mask, [0, 0, 0], [-1, -1, params.topk]),
+            tf.slice(dense_mask, [0, 0, 0], [-1, -1, params.max_seq_len]),
         )
 
     @dataclass
@@ -286,7 +285,7 @@ def model_fn(features, labels, mode, model_cfg):
         attention_dim = params_l.attention_dim
         num_heads = params_l.num_heads
 
-        random_rotations = hash_weights if model_cfg.reuse_hash else tf.random.normal(
+        random_rotations = hash_weights if params.reuse_hash else tf.random.normal(
             shape=(target_input.shape[-1], 32), dtype=tf.float32
         )
         target_hash = lsh_hash(target_input, random_rotations)
@@ -323,8 +322,8 @@ def model_fn(features, labels, mode, model_cfg):
             emb_short = emb_cat[0]
             mask_short = emb_cat[2]
             params_s = ShortAttentionParams(
-                attention_dim=model_cfg.attention_dim,
-                num_heads=model_cfg.num_heads,
+                attention_dim=params.attention_dim,
+                num_heads=params.num_heads,
                 index=index,
                 att_name="short"
             )
@@ -341,10 +340,10 @@ def model_fn(features, labels, mode, model_cfg):
             emb_long = emb_cat[1]
             mask_long = emb_cat[3]
             params_l = LongAttentionParams(
-                topk=model_cfg.topk,
+                topk=params.topk,
                 index=index,
-                attention_dim=model_cfg.attention_dim,
-                num_heads=model_cfg.num_heads
+                attention_dim=params.attention_dim,
+                num_heads=params.num_heads
             )
             long_attentions_arr.append(
                 long_attention(emb_target, emb_long, mask=mask_long, params_l=params_l)
@@ -358,10 +357,10 @@ def model_fn(features, labels, mode, model_cfg):
         axis=-1,
     )  # None * 1 * (27 * E)
 
-    x_deep = tf.reshape(embedding, [-1, (23 + 4) * model_cfg.embedding_size])  # None * (27 * E)
+    x_deep = tf.reshape(embedding, [-1, (23 + 4) * params.embedding_size])  # None * (27 * E)
 
     with tf.variable_scope("MLP-layer"):
-        deep_layers = list(map(int, model_cfg.deep_layers.strip().split(",")))
+        deep_layers = list(map(int, params.deep_layers.strip().split(",")))
         for layer_i, _ in enumerate(deep_layers):
             x_deep = tf.contrib.layers.fully_connected(
                 inputs=x_deep,
@@ -413,7 +412,7 @@ def model_fn(features, labels, mode, model_cfg):
         )
 
     # ------bulid optimizer------
-    optimizer = build_optimizer(model_cfg)
+    optimizer = build_optimizer(params)
 
     gvs = optimizer.compute_gradients(loss)
 
@@ -434,7 +433,7 @@ def model_fn(features, labels, mode, model_cfg):
         raise ValueError("mode should be one of tf.estimator.ModeKeys.TRAIN, EVAL, PREDICT")
 
 
-def main(_, model_cfg):
+def main(model_cfg):
     if model_cfg.dt_dir == "":
         model_cfg.dt_dir = (date.today() + timedelta(-1)).strftime('%Y%m%d')
     model_cfg.model_dir = model_cfg.model_dir + (date.today() + timedelta(-1)).strftime('%Y%m%d')
@@ -467,7 +466,7 @@ def main(_, model_cfg):
         save_checkpoints_steps=spec["dataset_size"]["train"] // model_cfg.batch_size + 1,
         session_config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=False)
     )
-    model = NPUEstimator(model_fn=model_fn, model_dir=model_cfg.model_dir, config=config)
+    model = NPUEstimator(model_fn=model_fn, model_dir=model_cfg.model_dir, config=config, params=model_cfg)
 
     hook = tf.estimator.experimental.stop_if_no_increase_hook(model, "auc_ctr",
     max_steps_without_increase=spec["dataset_size"]["train"] // model_cfg.batch_size,
@@ -566,4 +565,4 @@ if __name__ == "__main__":
                                                                     tf.int64)
         feature_descriptions[mode] = feature_description
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.INFO)
-    tf.compat.v1.app.run(main=main, argv=[model_config])
+    tf.compat.v1.app.run(main=lambda argv: main(argv[0]), argv=[model_config])
