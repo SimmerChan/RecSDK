@@ -134,7 +134,7 @@ def build_optimizer(model_cfg) -> tf.compat.v1.train.Optimizer:
         raise ValueError("Optimizer not supported: {}".format(model_cfg.optimizer))
 
 
-def model_fn(features, labels, mode, model_cfg):
+def model_fn(features, labels, mode, params):
     """build Estimator model"""
 
     def embedding_lookup_sparse_fake(params, ids, combiner=None, name=None):
@@ -154,7 +154,7 @@ def model_fn(features, labels, mode, model_cfg):
         for key, vocab_len in spec["vocab_length"].items():
             emb_weights[key] = tf.compat.v1.get_variable(
                 name=key + "_emb_wgts",
-                shape=[vocab_len + 1, model_cfg.embedding_size],
+                shape=[vocab_len + 1, params.embedding_size],
                 dtype=tf.float32,
                 initializer=tf.random_normal_initializer(stddev=(2 / 512) ** 0.5),
             )
@@ -165,7 +165,7 @@ def model_fn(features, labels, mode, model_cfg):
                     "205", "206", "207", "216", "508", "509", "702", "301"]:
             embeddings[key] = tf.nn.embedding_lookup(emb_weights.get(key), features.get(key),
                                                      name=key + "_embedding_lookup")
-            embeddings[key] = tf.reshape(embeddings[key], [-1, 1, model_cfg.embedding_size])
+            embeddings[key] = tf.reshape(embeddings[key], [-1, 1, params.embedding_size])
         for key in ["109_14", "110_14", "127_14", "150_14"]:
             feature_dense = features.get(key)
             dense_len[key] = tf.reduce_sum(tf.cast(feature_dense >= 0, tf.int32), axis=1, keepdims=True)
@@ -183,9 +183,9 @@ def model_fn(features, labels, mode, model_cfg):
             )
 
     with tf.compat.v1.variable_scope("Transformer-layer", reuse=tf.compat.v1.AUTO_REUSE):
-        encoder_num = model_cfg.encoder_blocks
-        decoder_num = model_cfg.decoder_blocks
-        heads_num = model_cfg.heads_num
+        encoder_num = params.encoder_blocks
+        decoder_num = params.decoder_blocks
+        heads_num = params.heads_num
 
         def positional_encoding(inputs, maxlen):
             embedding_dim = inputs.get_shape().as_list()[-1]  # static
@@ -339,7 +339,7 @@ def model_fn(features, labels, mode, model_cfg):
                 ["206", "207", "216", "210"],
                 ["109_14", "110_14", "127_14", "150_14"]
         ):
-            embeddings[his_key] = positional_encoding_learn(embeddings.get(his_key), maxlen=model_cfg.max_seq_len,
+            embeddings[his_key] = positional_encoding_learn(embeddings.get(his_key), maxlen=params.max_seq_len,
                                                             scope=his_key + "_pos")
 
             # encoder
@@ -381,14 +381,14 @@ def model_fn(features, labels, mode, model_cfg):
         axis=2,
     )  # None * 1 * (23 * E)
 
-    x_deep = tf.reshape(embedding, [-1, 23 * model_cfg.embedding_size])
+    x_deep = tf.reshape(embedding, [-1, 23 * params.embedding_size])
 
     experts = []
 
     with tf.compat.v1.variable_scope("experts-part"):
-        expert_units = list(map(int, model_cfg.expert_layers.strip().split(',')))
+        expert_units = list(map(int, params.expert_layers.strip().split(',')))
 
-        for i in range(model_cfg.experts_num):
+        for i in range(params.experts_num):
             y_dnn = x_deep
             for experts_j, _ in enumerate(expert_units):
                 y_dnn = tf.contrib.layers.fully_connected(inputs=y_dnn, num_outputs=expert_units[experts_j],
@@ -402,10 +402,10 @@ def model_fn(features, labels, mode, model_cfg):
     gate_networks = []
 
     with tf.compat.v1.variable_scope("gate-part"):
-        for i in range(model_cfg.task_num):
+        for i in range(params.task_num):
             gate_network = tf.contrib.layers.fully_connected(
                 inputs=x_deep,
-                num_outputs=model_cfg.experts_num,
+                num_outputs=params.experts_num,
                 activation_fn=tf.nn.softmax,
                 scope='gate_%d_mlp' % i)
             gate_network_shape = gate_network.get_shape().as_list()
@@ -418,7 +418,7 @@ def model_fn(features, labels, mode, model_cfg):
             task_outputs.append(tf.reshape(task_out, shape=[-1, task_out_shape[1] * task_out_shape[2]]))
 
     with tf.compat.v1.variable_scope("tower"):
-        tower_units = list(map(int, model_cfg.tower_layers.strip().split(',')))
+        tower_units = list(map(int, params.tower_layers.strip().split(',')))
 
         def build_tower(tower_input, name):
             y_tower = tower_input
@@ -466,7 +466,7 @@ def model_fn(features, labels, mode, model_cfg):
         epsilon = 1e-7
         click_weight = 0.14
         conversion_weight = 0.023
-        ctr_task_wgt = model_cfg.ctr_task_wgt
+        ctr_task_wgt = params.ctr_task_wgt
 
         ctr_loss = - (1 - click_weight) / click_weight * labels['y'] * tf.math.log(y_ctr_prediction + epsilon) - \
                    (1 - labels['y']) * tf.math.log(1 - y_ctr_prediction + epsilon)
@@ -498,7 +498,7 @@ def model_fn(features, labels, mode, model_cfg):
         )
 
     # ------bulid optimizer------
-    optimizer = build_optimizer(model_cfg)
+    optimizer = build_optimizer(params)
 
     gvs = optimizer.compute_gradients(loss)
 
@@ -519,7 +519,7 @@ def model_fn(features, labels, mode, model_cfg):
         raise ValueError("mode should be one of tf.estimator.ModeKeys.TRAIN/EVAL/PREDICT")
 
 
-def main(_, model_cfg):
+def main(model_cfg):
     if model_cfg.dt_dir == "":
         model_cfg.dt_dir = (date.today() + timedelta(-1)).strftime('%Y%m%d')
     model_cfg.model_dir = model_cfg.model_dir + datetime.now(china_tz).strftime('%Y%m%d')
@@ -552,7 +552,7 @@ def main(_, model_cfg):
         save_checkpoints_steps=spec["dataset_size"]["train"] // model_cfg.batch_size + 1,
         session_config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=False)
     )
-    model = NPUEstimator(model_fn=model_fn, model_dir=model_cfg.model_dir, config=config, model_cfg=model_cfg)
+    model = NPUEstimator(model_fn=model_fn, model_dir=model_cfg.model_dir, config=config, params=model_cfg)
 
     hook = tf.estimator.experimental.stop_if_no_increase_hook(model, "auc_ctr",
     max_steps_without_increase=spec["dataset_size"]["train"] // model_cfg.batch_size,
@@ -652,4 +652,4 @@ if __name__ == "__main__":
                                                                     tf.int64)
         feature_descriptions[mode] = feature_description
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.INFO)
-    tf.compat.v1.app.run(main=main, argv=[model_config])
+    tf.compat.v1.app.run(main=lambda argv: main(argv[0]), argv=[model_config])
