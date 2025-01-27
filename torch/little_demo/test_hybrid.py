@@ -76,6 +76,7 @@ def invoke_main():
 
     test_model = TestModel(TABLE_NAMES, FEAT_NAMES, EMBEBD_DIMS, NUM_EMBEBDS)
 
+    # Optimizer
     embedding_optimizer = torch.optim.Adagrad
     optimizer_kwargs = {"lr": 0.001, "eps": 0.1}
     apply_optimizer_in_backward(
