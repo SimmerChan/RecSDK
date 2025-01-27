@@ -422,7 +422,7 @@ def build_optimizer(loss: tf.Tensor, model_cfg: object) -> tf.Operation:
 
 
 def model_fn(features: dict, labels: dict, mode: tf.estimator.ModeKeys,
-             model_cfg: object) -> tf.estimator.EstimatorSpec:
+             params: object) -> tf.estimator.EstimatorSpec:
     """
     Build the model function for the estimator.
 
@@ -430,32 +430,32 @@ def model_fn(features: dict, labels: dict, mode: tf.estimator.ModeKeys,
         features (dict): The input features.
         labels (dict): The true labels.
         mode (tf.estimator.ModeKeys): The mode (TRAIN, EVAL, PREDICT).
-        model_cfg (object): The model configuration object.
+        params (object): The model configuration object.
 
     Returns:
         tf.estimator.EstimatorSpec: The EstimatorSpec object for the given mode.
     """
     # Build the embedding layer
-    x_deep = build_embedding_layer(features, spec, model_cfg)
+    x_deep = build_embedding_layer(features, spec, params)
 
     # Build the experts
-    experts = build_experts(x_deep, model_cfg)
+    experts = build_experts(x_deep, params)
 
     # Build the gate networks
-    gate_networks = build_gate_networks(x_deep, model_cfg)
+    gate_networks = build_gate_networks(x_deep, params)
 
     # Build the task outputs
     task_outputs = build_task_outputs(experts, gate_networks)
 
     # Build the predictions
-    predictions = build_predictions(task_outputs, model_cfg)
+    predictions = build_predictions(task_outputs, params)
 
     # Define the export outputs for serving
     export_outputs = {
         tf.saved_model.DEFAULT_SERVING_SIGNATURE_DEF_KEY: tf.estimator.export.PredictOutput(predictions)
     }
-    loss = build_loss(labels, predictions["ctr"], predictions["ctcvr"], model_cfg)
-    train_op = build_optimizer(loss, model_cfg)
+    loss = build_loss(labels, predictions["ctr"], predictions["ctcvr"], params)
+    train_op = build_optimizer(loss, params)
 
     if mode == tf.estimator.ModeKeys.PREDICT:
         return tf.estimator.EstimatorSpec(mode=mode, predictions=predictions, export_outputs=export_outputs)
@@ -478,7 +478,7 @@ def model_fn(features: dict, labels: dict, mode: tf.estimator.ModeKeys,
         raise ValueError("Unsupported mode: {}".format(mode))
 
 
-def main(_, model_cfg):
+def main(model_cfg):
     model_cfg.model_dir = model_cfg.model_dir + datetime.now(china_tz).strftime('%Y%m%d')
 
     train_order = json_file_load("train_order", "./order.json")
@@ -506,7 +506,7 @@ def main(_, model_cfg):
         save_checkpoints_steps=spec["dataset_size"]["train"] // model_cfg.batch_size + 1,
         session_config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=False)
     )
-    model = NPUEstimator(model_fn=model_fn, model_dir=model_cfg.model_dir, config=config, model_cfg=model_cfg)
+    model = NPUEstimator(model_fn=model_fn, model_dir=model_cfg.model_dir, config=config, params=model_cfg)
 
     hook = tf.estimator.experimental.stop_if_no_increase_hook(model, "auc_ctr",
     max_steps_without_increase=spec["dataset_size"]["train"] // model_cfg.batch_size,
@@ -617,4 +617,4 @@ if __name__ == "__main__":
         feature_descriptions[mode] = feature_description
 
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.INFO)
-    tf.compat.v1.app.run(main=main, argv=[model_config])
+    tf.compat.v1.app.run(main=lambda argv: main(argv[0]), argv=[model_config])
