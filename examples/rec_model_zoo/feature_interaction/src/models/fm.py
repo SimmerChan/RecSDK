@@ -50,6 +50,7 @@ def define_flags():
     tf.app.flags.DEFINE_string("servable_model_dir", '', "export servable model for TensorFlow Serving")
     tf.app.flags.DEFINE_string("task_type", 'train', "task type")
     tf.app.flags.DEFINE_boolean("clear_existing_model", True, "clear existing model or not")
+    tf.app.flags.DEFINE_string("log_level", "DEBUG", "log level {DEBUG, INFO, WARNING, ERROR, CRITICAL}")
     return model_conf
 
 
