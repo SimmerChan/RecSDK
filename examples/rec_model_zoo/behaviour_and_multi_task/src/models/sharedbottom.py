@@ -123,7 +123,7 @@ def build_optimizer(model_cfg) -> tf.compat.v1.train.Optimizer:
         raise ValueError("Optimizer not supported: {}".format(model_cfg.optimizer))
 
 
-def model_fn(features, labels, mode, model_cfg):
+def model_fn(features, labels, mode, params):
     """build Estimator model"""
 
     def embedding_lookup_sparse_fake(params, ids, combiner=None, name=None):
@@ -143,7 +143,7 @@ def model_fn(features, labels, mode, model_cfg):
         for key, vocab_len in spec["vocab_length"].items():
             emb_weights[key] = tf.compat.v1.get_variable(
                 name=key + "_emb_wgts",
-                shape=[vocab_len + 1, model_cfg.embedding_size],
+                shape=[vocab_len + 1, params.embedding_size],
                 dtype=tf.float32,
                 initializer=tf.random_normal_initializer(stddev=(2 / 512) ** 0.5),
             )
@@ -153,7 +153,7 @@ def model_fn(features, labels, mode, model_cfg):
                     "205", "206", "207", "216", "508", "509", "702", "301"]:
             embeddings[key] = tf.nn.embedding_lookup(emb_weights.get(key), features.get(key),
                                                      name=key + "_embedding_lookup")
-            embeddings[key] = tf.reshape(embeddings[key], [-1, 1, model_cfg.embedding_size])
+            embeddings[key] = tf.reshape(embeddings[key], [-1, 1, params.embedding_size])
         for key in ["109_14", "110_14", "127_14", "150_14", "210", "853"]:
             embeddings[key] = tf.expand_dims(
                 embedding_lookup_sparse_fake(emb_weights.get(key), features.get(key), combiner="sum",
@@ -168,10 +168,10 @@ def model_fn(features, labels, mode, model_cfg):
         axis=2,
     )  # None * 1 * (23 * E)
 
-    x_deep = tf.reshape(embedding, [-1, 23 * model_cfg.embedding_size])
+    x_deep = tf.reshape(embedding, [-1, 23 * params.embedding_size])
 
     with tf.compat.v1.variable_scope("shared-bottom"):
-        bottom_units = list(map(int, model_cfg.deep_layers.strip().split(',')))
+        bottom_units = list(map(int, params.deep_layers.strip().split(',')))
         bottom_output = x_deep
         for bottom_i, _ in enumerate(bottom_units):
             bottom_output = tf.contrib.layers.fully_connected(inputs=bottom_output, num_outputs=bottom_units[bottom_i],
@@ -179,7 +179,7 @@ def model_fn(features, labels, mode, model_cfg):
                                                               scope='bottom_mlp_%d' % bottom_i)
 
     with tf.compat.v1.variable_scope("tower"):
-        tower_units = list(map(int, model_cfg.tower_layers.strip().split(',')))
+        tower_units = list(map(int, params.tower_layers.strip().split(',')))
 
         def build_tower(tower_input, name):
             y_tower = tower_input
@@ -227,7 +227,7 @@ def model_fn(features, labels, mode, model_cfg):
         epsilon = 1e-7
         click_weight = 0.14
         conversion_weight = 0.023
-        ctr_task_wgt = model_cfg.ctr_task_wgt
+        ctr_task_wgt = params.ctr_task_wgt
 
         ctr_loss = - (1 - click_weight) / click_weight * labels['y'] * tf.math.log(y_ctr_prediction + epsilon) - \
                    (1 - labels['y']) * tf.math.log(1 - y_ctr_prediction + epsilon)
@@ -259,7 +259,7 @@ def model_fn(features, labels, mode, model_cfg):
         )
 
     # ------bulid optimizer------
-    optimizer = build_optimizer(model_cfg)
+    optimizer = build_optimizer(params)
 
     gvs = optimizer.compute_gradients(loss)
 
@@ -280,7 +280,7 @@ def model_fn(features, labels, mode, model_cfg):
         raise ValueError(f"Invalid mode: {mode}")
 
 
-def main(_, model_cfg):
+def main(model_cfg):
     if model_cfg.dt_dir == "":
         model_cfg.dt_dir = (date.today() + timedelta(-1)).strftime('%Y%m%d')
     model_cfg.model_dir = model_cfg.model_dir + (date.today() + timedelta(-1)).strftime('%Y%m%d')
@@ -313,7 +313,7 @@ def main(_, model_cfg):
         save_checkpoints_steps=spec["dataset_size"]["train"] // model_cfg.batch_size + 1,
         session_config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=False)
     )
-    model = NPUEstimator(model_fn=model_fn, model_dir=model_cfg.model_dir, config=config, model_cfg=model_cfg)
+    model = NPUEstimator(model_fn=model_fn, model_dir=model_cfg.model_dir, config=config, params=model_cfg)
 
     hook = tf.estimator.experimental.stop_if_no_increase_hook(model, "auc_ctr",
     max_steps_without_increase=spec["dataset_size"]["train"] // model_cfg.batch_size,
@@ -414,4 +414,4 @@ if __name__ == "__main__":
         feature_descriptions[mode] = feature_description
 
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.INFO)
-    tf.compat.v1.app.run()
+    tf.compat.v1.app.run(main=lambda argv: main(argv[0]), argv=[model_config])
