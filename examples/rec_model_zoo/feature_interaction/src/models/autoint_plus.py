@@ -152,68 +152,6 @@ def multihead_attention(x: tf.Tensor, embedding_dim: int, att_embedding_size: in
     return result
 
 
-def attention_layer(embeddings: tf.Tensor, attention_layers: int, embedding_size: int, att_size: int,
-                    heads_number: int) -> tf.Tensor:
-    """
-    Build the attention layer.
-
-    Args:
-        embeddings (tf.Tensor): Embedding layer output.
-        attention_layers (int): Number of attention layers.
-        embedding_size (int): Embedding size.
-        att_size (int): Attention size.
-        heads_number (int): Number of attention heads.
-
-    Returns:
-        tf.Tensor: Attention layer output.
-    """
-    attention_part = embeddings
-    for i in range(attention_layers):
-        attention_part = multihead_attention(x=attention_part, embedding_dim=embedding_size,
-                                             att_embedding_size=att_size, heads_num=heads_number,
-                                             layer_index=i)
-    return attention_part
-
-
-def fc_layer(attention_part: tf.Tensor, field_size: int, embedding_size: int) -> tf.Tensor:
-    """
-    Build the fully connected layer.
-
-    Args:
-        attention_part (tf.Tensor): Attention layer output.
-        field_size (int): Number of fields.
-        embedding_size (int): Embedding size.
-
-    Returns:
-        tf.Tensor: Fully connected layer output.
-    """
-    fc_inputs = tf.reshape(attention_part, shape=[-1, field_size * embedding_size])
-    y = tf.contrib.layers.fully_connected(inputs=fc_inputs, num_outputs=1, activation_fn=tf.identity, scope='fc_out')
-    return tf.reshape(y, shape=[-1])
-
-
-def deep_layer(embeddings: tf.Tensor, field_size: int, embedding_size: int, layers: List[int]) -> tf.Tensor:
-    """
-    Build the deep layer.
-
-    Args:
-        embeddings (tf.Tensor): Embedding layer output.
-        field_size (int): Number of fields.
-        embedding_size (int): Embedding size.
-        layers (List[int]): List of layer sizes.
-
-    Returns:
-        tf.Tensor: Deep layer output.
-    """
-    deep_inputs = tf.reshape(embeddings, shape=[-1, field_size * embedding_size])
-    for layer_i, _ in enumerate(layers):
-        deep_inputs = tf.contrib.layers.fully_connected(inputs=deep_inputs, num_outputs=layers[layer_i],
-                                                        scope='mlp%d' % layer_i)
-    y_mlp = tf.contrib.layers.fully_connected(inputs=deep_inputs, num_outputs=1, activation_fn=tf.identity,
-                                              scope='mlp_out')
-    return y_mlp
-
-
 def build_optimizer(optimizer_name: str, learning_rate: float) -> tf.compat.v1.train.Optimizer:
     """
     Build the optimizer.
@@ -261,9 +199,27 @@ def model_fn(features, labels, mode, params):
 
     # ------build f(x)------
     embeddings = embedding_layer(feat_ids, feat_vals, feat_emb_deep, field_size)
-    attention_part = attention_layer(embeddings, attention_layers, embedding_size, att_size, heads_number)
-    y = fc_layer(attention_part, field_size, embedding_size)
-    y_mlp = deep_layer(embeddings, field_size, embedding_size, layers)
+    with tf.compat.v1.variable_scope("Multihead-Attention-Layer", reuse=tf.compat.v1.AUTO_REUSE):
+        attention_part = embeddings
+        for i in range(attention_layers):
+            attention_part = multihead_attention(x=attention_part, embedding_dim=embedding_size,
+                                                 att_embedding_size=att_size, heads_num=heads_number,
+                                                 layer_index=i)
+    with tf.compat.v1.variable_scope("FC-Layer"):
+        fc_inputs = tf.reshape(attention_part, shape=[-1, field_size * embedding_size])
+
+        y = tf.contrib.layers.fully_connected(inputs=fc_inputs, num_outputs=1, activation_fn=tf.identity,
+                                              scope='fc_out')
+
+    with tf.compat.v1.variable_scope("Deep-Layer"):
+        deep_inputs = tf.reshape(embeddings, shape=[-1, field_size * embedding_size])  # None * (F * E)
+
+        for i in range(len(layers)):
+            deep_inputs = tf.contrib.layers.fully_connected(inputs=deep_inputs, num_outputs=layers[i],
+                                                            scope='mlp%d' % i)
+
+        y_mlp = tf.contrib.layers.fully_connected(inputs=deep_inputs, num_outputs=1, activation_fn=tf.identity,
+                                                  scope='mlp_out')
 
     y += y_mlp
     y = tf.reshape(y, shape=[-1])
@@ -365,8 +321,7 @@ def main(model_cfg):
     estimator = NPUEstimator(model_fn=model_fn, model_dir=model_cfg.model_dir, params=model_cfg, config=config)
 
     hook = tf.estimator.experimental.stop_if_no_increase_hook(estimator, "stop_criterion",
-    max_steps_without_increase=train_size // model_cfg.batch_size,
-    run_every_secs=None, run_every_steps=10)
+    max_steps_without_increase=train_size // model_cfg.batch_size, run_every_secs=None, run_every_steps=10)
     hook_stop = tf.estimator.StopAtStepHook(last_step=200)
     os.makedirs(estimator.eval_dir())
     if model_cfg.task_type == 'train':
