@@ -487,7 +487,8 @@ def main(model_cfg):
 
     elif model_cfg.task_type == "eval":
         model.evaluate(
-            input_fn=lambda: input_fn(te_files, num_epochs=1, batch_size=model_cfg.batch_size)
+            input_fn=lambda: input_fn(te_files, num_epochs=1, batch_size=model_cfg.batch_size,
+                                      mode=tf.estimator.ModeKeys.EVAL),
         )
 
     elif model_cfg.task_type == 'infer':
