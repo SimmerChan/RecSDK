@@ -263,8 +263,9 @@ def model_fn(features, labels, mode, params):
         def build_tower(tower_input, name):
             y_tower = tower_input
             for tower_i, _ in enumerate(tower_units):
-                y_tower = tf.contrib.layers.fully_connected(inputs=y_tower, num_outputs=tower_units[i],
-                                                            activation_fn=tf.nn.relu, scope=name + '_tower_mlp_%d' % i)
+                y_tower = tf.contrib.layers.fully_connected(inputs=y_tower, num_outputs=tower_units[tower_i],
+                                                            activation_fn=tf.nn.relu,
+                                                            scope=name + '_tower_mlp_%d' % tower_i)
             return y_tower
 
         # CTR
