@@ -273,13 +273,6 @@ def main(model_cfg):
         else:
             logger.warning("Model directory does not exist, skipping deletion.")
 
-    # ------bulid Tasks------
-    model_params = {
-        "field_size": model_cfg.field_size,
-        "feature_size": model_cfg.feature_size,
-        "embedding_size": model_cfg.embedding_size,
-        "learning_rate": model_cfg.learning_rate
-    }
 
     # ------ for NPU  ------
     config = NPURunConfig(
@@ -288,7 +281,7 @@ def main(model_cfg):
         save_checkpoints_steps=train_size // model_cfg.batch_size + 1,
         session_config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=False)
     )
-    estimator = NPUEstimator(model_fn=model_fn, model_dir=model_cfg.model_dir, params=model_params, config=config)
+    estimator = NPUEstimator(model_fn=model_fn, model_dir=model_cfg.model_dir, params=model_cfg, config=config)
 
     hook = tf.estimator.experimental.stop_if_no_increase_hook(estimator, "stop_criterion",
     max_steps_without_increase=train_size // model_cfg.batch_size, run_every_secs=None, run_every_steps=10)
