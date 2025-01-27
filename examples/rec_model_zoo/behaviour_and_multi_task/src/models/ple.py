@@ -126,7 +126,7 @@ def build_optimizer(model_cfg) -> tf.compat.v1.train.Optimizer:
         raise ValueError("Optimizer not supported: {}".format(model_cfg.optimizer))
 
 
-def model_fn(features, labels, mode, model_cfg):
+def model_fn(features, labels, mode, params):
     """build Estimator model"""
 
     def embedding_lookup_sparse_fake(params, ids, combiner=None, name=None):
@@ -146,7 +146,7 @@ def model_fn(features, labels, mode, model_cfg):
         for key, vocab_len in spec["vocab_length"].items():
             emb_weights[key] = tf.compat.v1.get_variable(
                 name=key + "_emb_wgts",
-                shape=[vocab_len + 1, model_cfg.embedding_size],
+                shape=[vocab_len + 1, params.embedding_size],
                 dtype=tf.float32,
                 initializer=tf.random_normal_initializer(stddev=(2 / 512) ** 0.5),
             )
@@ -155,7 +155,7 @@ def model_fn(features, labels, mode, model_cfg):
         for key in ["101", "121", "122", "124", "125", "126", "127", "128", "129",
                     "205", "206", "207", "216", "508", "509", "702", "301"]:
             embeddings[key] = tf.nn.embedding_lookup(emb_weights[key], features[key], name=key + "_embedding_lookup")
-            embeddings[key] = tf.reshape(embeddings[key], [-1, 1, model_cfg.embedding_size])
+            embeddings[key] = tf.reshape(embeddings[key], [-1, 1, params.embedding_size])
         for key in ["109_14", "110_14", "127_14", "150_14", "210", "853"]:
             embeddings[key] = tf.expand_dims(
                 embedding_lookup_sparse_fake(emb_weights[key], features[key], combiner="sum",
@@ -170,11 +170,11 @@ def model_fn(features, labels, mode, model_cfg):
         axis=2,
     )  # None * 1 * (23 * E)
 
-    x_deep = tf.reshape(embedding, [-1, 23 * model_cfg.embedding_size])
+    x_deep = tf.reshape(embedding, [-1, 23 * params.embedding_size])
 
     with (tf.compat.v1.variable_scope("PLE-Net", reuse=tf.compat.v1.AUTO_REUSE)):
-        exp_per_task = list(map(int, model_cfg.exp_per_task.strip().split(',')))
-        expert_units = list(map(int, model_cfg.expert_layers.strip().split(',')))
+        exp_per_task = list(map(int, params.exp_per_task.strip().split(',')))
+        expert_units = list(map(int, params.expert_layers.strip().split(',')))
 
         def ple_net(inputs, is_last, level):
             inputs_final = []
@@ -185,7 +185,7 @@ def model_fn(features, labels, mode, model_cfg):
             expert_outputs = []
 
             # task-specific expert part
-            for i in range(0, model_cfg.task_num):
+            for i in range(0, params.task_num):
                 for j in range(0, exp_per_task[i]):
                     inp = inputs_final[i]
                     for expert_k, _ in enumerate(expert_units):
@@ -196,7 +196,7 @@ def model_fn(features, labels, mode, model_cfg):
                     expert_outputs.append(inp)  # None * 1 * 256
 
             # shared expert part
-            for i in range(0, model_cfg.shared_num):
+            for i in range(0, params.shared_num):
                 inp = inputs_final[-1]
                 for expert_j, _ in enumerate(expert_units):
                     inp = tf.contrib.layers.fully_connected(inputs=inp, num_outputs=expert_units[expert_j],
@@ -208,8 +208,8 @@ def model_fn(features, labels, mode, model_cfg):
             outputs = []
 
             # cgc gate
-            for i in range(0, model_cfg.task_num):
-                cur_expert_num = exp_per_task[i] + model_cfg.shared_num
+            for i in range(0, params.task_num):
+                cur_expert_num = exp_per_task[i] + params.shared_num
 
                 cur_gate = tf.contrib.layers.fully_connected(inputs=inputs[i], num_outputs=cur_expert_num,
                                                              activation_fn=tf.nn.softmax,
@@ -220,7 +220,7 @@ def model_fn(features, labels, mode, model_cfg):
                 cur_gate = tf.reshape(cur_gate, shape=[-1, cur_gate_shape[1], 1])
 
                 cur_experts = expert_outputs[i * exp_per_task[i]:(i + 1) * exp_per_task[i]] + \
-                              expert_outputs[-int(model_cfg.shared_num):]
+                              expert_outputs[-int(params.shared_num):]
                 expert_concat = tf.concat(cur_experts, axis=1)  # None * cur_expert_num * 256
                 cur_gate_expert = tf.multiply(expert_concat, cur_gate)
                 cur_gate_expert = tf.reduce_sum(cur_gate_expert, axis=1)  # None * 256
@@ -228,7 +228,7 @@ def model_fn(features, labels, mode, model_cfg):
 
             # shared gate
             if not is_last:
-                all_expert_num = model_cfg.shared_num
+                all_expert_num = params.shared_num
                 for expert_num in exp_per_task:
                     all_expert_num += expert_num
 
@@ -248,17 +248,17 @@ def model_fn(features, labels, mode, model_cfg):
             return outputs
 
         task_inputs = []
-        for _ in range(model_cfg.task_num + 1):
+        for _ in range(params.task_num + 1):
             task_inputs.append(x_deep)
 
-        for i in range(model_cfg.level_number):
-            if i == model_cfg.level_number - 1:  # final layer
+        for i in range(params.level_number):
+            if i == params.level_number - 1:  # final layer
                 task_outputs = ple_net(task_inputs, is_last=True, level=i)
             else:
                 task_inputs = ple_net(task_inputs, is_last=False, level=i)
 
     with tf.compat.v1.variable_scope("tower"):
-        tower_units = list(map(int, model_cfg.tower_layers.strip().split(',')))
+        tower_units = list(map(int, params.tower_layers.strip().split(',')))
 
         def build_tower(tower_input, name):
             y_tower = tower_input
@@ -305,7 +305,7 @@ def model_fn(features, labels, mode, model_cfg):
         epsilon = 1e-7
         click_weight = 0.14
         conversion_weight = 0.023
-        ctr_task_wgt = model_cfg.ctr_task_wgt
+        ctr_task_wgt = params.ctr_task_wgt
 
         ctr_loss = - (1 - click_weight) / click_weight * labels['y'] * tf.math.log(y_ctr_prediction + epsilon) - \
                    (1 - labels['y']) * tf.math.log(1 - y_ctr_prediction + epsilon)
@@ -337,7 +337,7 @@ def model_fn(features, labels, mode, model_cfg):
         )
 
     # ------bulid optimizer------
-    optimizer = build_optimizer(model_cfg)
+    optimizer = build_optimizer(params)
 
     gvs = optimizer.compute_gradients(loss)
 
@@ -358,7 +358,7 @@ def model_fn(features, labels, mode, model_cfg):
         raise ValueError("mode should be 'train' or 'eval' or 'predict'.")
 
 
-def main(_, model_cfg):
+def main(model_cfg):
     if model_cfg.dt_dir == "":
         model_cfg.dt_dir = datetime.now(china_tz).strftime('%Y%m%d')
     model_cfg.model_dir = model_cfg.model_dir + datetime.now(china_tz).strftime('%Y%m%d')
@@ -391,7 +391,7 @@ def main(_, model_cfg):
         save_checkpoints_steps=spec["dataset_size"]["train"] // model_cfg.batch_size + 1,
         session_config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=False)
     )
-    model = NPUEstimator(model_fn=model_fn, model_dir=model_cfg.model_dir, config=config, model_cfg=model_cfg)
+    model = NPUEstimator(model_fn=model_fn, model_dir=model_cfg.model_dir, config=config, params=model_cfg)
 
     hook = tf.estimator.experimental.stop_if_no_increase_hook(model, "auc_ctr",
     max_steps_without_increase=spec["dataset_size"]["train"] // model_cfg.batch_size,
@@ -492,4 +492,4 @@ if __name__ == "__main__":
         feature_descriptions[mode] = feature_description
 
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.INFO)
-    tf.compat.v1.app.run()
+    tf.compat.v1.app.run(main=lambda argv: main(argv[0]), argv=[model_config])
