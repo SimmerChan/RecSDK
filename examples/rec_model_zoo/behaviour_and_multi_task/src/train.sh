@@ -13,7 +13,7 @@ export PREPROCESSED_DATASET=/home/ma-user/work/ydz/EffBench/behaviour_and_multi_
 models=("din" "bst" "eta" "can" "dffm" "esmm" "sharedbottom" "mmoe" "ple" "dmt")
 
 for model in ${models[@]}; do
-    python -u ./models/${model}.py --task_type=train \
+    python3 -u ./models/${model}.py --task_type=train \
                                     --data_dir=$PREPROCESSED_DATASET \
                                     --max_seq_len=50
 done

@@ -15,7 +15,7 @@ models=("din" "bst" "eta" "can" "dffm" "esmm" "sharedbottom" "mmoe" "ple" "dmt")
 
 
 for model in ${models[@]}; do
-    python -u ./models/${model}.py --task_type=profiling_train \
+    python3 -u ./models/${model}.py --task_type=profiling_train \
                                     --data_dir=$PREPROCESSED_DATASET \
                                     --max_seq_len=50
 done
