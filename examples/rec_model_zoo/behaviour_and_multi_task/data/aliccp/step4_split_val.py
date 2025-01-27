@@ -1,6 +1,7 @@
+import os
+import stat
 import argparse
 import math
-
 import numpy as np
 
 parser = argparse.ArgumentParser(description='Parse arguments')
@@ -15,7 +16,10 @@ np.random.seed(2024)
 def iter_count(file_name):
     from itertools import takewhile, repeat
     buffer = 1024 * 1024
-    with open(file_name) as f:
+    flags = os.O_RDONLY
+    modes = stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH
+    fd = os.open(file_name, flags, modes)
+    with os.fdopen(fd, 'r') as f:
         buf_gen = takewhile(lambda x: x, (f.read(buffer) for _ in repeat(None)))
         return sum(buf.count("\n") for buf in buf_gen)
 
@@ -27,19 +31,25 @@ def random_true_false(length: int, num_of_true: int):
 if __name__ == "__main__":
     line_count = iter_count("./sample_skeleton_test_parsed.csv")
     random_arr = random_true_false(line_count, int(line_count * 0.5))
-    testfile = open("sample_skeleton_test_splitted_parsed.csv", "w")
-    valfile = open("sample_skeleton_val_splitted_parsed.csv", "w")
-    with open("sample_skeleton_test_parsed.csv") as f:
-        p = 0
-        while True:
-            lines = f.readlines(int(1e7))
-            if len(lines) == 0:
-                break
-            for line in lines:
-                if random_arr[p]:
-                    testfile.write(line)
-                else:
-                    valfile.write(line)
-                p += 1
-    testfile.close()
-    valfile.close()
+
+    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+    modes = stat.S_IWUSR | stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH
+    testfile_fd = os.open("sample_skeleton_test_splitted_parsed.csv", flags, modes)
+    valfile_fd = os.open("sample_skeleton_val_splitted_parsed.csv", flags, modes)
+
+    with os.fdopen(testfile_fd, 'w') as testfile, os.fdopen(valfile_fd, 'w') as valfile:
+        flags = os.O_RDONLY
+        modes = stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH
+        fd = os.open("sample_skeleton_test_parsed.csv", flags, modes)
+        with os.fdopen(fd, 'r') as f:
+            p = 0
+            while True:
+                lines = f.readlines(int(1e7))
+                if len(lines) == 0:
+                    break
+                for line in lines:
+                    if random_arr[p]:
+                        testfile.write(line)
+                    else:
+                        valfile.write(line)
+                    p += 1

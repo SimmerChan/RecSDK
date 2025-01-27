@@ -23,7 +23,7 @@
     ```
 
 ## 训练
-
+首先需要在`train.sh`中修改PREPROCESSED_DATASET为数据集的路径。
 1. For **feature interaction learning** models:
     ```shell
     cd feature_interaction/src/

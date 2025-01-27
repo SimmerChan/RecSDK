@@ -3,11 +3,10 @@ import os
 import glob
 import json
 import argparse
-import math
 from multiprocessing import Pool
-
 import numpy as np
 import tensorflow as tf
+import stat
 
 parser = argparse.ArgumentParser(description='Parse arguments')
 parser.add_argument("--length", type=float, default=math.inf, help="max length for sequence fields")
@@ -20,7 +19,10 @@ args.length = math.inf if args.length == -1 else args.length
 def chunkify_file(filepath, output_file_path, chunk_size):
     chunks = []
     file_end = os.path.getsize(filepath)
-    with open(filepath, "rb") as f:
+    flags = os.O_RDONLY
+    modes = stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH
+    fd = os.open(filepath, flags, modes)
+    with os.fdopen(fd, "rb") as f:
         chunk_end = f.tell()
         count = 0
         while True:
@@ -41,10 +43,14 @@ def gen_tfrecords(chunk_start, chunk_size, input_file_path, output_file_path, ma
     fields = ["101", "109_14", "110_14", "127_14", "150_14", "121", "122", "124", "125", "126", "127", "128", "129",
               "205", "206", "207", "210", "216", "508", "509", "702", "853", "301"]
     multi_hot_fields = set(["109_14", "110_14", "127_14", "150_14", "210", "853"])
-    max_length_file_info = json.load(open(max_length_file_path, "r"))
+    flags = os.O_RDONLY
+    modes = stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH
+    max_length_file_info = json.load(os.fdopen(os.open(max_length_file_path, flags, modes), "r"))
 
+    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+    modes = stat.S_IWUSR | stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH
     tfrecord_out = tf.io.TFRecordWriter(out_file)
-    with open(input_file_path, "rb") as fi:
+    with os.fdopen(os.open(input_file_path, flags, modes), "rb") as fi:
         fi.seek(chunk_start)
         chunk = fi.read(chunk_size)
         assert chunk[
