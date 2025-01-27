@@ -271,9 +271,9 @@ def model_fn(features, labels, mode, params):
     with tf.compat.v1.variable_scope("BiInteraction-Layer"):
         se_part = se_layer(embeddings_deep, field_size, reduction_ratio)
         emb_p = tf.reshape(bilinear_interaction(embeddings_deep, field_size, embedding_size, bilinear_type, 'emb'),
-                           (-1, sum(layers)))
+                           (batch_size, -1))
         se_p = tf.reshape(bilinear_interaction(se_part, field_size, embedding_size, bilinear_type, 'se'),
-                          (-1, sum(layers)))
+                          (batch_size, -1))
 
     y = build_deep_layer(emb_p, se_p, layers)
 
