@@ -17,9 +17,9 @@ one_hot_fields = list(filter(lambda x: x not in multi_hot_fields and x not in sp
 
 def iter_count(file_name):
     buffer = 1024 * 1024
-    flags = os.O_RDONLY
-    modes = stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH
-    fd = os.open(file_name, flags, modes)
+    flags_ = os.O_RDONLY
+    modes_ = stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH
+    fd = os.open(file_name, flags_, modes_)
     with os.fdopen(fd, "r") as f:
         buf_gen = takewhile(lambda x: x, (f.read(buffer) for _ in repeat(None)))
         return sum(buf.count("\n") for buf in buf_gen)
@@ -51,7 +51,8 @@ if __name__ == "__main__":
     for key, value in file_spec["parts"].items():
         value.sort()
         for i, v in enumerate(value):
-            assert i == v, f"{part} index {i} not found"
+            if i != v:
+                raise ValueError(f"{part} index {i} not found")
         file_spec["parts"][key] = len(value)
 
     file_spec["dataset_size"] = {

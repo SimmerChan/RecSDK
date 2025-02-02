@@ -49,7 +49,7 @@ def parse_data(file_name, write_name):
                                 continue
                             else:
                                 field_dict[filed] += 1
-                            if not filed in sample_dict:
+                            if filed not in sample_dict:
                                 sample_dict[filed] = []
                             feat_mapped = map_dict[filed][feat] + 1 if feat in map_dict[filed].keys() else 0
                             sample_dict[filed].append(feat_mapped)
@@ -73,7 +73,7 @@ def parse_data(file_name, write_name):
                                 continue
                             else:
                                 field_dict[field] += 1
-                            if not filed in sample_dict:
+                            if filed not in sample_dict:
                                 sample_dict[filed] = []
                             feat_mapped = map_dict[filed][feat] + 1 if feat in map_dict[filed].keys() else 0
                             sample_dict[filed].append(feat_mapped)

@@ -19,7 +19,7 @@ fields = [
 
 
 def merge_data(common_file_name: str, skeleton_file_name: str, out_file_name: str):
-    fields = [
+    fields_ = [
         "101", "109_14", "110_14", "127_14", "150_14", "121", "122", "124", "125", "126", "127", "128", "129",
         "205", "206", "207", "210", "216", "508", "509", "702", "853", "301",
     ]
@@ -28,14 +28,13 @@ def merge_data(common_file_name: str, skeleton_file_name: str, out_file_name: st
     modes = stat.S_IWUSR | stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH
     with os.fdopen(os.open(out_file_name, flags, modes), "w") as write_file:
         common_dict: dict[str, str] = dict()
-        max_length_dict: dict[str, int] = dict(map(lambda s: [s, 0], fields))
+        max_length_dict: dict[str, int] = dict(map(lambda s: [s, 0], fields_))
 
         flags = os.O_RDONLY
         modes = stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH
         with os.fdopen(os.open(common_file_name, flags, modes), "r") as f:
             line_count = 0
             while True:
-                print(common_file_name, "processed", line_count, "lines")
                 lines = f.readlines(10000000000)
                 if len(lines) == 0:
                     break
@@ -47,7 +46,6 @@ def merge_data(common_file_name: str, skeleton_file_name: str, out_file_name: st
         with os.fdopen(os.open(skeleton_file_name, flags, modes), "r") as f:
             line_count = 0
             while True:
-                print(skeleton_file_name, "processed", line_count, "lines")
                 lines = f.readlines(1000000000)
                 if len(lines) == 0:
                     break
@@ -60,12 +58,12 @@ def merge_data(common_file_name: str, skeleton_file_name: str, out_file_name: st
                     for feat in all_feats:
                         key, value = feat.split(":")
                         local_dict[key] = value
-                    for field in fields:
+                    for field in fields_:
                         if field not in local_dict:
                             local_dict[field] = "0"
                         max_length_dict[field] = max(max_length_dict[field], len(local_dict[field].split("#")))
                     strs = []
-                    for field in fields:
+                    for field in fields_:
                         strs.append(local_dict[field])
                     lines_to_write.append(",".join(cells[:3] + strs) + "\n")
                 write_file.writelines(lines_to_write)

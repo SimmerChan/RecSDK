@@ -16,9 +16,9 @@ np.random.seed(2024)
 def iter_count(file_name):
     from itertools import takewhile, repeat
     buffer = 1024 * 1024
-    flags = os.O_RDONLY
-    modes = stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH
-    fd = os.open(file_name, flags, modes)
+    flags_ = os.O_RDONLY
+    modes_ = stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH
+    fd = os.open(file_name, flags_, modes_)
     with os.fdopen(fd, 'r') as f:
         buf_gen = takewhile(lambda x: x, (f.read(buffer) for _ in repeat(None)))
         return sum(buf.count("\n") for buf in buf_gen)

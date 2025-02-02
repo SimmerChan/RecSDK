@@ -6,6 +6,7 @@ import tensorflow as tf
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+
 def convert_tfrecords(input_filename, output_filename):
     """Concert the LibSVM contents to TFRecord.
     Args:

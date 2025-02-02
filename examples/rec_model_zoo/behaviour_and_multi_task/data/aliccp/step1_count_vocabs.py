@@ -38,9 +38,9 @@ def parse_data(file_name, index_dict_in=None):
                         continue
                     else:
                         field_dict[field] += 1
-                    if not field in index_dict_in:
+                    if field not in index_dict_in:
                         index_dict_in[field] = dict()
-                    if not feat in index_dict_in[field]:
+                    if feat not in index_dict_in[field]:
                         index_dict_in[field][feat] = 0
                     index_dict_in[field][feat] += shown_nums
 
@@ -50,9 +50,9 @@ def parse_data(file_name, index_dict_in=None):
                 if line[1] == "0" and line[2] == "1":
                     continue
 
-                if not "common_index" in index_dict_local:
+                if "common_index" not in index_dict_local:
                     index_dict_local["common_index"] = dict()
-                if not line[3] in index_dict_local["common_index"]:
+                if line[3] not in index_dict_local["common_index"]:
                     index_dict_local["common_index"][line[3]] = 0
                 index_dict_local["common_index"][line[3]] += 1
 
@@ -64,9 +64,9 @@ def parse_data(file_name, index_dict_in=None):
                         continue
                     else:
                         field_dict[field] += 1
-                    if not field in index_dict_local:
+                    if field not in index_dict_local:
                         index_dict_local[field] = dict()
-                    if not feat in index_dict_local[field]:
+                    if feat not in index_dict_local[field]:
                         index_dict_local[field][feat] = 0
                     index_dict_local[field][feat] += 1
     return index_dict_local
@@ -101,8 +101,8 @@ if __name__ == "__main__":
     ]
     train_data_path = "."
     test_data_path = "."
-    index_dict = parse_data(train_data_path + "/sample_skeleton_train.csv")
-    parse_data(train_data_path + "/common_features_train.csv", index_dict)
+    index_dict = parse_data(os.path.join(train_data_path, "sample_skeleton_train.csv"))
+    parse_data(os.path.join(train_data_path, "common_features_train.csv"), index_dict)
     index_dict.pop("common_index")
 
     json_str = json.dumps(index_dict, indent=4)

@@ -53,16 +53,19 @@ def gen_tfrecords(chunk_start, chunk_size, input_file_path, output_file_path, ma
     with os.fdopen(os.open(input_file_path, flags, modes), "rb") as fi:
         fi.seek(chunk_start)
         chunk = fi.read(chunk_size)
-        assert chunk[
-                   -1] == 10, f"ends not with \\n, but ascii code {chunk[-1]} {chunk_start}, {chunk_size}, {input_file_path}, {output_file_path}, {task_index}"
+        if chunk[-1] != 10:
+            raise ValueError(
+                f"ends not with \\n, but ascii code {chunk[-1]} {chunk_start}, {chunk_size}, "
+                f"{input_file_path}, {output_file_path}, {task_index}")
         lines = str(chunk, encoding="utf-8").strip().split("\n")
     for line in lines:
         cells = line.strip().split(',')
         # index, y, z, ids
         _, y, z = cells[:3]
         field_values = cells[3:]
-        assert len(field_values) == len(
-            fields), f"{line} values not enough, {chunk_start}, {chunk_size}, {input_file_path}, {output_file_path}, {task_index}"
+        if len(field_values) != len(fields):
+            raise(f"{line} values not enough, {chunk_start}, {chunk_size}, "
+                      f"{input_file_path}, {output_file_path}, {task_index}")
 
         feature = {
             "y": tf.train.Feature(float_list=tf.train.FloatList(value=[float(y)])),
@@ -73,7 +76,9 @@ def gen_tfrecords(chunk_start, chunk_size, input_file_path, output_file_path, ma
         for index, field in enumerate(fields):
             field_value_string = field_values[index]
             if field not in multi_hot_fields:
-                assert "#" not in field_value_string, f"{field} contains multi hot values, {chunk_start}, {chunk_size}, {input_file_path}, {output_file_path}, {task_index}"
+                if "#" in field_value_string:
+                    raise ValueError(f"{field} contains multi hot values, {chunk_start}, {chunk_size}, "
+                                     f"{input_file_path}, {output_file_path}, {task_index}")
                 one_hot_value_list.append(int(field_value_string))
             else:
                 field_value = list(map(lambda s: int(s), field_value_string.split("#")))
