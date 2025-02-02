@@ -34,11 +34,9 @@ if __name__ == "__main__":
 
     flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
     modes = stat.S_IWUSR | stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH
-    testfile_fd = os.open("sample_skeleton_test_splitted_parsed.csv", flags, modes)
-    valfile_fd = os.open("sample_skeleton_val_splitted_parsed.csv", flags, modes)
 
-    with os.fdopen(testfile_fd, 'w') as testfile:
-        with  os.fdopen(valfile_fd, 'w') as valfile:
+    with os.fdopen(os.open("sample_skeleton_test_splitted_parsed.csv", flags, modes), 'w') as testfile:
+        with  os.fdopen(os.open("sample_skeleton_val_splitted_parsed.csv", flags, modes), 'w') as valfile:
             flags = os.O_RDONLY
             modes = stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH
             fd = os.open("sample_skeleton_test_parsed.csv", flags, modes)
