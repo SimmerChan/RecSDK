@@ -37,19 +37,20 @@ if __name__ == "__main__":
     testfile_fd = os.open("sample_skeleton_test_splitted_parsed.csv", flags, modes)
     valfile_fd = os.open("sample_skeleton_val_splitted_parsed.csv", flags, modes)
 
-    with os.fdopen(testfile_fd, 'w') as testfile, os.fdopen(valfile_fd, 'w') as valfile:
-        flags = os.O_RDONLY
-        modes = stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH
-        fd = os.open("sample_skeleton_test_parsed.csv", flags, modes)
-        with os.fdopen(fd, 'r') as f:
-            p = 0
-            while True:
-                lines = f.readlines(int(1e7))
-                if len(lines) == 0:
-                    break
-                for line in lines:
-                    if random_arr[p]:
-                        testfile.write(line)
-                    else:
-                        valfile.write(line)
-                    p += 1
+    with os.fdopen(testfile_fd, 'w') as testfile:
+        with  os.fdopen(valfile_fd, 'w') as valfile:
+            flags = os.O_RDONLY
+            modes = stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH
+            fd = os.open("sample_skeleton_test_parsed.csv", flags, modes)
+            with os.fdopen(fd, 'r') as f:
+                p = 0
+                while True:
+                    lines = f.readlines(int(1e7))
+                    if len(lines) == 0:
+                        break
+                    for line in lines:
+                        if random_arr[p]:
+                            testfile.write(line)
+                        else:
+                            valfile.write(line)
+                        p += 1

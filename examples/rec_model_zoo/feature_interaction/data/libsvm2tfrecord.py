@@ -24,9 +24,9 @@ def convert_tfrecords(input_filename, output_filename):
             ids = []
             values = []
             for fea in data[1:]:
-                id, value = fea.split(":")
-                ids.append(int(id))
-                values.append(float(value))
+                id_, value_ = fea.split(":")
+                ids.append(int(id_))
+                values.append(float(value_))
             # Write samples one by one
             example = tf.train.Example(features=tf.train.Features(feature={
                 "label":

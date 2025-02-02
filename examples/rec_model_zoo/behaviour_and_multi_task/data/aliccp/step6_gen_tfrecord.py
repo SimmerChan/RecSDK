@@ -1,12 +1,14 @@
 import math
 import os
 import glob
+import stat
 import json
 import argparse
 from multiprocessing import Pool
+
 import numpy as np
 import tensorflow as tf
-import stat
+
 
 parser = argparse.ArgumentParser(description='Parse arguments')
 parser.add_argument("--length", type=float, default=math.inf, help="max length for sequence fields")
@@ -38,7 +40,9 @@ def chunkify_file(filepath, output_file_path, chunk_size):
     return chunks
 
 
-def gen_tfrecords(chunk_start, chunk_size, input_file_path, output_file_path, max_length_file_path, task_index):
+def gen_tfrecords(chunk_data):
+    chunk_start, chunk_size, input_file_path, output_file_path, max_length_file_path, task_index = chunk_data[0], \
+    chunk_data[1], chunk_data[2], chunk_data[3], chunk_data[4], chunk_data[5]
     out_file = output_file_path + ".{:05d}".format(task_index)
     fields = ["101", "109_14", "110_14", "127_14", "150_14", "121", "122", "124", "125", "126", "127", "128", "129",
               "205", "206", "207", "210", "216", "508", "509", "702", "853", "301"]
@@ -100,7 +104,7 @@ def gen_tfrecords(chunk_start, chunk_size, input_file_path, output_file_path, ma
 
 
 def gen_tfrecords_chunk(chunk_data):
-    gen_tfrecords(chunk_data[0], chunk_data[1], chunk_data[2], chunk_data[3], chunk_data[4], chunk_data[5])
+    gen_tfrecords(chunk_data)
 
 
 if not os.path.exists("./aliccp_out"):

@@ -18,8 +18,8 @@ def parse_data(file_name, write_name):
     with open("./keymap_train_pruned.json") as f:
         map_dict: dict[str, list[int]] = json.load(f)
     map_map_dict: dict[str, dict[str, int]] = dict()
-    for field, l in map_dict.items():
-        map_map_dict[field] = dict([(str(value), index) for index, value in enumerate(l)])
+    for field, l_val in map_dict.items():
+        map_map_dict[field] = dict([(str(value), index) for index, value in enumerate(l_val)])
     map_dict: dict[str, dict[str, int]] = map_map_dict
     flags = os.O_WRONLY | os.O_TRUNC
     modes = stat.S_IWUSR | stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH
