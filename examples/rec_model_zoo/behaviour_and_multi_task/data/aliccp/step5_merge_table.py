@@ -67,7 +67,8 @@ def merge_data(common_file_name: str, skeleton_file_name: str, out_file_name: st
                         strs.append(local_dict[field])
                     lines_to_write.append(",".join(cells[:3] + strs) + "\n")
                 write_file.writelines(lines_to_write)
-
+    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+    modes = stat.S_IWUSR | stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH
     with os.fdopen(os.open(out_file_name.replace(".csv", "_max_length.json"), flags, modes), "w") as fp:
         json.dump(max_length_dict, fp, indent=4)
 

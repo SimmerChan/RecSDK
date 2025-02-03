@@ -25,7 +25,7 @@ for key in obj.keys():
     new_dict[key] = arr
 
 json_str = json.dumps(new_dict, indent=4, sort_keys=True)
-flags = os.O_WRONLY | os.O_TRUNC
+flags = os.O_WRONLY | os.O_CREAT
 modes = stat.S_IWUSR | stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH
 with os.fdopen(os.open("keymap_train_pruned.json", flags, modes), "w") as json_file:
     json_file.write(json_str)
@@ -33,7 +33,7 @@ with os.fdopen(os.open("keymap_train_pruned.json", flags, modes), "w") as json_f
 for key in obj.keys():
     if not os.path.exists("./aliccp_out/vocab"):
         os.makedirs("./aliccp_out/vocab")
-    flags = os.O_WRONLY | os.O_TRUNC
+    flags = os.O_WRONLY | os.O_CREAT
     modes = stat.S_IWUSR | stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH
     with os.fdopen(os.open(os.path.join("./aliccp_out/vocab/vocab_", key), flags, modes), "w") as fp:
         fp.writelines([f"{val}\n" for val in new_dict[key]])

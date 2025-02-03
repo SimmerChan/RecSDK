@@ -106,7 +106,7 @@ if __name__ == "__main__":
     index_dict.pop("common_index")
 
     json_str = json.dumps(index_dict, indent=4)
-    flags = os.O_WRONLY | os.O_TRUNC
+    flags = os.O_WRONLY | os.O_CREAT
     modes = stat.S_IWUSR | stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH
     with os.fdopen(os.open("keymap_train.json", flags, modes), "w") as json_file:
         json_file.write(json_str)
