@@ -35,15 +35,14 @@ MODEL_NAME = "AFN_plus"
 
 def define_flags():
     model_conf = tf.app.flags.FLAGS
+    tf.app.flags.DEFINE_integer("train_size", 33003326, "Number of instances in the train set")
+    tf.app.flags.DEFINE_float("learning_rate", 0.001, "learning rate")
     tf.app.flags.DEFINE_integer("feature_size", 2100000, "Number of features")
     tf.app.flags.DEFINE_integer("field_size", 39, "Number of fields")
     tf.app.flags.DEFINE_integer("embedding_size", 10, "Embedding size")
     tf.app.flags.DEFINE_integer("hidden_size", 1500, "hidden unit size")
-    tf.app.flags.DEFINE_integer("train_size", 33003326, "Number of instances in the train set")
     tf.app.flags.DEFINE_integer("batch_size", 4096, "Number of batch size")
-    tf.app.flags.DEFINE_float("learning_rate", 0.001, "learning rate")
     tf.app.flags.DEFINE_string("optimizer", 'Adam', "optimizer type {Adam, Adagrad, GD, Momentum}")
-    tf.app.flags.DEFINE_string("deep_layers", '400,400,400', "deep layers")
     tf.app.flags.DEFINE_boolean("batch_norm", True, "perform batch normaization (True or False)")
     tf.app.flags.DEFINE_float("batch_norm_decay", 0.9, "decay for the moving average(recommend trying decay=0.9)")
     tf.app.flags.DEFINE_string("data_dir", '../data/criteo/', "data dir")
@@ -53,6 +52,7 @@ def define_flags():
     tf.app.flags.DEFINE_string("task_type", 'train', "task type")
     tf.app.flags.DEFINE_boolean("clear_existing_model", True, "clear existing model or not")
     tf.app.flags.DEFINE_string("log_level", "DEBUG", "log level {DEBUG, INFO, WARNING, ERROR, CRITICAL}")
+    tf.app.flags.DEFINE_string("deep_layers", '400,400,400', "deep layers")
     return model_conf
 
 
@@ -93,6 +93,25 @@ def input_fn(filenames: list, batch_size: int = 32, field_size: int = 39, num_ep
     iterator = tf.compat.v1.data.make_one_shot_iterator(dataset)
     batch_features, batch_labels = iterator.get_next()
     return batch_features, batch_labels
+
+def layer_first(embeddings_trans, field_size, hidden_size):
+    """
+    Apply the first layer transformation.
+
+    Args:
+        embeddings_trans (tf.Tensor): Transformed embeddings.
+        field_size (int): Number of fields.
+        hidden_size (int): Hidden layer size.
+
+    Returns:
+        tf.Tensor: Output of the first layer.
+    """
+    with tf.compat.v1.variable_scope("Layer_firtst"):
+        weights = tf.compat.v1.get_variable("h_lr_weights", shape=[field_size, hidden_size],
+                                            initializer=tf.random_normal_initializer(stddev=0.1))
+        biases = tf.compat.v1.get_variable('biases', [hidden_size], initializer=tf.constant_initializer(0))
+        layer1 = tf.einsum('bkf,fo->bko', embeddings_trans, weights) + biases
+    return layer_first
 
 
 def build_optimizer(loss: tf.Tensor, learning_rate: float, model_cfg: object) -> tf.Operation:
@@ -148,35 +167,27 @@ def model_fn(features, labels, mode, params):
 
     # ------build f(x)------
     with tf.compat.v1.variable_scope("Permutation-Layer"):
-        embeddings_origin = tf.nn.embedding_lookup(feat_emb, feat_ids)  # None * F * E
-        embeddings_origin_deep = tf.nn.embedding_lookup(feat_emb_deep, feat_ids)  # None * F * E
-        feat_vals = tf.reshape(feat_vals, shape=[-1, field_size, 1])  # None * F * 1
+        embeddings_origin = tf.nn.embedding_lookup(feat_emb, feat_ids)
+        embeddings_origin_deep = tf.nn.embedding_lookup(feat_emb_deep, feat_ids)
+        feat_vals = tf.reshape(feat_vals, shape=[-1, field_size, 1])
         embeddings = tf.multiply(embeddings_origin, feat_vals)
         embeddings_deep = tf.multiply(embeddings_origin_deep, feat_vals)
-        embeddings_trans = tf.transpose(embeddings, perm=[0, 2, 1])  # None * E * F
-        embeddings_trans = tf.math.log(embeddings_trans, name="log_input")
-        embeddings_trans = tf.debugging.check_numerics(embeddings_trans, "log2")
+        em_trans = tf.transpose(embeddings, perm=[0, 2, 1])
+        em_trans = tf.math.log(em_trans, name="log_input")
+        em_trans = tf.debugging.check_numerics(em_trans, "log2")
 
-        if mode == tf.estimator.ModeKeys.TRAIN:
-            train_phase = True
-        else:
-            train_phase = False
+        train_phase = (mode == tf.estimator.ModeKeys.TRAIN)
 
-        embeddings_trans = batch_norm_layer(embeddings_trans, train_phase=train_phase,
+
+        em_trans = batch_norm_layer(em_trans, train_phase=train_phase,
                                             scope_bn='bn_log', model_cfg=params)
 
-    with tf.compat.v1.variable_scope("Layer-1"):
-        hidden_size = params.hidden_size
-        weights = tf.compat.v1.get_variable("h_lr_weights", shape=[field_size, hidden_size],
-                                            initializer=tf.random_normal_initializer(stddev=0.1))
-        biases = tf.compat.v1.get_variable('biases', [hidden_size], initializer=tf.constant_initializer(0))
-        layer1 = tf.einsum('bkf,fo->bko', embeddings_trans, weights) + biases
-
+    layer1 = layer_first(em_trans, field_size, params.hidden_size)
     with tf.compat.v1.variable_scope("Deep-Layer"):
         interactions = tf.exp(layer1, name="restored_input")  # None * E * O
         interactions = batch_norm_layer(interactions, train_phase=train_phase,
                                         scope_bn='bn_inter', model_cfg=params)
-        deep_inputs = tf.reshape(interactions, shape=[-1, embedding_size * hidden_size])  # None * (E * O)
+        deep_inputs = tf.reshape(interactions, shape=[-1, embedding_size * params.hidden_size])  # None * (E * O)
 
         for layer_i, _ in enumerate(layers):
             deep_inputs = tf.contrib.layers.fully_connected(inputs=deep_inputs, num_outputs=layers[layer_i],
