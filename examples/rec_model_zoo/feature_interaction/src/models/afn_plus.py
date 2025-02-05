@@ -94,6 +94,7 @@ def input_fn(filenames: list, batch_size: int = 32, field_size: int = 39, num_ep
     batch_features, batch_labels = iterator.get_next()
     return batch_features, batch_labels
 
+
 def layer_first(embeddings_trans, field_size, hidden_size):
     """
     Apply the first layer transformation.
