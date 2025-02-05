@@ -110,8 +110,8 @@ def layer_first(embeddings_trans, field_size, hidden_size):
         weights = tf.compat.v1.get_variable("h_lr_weights", shape=[field_size, hidden_size],
                                             initializer=tf.random_normal_initializer(stddev=0.1))
         biases = tf.compat.v1.get_variable('biases', [hidden_size], initializer=tf.constant_initializer(0))
-        layer1 = tf.einsum('bkf,fo->bko', embeddings_trans, weights) + biases
-    return layer_first
+        layer_out = tf.einsum('bkf,fo->bko', embeddings_trans, weights) + biases
+    return layer_out
 
 
 def build_optimizer(loss: tf.Tensor, learning_rate: float, model_cfg: object) -> tf.Operation:
@@ -182,9 +182,9 @@ def model_fn(features, labels, mode, params):
         em_trans = batch_norm_layer(em_trans, train_phase=train_phase,
                                             scope_bn='bn_log', model_cfg=params)
 
-    layer1 = layer_first(em_trans, field_size, params.hidden_size)
+    layer_out = layer_first(em_trans, field_size, params.hidden_size)
     with tf.compat.v1.variable_scope("Deep-Layer"):
-        interactions = tf.exp(layer1, name="restored_input")  # None * E * O
+        interactions = tf.exp(layer_out, name="restored_input")  # None * E * O
         interactions = batch_norm_layer(interactions, train_phase=train_phase,
                                         scope_bn='bn_inter', model_cfg=params)
         deep_inputs = tf.reshape(interactions, shape=[-1, embedding_size * params.hidden_size])  # None * (E * O)
