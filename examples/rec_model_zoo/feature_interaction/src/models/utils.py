@@ -9,10 +9,10 @@ def get_third_nearest_checkpoint(path):
     filenames = glob.glob(os.path.join(path, 'model.ckpt-*.index'))
     pattern = re.compile(r'model.ckpt-(.*?).index', re.S)
     versions = []
-    for filename in filenames:
-        versions += [int(re.findall(pattern, filename)[0])]
-    versions = sorted(versions)
-    return os.path.join(path, 'model.ckpt-' + str(versions[-3]))
+    for file in filenames:
+        versions += [int(re.findall(pattern, file)[0])]
+    versions_sorted = sorted(versions)
+    return os.path.join(path, 'model.ckpt-' + str(versions_sorted[-3]))
 
 
 def dump_pred(preds: List[Dict[str, float]], data_dir: str) -> None:
