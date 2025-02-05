@@ -65,11 +65,11 @@ if __name__ == "__main__":
 
     for key in ["train", "val", "test"]:
         filename = f"data_{key}_max_length.json"
-        flags = os.O_RDONLY
+        flags_key = os.O_RDONLY
         modes = stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH
-        file_spec[f"{key}_max_length"] = json.load(os.fdopen(os.open(filename, flags, modes), "r"))
+        file_spec[f"{key}_max_length"] = json.load(os.fdopen(os.open(filename, flags_key, modes), "r"))
 
-    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+    flags_spec = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
     modes = stat.S_IWUSR | stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH
-    with os.fdopen(os.open(os.path.join(flags["output_dir"], "spec.json"), flags, modes), "w") as fp:
+    with os.fdopen(os.open(os.path.join(flags["output_dir"], "spec.json"), flags_spec, modes), "w") as fp:
         json.dump(file_spec, fp, indent=2)
