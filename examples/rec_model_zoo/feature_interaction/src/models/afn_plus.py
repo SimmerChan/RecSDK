@@ -115,6 +115,52 @@ def layer_first(embeddings_trans, field_size, hidden_size):
     return layer_out
 
 
+def plus_deep_layer(embeddings_deep, field_size, embedding_size, layers_dnn):
+    """
+    Apply the plus deep layer transformation.
+
+    Args:
+        embeddings_deep (tf.Tensor): Deep embeddings.
+        field_size (int): Number of fields.
+        embedding_size (int): Embedding size.
+        layers_dnn (list): List of DNN layer sizes.
+
+    Returns:
+        tf.Tensor: Output of the plus deep layer.
+    """
+    with tf.compat.v1.variable_scope("Plus-Deep-Layer"):
+        deep_inputs = tf.reshape(embeddings_deep, shape=[-1, field_size * embedding_size])  # None * (F * E)
+
+        for dnn_i, _ in enumerate(layers_dnn):
+            deep_inputs = tf.contrib.layers.fully_connected(inputs=deep_inputs, num_outputs=layers_dnn[dnn_i],
+                                                            scope='plus_mlp%d' % dnn_i)
+
+        y_deep = tf.contrib.layers.fully_connected(inputs=deep_inputs, num_outputs=1, activation_fn=tf.identity,
+                                                   scope='plus_deep_out')
+        y_d = tf.reshape(y_deep, shape=[-1])
+    return y_d
+
+
+def combine_layers(y_d, y_afn):
+    """
+    Combine the outputs of the deep and plus deep layers.
+
+    Args:
+        y_d (tf.Tensor): Output of the plus deep layer.
+        y_afn (tf.Tensor): Output of the deep layer.
+
+    Returns:
+        tf.Tensor: Combined output.
+    """
+    w1 = tf.compat.v1.get_variable(name='w1', shape=[1], initializer=tf.constant_initializer(0.5))
+    w2 = tf.compat.v1.get_variable(name='w2', shape=[1], initializer=tf.constant_initializer(0.5))
+    b_p = tf.compat.v1.get_variable(name='b_p', shape=[1], initializer=tf.constant_initializer(0.0))
+    y_1 = w1 * tf.stop_gradient(y_d)
+    y_2 = w2 * tf.stop_gradient(y_afn)
+    y = y_1 + y_2 + b_p
+    return y
+
+
 def build_optimizer(loss: tf.Tensor, learning_rate: float, model_cfg: object) -> tf.Operation:
     """
     Build the optimizer.
@@ -198,23 +244,8 @@ def model_fn(features, labels, mode, params):
                                                    scope='deep_out')
         y_afn = tf.reshape(y_deep, shape=[-1])
 
-    with tf.compat.v1.variable_scope("Plus-Deep-Layer"):
-        deep_inputs = tf.reshape(embeddings_deep, shape=[-1, field_size * embedding_size])  # None * (F * E)
-
-        for dnn_i, _ in enumerate(layers_dnn):
-            deep_inputs = tf.contrib.layers.fully_connected(inputs=deep_inputs, num_outputs=layers_dnn[dnn_i],
-                                                            scope='plus_mlp%d' % dnn_i)
-
-        y_deep = tf.contrib.layers.fully_connected(inputs=deep_inputs, num_outputs=1, activation_fn=tf.identity,
-                                                   scope='plus_deep_out')
-        y_d = tf.reshape(y_deep, shape=[-1])
-
-    w1 = tf.compat.v1.get_variable(name='w1', shape=[1], initializer=tf.constant_initializer(0.5))
-    w2 = tf.compat.v1.get_variable(name='w2', shape=[1], initializer=tf.constant_initializer(0.5))
-    b_p = tf.compat.v1.get_variable(name='b_p', shape=[1], initializer=tf.constant_initializer(0.0))
-    y_1 = w1 * tf.stop_gradient(y_d)
-    y_2 = w2 * tf.stop_gradient(y_afn)
-    y = y_1 + y_2 + b_p
+    y_d = plus_deep_layer(embeddings_deep, field_size, embedding_size, layers_dnn)
+    y = combine_layers(y_d, y_afn)
 
     pred = tf.sigmoid(y)
 
@@ -223,7 +254,6 @@ def model_fn(features, labels, mode, params):
         tf.saved_model.DEFAULT_SERVING_SIGNATURE_DEF_KEY: tf.estimator.export.PredictOutput(
             predictions)}
 
-    # ------bulid loss------
     loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=y, labels=labels)) \
            + tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=y_d, labels=labels)) \
            + tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=y_afn, labels=labels))
