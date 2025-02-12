@@ -1,11 +1,11 @@
 # dlrm 300IDUO 推理适配说明
 
 ## 迁移说明
-1. 源码地址：(DLRM)[https://github.com/NVIDIA/DeepLearningExamples/tree/master/PyTorch/Recommendation/DLRM]
+1. 源码地址：[DLRM](https://github.com/NVIDIA/DeepLearningExamples/tree/master/PyTorch/Recommendation/DLRM)
 2. 提交的SHA-1 hash值 729963dd47e7c8bd462ad10bfac7a7b0b604e6dd
 
 ## 启动容器
-1. 镜像地址： https://www.hiascend.com/developer/ascendhub/detail/39730c7af872464ba25be1c2ce15915f
+1. 镜像地址： https://www.hiascend.com/developer/ascendhub/detail/af85b724a7e5469ebd7ea13c3439d48f
 2. 创建启动脚本如下：
 ```bash
 docker run \
@@ -16,7 +16,7 @@ docker run \
 --shm-size="300g" \
 --privileged \
 -v /etc/localtime:/etc/localtime \
--e ASCEND_VISIBLE_DEVICES=0-4 \
+-e ASCEND_VISIBLE_DEVICES=0-3 \
 -v /etc/ascend_install.info:/etc/ascend_install.info \
 -v /home:/home \
 -v /root/ascend:/root/ascend \
@@ -27,14 +27,15 @@ ${image_name} \
 ```
 
 ## python、pytorch、CANN版本
-1. python 3.9.2
+1. python 3.11.6
 2. pytorch 2.1.0
-3. CANN 8.0.RC2.2
+3. CANN 8.0.0
 
 ## python 安装依赖
-1. (dllogger)[https://github.com/NVIDIA/dllogger]
-2. tqdm
-3. torch_npu
+1. [dllogger](https://github.com/NVIDIA/dllogger) 1.0.0
+2. tqdm 4.66.5
+3. torch_npu 2.1.0.post10
+4. [Apex Patch](https://gitee.com/luweizheng/ascend-apex) 0.1+ascend
 
 ## 设置环境变量
 `source /usr/local/Ascend/ascend-toolkit/set_env.sh`
@@ -105,35 +106,7 @@ else:
 7. /dlrm/nn/parts.py
 删除59行
 8. 添加文件/dlrm/scripts/caculate_loss_auc.py(不在推理阶段进行AUC和loss计算，单独脚本计算)
-```python
-from absl import app, flags
-
-import torch
-import torch_npu
-
-import dlrm.scripts.utils as utils
-
-FLAGS = flags.FLAGS
-
-flags.DEFINE_string("path", None, "Path to the model")
-
-
-loss_fn = torch.nn.BCEWithLogitsLoss(reduction="mean")
-
-
-def caculate(argv):
-    path = FLAGS.path
-    output_click_lst = torch.load(path)
-    for i, output_click in enumerate(output_click_lst):
-        y_true, y_score = output_click
-        y_score = torch.sigmoid(y_score).float()
-        auc = utils.roc_auc_score(y_true, y_score)
-        loss = loss_fn(y_score, y_true).item()
-        print(f"step {i}, loss: {loss}, auc: {auc}")
-
-if __name__ == "__main__":
-    app.run(caculate)
-```
+内容详见caculate_loss_auc.py
 9. dlrm/scripts/main.py
 添加
 ```python
@@ -149,6 +122,7 @@ validate_flags函数添加如下判断
             print('WARNING: Automatic mixed precision not supported on NPU')
             FLAGS.amp = False
 ```
+原389行即main函数一开始，添加一行`torch.npu.set_compile_mode(jit_compile=False)`
 原468-471行修改成
 ```python
     if hasattr(torch, "npu"):
@@ -204,66 +178,56 @@ validate_flags函数添加如下判断
     return None, None
 ```
 10. 添加文件dlrm/scripts/test_main.py(替代分布式，用多进程开启多个芯片跑数据)
-添加如下
-```python
-import os
-import subprocess
-import multiprocessing
-import re
-from absl import app, flags
+文件内容详见test_main.py
+11. dlrm/preproc/run_spark_cpu.sh
+将64行改成 export MASTER=local[1]
+这一步是在CPU使用spark处理数据时可能需要的步骤
 
-flags.DEFINE_string("args", None, "Arguments to pass to the script")
+12. dlrm/data/factories.py
+若启动在线推理且不准备train数据，则需要将105-112注释，且123行改成`return None dataset_test`
 
-def run_script(base_device, total_devices, base_args):
-    script_directory = os.path.join(os.path.dirname(__file__))
+13. dlrm/scripts/generate_data_for_om.py
+创建新文件，文件内容详见generate_data_for_om.ppy
+该文件为生成离线推理数据脚本
 
-    main_script_path = os.path.join(script_directory, "main.py")
+14. dlrm/scripts/pth2onnx.py
+新建该文件，文件内容详见pth2onnx.py
 
-    cmd = ["python3", main_script_path, f"--device={base_device}", f"--total_devices={total_devices}"]
-    cmd.extend(base_args)
-    print(f"Running {' '.join(cmd)}")
-    subprocess.run(cmd)
-
-def parse_args(args_string):
-    base_args = []
-    total_devices = 1
-    base_device = "npu"
-    for arg_v in re.split(r"\s+--", args_string.strip()):
-        arg_v = arg_v.strip("--")
-        arg, v = re.split(r"\s+|=", arg_v)
-        if arg == "base_device":
-            base_device = v
-        elif arg == "total_devices":
-            total_devices = int(v)
-        base_args.append(f"--{arg}={v}")
-    return base_device, total_devices, base_args
-
-def start_processes(base_device, total_devices, base_args):
-    FLAGS = flags.FLAGS
-
-    base_args, total_devices, base_args = parse_args(FLAGS.args)
-
-    processes = []
-
-    for i in range(total_devices):
-        sub_base_device = f"{base_device}:{i}"
-        p = multiprocessing.Process(target=run_script, args=(sub_base_device, total_devices, base_args))
-        processes.append(p)
-        p.start()
-
-    for p in processes:
-        p.join()
-
-if __name__ == "__main__":
-    app.run(start_processes)
+## 数据预处理
+需安装spark及相关依赖
+- spark 3.4.4-with-hadop3
+- java 1.8.0
+- scala 2.13.0
+启动命令
+```bash
+cd dlrm/preproc
+bash prepare_dataset.sh 15 CPU Spark
 ```
+预估需要一天时间处理数据
+
 ## 启动命令
+### 在线推理
 单芯片
 ```bash
 cd /workspace/DeepLeaningExamples/PyTorch/Recommendation/DLRM
-python3 dlrm/scripts/main.py --mode test --dataset /your/path/to/data --load_checkpoint_path /your/path/to/checkpoint --base_device npu --embedding_type joint --test_batch_size 40000
+python3 dlrm/scripts/main.py --mode test --dataset /your/path/to/data --load_checkpoint_path /your/path/to/checkpoint --base_device npu --test_batch_size 65000
 ```
 多芯片
 ```bash
 python3 dlrm/scripts/test_main.py --args "--mode test --dataset /your/path/to/data --load_checkpoint_path /your/path/to/checkpoint --base_device npu --embedding_type joint --test_batch_size 40000 --total_devices=2"
 ```
+### 离线推理
+1. 先生成onnx文件
+`python dlrm/scripts/pth2onnx.py --mode test --dataset /your/path/to/data --load_checkpoint_path /your/path/to/checkpoint --base_device npu --test_batch_size 65000`
+2. onnx转om
+由于pytorch1.10之后的特性，onnx文件会被分割成多个文件，转om时只需要加载onnx单个文件即可，其他文件atc会自动加载
+`atc --model output/dlrm.onnx --framework=5 --input_shape="numerical_features:65000,13;categorical_features:65000,26" --soc_version=Ascend310P3 --output=dlrm_output`
+3. 生成离线推理数据
+`python dlrm/scripts/generate_data_for_om.py --mode test --dataset /your/path/to/data --base_device cpu --base_device npu --test_batch_size 65000`
+4. 离线推理
+`python -m ais_bench --model path/to/om --input "path/to/numerical_features,path/to/categorical_features" --output path/to/output`
+
+## note
+- main.py的step time含义：单step消耗时间
+
+  
