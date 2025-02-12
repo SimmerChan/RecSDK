@@ -30,7 +30,7 @@ import pytz
 import tensorflow as tf
 from npu_bridge.npu_init import NPUEstimator, NPURunConfig
 
-from utils import get_third_nearest_checkpoint
+from utils import get_third_nearest_checkpoint, dump_pred_multi
 
 tf.compat.v1.enable_control_flow_v2()
 tf.compat.v1.enable_resource_variables()
@@ -134,18 +134,6 @@ def input_fn(filenames: list, mode_type: str, batch_size: int = 32, num_epochs: 
     batch_features, batch_labels = iterator.get_next()
 
     return batch_features, batch_labels
-
-
-def dump_pred(preds, model_cfg):
-    """
-    Dump the prediction results to a file.
-    """
-    flags = os.O_WRONLY | os.O_TRUNC
-    modes = stat.S_IWUSR | stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH
-    pred_path = os.path.join(model_cfg.data_dir, "pred.txt")
-    with os.fdopen(os.open(pred_path, flags, modes), "w") as fo:
-        for prob in preds:
-            fo.write("%f\t%f\t%f\n" % (prob['ctr'], prob['cvr'], prob['ctcvr']))
 
 
 def embedding_lookup_sparse_fake(params: tf.Tensor, ids: tf.Tensor, combiner: str = None,
@@ -544,7 +532,7 @@ def main(model_cfg):
         preds = model.predict(input_fn=lambda: input_fn(te_files, num_epochs=1, batch_size=model_cfg.batch_size,
                                                         mode_type=tf.estimator.ModeKeys.PREDICT),
                               predict_keys=["ctr", "cvr", "ctcvr"], hooks=[])
-        dump_pred(preds, model_cfg)
+        dump_pred_multi(preds, model_cfg)
 
     elif model_cfg.task_type == 'profiling_train':
         model.train(
@@ -557,7 +545,7 @@ def main(model_cfg):
                                                         mode_type=tf.estimator.ModeKeys.PREDICT),
                               predict_keys=["ctr", "cvr", "ctcvr"], hooks=[hook_stop])
 
-        dump_pred(preds, model_cfg)
+        dump_pred_multi(preds, model_cfg)
     else:
         raise ValueError("Unsupported task type: {}".format(model_cfg.task_type))
 

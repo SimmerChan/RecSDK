@@ -28,7 +28,7 @@ import pytz
 import tensorflow as tf
 from npu_bridge.npu_init import NPUEstimator, NPURunConfig
 
-from utils import get_third_nearest_checkpoint
+from utils import get_third_nearest_checkpoint, dump_pred
 
 MODEL_NAME = "FFM"
 
@@ -90,18 +90,6 @@ def input_fn(filenames: List[str], batch_size: int = 32, field_size: int = 39, n
     iterator = tf.compat.v1.data.make_one_shot_iterator(dataset)
     batch_features, batch_labels = iterator.get_next()
     return batch_features, batch_labels
-
-
-def dump_pred(preds, model_cfg):
-    """
-    Dump the prediction results to a file.
-    """
-    flags = os.O_WRONLY | os.O_TRUNC
-    modes = stat.S_IWUSR | stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH
-    pred_path = os.path.join(model_cfg.data_dir, "pred.txt")
-    with os.fdopen(os.open(pred_path, flags, modes), "w") as fo:
-        for prob in preds:
-            fo.write("%f\n" % (prob['prob']))
 
 
 def logistic_regression(feat_ids: tf.Tensor, feat_vals: tf.Tensor, feat_emb_lrb_lr: tf.Tensor,

@@ -27,9 +27,10 @@ from datetime import date, timedelta, datetime
 
 import pytz
 import tensorflow as tf
-
-from utils import get_third_nearest_checkpoint
 from npu_bridge.npu_init import NPUEstimator, NPURunConfig
+
+from utils import get_third_nearest_checkpoint, dump_pred
+
 
 MODEL_NAME = "FM"
 
@@ -234,18 +235,6 @@ def model_fn(features, labels, mode, params):
             train_op=train_op)
     else:
         raise ValueError("Only TRAIN, EVAL and PREDICT modes are supported")
-
-
-def dump_pred(preds, model_cfg):
-    """
-    Dump the prediction results to a file.
-    """
-    flags = os.O_WRONLY | os.O_TRUNC
-    modes = stat.S_IWUSR | stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH
-    pred_path = os.path.join(model_cfg.data_dir, "pred.txt")
-    with os.fdopen(os.open(pred_path, flags, modes), "w") as fo:
-        for prob in preds:
-            fo.write("%f\n" % (prob['prob']))
 
 
 def main(model_cfg):
