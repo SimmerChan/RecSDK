@@ -178,33 +178,59 @@ validate_flags函数添加如下判断
     return None, None
 ```
 10. 添加文件dlrm/scripts/test_main.py(替代分布式，用多进程开启多个芯片跑数据)
-文件内容详见test_main.py
-11. dlrm/preproc/run_spark_cpu.sh
-将64行改成 export MASTER=local[1]
-这一步是在CPU使用spark处理数据时可能需要的步骤
+添加如下
+```python
+import os
+import subprocess
+import multiprocessing
+import re
+from absl import app, flags
 
-12. dlrm/data/factories.py
-若启动在线推理且不准备train数据，则需要将105-112注释，且123行改成`return None dataset_test`
+flags.DEFINE_string("args", None, "Arguments to pass to the script")
 
-13. dlrm/scripts/generate_data_for_om.py
-创建新文件，文件内容详见generate_data_for_om.ppy
-该文件为生成离线推理数据脚本
+def run_script(base_device, total_devices, base_args):
+    script_directory = os.path.join(os.path.dirname(__file__))
 
-14. dlrm/scripts/pth2onnx.py
-新建该文件，文件内容详见pth2onnx.py
+    main_script_path = os.path.join(script_directory, "main.py")
 
-## 数据预处理
-需安装spark及相关依赖
-- spark 3.4.4-with-hadop3
-- java 1.8.0
-- scala 2.13.0
-启动命令
-```bash
-cd dlrm/preproc
-bash prepare_dataset.sh 15 CPU Spark
+    cmd = ["python3", main_script_path, f"--device={base_device}", f"--total_devices={total_devices}"]
+    cmd.extend(base_args)
+    print(f"Running {' '.join(cmd)}")
+    subprocess.run(cmd)
+
+def parse_args(args_string):
+    base_args = []
+    total_devices = 1
+    base_device = "npu"
+    for arg_v in re.split(r"\s+--", args_string.strip()):
+        arg_v = arg_v.strip("--")
+        arg, v = re.split(r"\s+|=", arg_v)
+        if arg == "base_device":
+            base_device = v
+        elif arg == "total_devices":
+            total_devices = int(v)
+        base_args.append(f"--{arg}={v}")
+    return base_device, total_devices, base_args
+
+def start_processes(base_device, total_devices, base_args):
+    FLAGS = flags.FLAGS
+
+    base_args, total_devices, base_args = parse_args(FLAGS.args)
+
+    processes = []
+
+    for i in range(total_devices):
+        sub_base_device = f"{base_device}:{i}"
+        p = multiprocessing.Process(target=run_script, args=(sub_base_device, total_devices, base_args))
+        processes.append(p)
+        p.start()
+
+    for p in processes:
+        p.join()
+
+if __name__ == "__main__":
+    app.run(start_processes)
 ```
-预估需要一天时间处理数据
-
 ## 启动命令
 ### 在线推理
 单芯片
@@ -216,18 +242,3 @@ python3 dlrm/scripts/main.py --mode test --dataset /your/path/to/data --load_che
 ```bash
 python3 dlrm/scripts/test_main.py --args "--mode test --dataset /your/path/to/data --load_checkpoint_path /your/path/to/checkpoint --base_device npu --embedding_type joint --test_batch_size 40000 --total_devices=2"
 ```
-### 离线推理
-1. 先生成onnx文件
-`python dlrm/scripts/pth2onnx.py --mode test --dataset /your/path/to/data --load_checkpoint_path /your/path/to/checkpoint --base_device npu --test_batch_size 65000`
-2. onnx转om
-由于pytorch1.10之后的特性，onnx文件会被分割成多个文件，转om时只需要加载onnx单个文件即可，其他文件atc会自动加载
-`atc --model output/dlrm.onnx --framework=5 --input_shape="numerical_features:65000,13;categorical_features:65000,26" --soc_version=Ascend310P3 --output=dlrm_output`
-3. 生成离线推理数据
-`python dlrm/scripts/generate_data_for_om.py --mode test --dataset /your/path/to/data --base_device cpu --base_device npu --test_batch_size 65000`
-4. 离线推理
-`python -m ais_bench --model path/to/om --input "path/to/numerical_features,path/to/categorical_features" --output path/to/output`
-
-## note
-- main.py的step time含义：单step消耗时间
-
-  
