@@ -1,5 +1,5 @@
 from absl import app, flags
-
+import logging
 import torch
 import torch_npu
 
@@ -13,6 +13,9 @@ flags.DEFINE_string("path", None, "Path to the model")
 loss_fn = torch.nn.BCEWithLogitsLoss(reduction="mean")
 
 
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+
+
 def caculate(argv):
     path = FLAGS.path
     output_click_lst = torch.load(path)
@@ -21,7 +24,8 @@ def caculate(argv):
         y_score = torch.sigmoid(y_score).float()
         auc = utils.roc_auc_score(y_true, y_score)
         loss = loss_fn(y_score, y_true).item()
-        print(f"step {i}, loss: {loss}, auc: {auc}")
+        logging.info(f"step {i}, loss: {loss}, auc: {auc}")
+
 
 if __name__ == "__main__":
     app.run(caculate)

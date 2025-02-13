@@ -27,15 +27,19 @@ ${image_name} \
 ```
 
 ## python、pytorch、CANN版本
-1. python 3.11.6
-2. pytorch 2.1.0
-3. CANN 8.0.0
+| 名称 | 版本 |
+| ----- | ----- |
+| python | 3.11.6 |
+| pytorch | 2.1.0 |
+| CANN | 8.0.0 |
 
 ## python 安装依赖
-1. [dllogger](https://github.com/NVIDIA/dllogger) 1.0.0
-2. tqdm 4.66.5
-3. torch_npu 2.1.0.post10
-4. [Apex Patch](https://gitee.com/luweizheng/ascend-apex) 0.1+ascend
+| 名称 | 版本 |
+| ----- | ----- |
+| [dllogger](https://github.com/NVIDIA/dllogger) | 1.0.0 |
+| tqdm | 4.66.5 |
+| torch_npu | 2.1.0.post10 |
+| [Apex Patch](https://gitee.com/luweizheng/ascend-apex) | 0.1+ascend |
 
 ## 设置环境变量
 `source /usr/local/Ascend/ascend-toolkit/set_env.sh`
@@ -62,6 +66,7 @@ else:
     fused_embedding_fwd = fused_embedding.gather_gpu_fused_fwd
 ```
 原31行替换成`output = fused_embedding_fwd(embedding, indices, offsets, amp_train)`
+
 3. dlrm/cuda_ext/sparse_embedding.py
 删除19行，69行替换成如下
 ```python
@@ -88,6 +93,7 @@ else:
             bottom_output_buffer.append(split_tensors[rank])
 ```
 310p目前不支持all to all算子，但all gather算子目前也存在问题，还在处理中
+
 5. dlrm/nn/factories.py
 删除22行的CppMlp
 添加import torch
@@ -195,9 +201,11 @@ validate_flags函数添加如下判断
 
 ## 数据预处理
 需安装spark及相关依赖
-- spark 3.4.4-with-hadop3
-- java 1.8.0
-- scala 2.13.0
+| 名称 | 版本 |
+| ----- | ----- |
+| spark | 3.4.4-with-hadop3 |
+| java | 1.8.0 |
+| scala | 2.13.0 |
 启动命令
 ```bash
 cd dlrm/preproc
