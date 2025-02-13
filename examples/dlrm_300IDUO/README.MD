@@ -1,7 +1,7 @@
 # dlrm 300IDUO 推理适配说明
 
 ## 迁移说明
-1. 源码地址：(DLRM)[https://github.com/NVIDIA/DeepLearningExamples/tree/master/PyTorch/Recommendation/DLRM]
+1. 源码地址：[DLRM](https://github.com/NVIDIA/DeepLearningExamples/tree/master/PyTorch/Recommendation/DLRM)
 2. 提交的SHA-1 hash值 729963dd47e7c8bd462ad10bfac7a7b0b604e6dd
 
 ## 启动容器
@@ -32,10 +32,10 @@ ${image_name} \
 3. CANN 8.0.0
 
 ## python 安装依赖
-1. (dllogger)[https://github.com/NVIDIA/dllogger]
-2. tqdm
-3. torch_npu
-4. (Apex Patch)[https://gitee.com/luweizheng/ascend-apex]
+1. [dllogger](https://github.com/NVIDIA/dllogger) 1.0.0
+2. tqdm 4.66.5
+3. torch_npu 2.1.0.post10
+4. [Apex Patch](https://gitee.com/luweizheng/ascend-apex) 0.1+ascend
 
 ## 设置环境变量
 `source /usr/local/Ascend/ascend-toolkit/set_env.sh`
@@ -703,8 +703,14 @@ if __name__ == "__main__":
 
 ## 数据预处理
 需安装spark及相关依赖
-`cd dlrm/preproc`
-`bash prepare_dataset.sh 15 CPU Spark`
+- spark 3.4.4-with-hadop3
+- java 1.8.0
+- scala 2.13.0
+启动命令
+```bash
+cd dlrm/preproc
+bash prepare_dataset.sh 15 CPU Spark
+```
 预估需要一天时间处理数据
 
 ## 启动命令
