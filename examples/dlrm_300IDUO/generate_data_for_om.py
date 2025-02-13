@@ -1,22 +1,23 @@
-import os
-import numpy as np
 from absl import app, flags, logging
+import os
+
+import numpy as np
 import torch
 import torch_npu
 
 from dlrm.data.feature_spec import FeatureSpec
-from dlrm.utils import distributed as dist
-from dlrm.utils.distributed import get_device_mapping
 from dlrm.data.data_loader import get_data_loaders
 from dlrm.data.utils import prefetcher, get_embedding_sizes
 from dlrm.scripts.main import FLAGS
+from dlrm.utils import distributed as dist
+from dlrm.utils.distributed import get_device_mapping
 
 
 flags.DEFINE_string("output_dir", None, "Output directory for test mode")
 
 
-def load_feature_spec(flags):
-    fspec_path = os.path.join(flags.dataset, flags.feature_spec)
+def load_feature_spec():
+    fspec_path = os.path.join(FLAGS.dataset, FLAGS .feature_spec)
     return FeatureSpec.from_yaml(fspec_path)
 
 

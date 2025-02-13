@@ -1,8 +1,9 @@
-import os
-import subprocess
-import multiprocessing
-import re
 from absl import app, flags
+import multiprocessing
+import os
+import re
+import subprocess
+
 
 FLAGS = flags.FLAGS
 
