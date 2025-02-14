@@ -21,7 +21,7 @@ def load_feature_spec():
     return FeatureSpec.from_yaml(fspec_path)
 
 
-def BatchDataloader():
+def batch_dataloader():
     feature_spec = load_feature_spec(FLAGS)
     use_gpu = "cpu" not in FLAGS.base_device.lower()
     _, world_size, _ = dist.init_distributed(backend=FLAGS.backend, use_gpu=use_gpu)
@@ -35,7 +35,7 @@ def BatchDataloader():
 def main(argv):
     torch.npu.set_compile_mode(jit_compile=False)
 
-    dataloader, world_size = BatchDataloader()
+    dataloader, world_size = batch_dataloader()
 
     batch_size_per_gpu = [FLAGS.test_batch_size // world_size for _ in range(world_size)]
     test_batch_sizes = sum(batch_size_per_gpu)
@@ -57,7 +57,10 @@ def main(argv):
 
             if numerical_features is not None:
                 padding_numerical = torch.empty(
-                    padding_size, numerical_features.shape[1], device=numerical_features.device, dtype=numerical_features.dtype)
+                    padding_size, 
+                    numerical_features.shape[1], 
+                    device=numerical_features.device, 
+                    dtype=numerical_features.dtype)
                 numerical_features = torch.cat([numerical_features, padding_numerical], dim=0)
 
             if categorical_features is not None:
@@ -76,9 +79,18 @@ def main(argv):
         numerical_features_array = numerical_features.numpy()
         categorical_features_array = categorical_features.numpy()
         click_array = click.numpy()
-        np.save(os.path.join(output_dir, "numerical_features", f"numerical_features_{count}.npy"), numerical_features_array)
-        np.save(os.path.join(output_dir, "categorical_features", f"categorical_features_{count}.npy"), categorical_features_array)
-        np.save(os.path.join(output_dir, "click", f"click_{count}.npy"), click_array)
+        np.save(os.path.join(output_dir, 
+                             "numerical_features", 
+                             f"numerical_features_{count}.npy"), 
+                             numerical_features_array)
+        np.save(os.path.join(output_dir, 
+                             "categorical_features", 
+                             f"categorical_features_{count}.npy"), 
+                             categorical_features_array)
+        np.save(os.path.join(output_dir, 
+                             "click", 
+                             f"click_{count}.npy"), 
+                             click_array)
 
 
 if __name__ == '__main__':
