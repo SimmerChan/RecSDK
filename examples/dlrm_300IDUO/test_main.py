@@ -1,9 +1,8 @@
-from absl import app, flags
 import multiprocessing
 import os
 import re
 import subprocess
-
+from absl import app, flags
 
 FLAGS = flags.FLAGS
 

@@ -1,5 +1,5 @@
-from absl import app, flags, logging
 import os
+from absl import app, flags, logging
 
 import numpy as np
 import torch
