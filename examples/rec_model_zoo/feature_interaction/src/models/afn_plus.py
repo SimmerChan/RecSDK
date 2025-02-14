@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-
 import os
 import glob
 import shutil
@@ -241,6 +240,12 @@ def model_fn(features, labels, mode, params):
         tf.saved_model.DEFAULT_SERVING_SIGNATURE_DEF_KEY: tf.estimator.export.PredictOutput(
             predictions)}
 
+    if mode == tf.estimator.ModeKeys.PREDICT:
+        return tf.estimator.EstimatorSpec(
+            mode=mode,
+            predictions=predictions,
+            export_outputs=export_outputs)
+
     loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=y, labels=labels)) \
            + tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=y_d, labels=labels)) \
            + tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=y_afn, labels=labels))
@@ -256,20 +261,14 @@ def model_fn(features, labels, mode, params):
     }
 
     train_op = build_optimizer(loss, learning_rate, params)
-    # Provide an estimator spec for `ModeKeys.PREDICT`
-    if mode == tf.estimator.ModeKeys.PREDICT:
-        return tf.estimator.EstimatorSpec(
-            mode=mode,
-            predictions=predictions,
-            export_outputs=export_outputs)
-    elif mode == tf.estimator.ModeKeys.EVAL:
+
+    if mode == tf.estimator.ModeKeys.EVAL:
         return tf.estimator.EstimatorSpec(
             mode=mode,
             predictions=predictions,
             loss=loss,
             eval_metric_ops=eval_metric_ops,
             train_op=train_op)
-    # Provide an estimator spec for `ModeKeys.TRAIN` modes
     elif mode == tf.estimator.ModeKeys.TRAIN:
         return tf.estimator.EstimatorSpec(
             mode=mode,
