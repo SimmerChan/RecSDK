@@ -532,7 +532,7 @@ def main(model_cfg):
         preds = model.predict(input_fn=lambda: input_fn(te_files, num_epochs=1, batch_size=model_cfg.batch_size,
                                                         mode_type=tf.estimator.ModeKeys.PREDICT),
                               predict_keys=["ctr", "cvr", "ctcvr"], hooks=[])
-        dump_pred_multi(preds, model_cfg)
+        dump_pred_multi(preds, model_cfg.data_dir)
 
     elif model_cfg.task_type == 'profiling_train':
         model.train(
@@ -545,7 +545,7 @@ def main(model_cfg):
                                                         mode_type=tf.estimator.ModeKeys.PREDICT),
                               predict_keys=["ctr", "cvr", "ctcvr"], hooks=[hook_stop])
 
-        dump_pred_multi(preds, model_cfg)
+        dump_pred_multi(preds, model_cfg.data_dir)
     else:
         raise ValueError("Unsupported task type: {}".format(model_cfg.task_type))
 
