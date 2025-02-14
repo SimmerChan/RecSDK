@@ -1,8 +1,8 @@
 from absl import app, flags
 
 import numpy as np
-import torch
 import torch_npu
+
 
 from dlrm.data.utils import get_embedding_sizes
 from dlrm.model.distributed import DistributedDlrm
@@ -11,6 +11,7 @@ from dlrm.scripts.main import load_feature_spec, validate_flags
 from dlrm.utils import distributed as dist
 from dlrm.utils.checkpointing.distributed import make_distributed_checkpoint_loader
 from dlrm.utils.distributed import get_device_mapping, is_main_process
+import torch
 
 
 def main(argv):

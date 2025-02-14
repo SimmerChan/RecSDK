@@ -2,7 +2,6 @@ import os
 from absl import app, flags, logging
 
 import numpy as np
-import torch
 import torch_npu
 
 from dlrm.data.feature_spec import FeatureSpec
@@ -11,6 +10,7 @@ from dlrm.data.utils import prefetcher, get_embedding_sizes
 from dlrm.scripts.main import FLAGS
 from dlrm.utils import distributed as dist
 from dlrm.utils.distributed import get_device_mapping
+import torch
 
 
 flags.DEFINE_string("output_dir", None, "Output directory for test mode")

@@ -1,10 +1,11 @@
 import logging
 from absl import app, flags
 
-import torch
 import torch_npu
 
+
 import dlrm.scripts.utils as utils
+import torch
 
 FLAGS = flags.FLAGS
 
