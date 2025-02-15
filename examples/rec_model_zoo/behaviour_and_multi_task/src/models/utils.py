@@ -95,7 +95,7 @@ def dump_pred_multi(preds, data_dir):
     """
     flags = os.O_WRONLY | os.O_TRUNC | os.O_CREAT
     modes = stat.S_IWUSR | stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH
-    pred_path = os.path.join(data_dir.data_dir, "pred.txt")
+    pred_path = os.path.join(data_dir, "pred.txt")
     with os.fdopen(os.open(pred_path, flags, modes), "w") as fo:
         for prob in preds:
             fo.write("%f\t%f\t%f\n" % (prob['ctr'], prob['cvr'], prob['ctcvr']))
