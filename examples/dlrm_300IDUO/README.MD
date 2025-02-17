@@ -206,6 +206,10 @@ validate_flags函数添加如下判断
 | spark | 3.4.4-with-hadop3 |
 | java | 1.8.0 |
 | scala | 2.13.0 |
+### 相关适配
+1. bind.sh
+75行需要修改成npu数量
+98-101行需要根据lscpu数量决定，不能让num_gpus小于num_nodes
 启动命令
 ```bash
 cd dlrm/preproc
