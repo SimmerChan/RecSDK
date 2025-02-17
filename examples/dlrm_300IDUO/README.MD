@@ -16,7 +16,7 @@ docker run \
 --shm-size="300g" \
 --privileged \
 -v /etc/localtime:/etc/localtime \
--e ASCEND_VISIBLE_DEVICES=0-3 \
+-e ASCEND_VISIBLE_DEVICES=0-7 \
 -v /etc/ascend_install.info:/etc/ascend_install.info \
 -v /home:/home \
 -v /root/ascend:/root/ascend \
@@ -92,7 +92,6 @@ else:
             split_tensors = list(gathered_outputs[i].split(batch_sizes_per_gpu, dim=0))
             bottom_output_buffer.append(split_tensors[rank])
 ```
-310p目前不支持all to all算子，但all gather算子目前也存在问题，还在处理中
 
 5. dlrm/nn/factories.py
 删除22行的CppMlp
