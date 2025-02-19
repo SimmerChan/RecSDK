@@ -13,12 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-import torch
 
 from torchrec import EmbeddingBagCollection, EmbeddingBagConfig, PoolingType
 from hybrid_torchrec import HashEmbeddingBagCollection
-
 from dataset import Batch
+import torch
 
 
 class TestModel(torch.nn.Module):
@@ -45,4 +44,3 @@ class TestModel(torch.nn.Module):
         result: torch.Tensor = result.values()
         loss = result.mean() + result.sum() + result.max() + result.min()
         return loss, resul
-    
