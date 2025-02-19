@@ -13,10 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-from dataset import Batch
-from torchrec import EmbeddingBagCollection, EmbeddingBagConfig, PoolingType
 import torch
+
+from torchrec import EmbeddingBagCollection, EmbeddingBagConfig, PoolingType
 from hybrid_torchrec import HashEmbeddingBagCollection
+
+from dataset import Batch
+
 
 class TestModel(torch.nn.Module):
     def __init__(self, table_names, feat_names, embed_dims, num_embeds):
@@ -41,4 +44,5 @@ class TestModel(torch.nn.Module):
         result = self.ebc(batch.sparse_features)
         result: torch.Tensor = result.values()
         loss = result.mean() + result.sum() + result.max() + result.min()
-        return loss, result
+        return loss, resul
+    
