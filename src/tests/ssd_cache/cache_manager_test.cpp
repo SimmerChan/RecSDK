@@ -27,6 +27,7 @@ using namespace std;
 using namespace MxRec;
 using namespace testing;
 
+
 static const string SSD_SAVE_PATH = "savePath1";
 
 static const float EPSILON = 1e-6f;
