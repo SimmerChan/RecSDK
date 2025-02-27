@@ -13,8 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-from dataset import Batch
+
 from torchrec import EmbeddingBagCollection, EmbeddingBagConfig, PoolingType
+from hybrid_torchrec import HashEmbeddingBagCollection
+from dataset import Batch
 import torch
 
 
@@ -34,7 +36,7 @@ class TestModel(torch.nn.Module):
             )
             table_configs.append(config)
 
-        self.ebc = EmbeddingBagCollection(device="npu", tables=table_configs)
+        self.ebc = HashEmbeddingBagCollection(device="npu", tables=table_configs)
         self.input_dim = sum([len(f) * d for f, d in zip(feat_names, embed_dims)])
 
     def forward(self, batch: Batch):
@@ -42,3 +44,4 @@ class TestModel(torch.nn.Module):
         result: torch.Tensor = result.values()
         loss = result.mean() + result.sum() + result.max() + result.min()
         return loss, result
+

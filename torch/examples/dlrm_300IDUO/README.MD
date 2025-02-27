@@ -282,5 +282,3 @@ python3 dlrm/scripts/caculate_loss_auc.py --path /your/path/to/output_click.pt
 更多参数可参考：https://www.hiascend.com/document/detail/zh/Atlas%20300I%20Duo%20Inference%20Card/Atlas%20300I%20Duo%20Inference%20Card/apn_032.html
 ## note
 - main.py的step time含义：单step消耗时间
-
-  
