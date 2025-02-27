@@ -39,7 +39,7 @@ ${image_name} \
 | [dllogger](https://github.com/NVIDIA/dllogger) | 1.0.0 |
 | tqdm | 4.66.5 |
 | torch_npu | 2.1.0.post10 |
-| [Apex Patch](https://gitee.com/luweizheng/ascend-apex) | 0.1+ascend |
+| [Apex Patch](https://gitee.com/ascend/apex.git) | 0.1+ascend |
 
 ## 设置环境变量
 `source /usr/local/Ascend/ascend-toolkit/set_env.sh`
@@ -158,7 +158,7 @@ validate_flags函数添加如下判断
 ```python
         for step in range(len(data_loader)//total_devices + int(bool(len(data_loader) % total_devices > device_id))):
             try:
-                for i in range(device_id):
+                for i in range(total_devices):
                     if i == device_id:
                         numerical_features, categorical_features, click = next(batch_iter)
                     else:
@@ -173,7 +173,7 @@ validate_flags函数添加如下判断
         if not os.path.exists('output'):
             os.makedirs('output')
         
-        np.save(f'output/output_click_{device_id}.pt', output_click)
+        torch.save(output_click, f'output/output_click_{device_id}.pt')
 
         if world_size > 1:
             torch.distributed.barrier()
@@ -198,7 +198,7 @@ validate_flags函数添加如下判断
 14. dlrm/scripts/pth2onnx.py
 新建该文件，文件内容详见pth2onnx.py
 
-## 数据预处理
+## 数据预处理（CPU处理）
 需安装spark及相关依赖
 | 名称 | 版本 |
 | ----- | ----- |
@@ -215,6 +215,9 @@ cd dlrm/preproc
 bash prepare_dataset.sh 15 CPU Spark
 ```
 预估需要一天时间处理数据
+2. 需要设置spark/sbin文件夹路径到系统环境变量中
+3. 需要设置环境变量`export DGX_VERSION=DGX-2`
+4. 也可以基于原生提供的GPU处理方式处理数据
 
 ## 启动命令
 ### 在线推理
@@ -223,21 +226,60 @@ bash prepare_dataset.sh 15 CPU Spark
 cd /workspace/DeepLeaningExamples/PyTorch/Recommendation/DLRM
 python3 dlrm/scripts/main.py --mode test --dataset /your/path/to/data --load_checkpoint_path /your/path/to/checkpoint --base_device npu --test_batch_size 65000
 ```
+- --mode: 指定运行模式为测试模式。可选train/test/inference_benchmark，推理阶段选择test。
+- --dataset: 数据集路径。
+- --load_checkpoint_path: 加载checkpoint路径
+- --base_device: 指定基础设备为NPU。可选gpu/npu/cpu。
+- --test_batch_size: 测试批处理大小。
+更多参数可参考原生main.py里的参数详解
 多芯片
 ```bash
-python3 dlrm/scripts/test_main.py --args "--mode test --dataset /your/path/to/data --load_checkpoint_path /your/path/to/checkpoint --base_device npu --embedding_type joint --test_batch_size 40000 --total_devices=2"
+python3 dlrm/scripts/test_main.py --args "--mode test --dataset /your/path/to/data --load_checkpoint_path /your/path/to/checkpoint --base_device npu --test_batch_size 65000 --total_devices=2"
 ```
+- --args: 参数字符串
+- --mode: 指定运行模式为测试模式。可选train/test/inference_benchmark，推理阶段选择test。
+- --dataset: 数据集路径。
+- --load_checkpoint_path: 加载checkpoint路径
+- --base_device: 指定基础设备为NPU。可选gpu/npu/cpu。
+- --test_batch_size: 测试批处理大小。
+- --total_devices: 使用的设备总数。
+更多参数可参考原生main.py里的参数详解
+#### auc计算
+```bash
+python3 dlrm/scripts/caculate_loss_auc.py --path /your/path/to/output_click.pt
+```
+- --path 在线推理输出的output_click.pt文件
 ### 离线推理
 1. 先生成onnx文件
 `python dlrm/scripts/pth2onnx.py --mode test --dataset /your/path/to/data --load_checkpoint_path /your/path/to/checkpoint --base_device npu --test_batch_size 65000`
+- --mode: 指定运行模式为测试模式。可选train/test/inference_benchmark。
+- --dataset: 数据集路径。
+- --load_checkpoint_path: 加载checkpoint路径
+- --base_device: 指定基础设备为NPU。可选GPU/NPU/CPU。
+- --test_batch_size: 测试批处理大小。
+更多参数可参考原生main.py里的参数详解
 2. onnx转om
 由于pytorch1.10之后的特性，onnx文件会被分割成多个文件，转om时只需要加载onnx单个文件即可，其他文件atc会自动加载
 `atc --model output/dlrm.onnx --framework=5 --input_shape="numerical_features:65000,13;categorical_features:65000,26" --soc_version=Ascend310P3 --output=dlrm_output`
+- --model 模型输出地址
+- --framework 原始网络模型框架类型，5代表ONNX
+- --input_shape 模型输入数据的shape
+- --soc_version 模型转换时指定芯片版本
+更多参数可参考： https://www.hiascend.com/document/detail/zh/canncommercial/800/devaids/devtools/atc/atlasatc_16_0039.html
 3. 生成离线推理数据
-`python dlrm/scripts/generate_data_for_om.py --mode test --dataset /your/path/to/data --base_device cpu --base_device npu --test_batch_size 65000`
+`python dlrm/scripts/generate_data_for_om.py --mode test --dataset /your/path/to/data --base_device cpu --test_batch_size 65000 --output_dir ./`
+- --mode: 指定运行模式为测试模式。可选train/test/inference_benchmark。
+- --dataset: 数据集路径。
+- --base_device: 指定基础设备为NPU。可选gpu/npu/cpu。
+- --test_batch_size: 测试批处理大小。
+- --output_dir: 输出文件夹地址，默认当前路径下
+更多参数可参考原生main.py里的参数详解
 4. 离线推理
 `python -m ais_bench --model path/to/om --input "path/to/numerical_features,path/to/categorical_features" --output path/to/output`
-
+- --model 模型地址
+- --input generate_data_for_om.py生成的数据文件路径
+- --output 推理输出文件地址
+更多参数可参考：https://www.hiascend.com/document/detail/zh/Atlas%20300I%20Duo%20Inference%20Card/Atlas%20300I%20Duo%20Inference%20Card/apn_032.html
 ## note
 - main.py的step time含义：单step消耗时间
 
