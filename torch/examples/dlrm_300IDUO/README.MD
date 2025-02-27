@@ -185,7 +185,7 @@ validate_flags函数添加如下判断
 10. 添加文件dlrm/scripts/test_main.py(替代分布式，用多进程开启多个芯片跑数据)
 文件内容详见test_main.py
 11. dlrm/preproc/run_spark_cpu.sh  
-将64行改成 export MASTER=local[1]  
+将64行改成 export MASTER=local[1]   
 这一步是在CPU使用spark处理数据时可能需要的步骤
 
 12. dlrm/data/factories.py  
