@@ -45,9 +45,9 @@ ${image_name} \
 `source /usr/local/Ascend/ascend-toolkit/set_env.sh`
 
 ## 适配
-1. dlrm/cuda_ext/dot_based_interact.py
+1. dlrm/cuda_ext/dot_based_interact.py  
 删除19-22行
-2. dlrm/cuda_ext/fused_gather_embedding.py
+2. dlrm/cuda_ext/fused_gather_embedding.py   
 删除23行，添加如下代码
 ```python
 import torch_npu
@@ -67,7 +67,7 @@ else:
 ```
 原31行替换成`output = fused_embedding_fwd(embedding, indices, offsets, amp_train)`
 
-3. dlrm/cuda_ext/sparse_embedding.py
+3. dlrm/cuda_ext/sparse_embedding.py  
 删除19行，69行替换成如下
 ```python
 if hasattr(torch, "npu"):
@@ -77,7 +77,7 @@ if hasattr(torch, "npu"):
 else:
     embedding_gather = EmbeddingGatherFunction.apply
 ```
-4. dlrm/model/distributed.py(分布式需要用到，若不使用分布式可忽略)
+4. dlrm/model/distributed.py(分布式需要用到，若不使用分布式可忽略)  
 64-68行替换成如下
 ```python
         gathered_outputs = [torch.empty(
@@ -93,10 +93,10 @@ else:
             bottom_output_buffer.append(split_tensors[rank])
 ```
 
-5. dlrm/nn/factories.py
-删除22行的CppMlp
-添加import torch
-27行修改成`return TorchMlp(input_dim, sizes)`
+5. dlrm/nn/factories.py  
+删除22行的CppMlp  
+添加import torch  
+27行修改成`return TorchMlp(input_dim, sizes)`  
 58-60替换成
 ```python
         if hasattr(torch, "npu"):
@@ -106,11 +106,11 @@ else:
                 DotInteraction(embedding_num, embedding_dim)
             )
 ```
-6. /dlrm/nn/mlps.py
+6. /dlrm/nn/mlps.py  
 删除18、23-44、117-140行
-7. /dlrm/nn/parts.py
+7. /dlrm/nn/parts.py  
 删除59行
-8. 添加文件/dlrm/scripts/caculate_loss_auc.py(不在推理阶段进行AUC和loss计算，单独脚本计算)
+8. 添加文件/dlrm/scripts/caculate_loss_auc.py(不在推理阶段进行AUC和loss计算，单独脚本计算)  
 内容详见caculate_loss_auc.py
 9. dlrm/scripts/main.py
 添加
@@ -127,7 +127,7 @@ validate_flags函数添加如下判断
             print('WARNING: Automatic mixed precision not supported on NPU')
             FLAGS.amp = False
 ```
-原389行即main函数一开始，添加一行`torch.npu.set_compile_mode(jit_compile=False)`
+原389行即main函数一开始，添加一行`torch.npu.set_compile_mode(jit_compile=False)`  
 原468-471行修改成
 ```python
     if hasattr(torch, "npu"):
@@ -152,8 +152,8 @@ validate_flags函数添加如下判断
             total_devices = 1
         auc, valid_loss = dist_evaluate(model, data_loader_test, device_id, total_devices)
 ```
-原733行修改成`def dist_evaluate(model, data_loader, device_id=0, total_devices=1):`
-原755行修改成`    steps_per_epoch = len(data_loader)//total_devices + int(bool(len(data_loader) % total_devices > device_id))`
+原733行修改成`def dist_evaluate(model, data_loader, device_id=0, total_devices=1):`  
+原755行修改成`    steps_per_epoch = len(data_loader)//total_devices + int(bool(len(data_loader) % total_devices > device_id))`  
 原772-773行修改成
 ```python
         for step in range(len(data_loader)//total_devices + int(bool(len(data_loader) % total_devices > device_id))):
@@ -184,15 +184,15 @@ validate_flags函数添加如下判断
 ```
 10. 添加文件dlrm/scripts/test_main.py(替代分布式，用多进程开启多个芯片跑数据)
 文件内容详见test_main.py
-11. dlrm/preproc/run_spark_cpu.sh
-将64行改成 export MASTER=local[1]
+11. dlrm/preproc/run_spark_cpu.sh  
+将64行改成 export MASTER=local[1]  
 这一步是在CPU使用spark处理数据时可能需要的步骤
 
-12. dlrm/data/factories.py
+12. dlrm/data/factories.py  
 若启动在线推理且不准备train数据，则需要将105-112注释，且123行改成`return None dataset_test`
 
-13. dlrm/scripts/generate_data_for_om.py
-创建新文件，文件内容详见generate_data_for_om.ppy
+13. dlrm/scripts/generate_data_for_om.py  
+创建新文件，文件内容详见generate_data_for_om.ppy  
 该文件为生成离线推理数据脚本
 
 14. dlrm/scripts/pth2onnx.py
@@ -206,17 +206,17 @@ validate_flags函数添加如下判断
 | java | 1.8.0 |
 | scala | 2.13.0 |
 ### 相关适配
-1. bind.sh
-75行需要修改成npu数量
-98-101行需要根据lscpu数量决定，不能让num_gpus小于num_nodes
+1. bind.sh  
+75行需要修改成npu数量  
+98-101行需要根据lscpu数量决定，不能让num_gpus小于num_nodes  
 启动命令
 ```bash
 cd dlrm/preproc
 bash prepare_dataset.sh 15 CPU Spark
 ```
 预估需要一天时间处理数据
-2. 需要设置spark/sbin文件夹路径到系统环境变量中
-3. 需要设置环境变量`export DGX_VERSION=DGX-2`
+2. 需要设置spark/sbin文件夹路径到系统环境变量中  
+3. 需要设置环境变量`export DGX_VERSION=DGX-2`  
 4. 也可以基于原生提供的GPU处理方式处理数据
 
 ## 启动命令
