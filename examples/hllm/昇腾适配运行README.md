@@ -1,7 +1,10 @@
 # 昇腾适配运行
 
 <div align="center">
-### 1. pytorch-lightning昇腾适配
+   
+
+### 1. pytorch-lightning昇腾适配 
+
 
 ```
 git apply npu.patch
@@ -11,7 +14,13 @@ git apply npu.patch
 
 ### 2. hllm代码昇腾适配
 
-2.1 code/REC/trainer/trainer.py代码修改点：
+2.1 下载源码
+
+```
+https://github.com/bytedance/HLLM
+```
+
+2.2code/REC/trainer/trainer.py代码修改点：
 
 去掉第32行
 
@@ -59,7 +68,7 @@ self.lite = L.Fabric(accelerator='gpu', strategy=strategy, precision=precision, 
 self.lite = L.Fabric(accelerator='npu', strategy=strategy, precision=precision, num_nodes=nnodes)
 ```
 
-2.2 code/run.py代码修改点：
+2.3  code/run.py代码修改点：
 
 在import中增加内容：
 
