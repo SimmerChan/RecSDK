@@ -1,3 +1,4 @@
+# Copyright The Lightning AI team.
 diff --git a/src/lightning/fabric/accelerators/__init__.py b/src/lightning/fabric/accelerators/__init__.py
 index 3d4b43f..16677df 100644
 --- a/src/lightning/fabric/accelerators/__init__.py
