@@ -1,8 +1,5 @@
 # 昇腾适配运行
 
-<div align="center">
-   
-
 ### 1. pytorch-lightning昇腾适配 
 
 
@@ -20,7 +17,7 @@ git apply npu.patch
 https://github.com/bytedance/HLLM
 ```
 
-2.2code/REC/trainer/trainer.py代码修改点：
+2.2 code/REC/trainer/trainer.py代码修改点：
 
 去掉第32行
 
