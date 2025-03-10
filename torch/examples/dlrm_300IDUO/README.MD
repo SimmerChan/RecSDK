@@ -192,7 +192,7 @@ validate_flags函数添加如下判断
 若启动在线推理且不准备train数据，则需要将105-112注释，且123行改成`return None dataset_test`
 
 13. dlrm/scripts/generate_data_for_om.py  
-创建新文件，文件内容详见generate_data_for_om.ppy  
+创建新文件，文件内容详见generate_data_for_om.py  
 该文件为生成离线推理数据脚本
 
 14. dlrm/scripts/pth2onnx.py
