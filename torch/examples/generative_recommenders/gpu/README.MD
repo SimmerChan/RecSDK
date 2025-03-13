@@ -35,7 +35,7 @@ from generative_recommenders.ops.triton.triton_hstu_attention import (
 from generative_recommenders.ops.pytorch.pt_hstu_attention import (
     pytorch_hstu_mha
 )
-from generative_recommenders.ops.pytorch.pt_hstu_attention import (
+from generative_recommenders.common  import (
     generate_sparse_seq_len,
     gpu_unavailable,
     HammerKernel,
@@ -69,13 +69,13 @@ class AttentionFunction(torch.autograd.Function):
             _, sort_by_length_indices = torch.sort(
                 seq_lengths, descending=True, stable=False
             )
-        save_tensors = [q, k, v, seq_offsets]
+        saved_tensors = [q, k, v, seq_offsets]
         if num_targets is not None:
-            save_tensors.append(num_targets)
+            saved_tensors.append(num_targets)
         max_attn_len = max_attn_len or 0
         if sort_by_length_indices is not None:
-            save_tensors.append(sort_by_length_indices)
-        ctx.save_for_backward(*save_tensors)
+            saved_tensors.append(sort_by_length_indices)
+        ctx.save_for_backward(*saved_tensors)
         ctx.alpha = alpha
         ctx.causal = causal
         ctx.has_multiple_targets = num_targets is not None
@@ -83,7 +83,7 @@ class AttentionFunction(torch.autograd.Function):
         ctx.N = N
         ctx.contextual_seq_len = contextual_seq_len
         ctx.sort_by_length = sort_by_length
-        return triton_hstu_attention_bwd(
+        return triton_hstu_attention_fwd(
             N=N,
             alpha=alpha,
             q=q,
@@ -124,7 +124,6 @@ class AttentionFunction(torch.autograd.Function):
                 num_targets = None
             if ctx.sort_by_length:
                 sort_by_length_indices = ctx.saved_tensors[idx]
-                idx += 1
             else:
                 sort_by_length_indices = None
             
@@ -162,13 +161,87 @@ class AttentionFunction(torch.autograd.Function):
                 None,
             )
 ```
-SequentialTransductionUnitJagged类里，原226行下添加`max_seq_len: int,`，原241行下添加`self._max_seq_len: int = max_seq_len`  
-SequentialTransductionUnitJagged类里，forward函数里，原308行下添加
+SequentialTransductionUnitJagged类里，初始化__init__里`self,`下添加`max_seq_len: int,`，`super().__init__()`下添加`self._max_seq_len: int = max_seq_len`  
+SequentialTransductionUnitJagged类里，forward函数里, `cached_k = None`下添加
 ```python
         alpha = 1.0
-        B: int = x_offsets.shape(0) - 1
+        B: int = x_offsets.size(0) - 1
 ```
-将原340-410行替换成
+将
+```
+        B: int = x_offsets.size(0) - 1
+        if self._normalization == "rel_bias" or self._normalization == "hstu_rel_bias":
+            assert self._rel_attn_bias is not None
+            attn_output, padded_q, padded_k = _hstu_attention_maybe_from_cache(
+                num_heads=self._num_heads,
+                attention_dim=self._attention_dim,
+                linear_dim=self._linear_dim,
+                q=q,
+                k=k,
+                v=v,
+                cached_q=cached_q,
+                cached_k=cached_k,
+                delta_x_offsets=delta_x_offsets,
+                x_offsets=x_offsets,
+                all_timestamps=all_timestamps,
+                invalid_attn_mask=invalid_attn_mask,
+                rel_attn_bias=self._rel_attn_bias,
+            )
+        elif self._normalization == "softmax_rel_bias":
+            if delta_x_offsets is not None:
+                B = x_offsets.size(0) - 1
+                padded_q, padded_k = cached_q, cached_k
+                flattened_offsets = delta_x_offsets[1] + torch.arange(
+                    start=0,
+                    end=B * n,
+                    step=n,
+                    device=delta_x_offsets[1].device,
+                    dtype=delta_x_offsets[1].dtype,
+                )
+                assert padded_q is not None
+                assert padded_k is not None
+                padded_q = (
+                    padded_q.view(B * n, -1)
+                    .index_copy_(
+                        dim=0,
+                        index=flattened_offsets,
+                        source=q,
+                    )
+                    .view(B, n, -1)
+                )
+                padded_k = (
+                    padded_k.view(B * n, -1)
+                    .index_copy_(
+                        dim=0,
+                        index=flattened_offsets,
+                        source=k,
+                    )
+                    .view(B, n, -1)
+                )
+            else:
+                padded_q = torch.ops.fbgemm.jagged_to_padded_dense(
+                    values=q, offsets=[x_offsets], max_lengths=[n], padding_value=0.0
+                )
+                padded_k = torch.ops.fbgemm.jagged_to_padded_dense(
+                    values=k, offsets=[x_offsets], max_lengths=[n], padding_value=0.0
+                )
+
+            qk_attn = torch.einsum("bnd,bmd->bnm", padded_q, padded_k)
+            if self._rel_attn_bias is not None:
+                qk_attn = qk_attn + self._rel_attn_bias(all_timestamps)
+            qk_attn = F.softmax(qk_attn / math.sqrt(self._attention_dim), dim=-1)
+            qk_attn = qk_attn * invalid_attn_mask
+            attn_output = torch.ops.fbgemm.dense_to_jagged(
+                torch.bmm(
+                    qk_attn,
+                    torch.ops.fbgemm.jagged_to_padded_dense(v, [x_offsets], [n]),
+                ),
+                [x_offsets],
+            )[0]
+        else:
+            raise ValueError(f"Unknown normalization method {self._normalization}")
+```
+替换成
 ```python
         bs = q.size(0)
         q = q.contiguous().view(bs, self._num_heads, self._attention_dim)
@@ -191,11 +264,81 @@ SequentialTransductionUnitJagged类里，forward函数里，原308行下添加
         )
 
         attn_output = attn_output.contiguous().view(bs, self._num_heads*self._attention_dim)
-        B: int = x_offsets.shape(0) - 1
+        B: int = x_offsets.size(0) - 1
 ```
 最后替换return值，原442行改成`return new_outputs, (v, cached_q, cached_k, new_outputs)`  
-HSTU类里，原594行下添加`max_seq_len=max_sequence_len+max_output_len,`
-删除原603-614行，去除rab
+HSTU类初始化里  
+将
+```
+        self._hstu = HSTUJagged(
+            modules=[
+                SequentialTransductionUnitJagged(
+                    embedding_dim=self._embedding_dim,
+                    linear_hidden_dim=linear_dim,
+                    attention_dim=attention_dim,
+                    normalization=normalization,
+                    linear_config=linear_config,
+                    linear_activation=linear_activation,
+                    num_heads=num_heads,
+                    # TODO: change to lambda x.
+                    relative_attention_bias_module=(
+                        RelativeBucketedTimeAndPositionBasedBias(
+                            max_seq_len=max_sequence_len
+                            + max_output_len,  # accounts for next item.
+                            num_buckets=128,
+                            bucketization_fn=lambda x: (
+                                torch.log(torch.abs(x).clamp(min=1)) / 0.301
+                            ).long(),
+                        )
+                        if enable_relative_attention_bias
+                        else None
+                    ),
+                    dropout_ratio=linear_dropout_rate,
+                    attn_dropout_ratio=attn_dropout_rate,
+                    concat_ua=concat_ua,
+                    precision=precision,
+                )
+                for _ in range(num_blocks)
+            ],
+            autocast_dtype=None,
+        )
+```
+换成
+```
+        self._hstu = HSTUJagged(
+            modules=[
+                SequentialTransductionUnitJagged(
+                    max_seq_len=max_sequence_len+max_output_len, 
+                    embedding_dim=self._embedding_dim,
+                    linear_hidden_dim=linear_dim,
+                    attention_dim=attention_dim,
+                    normalization=normalization,
+                    linear_config=linear_config,
+                    linear_activation=linear_activation,
+                    num_heads=num_heads,
+                    # TODO: change to lambda x.
+                    # relative_attention_bias_module=(
+                    #    RelativeBucketedTimeAndPositionBasedBias(
+                    #        max_seq_len=max_sequence_len
+                    #        + max_output_len,  # accounts for next item.
+                    #        num_buckets=128,
+                    #        bucketization_fn=lambda x: (
+                    #            torch.log(torch.abs(x).clamp(min=1)) / 0.301
+                    #        ).long(),
+                    #    )
+                    #    if enable_relative_attention_bias
+                    #    else None
+                    #),
+                    dropout_ratio=linear_dropout_rate,
+                    attn_dropout_ratio=attn_dropout_rate,
+                    concat_ua=concat_ua,
+                    precision=precision,
+                )
+                for _ in range(num_blocks)
+            ],
+            autocast_dtype=None,
+        )
+```
 
 2. generative_recommenders/common.py  
 注释83-84行
@@ -204,6 +347,50 @@ HSTU类里，原594行下添加`max_seq_len=max_sequence_len+max_output_len,`
 # post_hook=None
 ```
 
+3. trainer/train.py  
+原69行添加代码
+```
+from torch.utils.data import Dataset
+
+class RepeatDataset(Dataset):
+    def __init__(self, dataset: Dataset, num_repeats: int):
+        self.dataset = dataset
+        self.num_repeats = num_repeats
+
+    def __len__(self):
+        return len(self.dataset) * self.num_repeats
+
+    def __getitem__(self, idx):
+        return self.dataset[idx % len(self.dataset)]
+```
+将
+```
+    train_data_sampler, train_data_loader = create_data_loader(
+        dataset.train_dataset,
+        batch_size=local_batch_size,
+        world_size=world_size,
+        rank=rank,
+        shuffle=True,
+        drop_last=world_size > 1,
+    )
+```
+改成
+```
+    train_dataset = RepeatDataset(dataset.train_dataset, num_repeats=100)
+    train_data_sampler, train_data_loader = create_data_loader(
+        train_dataset,
+        batch_size=local_batch_size,
+        world_size=world_size,
+        rank=rank,
+        shuffle=True,
+        drop_last=world_size > 1,
+    )
+```
+4. generative_recommenders/ops/triton/triton_hstu_attention.py
+第1119行，将
+`    for start_m in tl.range(low, high, BLOCK_M, loop_unroll_factor=UNROLL):`
+修改成
+`    for start_m in tl.range(low, high, BLOCK_M, num_stages=UNROLL):`
 ### precision_mode模式适配
 1. generative_recommenders/modeling/sequential/embedding_modules.py
 LocaEmbeddingModule类__init__函数下  
@@ -271,21 +458,24 @@ HSTU reset_params函数下
 原69行添加
 ```
 from nsprobe.pytorch import seed_all
-seed_all(mode=True, rm_dropout=True, seed=1234)
 ```
 train_fn函数  
 添加参数precision_mode: bool = False  
-在train_fn函数一开始，添加
+在train_fn函数
+将`random.seed(random_seed)`  
+替换成
 ```
 if precision_mode:
     shuffle = False
+    seed_all(mode=True, rm_dropout=True, seed=random_seed)
 else:
     shuffle = True
+    random.seed(random_seed)
 ```
 将
 ```
     train_data_sampler, train_data_loader = create_data_loader(
-        dataset.train_dataset,
+        train_dataset,
         batch_size=local_batch_size,
         world_size=world_size,
         rank=rank,
@@ -304,7 +494,7 @@ else:
 改成
 ```
     train_data_sampler, train_data_loader = create_data_loader(
-        dataset.train_dataset,
+        train_dataset,
         batch_size=local_batch_size,
         world_size=world_size,
         rank=rank,
