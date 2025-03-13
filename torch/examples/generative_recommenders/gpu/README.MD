@@ -386,11 +386,13 @@ class RepeatDataset(Dataset):
         drop_last=world_size > 1,
     )
 ```
+
 4. generative_recommenders/ops/triton/triton_hstu_attention.py
-第1119行，将
-`    for start_m in tl.range(low, high, BLOCK_M, loop_unroll_factor=UNROLL):`
-修改成
+第1119行，将  
+`    for start_m in tl.range(low, high, BLOCK_M, loop_unroll_factor=UNROLL):`  
+修改成  
 `    for start_m in tl.range(low, high, BLOCK_M, num_stages=UNROLL):`
+
 ### precision_mode模式适配
 1. generative_recommenders/modeling/sequential/embedding_modules.py
 LocaEmbeddingModule类__init__函数下  
