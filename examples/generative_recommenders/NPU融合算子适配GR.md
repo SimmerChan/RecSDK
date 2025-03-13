@@ -149,6 +149,99 @@ return self.jagged_forward(
 )
 ```
 
+新增一个`MinClamp`类
+```python
+class MinClamp(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, x, min):
+        result = torch.clamp(x, min)
+        ctx.save_for_backward(x)
+        ctx.min = min
+        return result
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        x = ctx.saved_tensors[0]
+        min = ctx.min
+        zeros = torch.zeros_like(grad_output)
+        compare = torch.full_like(x, min)
+        grad_output = torch.where(x < compare, zeros, grad_output)
+
+        return grad_output, None
+```
+
+将 `NegativesSampler`类的`__init__`函数做如下修改:
+```python
+def __init__(self, l2_norm: bool, l2_norm_eps: float) -> None:
+    super().__init__()
+
+    self._l2_norm: bool = l2_norm
+    self._l2_norm_eps: float = l2_norm_eps
+    self.clamp_op = MinClamp()
+```
+
+将 `NegativesSampler`类的`_maybe_l2_norm`函数做如下修改:
+```python
+def _maybe_l2_norm(self, x: torch.Tensor) -> torch.Tensor:
+    if self._l2_norm:
+        x = x / self.clamp_op.apply(
+            torch.sqrt(self.clamp_op.apply(torch.sum(x**2, dim=-1, keepdim=True), 0.0) + 1e-10),
+            self._l2_norm_eps
+        )
+    return x
+```
+
+#### output_postprocessor.py
+
+修改 `generative-recommenders/generative-recommenders/modeling/sequential/output_postprocessor.py`
+
+在文件中新增一个`MinClamp`类
+```python
+class MinClamp(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, x, min):
+        result = torch.clamp(x, min)
+        ctx.save_for_backward(x)
+        ctx.min = min
+        return result
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        x = ctx.saved_tensors[0]
+        min = ctx.min
+        zeros = torch.zeros_like(grad_output)
+        compare = torch.full_like(x, min)
+        grad_output = torch.where(x < compare, zeros, grad_output)
+
+        return grad_output, None
+```
+
+将`L2NormEmbeddingPostprocessor`类中的`__init__`函数做如下修改：
+```python
+def __init__(
+    self,
+    embedding_dim: int,
+    eps: float = 1e-6
+) -> None:
+    super().__init__()
+    self._embedding_dim: int = embedding_dim
+    self._eps: float = eps
+    self.clamp_op = MinClamp()
+```
+
+将`L2NormEmbeddingPostprocessor`类中的`forward`函数做如下修改：
+```python
+def forward(
+    self,
+    output_embeddings: torch.Tensor
+) -> torch.Tensor:
+    output_embeddings = output_embeddings[..., self._embedding_dim]
+    return output_embeddings / self.clamp_op.apply(
+        torch.sqrt(self.clamp_op.apply(torch.sum(output_embeddings**2, dim=-1, keepdim=True), 0.0) + 1e-10),
+        self._eps
+    )
+```
+
 #### features.py
 
 修改 `generative-recommenders/generative-recommenders/modeling/sequential/features.py`
