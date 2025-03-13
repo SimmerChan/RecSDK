@@ -1,6 +1,7 @@
 # NPU融合算子适配GR
 
 ## 适配说明
+
 本样例的适配对象为Generative Recommendations模型, 将其迁移至NPU侧训练，并使用NPU的HSTU融合算子来实现性能的优化。
 
 模型参考的开源链接为 https://github.com/facebookresearch/generative-recommenders
@@ -13,13 +14,14 @@
 
 该镜像中部分配套版本说明：
 
-| 软件包简称              | 配套版本           |
-|--------------------|----------------|
-| Pytorch     | 2.1.0 |
-| Python | 3.11.0 |
-| Fbgemm      | 	0.5.0       |
+| 软件包简称   | 配套版本   |
+| ------- | ------ |
+| Pytorch | 2.1.0  |
+| Python  | 3.11.0 |
+| Fbgemm  | 0.5.0  |
 
 启动容器命令参考：
+
 ```python
 docker run \
 -u root \
@@ -43,11 +45,11 @@ ${image_name} \
 
 ### CANN、驱动、Kernels包
 
-| 软件           | 版本            | 下载链接 |
-|--------------|---------------|----------------|
-| CANN-toolkit | 8.0.0.beta1   |https://www.hiascend.com/developer/download/community/result?module=pt+cann
-| CANN-kernels | 8.0.0.beta1   |https://www.hiascend.com/developer/download/community/result?module=pt+cann
-| driver       | 1.0.28.alpha  |https://www.hiascend.com/hardware/firmware-drivers/community?product=1&model=30&cann=8.0.0.beta1&driver=1.0.28.alpha
+| 软件           | 版本           | 下载链接                                                                                                                 |
+| ------------ | ------------ | -------------------------------------------------------------------------------------------------------------------- |
+| CANN-toolkit | 8.0.0.beta1  | https://www.hiascend.com/developer/download/community/result?module=pt+cann                                          |
+| CANN-kernels | 8.0.0.beta1  | https://www.hiascend.com/developer/download/community/result?module=pt+cann                                          |
+| driver       | 1.0.28.alpha | https://www.hiascend.com/hardware/firmware-drivers/community?product=1&model=30&cann=8.0.0.beta1&driver=1.0.28.alpha |
 
 请根据机器架构、机器型号在下载链接中选择合适的安装包进行安装。
 
@@ -93,7 +95,6 @@ bash build_ops.sh
 执行完以上命令之后，融合算子的依赖包libhstu_dense_ops.so会生成在同目录下的build文件夹下，可将该so包拷贝到某固定目录下。示例如下：
 
 `cp ./build/libhstu_dense_ops.so /home/torch_ops/`
-
 
 ## 代码修改
 
@@ -150,6 +151,7 @@ return self.jagged_forward(
 ```
 
 新增一个`MinClamp`类
+
 ```python
 class MinClamp(torch.autograd.Function):
     @staticmethod
@@ -171,6 +173,7 @@ class MinClamp(torch.autograd.Function):
 ```
 
 将 `NegativesSampler`类的`__init__`函数做如下修改:
+
 ```python
 def __init__(self, l2_norm: bool, l2_norm_eps: float) -> None:
     super().__init__()
@@ -181,6 +184,7 @@ def __init__(self, l2_norm: bool, l2_norm_eps: float) -> None:
 ```
 
 将 `NegativesSampler`类的`_maybe_l2_norm`函数做如下修改:
+
 ```python
 def _maybe_l2_norm(self, x: torch.Tensor) -> torch.Tensor:
     if self._l2_norm:
@@ -196,6 +200,7 @@ def _maybe_l2_norm(self, x: torch.Tensor) -> torch.Tensor:
 修改 `generative-recommenders/generative-recommenders/modeling/sequential/output_postprocessor.py`
 
 在文件中新增一个`MinClamp`类
+
 ```python
 class MinClamp(torch.autograd.Function):
     @staticmethod
@@ -217,6 +222,7 @@ class MinClamp(torch.autograd.Function):
 ```
 
 将`L2NormEmbeddingPostprocessor`类中的`__init__`函数做如下修改：
+
 ```python
 def __init__(
     self,
@@ -230,6 +236,7 @@ def __init__(
 ```
 
 将`L2NormEmbeddingPostprocessor`类中的`forward`函数做如下修改：
+
 ```python
 def forward(
     self,
@@ -270,11 +277,14 @@ import torch_npu
 
 修改 `_main` 函数
 将原代码：
+
 ```python
 world_size = torch.cuda.device_count()
 mp.set_start_method("forkserver")
 ```
+
 修改为：
+
 ```python
 world_size = torch_npu.npu.device_count()
 # mp.set_start_method("forkserver")
@@ -285,13 +295,16 @@ world_size = torch_npu.npu.device_count()
 修改 `generative-recommenders/generative-recommenders/rails/similarities/mol/similarity_fn.py`
 
 将原代码第330-332行:
-```python 
+
+```python
 with torch.autocast(
         enabled=self._autocast_bf16, dtype=torch.bfloat16, device_type='cuda'
 ):
 ```
+
 修改为:
-```python 
+
+```python
 with torch.autocast(
         enabled=self._autocast_bf16, dtype=torch.bfloat16, device_type='npu'
 ):
@@ -302,12 +315,14 @@ with torch.autocast(
 修改 `generative-recommenders/generative-recommenders/trainer/train.py`
 
 在原代码第30行， 增加代码：
+
 ```python
 import torch_npu
 import numpy as np
 ```
 
 在原代码第70行，增加代码：
+
 ```python
 def set_seed(seed):
     random.seed(seed)
@@ -316,11 +331,12 @@ def set_seed(seed):
     torch.npu.manual_seed(seed) 
     torch.npu.manual_seed_all(seed)
     os.environ['PYTHONHASHSEED'] = str(seed) # 禁止hash随机化
-    
+
 set_seed(42)
 ```
 
 新增用于重复数据集迭代的类`RepeatDataset` ， 类的代码放在原代码函数 `setup` 前：
+
 ```python
 from torch.utils.data import Dataset
 
@@ -328,32 +344,37 @@ class RepeatDataset(Dataset):
     def __init__(self, dataset, num_repeats):
         self.dataset = dataset
         self.num_repeats = num_repeats
-        
+
     def __len__(self):
         return len(self.dataset) * self.num_repeats
-    
+
     def __getitem__(self, idx):
         return self.dataset[idx % len(self.dataset)]
 ```
 
 修改 `setup` 函数:  
 将原始代码第76行
+
 ```python
 dist.init_process_group("nccl", rank=rank, world_size=world_size)
 ```
+
 改为：
+
 ```python
 dist.init_process_group("hccl", rank=rank, world_size=world_size)
 ```
 
-
 修改 `train_fn` 函数:
 将原代码第137-138行:
+
 ```python
 torch.backends.cuda.matmul.allow_tf32 = enable_tf32
 torch.backends.cudnn.allow_tf32 = enable_tf32
 ```
+
 修改为：
+
 ```python
 torch_npu.npu.set_device(rank)
 torch_npu.npu.set_compile_mode(jit_compile=False)
@@ -362,6 +383,7 @@ torch_npu.npu.conv.allow_hf32 = True
 ```
 
 将原代码第151-158行：
+
 ```python
 train_data_sampler, train_data_loader = create_data_loader(
     dataset.train_dataset,
@@ -372,7 +394,9 @@ train_data_sampler, train_data_loader = create_data_loader(
     drop_last=world_size>1,
 )
 ```
+
 修改为:
+
 ```python
 train_dataset = RepeatDataset(dataset.train_dataset, num_repeats=300)
 train_data_sampler, train_data_loader = create_data_loader(
@@ -386,18 +410,23 @@ train_data_sampler, train_data_loader = create_data_loader(
 ```
 
 在原代码第264行：
+
 ```python
 model = model.to(device)
 ```
+
 前面添加代码：
+
 ```python
 device = f"npu:{device}"
 ```
 
 注释原代码第300行：
+
 ```python
 # torch.autograd.set_detect_anomaly(True)
 ```
+
 #### 新增 prefetch_shape.py
 
 在 main.py 同级目录下添加 prefetch_shape.py ，里面代码为：
@@ -413,6 +442,7 @@ args = {"offset": 0}
 修改 `generative-recommenders/generative-recommenders/modeling/sequential/hstu.py`
 
 在原代码第22行添加代码:
+
 ```python
 import os
 import numpy
@@ -421,13 +451,15 @@ import torch_npu
 ```
 
 在原代码路径第45行添加代码:
+
 ```python
 torch.ops.load_library("/home/torch_ops/libhstu_dense_ops.so")
 ```
+
 该so包路径采用上文示例的路径，用户可根据该包实际路径更改代码中的路径
 
-
 在原代码第48行新增类EmbedRank1Select的实现：
+
 ```python
 import torch_npu
 class EmbedRank1Select(torch.autograd.Function):
@@ -445,6 +477,7 @@ class EmbedRank1Select(torch.autograd.Function):
 ```
 
 继续新增类HstuFusion的实现:
+
 ```python
 class HstuFusion(torch.autograd.Function):
     @staticmethod
@@ -464,11 +497,13 @@ class HstuFusion(torch.autograd.Function):
         q, k ,v, mask, bias = ctx.saved_tensors
         q_grad, k_grad, v_grad, bias_grad = torch.ops.mxrec.hstu_dense_backward(
             grad_output, q, k, v, mask, bias, ctx.mode, ctx.mask_type, ctx.max_seq_len, ctx.silu_scale, ctx.seq_offset)
-
+        if bias is None:
+            bias_grad = None
         return q_grad, k_grad, v_grad, None, bias_grad, None, None, None, None
 ```
 
 在原代码108行后加入：
+
 ```python
 self.tw_elect_op = EmbedRank1Select()
 ```
@@ -488,7 +523,9 @@ rel_ts_bias = torch.index_select(
     self._ts_w, dim=0, index=bucketed_timestamps.view(-1)
 ).view(B, N, N)
 ```
+
 修改为：
+
 ```python
 bucketed_timestamps = torch.clamp(
     self._bucketization_fn(
@@ -504,7 +541,6 @@ rel_ts_bias = self.tw_elect_op.apply(self._ts_w, bucketed_timestamps.view(-1)).v
 修改`_hstu_attention_maybe_from_cache` 函数：
 
 将原代码第202-221行代码:
-
 
 修改为：
 
@@ -531,7 +567,7 @@ else:
     )
     if all_timestamps is not None and real_attn_bias:
         qk_attn = qk_attn + rel_attn_bias(all_timestamps).unsqueeze(1)
-    
+
     qk_attn = F.silu(qk_attn) / n
     qk_attn = qk_attn * invalid_attn_mask.unsqueeze(0).unsqueeze(0)
     attn_output = torch.ops.fbgemm.dense_to_jagged(
@@ -545,9 +581,9 @@ else:
         [x_offsets],
         prefetch_offset_shape
     )[0]
-    
+
     return attn_output, padded_q, padded_k
-    
+
 ```
 
 将原代码第342行注释：
@@ -557,6 +593,7 @@ else:
 ```
 
 将原代码402-408行：
+
 ```python
 attn_output = torch.ops.fbgemm.dense_to_jagged(
     torch.bmm(
@@ -566,7 +603,9 @@ attn_output = torch.ops.fbgemm.dense_to_jagged(
     [x_offsets],
 )[0]
 ```
+
 改为：
+
 ```python
 import prefetch_shape
 prefetch_offset_shape = prefetch_shape.args["offset"]
@@ -590,7 +629,9 @@ with torch.autocast(
         dtype=self._autocast_dtype or torch.float16,
 ):
 ```
+
 修改为：
+
 ```python
 with torch.autocast(
         "npu",
@@ -600,11 +641,14 @@ with torch.autocast(
 ```
 
 将原代码520-521行：
+
 ```python
 if len(x.size()) == 3:
     x = torch.ops.fbgemm.dense_to_jagged(x, [x_offsets])[0]
 ```
+
 修改为：
+
 ```python
 import prefetch_shape
 prefetch_offset_shape = prefetch_shape.args["offset"]
@@ -615,8 +659,8 @@ if len(x.size()) == 3:
 
 注释掉原代码第603-614行， 不传入relative_attention_bias_module参数， 本次示例修改代码为去rab操作，用户可根据需要选择是否传入
 
-
 ### 新增测试运行脚本run.sh
+
 在 main.py 同级目录下添加 run.sh ，里面代码为：
 
 ```shell
@@ -630,9 +674,11 @@ python3 train.py --gin_config_file=configs/ml-1m/hstu-sampled-softmax-n128-large
 ## 测试示例
 
 本次测试基于ml-1m数据集，使用NPU的HSTU融合算子(去rab, 下三角mask)， 基于以下配置config文件进行测试：
+
 ### config文件：
 
 创建一个hstu-mt-3400.gin文件，文件内容如下。将该gin文件放置在 `generative-recommenders/configs/ml-1m/` 目录下
+
 ```gin
 train_fn.dataset_name = "ml-1m"
 train_fn.max_sequence_length = 3389
@@ -670,9 +716,11 @@ train_fn.enable_tf32 = True
 create_data_loader.prefetch_factor = 128
 create_data_loader.num_workers = 8
 ```
+
 ### 运行命令：
 
 修改run.sh 脚本，使用上面的配置文件：
+
 ```shell
 export USE_NPU_HSTU = 1
 export PYTORCH_NPU_ALLOC_CONF = expandable_segments:True
@@ -683,11 +731,13 @@ python3 train.py --gin_config_file=configs/ml-1m/hstu-mt-3400.gin --master_port=
 `bash run.sh`
 
 ### 性能测试结果
-| 数据集   | seq_len | num_block | num_heads | dqk、dv | 端到端耗时 | GPU triton耗时
-|-------|--------|---------|---------|---------|---------|-------|
-| ml-1m | 3400   | 3 | 2| 256 | 54.8ms | 75ms
 
+| 数据集   | seq_len | num_block | num_heads | dqk、dv | 端到端耗时  | GPU triton耗时 |
+| ----- | ------- | --------- | --------- | ------ | ------ | ------------ |
+| ml-1m | 3400    | 3         | 2         | 256    | 54.8ms | 75ms         |
 
 ### 精度loss比对
 
 ## FAQ
+
+
