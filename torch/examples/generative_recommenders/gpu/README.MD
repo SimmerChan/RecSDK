@@ -16,13 +16,15 @@ torch==2.4.0
 torch_tensorrt==2.4.0
 torchaudio==2.4.0
 torchvison==0.19
-fbgemm-gpu==0.6.0
+fbgemm-gpu==0.8.0
 ```
 执行命令
 `pip install -r requirements.txt`
 安装 [mindstudio-probe](https://gitee.com/ascend/mstt/blob/master/debug/accuracy_tools/msprobe/docs/01.installation.md)
+## 数据下载
+`mkdir -p tmp/ && python3 preprocess_public_data.py`
 ## 适配
-1. generative_recommenders/modeling/sequential/hstu.py
+1. generative_recommenders/modeling/sequential/hstu.py  
 原46行替换成如下代码
 ```python
 from generative_recommenders.ops.triton.triton_hstu_attention import (
@@ -160,7 +162,7 @@ class AttentionFunction(torch.autograd.Function):
                 None,
             )
 ```
-SequentialTransductionUnitJagged类里，原226行下添加`max_seq_len: int,`，原241行下添加`self._max_seq_len: int = max_seq_len`
+SequentialTransductionUnitJagged类里，原226行下添加`max_seq_len: int,`，原241行下添加`self._max_seq_len: int = max_seq_len`  
 SequentialTransductionUnitJagged类里，forward函数里，原308行下添加
 ```python
         alpha = 1.0
@@ -191,11 +193,11 @@ SequentialTransductionUnitJagged类里，forward函数里，原308行下添加
         attn_output = attn_output.contiguous().view(bs, self._num_heads*self._attention_dim)
         B: int = x_offsets.shape(0) - 1
 ```
-最后替换return值，原442行改成`return new_outputs, (v, cached_q, cached_k, new_outputs)`
+最后替换return值，原442行改成`return new_outputs, (v, cached_q, cached_k, new_outputs)`  
 HSTU类里，原594行下添加`max_seq_len=max_sequence_len+max_output_len,`
 删除原603-614行，去除rab
 
-2. generative_recommenders/common.py
+2. generative_recommenders/common.py  
 注释83-84行
 ```
 # pre_hook=None
@@ -204,8 +206,8 @@ HSTU类里，原594行下添加`max_seq_len=max_sequence_len+max_output_len,`
 
 ### precision_mode模式适配
 1. generative_recommenders/modeling/sequential/embedding_modules.py
-LocaEmbeddingModule类__init__函数下
-添加参数precision_mode: bool = False
+LocaEmbeddingModule类__init__函数下  
+添加参数precision_mode: bool = False  
 把`self.reset_params`替换成
 ```
         if precision_mode:
@@ -215,8 +217,8 @@ LocaEmbeddingModule类__init__函数下
             self.reset_params()
 ```
 2. generative_recommenders/modeling/sequential/hstu.py
-SequentialTransductionUnitJagged类__init__函数下
-添加参数precision_mode: bool = False
+SequentialTransductionUnitJagged类__init__函数下  
+添加参数precision_mode: bool = False  
 将
 ```
             self._uvqk: torch.nn.Parameter = torch.nn.Parameter(
@@ -252,10 +254,10 @@ SequentialTransductionUnitJagged类__init__函数下
                     ).fill_(0.01),
                 )
 ```
-HSTU __init__添加参数precision_mode: bool = False
-初始化self._hstu下的SequentialTransductionUnitJagged里添加precision_mode=precision_mode参数
+HSTU __init__添加参数precision_mode: bool = False  
+初始化self._hstu下的SequentialTransductionUnitJagged里添加precision_mode=precision_mode参数  
 __init__初始化函数添加`self.precision_mode = precision_mode`
-HSTU reset_params函数下
+HSTU reset_params函数下  
 将`torch.nn.init.xavier_normal_(params.data)`替换成
 ```
                 if not self.precision_mode:
@@ -265,14 +267,59 @@ HSTU reset_params函数下
                     params.data.fill_(fixed_value)
 ```
 
-3. trainer/train.py
+3. trainer/train.py  
 原69行添加
 ```
 from nsprobe.pytorch import seed_all
 seed_all(mode=True, rm_dropout=True, seed=1234)
 ```
-train_fn函数
-添加参数precision_mode: bool = False
+train_fn函数  
+添加参数precision_mode: bool = False  
+在train_fn函数一开始，添加
+```
+if precision_mode:
+    shuffle = False
+else:
+    shuffle = True
+```
+将
+```
+    train_data_sampler, train_data_loader = create_data_loader(
+        dataset.train_dataset,
+        batch_size=local_batch_size,
+        world_size=world_size,
+        rank=rank,
+        shuffle=True,
+        drop_last=world_size > 1,
+    )
+    eval_data_sampler, eval_data_loader = create_data_loader(
+        dataset.eval_dataset,
+        batch_size=eval_batch_size,
+        world_size=world_size,
+        rank=rank,
+        shuffle=True,  # needed for partial eval
+        drop_last=world_size > 1,
+    )
+```
+改成
+```
+    train_data_sampler, train_data_loader = create_data_loader(
+        dataset.train_dataset,
+        batch_size=local_batch_size,
+        world_size=world_size,
+        rank=rank,
+        shuffle=shuffle,
+        drop_last=world_size > 1,
+    )
+    eval_data_sampler, eval_data_loader = create_data_loader(
+        dataset.eval_dataset,
+        batch_size=eval_batch_size,
+        world_size=world_size,
+        rank=rank,
+        shuffle=shuffle,  # needed for partial eval
+        drop_last=world_size > 1,
+    )
+```
 将
 ```
     if embedding_module_type == "local":
@@ -290,17 +337,17 @@ train_fn函数
             precision_mode=precision_mode,
         )
 ```
-model = get_sequential_encoder下添加参数precision_mode=precision_mode
+model = get_sequential_encoder下添加参数precision_mode=precision_mode  
 input_preproc_module = LearnablePositionalEmbeddingInputFeaturesPreprocessor下添加参数precision_mode=precision_mode
 
 4. generative_recommenders/modeling/sequential/encoder_utils.py
-hstu_encoder函数添加参数precision_mode: bool = False
-return HSTU下添加precision_mode=precision_mode参数
-get_sequential_encoder函数添加参数precision_mode: bool = False
+hstu_encoder函数添加参数precision_mode: bool = False  
+return HSTU下添加precision_mode=precision_mode参数  
+get_sequential_encoder函数添加参数precision_mode: bool = False  
 model = hstu_encoder下添加参数precision_mode=precision_mode
 
 5. generative_recommenders/modeling/sequential/input_features_preprocessors.py
-LearnablePositionalEmbeddingInputFeaturesPreprocessor类添加参数precision_mode: bool = False
+LearnablePositionalEmbeddingInputFeaturesPreprocessor类添加参数precision_mode: bool = False  
 并将`self.reset_state()`替换成
 ```
         if precision_mode:
@@ -309,3 +356,9 @@ LearnablePositionalEmbeddingInputFeaturesPreprocessor类添加参数precision_mo
             self.reset_state()
 ```
 通过开启precision_mode，开启精度模式，可以消除随机性对模型精度进行对比定位
+
+## 启动命令
+参考configs文件夹下的config文件配置好config.gin  
+若需要开启精度模式，需添加`train_fn.precision_mode = True`  
+执行命令:  
+`python main.py --gin_config_file=your/path/to/config.gin --master_port=master_port`
