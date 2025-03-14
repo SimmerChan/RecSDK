@@ -547,7 +547,7 @@ LearnablePositionalEmbeddingInputFeaturesPreprocessor类添加参数precision_mo
         else:
             self.reset_state()
 ```
-通过开启precision_mode，开启精度模式，可以消除随机性对模型精度进行对比定位
+通过开启precision_mode，开启精度模式，可以消除随机性对模型精度进行对比定位 
 
 ## 启动命令
 参考configs文件夹下的config文件配置好config.gin  
