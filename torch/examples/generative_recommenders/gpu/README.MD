@@ -589,6 +589,9 @@ train_fn.precision_mode = True
 执行命令:  
 `python main.py --gin_config_file=your/path/to/config.gin --master_port=master_port`
 
+### note
+由于数据处理部分存在随机性，对比精度时需要将npu和gpu的数据进行对齐
+
 ### GPU triton和NPU融合算子整网loss精度对比结果
 
 | step | GPU loss | NPU loss | loss diff | 
