@@ -20,7 +20,6 @@ fbgemm-gpu==0.8.0
 ```
 执行命令
 `pip install -r requirements.txt`
-安装 [mindstudio-probe](https://gitee.com/ascend/mstt/blob/master/debug/accuracy_tools/msprobe/docs/01.installation.md)
 ## 数据下载
 `mkdir -p tmp/ && python3 preprocess_public_data.py`
 ## 适配
@@ -316,19 +315,6 @@ HSTU类初始化里
                     linear_config=linear_config,
                     linear_activation=linear_activation,
                     num_heads=num_heads,
-                    # TODO: change to lambda x.
-                    # relative_attention_bias_module=(
-                    #    RelativeBucketedTimeAndPositionBasedBias(
-                    #        max_seq_len=max_sequence_len
-                    #        + max_output_len,  # accounts for next item.
-                    #        num_buckets=128,
-                    #        bucketization_fn=lambda x: (
-                    #            torch.log(torch.abs(x).clamp(min=1)) / 0.301
-                    #        ).long(),
-                    #    )
-                    #    if enable_relative_attention_bias
-                    #    else None
-                    #),
                     dropout_ratio=linear_dropout_rate,
                     attn_dropout_ratio=attn_dropout_rate,
                     concat_ua=concat_ua,
@@ -386,6 +372,7 @@ class RepeatDataset(Dataset):
         drop_last=world_size > 1,
     )
 ```
+注释`torch.autograd.set_detect_anomaly(True)`
 
 4. generative_recommenders/ops/triton/triton_hstu_attention.py
 第1119行，将  
@@ -393,8 +380,12 @@ class RepeatDataset(Dataset):
 修改成  
 `    for start_m in tl.range(low, high, BLOCK_M, num_stages=UNROLL):`
 
-### precision_mode模式适配
-1. generative_recommenders/modeling/sequential/embedding_modules.py
+### precision_mode模式
+### 相关依赖  
+安装 [mindstudio-probe](https://gitee.com/ascend/mstt/blob/master/debug/accuracy_tools/msprobe/docs/01.installation.md)  
+
+### 适配
+1. generative_recommenders/modeling/sequential/embedding_modules.py  
 LocaEmbeddingModule类__init__函数下  
 添加参数precision_mode: bool = False  
 把`self.reset_params`替换成
@@ -405,7 +396,7 @@ LocaEmbeddingModule类__init__函数下
         else:
             self.reset_params()
 ```
-2. generative_recommenders/modeling/sequential/hstu.py
+2. generative_recommenders/modeling/sequential/hstu.py  
 SequentialTransductionUnitJagged类__init__函数下  
 添加参数precision_mode: bool = False  
 将
@@ -445,7 +436,7 @@ SequentialTransductionUnitJagged类__init__函数下
 ```
 HSTU __init__添加参数precision_mode: bool = False  
 初始化self._hstu下的SequentialTransductionUnitJagged里添加precision_mode=precision_mode参数  
-__init__初始化函数添加`self.precision_mode = precision_mode`
+__init__初始化函数，`self.reset_params()`上面添加`self.precision_mode = precision_mode`
 HSTU reset_params函数下  
 将`torch.nn.init.xavier_normal_(params.data)`替换成
 ```
@@ -459,7 +450,7 @@ HSTU reset_params函数下
 3. trainer/train.py  
 原69行添加
 ```
-from nsprobe.pytorch import seed_all
+from msprobe.pytorch import seed_all
 ```
 train_fn函数  
 添加参数precision_mode: bool = False  
@@ -508,7 +499,7 @@ else:
         batch_size=eval_batch_size,
         world_size=world_size,
         rank=rank,
-        shuffle=shuffle,  # needed for partial eval
+        shuffle=shuffle,  
         drop_last=world_size > 1,
     )
 ```
@@ -532,16 +523,16 @@ else:
 model = get_sequential_encoder下添加参数precision_mode=precision_mode  
 input_preproc_module = LearnablePositionalEmbeddingInputFeaturesPreprocessor下添加参数precision_mode=precision_mode
 
-4. generative_recommenders/modeling/sequential/encoder_utils.py
+4. generative_recommenders/modeling/sequential/encoder_utils.py  
 hstu_encoder函数添加参数precision_mode: bool = False  
 return HSTU下添加precision_mode=precision_mode参数  
 get_sequential_encoder函数添加参数precision_mode: bool = False  
 model = hstu_encoder下添加参数precision_mode=precision_mode
 
-5. generative_recommenders/modeling/sequential/input_features_preprocessors.py
+5. generative_recommenders/modeling/sequential/input_features_preprocessors.py  
 LearnablePositionalEmbeddingInputFeaturesPreprocessor类添加参数precision_mode: bool = False  
 并将`self.reset_state()`替换成
-```
+ ```
         if precision_mode:
             self._pos_emb.weight.data.fill_(1)
         else:
@@ -549,8 +540,67 @@ LearnablePositionalEmbeddingInputFeaturesPreprocessor类添加参数precision_mo
 ```
 通过开启precision_mode，开启精度模式，可以消除随机性对模型精度进行对比定位 
 
-## 启动命令
-参考configs文件夹下的config文件配置好config.gin  
-若需要开启精度模式，需添加`train_fn.precision_mode = True`  
+### 精度测试示例
+本次测试基于ml-1m数据集，使用GPU的triton(去rab, 下三角mask)， 基于以下配置config文件进行测试：
+
+config文件：
+创建一个hstu-mt-3400.gin文件，文件内容如下。将该gin文件放置在 generative-recommenders/configs/ml-1m/ 目录下，并开启精度模式
+
+```
+train_fn.dataset_name = "ml-1m"
+train_fn.max_sequence_length = 3389
+train_fn.local_batch_size = 32
+
+train_fn.main_module = "HSTU"
+train_fn.dropout_rate = 0.2
+train_fn.user_embedding_norm = "l2_norm"
+train_fn.num_epochs = 1
+train_fn.item_embedding_dim = 512
+
+hstu_encoder.num_blocks = 3
+hstu_encoder.num_heads = 2
+hstu_encoder.dqk = 256
+hstu_encoder.dv = 256
+hstu_encoder.linear_dropout_rate = 0.2
+
+train_fn.learning_rate = 1e-3
+train_fn.weight_decay = 0
+train_fn.num_warmup_steps = 0
+
+train_fn.interaction_module_type = "DotProduct"
+train_fn.top_k_method = "MIPSBruteForceTopK"
+
+train_fn.loss_module = "SampledSoftmaxLoss"
+train_fn.num_negatives = 128
+train_fn.eval_interval = 10
+train_fn.sampling_strategy = "local"
+train_fn.temperature = 0.05
+train_fn.item_l2_norm = True
+train_fn.l2_norm_eps = 1e-6
+
+train_fn.enable_tf32 = True
+
+create_data_loader.prefetch_factor = 128
+create_data_loader.num_workers = 8
+
+train_fn.precision_mode = True
+```
+
 执行命令:  
 `python main.py --gin_config_file=your/path/to/config.gin --master_port=master_port`
+
+### GPU triton和NPU融合算子整网loss精度对比结果
+
+| step | GPU loss | NPU loss | loss diff | 
+| ----- | ----- | ----- | ----- |
+|  0  | 4.859579 | 4.859569 | 1.0000000000509601e-05 |
+|  10  | 4.85863 | 4.858632 | 2.000000000279556e-06 |
+|  20  | 4.855053 | 4.855056 | 3.000000000419334e-06 |
+|  30  | 4.850527 | 4.850548 | 2.1000000000270802e-05 |
+|  40  | 4.837311 | 4.837361 | 4.999999999988347e-05 |
+|  50  | 4.821918 | 4.822002 | 8.400000000019503e-05 |
+|  60  | 4.802688 | 4.80268 | 8.000000000230045e-06 |
+|  70  | 4.776829 | 4.777043 | 0.00021399999999971442 |
+|  80  | 4.760865 | 4.760607 | 0.0002579999999996474 |
+|  90  | 4.713118 | 4.712983 | 0.0001349999999993301 |
+|  100  | 4.680532 | 4.68044 | 9.200000000042508e-05 |
