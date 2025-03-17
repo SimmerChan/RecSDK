@@ -74,6 +74,7 @@ def run_infer(load_model, load_sess, filename, hparams, sample_num_file):
         sample_num = int(f.readlines()[0].strip())
     if not os.path.exists(util.RES_DIR):
         os.mkdir(util.RES_DIR)
+    # In the run_eval function, get_initializer's parameter is set to true.
     initializer = ConfigInitializer.get_instance().train_params_config.get_initializer(True)
     load_sess.run(initializer, feed_dict={load_model.filenames: [filename]})
     preds = []
