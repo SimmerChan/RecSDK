@@ -384,6 +384,9 @@ class RepeatDataset(Dataset):
 ### 相关依赖  
 安装 [mindstudio-probe](https://gitee.com/ascend/mstt/blob/master/debug/accuracy_tools/msprobe/docs/01.installation.md)  
 
+### 精度对比
+使用mindstudio-probe开启debugger，可对整网进行精度对比，使用参考链接： https://www.hiascend.com/document/detail/zh/CANNCommunityEdition/800alpha003/devaids/quickstart/pttraingquickstart/pttools_qucikstart_0006.html
+
 ### 适配
 1. generative_recommenders/modeling/sequential/embedding_modules.py  
 LocaEmbeddingModule类__init__函数下  
