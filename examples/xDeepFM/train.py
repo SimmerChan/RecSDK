@@ -9,6 +9,7 @@ from src.exDeepFM import ExtremeDeepFMModel
 import utils.util as util
 import utils.metric as metric
 from mx_rec.util.initialize import ConfigInitializer
+from mx_rec.graph.modifier import modify_graph_and_start_emb_cache
 
 class TrainModel(collections.namedtuple("TrainModel", ("graph", "model", "iterator", "filenames"))):
     """define train class, include graph, model, iterator"""
@@ -202,7 +203,6 @@ def train(hparams, scope=None, target_session=""):
     gpuconfig.gpu_options.allow_growth = True
     tf.set_random_seed(1234)
 
-    from mx_rec.graph.modifier import modify_graph_and_start_emb_cache
     modify_graph_and_start_emb_cache(dump_graph=True)
 
     train_sess = tf.Session(target=target_session, graph=train_model.graph, config=npu_config_proto(config_proto=gpuconfig))
