@@ -107,7 +107,7 @@ bash build_ops.sh
 
 #### autoregressive_losses.py
 
-修改 `generative-recommenders/generative-recommenders/modeling/sequential/autoregressive_losses.py`
+修改 `generative-recommenders/generative_recommenders/modeling/sequential/autoregressive_losses.py`
 
 将 BCELossWithRatings(AutoregressiveLoss) 中的forward函数替换为以下代码：
 
@@ -156,7 +156,7 @@ return self.jagged_forward(
 
 #### features.py
 
-修改 `generative-recommenders/generative-recommenders/modeling/sequential/features.py`
+修改 `generative-recommenders/generative_recommenders/modeling/sequential/features.py`
 
 修改 `movielens_seq_features_from_row` 函数：
 
@@ -173,7 +173,7 @@ prefetch_shape.args["lengths"] = cumulative_sum
 
 #### main.py
 
-修改`generative-recommenders/main.py`
+修改`generative_recommenders/main.py`
 
 在第34行增加代码：
 
@@ -198,13 +198,13 @@ world_size = torch_npu.npu.device_count()
 
 #### similarity_fn.py
 
-修改 `generative-recommenders/generative-recommenders/rails/similarities/mol/similarity_fn.py`
+修改 `generative-recommenders/generative_recommenders/rails/similarities/mol/similarity_fn.py`
 
 将原代码第330-332行:
 
 ```python
 with torch.autocast(
-        enabled=self._autocast_bf16, dtype=torch.bfloat16, device_type='cuda'
+    enabled=self._autocast_bf16, dtype=torch.bfloat16, device_type='cuda'
 ):
 ```
 
@@ -212,13 +212,13 @@ with torch.autocast(
 
 ```python
 with torch.autocast(
-        enabled=self._autocast_bf16, dtype=torch.bfloat16, device_type='npu'
+    enabled=self._autocast_bf16, dtype=torch.bfloat16, device_type='npu'
 ):
 ```
 
 #### train.py
 
-修改 `generative-recommenders/generative-recommenders/trainer/train.py`
+修改 `generative-recommenders/generative_recommenders/trainer/train.py`
 
 在原代码第30行， 增加代码：
 
@@ -321,7 +321,7 @@ device = f"npu:{device}"
 
 #### 新增 prefetch_shape.py
 
-在 main.py 同级目录下添加 prefetch_shape.py ，里面代码为：
+在 `generative-recommenders/main.py` 同级目录下添加 `prefetch_shape.py` ，里面代码为：
 
 ```python
 args = {"offset": 0}
@@ -331,7 +331,7 @@ args = {"offset": 0}
 
 #### 修改适配hstu.py
 
-修改 `generative-recommenders/generative-recommenders/modeling/sequential/hstu.py`
+修改 `generative-recommenders/generative_recommenders/modeling/sequential/hstu.py`
 
 在原代码第22行添加代码:
 
@@ -346,6 +346,7 @@ import torch_npu
 
 ```python
 torch.ops.load_library("/home/torch_ops/libhstu_dense_ops.so")
+ENABLE_RELATIVE_ATTENTION_BIAS = bool(int(os.getenv('ENABLE_RAB', 1)))
 ```
 
 该so包路径采用上文示例的路径，用户可根据该包实际路径更改代码中的路径
@@ -393,7 +394,7 @@ class HstuFusion(torch.autograd.Function):
         return q_grad, k_grad, v_grad, None, bias_grad, None, None, None, None
 ```
 
-在原代码108行后加入：
+在`RelativeBucketedTimeAndPositionBasedBias(RelativeAttentionBiasModule)`类的`__init__`函数末尾(原代码108行)增加：
 
 ```python
 self.tw_elect_op = EmbedRank1Select()
@@ -432,6 +433,28 @@ rel_ts_bias = self.tw_elect_op.apply(self._ts_w, bucketed_timestamps.view(-1)).v
 修改`_hstu_attention_maybe_from_cache` 函数：
 
 将原代码第202-221行代码:
+```python
+qk_attn = torch.einsum(
+    "bnhd,bmhd->bhnm",
+    padded_q.view(B, n, num_heads, attention_dim),
+    padded_k.view(B, n, num_heads, attention_dim),
+)
+if all_timestamps is not None:
+    qk_attn = qk_attn + rel_attn_bias(all_timestamps).unsqueeze(1)
+qk_attn = F.silu(qk_attn) / n
+qk_attn = qk_attn * invalid_attn_mask.unsqueeze(0).unsqueeze(0)
+attn_output = torch.ops.fbgemm.dense_to_jagged(
+    torch.einsum(
+        "bhnm,bmhd->bnhd",
+        qk_attn,
+        torch.ops.fbgemm.jagged_to_padded_dense(v, [x_offsets], [n]).reshape(
+            B, n, num_heads, linear_dim
+        ),
+    ).reshape(B, n, num_heads * linear_dim),
+    [x_offsets],
+)[0]
+return attn_output, padded_q, padded_k
+```
 
 修改为：
 
@@ -457,7 +480,7 @@ else:
         padded_q.view(B, n, num_heads, attention_dim),
         padded_k.view(B, n, num_heads, attention_dim),
     )
-    if all_timestamps is not None and real_attn_bias:
+    if all_timestamps is not None and rel_attn_bias:
         qk_attn = qk_attn + rel_attn_bias(all_timestamps).unsqueeze(1)
 
     qk_attn = F.silu(qk_attn) / n
@@ -563,8 +586,9 @@ if len(x.size()) == 3:
 
 ```shell
 export USE_NPU_HSTU=1
+export ENABLE_RAB=0
 export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
-python3 train.py --gin_config_file=configs/ml-1m/hstu-sampled-softmax-n128-large-final.gin --master_port=12345 | tee temp.log
+python3 train.py
 ```
 
 测试的gin文件请根据实际测试配置选择更改gin_config_file参数
@@ -621,6 +645,7 @@ create_data_loader.num_workers = 8
 
 ```shell
 export USE_NPU_HSTU = 1
+export ENABLE_RAB=0
 export PYTORCH_NPU_ALLOC_CONF = expandable_segments:True
 python3 train.py --gin_config_file=configs/ml-1m/hstu-mt-3400.gin --master_port=12345 | tee temp.log
 ```
