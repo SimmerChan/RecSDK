@@ -15,7 +15,7 @@
 该镜像中部分配套版本说明：
 
 | 软件包简称   | 配套版本   |
-| ------- | ------ |
+|---------|--------|
 | Pytorch | 2.1.0  |
 | Python  | 3.11.0 |
 | Fbgemm  | 0.5.0  |
@@ -46,7 +46,7 @@ ${image_name} \
 ### CANN、驱动、Kernels包
 
 | 软件           | 版本           | 下载链接                                                                                                                 |
-| ------------ | ------------ | -------------------------------------------------------------------------------------------------------------------- |
+|--------------|--------------|----------------------------------------------------------------------------------------------------------------------|
 | CANN-toolkit | 8.0.0.beta1  | https://www.hiascend.com/developer/download/community/result?module=pt+cann                                          |
 | CANN-kernels | 8.0.0.beta1  | https://www.hiascend.com/developer/download/community/result?module=pt+cann                                          |
 | driver       | 1.0.28.alpha | https://www.hiascend.com/hardware/firmware-drivers/community?product=1&model=30&cann=8.0.0.beta1&driver=1.0.28.alpha |
@@ -71,7 +71,8 @@ ${image_name} \
 
 ### 安装算子
 
-重新进入文件夹 mindxsdk-mxec-add-ons, 安装需要的昇腾适配算子： jagged_to_padded_dense、IndexSelect优化、 dense_to_jagged、asynchronous_complete_cumsum、gather_for_rank1
+重新进入文件夹 mindxsdk-mxec-add-ons, 安装需要的昇腾适配算子： jagged_to_padded_dense、IndexSelect优化、
+dense_to_jagged、asynchronous_complete_cumsum、gather_for_rank1
 
 ```shell
 cd mindxsdk-mxec-add-ons/mxrec_ops
@@ -80,6 +81,8 @@ bash mxrec_opp_dense_to_jagged.run
 bash mxrec_opp_index_select_for_rank1_backward.run
 bash mxrec_opp_jagged_to_padded_dense.run
 bash mxrec_opp_gather_for_rank1.run
+bash mxrec_opp_hstu_dense_forward.run
+bash mxrec_opp_hstu_dense_backward.run
 ```
 
 ### 编译融合算子依赖的lib
@@ -88,7 +91,7 @@ bash mxrec_opp_gather_for_rank1.run
 
 ```shell
 cd mindxsdk-mxec-add-ons/torch_library
-cd hstu
+cd 2.1.0/hstu
 bash build_ops.sh
 ```
 
@@ -110,6 +113,7 @@ bash build_ops.sh
 
 ```python
 import prefetch_shape
+
 prefetch_offset_shape = prefetch_shape.args["offset"]
 
 assert output_embeddings.size() == supervision_embeddings.size()
@@ -140,7 +144,7 @@ return self.jagged_forward(
         [jagged_id_offsets],
         prefetch_offset_shape
     )[0],
-    supervision_weights = jagged_supervision_weights,
+    supervision_weights=jagged_supervision_weights,
     supervision_ratings=torch.ops.fbgemm.dense_to_jagged(
         supervision_ratings.unsqueeze(-1),
         [jagged_id_offsets],
@@ -148,105 +152,6 @@ return self.jagged_forward(
     )[0].squeeze(1),
     negatives_sampler=negatives_sampler,
 )
-```
-
-新增一个`MinClamp`类
-
-```python
-class MinClamp(torch.autograd.Function):
-    @staticmethod
-    def forward(ctx, x, min):
-        result = torch.clamp(x, min)
-        ctx.save_for_backward(x)
-        ctx.min = min
-        return result
-
-    @staticmethod
-    def backward(ctx, grad_output):
-        x = ctx.saved_tensors[0]
-        min = ctx.min
-        zeros = torch.zeros_like(grad_output)
-        compare = torch.full_like(x, min)
-        grad_output = torch.where(x < compare, zeros, grad_output)
-
-        return grad_output, None
-```
-
-将 `NegativesSampler`类的`__init__`函数做如下修改:
-
-```python
-def __init__(self, l2_norm: bool, l2_norm_eps: float) -> None:
-    super().__init__()
-
-    self._l2_norm: bool = l2_norm
-    self._l2_norm_eps: float = l2_norm_eps
-    self.clamp_op = MinClamp()
-```
-
-将 `NegativesSampler`类的`_maybe_l2_norm`函数做如下修改:
-
-```python
-def _maybe_l2_norm(self, x: torch.Tensor) -> torch.Tensor:
-    if self._l2_norm:
-        x = x / self.clamp_op.apply(
-            torch.sqrt(self.clamp_op.apply(torch.sum(x**2, dim=-1, keepdim=True), 0.0) + 1e-10),
-            self._l2_norm_eps
-        )
-    return x
-```
-
-#### output_postprocessor.py
-
-修改 `generative-recommenders/generative-recommenders/modeling/sequential/output_postprocessor.py`
-
-在文件中新增一个`MinClamp`类
-
-```python
-class MinClamp(torch.autograd.Function):
-    @staticmethod
-    def forward(ctx, x, min):
-        result = torch.clamp(x, min)
-        ctx.save_for_backward(x)
-        ctx.min = min
-        return result
-
-    @staticmethod
-    def backward(ctx, grad_output):
-        x = ctx.saved_tensors[0]
-        min = ctx.min
-        zeros = torch.zeros_like(grad_output)
-        compare = torch.full_like(x, min)
-        grad_output = torch.where(x < compare, zeros, grad_output)
-
-        return grad_output, None
-```
-
-将`L2NormEmbeddingPostprocessor`类中的`__init__`函数做如下修改：
-
-```python
-def __init__(
-    self,
-    embedding_dim: int,
-    eps: float = 1e-6
-) -> None:
-    super().__init__()
-    self._embedding_dim: int = embedding_dim
-    self._eps: float = eps
-    self.clamp_op = MinClamp()
-```
-
-将`L2NormEmbeddingPostprocessor`类中的`forward`函数做如下修改：
-
-```python
-def forward(
-    self,
-    output_embeddings: torch.Tensor
-) -> torch.Tensor:
-    output_embeddings = output_embeddings[..., self._embedding_dim]
-    return output_embeddings / self.clamp_op.apply(
-        torch.sqrt(self.clamp_op.apply(torch.sum(output_embeddings**2, dim=-1, keepdim=True), 0.0) + 1e-10),
-        self._eps
-    )
 ```
 
 #### features.py
@@ -259,6 +164,7 @@ def forward(
 
 ```python
 import prefetch_shape
+
 prefetch_shape.args["offset"] = row["history_lengths"].sum().item()
 lengths = row["history_lengths"].tolist()
 cumulative_sum = [sum(lengths[:i]) for i in range(len(lengths) + 1)]
@@ -321,20 +227,6 @@ import torch_npu
 import numpy as np
 ```
 
-在原代码第70行，增加代码：
-
-```python
-def set_seed(seed):
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed) 
-    torch.npu.manual_seed(seed) 
-    torch.npu.manual_seed_all(seed)
-    os.environ['PYTHONHASHSEED'] = str(seed) # 禁止hash随机化
-
-set_seed(42)
-```
-
 新增用于重复数据集迭代的类`RepeatDataset` ， 类的代码放在原代码函数 `setup` 前：
 
 ```python
@@ -391,21 +283,21 @@ train_data_sampler, train_data_loader = create_data_loader(
     world_size=world_size,
     rank=rank,
     shuffle=True,
-    drop_last=world_size>1,
+    drop_last=world_size > 1,
 )
 ```
 
 修改为:
 
 ```python
-train_dataset = RepeatDataset(dataset.train_dataset, num_repeats=300)
+train_dataset = RepeatDataset(dataset.train_dataset, num_repeats=100)
 train_data_sampler, train_data_loader = create_data_loader(
     train_dataset,
     batch_size=local_batch_size,
     world_size=world_size,
     rank=rank,
     shuffle=True,
-    drop_last=world_size>1,
+    drop_last=world_size > 1,
 )
 ```
 
@@ -461,11 +353,10 @@ torch.ops.load_library("/home/torch_ops/libhstu_dense_ops.so")
 在原代码第48行新增类EmbedRank1Select的实现：
 
 ```python
-import torch_npu
 class EmbedRank1Select(torch.autograd.Function):
     @staticmethod
     def forward(ctx, x, index):
-        result =  torch_npu.gather_for_rank1(x, index=index)
+        result = torch_npu.gather_for_rank1(x, index=index)
         ctx.save_for_backward(x, index)
         return result
 
@@ -484,7 +375,7 @@ class HstuFusion(torch.autograd.Function):
     def forward(ctx, q, k, v, mask, bias, mask_type, mode, seq_offset, max_seq_len):
         silu_value = 1 / max_seq_len
         out = torch.ops.mxrec.hstu_dense(q, k, v, mask, bias, mask_type, max_seq_len, silu_value, mode, seq_offset)
-        ctx.save_for_backward(q, k ,v, mask, bias)
+        ctx.save_for_backward(q, k, v, mask, bias)
         ctx.max_seq_len = max_seq_len
         ctx.silu_scale = silu_value
         ctx.seq_offset = seq_offset
@@ -494,7 +385,7 @@ class HstuFusion(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, grad_output):
-        q, k ,v, mask, bias = ctx.saved_tensors
+        q, k, v, mask, bias = ctx.saved_tensors
         q_grad, k_grad, v_grad, bias_grad = torch.ops.mxrec.hstu_dense_backward(
             grad_output, q, k, v, mask, bias, ctx.mode, ctx.mask_type, ctx.max_seq_len, ctx.silu_scale, ctx.seq_offset)
         if bias is None:
@@ -546,6 +437,7 @@ rel_ts_bias = self.tw_elect_op.apply(self._ts_w, bucketed_timestamps.view(-1)).v
 
 ```python
 import prefetch_shape
+
 prefetch_offset_shape = prefetch_shape.args["offset"]
 use_npu_hstu = int(os.getenv("USE_NPU_HSTU", 0))
 
@@ -577,7 +469,7 @@ else:
             torch.ops.fbgemm.jagged_to_padded_dense(v, [x_offsets], [n]).reshape(
                 B, n, num_heads, linear_dim
             ),
-        ).reshape(B,n, num_heads * linear_dim),
+        ).reshape(B, n, num_heads * linear_dim),
         [x_offsets],
         prefetch_offset_shape
     )[0]
@@ -608,6 +500,7 @@ attn_output = torch.ops.fbgemm.dense_to_jagged(
 
 ```python
 import prefetch_shape
+
 prefetch_offset_shape = prefetch_shape.args["offset"]
 
 attn_output = torch.ops.fbgemm.dense_to_jagged(
@@ -651,6 +544,7 @@ if len(x.size()) == 3:
 
 ```python
 import prefetch_shape
+
 prefetch_offset_shape = prefetch_shape.args["offset"]
 
 if len(x.size()) == 3:
@@ -659,13 +553,17 @@ if len(x.size()) == 3:
 
 注释掉原代码第603-614行， 不传入relative_attention_bias_module参数， 本次示例修改代码为去rab操作，用户可根据需要选择是否传入
 
+### precision_mode模式适配
+
+参考适配文档：https://gitee.com/ascend/RecSDK/blob/branch_v7.0.0-POC_torch/torch/examples/generative_recommenders/gpu/README.MD#precision_mode模式
+
 ### 新增测试运行脚本run.sh
 
 在 main.py 同级目录下添加 run.sh ，里面代码为：
 
 ```shell
-export USE_NPU_HSTU = 1
-export PYTORCH_NPU_ALLOC_CONF = expandable_segments:True
+export USE_NPU_HSTU=1
+export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
 python3 train.py --gin_config_file=configs/ml-1m/hstu-sampled-softmax-n128-large-final.gin --master_port=12345 | tee temp.log
 ```
 
@@ -732,12 +630,26 @@ python3 train.py --gin_config_file=configs/ml-1m/hstu-mt-3400.gin --master_port=
 
 ### 性能测试结果
 
-| 数据集   | seq_len | num_block | num_heads | dqk、dv | 端到端耗时  | GPU triton耗时 |
-| ----- | ------- | --------- | --------- | ------ | ------ | ------------ |
-| ml-1m | 3400    | 3         | 2         | 256    | 54.8ms | 75ms         |
+| 数据集   | seq_len | num_block | num_heads | dqk、dv | 端到端耗时  | GPU triton耗时 | 硬件平台  |
+|-------|---------|-----------|-----------|--------|--------|--------------|-------|
+| ml-1m | 3400    | 3         | 2         | 256    | 54.8ms | 75ms         | 910B2 |
 
 ### 精度loss比对
 
+精度对比需额外适配，详见：https://gitee.com/ascend/RecSDK/blob/branch_v7.0.0-POC_torch/torch/examples/generative_recommenders/gpu/README.MD#precision_mode%E6%A8%A1%E5%BC%8F
+
+| Step | GPU loss | NPU loss | Loss diff              |
+|------|----------|----------|------------------------|
+| 0    | 4.859579 | 4.859569 | 1.0000000000509601e-05 |
+| 10   | 4.85863  | 4.858632 | 2.000000000279556e-06  |
+| 20   | 4.855053 | 4.855056 | 3.000000000419334e-06  |
+| 30   | 4.850527 | 4.850548 | 2.1000000000270802e-05 |
+| 40   | 4.837311 | 4.837361 | 4.999999999988347e-05  |
+| 50   | 4.821918 | 4.822002 | 8.400000000019503e-05  |
+| 60   | 4.802688 | 4.80268  | 8.000000000230045e-06  |
+| 70   | 4.776829 | 4.777043 | 0.00021399999999971442 |
+| 80   | 4.760865 | 4.760607 | 0.0002579999999996474  |
+| 90   | 4.713118 | 4.712983 | 0.0001349999999993301  |
+| 100  | 4.680532 | 4.68044  | 9.200000000042508e-05  |
+
 ## FAQ
-
-
