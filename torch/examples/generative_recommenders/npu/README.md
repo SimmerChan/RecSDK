@@ -655,9 +655,9 @@ python3 train.py --gin_config_file=configs/ml-1m/hstu-mt-3400.gin --master_port=
 
 ### 性能测试结果
 
-| 数据集   | seq_len | num_block | num_heads | dqk、dv | 端到端耗时  | GPU triton耗时 | 卡型号   |
-|-------|---------|-----------|-----------|--------|--------|--------------|-------|
-| ml-1m | 3400    | 3         | 2         | 256    | 54.8ms | 75ms         | 910B2 |
+| 数据集   | seq_len | num_block | num_heads | dqk、dv | 端到端耗时  | GPU triton耗时 |
+|-------|---------|-----------|-----------|--------|--------|--------------|
+| ml-1m | 3400    | 3         | 2         | 256    | 54.8ms | 75ms         |
 
 ### 精度loss比对
 
