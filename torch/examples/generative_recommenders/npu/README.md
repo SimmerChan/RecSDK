@@ -8,6 +8,8 @@
 
 克隆源码并固定版本为:Commits on Dec 16, 2024，提交的SHA-1 hash值（提交ID）：bb389f9539b054e7268528efcd35457a6ad52439
 
+验证运行的算力平台：Atlas A2训练系列产品
+
 ## 启动容器
 
 镜像下载地址： https://www.hiascend.com/developer/ascendhub/detail/9faeb4847b3e419f81b78a4d0ed574b5
@@ -52,8 +54,6 @@ ${image_name} \
 | driver       | 1.0.28.alpha | https://www.hiascend.com/hardware/firmware-drivers/community?product=1&model=30&cann=8.0.0.beta1&driver=1.0.28.alpha |
 
 请根据机器架构、机器型号在下载链接中选择合适的安装包进行安装。
-
-上面是参考安装版本，也可以安装其他版本，只要满足版本之间配套关系即可。
 
 ### 安装torch_npu
 
@@ -655,7 +655,7 @@ python3 train.py --gin_config_file=configs/ml-1m/hstu-mt-3400.gin --master_port=
 
 ### 性能测试结果
 
-| 数据集   | seq_len | num_block | num_heads | dqk、dv | 端到端耗时  | GPU triton耗时 | 硬件平台  |
+| 数据集   | seq_len | num_block | num_heads | dqk、dv | 端到端耗时  | GPU triton耗时 | 卡型号   |
 |-------|---------|-----------|-----------|--------|--------|--------------|-------|
 | ml-1m | 3400    | 3         | 2         | 256    | 54.8ms | 75ms         | 910B2 |
 
