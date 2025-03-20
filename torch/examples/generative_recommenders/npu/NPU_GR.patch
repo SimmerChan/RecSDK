@@ -1,5 +1,4 @@
 From ca5195488c19c2981d2f89eb4cf175e38e68305c Mon Sep 17 00:00:00 2001
-From: zhoucy <zhoucy98@126.com>
 Date: Thu, 20 Mar 2025 15:26:49 +0800
 Subject: [PATCH] =?UTF-8?q?[feat]GR=E6=A8=A1=E5=9E=8B=E9=80=82=E9=85=8DNPU?=
 MIME-Version: 1.0
@@ -693,7 +692,7 @@ index 0000000..f028f11
 +export USE_NPU_HSTU=1
 +export ENABLE_RAB=0
 +export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
-+python3 train.py --gin_config_file=configs/ml-1m/hstu-sampled-softmax-n128-large-final.gin --master_port=12345 | tee temp.log
++ASCEND_RT_VISIBLE_DEVICES=0 python3 main.py --gin_config_file=configs/ml-1m/hstu-sampled-softmax-n128-large-final.gin --master_port=12345 | tee temp.log
 -- 
 2.47.1.windows.1
 
