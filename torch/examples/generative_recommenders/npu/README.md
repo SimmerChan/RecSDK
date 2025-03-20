@@ -162,8 +162,8 @@ create_data_loader.num_workers = 8
 ```shell
 export USE_NPU_HSTU = 1
 export ENABLE_RAB=0
-export PYTORCH_NPU_ALLOC_CONF = expandable_segments:True
-python3 train.py --gin_config_file=configs/ml-1m/hstu-mt-3400.gin --master_port=12345 | tee temp.log
+export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
+python3 main.py --gin_config_file=configs/ml-1m/hstu-mt-3400.gin --master_port=12345 | tee temp.log
 ```
 
 执行命令：
