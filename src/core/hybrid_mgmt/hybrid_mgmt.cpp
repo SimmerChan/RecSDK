@@ -1277,6 +1277,7 @@ void HybridMgmt::EmbeddingLookUpAndSendDDR(int batchId, int index, const EmbInfo
     EmbTaskInfo info = {.batchId = batchId,
                         .threadIdx = index,
                         .cvNotifyIndex = cvNotifyIndex,
+                        .embeddingSize = embInfo.embeddingSize,
                         .extEmbeddingSize = embInfo.extEmbeddingSize,
                         .channelId = channelId,
                         .name = embInfo.name};
@@ -1312,6 +1313,7 @@ void HybridMgmt::EmbeddingReceiveAndUpdateDDR(int batchId, int index, const EmbI
     EmbTaskInfo info = {.batchId = batchId,
                         .threadIdx = index,
                         .cvNotifyIndex = cvNotifyIndex,
+                        .embeddingSize = embInfo.embeddingSize,
                         .extEmbeddingSize = embInfo.extEmbeddingSize,
                         .channelId = channelId,
                         .name = embInfo.name};
@@ -1340,6 +1342,7 @@ void HybridMgmt::EmbeddingLookUpAndSendL3Storage(int batchId, int index, const E
     EmbTaskInfo info = {.batchId = batchId,
                         .threadIdx = index,
                         .cvNotifyIndex = cvNotifyIndex,
+                        .embeddingSize = embInfo.embeddingSize,
                         .extEmbeddingSize = embInfo.extEmbeddingSize,
                         .channelId = channelId,
                         .name = embInfo.name};
@@ -1365,6 +1368,7 @@ void HybridMgmt::EmbeddingReceiveAndUpdateL3Storage(int batchId, int index, cons
     EmbTaskInfo info = {.batchId = batchId,
                         .threadIdx = index,
                         .cvNotifyIndex = cvNotifyIndex,
+                        .embeddingSize = embInfo.embeddingSize,
                         .extEmbeddingSize = embInfo.extEmbeddingSize,
                         .channelId = channelId,
                         .name = embInfo.name};
@@ -1699,7 +1703,9 @@ void HybridMgmt::EmbeddingUpdateDDR(const EmbTaskInfo& info, const float* embPtr
     });
     TimeCost EmbeddingUpdateTC = TimeCost();
 
-    uint64_t memSize = info.extEmbeddingSize * sizeof(float);
+    // In eval scene, only update origin emb data, because optimizer slot info is placeholder.
+    int update_float_count = info.channelId == 0 ? info.extEmbeddingSize : info.embeddingSize;
+    uint64_t memSize = update_float_count * sizeof(float);
     uint64_t extEmbeddingSize = info.extEmbeddingSize;
 #pragma omp parallel for num_threads(MGMT_CPY_THREADS) default(none) \
     shared(swapOutAddrs, embPtr, extEmbeddingSize, memSize)
@@ -1965,7 +1971,9 @@ void HybridMgmt::EmbeddingUpdateL3Storage(const EmbTaskInfo& info, float* embPtr
     if (!isRunning) {
         return;
     }
-    uint64_t memSize = info.extEmbeddingSize * sizeof(float);
+    // In eval scene, only update origin emb data, because optimizer slot info is placeholder.
+    int update_float_count = info.channelId == 0 ? info.extEmbeddingSize : info.embeddingSize;
+    uint64_t memSize = update_float_count * sizeof(float);
     uint64_t extEmbeddingSize = info.extEmbeddingSize;
     // DDR更新
 #pragma omp parallel for num_threads(MGMT_CPY_THREADS) default(none) \
