@@ -1704,8 +1704,8 @@ void HybridMgmt::EmbeddingUpdateDDR(const EmbTaskInfo& info, const float* embPtr
     TimeCost EmbeddingUpdateTC = TimeCost();
 
     // In eval scene, only update origin emb data, because optimizer slot info is placeholder.
-    int update_float_count = info.channelId == 0 ? info.extEmbeddingSize : info.embeddingSize;
-    uint64_t memSize = update_float_count * sizeof(float);
+    int updateFloatCount = info.channelId == 0 ? info.extEmbeddingSize : info.embeddingSize;
+    uint64_t memSize = updateFloatCount * sizeof(float);
     uint64_t extEmbeddingSize = info.extEmbeddingSize;
 #pragma omp parallel for num_threads(MGMT_CPY_THREADS) default(none) \
     shared(swapOutAddrs, embPtr, extEmbeddingSize, memSize)
@@ -1972,8 +1972,8 @@ void HybridMgmt::EmbeddingUpdateL3Storage(const EmbTaskInfo& info, float* embPtr
         return;
     }
     // In eval scene, only update origin emb data, because optimizer slot info is placeholder.
-    int update_float_count = info.channelId == 0 ? info.extEmbeddingSize : info.embeddingSize;
-    uint64_t memSize = update_float_count * sizeof(float);
+    int updateFloatCount = info.channelId == 0 ? info.extEmbeddingSize : info.embeddingSize;
+    uint64_t memSize = updateFloatCount * sizeof(float);
     uint64_t extEmbeddingSize = info.extEmbeddingSize;
     // DDR更新
 #pragma omp parallel for num_threads(MGMT_CPY_THREADS) default(none) \
