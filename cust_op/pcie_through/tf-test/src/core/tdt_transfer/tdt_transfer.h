@@ -39,4 +39,4 @@ int SendByAclTdtV2(const string &sendName, float *sendData, int64_t dataLen, int
 int SendByTdtChannel(const string &channelName, float *sendData, int64_t dims[DIM_MAX]);
 }
 
-#endif //MXREC_TDT_TRANSFER_H
+#endif // MXREC_TDT_TRANSFER_H
