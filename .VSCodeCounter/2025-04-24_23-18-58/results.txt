@@ -1,0 +1,34 @@
+Date : 2025-04-24 23:18:58
+Directory : /Users/huangshilei/Documents/cppprojects/mxrec/examples/DCNv2_multihot
+Total : 7 files,  568 codes, 107 comments, 128 blanks, all 803 lines
+
+Languages
++--------------+------------+------------+------------+------------+------------+
+| language     | files      | code       | comment    | blank      | total      |
++--------------+------------+------------+------------+------------+------------+
+| Python       |          2 |        242 |         40 |         70 |        352 |
+| Shell Script |          3 |        225 |         67 |         49 |        341 |
+| Markdown     |          1 |         98 |          0 |          9 |        107 |
+| Ini          |          1 |          3 |          0 |          0 |          3 |
++--------------+------------+------------+------------+------------+------------+
+
+Directories
++-----------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                                    | files      | code       | comment    | blank      | total      |
++-----------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                                       |          7 |        568 |        107 |        128 |        803 |
++-----------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++-----------------------------------------------------------------------------------------+--------------+------------+------------+------------+------------+
+| filename                                                                                | language     | code       | comment    | blank      | total      |
++-----------------------------------------------------------------------------------------+--------------+------------+------------+------------+------------+
+| /Users/huangshilei/Documents/cppprojects/mxrec/examples/DCNv2_multihot/README.md        | Markdown     |         98 |          0 |          9 |        107 |
+| /Users/huangshilei/Documents/cppprojects/mxrec/examples/DCNv2_multihot/adacons_hooks.py | Python       |         85 |         20 |         35 |        140 |
+| /Users/huangshilei/Documents/cppprojects/mxrec/examples/DCNv2_multihot/config.py        | Python       |        157 |         20 |         35 |        212 |
+| /Users/huangshilei/Documents/cppprojects/mxrec/examples/DCNv2_multihot/op_impl_mode.ini | Ini          |          3 |          0 |          0 |          3 |
+| /Users/huangshilei/Documents/cppprojects/mxrec/examples/DCNv2_multihot/run.sh           | Shell Script |         69 |         25 |         16 |        110 |
+| /Users/huangshilei/Documents/cppprojects/mxrec/examples/DCNv2_multihot/run_1_16_8192.sh | Shell Script |         78 |         21 |         16 |        115 |
+| /Users/huangshilei/Documents/cppprojects/mxrec/examples/DCNv2_multihot/run_2_16_8192.sh | Shell Script |         78 |         21 |         17 |        116 |
+| Total                                                                                   |              |        568 |        107 |        128 |        803 |
++-----------------------------------------------------------------------------------------+--------------+------------+------------+------------+------------+

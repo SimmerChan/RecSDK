@@ -1,0 +1,9 @@
+"filename", "language", "Python", "Shell Script", "Markdown", "Ini", "comment", "blank", "total"
+"/Users/huangshilei/Documents/cppprojects/mxrec/examples/DCNv2_multihot/README.md", "Markdown", 0, 0, 98, 0, 0, 9, 107
+"/Users/huangshilei/Documents/cppprojects/mxrec/examples/DCNv2_multihot/adacons_hooks.py", "Python", 85, 0, 0, 0, 20, 35, 140
+"/Users/huangshilei/Documents/cppprojects/mxrec/examples/DCNv2_multihot/config.py", "Python", 157, 0, 0, 0, 20, 35, 212
+"/Users/huangshilei/Documents/cppprojects/mxrec/examples/DCNv2_multihot/op_impl_mode.ini", "Ini", 0, 0, 0, 3, 0, 0, 3
+"/Users/huangshilei/Documents/cppprojects/mxrec/examples/DCNv2_multihot/run.sh", "Shell Script", 0, 69, 0, 0, 25, 16, 110
+"/Users/huangshilei/Documents/cppprojects/mxrec/examples/DCNv2_multihot/run_1_16_8192.sh", "Shell Script", 0, 78, 0, 0, 21, 16, 115
+"/Users/huangshilei/Documents/cppprojects/mxrec/examples/DCNv2_multihot/run_2_16_8192.sh", "Shell Script", 0, 78, 0, 0, 21, 17, 116
+"Total", "-", 242, 225, 98, 3, 107, 128, 803
