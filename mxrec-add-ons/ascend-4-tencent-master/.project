@@ -1,0 +1,10 @@
+{
+  "type": "Ascend Operator",
+  "project_type": "TBE Operator V2",
+  "project_desc": "",
+  "target": "",
+  "target_id": "",
+  "adk_version": "1.83.T2.0.B013",
+  "framework": "TensorFlow",
+  "cann_version": "6.0.RC1.alpha001"
+}

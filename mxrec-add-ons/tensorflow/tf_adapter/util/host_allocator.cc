@@ -1,0 +1,42 @@
+/*
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#include "host_allocator.h"
+
+namespace tensorflow {
+  HostAllocator::HostAllocator(void *addr) : addr_(addr) {}
+  HostAllocator::~HostAllocator() {
+    addr_ = nullptr;
+  }
+  std::string HostAllocator::Name() {
+    return "host_allocator";
+  }
+  void *HostAllocator::AllocateRaw(size_t alignment, size_t num_bytes) {
+    (void) alignment;
+    (void) num_bytes;
+    return addr_;
+  }
+  void *HostAllocator::AllocateRaw(size_t alignment, size_t num_bytes,
+                                   const AllocationAttributes &allocation_attr) {
+    (void) alignment;
+    (void) num_bytes;
+    (void) allocation_attr;
+    return addr_;
+  }
+  void HostAllocator::DeallocateRaw(void *ptr) {
+    (void) ptr;
+  }
+}

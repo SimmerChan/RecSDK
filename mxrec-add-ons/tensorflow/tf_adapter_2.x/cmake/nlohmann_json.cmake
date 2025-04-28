@@ -1,0 +1,22 @@
+if (DEFINED ASCEND_INSTALLED_PATH)
+    include(FetchContent)
+    if (TF_PKG_SERVER)
+        FetchContent_Declare(
+                nlohmann_json
+                URL https://ascend-cann.obs.myhuaweicloud.com/json/repository/archive/json-v3.10.1.zip
+        )
+    else ()
+        FetchContent_Declare(
+                nlohmann_json
+                URL https://ascend-cann.obs.myhuaweicloud.com/json/repository/archive/json-v3.10.1.zip
+        )
+    endif ()
+    FetchContent_GetProperties(nlohmann_json)
+    if (NOT nlohmann_json_POPULATED)
+        FetchContent_Populate(nlohmann_json)
+        include_directories(${nlohmann_json_SOURCE_DIR}/include)
+    endif ()
+else ()
+    include_directories(${ASCEND_CI_BUILD_DIR}/third_party/json/include)
+    include_directories(${ASCEND_CI_BUILD_DIR}/open_source/json/include)
+endif ()

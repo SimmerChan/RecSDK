@@ -1,0 +1,246 @@
+[
+  {
+    "case_name": "Test_DenseSelectInput_001",
+    "op": "DenseSelectInput",
+    "input_desc": [
+      {
+        "format": [
+          "ND"
+        ],
+        "type": [
+          "float"
+        ],
+        "shape": [
+          10 , 4
+        ],
+        "data_distribute": [
+          "uniform"
+        ],
+        "value_range": [
+          [
+            0.01,
+            0.1
+          ]
+        ],
+        "name": "embeddings1"
+      },
+      {
+        "format": [
+          "ND"
+        ],
+        "type": [
+          "float"
+        ],
+        "shape": [
+          10 , 8
+        ],
+        "data_distribute": [
+          "uniform"
+        ],
+        "value_range": [
+          [
+            0.01,
+            0.1
+          ]
+        ],
+        "name": "embeddings2"
+      },
+      {
+        "format": [
+          "ND"
+        ],
+        "type": [
+          "float"
+        ],
+        "shape": [
+          10 , 2
+        ],
+        "data_distribute": [
+          "uniform"
+        ],
+        "value_range": [
+          [
+            0.01,
+            0.1
+          ]
+        ],
+        "name": "embeddings3"
+      },
+      {
+        "format": [
+          "ND"
+        ],
+        "type": [
+          "float"
+        ],
+        "shape": [
+          10 , 16
+        ],
+        "data_distribute": [
+          "uniform"
+        ],
+        "value_range": [
+          [
+            0.01,
+            0.1
+          ]
+        ],
+        "name": "embeddings4"
+      },
+      {
+        "format": [
+          "ND"
+        ],
+        "type": [
+          "float"
+        ],
+        "shape": [
+          10 , 16
+        ],
+        "data_distribute": [
+          "uniform"
+        ],
+        "value_range": [
+          [
+            0.01,
+            0.1
+          ]
+        ],
+        "name": "embeddings5"
+      },
+      {
+        "format": [
+          "ND"
+        ],
+        "type": [
+          "float"
+        ],
+        "shape": [
+          10 , 1
+        ],
+        "data_distribute": [
+          "uniform"
+        ],
+        "value_range": [
+          [
+            0.01,
+            0.1
+          ]
+        ],
+        "name": "embeddings6"
+      },
+      {
+        "format": [
+          "ND"
+        ],
+        "type": [
+          "float"
+        ],
+        "shape": [
+          10 , 8
+        ],
+        "data_distribute": [
+          "uniform"
+        ],
+        "value_range": [
+          [
+            0.01,
+            0.1
+          ]
+        ],
+        "name": "embeddings7"
+      },
+      {
+        "format": [
+          "ND"
+        ],
+        "type": [
+          "float"
+        ],
+        "shape": [
+          10 , 6
+        ],
+        "data_distribute": [
+          "uniform"
+        ],
+        "value_range": [
+          [
+            0.01,
+            0.1
+          ]
+        ],
+        "name": "embeddings8"
+      },
+      {
+        "format": [
+          "ND"
+        ],
+        "type": [
+          "float"
+        ],
+        "shape": [
+          10 , 4
+        ],
+        "data_distribute": [
+          "uniform"
+        ],
+        "value_range": [
+          [
+            0.01,
+            0.1
+          ]
+        ],
+        "name": "embeddings9"
+      },
+      {
+        "format": ["ND"],
+        "type": [
+          "int32"
+        ],
+        "shape": [9],
+        "data_distribute": [
+          "uniform"
+        ],
+        "value_range": [
+          [
+            1,
+            9
+          ]
+        ],
+        "name": "batch_size"
+      }
+    ],
+    "output_desc": [
+      {
+        "format": ["ND"],
+        "type": [
+          "float"
+        ],
+        "shape": [10, 9],
+        "name": "output"
+      }
+    ],
+    "attr": [
+      {
+        "name": "field_num",
+        "type": "int",
+        "value": 9
+      },
+      {
+        "name": "fields",
+        "type": "list_int",
+        "value": [101, 112, 123, 134, 145, 156, 167, 178, 189]
+      },
+      {
+        "name": "select_fields",
+        "type": "list_int",
+        "value": [101, 112, 123, 156, 167, 178, 189]
+      },
+      {
+        "name": "embedding_sizes",
+        "type": "list_int",
+        "value": [4, 8, 2, 1, 8, 6, 4]
+      }
+    ]
+  }
+]

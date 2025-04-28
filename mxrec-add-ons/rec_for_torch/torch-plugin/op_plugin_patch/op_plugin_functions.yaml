@@ -1,0 +1,5 @@
+  - func: index_select_for_rank1_backward(Tensor gradY, Tensor x, Tensor index) -> (Tensor, Tensor)
+    op_api: all_version
+  - func: gather_for_rank1(Tensor x, Tensor index) -> Tensor
+    op_api: all_version
+
