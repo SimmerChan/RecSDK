@@ -1,0 +1,7 @@
+.vscode
+build
+cmake-build
+.idea
+out
+__pycache__
+build_out

@@ -1,0 +1,253 @@
+# please configure 根据实际情况选择操作系统镜像
+FROM centos:7.6.1810
+
+WORKDIR /tmp
+COPY . ./
+
+RUN chmod 777 /tmp
+
+# 1.安装编译环境
+# wget -O /etc/yum.repos.d/CentOS-Base.repo https://mirrors.huaweicloud.com/repository/conf/CentOS-7-anon.repo --no-check-certificate
+RUN mv /etc/yum.repos.d/CentOS-Base.repo /etc/yum.repos.d/CentOS-Base.repo.bak && \
+    cp -f ./CentOS-Base.repo /etc/yum.repos.d/ && \
+    yum makecache && \
+    yum -y install net-tools make wget zlib-devel bzip2 bzip2-devel openssl-devel ncurses-devel openssh-clients  \
+    openssh-server sqlite-devel openmpi-devel readline-devel tk-devel gdbm-devel db4-devel libpcap-devel xz-devel  \
+    libffi-devel hdf5-devel patch pciutils lcov vim dos2unix gcc-c++ automake autoconf m4 perl git e2fsprogs && \
+    yum clean all && \
+    rm -rf /var/cache/yum
+# 注：openssh-server为双机训练样例需要，仅单机训练时可去掉
+
+# 2.安装gcc-10.2.0
+# 下载地址：https://mirrors.huaweicloud.com/gnu/gcc/gcc-10.2.0/gcc-10.2.0.tar.gz
+RUN source /etc/profile && \
+    tar -zxvf gcc-10.2.0.tar.gz && \
+    cd gcc-10.2.0 && \
+    cp -f ../gmp-6.1.0.tar.bz2 ./ && \
+    cp -f ../mpfr-3.1.4.tar.bz2 ./ && \
+    cp -f ../mpc-1.0.3.tar.gz ./ && \
+    cp -f ../isl-0.18.tar.bz2 ./ && \
+    sed -i "246s/tar -xf "${ar}"/tar --no-same-owner -xf "${ar}"/" contrib/download_prerequisites && \
+    ./contrib/download_prerequisites && \
+    ./configure --enable-languages=c,c++ --disable-multilib --with-system-zlib --prefix=/usr/local/gcc10.2.0 && \
+    make -j && make -j install && cd .. && \
+    find gcc-10.2.0/ -name libstdc++.so.6.0.28 -exec cp {} /lib64/ \; && \
+    rm -rf gcc-10.2.0*
+
+ENV LD_LIBRARY_PATH=/usr/local/gcc10.2.0/lib64:$LD_LIBRARY_PATH \
+    PATH=/usr/local/gcc10.2.0/bin:$PATH
+
+RUN mv /usr/bin/gcc /usr/bin/gcc.bak && \
+    mv /usr/bin/g++ /usr/bin/g++.bak && \
+    ln -s /usr/local/gcc10.2.0/bin/gcc /usr/bin/gcc && \
+    ln -s /usr/local/gcc10.2.0/bin/g++ /usr/bin/g++
+
+# 3.安装cmake-3.20.6
+# 下载地址: https://cmake.org/files/v3.20/cmake-3.20.6.tar.gz
+RUN source /etc/profile && gcc -v && tar -zxf cmake-3.20.6.tar.gz && \
+    cd cmake-3.20.6 && \
+    ./bootstrap && make -j 32 && make install && cd .. && \
+    rm -rf cmake-3.20.6*
+
+# 4.安装python3.11.0
+# 下载地址: https://repo.huaweicloud.com:8443/artifactory/python-local/3.11.0/Python-3.11.0.tar.xz
+RUN source /etc/profile && gcc -v && tar -xvf Python-3.11.0.tar.xz && \
+    cd Python-3.11.0 && \
+    mkdir -p build && cd build && \
+    ../configure --enable-shared --prefix=/usr/local/python3.11.0 && \
+    make -j && make install && \
+    cd ../../ && rm -rf Python-3.11.0* && \
+    ldconfig
+
+ENV PATH=$PATH:/usr/local/python3.11.0/bin \
+    LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/python3.11.0/lib
+
+RUN mv /usr/bin/python /usr/bin/python.bak && \
+    ln -s /usr/local/python3.11.0/bin/python3 /usr/bin/python
+
+# 配置python源
+RUN mkdir ~/.pip && touch ~/.pip/pip.conf && \
+    echo "[global]" > ~/.pip/pip.conf && \
+    echo "trusted-host=mirrors.aliyun.com" >> ~/.pip/pip.conf && \
+    echo "index-url=http://mirrors.aliyun.com/pypi/simple/" >> ~/.pip/pip.conf && \
+    echo "timeout=200" >> ~/.pip/pip.conf
+
+# 5.安装python包
+RUN pip3 install -U pip && \
+    pip3 install numpy==1.25.0 && \
+    pip3 install wheel && \
+    pip3 install decorator && \
+    pip3 install sympy==1.13.3 && \
+    pip3 install cffi==1.17.1 && \
+    pip3 install pyyaml && \
+    pip3 install psutil && \
+    pip3 install pathlib2 && \
+    pip3 install pandas==2.2.3 && \
+    pip3 install grpcio && \
+    pip3 install grpcio-tools==1.67.0 && \
+    pip3 install protobuf==5.28.2 && \
+    pip3 install scipy==1.14.1 && \
+    pip3 install requests && \
+    pip3 install scikit-learn && \
+    pip3 install easydict && \
+    pip3 install attrs && \
+    pip3 install pytest && \
+    pip3 install pytest-cov && \
+    pip3 install pytest-html && \
+    pip3 install Cython && \
+    pip3 install absl-py && \
+    pip3 install gin-config && \
+    pip3 install torch-2.1.0+cpu-*.whl && \
+    pip3 install fbgemm_gpu-0.5.0+cpu-*.whl && \
+    pip3 install tensorboard==2.18.0 && \
+    pip3 install black && \
+    pip3 install cmake && \
+    pip3 install hypothesis==6.70.1 && \
+    pip3 install iopath && \
+    pip3 install pyre-extensions && \
+    pip3 install scikit-build && \
+    pip3 install torchmetrics==1.0.3 && \
+    pip3 install torchx && \
+    pip3 install tqdm && \
+    pip3 install usort && \
+    rm -rf /root/.cache/pip
+
+# 6.安装automake-1.16.5,libtool-2.4.7
+# 下载地址：https://ftp.gnu.org/gnu/automake/automake-1.16.5.tar.gz
+RUN source /etc/profile && gcc -v && tar -xzf automake-1.16.5.tar.gz && \
+    cd automake-1.16.5/ && \
+    ./configure && \
+    make -j 32 && make install && \
+    cd ../ && rm -rf automake-1.16.5*
+
+# 下载地址：https://ftp.gnu.org/gnu/libtool/libtool-2.4.7.tar.gz
+RUN source /etc/profile && gcc -v && tar -xzf libtool-2.4.7.tar.gz && \
+    cd libtool-2.4.7/ && \
+    ./configure --prefix=/usr/local && \
+    make -j 32 && make install && \
+    cd ../ && rm -rf libtool-2.4.7*
+
+# 7.安装libevent-2.1.12
+# 下载地址：https://github.com/libevent/libevent/releases/download/release-2.1.12-stable/libevent-2.1.12-stable.tar.gz
+RUN source /etc/profile && gcc -v && tar -xzf libevent-2.1.12-stable.tar.gz && \
+    cd libevent-2.1.12-stable/ && \
+    ./configure --prefix=/usr --libdir=/usr/lib64 && \
+    make -j 32 && make install && \
+    cd ../ && rm -rf libevent-2.1.12-stable*
+
+# 8.安装libunwind-1.8.1
+# 下载地址：https://github.com/libunwind/libunwind/releases/download/v1.8.1/libunwind-1.8.1.tar.gz
+RUN source /etc/profile && gcc -v && tar -xzf libunwind-1.8.1.tar.gz && \
+    cd libunwind-1.8.1/ && autoreconf -i && \
+    ./configure && \
+    make -j 32 && make install && \
+    cd ../ && rm -rf libunwind-1.8.1*
+
+# 9.安装double-conversion-3.1.4
+# 下载地址：https://github.com/google/double-conversion/archive/refs/tags/v3.1.4.tar.gz
+RUN source /etc/profile && gcc -v && tar -xzf double-conversion-3.1.4.tar.gz && \
+    cd double-conversion-3.1.4/ && rm -rf _build && mkdir _build && cd _build && \
+    cmake .. -DBUILD_SHARED_LIBS=ON && \
+    make -j 32 && make install && \
+    cd ../../ && rm -rf double-conversion-3.1.4*
+
+# 10.安装gflags-2.2.2
+# 下载地址：https://github.com/gflags/gflags/archive/refs/tags/v2.2.2.tar.gz
+RUN source /etc/profile && gcc -v && tar -xzf gflags-2.2.2.tar.gz && \
+    cd gflags-2.2.2/ && rm -rf _build && mkdir _build && cd _build && \
+    cmake .. -DGFLAGS_NAMESPACE=google -DCMAKE_CXX_FLAGS=-fPIC -DBUILD_SHARED_LIBS=ON -DBUILD_STATIC_LIBS=ON -DBUILD_gflags_LIB=ON && \
+    make -j 32 && make install && \
+    cd ../../ && rm -rf gflags-2.2.2*
+
+# 11.安装glog-0.4.0
+# 下载地址：https://github.com/google/glog/archive/refs/tags/v0.4.0.tar.gz
+RUN export CC=gcc && export CXX=g++ && \
+    source /etc/profile && gcc -v && tar -xzf glog-0.4.0.tar.gz && \
+    cd glog-0.4.0/ && rm -rf _build && mkdir _build && cd _build && \
+    cmake .. -DGFLAGS_NAMESPACE=google -DCMAKE_CXX_FLAGS=-fPIC -DBUILD_SHARED_LIBS=ON -DBUILD_STATIC_LIBS=ON && \
+    make -j 32 && make install && \
+    cd ../../ && rm -rf glog-0.4.0*
+
+# 12.安装fmt-9.1.0
+# 下载地址：https://github.com/fmtlib/fmt/archive/refs/tags/9.1.0.tar.gz
+RUN source /etc/profile && gcc -v && tar -xzf fmt-9.1.0.tar.gz && \
+    cd fmt-9.1.0/ && rm -rf _build && mkdir _build && cd _build && \
+    cmake .. -DBUILD_SHARED_LIBS=ON && \
+    make -j 32 && make install && \
+    cd ../../ && rm -rf fmt-9.1.0*
+
+# 13.安装gtest-1.10.0
+# 下载地址：https://github.com/google/googletest/archive/refs/tags/release-1.10.0.tar.gz
+RUN source /etc/profile && gcc -v && tar -xzf googletest-release-1.10.0.tar.gz && \
+    cd googletest-release-1.10.0/ && rm -rf _build && mkdir _build && cd _build && \
+    cmake .. && \
+    make -j 32 && make install && \
+    cd ../../ && rm -rf googletest-release-1.10.0*
+
+# 14.安装boost_1_87_0
+# 下载地址：https://archives.boost.io/release/1.87.0/source/boost_1_87_0.tar.gz
+RUN source /etc/profile && gcc -v && tar -xzf boost_1_87_0.tar.gz && \
+    cd boost_1_87_0/ && \
+    bash bootstrap.sh && \
+    ./b2 && ./b2 install && \
+    cd ../ && rm -rf boost_1_87_0*
+
+# 15.安装folly-2020.12.28.00
+# 下载地址：https://github.com/facebook/folly/archive/v2020.12.28.00.tar.gz
+RUN source /etc/profile && gcc -v && tar -xzf folly-2020.12.28.00.tar.gz && \
+    cd folly-2020.12.28.00 && rm -rf _build && mkdir _build && cd _build && \
+    cmake .. -DBUILD_SHARED_LIBS=ON && \
+    make -j 32 && make install && \
+    cd ../../ && rm -rf folly-2020.12.28.00*
+
+# 16.设置驱动路径环境变量
+ARG ASCEND_BASE=/usr/local/Ascend
+ENV LD_LIBRARY_PATH=$ASCEND_BASE/driver/lib64:$ASCEND_BASE/driver/lib64/common:$ASCEND_BASE/driver/lib64/driver:$LD_LIBRARY_PATH
+
+# 17.安装ascend-toolkit与kernels算子包
+# CANN相关参数
+ARG TOOLKIT_PKG=Ascend-cann-toolkit*.run
+ARG KERNEL_PKG=Ascend-cann-kernels*.run
+# 删除旧的CANN
+RUN rm -rf $ASCEND_BASE/ascend-toolkit
+
+RUN umask 0022 && \
+    chmod +x $TOOLKIT_PKG && \
+    bash $TOOLKIT_PKG --quiet --install --install-path=$ASCEND_BASE && \
+    source $ASCEND_BASE/ascend-toolkit/set_env.sh && \
+    chmod +x $KERNEL_PKG && \
+    bash $KERNEL_PKG --quiet --install && \
+    rm -rf /root/.cache/pip && \
+    rm -f $TOOLKIT_PKG && rm -f $KERNEL_PKG
+
+# 18.安装torchrec-npu,hybrid_torchrec
+RUN tar -zxvf Ascend-mindxsdk-torchrec-0.5.0-npu-linux-*.tar.gz && \
+    tar -zxvf Ascend-mindxsdk-hybrid-torchrec-0.5.0-linux-*.tar.gz && \
+    pip3 install hybrid_torchrec-0.5.0-*.whl && \
+    pip3 install torchrec-0.5.0+npu-*.whl
+
+# 19.安装torch-npu与自定义算子
+RUN mv Ascend-mindxsdk-mxrec-add-ons-*.tar.gz Ascend-mindxsdk-mxrec-add-ons-linux.tar.gz && \
+    tar -zxvf Ascend-mindxsdk-mxrec-add-ons-linux.tar.gz && \
+    mv mindxsdk-mxrec-add-ons* mindxsdk-mxrec-add-ons && \
+    pip3 install mindxsdk-mxrec-add-ons/torch_plugin/torch_npu-2.1.0.*.whl
+
+RUN source /usr/local/Ascend/ascend-toolkit/set_env.sh && \
+    cd mindxsdk-mxrec-add-ons/mxrec_ops/ && \
+    bash mxrec_opp_backward_codegen_adagrad_unweighted_exact.run && \
+    bash mxrec_opp_permute2d_sparse_data.run && \
+    bash mxrec_opp_split_embedding_codegen_forward_unweighted.run && \
+    bash mxrec_opp_bounds_check_indices.run && \
+    bash mxrec_opp_asynchronous_complete_cumsum.run && \
+    cd ../../
+
+# 20.编译libparallel_hashmap.so
+RUN export CC=gcc && export CXX=g++ && \
+    cd mindxsdk-mxrec-add-ons/torchrec/parallel_hashmap && \
+    bash bash.sh && \
+    mkdir -p /usr/local/python3.11.0/lib/python3.11/site-packages/use_libso && \
+    cp -f build/libparallel_hashmap.so /usr/local/python3.11.0/lib/python3.11/site-packages/use_libso && \
+    cd ../../../
+
+# 21.清理临时目录
+RUN rm -rf ./*
