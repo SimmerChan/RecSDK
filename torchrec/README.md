@@ -12,6 +12,7 @@
 # 编译
 bash build_whl.sh
 # 安装
+cd dist
 pip3 install torchrec-1.1.0+npu-*.whl
 pip3 install -r requirements.txt
 ```
