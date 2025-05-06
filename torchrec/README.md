@@ -11,6 +11,7 @@
 ```shell
 # 下载源码并编译
 git clone -b release/v1.1.0 https://github.com/pytorch/torchrec.git
+cd torchrec && git checkout 2c5f6ee && cd ..
 bash build_whl.sh
 # 安装
 cd dist
