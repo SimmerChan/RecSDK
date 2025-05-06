@@ -14,6 +14,7 @@ package_name="Ascend-mindxsdk-torchrec-"${VERSION}"-linux-"${ARCH}".tar.gz"
 cd torchrec
 # patch
 cp ../torchrec_npu.patch ./ && dos2unix torchrec_npu.patch
+git init
 git apply torchrec_npu.patch
 
 # 编译安装包
