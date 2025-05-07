@@ -23,15 +23,15 @@ at::Tensor dense_to_jagged_forward_npu(const at::Tensor& dense,
     auto D = dense.size(-1);
     auto dense_contin = dense.contiguous();
 
-    int64_t total_L_computed;
+    int64_t totalLComputed;
     if (total_L.has_value()) {
-        total_L_computed = total_L.value();
+        totalLComputed = total_L.value();
     } else {
-        total_L_computed = (int64_t)offsets.back().max().item<int64_t>();
+        totalLComputed = (int64_t)offsets.back().max().item<int64_t>();
     }
 
-    auto output = at::empty({total_L_computed, D}, dense.options());
-    EXEC_NPU_CMD(aclnnDenseToJagged, dense_contin, offsets[0], total_L_computed, output);
+    auto output = at::empty({totalLComputed, D}, dense.options());
+    EXEC_NPU_CMD(aclnnDenseToJagged, dense_contin, offsets[0], totalLComputed, output);
     return output;
 };
 at::Tensor jagged_to_padded_dense_forward_npu(const at::Tensor& values,

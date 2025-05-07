@@ -1,5 +1,4 @@
 import pytest
-import logging
 import fbgemm_gpu
 import numpy as np
 import torch_npu
@@ -9,7 +8,8 @@ CURR_DIR = Path(__file__).resolve().parent
 torch.ops.load_library(str(CURR_DIR.parent.parent /
     "torch_library/2.6.0/jagged_to_padded_dense/build/libjagged_to_padded_dense.so"))
 
-device_id = 0
+DEVICE_ID = 0
+
 
 def jagged_data_gen(batch_size, max_seq_len, num_heads, attention_dim):
     seq_lens = np.random.randint(1, max_seq_len + 1, (batch_size))
@@ -23,6 +23,7 @@ def jagged_data_gen(batch_size, max_seq_len, num_heads, attention_dim):
 
     return jagged_value, seq_offset, total_seqs
 
+
 def jagged_to_dense(jagged_tensor, seq_lens, max_seq_len, head_num, atten_dim):
     need_pad_seq = []
     offset = 0
@@ -35,6 +36,7 @@ def jagged_to_dense(jagged_tensor, seq_lens, max_seq_len, head_num, atten_dim):
 
     dense_tensor = torch.nn.utils.rnn.pad_sequence(need_pad_seq, batch_first=True)
     return dense_tensor
+
 
 @pytest.mark.parametrize("batch_size", [2, 4])
 @pytest.mark.parametrize("max_seq_len", [128, 256])
@@ -50,7 +52,7 @@ def test_jagged_to_padded_dense(batch_size, max_seq_len, num_heads, attention_di
     golden_dense = jagged_to_dense(jagged_value, seq_lens, max_seq_len, num_heads, attention_dim)
 
     result_dense = torch.ops.mxrec.jagged_to_padded_dense(
-        jagged_value.reshape(total_seqs, num_heads * attention_dim).to(f"npu:{device_id}"),
-        [torch.from_numpy(seq_offset).to(f"npu:{device_id}")], max_seq_len, 0.0)
+        jagged_value.reshape(total_seqs, num_heads * attention_dim).to(f"npu:{DEVICE_ID}"),
+        [torch.from_numpy(seq_offset).to(f"npu:{DEVICE_ID}")], max_seq_len, 0.0)
     
     assert torch.allclose(golden_dense.reshape(-1), result_dense.cpu().reshape(-1), atol=1e-5)
