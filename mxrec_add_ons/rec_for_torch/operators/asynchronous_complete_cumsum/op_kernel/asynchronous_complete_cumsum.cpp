@@ -60,7 +60,7 @@ extern "C" __global__ __aicore__ void asynchronous_complete_cumsum(GM_ADDR x, GM
 
     AscendC::GlobalTensor<int32_t> global;
     global.SetGlobalBuffer((__gm__ int32_t*)y, totalLen);
-#ifdef SUPPORT_310P
+#ifdef SUPPORT_V200
     AscendC::DataCacheCleanAndInvalid<int32_t, AscendC::CacheLine::ENTIRE_DATA_CACHE>(global);
 #else
     AscendC::DataCacheCleanAndInvalid<int32_t, AscendC::CacheLine::ENTIRE_DATA_CACHE,
