@@ -36,8 +36,8 @@ namespace optiling {
         } else if (inputDatatype == ge::DT_INT32) {
             embeddingType = EMBEDDING_TYPE_INT32;
         } else {
-            printf("Invalid data type. AsynchronousCompleteCumsum only support int64 and int32.");
-            return ge::FAILED;
+            printf("[ERROR]Invalid data type. AsynchronousCompleteCumsum only support int64 and int32.");
+            return ge::GRAPH_FAILED;
         }
 
         tiling.set_totalLength(totalLength);
@@ -45,8 +45,8 @@ namespace optiling {
         tiling.set_inputType(embeddingType);
 
         if (dimNum != 1) {
-            printf("AsynchronousCompleteCumsum required the dim of input-0 is 1 but %ld ", dimNum);
-            return ge::FAILED;
+            printf("[ERROR]AsynchronousCompleteCumsum required the dim of input-0 is 1 but %ld ", dimNum);
+            return ge::GRAPH_FAILED;
         }
         context->SetBlockDim(1);
         tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
