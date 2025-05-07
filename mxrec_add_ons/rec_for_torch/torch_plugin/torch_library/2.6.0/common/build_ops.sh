@@ -18,7 +18,7 @@ mkdir -p build
 cmake -B build
 cmake --build build -j
 
-#默认放在python3,site-package目录下
+# 默认放在python3,site-package目录下
 PACKAGE_PATH=$(python3 -c "import sysconfig; print(sysconfig.get_path('purelib'))")
 if [ -d "$PACKAGE_PATH" ]; then
   echo "build to: $PACKAGE_PATH"
