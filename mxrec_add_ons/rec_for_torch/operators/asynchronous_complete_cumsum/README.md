@@ -68,8 +68,8 @@ c) 原型注册
 
 Kernel侧算子实现在目录op_kernel下，其中包括：asynchronous_complete_cumsum.cpp。
 
-a) 核函数的入口：extern "C" __global__ __aicore__ void asynchronous_complete_cumsum
+a) 核函数的入口：`extern "C" __global__ __aicore__ void asynchronous_complete_cumsum`
 
-b) 解析tiling参数：GET_TILING_DATA(tilingData, tiling)从TilingData中获取host侧传入的数据
+b) 解析tiling参数：`GET_TILING_DATA(tilingData, tiling)`从TilingData中获取host侧传入的数据
 
 c) 实现累计和的计算

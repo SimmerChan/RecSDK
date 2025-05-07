@@ -99,7 +99,6 @@ function get_tar_pkg() {
 
     cp -r "${opp_output_path}" "${pkg_dir}"/
 
-
     cp -r "${output_path}"/torch_plugin "${pkg_dir}"/
 
     tar -zvcf "${release_tar}" "${pkg_dir}"

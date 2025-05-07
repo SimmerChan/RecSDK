@@ -23,8 +23,7 @@ import numpy as np
 from pathlib import Path
 
 CURR_DIR = Path(__file__).resolve().parent
-torch.ops.load_library(
-    str(CURR_DIR.parent.parent / \
+torch.ops.load_library(str(CURR_DIR.parent.parent /
     "torch_library/2.6.0/asynchronous_complete_cumsum/build/libasynchronous_complete_cumsum.so"))
 
 
