@@ -62,8 +62,7 @@ extern "C" __global__ __aicore__ void asynchronous_complete_cumsum(GM_ADDR x, GM
     global.SetGlobalBuffer((__gm__ int32_t*)y, totalLen);
 #ifdef SUPPORT_310P
     AscendC::DataCacheCleanAndInvalid<int32_t, AscendC::CacheLine::ENTIRE_DATA_CACHE>(global);
-#endif
-#ifndef SUPPORT_310P
+#else
     AscendC::DataCacheCleanAndInvalid<int32_t, AscendC::CacheLine::ENTIRE_DATA_CACHE,
         AscendC::DcciDst::CACHELINE_OUT>(global);
 #endif

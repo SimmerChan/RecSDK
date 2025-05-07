@@ -21,7 +21,7 @@ MxRec_DIR=$(dirname "${SCRIPT_DIR}")
 
 source /etc/profile
 
-torch_plugin_path="${MxRec_DIR}"/rec_for_torch/torch-plugin
+torch_plugin_path="${MxRec_DIR}"/rec_for_torch/torch_plugin
 ops_path="${MxRec_DIR}"/rec_for_torch/operators
 
 support_A3_list="asynchronous_complete_cumsum"

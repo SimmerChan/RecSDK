@@ -20,9 +20,12 @@ import torch
 import torch_npu
 import fbgemm_gpu
 import numpy as np
+from pathlib import Path
 
+CURR_DIR = Path(__file__).resolve().parent
 torch.ops.load_library(
-    "../../torch_library/2.6.0/asynchronous_complete_cumsum/build/libasynchronous_complete_cumsum.so")
+    str(CURR_DIR.parent.parent / \
+    "torch_library/2.6.0/asynchronous_complete_cumsum/build/libasynchronous_complete_cumsum.so"))
 
 
 def get_result(t_in):
