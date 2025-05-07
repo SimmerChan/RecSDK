@@ -64,8 +64,20 @@ static void SetTypeTiling(gert::TilingContext* context, Permute2dSparseDataTilin
 
 static ge::graphStatus TilingFunc(gert::TilingContext* context)
 {
+    if (context == nullptr) {
+        printf("[ERROR]context is nullptr.");
+        return ge::GRAPH_FAILED;
+    }
+
     Permute2dSparseDataTilingData tiling;
     auto ascendPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
+
+    if ((context->GetInputShape(0) == nullptr) || (context->GetInputShape(1) == nullptr) ||
+        (context->GetInputShape(1) == nullptr)) {
+        printf("[ERROR]context->GetInputShape is nullptr.");
+        return ge::GRAPH_FAILED;
+    }
+
     auto permuteShape = context->GetInputShape(0)->GetStorageShape();
     auto lengthsShape = context->GetInputShape(1)->GetStorageShape();
     auto valuesShape = context->GetInputShape(2)->GetStorageShape();
@@ -117,6 +129,12 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     SetTypeTiling(context, tiling);
 
     context->SetBlockDim(coreNum);
+
+    if (context->GetRawTilingData() == nullptr) {
+        printf("[ERROR]context->GetRawTilingData() is nullptr.");
+        return ge::GRAPH_FAILED;
+    }
+
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
 

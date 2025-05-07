@@ -258,9 +258,9 @@ public:
         AscendC::DataCacheCleanAndInvalid<int64_t, AscendC::CacheLine::ENTIRE_DATA_CACHE,
                 AscendC::DcciDst::CACHELINE_OUT>(offsetGt);
 
-        for (int64_t i = 1; i<lengthsT+1; i++) {
+        for (int64_t i = 1; i < lengthsT + 1; i++) {
             *(totalOffsetPtr + i * UB_ALIGN) = *(totalOffsetPtr + (i - 1) * UB_ALIGN) +
-                offsetGt.GetValue((i-1) * UB_ALIGN);
+                offsetGt.GetValue((i - 1) * UB_ALIGN);
         }
         PermuteLengths();
         PermuteValues();
