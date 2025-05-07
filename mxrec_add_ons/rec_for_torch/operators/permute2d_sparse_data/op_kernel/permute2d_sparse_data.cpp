@@ -19,10 +19,8 @@ See the License for the specific language governing permissions and
 using namespace AscendC;
 
 extern "C" __global__ __aicore__ void permute2d_sparse_data(GM_ADDR permute, GM_ADDR lengths, GM_ADDR values,
-                                                             GM_ADDR weights,
-                                                             GM_ADDR out_lengths, GM_ADDR out_indices,
-                                                             GM_ADDR out_weights,
-                                                             GM_ADDR workspace, GM_ADDR tiling)
+        GM_ADDR weights, GM_ADDR out_lengths, GM_ADDR out_indices, GM_ADDR out_weights, GM_ADDR workspace,
+        GM_ADDR tiling)
 {
     Permute2dSparseData::Args args{permute, lengths, values, weights, out_lengths,
         out_indices, out_weights, workspace, tiling};
