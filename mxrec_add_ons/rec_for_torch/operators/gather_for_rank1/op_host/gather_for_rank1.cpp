@@ -41,7 +41,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     ubCanUsed = ubCanUsed - RESERVER_UB_SIZE;
 
     if (xDim0 > MAX_DIM) {
-        printf("Invalid shape of xDim0, it should be less than 20480, bu it's %d", xDim0);
+        printf("[ERROR] Invalid shape of xDim0, it should be less than %d, but it's %d!", MAX_DIM, xDim0);
         return ge::GRAPH_FAILED;
     }
 
@@ -52,6 +52,11 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     context->SetTilingKey(dataTypeTilingKey);
 
     context->SetBlockDim(coreNum);
+
+    if (context->GetRawTilingData() == nullptr) {
+        printf("[ERROR] GetRawTilingData Failed!");
+        return ge::GRAPH_FAILED;
+    }
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
 

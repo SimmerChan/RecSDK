@@ -36,9 +36,6 @@ def get_loss(index: np.ndarray, weight: np.ndarray):
     loss = torch.mean(result)
     loss.backward()
 
-
-
-
     grad = weight_tensor.grad.cpu().clone()
     return result.cpu().detach().numpy(), grad
 
