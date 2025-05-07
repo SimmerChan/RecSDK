@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# Copyright 2024. Huawei Technologies Co.,Ltd. All rights reserved.
+# Copyright 2025. Huawei Technologies Co.,Ltd. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,6 +35,9 @@ def get_loss(index: np.ndarray, weight: np.ndarray):
 
     loss = torch.mean(result)
     loss.backward()
+
+
+
 
     grad = weight_tensor.grad.cpu().clone()
     return result.cpu().detach().numpy(), grad
