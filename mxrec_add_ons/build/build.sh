@@ -32,7 +32,7 @@ cd "${MxRec_DIR}"
 function mv_op_plugin()
 {
     cd "${torch_plugin_path}"
-    mv ./torch_plugin "${output_path}"
+    mv ../torch_plugin "${output_path}"
 }
 
 function make_output_dir() {
