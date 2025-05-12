@@ -82,6 +82,11 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     tilingData.set_denseTotal(denseTotal);
     tilingData.set_jaggedTotal(jaggedTotal);
 
+    if (context->GetRawTilingData() == nullptr) {
+        printf("[ERROR]context->GetRawTilingData() is nullptr.");
+        return ge::GRAPH_FAILED;
+    }
+
     context->SetBlockDim(coreNum);
     tilingData.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tilingData.GetDataSize());
