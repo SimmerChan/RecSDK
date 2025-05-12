@@ -15,9 +15,9 @@
 # limitations under the License.
 # ==============================================================================
 
-import pytest
-import sysconfig
 import logging
+import sysconfig
+import pytest
 import fbgemm_gpu
 import numpy as np
 import torch_npu

@@ -104,7 +104,7 @@ static ge::graphStatus InferShape(gert::InferShapeContext* context)
     gert::Shape* jaggedShape = context->GetOutputShape(0);
     const int32_t* jaggedDim0 = context->GetAttrs()->GetAttrPointer<int32_t>(0);
 
-    jaggedShape->SetDimNum(2);
+    jaggedShape->SetDimNum(DIM2);
     jaggedShape->SetDim(0, *jaggedDim0);
     jaggedShape->SetDim(1, denseShape->GetDim(DIM2));
 
