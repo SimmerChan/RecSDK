@@ -28,45 +28,45 @@ namespace npu_hlo {
 namespace {
 
 class TFReshapeToMHLO : public OpRewritePattern<mlir::TF::ReshapeOp> {
- public:
-  using OpRewritePattern<mlir::TF::ReshapeOp>::OpRewritePattern;
+public:
+    using OpRewritePattern<mlir::TF::ReshapeOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(mlir::TF::ReshapeOp op,
-                                PatternRewriter& rewriter) const override {
-    // 获取输入和形状
-    Value input = op.getTensor();
-    Value shape = op.getShape();
+    LogicalResult matchAndRewrite(mlir::TF::ReshapeOp op, PatternRewriter& rewriter) const override
+    {
+        // 获取输入和形状
+        Value input = op.getTensor();
+        Value shape = op.getShape();
 
-    // 创建新的mhlo.DynamicReshape操作
-    rewriter.replaceOpWithNewOp<mhlo::DynamicReshapeOp>(
-        op, op.getResult().getType(), input, shape);
+        // 创建新的mhlo.DynamicReshape操作
+        rewriter.replaceOpWithNewOp<mhlo::DynamicReshapeOp>(op, op.getResult().getType(), input, shape);
 
-    return success();
-  }
+        return success();
+    }
 };
 
-struct TFToMHLOLegalizationPass
-    : public impl::TFToMHLOLegalizationPassBase<TFToMHLOLegalizationPass> {
-  void runOnOperation() override {
-    // 获取当前模块
-    ModuleOp module = getOperation();
-    MLIRContext* context = &getContext();
+struct TFToMHLOLegalizationPass : public impl::TFToMHLOLegalizationPassBase<TFToMHLOLegalizationPass> {
+    void runOnOperation() override
+    {
+        // 获取当前模块
+        ModuleOp module = getOperation();
+        MLIRContext* context = &getContext();
 
-    // 设置重写模式
-    RewritePatternSet patterns(context);
-    patterns.add<TFReshapeToMHLO>(context);
+        // 设置重写模式
+        RewritePatternSet patterns(context);
+        patterns.add<TFReshapeToMHLO>(context);
 
-    // 应用模式
-    if (failed(applyPatternsAndFoldGreedily(module, std::move(patterns)))) {
-      return signalPassFailure();
+        // 应用模式
+        if (failed(applyPatternsAndFoldGreedily(module, std::move(patterns)))) {
+            return signalPassFailure();
+        }
     }
-  }
 };
 
 }  // namespace
 
-std::unique_ptr<OperationPass<ModuleOp>> createTFToMHLOLegalizationPass() {
-  return std::make_unique<TFToMHLOLegalizationPass>();
+std::unique_ptr<OperationPass<ModuleOp>> createTFToMHLOLegalizationPass()
+{
+    return std::make_unique<TFToMHLOLegalizationPass>();
 }
 
 }  // namespace npu_hlo

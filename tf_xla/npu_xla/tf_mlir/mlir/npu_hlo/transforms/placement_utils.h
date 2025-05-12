@@ -42,7 +42,11 @@ constexpr llvm::StringRef kCpu = "cpu";
 constexpr llvm::StringRef kNpu = "npu";
 constexpr llvm::StringRef kConst = "const";
 
-enum class PlacementType { CPU, NPU, Const };
+enum class PlacementType {
+    CPU,
+    NPU,
+    Const
+};
 }  // namespace placement_utils
 }  // namespace mlir
 
