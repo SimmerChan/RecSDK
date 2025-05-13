@@ -1,3 +1,20 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# Copyright 2024. Huawei Technologies Co.,Ltd. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+
 import logging
 import numpy as np
 import tensorflow as tf
@@ -7,13 +24,13 @@ logging.getLogger().setLevel(logging.INFO)
 
 np.random.seed(0)
 
-line_per_sample = 10000
+LINE_PER_SAMPLE = 10000
 samples_num = 10000 * 800  #
 sparse_feat_list = ['feat_ids']
 # todo
 sparse_feat_len = [100]
 
-num = 0
+NUM = 0
 import sys
 
 hot_zhanbi = sys.argv[1:][0]
@@ -32,7 +49,7 @@ part1 = np.array(random.sample(range(0, 2), 1))
 def write_records(writer, line_cnt, file_cnt):
     features = {
         'label': tf.train.Feature(
-            float_list=tf.train.FloatList(value=np.random.randint(2, size=line_per_sample).tolist()))
+            float_list=tf.train.FloatList(value=np.random.randint(2, size=LINE_PER_SAMPLE).tolist()))
     }
 
     count = 0
@@ -40,10 +57,10 @@ def write_records(writer, line_cnt, file_cnt):
         np.random.seed(count)
         # global num
         logging.info("===sparse=%s", sparse_feat)
-        part2=np.array(random.sample(range(0 + 100 * line_per_sample * (10 * file_cnt + line_cnt), 100 * line_per_sample * (10 * file_cnt + line_cnt+1)), int(100 * line_per_sample * (1- hot_zhanbi))))
+        part2=np.array(random.sample(range(0 + 100 * LINE_PER_SAMPLE * (10 * file_cnt + line_cnt), 100 * LINE_PER_SAMPLE * (10 * file_cnt + line_cnt+1)), int(100 * LINE_PER_SAMPLE * (1- hot_zhanbi))))
         features[sparse_feat] = tf.train.Feature(
             int64_list=tf.train.Int64List(
-                value=part1.astype(np.int64).tolist() * int(100 * line_per_sample * hot_zhanbi) + part2.astype(np.int64).tolist())
+                value=part1.astype(np.int64).tolist() * int(100 * LINE_PER_SAMPLE * hot_zhanbi) + part2.astype(np.int64).tolist())
         )
 
         count += 1
@@ -61,7 +78,7 @@ def gen_tfrecords(tf_path):
     while True:
         write_records(writer, line_cnt, file_cnt)
         line_cnt += 1
-        sample_cnt += line_per_sample
+        sample_cnt += LINE_PER_SAMPLE
         logging.info(f">>>>>>>>>>>>count {sample_cnt} end.")
         if sample_cnt == samples_num:
             break
