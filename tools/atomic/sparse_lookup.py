@@ -2,6 +2,7 @@ import os
 import sys
 import time
 import argparse
+import logging
 import numpy as np
 import tensorflow as tf
 from mpi4py import MPI  # must before emb_cache after SparseOps
@@ -25,6 +26,8 @@ from mx_rec.core.embedding import create_table, sparse_lookup
 from mx_rec.util.initialize import get_ascend_global_hashtable_collection
 
 from sparse_ops.config import set_ascend_env
+
+logging.getLogger().setLevel(logging.INFO)
 
 USE_PIPELINE_TEST = False
 USE_STATIC = False
@@ -100,7 +103,7 @@ if __name__ == '__main__':
     comm = MPI.COMM_WORLD
     rank_id = comm.Get_rank()
     rank_size = comm.Get_size()
-    print(f"rank {rank_id}/{rank_size}")
+    logging.info(f"rank {rank_id}/{rank_size}")
     local_rank_id = rank_id % local_rank_size
     set_ascend_env(rank_id, rank_size, local_rank_size, host=args.hosts, file=args.hccl_json)
 
@@ -131,7 +134,7 @@ if __name__ == '__main__':
     np.random.seed(10086)
 
     my_dim = int(args.my_dim)
-    print("my_dim=", my_dim)
+    logging.info("my_dim=%d", my_dim)
 
     hot_zhanbi = args.chongfudu
     hot_zhanbi = float(hot_zhanbi) / 10
@@ -205,8 +208,8 @@ if __name__ == '__main__':
         sess.run(tf.global_variables_initializer())
         sess.run([train_iterator.initializer])
         # build model
-        print("start build wdl(single domain) model")
-        print("=========start============")
+        logging.info("start build wdl(single domain) model")
+        logging.info("=========start============")
         # start run loop
         total_start_time = time.time()
         current_steps = 0
@@ -215,7 +218,7 @@ if __name__ == '__main__':
         while not train_finished:
             try:
                 current_steps += 1
-                print("current step =", current_steps)
+                logging.info("current step =", current_steps)
                 #
                 run_dict = {
                     "adam": model.op,
@@ -224,22 +227,22 @@ if __name__ == '__main__':
                 if current_steps == 1:
                     total_start_time = time.time()
                 start_time = time.time()
-                print("start sess run")
+                logging.info("start sess run")
                 results = sess.run(fetches=run_dict)
-                print("start sess run 1")
+                logging.info("start sess run 1")
                 end_time = time.time()
-                print(f"current_steps: {current_steps} ,step time:{(end_time - start_time) * 1000}")
+                logging.info(f"current_steps: {current_steps} ,step time:{(end_time - start_time) * 1000}")
                 if current_steps <= 5:
                     total_start_time = time.time()
                 if current_steps % print_steps == 0:
-                    print("----------" * 10)
+                    logging.info("----------" * 10)
                     try:
-                        print(
+                        logging.info(
                             f"current_steps: {current_steps} ,deep_loss:{results['deep_loss']},"
                             f"e2etime per step:{(end_time - start_time) * 1000}")
                     except KeyError:
-                        print(f"current_steps: {current_steps}")
-                    print("----------" * 10)
+                        logging.error(f"current_steps: {current_steps}")
+                    logging.info("----------" * 10)
 
                 if current_steps >= stop_steps:
                     train_finished = True
@@ -248,7 +251,7 @@ if __name__ == '__main__':
                 train_finished = True
 
         # train_finished
-        print(
+        logging.info(
             f"training {current_steps} steps, consume time: {(time.time() - total_start_time) / (current_steps - 5) * 1000} ")
 
         terminate_config_initializer()

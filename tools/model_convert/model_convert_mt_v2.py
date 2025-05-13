@@ -3,9 +3,12 @@ import json
 import os
 import re
 from enum import Enum
+import logging
 
 import tensorflow as tf
 import numpy as np
+
+logging.getLogger().setLevel(logging.INFO)
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--input_path', type=str, required=True, help='path of the model file to be converted')
@@ -242,5 +245,5 @@ if __name__ == "__main__":
                                       rank_size=args.rank_size,
                                       estimator=args.estimator, ddr=args.ddr, save_easy=args.save_easy)
     convert_instance.convert()
-    print(f"sparse table has been converted to numpy file. output path is {args.output_path}")
+    logging.info(f"sparse table has been converted to numpy file. output path is {args.output_path}")
 

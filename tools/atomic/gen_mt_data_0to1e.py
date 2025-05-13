@@ -1,6 +1,9 @@
+import logging
 import numpy as np
 import tensorflow as tf
 import random
+
+logging.getLogger().setLevel(logging.INFO)
 
 np.random.seed(0)
 
@@ -15,7 +18,7 @@ import sys
 
 hot_zhanbi = sys.argv[1:][0]
 hot_zhanbi = float(hot_zhanbi)/10
-print(hot_zhanbi)
+logging.info("%f", hot_zhanbi)
 
 tfpath = "/home/insert/data"+str(hot_zhanbi)
 import os
@@ -24,9 +27,9 @@ if not os.path.exists(tfpath):
     
 tfpath = "/home/insert/data"+str(hot_zhanbi)+"/tf"
 
-part1=np.array(random.sample(range(0 , 2), 1) ) 
+part1 = np.array(random.sample(range(0, 2), 1)) 
 
-def write_records(writer,line_cnt,file_cnt):
+def write_records(writer, line_cnt, file_cnt):
     features = {
         'label': tf.train.Feature(
             float_list=tf.train.FloatList(value=np.random.randint(2, size=line_per_sample).tolist()))
@@ -36,11 +39,11 @@ def write_records(writer,line_cnt,file_cnt):
     for i, sparse_feat in enumerate(sparse_feat_list):
         np.random.seed(count)
         # global num
-        print("===sparse=", sparse_feat)
-        part2=np.array(random.sample(range(0 + 100*line_per_sample*(10*file_cnt + line_cnt),100*line_per_sample*(10* file_cnt + line_cnt+1)),int(100 * line_per_sample* (1- hot_zhanbi)) ))
+        logging.info("===sparse=%s", sparse_feat)
+        part2=np.array(random.sample(range(0 + 100 * line_per_sample * (10 * file_cnt + line_cnt), 100 * line_per_sample * (10 * file_cnt + line_cnt+1)), int(100 * line_per_sample * (1- hot_zhanbi))))
         features[sparse_feat] = tf.train.Feature(
             int64_list=tf.train.Int64List(
-                value=part1.astype(np.int64).tolist()* int(100 * line_per_sample * hot_zhanbi) + part2.astype(np.int64).tolist())
+                value=part1.astype(np.int64).tolist() * int(100 * line_per_sample * hot_zhanbi) + part2.astype(np.int64).tolist())
         )
 
         count += 1
@@ -56,10 +59,10 @@ def gen_tfrecords(tf_path):
     writer = tf.python_io.TFRecordWriter(f"{tf_path}_{file_cnt}.tfrecord")
     sample_cnt = 0
     while True:
-        write_records(writer,line_cnt,file_cnt)
+        write_records(writer, line_cnt, file_cnt)
         line_cnt += 1
         sample_cnt += line_per_sample
-        print(f">>>>>>>>>>>>count {sample_cnt} end.")
+        logging.info(f">>>>>>>>>>>>count {sample_cnt} end.")
         if sample_cnt == samples_num:
             break
         if line_cnt == line_per_file:

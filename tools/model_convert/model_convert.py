@@ -3,15 +3,18 @@ import json
 import os
 import re
 from enum import Enum
+import logging
 
 import tensorflow as tf
 import numpy as np
 
+logging.getLogger().setLevel(logging.INFO)
+
 parser = argparse.ArgumentParser()
 parser.add_argument('--input_path', type=str, required=True, help='path of the model file to be converted')
 parser.add_argument('--output_path', type=str, required=True, help='output path of the converted model')
-parser.add_argument('--rank_size', type=int, choices=range(1,17), default=8, required=False)
-parser.add_argument('--estimator', type=int, choices=[0,1], default=0, required=False)
+parser.add_argument('--rank_size', type=int, choices=range(1, 17), default=8, required=False)
+parser.add_argument('--estimator', type=int, choices=[0, 1], default=0, required=False)
 parser.add_argument('--ddr', type=int, choices=[0, 1], default=0, required=False)
 parser.add_argument("--dynamic_expansion", type=int, choices=[0, 1], default=0, required=False)
 
@@ -86,10 +89,10 @@ class ModelConverter:
                     emb_data = self._get_embedding_array(self.sparse_file_list[rank], table_name)
                 insert_op = hash_table.insert(tf.convert_to_tensor(key), tf.convert_to_tensor(emb_data))
                 insert_op_list.append(insert_op)
-            print("build save table:", table_name)
+            logging.info("build save table: %s", table_name)
             hash_table_list.append(hash_table)
         if tf.__version__.startswith("2"):
-            checkpoint = tf.train.Checkpoint(table_list = hash_table_list)
+            checkpoint = tf.train.Checkpoint(table_list=hash_table_list)
             manager = tf.train.CheckpointManager(checkpoint, directory=self._output_path, max_to_keep=5)
             manager.save()
         else:
@@ -188,7 +191,7 @@ class ModelConverter:
             # validate open file
             validate_read_file(ckpt_path)
             latest_ckpt = fin.readline().rstrip()
-            latest_ckpt = latest_ckpt.split(":")[1].strip(' ').replace('"','')
+            latest_ckpt = latest_ckpt.split(":")[1].strip(' ').replace('"', '')
             latest_ckpt = latest_ckpt.split("/")[-1]
         return latest_ckpt
 
@@ -284,4 +287,4 @@ if __name__ == "__main__":
                                       rank_size=args.rank_size,
                                       estimator=args.estimator, ddr=args.ddr, dynamic_expansion=args.dynamic_expansion)
     convert_instance.convert()
-    print("convert model success.")
+    logging.info("convert model success.")

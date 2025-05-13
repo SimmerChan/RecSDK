@@ -5,7 +5,9 @@ from __future__ import absolute_import
 import os
 import json
 import psutil
+import logging
 
+logging.getLogger().setLevel(logging.INFO)
 
 def get_path():
     """
@@ -108,4 +110,4 @@ def bind_cpu():
         bind_count = 96
         p.cpu_affinity([bind_start + x for x in range(bind_count)])
     except IndexError:
-        print("error cpu bind info, skipped.")
+        logging.error("error cpu bind info, skipped.")
