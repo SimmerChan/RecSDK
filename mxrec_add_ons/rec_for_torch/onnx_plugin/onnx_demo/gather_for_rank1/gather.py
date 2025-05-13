@@ -18,5 +18,3 @@ model_def = make_model(graph, producer_name='gather-onnx')
 model_def.opset_import[0].version = 11
 
 onnx.save(model_def, "gather.onnx")
-
-print('The model is:{}\n'.format(model_def))

@@ -123,7 +123,6 @@ public:
         }
     }
 
-
     template <typename T>
     __aicore__ inline void CpGm2Local(const LocalTensor<T>& lt, const GlobalTensor<T>& gt, int64_t len)
     {
