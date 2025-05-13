@@ -362,16 +362,9 @@ Status MlirConverter::ConvertTfExecutorToTf()
     return absl::OkStatus();
 }
 
-Status MlirConverter::ConvertTfToStablehlo()
+Status MlirConverter::SetupPassManager(mlir::PassManager& pm, mlir::TimingScope& timing, bool prefer_tf2xla,
+                                       llvm::StringRef device_type)
 {
-    auto module_op = *module_;
-    mlir::DefaultTimingManager tm;
-    mlir::applyDefaultTimingManagerCLOptions(tm);
-    // Records elapsed time for each pass in the passpipe
-    tm.setEnabled(true);
-    mlir::TimingScope timing = tm.getRootScope();
-
-    mlir::PassManager pm(module_op.getContext());
     (void)mlir::applyPassManagerCLOptions(pm);
     pm.enableTiming(timing);
     pm.getContext()->disableMultithreading();
@@ -381,9 +374,11 @@ Status MlirConverter::ConvertTfToStablehlo()
     pm.enableIRPrinting(
         nullptr, [](mlir::Pass* pass, mlir::Operation*) { return VLOG_IS_ON(2); }, false, true, false, llvm::dbgs(),
         printingFlags);
-    bool prefer_tf2xla = false;
-    llvm::StringRef device_type = "XLA_CPU_JIT";
+    return absl::OkStatus();
+}
 
+Status MlirConverter::AddTFPreprocessingPasses(mlir::PassManager& pm)
+{
     // Replace const arguments to ConstOp and update argument type if it is a
     // fixed-shaped input
     pm.addPass(mlir::npu_hlo::createReviseArgsForStaticRankPass());
@@ -402,8 +397,6 @@ Status MlirConverter::ConvertTfToStablehlo()
     pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
     // The SCCP pass performs constant propagation across the IR, which, for
     // example, propagates constant arguments into callee functions.
-    // TOOD(hinsu): Investigate if we really need SCCP pass before shape inference
-    // and can do with just one pass after the shape inference.
     pm.addPass(mlir::createSCCPPass());
     // Guarantee all functions have one use, which enables shape inference.
     pm.addPass(mlir::TF::CreateGuaranteeAllFuncsOneUsePass());
@@ -412,12 +405,13 @@ Status MlirConverter::ConvertTfToStablehlo()
     pm.addPass(mlir::TF::CreateTFShapeInferencePass());
 
     // Run SCCP pass again as the availability of shapes may open up new
-    // opportunities for constant propagation. Note that the shape inference pass
-    // doesn't materialize new constants even if those are computed internally for
-    // the purpose of shape inference. These constants might be required by the
-    // legalization passes.
+    // opportunities for constant propagation.
     pm.addPass(mlir::createSCCPPass());
+    return absl::OkStatus();
+}
 
+Status MlirConverter::AddTFDecompositionPasses(mlir::PassManager& pm)
+{
     pm.addPass(mlir::TF::CreateTensorListOpsDecompositionPass());
     pm.addPass(mlir::TF::CreateStackOpsDecompositionPass());
     pm.addPass(mlir::TF::CreateTensorArrayOpsDecompositionPass());
@@ -427,22 +421,18 @@ Status MlirConverter::ConvertTfToStablehlo()
 
     // Sink constants to regions so that ops requiring constant operands can
     // access the constant and there is no indirection through control flow region
-    // arguments. Also, note that this pass is in MHLO but it is generic and sinks
-    // constants for all ops with regions.
+    // arguments.
     pm.addNestedPass<mlir::func::FuncOp>(mlir::mhlo::createSinkConstantsToControlFlowPass());
     pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
     pm.addPass(mlir::TF::CreateTFShapeInferencePass());
     pm.addPass(mlir::createSCCPPass());
+    return absl::OkStatus();
+}
 
-    // Legalize any StableHLO ops to MHLO. Bridge still doesn't use StableHLO but
-    // such ops might be present in the input from upstream like TFRT compilation.
-    // Later on, this could be merged in the legalization pass when we migrate
-    // bridge to StableHLO.
-
+Status MlirConverter::AddTFToMHLOPasses(mlir::PassManager& pm, llvm::StringRef device_type, bool prefer_tf2xla)
+{
     pm.addNestedPass<mlir::func::FuncOp>(mlir::TF::CreateLowerQuantizedPass());
-    pm.addPass(mlir::mhlo::createLegalizeTFPass(
-        /*legalize_chlo=*/true,
-        /*tf2xla_fallback_device_type=*/device_type, prefer_tf2xla));
+    pm.addPass(mlir::mhlo::createLegalizeTFPass(true, device_type, prefer_tf2xla));
 
     pm.addNestedPass<mlir::func::FuncOp>(mlir::mhlo::CreateInfeedsOpsXlaAdjustLayoutPass());
     pm.addPass(mlir::mhlo::CreateLegalizeTFCollectivePass());
@@ -450,29 +440,24 @@ Status MlirConverter::ConvertTfToStablehlo()
     // This must run before Shape Inference.
     pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
     // Run shape inference pass to propagate shapes through tensor_cast operations
-    // from static to dynamic shapes. This could be generated if the shape
-    // inference was originally missing in a TF op but the corresponding HLO op
-    // had static shape after lowering.
+    // from static to dynamic shapes.
     pm.addPass(mlir::TF::CreateTFShapeInferencePass());
     pm.addPass(mlir::createSCCPPass());
     // Run LegalizeTFPass again because the previous legalization passes can
-    // expose more graph pruning and canonicalization opportunities that are
-    // necessary for the second LegalizeTFPass(allow_partial_conversion=false)
-    // invocation.
-    // TODO(wyzero): we can not set `allow_partial_conversion = false` since
-    // `createLegalizeTFPass` pass does not known ops from hlo_disc dialect.
+    // expose more graph pruning and canonicalization opportunities.
     pm.addPass(mlir::mhlo::createLegalizeTFPass(true, device_type, prefer_tf2xla));
 
     pm.addPass(mlir::npu_hlo::createTFToMHLOLegalizationPass());
-
-    // This pass operates on MHLO control flow ops so it should be legalized after
-    // the control flow ops are legalized.
     pm.addPass(mlir::mhlo::CreateLegalizeTFCommunicationPass());
 
     // In order to export to XLA, we must sink constants to control flow regions,
     // since XLA uses functional control flow.
     pm.addNestedPass<mlir::func::FuncOp>(mlir::mhlo::createSinkConstantsToControlFlowPass());
+    return absl::OkStatus();
+}
 
+Status MlirConverter::AddMHLOToStableHLOPasses(mlir::PassManager& pm)
+{
     // convert mhlo to stablehlo
     pm.addPass(mlir::mhlo::createExpandHloTuplesPass("main"));
     pm.addNestedPass<mlir::func::FuncOp>(mlir::mhlo::createFlattenTuplePass());
@@ -487,6 +472,27 @@ Status MlirConverter::ConvertTfToStablehlo()
 
     pm.addPass(mlir::createCSEPass());
     pm.addPass(mlir::createCanonicalizerPass());
+    return absl::OkStatus();
+}
+
+Status MlirConverter::ConvertTfToStablehlo()
+{
+    auto module_op = *module_;
+    mlir::DefaultTimingManager tm;
+    mlir::applyDefaultTimingManagerCLOptions(tm);
+    // Records elapsed time for each pass in the passpipe
+    tm.setEnabled(true);
+    mlir::TimingScope timing = tm.getRootScope();
+
+    mlir::PassManager pm(module_op.getContext());
+    bool prefer_tf2xla = false;
+    llvm::StringRef device_type = "XLA_CPU_JIT";
+
+    TF_RETURN_IF_ERROR(SetupPassManager(pm, timing, prefer_tf2xla, device_type));
+    TF_RETURN_IF_ERROR(AddTFPreprocessingPasses(pm));
+    TF_RETURN_IF_ERROR(AddTFDecompositionPasses(pm));
+    TF_RETURN_IF_ERROR(AddTFToMHLOPasses(pm, device_type, prefer_tf2xla));
+    TF_RETURN_IF_ERROR(AddMHLOToStableHLOPasses(pm));
 
     // Make sure we catch any error reported by MLIR and forward it to the TF
     // error reporting system. Report a generic error if pass manager failed

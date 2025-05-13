@@ -41,6 +41,22 @@ private:
     // 将TF Dialect转换为StableHLO Dialect
     Status ConvertTfToStablehlo();
 
+    // 设置PassManager的基本配置
+    Status SetupPassManager(mlir::PassManager& pm, mlir::TimingScope& timing, bool prefer_tf2xla,
+                            llvm::StringRef device_type);
+
+    // 添加TensorFlow预处理相关的pass
+    Status AddTFPreprocessingPasses(mlir::PassManager& pm);
+
+    // 添加TensorFlow算子分解相关的pass
+    Status AddTFDecompositionPasses(mlir::PassManager& pm);
+
+    // 添加TensorFlow到MHLO转换相关的pass
+    Status AddTFToMHLOPasses(mlir::PassManager& pm, llvm::StringRef device_type, bool prefer_tf2xla);
+
+    // 添加MHLO到StableHLO转换相关的pass
+    Status AddMHLOToStableHLOPasses(mlir::PassManager& pm);
+
     // MLIR上下文
     std::unique_ptr<mlir::MLIRContext> context_;
     mlir::OwningOpRef<mlir::ModuleOp> module_;
