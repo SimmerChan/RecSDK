@@ -12,11 +12,12 @@ from typing import List
 import pytest
 import torch
 from torch.utils.data import DataLoader
+from torchrec import EmbeddingBagCollection, EmbeddingBagConfig
+
 from hybrid_torchrec import (
     HashEmbeddingBagCollection,
     HashEmbeddingBagConfig,
 )
-from torchrec import EmbeddingBagCollection, EmbeddingBagConfig
 
 from dataset import RandomRecDataset, Batch
 from util import setup_logging
