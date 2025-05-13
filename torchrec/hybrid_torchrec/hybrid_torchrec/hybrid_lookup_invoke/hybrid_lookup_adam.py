@@ -21,13 +21,14 @@ def invoke(
     optimizer_args: OptimizerArgs,
     momentum1: Momentum,
     momentum2: Momentum,
-    iteration: int = 0,
-    apply_global_weight_decay: bool = False,
-    # only pass prev_iter_dev since prev_iter is never created on UVM
-    prev_iter_dev: Optional[torch.Tensor] = None,
-    gwd_lower_bound: float = 0.0,
+    additional_args: Optional[dict] = None,
 ) -> torch.Tensor:
     vbe_metadata = common_args.vbe_metadata
+
+    iteration = additional_args.get('iteration', 0) if additional_args else 0
+    apply_global_weight_decay = additional_args.get('apply_global_weight_decay', False) if additional_args else False
+    prev_iter_dev = additional_args.get('prev_iter_dev', None) if additional_args else None
+    gwd_lower_bound = additional_args.get('gwd_lower_bound', 0.0) if additional_args else 0.0
 
     return torch.ops.fbgemm.split_embedding_codegen_lookup_adam_function(
         # common_args

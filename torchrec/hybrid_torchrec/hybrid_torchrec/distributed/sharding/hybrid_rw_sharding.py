@@ -63,13 +63,13 @@ class InputDistThreadPoolExecutorSingleton:
             cls._instance = super(InputDistThreadPoolExecutorSingleton, cls).__new__(
                 cls, *args, **kwargs
             )
-            DEFAULT_POST_INPUT_THREADS = 6
-            MAX_THREADS = (
-                DEFAULT_POST_INPUT_THREADS
+            default_post_input_threads = 6
+            max_threads = (
+                default_post_input_threads
                 if "INPUT_DIST_THREADS" not in os.environ
                 else int(os.environ["INPUT_DIST_THREADS"])
             )
-            cls.executor = ThreadPoolExecutor(MAX_THREADS)
+            cls.executor = ThreadPoolExecutor(max_threads)
         return cls._instance
 
 
@@ -80,13 +80,10 @@ W = TypeVar("W")
 
 
 def bucketize_kjt_before_all2all(
-    kjt: KeyedJaggedTensor,
-    num_buckets: int,
-    block_sizes: torch.Tensor,
-    output_permute: bool = False,
-    bucketize_pos: bool = False,
-    block_bucketize_row_pos: Optional[List[torch.Tensor]] = None,
-    keep_original_indices: bool = False,
+        kjt: KeyedJaggedTensor,
+        num_buckets: int,
+        block_sizes: torch.Tensor,
+        options: Optional[dict] = None,
 ) -> Tuple[KeyedJaggedTensor, Optional[torch.Tensor]]:
     num_features = len(kjt.keys())
     assert_fx_safe(
@@ -94,6 +91,13 @@ def bucketize_kjt_before_all2all(
         f"Expecting block sizes for {num_features} features, but {block_sizes.numel()} received.",
     )
     block_sizes_new_type = _fx_wrap_tensor_to_device_dtype(block_sizes, kjt.values())
+
+    # Extract options with default values
+    output_permute = options.get('output_permute', False) if options else False
+    bucketize_pos = options.get('bucketize_pos', False) if options else False
+    block_bucketize_row_pos = options.get('block_bucketize_row_pos', None) if options else None
+    keep_original_indices = options.get('keep_original_indices', False) if options else False
+
     (
         bucketized_lengths,
         bucketized_indices,
@@ -111,12 +115,11 @@ def bucketize_kjt_before_all2all(
         weights=kjt.weights_or_none(),
         batch_size_per_feature=_fx_wrap_batch_size_per_feature(kjt),
         max_B=_fx_wrap_max_B(kjt),
-        block_bucketize_pos=block_bucketize_row_pos,  # each tensor should have the same dtype as kjt.lengths()
+        block_bucketize_pos=block_bucketize_row_pos,
         keep_orig_idx=keep_original_indices,
     )
     return (
         KeyedJaggedTensor(
-            # duplicate keys will be resolved by AllToAll
             keys=_fx_wrap_gen_list_n_times(kjt.keys(), num_buckets),
             values=bucketized_indices,
             weights=pos if bucketize_pos else bucketized_weights,
@@ -174,6 +177,18 @@ class HashRwSparseFeaturesDist(RwSparseFeaturesDist):
         self,
         sparse_features: KeyedJaggedTensor,
     ) -> Awaitable[Awaitable[KeyedJaggedTensor]]:
+        # 创建一个包含可选参数的字典
+        options = {
+            'output_permute': self._is_sequence,
+            'bucketize_pos': (
+                self._has_feature_processor
+                if sparse_features.weights_or_none() is None
+                else self._need_pos
+            ),
+            'keep_original_indices': self._keep_original_indices,
+        }
+
+        # 调用优化后的函数，将可选参数字典传递给options参数
         (
             bucketized_features,
             self.unbucketize_permute_tensor,
@@ -181,13 +196,7 @@ class HashRwSparseFeaturesDist(RwSparseFeaturesDist):
             sparse_features,
             num_buckets=self._world_size,
             block_sizes=self._feature_block_sizes_tensor,
-            output_permute=self._is_sequence,
-            bucketize_pos=(
-                self._has_feature_processor
-                if sparse_features.weights_or_none() is None
-                else self._need_pos
-            ),
-            keep_original_indices=self._keep_original_indices,
+            options=options,
         )
         result = self._dist(bucketized_features)
         if isinstance(result, Awaitable):

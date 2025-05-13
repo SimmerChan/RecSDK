@@ -191,47 +191,72 @@ void BlockBucketizeSparseFeaturesCpuKernel(const at::Tensor& lengths, const at::
                                      unbucketizePermuteData, numFeatures, batchSize, mySize);
     }
 }
+#include <optional>
+#include <vector>
 
-// 对外接口函数
-BucketTensorBundle BlockBucketizeSparseFeaturesCpu(const at::Tensor& lengths,
-    const at::Tensor& indices, const bool bucketizePos,
-    const bool sequence, const at::Tensor& blockSizes, const int64_t mySize,
-    const std::optional<at::Tensor>& totalNumBlocks,
-    const std::optional<at::Tensor>& weights,
-    const std::optional<at::Tensor>& batchSizePerFeature, const int64_t /* maxBatchSize */,
-    const std::optional<std::vector<at::Tensor>>& blockBucketizePos,
-    const bool returnBucketMapping, const bool keepOrigIdx)
-{
+struct BucketizeOptions {
+    const at::Tensor& lengths;
+    const at::Tensor& indices;
+    const at::Tensor& blockSizes;
+    const int64_t mySize;
+    bool bucketizePos = false;
+    bool sequence = false;
+    std::optional<at::Tensor> totalNumBlocks = std::nullopt;
+    std::optional<at::Tensor> weights = std::nullopt;
+    std::optional<at::Tensor> batchSizePerFeature = std::nullopt;
+    int64_t maxBatchSize = 0;
+    std::optional<std::vector<at::Tensor>> blockBucketizePos = std::nullopt;
+    bool returnBucketMapping = false;
+    bool keepOrigIdx = false;
+
+    BucketizeOptions(
+        const at::Tensor& l,
+        const at::Tensor& i,
+        const at::Tensor& b,
+        const int64_t m,
+        bool bp = false,
+        bool s = false,
+        std::optional<at::Tensor> tnb = std::nullopt,
+        std::optional<at::Tensor> w = std::nullopt,
+        std::optional<at::Tensor> bpf = std::nullopt,
+        int64_t mb = 0,
+        std::optional<std::vector<at::Tensor>> bbp = std::nullopt,
+        bool rbm = false,
+        bool ko = false
+    ) : lengths(l), indices(i), blockSizes(b), mySize(m), bucketizePos(bp), sequence(s), totalNumBlocks(tnb), weights(w), batchSizePerFeature(bpf), maxBatchSize(mb), blockBucketizePos(bbp), returnBucketMapping(rbm), keepOrigIdx(ko) {}
+};
+
+BucketTensorResult BlockBucketizeSparseFeaturesCpu(const BucketizeOptions& options) {
     // 参数校验
-    TORCH_CHECK(lengths.scalar_type() == at::kLong, "Lengths tensor must be int64 type, got: ", lengths.scalar_type());
-
-    TORCH_CHECK(indices.scalar_type() == at::kLong, "Indices tensor must be int64 type, got: ", indices.scalar_type());
-
-    TORCH_CHECK(!weights.has_value(), "Weighted KJT is currently not supported");
-
-    TORCH_CHECK(!bucketizePos, "Bucket position tracking is not implemented");
-
-    TORCH_CHECK(!returnBucketMapping, "Bucket mapping return is not supported");
+    TORCH_CHECK(options.lengths.scalar_type() == at::kLong,
+                "Lengths tensor must be int64 type, got: ", options.lengths.scalar_type());
+    TORCH_CHECK(options.indices.scalar_type() == at::kLong,
+                "Indices tensor must be int64 type, got: ", options.indices.scalar_type());
+    TORCH_CHECK(!options.weights, "Weighted KJT is currently not supported");
+    TORCH_CHECK(!options.bucketizePos, "Bucket position tracking is not implemented");
+    TORCH_CHECK(!options.returnBucketMapping, "Bucket mapping return is not supported");
 
     // 初始化输出张量
-    const auto lengthsSize = lengths.numel();
-    const auto newLengthsSize = lengthsSize * mySize;
+    const auto lengthsSize = options.lengths.numel();
+    const auto newLengthsSize = lengthsSize * options.mySize;
 
-    auto newLengths = at::zeros({newLengthsSize}, lengths.options());
-    auto newIndices = at::empty_like(indices);
-    auto unbucketizePermute = at::empty(indices.sizes(), indices.options());
+    auto newLengths = at::zeros({newLengthsSize}, options.lengths.options());
+    auto newIndices = at::empty_like(options.indices);
+    auto unbucketizePermute = at::empty(options.indices.sizes(), options.indices.options());
 
     // 根据序列模式选择不同内核
-    if (sequence) {
+    if (options.sequence) {
         BlockBucketizeSparseFeaturesCpuKernel<true, false, false, int64_t, int64_t, int64_t, false>(
-            lengths, indices, weights, bucketizePos, blockSizes, totalNumBlocks, mySize, newLengths, newIndices,
-            std::nullopt, std::nullopt, unbucketizePermute, batchSizePerFeature, blockBucketizePos, std::nullopt,
-            keepOrigIdx);
+            options.lengths, options.indices, options.weights, options.bucketizePos, options.blockSizes,
+            options.totalNumBlocks, options.mySize, newLengths, newIndices, std::nullopt, std::nullopt,
+            unbucketizePermute, options.batchSizePerFeature, options.blockBucketizePos, std::nullopt,
+            options.keepOrigIdx);
     } else {
         BlockBucketizeSparseFeaturesCpuKernel<false, false, false, int64_t, int64_t, int64_t, false>(
-            lengths, indices, weights, bucketizePos, blockSizes, totalNumBlocks, mySize, newLengths, newIndices,
-            std::nullopt, std::nullopt, unbucketizePermute, batchSizePerFeature, blockBucketizePos, std::nullopt,
-            keepOrigIdx);
+            options.lengths, options.indices, options.weights, options.bucketizePos, options.blockSizes,
+            options.totalNumBlocks, options.mySize, newLengths, newIndices, std::nullopt, std::nullopt,
+            unbucketizePermute, options.batchSizePerFeature, options.blockBucketizePos, std::nullopt,
+            options.keepOrigIdx);
     }
 
     return {newLengths, newIndices, std::nullopt, std::nullopt, unbucketizePermute, std::nullopt};

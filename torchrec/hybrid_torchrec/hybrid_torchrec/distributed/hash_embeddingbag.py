@@ -73,7 +73,6 @@ class HybridShardedHashEmbeddingBagCollection(HybridShardedEmbeddingBagCollectio
         env: ShardingEnv,
         host_env: ShardingEnv,
         device: Optional[torch.device] = None,
-        permute_embeddings: bool = False,
         qcomm_codecs_registry: Optional[Dict[str, QuantizedCommCodecs]] = None,
     ) -> EmbeddingSharding[
         EmbeddingShardingContext, KeyedJaggedTensor, torch.Tensor, torch.Tensor

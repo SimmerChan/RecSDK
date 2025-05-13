@@ -160,7 +160,6 @@ class HybridShardedEmbeddingBagCollection(
                 env,
                 host_env,
                 device,
-                permute_embeddings=True,
                 qcomm_codecs_registry=self.qcomm_codecs_registry,
             )
             for embedding_configs in sharding_type_to_sharding_infos.values()
@@ -343,7 +342,6 @@ class HybridShardedEmbeddingBagCollection(
         env: ShardingEnv,
         host_env: ShardingEnv,
         device: Optional[torch.device] = None,
-        permute_embeddings: bool = False,
         qcomm_codecs_registry: Optional[Dict[str, QuantizedCommCodecs]] = None,
     ) -> EmbeddingSharding[
         EmbeddingShardingContext, KeyedJaggedTensor, torch.Tensor, torch.Tensor
