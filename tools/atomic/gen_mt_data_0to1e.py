@@ -16,9 +16,11 @@
 # ==============================================================================
 
 import logging
+import os
+import sys
+import random
 import numpy as np
 import tensorflow as tf
-import random
 
 logging.getLogger().setLevel(logging.INFO)
 
@@ -31,14 +33,12 @@ sparse_feat_list = ['feat_ids']
 sparse_feat_len = [100]
 
 NUM = 0
-import sys
 
 hot_zhanbi = sys.argv[1:][0]
 hot_zhanbi = float(hot_zhanbi)/10
 logging.info("%f", hot_zhanbi)
 
 tfpath = "/home/insert/data"+str(hot_zhanbi)
-import os
 if not os.path.exists(tfpath):
     os.mkdir(tfpath)
     

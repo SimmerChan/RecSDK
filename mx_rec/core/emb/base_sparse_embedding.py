@@ -11,6 +11,7 @@ import tensorflow as tf
 from tensorflow import Tensor
 from tensorflow.python.ops import array_ops
 from tensorflow.python.framework import ops
+import mxrec_pybind
 
 from mx_rec.constants.constants import ASCEND_SPARSE_LOOKUP_ENTRANCE, All2allGradientsOp, ASCAnchorAttr
 from mx_rec.core.asc.build_graph import get_preprocessed_tensor_for_asc
@@ -22,7 +23,6 @@ from mx_rec.util.log import logger
 from mx_rec.util.tf_version_adapter import hccl_ops
 from mx_rec.validator.emb_validator import check_emb_init_params, check_emb_lookup_params
 from mx_rec.util.ops import import_host_pipeline_ops
-import mxrec_pybind
 
 host_pipeline_ops = import_host_pipeline_ops()
 

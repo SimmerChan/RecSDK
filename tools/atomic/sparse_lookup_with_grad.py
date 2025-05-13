@@ -24,7 +24,6 @@ import numpy as np
 import tensorflow as tf
 from mpi4py import MPI  # must before emb_cache after SparseOps
 import psutil
-import sys
 from sklearn.metrics import roc_auc_score
 
 from tensorflow.python.ops import math_ops
@@ -32,6 +31,7 @@ from tensorflow.python.framework import ops
 from tensorflow.core.protobuf.rewriter_config_pb2 import RewriterConfig
 from npu_bridge.hccl import hccl_ops
 from npu_bridge.estimator import npu_ops
+from sparse_ops.config import set_ascend_env
 
 from mx_rec.graph.modifier import modify_graph_and_start_emb_cache
 from mx_rec.core.asc.manager import start_asc_pipeline
@@ -42,7 +42,6 @@ from mx_rec.constants.constants import MxRecMode
 from mx_rec.core.embedding import create_table, sparse_lookup
 from mx_rec.util.initialize import get_ascend_global_hashtable_collection
 from mx_rec.optimizers.lazy_adam import CustomizedLazyAdam
-from sparse_ops.config import set_ascend_env
 
 logging.getLogger().setLevel(logging.INFO)
 
