@@ -5,16 +5,27 @@
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
-from typing import Any, cast, Dict, List, Optional, Type, TypeVar
+from typing import Any, Dict, List, Optional, Type, TypeVar
 
 import torch
 from torch import nn
+
+from hybrid_torchrec.distributed.embeddingbag import HybridShardedEmbeddingBagCollection
+from hybrid_torchrec.distributed.sharding.hybrid_rw_sharding import (
+    HybridHashRwPooledEmbeddingSharding,
+)
+from hybrid_torchrec.distributed.sharding.hybrid_tw_sharding import (
+    HybridHashTwPooledEmbeddingSharding,
+)
+from hybrid_torchrec.modules.hash_embeddingbag import HashEmbeddingBagCollection
+from hybrid_torchrec.modules.ids_process import HashMapBase
 from torchrec.distributed.embedding_sharding import (
     EmbeddingSharding,
     EmbeddingShardingContext,
     EmbeddingShardingInfo,
 )
 from torchrec.distributed.embedding_types import BaseEmbeddingSharder
+from torchrec.distributed.embeddingbag import replace_placement_with_meta_device
 from torchrec.distributed.types import (
     ParameterSharding,
     QuantizedCommCodecs,
@@ -23,16 +34,6 @@ from torchrec.distributed.types import (
 )
 from torchrec.modules.embedding_modules import EmbeddingBagCollection
 from torchrec.sparse.jagged_tensor import KeyedJaggedTensor
-from torchrec.distributed.embeddingbag import replace_placement_with_meta_device
-from hybrid_torchrec.distributed.sharding.hybrid_tw_sharding import (
-    HybridHashTwPooledEmbeddingSharding,
-)
-from hybrid_torchrec.distributed.embeddingbag import HybridShardedEmbeddingBagCollection
-from hybrid_torchrec.distributed.sharding.hybrid_rw_sharding import (
-    HybridHashRwPooledEmbeddingSharding,
-)
-from hybrid_torchrec.modules.hash_embeddingbag import HashEmbeddingBagCollection
-from hybrid_torchrec.modules.ids_process import HashMapBase
 
 Out = TypeVar("Out")
 

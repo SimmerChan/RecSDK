@@ -22,6 +22,7 @@ from torchrec.distributed.embedding_types import (
 from torchrec.distributed.embedding_lookup import GroupedPooledEmbeddingsLookup
 from torchrec.distributed.types import rank_device, ShardingType
 from torchrec.distributed.batched_embedding_kernel import KeyValueEmbeddingBag
+
 from hybrid_torchrec.distributed.batched_embedding_kernel import (
     HybridBatchedFusedEmbeddingBag,
 )
