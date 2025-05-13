@@ -193,14 +193,14 @@ void BlockBucketizeSparseFeaturesCpuKernel(const at::Tensor& lengths, const at::
 
 // 对外接口函数
 std::tuple<at::Tensor, at::Tensor, std::optional<at::Tensor>, std::optional<at::Tensor>, std::optional<at::Tensor>,
-           std::optional<at::Tensor>>
-BlockBucketizeSparseFeaturesCpu(const at::Tensor& lengths, const at::Tensor& indices, const bool bucketizePos,
-                                const bool sequence, const at::Tensor& blockSizes, const int64_t mySize,
-                                const std::optional<at::Tensor>& totalNumBlocks,
-                                const std::optional<at::Tensor>& weights,
-                                const std::optional<at::Tensor>& batchSizePerFeature, const int64_t /* maxBatchSize */,
-                                const std::optional<std::vector<at::Tensor>>& blockBucketizePos,
-                                const bool returnBucketMapping, const bool keepOrigIdx)
+    std::optional<at::Tensor>> BlockBucketizeSparseFeaturesCpu(const at::Tensor& lengths,
+    const at::Tensor& indices, const bool bucketizePos,
+    const bool sequence, const at::Tensor& blockSizes, const int64_t mySize,
+    const std::optional<at::Tensor>& totalNumBlocks,
+    const std::optional<at::Tensor>& weights,
+    const std::optional<at::Tensor>& batchSizePerFeature, const int64_t /* maxBatchSize */,
+    const std::optional<std::vector<at::Tensor>>& blockBucketizePos,
+    const bool returnBucketMapping, const bool keepOrigIdx)
 {
     // 参数校验
     TORCH_CHECK(lengths.scalar_type() == at::kLong, "Lengths tensor must be int64 type, got: ", lengths.scalar_type());
