@@ -109,7 +109,7 @@ def check_bucketized_valid(
     my_size: int
 ):
     batch_size = bucketed_data.lengths.numel() // my_size // feat_num
-    bucketized_offset = 0
+    bucketed_offset = 0
     for rank in range(my_size):
         this_rank_length = bucketed_data.lengths[
                            rank * feat_num * batch_size: (rank + 1) * feat_num * batch_size
@@ -127,13 +127,13 @@ def check_bucketized_valid(
                                origin_batch_offset: origin_batch_offset + origin_indices_len
                 ]
                 for _ in range(this_indices_len):
-                    index = bucketed_data.indices[bucketized_offset]
+                    index = bucketed_data.indices[bucketed_offset]
                     assert (index % my_size) == rank, \
-                        f"bucketized_indices {index} in invalid bucket {rank} bucketized_offset {bucketized_offset}"
+                        f"bucketized_indices {index} in invalid bucket {rank} bucketed_offset {bucketed_offset}"
                     assert (index in origin_index), (
                         f"bucketized_indices {index} in invalid position {origin_batch_offset} "
-                        f"origin_index {origin_index} bucketized_offset {bucketized_offset}")
-                    bucketized_offset += 1
+                        f"origin_index {origin_index} bucketed_offset {bucketed_offset}")
+                    bucketed_offset += 1
                 origin_batch_offset += origin_indices_len
     return
 
@@ -173,7 +173,7 @@ def test_block_bucketize_sparse_features_cpu(input_size, mutil_hots, my_size):
             max_B=-1,
             block_bucketize_pos=None,
         )
-        bucketed_data = IndicesData(bucketized_lengths, bucketized_lengths)
+        bucketed_data = IndicesData(bucketized_lengths, bucketized_indices)
         origin_data = IndicesData(lengths, values)
 
         check_bucketized_valid(
