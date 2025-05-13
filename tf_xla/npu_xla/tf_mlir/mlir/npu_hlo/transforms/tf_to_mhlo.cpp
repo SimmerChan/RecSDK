@@ -12,6 +12,17 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
         limitations under the License.
 ==============================================================================*/
+//===- VectorToGPU.cpp - Convert vector to GPU dialect ----------*- C++ -*-===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements lowering of vector operations to GPU dialect ops.
+//
+//===----------------------------------------------------------------------===//
 
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
