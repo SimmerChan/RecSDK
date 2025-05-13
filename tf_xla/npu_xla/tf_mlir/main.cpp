@@ -113,9 +113,9 @@ int main(int argc, char** argv)
     tensorflow::port::InitMain(argv[0], &argc, &argv);
     auto status = tensorflow::RealMain(argc, argv);
     if (!status.ok()) {
-        std::string err_msg = status.ToString();
+        std::string errMsg = status.ToString();
         absl::StatusCode code = status.code();
-        VLOG(0) << "Failed! " << err_msg << " code " << code;
+        VLOG(0) << "Failed! " << errMsg << " code " << code;
         return 1;
     }
     return 0;

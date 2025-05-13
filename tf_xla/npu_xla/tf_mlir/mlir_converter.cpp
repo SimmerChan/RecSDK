@@ -185,7 +185,9 @@ Status AppendIOAttr(mlir::ModuleOp module, const GraphImportConfig& specs, const
 {
     auto main_func = module.lookupSymbol<mlir::func::FuncOp>("main");
     auto dict_attr = main_func->getAttrOfType<mlir::DictionaryAttr>("tf.entry_function");
-    assert(dict_attr && "main_func must has tf.entry_function attr");
+    if (!dict_attr) {
+        return errors::Internal("main_func must has tf.entry_function attr");
+    }
     SmallVector<mlir::NamedAttribute, 2> attributes;
     for (auto attr : dict_attr) {
         attributes.push_back(attr);
@@ -254,7 +256,6 @@ Status AppendIOAttr(mlir::ModuleOp module, const GraphImportConfig& specs, const
                 return tensorflow::errors::Internal("Mlir datatype not implemented for constant input");
             }
             attributes.push_back(builder.getNamedAttr(attr_name, attr));
-
         } else if (arg_proto.kind_v2() == ArgumentKind::kFixedShaped) {
             auto attr_name = (mlir::npu_hlo::kHloInputShapeAttr + ("_" + llvm::Twine(i))).str();
             SmallVector<int64_t, 4> input_shape;
@@ -357,8 +358,7 @@ Status MlirConverter::ImportGraphDef(const CompilerInput& input)
 
 Status MlirConverter::ConvertTfExecutorToTf()
 {
-    TF_RETURN_IF_ERROR(
-        mlir::TF::RunBridgeWithStandardPipeline(*module_, /*enable_logging=*/VLOG_IS_ON(1), /*enable_inliner=*/true));
+    TF_RETURN_IF_ERROR(mlir::TF::RunBridgeWithStandardPipeline(*module_, VLOG_IS_ON(1), true));
     return absl::OkStatus();
 }
 
@@ -379,13 +379,8 @@ Status MlirConverter::ConvertTfToStablehlo()
     printingFlags.elideLargeElementsAttrs(16);
     printingFlags.elideLargeResourceString(16);
     pm.enableIRPrinting(
-        /*shouldPrintBeforePass=*/
-        nullptr,
-        /*shouldPrintAfterPass=*/
-        [](mlir::Pass* pass, mlir::Operation*) { return VLOG_IS_ON(2); },
-        /*printModuleScope=*/false,
-        /*printAfterOnlyOnChange=*/true,
-        /*printAfterOnlyOnFailure*/ false, llvm::dbgs(), printingFlags);
+        nullptr, [](mlir::Pass* pass, mlir::Operation*) { return VLOG_IS_ON(2); }, false, true, false, llvm::dbgs(),
+        printingFlags);
     bool prefer_tf2xla = false;
     llvm::StringRef device_type = "XLA_CPU_JIT";
 
@@ -443,29 +438,11 @@ Status MlirConverter::ConvertTfToStablehlo()
     // such ops might be present in the input from upstream like TFRT compilation.
     // Later on, this could be merged in the legalization pass when we migrate
     // bridge to StableHLO.
-    // TODO(b/259459405): Avoid this peculiar use through some refactoring in
-    // the the caller.
-    // This needs to happen before legalization.
-    // pm.addPass(mlir::mhlo::createStablehloLegalizeToHloPass());
-
-    // customized tf2mhlo converters of DISC
-    // std::string disc_tf_pdll_files;
-    // std::string disc_tf_pdll_include_dirs;
-    // tensorflow::ReadStringFromEnvVar("DISC_TF_PDLL_FILES", "",
-    //                                  &disc_tf_pdll_files);
-    // tensorflow::ReadStringFromEnvVar("DISC_TF_PDLL_INCLUDE_DIRS", "",
-    //                                  &disc_tf_pdll_include_dirs);
-    // pm.addNestedPass<mlir::func::FuncOp>(mlir::disc_ral::createDiscLowerTfPass(
-    //     disc_tf_pdll_files, disc_tf_pdll_include_dirs));
 
     pm.addNestedPass<mlir::func::FuncOp>(mlir::TF::CreateLowerQuantizedPass());
     pm.addPass(mlir::mhlo::createLegalizeTFPass(
         /*legalize_chlo=*/true,
         /*tf2xla_fallback_device_type=*/device_type, prefer_tf2xla));
-
-    // customized tf2mhlo converters of DISC
-    // pm.addNestedPass<mlir::func::FuncOp>(mlir::disc_ral::createDiscLowerTfPass(
-    //     disc_tf_pdll_files, disc_tf_pdll_include_dirs));
 
     pm.addNestedPass<mlir::func::FuncOp>(mlir::mhlo::CreateInfeedsOpsXlaAdjustLayoutPass());
     pm.addPass(mlir::mhlo::CreateLegalizeTFCollectivePass());
@@ -484,19 +461,13 @@ Status MlirConverter::ConvertTfToStablehlo()
     // invocation.
     // TODO(wyzero): we can not set `allow_partial_conversion = false` since
     // `createLegalizeTFPass` pass does not known ops from hlo_disc dialect.
-    pm.addPass(mlir::mhlo::createLegalizeTFPass(
-        /*legalize_chlo=*/true,
-        /*tf2xla_fallback_device_type=*/device_type, prefer_tf2xla));
+    pm.addPass(mlir::mhlo::createLegalizeTFPass(true, device_type, prefer_tf2xla));
 
     pm.addPass(mlir::npu_hlo::createTFToMHLOLegalizationPass());
 
     // This pass operates on MHLO control flow ops so it should be legalized after
     // the control flow ops are legalized.
     pm.addPass(mlir::mhlo::CreateLegalizeTFCommunicationPass());
-
-    // convert mhlo.dynamic_slice to mhlo.real_dynamic_slice after tf2mhlo passes
-    // pm.addNestedPass<mlir::func::FuncOp>(
-    //    mlir::disc_ral::createDiscDynamicSliceConverterPass());
 
     // In order to export to XLA, we must sink constants to control flow regions,
     // since XLA uses functional control flow.

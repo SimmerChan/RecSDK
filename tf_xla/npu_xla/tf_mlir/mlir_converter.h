@@ -29,13 +29,6 @@ public:
     MlirConverter();
     ~MlirConverter();
 
-    // 主要接口：将GraphDef转换为StableHLO模块
-    // 参数:
-    //   graph_def: 输入的TensorFlow GraphDef
-    //   config_proto: TensorFlow配置
-    //   mlir_module: 输出的MLIR模块，包含StableHLO方言
-    // 返回:
-    //   转换是否成功的状态
     Status ConvertGraphdefToStablehlo(const CompilerInput& compiler_input, const std::string& output_path);
 
 private:
