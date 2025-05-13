@@ -54,9 +54,9 @@ struct ComputeArgs {
     int64_t outOffset;
 };
 
-class SplitEmbeddingCodegenForwardUnweightedBase {
+class SplitEmbeddingCodegenForwardUnweightedKernel {
 public:
-    __aicore__ inline SplitEmbeddingCodegenForwardUnweightedBase(Args args)
+    __aicore__ inline SplitEmbeddingCodegenForwardUnweightedKernel(Args args)
     {
         GET_TILING_DATA(tilingData, args.tiling);
         // ADDR
@@ -79,6 +79,7 @@ public:
         outDim0 = tilingData.outDim0;
         outDim1 = tilingData.outDim1;
         maxD = tilingData.maxD;
+        alignMaxD = (maxD / FLOAT_ALIGNMENT + 1) * FLOAT_ALIGNMENT;
         enableHash = tilingData.enableHash;
         batchs = (offsetsDim0 - 1) / weightsOffsetsDim0;
 
@@ -125,8 +126,6 @@ public:
         
     }
 
-   
-
     template <typename T>
     __aicore__ inline void CpGm2Local(const LocalTensor<T>& lt, const GlobalTensor<T>& gt, int64_t len)
     {
@@ -164,9 +163,10 @@ public:
         for (int64_t i = 0; i < thisLen; ++i) {
             int64_t thisIndForThisTable = indicesLt.GetValue(i);
             int64_t indWeightOffset = thisIndForThisTable * embedDim + thisWeightOffset;
-            CpGm2Local(inputLt[i * maxD], devWeightsGT[indWeightOffset], embedDim);
+            CpGm2Local(inputLt[i * alignMaxD], devWeightsGT[indWeightOffset], embedDim);
         }
         queIndices.FreeTensor(indicesLt);
+        queIn.EnQue(inputLt);
     }
 
     __aicore__ inline void CopyOutEC(int64_t thisLen, int64_t startIndices)
@@ -175,9 +175,24 @@ public:
         LocalTensor<float> outLt = queOut.AllocTensor<float>();
 
         int64_t allLen = thisLen * maxD;
-        DataCopy(outLt, inputLt, allLen); // vecIn -> vecOut
-        CpLocal2Gm(outGT[startIndices * maxD], inputLt, allLen); // vecout-> gm
+        DataCopy(outLt, inputLt, alignLen);
+        CpLocal2Gm(outGT[startIndices * maxD], outLt, allLen); // vecout-> gm
 
+        queIn.FreeTensor(inputLt);
+        queOut.FreeTensor(outLt);
+    }
+
+    __aicore__ inline void CopyOutECPad(int64_t thisLen, int64_t startIndices)
+    {
+        LocalTensor<float> inputLt = queIn.DeQue<float>();
+        LocalTensor<float> outLt = queOut.AllocTensor<float>();
+
+        int64_t allLen = thisLen * alignMaxD;
+        DataCopy(outLt, inputLt, allLen); // datacopy should align to 32B
+
+        for (int i = 0; i < thisLen; i++) {
+            CpLocal2Gm(outGT[(startIndices + i) * maxD], outLt[i * alignMaxD], maxD); // vecout-> gm
+        }
         queIn.FreeTensor(inputLt);
         queOut.FreeTensor(outLt);
     }
@@ -197,9 +212,9 @@ public:
         LocalTensor<float> inputLt = queIn.DeQue<float>();
 
         // reducesum(inputLt)-> outLt 
-        Duplicate<float>(outLt, 0, maxD);
+        Duplicate<float>(outLt, 0, alignMaxD);
         for (int64_t i = 0; i < len; i++) {
-            Add(outLt, outLt, inputLt[i * maxD], embedDim);
+            Add(outLt, outLt, inputLt[i * alignMaxD], embedDim);
         }
 
         if (poolMode == MEAN_POOL) {
@@ -242,8 +257,11 @@ public:
             remain -= thisLen;
 
             CopyInNormal(startIndices, thisLen, maxD, thisWeightOffset);
-
-            CopyOutEC(thisLen, startIndices);
+            if (alignMaxD == maxD) {
+                CopyOutEC(thisLen, startIndices);
+            } else {
+                CopyOutECPad(thisLen, startIndices);
+            }
 
             startIndices = startIndices + thisLen;
 
