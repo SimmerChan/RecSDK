@@ -24,6 +24,7 @@ See the License for the specific language governing permissions and
 // limitations under the License.
 
 #include "tf_mlir/mlir_converter.h"
+#include <memory>
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringExtras.h"
@@ -54,6 +55,13 @@ using llvm::SmallVector;
 using mlir::DenseElementsAttr;
 using mlir::RankedTensorType;
 using mlir::func::FuncOp;
+
+#define VLOG_L2 VLOG(2)
+constexpr int VLOG_DEFAULT_LEVEL = 2;
+constexpr int BITWIDTH_32 = 32;
+constexpr int BITWIDTH_64 = 64;
+constexpr int SMALL_VECTOR_SIZE_2 = 2;
+constexpr int SMALL_VECTOR_SIZE_4 = 4;
 
 absl::StatusOr<std::vector<TensorShape>> ParseArgShapes(const CompilerInput& input)
 {
@@ -94,7 +102,7 @@ absl::StatusOr<std::unordered_map<std::string, PartialTensorShape>> ParseKnownAr
     }
     for (auto iter : name_attr_list.attr()) {
         arg_shapes[iter.first] = PartialTensorShape(iter.second.shape());
-        VLOG(2) << "KnownArgShapes: " << iter.first << ", " << arg_shapes[iter.first];
+        VLOG_L2 << "KnownArgShapes: " << iter.first << ", " << arg_shapes[iter.first];
     }
     return arg_shapes;
 }
@@ -109,11 +117,11 @@ Status ConvertInputInfo(const CompilerInput& input, Graph* graph, GraphImportCon
     TF_ASSIGN_OR_RETURN(auto known_arg_shapes, ParseKnownArgShapes(input));
 
     for (Node* n : graph->op_nodes()) {
-        VLOG(2) << "ConvertInputInfo: " << n->type_string() << "@" << n->name();
+        VLOG_L2 << "ConvertInputInfo: " << n->type_string() << "@" << n->name();
         if (n->type_string() == "_Arg") {
             int index;
             TF_RETURN_IF_ERROR(GetNodeAttr(n->attrs(), "index", &index));
-            VLOG(2) << "_Arg " << index << ", " << n->name();
+            VLOG_L2 << "_Arg " << index << ", " << n->name();
             if (array_names.size() <= index) {
                 array_names.resize(index + 1);
                 data_types.resize(index + 1);
@@ -133,7 +141,7 @@ Status ConvertInputInfo(const CompilerInput& input, Graph* graph, GraphImportCon
             }
             shapes[index] = std::move(dims);
             for (int i = 0; i < shapes[index].size(); ++i) {
-                VLOG(2) << "input #" << index << " dim #" << i << ": " << shapes[index][i];
+                VLOG_L2 << "input #" << index << " dim #" << i << ": " << shapes[index][i];
             }
         }
     }
@@ -170,9 +178,9 @@ mlir::Type DataTypeToMlirType(mlir::OpBuilder b, DataType dtype)
     } else if (dtype == DataType::DT_HALF) {
         return b.getF16Type();
     } else if (dtype == DataType::DT_INT64) {
-        return b.getIntegerType(64);
+        return b.getIntegerType(BITWIDTH_64);
     } else if (dtype == DataType::DT_INT32) {
-        return b.getIntegerType(32);
+        return b.getIntegerType(BITWIDTH_32);
     } else if (dtype == DataType::DT_BOOL) {
         return b.getIntegerType(1);
     } else {
@@ -181,11 +189,11 @@ mlir::Type DataTypeToMlirType(mlir::OpBuilder b, DataType dtype)
 }
 
 // 处理输入输出设备放置信息
-Status SetupIOPlacements(mlir::OpBuilder& builder, SmallVector<mlir::NamedAttribute, 2>& attributes,
+Status SetupIOPlacements(mlir::OpBuilder& builder, SmallVector<mlir::NamedAttribute, SMALL_VECTOR_SIZE_2>& attributes,
                          const GraphImportConfig& specs, const CompilerInput& input, const std::string& default_device)
 {
-    SmallVector<mlir::StringRef, 4> input_placements;
-    SmallVector<mlir::StringRef, 4> output_placements;
+    SmallVector<mlir::StringRef, SMALL_VECTOR_SIZE_4> input_placements;
+    SmallVector<mlir::StringRef, SMALL_VECTOR_SIZE_4> output_placements;
 
     for (int i = 0; i < specs.inputs.size(); ++i) {
         auto& arg_proto = input.args(i);
@@ -216,7 +224,8 @@ Status SetupIOPlacements(mlir::OpBuilder& builder, SmallVector<mlir::NamedAttrib
 }
 
 // 处理常量输入信息
-Status ProcessConstantInput(mlir::OpBuilder& builder, SmallVector<mlir::NamedAttribute, 2>& attributes,
+Status ProcessConstantInput(mlir::OpBuilder& builder,
+                            SmallVector<mlir::NamedAttribute, SMALL_VECTOR_SIZE_2>& attributes,
                             const CompilerInput::Argument& arg_proto, int index)
 {
     auto attr_name = (mlir::npu_hlo::kHloInputValueAttr + ("_" + llvm::Twine(index))).str();
@@ -228,7 +237,7 @@ Status ProcessConstantInput(mlir::OpBuilder& builder, SmallVector<mlir::NamedAtt
     CHECK(constant_tensor.FromProto(tensor_proto));
     DenseElementsAttr attr;
     auto elem_type = DataTypeToMlirType(builder, DataType(arg_proto.type()));
-    SmallVector<int64_t, 4> shape;
+    SmallVector<int64_t, SMALL_VECTOR_SIZE_4> shape;
     for (int dim = 0; dim < constant_tensor.dims(); ++dim) {
         shape.push_back(constant_tensor.dim_size(dim));
     }
@@ -254,11 +263,12 @@ Status ProcessConstantInput(mlir::OpBuilder& builder, SmallVector<mlir::NamedAtt
 }
 
 // 处理固定形状输入信息
-Status ProcessFixedShapedInput(mlir::OpBuilder& builder, SmallVector<mlir::NamedAttribute, 2>& attributes,
+Status ProcessFixedShapedInput(mlir::OpBuilder& builder,
+                               SmallVector<mlir::NamedAttribute, SMALL_VECTOR_SIZE_2>& attributes,
                                const CompilerInput::Argument& arg_proto, int index)
 {
     auto attr_name = (mlir::npu_hlo::kHloInputShapeAttr + ("_" + llvm::Twine(index))).str();
-    SmallVector<int64_t, 4> input_shape;
+    SmallVector<int64_t, SMALL_VECTOR_SIZE_4> input_shape;
     tensorflow::TensorShapeProto shape_proto;
     shape_proto.ParseFromString(arg_proto.shape());
     for (int dim = 0; dim < shape_proto.dim_size(); ++dim) {
@@ -279,7 +289,7 @@ Status ProcessFixedShapedInput(mlir::OpBuilder& builder, SmallVector<mlir::Named
 }
 
 // 处理所有输入信息
-Status ProcessInputsInfo(mlir::OpBuilder& builder, SmallVector<mlir::NamedAttribute, 2>& attributes,
+Status ProcessInputsInfo(mlir::OpBuilder& builder, SmallVector<mlir::NamedAttribute, SMALL_VECTOR_SIZE_2>& attributes,
                          const GraphImportConfig& specs, const CompilerInput& input)
 {
     for (int i = 0; i < specs.inputs.size(); ++i) {
@@ -301,7 +311,7 @@ Status AppendIOAttr(mlir::ModuleOp module, const GraphImportConfig& specs, const
     if (!dict_attr) {
         return errors::Internal("main_func must has tf.entry_function attr");
     }
-    SmallVector<mlir::NamedAttribute, 2> attributes;
+    SmallVector<mlir::NamedAttribute, SMALL_VECTOR_SIZE_2> attributes;
     for (auto attr : dict_attr) {
         attributes.push_back(attr);
     }
@@ -350,8 +360,8 @@ Status MlirConverter::ImportGraphDef(const CompilerInput& input)
     auto flib_def = absl::make_unique<FunctionLibraryDefinition>(OpRegistry::Global(), input_flib_def);
 
     OptimizerOptions opts;
-    std::unique_ptr<ProcessFunctionLibraryRuntime> pflr(new ProcessFunctionLibraryRuntime(
-        nullptr, Env::Default(), nullptr, TF_GRAPH_DEF_VERSION, flib_def.get(), opts));
+    auto pflr = std::make_unique<ProcessFunctionLibraryRuntime>(nullptr, Env::Default(), nullptr, TF_GRAPH_DEF_VERSION,
+                                                                flib_def.get(), opts);
     FunctionLibraryRuntime* lib_runtime = pflr->GetFLR(ProcessFunctionLibraryRuntime::kDefaultFLRDevice);
 
     FunctionLibraryRuntime::Handle func_handle;
@@ -360,7 +370,7 @@ Status MlirConverter::ImportGraphDef(const CompilerInput& input)
         lib_runtime->Instantiate(fn_name_attrs.name(), AttrSlice(&fn_name_attrs.attr()), inst_ops, &func_handle));
 
     const FunctionBody* fbody = lib_runtime->GetFunctionBody(func_handle);
-    std::unique_ptr<Graph> graph(new Graph(lib_runtime->GetFunctionLibraryDefinition()));
+    auto graph = std::make_unique<Graph>(lib_runtime->GetFunctionLibraryDefinition());
     CopyGraph(*fbody->graph, graph.get());
     GraphDef graph_def;
     graph->ToGraphDef(&graph_def);
@@ -382,7 +392,7 @@ Status MlirConverter::ImportGraphDef(const CompilerInput& input)
     TF_RETURN_IF_ERROR(ConvertInputInfo(input, graph.get(), &specs));
     TF_RETURN_IF_ERROR(ConvertOutputInfo(graph.get(), &specs));
 
-    VLOG(2) << "Input size = " << specs.inputs.size() << ", Output size = " << specs.outputs.size();
+    VLOG_L2 << "Input size = " << specs.inputs.size() << ", Output size = " << specs.outputs.size();
 
     TF_ASSIGN_OR_RETURN(auto module, ConvertGraphdefToMlir(graph_def, debug_info, specs, &context));
     module_ = std::move(module);
@@ -404,11 +414,12 @@ Status MlirConverter::SetupPassManager(mlir::PassManager& pm, mlir::TimingScope&
     pm.enableTiming(timing);
     pm.getContext()->disableMultithreading();
     auto printingFlags = mlir::OpPrintingFlags();
-    printingFlags.elideLargeElementsAttrs(16);
-    printingFlags.elideLargeResourceString(16);
+    int largeIrLength = 16;
+    printingFlags.elideLargeElementsAttrs(largeIrLength);
+    printingFlags.elideLargeResourceString(largeIrLength);
     pm.enableIRPrinting(
-        nullptr, [](mlir::Pass* pass, mlir::Operation*) { return VLOG_IS_ON(2); }, false, true, false, llvm::dbgs(),
-        printingFlags);
+        nullptr, [](mlir::Pass* pass, mlir::Operation*) { return VLOG_IS_ON(VLOG_DEFAULT_LEVEL); }, false, true, false,
+        llvm::dbgs(), printingFlags);
     return absl::OkStatus();
 }
 

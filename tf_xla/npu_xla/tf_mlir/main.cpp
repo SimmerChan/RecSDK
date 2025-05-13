@@ -40,12 +40,14 @@ limitations under the License.
 #include "tf_mlir/mlir_converter.h"
 
 namespace tensorflow {
+constexpr int PAIR_SIZE = 2;
+
 std::unordered_map<std::string, std::string> parse_envs(llvm::cl::list<std::string>& envs)
 {
     std::unordered_map<std::string, std::string> env_pair;
     for (auto& env : envs) {
         std::vector<std::string> kvs = absl::StrSplit(env, '=');
-        if (kvs.size() != 2) {
+        if (kvs.size() != PAIR_SIZE) {
             LOG(FATAL) << "env option value should be ENV=VAL: " << env;
         }
         env_pair[kvs[0]] = kvs[1];
