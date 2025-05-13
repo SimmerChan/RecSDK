@@ -123,7 +123,6 @@ public:
         pipe.InitBuffer(queIn, 1, blockLen * sizeof(float));
         pipe.InitBuffer(queOut, 1, blockLen * sizeof(float));
         pipe.InitBuffer(queIndices, 1, MAX_INDICS_ONE_BLOCK * sizeof(int64_t));
-        
     }
 
     template <typename T>
@@ -175,7 +174,11 @@ public:
         LocalTensor<float> outLt = queOut.AllocTensor<float>();
 
         int64_t allLen = thisLen * maxD;
-        DataCopy(outLt, inputLt, alignLen);
+        DataCopy(outLt, inputLt, allLen);
+    
+        queOut.EnQue(outLt);
+        outLt = queOut.DeQue<float>();
+    
         CpLocal2Gm(outGT[startIndices * maxD], outLt, allLen); // vecout-> gm
 
         queIn.FreeTensor(inputLt);
@@ -188,10 +191,13 @@ public:
         LocalTensor<float> outLt = queOut.AllocTensor<float>();
 
         int64_t allLen = thisLen * alignMaxD;
-        DataCopy(outLt, inputLt, allLen); // datacopy should align to 32B
+        DataCopy(outLt, inputLt, allLen); // datacopy len should align to 32B
 
+        queOut.EnQue(outLt);
+        outLt = queOut.DeQue<float>();
+    
         for (int i = 0; i < thisLen; i++) {
-            CpLocal2Gm(outGT[(startIndices + i) * maxD], outLt[i * alignMaxD], maxD); // vecout-> gm
+            CpLocal2Gm(outGT[(startIndices + i) * maxD], outLt[i * alignMaxD], maxD);
         }
         queIn.FreeTensor(inputLt);
         queOut.FreeTensor(outLt);
@@ -211,9 +217,8 @@ public:
         LocalTensor<float> outLt = queOut.AllocTensor<float>();
         LocalTensor<float> inputLt = queIn.DeQue<float>();
 
-        // reducesum(inputLt)-> outLt 
         Duplicate<float>(outLt, 0, alignMaxD);
-        for (int64_t i = 0; i < len; i++) {
+        for (int64_t i = 0; i < thisLen; i++) {
             Add(outLt, outLt, inputLt[i * alignMaxD], embedDim);
         }
 
@@ -224,12 +229,12 @@ public:
         queOut.EnQue(outLt);
     }
 
-    __aicore__ inline void ProcessEBC(int64_t remain, int64_t startIndices, int64_t embedDim, int64_t thisWeightOffset, int64_t outOffset)
+    __aicore__ inline void ProcessEBC(int64_t remain, int64_t startIndices, int64_t embedDim,
+                                      int64_t thisWeightOffset, int64_t outOffset)
     {
-
         float meanLen = static_cast<float>(1) / static_cast<float>(remain);
         int64_t thisLen = remain;
-        while(remain > 0) {
+        while (remain > 0) {
             if (thisLen > indicesNumOneBlock) {
                 thisLen = indicesNumOneBlock;
             }
@@ -250,7 +255,7 @@ public:
     __aicore__ inline void ProcessEC(int64_t remain, int64_t startIndices, int64_t thisWeightOffset)
     {
         int64_t thisLen = remain;
-        while(remain > 0) {
+        while (remain > 0) {
             if (thisLen > indicesNumOneBlock) {
                 thisLen = indicesNumOneBlock;
             }
@@ -264,10 +269,8 @@ public:
             }
 
             startIndices = startIndices + thisLen;
-
             thisLen = remain;
         }
-
     }
 
     __aicore__ inline void Compute()
@@ -275,7 +278,7 @@ public:
         if (lenOfThisCore == 0) {
             return;
         }
-        indicesNumOneBlock = blockLen / maxD;
+        indicesNumOneBlock = blockLen / alignMaxD;
         if (indicesNumOneBlock >= MAX_INDICS_ONE_BLOCK) {
             indicesNumOneBlock = MAX_INDICS_ONE_BLOCK;
         }
@@ -303,11 +306,10 @@ public:
                 int64_t outEmbedOffset = dOffsetGT.GetValue(tableIndex);
                 int64_t outOffset = outBatchInd * outDim1 + outEmbedOffset;
                 int64_t embedDim = dOffsetGT.GetValue(tableIndex + 1) - dOffsetGT.GetValue(tableIndex);
-                ProcessEBC(thisLen, startIndices, embedDim, thisWeightOffset, outOffset); 
+                ProcessEBC(thisLen, startIndices, embedDim, thisWeightOffset, outOffset);
             }
-        }       
+        }
     }
-
 
 private:
     // // GM_ADDR
@@ -330,6 +332,7 @@ private:
     int64_t outDim0;
     int64_t outDim1;
     int64_t maxD;
+    int64_t alignMaxD;
     int64_t batchs;
     bool enableHash;
 
