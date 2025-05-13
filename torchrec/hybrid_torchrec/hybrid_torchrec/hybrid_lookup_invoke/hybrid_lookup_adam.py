@@ -6,12 +6,15 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 from typing import Optional
+
 import torch
-from hybrid_torchrec.hybrid_lookup_invoke.hybrid_lookup_args import HybridCommonArgs
 from fbgemm_gpu.split_embedding_codegen_lookup_invokers.lookup_adagrad import (
     OptimizerArgs,
     Momentum,
 )
+
+from hybrid_torchrec.hybrid_lookup_invoke.hybrid_lookup_args import HybridCommonArgs
+
 
 def invoke(
     common_args: HybridCommonArgs,

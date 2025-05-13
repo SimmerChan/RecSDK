@@ -6,13 +6,24 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 from collections import defaultdict, OrderedDict
-from typing import Any, cast, Dict, List, Mapping, Optional, Type, Union, TypeVar, Tuple
 from functools import partial
+from typing import Any, cast, Dict, List, Mapping, Optional, Type, Union, TypeVar, Tuple
+
 import torch
-from torch import distributed as dist, nn, Tensor
+from fbgemm_gpu.permute_pooled_embedding_modules import PermutePooledEmbeddings
+from torch import distributed as dist, nn
 from torch.autograd.profiler import record_function
 from torch.distributed._tensor import DTensor
 from torch.nn.parallel import DistributedDataParallel
+
+from hybrid_torchrec.distributed.embedding_types import kjt_list_to_device
+from hybrid_torchrec.distributed.sharding.hybrid_rw_sharding import (
+    HybridRwPooledEmbeddingSharding,
+)
+from hybrid_torchrec.distributed.sharding.hybrid_tw_sharding import (
+    HybridTwPooledEmbeddingSharding,
+)
+from hybrid_torchrec.distributed.sharding.post_input_dist import EMPTY_POST_INPUT_DIST, PostInputKJTListAwaitable
 from torchrec.distributed.embedding_sharding import (
     EmbeddingSharding,
     EmbeddingShardingContext,
@@ -25,7 +36,15 @@ from torchrec.distributed.embedding_types import (
     KJTList,
     ShardedEmbeddingModule,
 )
+from torchrec.distributed.embeddingbag import (
+    replace_placement_with_meta_device,
+    create_sharding_infos_by_sharding,
+    EmbeddingBagCollectionContext,
+    EmbeddingBagCollectionAwaitable,
+    VariableBatchEmbeddingBagCollectionAwaitable,
+)
 from torchrec.distributed.sharding.dp_sharding import DpPooledEmbeddingSharding
+from torchrec.distributed.shards_wrapper import LocalShardsWrapper
 from torchrec.distributed.types import (
     Awaitable,
     EmbeddingModuleShardingPlan,
@@ -37,6 +56,7 @@ from torchrec.distributed.types import (
     ShardingType,
     ShardMetadata,
 )
+from torchrec.distributed.utils import none_throws
 from torchrec.modules.embedding_configs import EmbeddingBagConfig, PoolingType
 from torchrec.modules.embedding_modules import (
     EmbeddingBagCollection,
@@ -45,24 +65,6 @@ from torchrec.modules.embedding_modules import (
 from torchrec.optim.fused import EmptyFusedOptimizer, FusedOptimizerModule
 from torchrec.optim.keyed import CombinedOptimizer, KeyedOptimizer
 from torchrec.sparse.jagged_tensor import _to_offsets, KeyedJaggedTensor, KeyedTensor
-from torchrec.distributed.embeddingbag import (
-    replace_placement_with_meta_device,
-    create_sharding_infos_by_sharding,
-    EmbeddingBagCollectionContext,
-    EmbeddingBagCollectionAwaitable,
-    VariableBatchEmbeddingBagCollectionAwaitable,
-)
-from torchrec.distributed.shards_wrapper import LocalShardsWrapper
-from torchrec.distributed.utils import none_throws
-from fbgemm_gpu.permute_pooled_embedding_modules import PermutePooledEmbeddings
-from hybrid_torchrec.distributed.sharding.hybrid_tw_sharding import (
-    HybridTwPooledEmbeddingSharding,
-)
-from hybrid_torchrec.distributed.sharding.hybrid_rw_sharding import (
-    HybridRwPooledEmbeddingSharding,
-)
-from hybrid_torchrec.distributed.embedding_types import kjt_list_to_device
-from hybrid_torchrec.distributed.sharding.post_input_dist import EMPTY_POST_INPUT_DIST, PostInputKJTListAwaitable
 
 Out = TypeVar("Out")
 

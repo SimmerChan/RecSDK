@@ -11,21 +11,20 @@ import torch
 import torch.distributed as dist
 from torch import nn
 
+from hybrid_torchrec.distributed.batched_embedding_kernel import (
+    HybridBatchedFusedEmbeddingBag,
+)
+from torchrec.distributed.batched_embedding_kernel import KeyValueEmbeddingBag
 from torchrec.distributed.comm_ops import get_gradient_division
 from torchrec.distributed.embedding_kernel import BaseEmbedding
+from torchrec.distributed.embedding_lookup import GroupedPooledEmbeddingsLookup
 from torchrec.distributed.embedding_types import (
     BaseGroupedFeatureProcessor,
     EmbeddingComputeKernel,
     GroupedEmbeddingConfig,
     BaseEmbeddingLookup,
 )
-from torchrec.distributed.embedding_lookup import GroupedPooledEmbeddingsLookup
-from torchrec.distributed.types import rank_device, ShardingType
-from torchrec.distributed.batched_embedding_kernel import KeyValueEmbeddingBag
-
-from hybrid_torchrec.distributed.batched_embedding_kernel import (
-    HybridBatchedFusedEmbeddingBag,
-)
+from torchrec.distributed.types import ShardingType
 
 
 class HybridGroupedPooledEmbeddingsLookup(GroupedPooledEmbeddingsLookup):

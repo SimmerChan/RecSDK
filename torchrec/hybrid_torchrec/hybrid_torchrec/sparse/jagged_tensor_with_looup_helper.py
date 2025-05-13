@@ -5,16 +5,11 @@
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
-from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 import logging
+from typing import Dict, List, Optional, Tuple
 
 import torch
-from torch.autograd.profiler import record_function
-from torch.fx._pytree import register_pytree_flatten_spec, TreeSpec
-from torch.utils._pytree import _register_pytree_node
 
-from torchrec.streamable import Pipelineable
 from torchrec.sparse.jagged_tensor import (
     JaggedTensor,
     KeyedJaggedTensor,

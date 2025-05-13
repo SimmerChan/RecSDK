@@ -6,8 +6,6 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-import logging
-from dataclasses import dataclass
 from typing import (
     Dict,
     Iterator,
@@ -18,16 +16,28 @@ from typing import (
 
 import torch
 import torch.distributed as dist
+from fbgemm_gpu.split_embedding_configs import EmbOptimType as OptimType
+from fbgemm_gpu.split_table_batched_embeddings_ops_common import CacheAlgorithm
 from fbgemm_gpu.split_table_batched_embeddings_ops_training import (
     ComputeDevice,
     EmbeddingLocation,
     SplitTableBatchedEmbeddingBagsCodegen,
 )
-from torch import nn
+from fbgemm_gpu.split_table_batched_embeddings_ops_training_common import is_torchdynamo_compiling
+from torch import nn, Tensor
+
+import hybrid_torchrec.hybrid_lookup_invoke as invokers
+from hybrid_torchrec.sparse.jagged_tensor_with_looup_helper import (
+    KeyedJaggedTensorWithLookHelper,
+)
+from torchrec.distributed.batched_embedding_kernel import (
+    BaseBatchedEmbeddingBag,
+    EmbeddingFusedOptimizer,
+    _gen_named_parameters_by_table_fused,
+)
 from torchrec.distributed.composable.table_batched_embedding_slice import (
     TableBatchedEmbeddingSlice,
 )
-from torchrec.distributed.embedding_kernel import BaseEmbedding, get_state_dict
 from torchrec.distributed.embedding_types import (
     compute_kernel_to_embedding_location,
     GroupedEmbeddingConfig,
@@ -35,7 +45,6 @@ from torchrec.distributed.embedding_types import (
 from torchrec.distributed.types import (
     ShardingType,
 )
-
 from torchrec.modules.embedding_configs import (
     data_type_to_sparse_type,
 )
@@ -45,22 +54,6 @@ from torchrec.optim.fused import (
     FusedOptimizerModule,
 )
 from torchrec.sparse.jagged_tensor import KeyedJaggedTensor
-from torchrec.distributed.batched_embedding_kernel import (
-    BaseBatchedEmbeddingBag,
-    EmbeddingFusedOptimizer,
-    _gen_named_parameters_by_table_fused,
-)
-from torch import nn, Tensor
-from fbgemm_gpu.split_embedding_configs import EmbOptimType as OptimType, SparseType
-from fbgemm_gpu.split_table_batched_embeddings_ops_training_common import is_torchdynamo_compiling
-from fbgemm_gpu.split_table_batched_embeddings_ops_common import CacheAlgorithm
-import hybrid_torchrec.hybrid_lookup_invoke as invokers
-from fbgemm_gpu.split_table_batched_embeddings_ops_common import (
-    BoundsCheckMode,
-)
-from hybrid_torchrec.sparse.jagged_tensor_with_looup_helper import (
-    KeyedJaggedTensorWithLookHelper,
-)
 
 
 class HybridSplitTableBatchedEmbeddingBagsCodegen(

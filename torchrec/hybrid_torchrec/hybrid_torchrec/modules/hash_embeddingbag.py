@@ -5,23 +5,26 @@
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
-from enum import Enum
 from dataclasses import dataclass
+from enum import Enum
+from typing import Dict, List, Optional, Tuple
+
 import torch
 from torch import nn
-from typing import Dict, List, Optional, Tuple
+
+from hybrid_torchrec.modules.embedding_config import HYBRID_SUPPORT_DEVICE
+from hybrid_torchrec.modules.ids_process import IdsMapper
 from torchrec.modules.embedding_configs import (
     DataType,
     EmbeddingBagConfig,
     pooling_type_to_str,
 )
-from torchrec.sparse.jagged_tensor import KeyedJaggedTensor, KeyedTensor
 from torchrec.modules.embedding_modules import (
     EmbeddingBagCollectionInterface,
     get_embedding_names_by_table,
 )
-from hybrid_torchrec.modules.embedding_config import HYBRID_SUPPORT_DEVICE
-from hybrid_torchrec.modules.ids_process import IdsMapper
+from torchrec.sparse.jagged_tensor import KeyedJaggedTensor, KeyedTensor
+
 
 @torch.fx.wrap
 def reorder_inverse_indices(

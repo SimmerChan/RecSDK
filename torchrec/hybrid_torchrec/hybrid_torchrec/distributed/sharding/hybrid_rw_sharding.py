@@ -6,11 +6,24 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Dict, List, Optional, TypeVar, Tuple
 import os
+from concurrent.futures import ThreadPoolExecutor
+from typing import Any, Dict, List, Optional, TypeVar, Tuple
 
 import torch
 import torch.distributed as dist
+
+from hybrid_torchrec.distributed.embedding_lookup import (
+    HybridGroupedPooledEmbeddingsLookup,
+)
+from hybrid_torchrec.distributed.sharding.post_input_dist import (
+    SparseFeaturesPostDist,
+    EMPTY_POST_INPUT_DIST,
+    UniqueHashFeatureProcess,
+    get_feature_len_groupby_table_name,
+)
+from hybrid_torchrec.modules.hash_embeddingbag import HashMap
+from hybrid_torchrec.modules.ids_process import block_bucketize_sparse_features_cpu
 from torchrec.distributed.embedding_sharding import (
     BaseEmbeddingLookup,
     BaseSparseFeaturesDist,
@@ -27,31 +40,19 @@ from torchrec.distributed.embedding_sharding import (
 from torchrec.distributed.embedding_types import (
     BaseGroupedFeatureProcessor,
 )
-from torchrec.distributed.types import (
-    QuantizedCommCodecs,
-    ShardingEnv,
-    ShardingType,
-)
-from torchrec.sparse.jagged_tensor import KeyedJaggedTensor
-from torchrec.streamable import Multistreamable
 from torchrec.distributed.sharding.rw_sharding import (
     RwPooledEmbeddingSharding,
     RwSparseFeaturesDist,
 )
 from torchrec.distributed.types import Awaitable
-from hybrid_torchrec.distributed.embedding_lookup import (
-    HybridGroupedPooledEmbeddingsLookup,
+from torchrec.distributed.types import (
+    QuantizedCommCodecs,
+    ShardingEnv,
+    ShardingType,
 )
-from hybrid_torchrec.distributed.sharding.post_input_dist import (
-    SparseFeaturesPostDist,
-    EMPTY_POST_INPUT_DIST,
-    UniqueHashFeatureProcess,
-    get_feature_len_groupby_table_name,
-)
-from hybrid_torchrec.modules.hash_embeddingbag import HashMap
-from hybrid_torchrec.modules.ids_process import block_bucketize_sparse_features_cpu
 from torchrec.fx.utils import assert_fx_safe
-from concurrent.futures import ThreadPoolExecutor
+from torchrec.sparse.jagged_tensor import KeyedJaggedTensor
+from torchrec.streamable import Multistreamable
 
 
 class InputDistThreadPoolExecutorSingleton:

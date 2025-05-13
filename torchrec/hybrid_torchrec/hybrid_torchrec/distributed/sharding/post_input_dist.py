@@ -5,23 +5,22 @@
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
-from typing import List, TypeVar, Optional
 import os
+from concurrent.futures import ThreadPoolExecutor
+from typing import List, TypeVar, Optional
 
 import torch
-import torch.distributed as dist
-from torchrec.sparse.jagged_tensor import KeyedJaggedTensor
-from torchrec.streamable import Multistreamable
-from torchrec.distributed.types import Awaitable, LazyAwaitable
-from torchrec.distributed.embedding_types import KJTList
 
-from hybrid_torchrec.sparse.jagged_tensor_with_looup_helper import (
-    KeyedJaggedTensorWithLookHelper,
-)
 from hybrid_torchrec.modules.ids_process import (
     HashMapBase,
 )
-from concurrent.futures import ThreadPoolExecutor
+from hybrid_torchrec.sparse.jagged_tensor_with_looup_helper import (
+    KeyedJaggedTensorWithLookHelper,
+)
+from torchrec.distributed.embedding_types import KJTList
+from torchrec.distributed.types import Awaitable, LazyAwaitable
+from torchrec.sparse.jagged_tensor import KeyedJaggedTensor
+from torchrec.streamable import Multistreamable
 
 C = TypeVar("C", bound=Multistreamable)
 F = TypeVar("F", bound=Multistreamable)
