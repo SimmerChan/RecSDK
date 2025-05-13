@@ -45,6 +45,7 @@ namespace npu_hlo {
 #define GEN_PASS_DEF_REVISEARGUMENTSFORSTATICRANKPASS
 #include "tf_mlir/mlir/npu_hlo/transforms/passes.h.inc"
 namespace {
+constexpr int smallVectorDefaultSize = 4;
 
 // Replace const arguments to ConstOp and update argument type if it is a
 // fixed-shaped input
@@ -57,6 +58,8 @@ struct ReviseArgsForStaticRankPass : public impl::ReviseArgumentsForStaticRankPa
 
     void runOnOperation() override;
     void replaceArgWithConstOp(func::FuncOp main, DictionaryAttr dict_attr, unsigned idx);
+    void updateInputTypesAndAttributes(func::FuncOp main_func, DictionaryAttr dict_attr,
+                                       SmallVector<StringRef, smallVectorDefaultSize>& new_input_placements);
 };
 
 void ReviseArgsForStaticRankPass::replaceArgWithConstOp(func::FuncOp main, DictionaryAttr dict_attr, unsigned idx)
@@ -72,6 +75,45 @@ void ReviseArgsForStaticRankPass::replaceArgWithConstOp(func::FuncOp main, Dicti
     main.getArgument(idx).replaceAllUsesWith(const_input);
     // Here we will not erase the unused argument, since the arg indices in ctx
     // has to match the arg indices of the Mlir Module when ral recv inputs
+}
+
+// 新增函数：处理输入类型和属性更新
+void ReviseArgsForStaticRankPass::updateInputTypesAndAttributes(
+    func::FuncOp main_func, DictionaryAttr dict_attr,
+    SmallVector<StringRef, smallVectorDefaultSize>& new_input_placements)
+{
+    ModuleOp module = getOperation();
+    auto num_inputs = main_func.getNumArguments();
+
+    // 更新输入类型
+    auto func_type = main_func.getFunctionType();
+    SmallVector<Type, smallVectorDefaultSize> input_types(func_type.getInputs().begin(), func_type.getInputs().end());
+    if (input_types.size() != num_inputs) {
+        module.emitError("Error: input_types.size() is not equal to num of inputs.\n");
+        return signalPassFailure();
+    }
+    for (int i = 0; i < num_inputs; ++i) {
+        auto attr = dict_attr.get((kHloInputShapeAttr + ("_" + llvm::Twine(i))).str());
+        if (attr) {
+            auto type = attr.cast<DenseElementsAttr>().getType();
+            main_func.getArgument(i).setType(type);
+            input_types[i] = type;
+        }
+    }
+    OpBuilder builder(&main_func.front().front());
+    auto new_func_type = builder.getFunctionType(input_types, func_type.getResults());
+    main_func.setType(new_func_type);
+
+    // 更新输入位置属性
+    SmallVector<mlir::NamedAttribute, smallVectorDefaultSize> new_attributes;
+    for (auto attr : dict_attr) {
+        if (attr.getName() != placement_utils::kInputPlacementAttr) {
+            new_attributes.push_back(attr);
+        }
+    }
+    new_attributes.push_back(
+        builder.getNamedAttr("input_placements", builder.getStringAttr(llvm::join(new_input_placements, ","))));
+    main_func->setAttr("tf.entry_function", builder.getDictionaryAttr(new_attributes));
 }
 
 void ReviseArgsForStaticRankPass::runOnOperation()
@@ -91,13 +133,15 @@ void ReviseArgsForStaticRankPass::runOnOperation()
     if (!input_placements_attr) {
         return;
     }
-    SmallVector<StringRef, 4> input_placements;
-    input_placements_attr.cast<mlir::StringAttr>().getValue().split(input_placements, ',', /*MaxSplit=*/-1,
-                                                                    /*KeepEmpty=*/false);
-    assert(input_placements.size() == num_inputs && "input_placements.size() is not equal to num of inputs");
-    SmallVector<StringRef, 4> new_input_placements;
+    SmallVector<StringRef, smallVectorDefaultSize> input_placements;
+    input_placements_attr.cast<mlir::StringAttr>().getValue().split(input_placements, ',', -1, false);
+    if (input_placements.size() != num_inputs) {
+        module.emitError("Error: input_placements.size() is not equal to num of inputs.\n");
+        return signalPassFailure();
+    }
+    SmallVector<StringRef, smallVectorDefaultSize> new_input_placements;
 
-    // Step 1, for each const input, create a ConstOp and replace the Arg
+    // 为每个常量输入创建ConstOp并替换参数
     for (int i = 0; i < num_inputs; ++i) {
         auto placement = input_placements[i];
         if (placement == kConst) {
@@ -111,37 +155,8 @@ void ReviseArgsForStaticRankPass::runOnOperation()
         }
     }
 
-    // Step 2, for each fixed-shaped input, update the type of the Arg
-    // A shape inference pass will run in seperate to propagate the shape
-    // information to the needed nodes
-    auto func_type = main_func.getFunctionType();
-    SmallVector<Type, 4> input_types(func_type.getInputs().begin(), func_type.getInputs().end());
-    assert(input_types.size() == num_inputs);
-    for (int i = 0; i < num_inputs; ++i) {
-        auto attr = dict_attr.get((kHloInputShapeAttr + ("_" + llvm::Twine(i))).str());
-        if (attr) {
-            assert(attr.isa<DenseElementsAttr>() && "unexpected kMhloInputShapeAttr");
-            auto type = attr.cast<DenseElementsAttr>().getType();
-            main_func.getArgument(i).setType(type);
-            input_types[i] = type;
-        }
-    }
-    OpBuilder builder(&main_func.front().front());
-    auto new_func_type = builder.getFunctionType(input_types, func_type.getResults());
-    main_func.setType(new_func_type);
-
-    // Step 3, update input_placement attr
-    SmallVector<mlir::NamedAttribute, 4> new_attributes;
-    for (auto attr : dict_attr) {
-        if (attr.getName() != placement_utils::kInputPlacementAttr) {
-            new_attributes.push_back(attr);
-        }
-    }
-    new_attributes.push_back(
-        builder.getNamedAttr("input_placements", builder.getStringAttr(llvm::join(new_input_placements, ","))));
-    main_func->setAttr("tf.entry_function", builder.getDictionaryAttr(new_attributes));
-
-    return;
+    // 更新输入类型和属性
+    updateInputTypesAndAttributes(main_func, dict_attr, new_input_placements);
 }
 
 }  // namespace
