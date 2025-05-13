@@ -11,9 +11,16 @@
 #include "torch/torch.h"
 
 namespace hybrid {
+using BucketTensorBundle = std::tuple<
+    at::Tensor,
+    at::Tensor,
+    std::optional<at::Tensor>,
+    std::optional<at::Tensor>,
+    std::optional<at::Tensor>,
+    std::optional<at::Tensor>
+>;
 
-std::tuple<at::Tensor, at::Tensor, std::optional<at::Tensor>, std::optional<at::Tensor>, std::optional<at::Tensor>,
-    std::optional<at::Tensor>> BlockBucketizeSparseFeaturesCpu(const at::Tensor& lengths,
+BucketTensorBundle BlockBucketizeSparseFeaturesCpu(const at::Tensor& lengths,
     const at::Tensor& indices, const bool bucketizePos,
     const bool sequence, const at::Tensor& blockSizes, const int64_t mySize,
     const std::optional<at::Tensor>& totalNumBlocks,

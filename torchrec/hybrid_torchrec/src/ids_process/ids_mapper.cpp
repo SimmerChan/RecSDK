@@ -63,12 +63,33 @@ void IdsMapper::UniqueAndLookupOut(const torch::Tensor& globalIds, const torch::
     }
 
     // Unique
+    UniqueProcessing(hashIndices, offset, unique, uniqueInverse, uniqueOffset, tensorI);
+}
+
+void IdsMapper::UniqueProcessing(const torch::Tensor& hashIndices, const torch::Tensor& offset,
+                                const torch::Tensor& unique, const torch::Tensor& uniqueInverse,
+                                const torch::Tensor& uniqueOffset, int64_t tensorI)
+{
+    at::ThreadLocalStateGuard tlsGrad(state);
+    RECORD_FUNCTION(c10::str("hybrid::UniqueProcessing"), c10::ArrayRef<const c10::IValue>());
+
+    int64_t* hashIndicesPtr = hashIndices.data_ptr<int64_t>();
+    int64_t* offsetPtr = offset.data_ptr<int64_t>();
+    int64_t start = offsetPtr[tensorI];
+    int64_t end = offsetPtr[tensorI + 1];
+    int64_t* uniqueOffsetPtr = uniqueOffset.data_ptr<int64_t>();
+    if (start == end) {
+        uniqueOffsetPtr[tensorI + 1] = uniqueOffsetPtr[tensorI];
+        return;
+    }
+
     auto aHashMap = AllocFullHashMap();
     auto aHashMapPtr = aHashMap->data();
     int64_t* uniquePr = unique.data_ptr<int64_t>();
     int64_t* uniqueInversePtr = uniqueInverse.data_ptr<int64_t>();
     int64_t globalUniqueOffset = uniqueOffsetPtr[tensorI];
     int64_t thisUniqueOffset = 0;
+
     for (const auto i : c10::irange(start, end)) {
         int64_t key = hashIndicesPtr[i];
         if (aHashMapPtr[key] == -1) {
@@ -82,6 +103,7 @@ void IdsMapper::UniqueAndLookupOut(const torch::Tensor& globalIds, const torch::
         uniqueOffsetPtr[tensorI] = 0;
     }
     uniqueOffsetPtr[tensorI + 1] = uniqueOffsetPtr[tensorI] + thisUniqueOffset;
+
     for (const auto i : c10::irange(globalUniqueOffset, globalUniqueOffset + thisUniqueOffset)) {
         int64_t key = uniquePr[i];
         aHashMapPtr[key] = i - globalUniqueOffset;
@@ -96,6 +118,7 @@ void IdsMapper::UniqueAndLookupOut(const torch::Tensor& globalIds, const torch::
         int64_t key = uniquePr[i];
         aHashMapPtr[key] = -1;
     }
+
     DeallocFullHashMap(std::move(aHashMap));
 }
 
