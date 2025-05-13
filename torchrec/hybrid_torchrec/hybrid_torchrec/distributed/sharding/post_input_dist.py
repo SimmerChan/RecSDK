@@ -36,11 +36,11 @@ class ThreadPoolExecutorSingleton:
             cls._instance = super(ThreadPoolExecutorSingleton, cls).__new__(
                 cls, *args, **kwargs
             )
-            DEFAULT_POST_INPUT_THREADS = 6
-            MAX_THREADS = int(
-                os.environ.get("POST_INPUT_THREADS", DEFAULT_POST_INPUT_THREADS)
+            default_post_input_threads = 6
+            max_threads = int(
+                os.environ.get("POST_INPUT_THREADS", default_post_input_threads)
             )
-            cls.executor = ThreadPoolExecutor(MAX_THREADS)
+            cls.executor = ThreadPoolExecutor(max_threads)
         return cls._instance
 
 

@@ -196,7 +196,7 @@ def test_block_bucketize_sparse_features_cpu(input_size, mutil_hots, my_size, do
             my_size=my_size,
             weights=kjt.weights_or_none(),
             batch_size_per_feature=None,
-            max_B=-1,
+            max_b=-1,
             block_bucketize_pos=None,
             do_unique=do_unique
         )

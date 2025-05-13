@@ -115,7 +115,7 @@ def bucketize_kjt_before_all2all(
         my_size=num_buckets,
         weights=kjt.weights_or_none(),
         batch_size_per_feature=_fx_wrap_batch_size_per_feature(kjt),
-        max_B=_fx_wrap_max_B(kjt),
+        max_b=_fx_wrap_max_B(kjt),
         block_bucketize_pos=block_bucketize_row_pos,
         keep_orig_idx=keep_original_indices,
         do_unique=do_unique
