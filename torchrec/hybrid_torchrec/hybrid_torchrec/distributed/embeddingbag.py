@@ -536,7 +536,8 @@ class HybridShardedEmbeddingBagCollection(
         awaitables = []
 
         # No usage of zip for dynamo
-        for lookup,  output_dist, sharding_context, features in zip(self._lookups, self._output_dists, ctx.sharding_contexts, input):
+        for lookup, output_dist, sharding_context, features in zip(self._lookups, self._output_dists,
+                                                                   ctx.sharding_contexts, input):
             awaitables.append(output_dist(lookup(features), sharding_context))
             if sharding_context:
                 batch_size_per_feature_pre_a2a.extend(

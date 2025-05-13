@@ -244,7 +244,6 @@ class HybridSplitTableBatchedEmbeddingBagsCodegen(
             offsets, batch_size_per_feature_per_rank
         )
 
-        # TODO: remove this and add an assert after updating
         # bounds_check_indices to support different indices type and offset
         # type
         force_cast_input_types = (
@@ -388,7 +387,6 @@ class HybridBatchedFusedEmbeddingBag(
         By convention, fused parameters are designated as buffers because they no longer
         have gradients available to external optimizers.
         """
-        # TODO can delete this override once SEA is removed
         yield from ()
 
     def named_parameters(

@@ -126,12 +126,10 @@ def check_bucketized_valid(
                 ]
                 for _ in range(this_indices_len):
                     id = bucketized_indices[bucketized_offset]
-                    assert (
-                        id % my_size
-                    ) == rank, f"bucketized_indices {id} in invalid bucket {rank} bucketized_offset {bucketized_offset}"
-                    assert (
-                        id in origin_index
-                    ), f"bucketized_indices {id} in invalid position {origin_batch_offset} origin_index {origin_index} bucketized_offset {bucketized_offset}"
+                    assert (id % my_size) == rank, \
+                        f"bucketized_indices {id} in invalid bucket {rank} bucketized_offset {bucketized_offset}"
+                    assert (id in origin_index), (f"bucketized_indices {id} in invalid position {origin_batch_offset} "
+                                                  f"origin_index {origin_index} bucketized_offset {bucketized_offset}")
                     bucketized_offset += 1
                 origin_batch_offset += origin_indices_len
     return
