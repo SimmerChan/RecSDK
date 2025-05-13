@@ -311,7 +311,7 @@ class KeyedJaggedTensorWithLookHelper(KeyedJaggedTensor):
                         lengths=self.lengths()[
                             self.lengths_offset_per_key()[
                                 start
-                            ] : self.lengths_offset_per_key()[end]
+                            ]: self.lengths_offset_per_key()[end]
                         ],
                         offsets=None,
                         stride=stride,

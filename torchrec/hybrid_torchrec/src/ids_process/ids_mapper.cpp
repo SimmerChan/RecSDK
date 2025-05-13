@@ -67,8 +67,8 @@ void IdsMapper::UniqueAndLookupOut(const torch::Tensor& globalIds, const torch::
 }
 
 void IdsMapper::UniqueProcessing(const torch::Tensor& hashIndices, const torch::Tensor& offset,
-                                const torch::Tensor& unique, const torch::Tensor& uniqueInverse,
-                                const torch::Tensor& uniqueOffset, int64_t tensorI)
+                                 const torch::Tensor& unique, const torch::Tensor& uniqueInverse,
+                                 const torch::Tensor& uniqueOffset, int64_t tensorI)
 {
     at::ThreadLocalStateGuard tlsGrad(state);
     RECORD_FUNCTION(c10::str("hybrid::UniqueProcessing"), c10::ArrayRef<const c10::IValue>());

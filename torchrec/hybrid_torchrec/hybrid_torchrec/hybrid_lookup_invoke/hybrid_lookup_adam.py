@@ -20,8 +20,8 @@ def invoke(
     common_args: HybridCommonArgs,
     optimizer_args: OptimizerArgs,
     momentum1: Momentum,
-    momentum2:Momentum,
-    iter: int = 0,
+    momentum2: Momentum,
+    iteration: int = 0,
     apply_global_weight_decay: bool = False,
     # only pass prev_iter_dev since prev_iter is never created on UVM
     prev_iter_dev: Optional[torch.Tensor] = None,
@@ -82,7 +82,7 @@ def invoke(
         # prev_iter
         prev_iter_dev=prev_iter_dev,
         # iter
-        iter=iter,
+        iter=iteration,
         output_dtype=common_args.output_dtype,
         is_experimental=common_args.is_experimental,
         use_uniq_cache_locations_bwd=common_args.use_uniq_cache_locations_bwd,

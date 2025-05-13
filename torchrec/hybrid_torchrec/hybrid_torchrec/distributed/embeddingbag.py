@@ -75,6 +75,7 @@ def device_is_in(device, check_device: list[str]):
     else:
         return device in check_device
 
+
 def _pin_and_move(tensor: torch.Tensor, device: torch.device) -> torch.Tensor:
     return (
         tensor
@@ -910,6 +911,7 @@ class HybridEmbeddingBagCollectionSharder(BaseEmbeddingSharder[EmbeddingBagColle
             for name, param in module.embedding_bags.named_parameters()
         }
 
+
 def _create_mean_pooling_divisor(
     lengths: torch.Tensor,
     keys: List[str],
@@ -978,6 +980,7 @@ def _create_mean_pooling_divisor(
         eps = 1e-6  # used to safe guard against 0 division
         divisor = divisor + eps
         return divisor.detach()
+
 
 def _apply_mean_pooling(
     keyed_tensor: KeyedTensor, divisor: torch.Tensor

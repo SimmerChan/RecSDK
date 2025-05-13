@@ -117,7 +117,7 @@ class HashEmbeddingBag(torch.nn.Module):
     ):
         return NotImplemented
 
-    def forward(self, input: torch.Tensor, offsets: Optional[torch.Tensor] = None):
+    def forward(self, input_tensor: torch.Tensor, offsets: Optional[torch.Tensor] = None):
         return NotImplemented
 
 
@@ -138,12 +138,12 @@ class HybridHashTable(torch.nn.Module):
 
     def forward(
         self,
-        input: torch.Tensor,
+        input_tensor: torch.Tensor,
         offsets: Optional[torch.Tensor] = None,
         per_sample_weights=None,
     ):
-        raw_device = input.device
-        ids_host = input.cpu()
+        raw_device = input_tensor.device
+        ids_host = input_tensor.cpu()
         index_of_ids, _, _ = self.ids2slot_dict(ids_host, high_precison=True)
         index_of_ids = index_of_ids.to(raw_device)
         values = self.vector_table(index_of_ids, offsets)

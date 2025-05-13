@@ -67,7 +67,7 @@ def test_unique_split(table_num, feature_names, input_size):
         for ind, unique_offset in enumerate(kjt.unique_offset):
             unique = kjt.unique_indices[unique_offset:]
             unique_inverse = kjt.unique_inverse[
-                kjt.offsets()[ind] : kjt.offsets()[ind + 1]
+                             kjt.offsets()[ind]: kjt.offsets()[ind + 1]
             ]
             unique_results.append(
                 torch.index_select(unique, dim=0, index=unique_inverse)

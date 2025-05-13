@@ -260,6 +260,7 @@ class HybridSplitTableBatchedEmbeddingBagsCodegen(
 
         return indices, offsets, per_sample_weights, vbe_metadata
 
+
 class HybridBatchedFusedEmbeddingBag(
     BaseBatchedEmbeddingBag[torch.Tensor], FusedOptimizerModule
 ):
