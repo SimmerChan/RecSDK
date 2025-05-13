@@ -6,15 +6,13 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-import os
 import pytest
 import torch
-import logging
+
 from hybrid_torchrec.sparse.jagged_tensor_with_looup_helper import (
     KeyedJaggedTensorWithLookHelper,
     KeyedJaggedTensor,
 )
-import numpy as np
 
 TEST_NUM = 100
 IDS_RANGE_TIMES = 10

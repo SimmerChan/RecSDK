@@ -5,43 +5,36 @@
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
-import os
-import pytz
-import torch
-from typing import List
-import torch_npu
-import torch.multiprocessing as mp
-import torch.distributed as dist
-from torch.utils.data import DataLoader
-from torch.nn.parallel import DistributedDataParallel as DDP
-import torchrec
-import pytest
 import logging
-import random
-from torchrec import (
-    EmbeddingBagConfig,
-    PoolingType,
-    EmbeddingBagCollection,
-    KeyedJaggedTensor,
-    JaggedTensor,
-    KeyedTensor,
-)
+import os
+from typing import List
+
+import pytest
+import torch
+import torch.distributed as dist
+import torch.multiprocessing as mp
+import torch_npu
+from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.utils.data import DataLoader
+
+import torchrec
 import torchrec.distributed
 import torchrec.distributed.shard
-from torchrec.optim.apply_optimizer_in_backward import apply_optimizer_in_backward
-from torchrec.distributed.embeddingbag import EmbeddingBagCollectionAwaitable
+from dataset import RandomRecDataset, Batch
+from hybrid_torchrec.distributed.sharding_plan import get_default_hybrid_sharders
+from model import Model
+from torchrec import (
+    EmbeddingBagConfig,
+    EmbeddingBagCollection,
+)
 from torchrec.distributed.planner import (
     EmbeddingShardingPlanner,
     Topology,
     ParameterConstraints,
 )
 from torchrec.distributed.types import ShardingEnv
+from torchrec.optim.apply_optimizer_in_backward import apply_optimizer_in_backward
 from torchrec.optim.keyed import CombinedOptimizer
-from torchrec.distributed.model_parallel import get_default_sharders
-from hybrid_torchrec.distributed.embeddingbag import HybridEmbeddingBagCollectionSharder
-from hybrid_torchrec.distributed.sharding_plan import get_default_hybrid_sharders
-from model import Model
-from dataset import RandomRecDataset, Batch
 from util import setup_logging
 
 LOOP_TIMES = 8

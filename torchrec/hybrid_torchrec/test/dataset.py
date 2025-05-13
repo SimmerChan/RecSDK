@@ -5,14 +5,15 @@
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
-import itertools
-from typing import Iterator
 from dataclasses import dataclass
-import torch_npu
-from torchrec.streamable import Pipelineable
-from torchrec import KeyedJaggedTensor, JaggedTensor
-from torch.utils.data.dataset import IterableDataset
+from typing import Iterator
+
 import torch
+import torch_npu
+from torch.utils.data.dataset import IterableDataset
+
+from torchrec import KeyedJaggedTensor, JaggedTensor
+from torchrec.streamable import Pipelineable
 
 
 @dataclass

@@ -95,8 +95,8 @@ class HybridSplitTableBatchedEmbeddingBagsCodegen(
             # Storing tensors for linear_cache_indices recomputation
             self._indices = indices
             self._offsets = offsets
-            self._vbe_B_offsets = vbe_metadata.B_offsets
-            self._vbe_max_B = vbe_metadata.max_B
+            self._vbe_b_offsets = vbe_metadata.B_offsets
+            self._vbe_max_b = vbe_metadata.max_B
 
             self.step += 1
             self._report_io_size_count("fwd_input", indices)

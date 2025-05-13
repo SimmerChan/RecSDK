@@ -6,14 +6,16 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+import logging
+
 import pytest
 import torch
-import logging
-from torchrec import JaggedTensor, KeyedJaggedTensor
+
 from hybrid_torchrec.modules.ids_process import (
     IdsMapper,
     block_bucketize_sparse_features_cpu,
 )
+from torchrec import JaggedTensor, KeyedJaggedTensor
 
 TEST_NUM = 10
 IDS_RANGE_TIMES = 10
