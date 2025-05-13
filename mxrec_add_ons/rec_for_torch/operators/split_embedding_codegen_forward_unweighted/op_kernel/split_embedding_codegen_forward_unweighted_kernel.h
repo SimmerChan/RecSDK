@@ -56,8 +56,7 @@ struct ComputeArgs {
 
 class SplitEmbeddingCodegenForwardUnweightedBase {
 public:
-    __aicore__ inline SplitEmbeddingCodegenForwardUnweightedBase(){}
-    __aicore__ inline void Init(Args args)
+    __aicore__ inline SplitEmbeddingCodegenForwardUnweightedBase(Args args)
     {
         GET_TILING_DATA(tilingData, args.tiling);
         // ADDR
@@ -197,8 +196,12 @@ public:
         LocalTensor<float> outLt = queOut.AllocTensor<float>();
         LocalTensor<float> inputLt = queIn.DeQue<float>();
 
+        // reducesum(inputLt)-> outLt 
         Duplicate<float>(outLt, 0, maxD);
-        ReduceSumAxis0(outLt, inputLt, thisLen, embedDim);
+        for (int64_t i = 0; i < len; i++) {
+            Add(outLt, outLt, inputLt[i * maxD], embedDim);
+        }
+
         if (poolMode == MEAN_POOL) {
             Muls<float>(outLt, outLt, meanLen, embedDim);
         }
@@ -229,7 +232,7 @@ public:
         }
     }
 
-    __aicore__ inline ProcessEC(int64_t remain, int64_t startIndices, int64_t thisWeightOffset)
+    __aicore__ inline void ProcessEC(int64_t remain, int64_t startIndices, int64_t thisWeightOffset)
     {
         int64_t thisLen = remain;
         while(remain > 0) {
