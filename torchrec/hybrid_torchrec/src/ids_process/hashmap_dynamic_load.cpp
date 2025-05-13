@@ -15,7 +15,7 @@ HashMapDynamicLoad::HashMapDynamicLoad() noexcept
 {
     const char* pathOfSo = getenv("PARALLEL_HASH_MAP_SO");
     std::string pathOfSoStr = (pathOfSo != nullptr) ? pathOfSo : "";
-    if (pathOfSoStr.empty()) {
+    if (pathOfSo == nullptr || pathOfSoStr.empty()) {
         TORCH_WARN_ONCE("PARALLEL_HASH_MAP_SO is None, Use DefaultHashmap, it may be cause low performance");
         return;
     }
