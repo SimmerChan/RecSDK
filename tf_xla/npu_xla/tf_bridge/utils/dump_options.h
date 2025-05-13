@@ -21,9 +21,9 @@ See the License for the specific language governing permissions and
 namespace tensorflow {
 namespace npu_xla {
 struct DumpOptions {
-  // Path prefix to dump output graph of passes. Contrled by env var
-  // `NPU_XLA_GRAPH_DUMP_PATH` defaults to '/tmp/npu_xla'.
-  std::string graphDumpPath;
+    // Path prefix to dump output graph of passes. Contrled by env var
+    // `NPU_XLA_GRAPH_DUMP_PATH` defaults to '/tmp/npu_xla'.
+    std::string graphDumpPath;
 };
 
 // Get the globally singleton of DumpOptions.

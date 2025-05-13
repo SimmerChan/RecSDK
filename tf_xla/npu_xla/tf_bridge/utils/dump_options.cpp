@@ -26,22 +26,23 @@ static DumpOptions* dumpOptions = nullptr;
 static std::once_flag initFlag;
 static std::mutex mut;
 
-static void InitDumpOptions() {
-  std::lock_guard<std::mutex> lock(mut);
-  if (!dumpOptions) {
-    dumpOptions = new DumpOptions();
-  }
+static void InitDumpOptions()
+{
+    std::lock_guard<std::mutex> lock(mut);
+    if (!dumpOptions) {
+        dumpOptions = new DumpOptions();
+    }
 
-  {
-    TF_CHECK_OK(ReadStringFromEnvVar("NPU_XLA_GRAPH_DUMP_PATH", "/tmp/npu_xla",
-                                     &dumpOptions->graphDumpPath));
-  }
+    {
+        TF_CHECK_OK(ReadStringFromEnvVar("NPU_XLA_GRAPH_DUMP_PATH", "/tmp/npu_xla", &dumpOptions->graphDumpPath));
+    }
 }
 }  // namespace
 
-const DumpOptions* GetDumpOptions() {
-  std::call_once(initFlag, &InitDumpOptions);
-  return dumpOptions;
+const DumpOptions* GetDumpOptions()
+{
+    std::call_once(initFlag, &InitDumpOptions);
+    return dumpOptions;
 }
 }  // namespace npu_xla
 }  // namespace tensorflow

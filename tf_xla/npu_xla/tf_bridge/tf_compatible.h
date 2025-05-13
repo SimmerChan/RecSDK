@@ -29,25 +29,10 @@ See the License for the specific language governing permissions and
 #include "tensorflow/core/framework/resource_mgr.h"
 #include "tensorflow/core/public/version.h"
 
-// defs moved or renamed between headers in different tf versions
-// for now, just for tf2
-// #if TF_MAJOR_VERSION > 1
-// TF2.4
 #include "tensorflow/core/common_runtime/graph_constructor.h"
 #include "tensorflow/core/common_runtime/graph_def_builder_util.h"
 #include "tensorflow/core/graph/graph_node_util.h"
-// #else
-// TF1.12, TF1.15
-// #include "tensorflow/core/graph/graph_constructor.h"
-// #include "tensorflow/core/graph/graph_def_builder_util.h"
-// #endif
 
-// #if TF_MAJOR_VERSION > 1 || TF_MINOR_VERSION > 12
-// TF1.15, TF2.4
 #include "tensorflow/core/framework/bounds_check.h"
-// #else
-// TF1.12
-// #include "tensorflow/core/kernels/bounds_check.h"
-// #endif
 
 #endif  // NPU_XLA_TF_BRIDGE_TF_COMPATIBLE_H_

@@ -36,23 +36,23 @@ namespace tensorflow {
 namespace npu_xla {
 
 struct OptionalTensor {
-  string name;           // A descriptive name
-  bool present = false;  // Is the tensor present?
-  Tensor value;          // If present, what is the Tensor's value?
+    string name;           // A descriptive name
+    bool present = false;  // Is the tensor present?
+    Tensor value;          // If present, what is the Tensor's value?
 };
 
 struct TfBridgeOptions {
-  // If tao bridge is enabled. Contrled by env var `BRIDGE_ENABLE_TAO` defaults
-  // to false.
-  bool enable_npu_xla;
-  // Whether to enable functionalize control flow pass
-  bool enable_control_flow;
-  // Path to tf_mlir_bin.
-  std::string tf_mlir_bin_path;
-  // Path to cache.
-  std::string cache_path;
-  // Path to compilation product.
-  std::string compilation_product_path;
+    // If tao bridge is enabled. Contrled by env var `BRIDGE_ENABLE_TAO` defaults
+    // to false.
+    bool enable_npu_xla;
+    // Whether to enable functionalize control flow pass
+    bool enable_control_flow;
+    // Path to tf_mlir_bin.
+    std::string tf_mlir_bin_path;
+    // Path to cache.
+    std::string cache_path;
+    // Path to compilation product.
+    std::string compilation_product_path;
 };
 
 // Get the globally singleton of TaoBridgeOptions.

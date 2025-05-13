@@ -38,34 +38,32 @@ namespace {
 static TfBridgeOptions* opts{nullptr};
 static std::once_flag opt_init;
 static std::mutex opt_mtx_;
-static void AllocateTfBridgeFlags() {
-  std::lock_guard<std::mutex> lock(opt_mtx_);
-  if (!opts) {
-    opts = new TfBridgeOptions();
-  }
-  TF_CHECK_OK(
-      ReadBoolFromEnvVar("TF_ENABLE_NPU_XLA", true, &opts->enable_npu_xla));
-  if (!opts->enable_npu_xla) {
-    LOG(WARNING) << "NPU XLA compiler disabled, set env var TF_ENABLE_NPU_XLA "
-                 << "to true to enable NPU XLA compiler.";
-  }
-  TF_CHECK_OK(ReadBoolFromEnvVar("NPU_XLA_ENABLE_CONTROL_FLOW", false,
-                                 &opts->enable_control_flow));
-  TF_CHECK_OK(ReadStringFromEnvVar("TF_MLIR_BIN_PATH", "tf_mlir_main",
-                                   &opts->tf_mlir_bin_path));
-  TF_CHECK_OK(ReadStringFromEnvVar("CACHE_PATH", "", &opts->cache_path));
-  TF_CHECK_OK(ReadStringFromEnvVar("COMPILE_PRODUCT_PATH", "/tmp",
-                                   &opts->compilation_product_path));
+static void AllocateTfBridgeFlags()
+{
+    std::lock_guard<std::mutex> lock(opt_mtx_);
+    if (!opts) {
+        opts = new TfBridgeOptions();
+    }
+    TF_CHECK_OK(ReadBoolFromEnvVar("TF_ENABLE_NPU_XLA", true, &opts->enable_npu_xla));
+    if (!opts->enable_npu_xla) {
+        LOG(WARNING) << "NPU XLA compiler disabled, set env var TF_ENABLE_NPU_XLA "
+                     << "to true to enable NPU XLA compiler.";
+    }
+    TF_CHECK_OK(ReadBoolFromEnvVar("NPU_XLA_ENABLE_CONTROL_FLOW", false, &opts->enable_control_flow));
+    TF_CHECK_OK(ReadStringFromEnvVar("TF_MLIR_BIN_PATH", "tf_mlir_main", &opts->tf_mlir_bin_path));
+    TF_CHECK_OK(ReadStringFromEnvVar("CACHE_PATH", "", &opts->cache_path));
+    TF_CHECK_OK(ReadStringFromEnvVar("COMPILE_PRODUCT_PATH", "/tmp", &opts->compilation_product_path));
 }
 
 }  // namespace
 
-const TfBridgeOptions* GetTfBridgeOptions(bool force_refresh) {
-  std::call_once(opt_init, &AllocateTfBridgeFlags);
-  if (force_refresh) {
-    AllocateTfBridgeFlags();
-  }
-  return opts;
+const TfBridgeOptions* GetTfBridgeOptions(bool force_refresh)
+{
+    std::call_once(opt_init, &AllocateTfBridgeFlags);
+    if (force_refresh) {
+        AllocateTfBridgeFlags();
+    }
+    return opts;
 }
 
 }  // namespace npu_xla

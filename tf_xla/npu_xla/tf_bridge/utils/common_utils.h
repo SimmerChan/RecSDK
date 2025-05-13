@@ -41,8 +41,8 @@ namespace util {
 
 bool HasOpType(const Graph& g, absl::string_view op_type);
 
-std::unique_ptr<FunctionLibraryDefinition> ReachableDefinitions(
-    const FunctionLibraryDefinition& flib, const FunctionDef& func);
+std::unique_ptr<FunctionLibraryDefinition> ReachableDefinitions(const FunctionLibraryDefinition& flib,
+                                                                const FunctionDef& func);
 
 }  // namespace util
 }  // namespace npu_xla
