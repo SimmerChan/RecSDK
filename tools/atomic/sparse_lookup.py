@@ -118,17 +118,11 @@ if __name__ == '__main__':
     custom_op.parameter_map["HCCL_algorithm"].s = tf.compat.as_bytes("level0:fullmesh;level1:pairwise")
 
     custom_op.parameter_map["iterations_per_loop"].i = 10
-    # custom_op.parameter_map["enable_dump"].b = True
-    # custom_op.parameter_map["dump_path"].s = tf.compat.as_bytes("./dump")
-    # custom_op.parameter_map["dump_step"].s = tf.compat.as_bytes("11|12")
-    # custom_op.parameter_map["dump_mode"].s = tf.compat.as_bytes("all")
-    # custom_op.parameter_map["op_debug_level"].i = 0
     custom_op.parameter_map["op_wait_timeout"].i = 500
     custom_op.parameter_map["op_execute_timeout"].i = 500
     custom_op.parameter_map["op_precision_mode"].s = tf.compat.as_bytes("op_impl_mode.ini")
     custom_op.parameter_map["graph_memory_max_size"].s = tf.compat.as_bytes(str(30000000000))
     custom_op.parameter_map["variable_memory_max_size"].s = tf.compat.as_bytes(str(30000000000))
-    #    custom_op.parameter_map["profiling_mode"].b = True
     #    custom_op.parameter_map["profiling_options"].s = tf.compat.as_bytes(
     #         '{"output":"/home","training_trace":"on","task_trace":"on","fp_point":"","bp_point":"","aicpu":"on","aic_metrics":"PipeUtilization"}')
 
@@ -143,7 +137,6 @@ if __name__ == '__main__':
     hot_zhanbi = float(hot_zhanbi) / 10
 
     # if hot_zhanbi == 0:
-    #    hot_zhanbi = int(hot_zhanbi)
 
     config = {
         "data_path": "./data1/data" + str(hot_zhanbi) + "_" + str(float(args.new_key)) + "/",
@@ -255,11 +248,7 @@ if __name__ == '__main__':
                 train_finished = True
 
         # train_finished
-        # emb_cache.destroy()
-        # MPI.Finalize()
         print(
             f"training {current_steps} steps, consume time: {(time.time() - total_start_time) / (current_steps - 5) * 1000} ")
 
         terminate_config_initializer()
-        # emb_cache.destroy()
-        # MPI.Finalize()

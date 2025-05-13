@@ -10,9 +10,6 @@ sparse_feat_list = ['feat_ids']
 # todo
 sparse_feat_len = [100]
 
-# uniq_ratio = pd.read_csv("./uniq_ratio.csv")
-# uniq_ratio["uniq_num"] = round(uniq_ratio["uniq_ratio"] * 301)
-
 num = 0
 import sys
 
@@ -39,7 +36,6 @@ def write_records(writer,line_cnt,file_cnt):
     for i, sparse_feat in enumerate(sparse_feat_list):
         np.random.seed(count)
         # global num
-        # print("process num:    ",num)
         print("===sparse=", sparse_feat)
         part2=np.array(random.sample(range(0 + 100*line_per_sample*(10*file_cnt + line_cnt),100*line_per_sample*(10* file_cnt + line_cnt+1)),int(100 * line_per_sample* (1- hot_zhanbi)) ))
         features[sparse_feat] = tf.train.Feature(
@@ -53,11 +49,11 @@ def write_records(writer,line_cnt,file_cnt):
     writer.write(example.SerializeToString())
 
 
-def gen_tfrecords(tfpath):
+def gen_tfrecords(tf_path):
     file_cnt = 0
     line_per_file = 10
     line_cnt = 0
-    writer = tf.python_io.TFRecordWriter(f"{tfpath}_{file_cnt}.tfrecord")
+    writer = tf.python_io.TFRecordWriter(f"{tf_path}_{file_cnt}.tfrecord")
     sample_cnt = 0
     while True:
         write_records(writer,line_cnt,file_cnt)
@@ -70,9 +66,9 @@ def gen_tfrecords(tfpath):
             file_cnt += 1
             line_cnt = 0
             writer.close()
-            writer = tf.python_io.TFRecordWriter(f"{tfpath}_{file_cnt}.tfrecord")
+            writer = tf.python_io.TFRecordWriter(f"{tf_path}_{file_cnt}.tfrecord")
     writer.close()
 
 
 if __name__ == '__main__':
-    gen_tfrecords(tfpath=tfpath)
+    gen_tfrecords(tf_path=tfpath)
