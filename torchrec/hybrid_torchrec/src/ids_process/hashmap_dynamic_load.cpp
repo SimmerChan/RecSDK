@@ -14,12 +14,15 @@ namespace hybrid {
 HashMapDynamicLoad::HashMapDynamicLoad() noexcept
 {
     const char* pathOfSo = getenv("PARALLEL_HASH_MAP_SO");
-    std::string pathOfSoStr = (pathOfSo != nullptr) ? pathOfSo : "";
-    if (pathOfSo == nullptr || pathOfSoStr.empty()) {
+    if (pathOfSo == nullptr) {
         TORCH_WARN_ONCE("PARALLEL_HASH_MAP_SO is None, Use DefaultHashmap, it may be cause low performance");
         return;
     }
-    handle = dlopen(pathOfSoStr.c_str(), RTLD_LAZY | RTLD_GLOBAL);
+    std::string pathOfSoStr = pathOfSo;
+    if (pathOfSoStr.empty()) {
+        TORCH_WARN_ONCE("PARALLEL_HASH_MAP_SO is None, Use DefaultHashmap, it may be cause low performance");
+        return;
+    }
 }
 
 std::unique_ptr<ParallelHashMap> HashMapDynamicLoad::GetHashmapInstance(int64_t n)
