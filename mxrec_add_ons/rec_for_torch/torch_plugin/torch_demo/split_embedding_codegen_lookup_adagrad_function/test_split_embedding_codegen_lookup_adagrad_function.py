@@ -3,13 +3,15 @@
 # Copyright 2025. Huawei Technologies Co.,Ltd. All rights reserved.
 
 import logging
-import pytest
 import random
 import sysconfig
-import torch
-import torchrec
+
 from collections import defaultdict
 from dataclasses import dataclass
+
+import pytest
+import torch
+
 from fbgemm_gpu.split_embedding_configs import EmbOptimType
 from fbgemm_gpu.split_table_batched_embeddings_ops_common import (
     EmbeddingLocation,
@@ -22,6 +24,7 @@ from fbgemm_gpu.split_table_batched_embeddings_ops_training import (
 
 from hybrid_torchrec.distributed.batched_embedding_kernel import HybridSplitTableBatchedEmbeddingBagsCodegen
 from torch.optim import Adam, Adagrad, SGD
+import torchrec
 from torchrec import JaggedTensor, KeyedJaggedTensor, PoolingType
 
 logging.getLogger().setLevel(logging.INFO)
@@ -181,7 +184,7 @@ def create_data(params):
     indices_test = []
     offsets_test = []
     jt_lst = []
-    for ind, tid in enumerate(feature_map):
+    for ind, tid in enumerate(params.feature_map):
         table = params.tables[tid]
         indices = torch.randint(0, table[0], (params.batch_size * params.mutile_hots[ind],)).to(torch.int64)
         indices_test.append(indices)
@@ -249,8 +252,8 @@ def generate_unique(jt_lst, feature_map):
 def execute(params):
     if params.unique and (params.optim in [SGD, Adam]):
         return  # 暂未适配adam unique算子
-    if feature_map is None:
-        feature_map = list(range(len(params.tables)))
+    if params.feature_map is None:
+        params.feature_map = list(range(len(params.tables)))
     indices_test, offsets_test, weights_test, kjt, jt_lst = create_data(params)
 
     lookup_golden, weights_golden = lookup_cpu(kjt, weights_test, params)

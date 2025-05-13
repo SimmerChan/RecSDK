@@ -238,6 +238,4 @@ TORCH_LIBRARY_FRAGMENT(fbgemm, m)
     m.impl("split_embedding_codegen_lookup_adagrad_function",
            torch::dispatch(c10::DispatchKey::Autograd,
                            TORCH_FN(fbgemm_npu_lookups::split_embedding_codegen_lookup_adagrad_function)));
-    DispatchToNpu("split_embedding_codegen_lookup_adagrad_function",
-                    fbgemm_npu_lookups::split_embedding_codegen_lookup_adagrad_function);
 }

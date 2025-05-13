@@ -78,7 +78,7 @@ at::Tensor split_embedding_codegen_forward_unweighted_npu(const at::Tensor& dev_
         output = at::full({totalLen, tMaxD}, 0.0, dev_weights.options());
     }
 
-    int64_t experimental = static_cast<int64_t>(is_experimental)
+    int64_t experimental = static_cast<int64_t>(is_experimental);
     EXEC_NPU_CMD(aclnnSplitEmbeddingCodegenForwardUnweighted, dev_weights, uvm_weights,         lxu_cache_weights,
                  weights_placements, weights_offsets, D_offsets, indices, offsets, lxu_cache_locations, hash_indices,
                  tTotalD, tMaxD, pooling_mode, output_dtype, experimental, output);
@@ -107,6 +107,8 @@ TORCH_LIBRARY_FRAGMENT(fbgemm, m)
           "    bool is_experimental, "
           "    Tensor hash_indices = None "
           ") -> Tensor");
-    DispatchToNpu("split_embedding_codegen_forward_unweighted_cuda",
-                    fbgemm_npu_lookups::split_embedding_codegen_forward_unweighted_npu);
+
+    m.impl("split_embedding_codegen_forward_unweighted_cuda",
+        torch::dispatch(c10::DispatchKey::Autograd,
+                        TORCH_FN(fbgemm_npu_lookups::split_embedding_codegen_forward_unweighted_npu)));
 }

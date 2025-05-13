@@ -21,11 +21,6 @@ using tensor_list = std::vector<at::Tensor>;
 using Tensor = at::Tensor;
 using namespace at;
 
-inline void DispatchToNpu(torch::nn::Module& m, const std::string& name, const std::function<void()>& function)
-{
-    m.impl(name, torch::dispatch(c10::DispatchKey::PrivateUse1, TORCH_FN(function)));
-}
-
 enum class OptimizerType {
     ADAGRAD = 1,
     ADAM = 2,
