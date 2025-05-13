@@ -27,6 +27,6 @@ BucketTensorResult BlockBucketizeSparseFeaturesCpu(const at::Tensor& lengths,
     const std::optional<at::Tensor>& weights,
     const std::optional<at::Tensor>& batchSizePerFeature, const int64_t /* maxBatchSize */,
     const std::optional<std::vector<at::Tensor>>& blockBucketizePos,
-    const bool returnBucketMapping, const bool keepOrigIdx);
+    const bool returnBucketMapping, const bool keepOrigIdx, const bool doUnique);
 }
 #endif

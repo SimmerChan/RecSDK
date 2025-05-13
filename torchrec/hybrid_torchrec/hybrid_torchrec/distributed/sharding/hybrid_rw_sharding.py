@@ -97,6 +97,7 @@ def bucketize_kjt_before_all2all(
     bucketize_pos = options.get('bucketize_pos', False) if options else False
     block_bucketize_row_pos = options.get('block_bucketize_row_pos', None) if options else None
     keep_original_indices = options.get('keep_original_indices', False) if options else False
+    do_unique = options.get('do_unique', False) if options else False
 
     (
         bucketized_lengths,
@@ -117,6 +118,7 @@ def bucketize_kjt_before_all2all(
         max_B=_fx_wrap_max_B(kjt),
         block_bucketize_pos=block_bucketize_row_pos,
         keep_orig_idx=keep_original_indices,
+        do_unique=do_unique
     )
     return (
         KeyedJaggedTensor(
@@ -136,15 +138,19 @@ def bucketize_kjt_before_all2all(
 
 
 class HashRwSparseFeaturesDistAwaitable(Awaitable):
-    def __init__(self, function, module, sparse_feature: KeyedJaggedTensor) -> None:
+    def __init__(self, function, module, sparse_feature: KeyedJaggedTensor, context) -> None:
         super().__init__()
         self.future = InputDistThreadPoolExecutorSingleton().executor.submit(
             function, sparse_feature
         )
         self.pg = module.pg
+        self._context = context
 
     def _wait_impl(self) -> Any:
-        return self.future.result()
+        result, unbucketize_permute_tensor = self.future.result()
+        if (self._context is not None):
+            self._context.unbucketize_permute_tensor = unbucketize_permute_tensor
+        return result
 
 
 class HashRwSparseFeaturesDist(RwSparseFeaturesDist):
@@ -172,6 +178,9 @@ class HashRwSparseFeaturesDist(RwSparseFeaturesDist):
             keep_original_indices,
         )
         self.pg = pg
+        self.do_unique = bool(
+                os.environ.get("DO_LOCAL_UNIQUE", False)
+            )
 
     def forward_function(
         self,
@@ -186,12 +195,13 @@ class HashRwSparseFeaturesDist(RwSparseFeaturesDist):
                 else self._need_pos
             ),
             'keep_original_indices': self._keep_original_indices,
+            'do_unique': self.do_unique,
         }
 
         # 调用优化后的函数，将可选参数字典传递给options参数
         (
             bucketized_features,
-            self.unbucketize_permute_tensor,
+            unbucketize_permute_tensor,
         ) = bucketize_kjt_before_all2all(
             sparse_features,
             num_buckets=self._world_size,
@@ -201,14 +211,15 @@ class HashRwSparseFeaturesDist(RwSparseFeaturesDist):
         result = self._dist(bucketized_features)
         if isinstance(result, Awaitable):
             result = result.wait()
-        return result
+        return result, unbucketize_permute_tensor
 
     def forward(
         self,
         sparse_features: KeyedJaggedTensor,
+        context = None
     ) -> Awaitable[Awaitable[KeyedJaggedTensor]]:
         return HashRwSparseFeaturesDistAwaitable(
-            self.forward_function, self, sparse_features
+            self.forward_function, self, sparse_features, context
         )
 
 

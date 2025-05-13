@@ -7,8 +7,8 @@
 # LICENSE file in the root directory of this source tree.
 
 
-import logging
 import os
+import logging
 from typing import List
 
 import torch
@@ -77,6 +77,7 @@ def block_bucketize_sparse_features_cpu(
     block_bucketize_pos=None,
     return_bucket_mapping=False,
     keep_orig_idx=False,
+    do_unique=False
 ):
     result = torch.ops.hybrid.block_bucketize_sparse_features_cpu(
         lengths,
@@ -92,5 +93,6 @@ def block_bucketize_sparse_features_cpu(
         block_bucketize_pos,
         return_bucket_mapping,
         keep_orig_idx,
+        do_unique
     )
     return result

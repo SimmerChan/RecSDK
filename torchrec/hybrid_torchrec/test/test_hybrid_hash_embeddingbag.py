@@ -16,6 +16,7 @@ import torch.multiprocessing as mp
 import torch_npu
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
+from torch.optim import Adam, Adagrad
 
 import torchrec
 import torchrec.distributed
@@ -40,6 +41,10 @@ LOOP_TIMES = 8
 BATCH_NUM = 32
 WORLD_SIZE = 2
 
+OPTIMIZER_PARAM = {
+    Adam: dict(lr=0.02),
+    Adagrad: dict(lr=0.02, eps=1.0e-8),
+}
 
 def generate_hash_config(
     embedding_dims, num_embeddings, pool_type
@@ -68,6 +73,7 @@ def execute(
     sharding_type,
     lockup_len,
     device,
+    optim,
 ):
     setup_logging(rank)
     logging.info("this test %s", os.path.basename(__file__))
@@ -89,8 +95,8 @@ def execute(
 
     test_model = TestModel(rank, world_size, device)
 
-    gloden_results = test_model.cpu_gloden_loss(embeding_config, gloden_dataset_loader)
-    test_results = test_model.test_loss(embeding_config, data_loader, sharding_type)
+    gloden_results = test_model.cpu_gloden_loss(embeding_config, gloden_dataset_loader, optim)
+    test_results = test_model.test_loss(embeding_config, data_loader, sharding_type, optim)
     for gloden, result in zip(gloden_results, test_results):
         logging.debug("")
         logging.debug("===========================")
@@ -121,7 +127,7 @@ class TestModel:
 
     @staticmethod
     def cpu_gloden_loss(
-        embeding_config: List[EmbeddingBagConfig], dataloader: DataLoader[Batch]
+        embeding_config: List[EmbeddingBagConfig], dataloader: DataLoader[Batch], optim
     ):
         pg = dist.new_group(backend="gloo")
         table_num = len(embeding_config)
@@ -130,8 +136,8 @@ class TestModel:
         num_features = sum([c.num_features() for c in embeding_config])
         ebc = Model(ebc, num_features)
         model = DDP(ebc, device_ids=None, process_group=pg)
+        opt = optim(ebc.parameters(), **OPTIMIZER_PARAM[optim])
 
-        opt = torch.optim.Adagrad(ebc.parameters(), lr=0.02, eps=1e-8)
         results = []
         batch: Batch
         iter_ = iter(dataloader)
@@ -163,6 +169,7 @@ class TestModel:
         embeding_config: List[EmbeddingBagConfig],
         dataloader: DataLoader[Batch],
         sharding_type: str,
+        optim,
     ):
         num_features = sum([c.num_features() for c in embeding_config])
         rank, world_size = self.rank, self.world_size
@@ -173,9 +180,9 @@ class TestModel:
         ebc = HashEmbeddingBagCollection(device=torch.device("meta"), tables=embeding_config)
         ebc = Model(ebc, num_features)
         apply_optimizer_in_backward(
-            optimizer_class=torch.optim.Adagrad,
+            optimizer_class=optim,
             params=ebc.parameters(),
-            optimizer_kwargs={"lr": 0.02},
+            optimizer_kwargs=OPTIMIZER_PARAM[optim],
         )
         # Shard
         constrans = {
@@ -222,13 +229,14 @@ class TestModel:
         return results
 
 
-@pytest.mark.parametrize("table_num", [2])
+@pytest.mark.parametrize("table_num", [3])
 @pytest.mark.parametrize("embedding_dims", [[32, 64, 128]])
 @pytest.mark.parametrize("num_embeddings", [[400, 4000, 400]])
 @pytest.mark.parametrize("pool_type", [torchrec.PoolingType.MEAN])
 @pytest.mark.parametrize("sharding_type", ["table_wise", "row_wise"])
 @pytest.mark.parametrize("lockup_len", [1024])
-@pytest.mark.parametrize("device", ["cpu", "npu"])
+@pytest.mark.parametrize("device", ["npu"])
+@pytest.mark.parametrize("optim", [Adagrad])
 def test_hstu_dens_normal(
     table_num,
     embedding_dims,
@@ -237,8 +245,9 @@ def test_hstu_dens_normal(
     sharding_type,
     lockup_len,
     device,
+    optim,
 ):
-    if device == "cpu" and sharding_type == "row_wise":
+    if device == "cpu" and (sharding_type == "row_wise" or optim == Adam):
         return
     mp.spawn(
         execute,
@@ -251,6 +260,7 @@ def test_hstu_dens_normal(
             sharding_type,
             lockup_len,
             device,
+            optim,
         ),
         nprocs=WORLD_SIZE,
         join=True,

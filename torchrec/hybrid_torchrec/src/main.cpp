@@ -14,6 +14,7 @@
 
 #include "ids_mapper.h"
 #include "unique.h"
+#include "bucketize.h"
 
 constexpr int TEST_NUM = 100;
 void TestMapper()
@@ -133,7 +134,7 @@ void TestBucketize()
     for (int i = 0; i < TEST_NUM; i++) {
         hybrid::BlockBucketizeSparseFeaturesCpu(lengths, indices, bucketizePos, sequence, blockSizes, mySize,
                                                 totalNumBlocks, weights, batchSizePerFeature, maxBatchSize,
-                                                blockBucketizePos, returnBucketMapping, keepOrigIdx);
+                                                blockBucketizePos, returnBucketMapping, keepOrigIdx, true);
     }
 
     auto afterTime = std::chrono::steady_clock::now();

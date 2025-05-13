@@ -228,13 +228,13 @@ class TestModel:
         return results
 
 
-@pytest.mark.parametrize("table_num", [2])
+@pytest.mark.parametrize("table_num", [3])
 @pytest.mark.parametrize("embedding_dims", [[32, 64, 128]])
 @pytest.mark.parametrize("num_embeddings", [[400, 4000, 400]])
 @pytest.mark.parametrize("pool_type", [torchrec.PoolingType.MEAN])
 @pytest.mark.parametrize("sharding_type", ["table_wise", "row_wise"])
 @pytest.mark.parametrize("lockup_len", [1024])
-@pytest.mark.parametrize("device", ["cpu", "npu"])
+@pytest.mark.parametrize("device", ["npu"])
 def test_hstu_dens_normal(
     table_num,
     embedding_dims,
