@@ -60,6 +60,9 @@ public:
 private:
     std::tuple<at::Tensor, at::Tensor, at::Tensor> FindOrInsert(const torch::Tensor& global_ids);
     std::tuple<at::Tensor, at::Tensor, at::Tensor> FindOrInsertHighPrecison(const torch::Tensor& global_ids);
+    void UniqueProcessing(const torch::Tensor& hashIndices, const torch::Tensor& offset,
+        const torch::Tensor& unique, const torch::Tensor& uniqueInverse,
+        const torch::Tensor& uniqueOffset, int64_t tensorI);
     ska::flat_hash_map<int64_t, int64_t> ids2indicesMap;
 
     int numThread;
