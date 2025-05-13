@@ -23,12 +23,12 @@ namespace tensorflow {
 namespace npu_xla {
 namespace {
 static DumpOptions* dumpOptions = nullptr;
-static std::once_flag initFlag;
-static std::mutex mut;
+static std::once_flag g_initFlag;
+static std::mutex g_mut;
 
 static void InitDumpOptions()
 {
-    std::lock_guard<std::mutex> lock(mut);
+    std::lock_guard<std::mutex> lock(g_mut);
     if (!dumpOptions) {
         dumpOptions = new DumpOptions();
     }
@@ -41,7 +41,7 @@ static void InitDumpOptions()
 
 const DumpOptions* GetDumpOptions()
 {
-    std::call_once(initFlag, &InitDumpOptions);
+    std::call_once(g_initFlag, &InitDumpOptions);
     return dumpOptions;
 }
 }  // namespace npu_xla

@@ -46,70 +46,45 @@ bool HasOpType(const Graph& graph, absl::string_view op_type)
     return false;
 }
 
-std::unique_ptr<FunctionLibraryDefinition> ReachableDefinitions(const FunctionLibraryDefinition& flib,
-                                                                const FunctionDef& entry_func)
+// 添加函数到工作列表
+void AddFunctionToWorklist(const string& func_name, const FunctionLibraryDefinition& flib,
+                           std::unordered_set<string>& keep_funcs, std::vector<const FunctionDef*>& worklist)
 {
-    // Functions that are reachable from the optimized graph.
-    std::unordered_set<string> keep_funcs;
-
-    // Insert the entry func itself
-    keep_funcs.insert(entry_func.signature().name());
-
-    std::vector<const FunctionDef*> worklist;
-    worklist.reserve(flib.num_functions());
-
-    // Add registered and not already processed functions to the queue by name.
-    const auto add_to_worklist = [&](const string& func_name) {
-        const FunctionDef* func = flib.Find(func_name);
-        if (func && keep_funcs.find(func_name) == keep_funcs.end()) {
-            worklist.push_back(func);
-        }
-    };
-
-    // Find all the functions that are reachable from the given node.
-    const auto add_node_to_worklist = [&](const NodeDef& node) {
-        // Node itself can be a call to the function.
-        add_to_worklist(node.op());
-
-        // Or node can have an attribute referencing a function.
-        for (const auto& attr : node.attr()) {
-            const auto& attr_value = attr.second;
-
-            // 1. AttrValue.func
-            if (attr_value.has_func()) {
-                add_to_worklist(attr_value.func().name());
-            }
-
-            // 2. AttrValue.ListValue.func
-            if (attr_value.has_list()) {
-                for (const auto& func : attr_value.list().func()) {
-                    add_to_worklist(func.name());
-                }
-            }
-        }
-    };
-
-    const auto& graph_nodes = entry_func.node_def();
-    std::for_each(graph_nodes.begin(), graph_nodes.end(), add_node_to_worklist);
-
-    // Process all reachable functions.
-    while (!worklist.empty()) {
-        const FunctionDef* func = worklist.back();
-        worklist.pop_back();
-
-        const string& func_name = func->signature().name();
-        keep_funcs.insert(func_name);
-
-        // Find all the functions called from the function body.
-        const auto& func_body = func->node_def();
-        std::for_each(func_body.begin(), func_body.end(), add_node_to_worklist);
-
-        // Check if the function has a registered gradient.
-        const string grad_func_name = flib.FindGradient(func_name);
-        if (!grad_func_name.empty())
-            add_to_worklist(grad_func_name);
+    const FunctionDef* func = flib.Find(func_name);
+    if (func && keep_funcs.find(func_name) == keep_funcs.end()) {
+        worklist.push_back(func);
     }
+}
 
+// 处理节点中的函数引用
+void ProcessNodeFunctionReferences(const NodeDef& node, const FunctionLibraryDefinition& flib,
+                                   std::unordered_set<string>& keep_funcs, std::vector<const FunctionDef*>& worklist)
+{
+    // 节点本身可能是函数调用
+    AddFunctionToWorklist(node.op(), flib, keep_funcs, worklist);
+
+    // 节点可能有引用函数的属性
+    for (const auto& attr : node.attr()) {
+        const auto& attr_value = attr.second;
+
+        // 1. AttrValue.func
+        if (attr_value.has_func()) {
+            AddFunctionToWorklist(attr_value.func().name(), flib, keep_funcs, worklist);
+        }
+
+        // 2. AttrValue.ListValue.func
+        if (attr_value.has_list()) {
+            for (const auto& func : attr_value.list().func()) {
+                AddFunctionToWorklist(func.name(), flib, keep_funcs, worklist);
+            }
+        }
+    }
+}
+
+// 构建可达函数的库
+FunctionDefLibrary BuildReachableFunctionLibrary(const std::unordered_set<string>& keep_funcs,
+                                                 const FunctionLibraryDefinition& flib)
+{
     FunctionDefLibrary lib;
     for (const string& func_name : keep_funcs) {
         const FunctionDef* func = CHECK_NOTNULL(flib.Find(func_name));
@@ -122,10 +97,53 @@ std::unique_ptr<FunctionLibraryDefinition> ReachableDefinitions(const FunctionLi
             gd->set_gradient_func(grad_func_name);
         }
     }
+    return lib;
+}
 
-    std::unique_ptr<FunctionLibraryDefinition> reachable_flib;
-    reachable_flib.reset(new FunctionLibraryDefinition(flib.default_registry(), std::move(lib)));
-    return reachable_flib;
+std::unique_ptr<FunctionLibraryDefinition> ReachableDefinitions(const FunctionLibraryDefinition& flib,
+                                                                const FunctionDef& entry_func)
+{
+    // 可从优化图访问的函数
+    std::unordered_set<string> keep_funcs;
+
+    // 插入入口函数本身
+    keep_funcs.insert(entry_func.signature().name());
+
+    std::vector<const FunctionDef*> worklist;
+    worklist.reserve(flib.num_functions());
+
+    // 处理入口函数中的所有节点
+    const auto& graph_nodes = entry_func.node_def();
+    for (const auto& node : graph_nodes) {
+        ProcessNodeFunctionReferences(node, flib, keep_funcs, worklist);
+    }
+
+    // 处理所有可达函数
+    while (!worklist.empty()) {
+        const FunctionDef* func = worklist.back();
+        worklist.pop_back();
+
+        const string& func_name = func->signature().name();
+        keep_funcs.insert(func_name);
+
+        // 查找函数体中调用的所有函数
+        const auto& func_body = func->node_def();
+        for (const auto& node : func_body) {
+            ProcessNodeFunctionReferences(node, flib, keep_funcs, worklist);
+        }
+
+        // 检查函数是否有注册的梯度
+        const string grad_func_name = flib.FindGradient(func_name);
+        if (!grad_func_name.empty()) {
+            AddFunctionToWorklist(grad_func_name, flib, keep_funcs, worklist);
+        }
+    }
+
+    // 构建可达函数的库
+    FunctionDefLibrary lib = BuildReachableFunctionLibrary(keep_funcs, flib);
+
+    // 使用std::make_unique替代new
+    return std::make_unique<FunctionLibraryDefinition>(flib.default_registry(), std::move(lib));
 }
 
 }  // namespace util

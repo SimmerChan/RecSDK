@@ -31,10 +31,9 @@ See the License for the specific language governing permissions and
 #include "absl/strings/string_view.h"
 #include "tensorflow/core/common_runtime/function.h"
 #include "tensorflow/core/framework/function.h"
+#include "tensorflow/core/graph/graph.h"
 
 namespace tensorflow {
-
-class Graph;
 
 namespace npu_xla {
 namespace util {

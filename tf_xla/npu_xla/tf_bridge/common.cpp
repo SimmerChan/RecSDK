@@ -36,11 +36,11 @@ namespace npu_xla {
 namespace {
 
 static TfBridgeOptions* opts{nullptr};
-static std::once_flag opt_init;
-static std::mutex opt_mtx_;
+static std::once_flag g_optInit;
+static std::mutex g_optMtx;
 static void AllocateTfBridgeFlags()
 {
-    std::lock_guard<std::mutex> lock(opt_mtx_);
+    std::lock_guard<std::mutex> lock(g_optMtx);
     if (!opts) {
         opts = new TfBridgeOptions();
     }
@@ -59,7 +59,7 @@ static void AllocateTfBridgeFlags()
 
 const TfBridgeOptions* GetTfBridgeOptions(bool force_refresh)
 {
-    std::call_once(opt_init, &AllocateTfBridgeFlags);
+    std::call_once(g_optInit, &AllocateTfBridgeFlags);
     if (force_refresh) {
         AllocateTfBridgeFlags();
     }
