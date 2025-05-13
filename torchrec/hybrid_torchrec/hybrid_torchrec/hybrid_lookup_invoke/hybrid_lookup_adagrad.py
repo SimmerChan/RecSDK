@@ -67,22 +67,22 @@ def invoke(
         indices = common_args.hash_indices
 
     if common_args.host_weights.numel() > 0:
-        T = common_args.D_offsets.numel() - 1
+        num_offsets = common_args.D_offsets.numel() - 1
         vbe: bool = vbe_metadata.B_offsets is not None
         if vbe:
-            # create offsets with fixed batch size max_B
+            # create offsets with fixed batch size max_b
             # not efficient but for now we just need a functional implementation for CPU
-            max_B = vbe_metadata.max_B
-            offsets = torch.empty([T * max_B + 1], dtype=common_args.offsets.dtype,
+            max_b = vbe_metadata.max_B
+            offsets = torch.empty([num_offsets * max_b + 1], dtype=common_args.offsets.dtype,
                                   device=common_args.offsets.device)
-            for t in range(T):
-                B_offsets = vbe_metadata.B_offsets
-                if not isinstance(B_offsets, torch.Tensor):
-                    raise TypeError("B_offsets must be a torch.Tensor")
-                begin = B_offsets[t]
-                end = B_offsets[t + 1]
-                offsets[t * max_B : t * max_B + end - begin] = common_args.offsets[begin : end]
-                offsets[t * max_B + end - begin : (t + 1) * max_B] = common_args.offsets[end]
+            for t in range(num_offsets):
+                b_offsets = vbe_metadata.B_offsets
+                if not isinstance(b_offsets, torch.Tensor):
+                    raise TypeError("b_offsets must be a torch.Tensor")
+                begin = b_offsets[t]
+                end = b_offsets[t + 1]
+                offsets[t * max_b: t * max_b + end - begin] = common_args.offsets[begin: end]
+                offsets[t * max_b + end - begin: (t + 1) * max_b] = common_args.offsets[end]
             offsets[-1] = common_args.offsets[-1]
         else:
             offsets = common_args.offsets
@@ -114,25 +114,25 @@ def invoke(
         )
         if vbe:
             output_new = torch.empty([vbe_metadata.output_size], dtype=output.dtype, device=output.device)
-            B_offsets_rank_per_feature = vbe_metadata.B_offsets_rank_per_feature
-            if not isinstance(B_offsets_rank_per_feature, torch.Tensor):
-                raise TypeError("B_offsets_rank_per_feature must be a torch.Tensor")
+            b_offsets_rank_per_feature = vbe_metadata.B_offsets_rank_per_feature
+            if not isinstance(b_offsets_rank_per_feature, torch.Tensor):
+                raise TypeError("b_offsets_rank_per_feature must be a torch.Tensor")
             output_offsets_feature_rank = vbe_metadata.output_offsets_feature_rank
             if not isinstance(output_offsets_feature_rank, torch.Tensor):
                 raise TypeError("output_offsets_feature_rank must be a torch.Tensor")
-            R = B_offsets_rank_per_feature.size(1) - 1
-            for r in range(R):
-                D_offset = 0
-                for t in range(T):
-                    o_begin = output_offsets_feature_rank[r * T + t].item()
-                    o_end = output_offsets_feature_rank[r * T + t + 1].item()
-                    D = common_args.D_offsets[t + 1].item() - common_args.D_offsets[t].item()
-                    b_begin = B_offsets_rank_per_feature[t][r].item()
-                    b_end = B_offsets_rank_per_feature[t][r + 1].item()
-                    if o_end - o_begin != (b_end - b_begin) * D:
-                        raise ValueError("Assertion failed: o_end - o_begin != (b_end - b_begin) * D")
-                    output_new[o_begin : o_end] = output[b_begin : b_end, D_offset : D_offset + D].flatten()
-                    D_offset += D
+            num_features = b_offsets_rank_per_feature.size(1) - 1
+            for r in range(num_features):
+                d_offset = 0
+                for t in range(num_offsets):
+                    o_begin = output_offsets_feature_rank[r * num_offsets + t].item()
+                    o_end = output_offsets_feature_rank[r * num_offsets + t + 1].item()
+                    dim = common_args.D_offsets[t + 1].item() - common_args.D_offsets[t].item()
+                    b_begin = b_offsets_rank_per_feature[t][r].item()
+                    b_end = b_offsets_rank_per_feature[t][r + 1].item()
+                    if o_end - o_begin != (b_end - b_begin) * dim:
+                        raise ValueError("Assertion failed: o_end - o_begin != (b_end - b_begin) * dim")
+                    output_new[o_begin: o_end] = output[b_begin: b_end, d_offset: d_offset + dim].flatten()
+                    d_offset += dim
             return output_new
         else:
             return output

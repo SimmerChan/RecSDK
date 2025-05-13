@@ -303,8 +303,8 @@ class HybridShardedEmbeddingBagCollection(
                         shard_offset = shard.metadata.shard_offsets
                         # Prepare tensor by splicing and placing on appropriate device
                         spliced_tensor = state_dict[key][
-                            shard_offset[0] : shard_offset[0] + shard_size[0],
-                            shard_offset[1] : shard_offset[1] + shard_size[1],
+                                         shard_offset[0]: shard_offset[0] + shard_size[0],
+                                         shard_offset[1]: shard_offset[1] + shard_size[1],
                         ]
                         # Append spliced tensor into local shards
                         local_shards.append(spliced_tensor)
@@ -316,8 +316,8 @@ class HybridShardedEmbeddingBagCollection(
                     ):
                         shard_size = tensor.size()
                         spliced_tensor = state_dict[key][
-                            shard_offset[0] : shard_offset[0] + shard_size[0],
-                            shard_offset[1] : shard_offset[1] + shard_size[1],
+                                         shard_offset[0]: shard_offset[0] + shard_size[0],
+                                         shard_offset[1]: shard_offset[1] + shard_size[1],
                         ]
                         local_shards.append(spliced_tensor)
                 state_dict[key] = (
@@ -373,11 +373,11 @@ class HybridShardedEmbeddingBagCollection(
                 f"Valid options: {', '.join(ShardingType.get_values())}"
             )
 
-    def forward(self, *input, **kwargs) -> LazyAwaitable[Out]:
-        if len(input) < 1:
-            raise ValueError(f"input must be kjt in 0, but got {input}")
+    def forward(self, *input_tensor, **kwargs) -> LazyAwaitable[Out]:
+        if len(input_tensor) < 1:
+            raise ValueError(f"input must be kjt in 0, but got {input_tensor}")
         ctx = self.create_context()
-        dist_input = self.input_dist(ctx, *input, **kwargs).wait().wait()
+        dist_input = self.input_dist(ctx, *input_tensor, **kwargs).wait().wait()
         dist_post_input = self.post_input_dist(ctx, dist_input).wait()
         dist_post_input = kjt_list_to_device(dist_post_input, self._device)
         return self.compute_and_output_dist(ctx, dist_post_input)
@@ -531,14 +531,14 @@ class HybridShardedEmbeddingBagCollection(
         return awaitable
 
     def compute_and_output_dist(
-        self, ctx: EmbeddingBagCollectionContext, input: KJTList
+        self, ctx: EmbeddingBagCollectionContext, input_tensor: KJTList
     ) -> LazyAwaitable[KeyedTensor]:
         batch_size_per_feature_pre_a2a = []
         awaitables = []
 
         # No usage of zip for dynamo
         for lookup, output_dist, sharding_context, features in zip(self._lookups, self._output_dists,
-                                                                   ctx.sharding_contexts, input):
+                                                                   ctx.sharding_contexts, input_tensor):
             awaitables.append(output_dist(lookup(features), sharding_context))
             if sharding_context:
                 batch_size_per_feature_pre_a2a.extend(
@@ -838,8 +838,8 @@ class HybridShardedEmbeddingBagCollection(
         for i, name in enumerate(self._uncombined_embedding_names):
             embedding_name_order.setdefault(name, i)
 
-        def sort_key(input: Tuple[int, str]) -> Tuple[int, int]:
-            index, name = input
+        def sort_key(input_tensor: Tuple[int, str]) -> Tuple[int, int]:
+            index, name = input_tensor
             return (embedding_name_order[name], embedding_shard_offsets[index])
 
         permute_indices = []
@@ -954,11 +954,11 @@ def _create_mean_pooling_divisor(
             indices = (inverse_indices_t + offsets).flatten()
             lengths = torch.index_select(input=lengths, dim=0, index=indices)
 
-        # only convert the sum pooling features to be 1 lengths
+        # only convert the sum pooling features to be 1 length
         for feature in pooling_type_to_rs_features[PoolingType.SUM.value]:
             feature_index = kjt_key_indices[feature]
             feature_index = feature_index * batch_size
-            lengths[feature_index : feature_index + batch_size] = 1
+            lengths[feature_index: feature_index + batch_size] = 1
 
         if len(embedding_names) != len(keys):
             lengths = torch.index_select(
