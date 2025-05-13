@@ -21,15 +21,18 @@ using tensor_list = std::vector<at::Tensor>;
 using Tensor = at::Tensor;
 using namespace at;
 
-#define DISPATCH_TO_NPU(name, function) m.impl(name, torch::dispatch(c10::DispatchKey::PrivateUse1, TORCH_FN(function)))
+inline void DispatchToNpu(torch::nn::Module& m, const std::string& name, const std::function<void()>& function)
+{
+    m.impl(name, torch::dispatch(c10::DispatchKey::PrivateUse1, TORCH_FN(function)));
+}
 
-enum class OptimizerType : uint8_t {
+enum class OptimizerType {
     ADAGRAD = 1,
     ADAM = 2,
     SGD = 3
 };
 
-enum class SparseType : uint8_t {
+enum class SparseType {
     FP32 = 0,
     FP16 = 1,
     INT8 = 2,
@@ -40,7 +43,7 @@ enum class SparseType : uint8_t {
     INVALID = 7,
 };
 
-enum class PoolingMode : uint8_t {
+enum class PoolingMode {
     SUM = 0,
     MEAN = 1,
     NONE = 2

@@ -56,8 +56,8 @@ at::Tensor split_embedding_codegen_forward_unweighted_npu(const at::Tensor& dev_
                                                           const bool is_experimental,
                                                           const Tensor& hash_indices)
 {
-    const int64_t t_total_D = total_D.guard_int(__FILE__, __LINE__);
-    const int64_t t_max_D = max_D.guard_int(__FILE__, __LINE__);
+    const int64_t tTotalD = total_D.guard_int(__FILE__, __LINE__);
+    const int64_t tMaxD = max_D.guard_int(__FILE__, __LINE__);
 
     const at::OptionalDeviceGuard guard(device_of(dev_weights));
 
@@ -72,15 +72,16 @@ at::Tensor split_embedding_codegen_forward_unweighted_npu(const at::Tensor& dev_
     }
 
     int64_t batchSize = (offsets.size(0) - 1) / featCnt;
-    auto output = at::full({batchSize, t_total_D}, 0.0, dev_weights.options());
+    auto output = at::full({batchSize, tTotalD}, 0.0, dev_weights.options());
 
     if (static_cast<PoolingMode>(pooling_mode) == PoolingMode::NONE) {
-        output = at::full({totalLen, t_max_D}, 0.0, dev_weights.options());
+        output = at::full({totalLen, tMaxD}, 0.0, dev_weights.options());
     }
 
+    int64_t experimental = static_cast<int64_t>(is_experimental)
     EXEC_NPU_CMD(aclnnSplitEmbeddingCodegenForwardUnweighted, dev_weights, uvm_weights,         lxu_cache_weights,
                  weights_placements, weights_offsets, D_offsets, indices, offsets, lxu_cache_locations, hash_indices,
-                 t_total_D, t_max_D, pooling_mode, output_dtype, is_experimental, output);
+                 tTotalD, tMaxD, pooling_mode, output_dtype, experimental, output);
     return output;
 }
 
@@ -106,6 +107,6 @@ TORCH_LIBRARY_FRAGMENT(fbgemm, m)
           "    bool is_experimental, "
           "    Tensor hash_indices = None "
           ") -> Tensor");
-    DISPATCH_TO_NPU("split_embedding_codegen_forward_unweighted_cuda",
+    DispatchToNpu("split_embedding_codegen_forward_unweighted_cuda",
                     fbgemm_npu_lookups::split_embedding_codegen_forward_unweighted_npu);
 }

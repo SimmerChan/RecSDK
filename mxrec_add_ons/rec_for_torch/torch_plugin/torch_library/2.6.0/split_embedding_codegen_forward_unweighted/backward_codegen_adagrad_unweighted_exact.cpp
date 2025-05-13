@@ -21,7 +21,7 @@ using Tensor = at::Tensor;
 using namespace at;
 
 namespace fbgemm_npu_lookups {
-class SplitLookupFunction_adagrad_Op : public torch::autograd::Function<SplitLookupFunction_adagrad_Op> {
+class SplitLookupFunctionAdagradOp : public torch::autograd::Function<SplitLookupFunctionAdagradOp> {
 public:
     static constexpr bool isTraceable = true;
 
@@ -126,7 +126,7 @@ public:
     static torch::autograd::variable_list backward(torch::autograd::AutogradContext* ctx,
                                                    torch::autograd::variable_list grad_outputs)
     {
-       return {at::Tensor()};
+        return {at::Tensor()};
     }
 };
 
@@ -178,14 +178,11 @@ Tensor split_embedding_codegen_lookup_adagrad_function(
     const bool apply_global_weight_decay = false,
     const double gwd_lower_bound = 0)
 {
-    // Set to experimental if either the feature is enabled in JK, or the user specifies to use TBEv2
-    const auto is_experimental = is_experimental_tbe;
-
-    return SplitLookupFunction_adagrad_Op::apply(
+    return SplitLookupFunctionAdagradOp::apply(
         placeholder_autograd_tensor, output_dtype, dev_weights, uvm_weights, lxu_cache_weights, weights_placements,
         weights_offsets, D_offsets, total_D, max_D, hash_size_cumsum, total_hash_size_bits, indices, hash_indices,
         unique_ids, unique_offsets, unique_inverse, offsets, pooling_mode, indice_weights, feature_requires_grad,
-        lxu_cache_locations, uvm_cache_stats, gradient_clipping, max_gradient, stochastic_rounding, is_experimental,
+        lxu_cache_locations, uvm_cache_stats, gradient_clipping, max_gradient, stochastic_rounding, is_experimental_tbe,
         use_uniq_cache_locations_bwd, use_homogeneous_placements, momentum1_dev, momentum1_uvm, momentum1_placements,
         momentum1_offsets, eps, learning_rate)[0];
 }
@@ -241,6 +238,6 @@ TORCH_LIBRARY_FRAGMENT(fbgemm, m)
     m.impl("split_embedding_codegen_lookup_adagrad_function",
            torch::dispatch(c10::DispatchKey::Autograd,
                            TORCH_FN(fbgemm_npu_lookups::split_embedding_codegen_lookup_adagrad_function)));
-    DISPATCH_TO_NPU("split_embedding_codegen_lookup_adagrad_function",
+    DispatchToNpu("split_embedding_codegen_lookup_adagrad_function",
                     fbgemm_npu_lookups::split_embedding_codegen_lookup_adagrad_function);
 }
