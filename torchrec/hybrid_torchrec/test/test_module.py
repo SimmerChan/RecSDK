@@ -12,15 +12,16 @@ from typing import List
 import pytest
 import torch
 from torch.utils.data import DataLoader
+
+from dataset import RandomRecDataset, Batch
 from hybrid_torchrec import (
     HashEmbeddingBagCollection,
     HashEmbeddingBagConfig,
 )
+from model import Model
+from util import setup_logging
 from torchrec import EmbeddingBagCollection, EmbeddingBagConfig
 
-from dataset import RandomRecDataset, Batch
-from util import setup_logging
-from model import Model
 
 LOOP_TIMES = 8
 BATCH_NUM = 32

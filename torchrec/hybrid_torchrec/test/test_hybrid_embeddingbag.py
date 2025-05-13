@@ -16,10 +16,15 @@ import torch.multiprocessing as mp
 import torch_npu
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
+
+from dataset import RandomRecDataset, Batch
+from hybrid_torchrec.distributed.sharding_plan import get_default_hybrid_sharders
+from model import Model
+from util import setup_logging
+
 import torchrec
 import torchrec.distributed
 import torchrec.distributed.shard
-from hybrid_torchrec.distributed.sharding_plan import get_default_hybrid_sharders
 from torchrec import (
     EmbeddingBagConfig,
     EmbeddingBagCollection,
@@ -32,10 +37,6 @@ from torchrec.distributed.planner import (
 from torchrec.distributed.types import ShardingEnv
 from torchrec.optim.apply_optimizer_in_backward import apply_optimizer_in_backward
 from torchrec.optim.keyed import CombinedOptimizer
-
-from util import setup_logging
-from model import Model
-from dataset import RandomRecDataset, Batch
 
 
 LOOP_TIMES = 8
