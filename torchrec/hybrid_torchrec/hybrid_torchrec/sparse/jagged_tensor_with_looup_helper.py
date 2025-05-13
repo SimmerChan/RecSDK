@@ -133,6 +133,7 @@ class KeyedJaggedTensorWithLookHelper(KeyedJaggedTensor):
         weights: Optional[torch.Tensor] = None,
         stride: Optional[int] = None,
         stride_per_key_per_rank: Optional[List[List[int]]] = None,
+        inverse_indices: Optional[Tuple[List[str], torch.Tensor]] = None,
     ) -> "KeyedJaggedTensor":
         return NotImplemented
 
@@ -144,6 +145,7 @@ class KeyedJaggedTensorWithLookHelper(KeyedJaggedTensor):
         weights: Optional[torch.Tensor] = None,
         stride: Optional[int] = None,
         stride_per_key_per_rank: Optional[List[List[int]]] = None,
+        inverse_indices: Optional[Tuple[List[str], torch.Tensor]] = None,
     ) -> "KeyedJaggedTensor":
         return NotImplemented
 
@@ -179,6 +181,7 @@ class KeyedJaggedTensorWithLookHelper(KeyedJaggedTensor):
         num_workers: int,
         recat: Optional[torch.Tensor],
         stride_per_rank: Optional[List[int]],
+        stagger: int = 1,
     ) -> "KeyedJaggedTensor":
         return NotImplemented
 
@@ -361,8 +364,12 @@ class KeyedJaggedTensorWithLookHelper(KeyedJaggedTensor):
             offsets.record_stream(stream)
 
     def to(
-        self, device: torch.device, non_blocking: bool = False
+        self,
+        device: torch.device,
+        non_blocking: bool = False,
+        dtype: Optional[torch.dtype] = None,
     ) -> "KeyedJaggedTensor":
+
         weights = self._weights
         lengths = self._lengths
         offsets = self._offsets
