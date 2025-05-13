@@ -81,8 +81,8 @@ def invoke(
                     raise TypeError("B_offsets must be a torch.Tensor")
                 begin = B_offsets[t]
                 end = B_offsets[t + 1]
-                offsets[t * max_B : t * max_B + end - begin] = common_args.offsets[begin : end]
-                offsets[t * max_B + end - begin : (t + 1) * max_B] = common_args.offsets[end]
+                offsets[t * max_B: t * max_B + end - begin] = common_args.offsets[begin: end]
+                offsets[t * max_B + end - begin: (t + 1) * max_B] = common_args.offsets[end]
             offsets[-1] = common_args.offsets[-1]
         else:
             offsets = common_args.offsets
@@ -131,7 +131,7 @@ def invoke(
                     b_end = B_offsets_rank_per_feature[t][r + 1].item()
                     if o_end - o_begin != (b_end - b_begin) * D:
                         raise ValueError("Assertion failed: o_end - o_begin != (b_end - b_begin) * D")
-                    output_new[o_begin : o_end] = output[b_begin : b_end, D_offset : D_offset + D].flatten()
+                    output_new[o_begin: o_end] = output[b_begin: b_end, D_offset: D_offset + D].flatten()
                     D_offset += D
             return output_new
         else:

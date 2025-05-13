@@ -62,7 +62,7 @@ class RandomRecDataset(IterableDataset[Batch]):
     def generate_one_batch(self) -> Batch:
         input_dict = {}
         feature_len = len(self.num_embeddings)
-        for ind in range(feature_len-1, -1, -1):
+        for ind in range(feature_len - 1, -1, -1):
             name = f"feat{ind}"
             id_range = self.num_embeddings[ind]
             ids = torch.randint(0, id_range, (self.lookup_lens,))
