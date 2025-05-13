@@ -16,11 +16,9 @@ See the License for the specific language governing permissions and
 #ifndef NPU_XLA_TF_MLIR_MLIR_NPU_HLO_TRANSFORMS_PASSES_H_
 #define NPU_XLA_TF_MLIR_MLIR_NPU_HLO_TRANSFORMS_PASSES_H_
 
-namespace mlir {
+#include "mlir/Pass/Pass.h"
 
-class ModuleOp;
-template <typename T>
-class OperationPass;
+namespace mlir {
 
 namespace npu_hlo {
 // Replace const arguments to ConstOp and update argument type if it is a

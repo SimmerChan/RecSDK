@@ -45,7 +45,7 @@ namespace npu_hlo {
 #define GEN_PASS_DEF_REVISEARGUMENTSFORSTATICRANKPASS
 #include "tf_mlir/mlir/npu_hlo/transforms/passes.h.inc"
 namespace {
-constexpr int smallVectorDefaultSize = 4;
+constexpr int SMALL_VECTOR_DEFAULT_SIZE = 4;
 
 // Replace const arguments to ConstOp and update argument type if it is a
 // fixed-shaped input
@@ -59,7 +59,7 @@ struct ReviseArgsForStaticRankPass : public impl::ReviseArgumentsForStaticRankPa
     void runOnOperation() override;
     void replaceArgWithConstOp(func::FuncOp main, DictionaryAttr dict_attr, unsigned idx);
     void updateInputTypesAndAttributes(func::FuncOp main_func, DictionaryAttr dict_attr,
-                                       SmallVector<StringRef, smallVectorDefaultSize>& new_input_placements);
+                                       SmallVector<StringRef, SMALL_VECTOR_DEFAULT_SIZE>& new_input_placements);
 };
 
 void ReviseArgsForStaticRankPass::replaceArgWithConstOp(func::FuncOp main, DictionaryAttr dict_attr, unsigned idx)
@@ -80,14 +80,15 @@ void ReviseArgsForStaticRankPass::replaceArgWithConstOp(func::FuncOp main, Dicti
 // 新增函数：处理输入类型和属性更新
 void ReviseArgsForStaticRankPass::updateInputTypesAndAttributes(
     func::FuncOp main_func, DictionaryAttr dict_attr,
-    SmallVector<StringRef, smallVectorDefaultSize>& new_input_placements)
+    SmallVector<StringRef, SMALL_VECTOR_DEFAULT_SIZE>& new_input_placements)
 {
     ModuleOp module = getOperation();
     auto num_inputs = main_func.getNumArguments();
 
     // 更新输入类型
     auto func_type = main_func.getFunctionType();
-    SmallVector<Type, smallVectorDefaultSize> input_types(func_type.getInputs().begin(), func_type.getInputs().end());
+    SmallVector<Type, SMALL_VECTOR_DEFAULT_SIZE> input_types(func_type.getInputs().begin(),
+                                                             func_type.getInputs().end());
     if (input_types.size() != num_inputs) {
         module.emitError("Error: input_types.size() is not equal to num of inputs.\n");
         return signalPassFailure();
@@ -105,7 +106,7 @@ void ReviseArgsForStaticRankPass::updateInputTypesAndAttributes(
     main_func.setType(new_func_type);
 
     // 更新输入位置属性
-    SmallVector<mlir::NamedAttribute, smallVectorDefaultSize> new_attributes;
+    SmallVector<mlir::NamedAttribute, SMALL_VECTOR_DEFAULT_SIZE> new_attributes;
     for (auto attr : dict_attr) {
         if (attr.getName() != placement_utils::kInputPlacementAttr) {
             new_attributes.push_back(attr);
@@ -133,13 +134,13 @@ void ReviseArgsForStaticRankPass::runOnOperation()
     if (!input_placements_attr) {
         return;
     }
-    SmallVector<StringRef, smallVectorDefaultSize> input_placements;
+    SmallVector<StringRef, SMALL_VECTOR_DEFAULT_SIZE> input_placements;
     input_placements_attr.cast<mlir::StringAttr>().getValue().split(input_placements, ',', -1, false);
     if (input_placements.size() != num_inputs) {
         module.emitError("Error: input_placements.size() is not equal to num of inputs.\n");
         return signalPassFailure();
     }
-    SmallVector<StringRef, smallVectorDefaultSize> new_input_placements;
+    SmallVector<StringRef, SMALL_VECTOR_DEFAULT_SIZE> new_input_placements;
 
     // 为每个常量输入创建ConstOp并替换参数
     for (int i = 0; i < num_inputs; ++i) {

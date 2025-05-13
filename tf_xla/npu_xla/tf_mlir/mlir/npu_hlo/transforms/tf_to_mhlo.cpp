@@ -27,9 +27,8 @@ namespace npu_hlo {
 #include "tf_mlir/mlir/npu_hlo/transforms/passes.h.inc"
 namespace {
 
-class TFReshapeToMHLO : public OpRewritePattern<mlir::TF::ReshapeOp> {
-public:
-    using OpRewritePattern<mlir::TF::ReshapeOp>::OpRewritePattern;
+struct TFReshapeToMHLO : public OpRewritePattern<mlir::TF::ReshapeOp> {
+    using OpRewritePattern::OpRewritePattern;
 
     LogicalResult matchAndRewrite(mlir::TF::ReshapeOp op, PatternRewriter& rewriter) const override
     {
