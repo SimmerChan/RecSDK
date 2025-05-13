@@ -48,6 +48,7 @@ OPTIMIZER_PARAM = {
     Adagrad: dict(lr=0.02, eps=1.0e-8),
 }
 
+
 def generate_hash_config(
     embedding_dims, num_embeddings, pool_type
 ) -> List[HashEmbeddingBagConfig]:

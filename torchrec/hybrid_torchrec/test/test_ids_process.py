@@ -97,10 +97,12 @@ def test_ids2indices_out(input_size, pin_memory, num_mapper):
             unique_inverse_this = unique_inverse[start:end]
             verify_unique(indices, unique_this, unique_inverse_this)
 
+
 class IndicesData:
     def __init__(self, lengths, indices):
         self.lengths = lengths
         self.indices = indices
+
 
 def check_bucketized_valid(
     bucketed_data: IndicesData,
@@ -138,25 +140,25 @@ def check_bucketized_valid(
 
 
 def check_bucketized_unique_valid(
-    bucketized_lengths,
-    bucketized_indices,
-    feat_num,
-    my_size,
+        bucketized_lengths,
+        bucketized_indices,
+        feat_num,
+        my_size,
 ):
     batch_size = bucketized_lengths.numel() // my_size // feat_num
     bucketized_offset = 0
     for rank in range(my_size):
         this_rank_length = bucketized_lengths[
-            rank * feat_num * batch_size : (rank + 1) * feat_num * batch_size
-        ]
+                           rank * feat_num * batch_size: (rank + 1) * feat_num * batch_size
+                           ]
 
         for feat_id in range(feat_num):
             this_feat_length_list = this_rank_length[
-                feat_id * batch_size : (feat_id + 1) * batch_size
-            ]
+                                    feat_id * batch_size: (feat_id + 1) * batch_size
+                                    ]
             this_feature_len = sum(this_feat_length_list)
             unique_set = set()
-            for ids_ind in range(bucketized_offset, bucketized_offset+this_feature_len):
+            for ids_ind in range(bucketized_offset, bucketized_offset + this_feature_len):
                 assert bucketized_indices[ids_ind] not in unique_set, "ids is not unique"
             bucketized_offset += this_feature_len
 
@@ -196,7 +198,7 @@ def test_block_bucketize_sparse_features_cpu(input_size, mutil_hots, my_size, do
             batch_size_per_feature=None,
             max_B=-1,
             block_bucketize_pos=None,
-            do_unique = do_unique
+            do_unique=do_unique
         )
         bucketed_data = IndicesData(bucketized_lengths, bucketized_indices)
         origin_data = IndicesData(lengths, values)

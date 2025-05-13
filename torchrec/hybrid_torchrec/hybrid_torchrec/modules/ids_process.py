@@ -51,15 +51,15 @@ class IdsMapper(HashMapBase):
     def ids2indices_unique_out(
         self,
         ids: torch.Tensor,
-        hashIndices: torch.Tensor,
+        hash_indices: torch.Tensor,
         offset: torch.Tensor,
         unique: torch.Tensor,
-        uniqueInverse: torch.Tensor,
-        uniqueOffset: List[int],
-        tensorI: int,
+        unique_inverse: torch.Tensor,
+        unique_offset: List[int],
+        tensor_i: int,
     ):
         self.ids_mapper.ids2indices_unique_out(
-            ids, hashIndices, offset, unique, uniqueInverse, uniqueOffset, tensorI
+            ids, hash_indices, offset, unique, unique_inverse, unique_offset, tensor_i
         )
 
 

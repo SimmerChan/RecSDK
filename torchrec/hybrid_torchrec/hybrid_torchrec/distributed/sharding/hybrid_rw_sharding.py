@@ -214,9 +214,9 @@ class HashRwSparseFeaturesDist(RwSparseFeaturesDist):
         return result, unbucketize_permute_tensor
 
     def forward(
-        self,
-        sparse_features: KeyedJaggedTensor,
-        context = None
+            self,
+            sparse_features: KeyedJaggedTensor,
+            context=None
     ) -> Awaitable[Awaitable[KeyedJaggedTensor]]:
         return HashRwSparseFeaturesDistAwaitable(
             self.forward_function, self, sparse_features, context

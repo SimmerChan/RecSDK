@@ -72,9 +72,9 @@ void FillNewIndices(const OffsetT* offsetsData, const IndexT* indicesData, Offse
 }
 
 template <typename OffsetT, typename IndexT>
-int64_t Deduplicate(OffsetT* newLengthsData, const OffsetT* newOffsetsData, const OffsetT* offsetsData,
-                 const IndexT* indicesData, IndexT* newIndicesData, IndexT* unbucketizePermuteData, int32_t numFeatures,
-                 int32_t batchSize, int64_t mySize)
+int64_t Deduplicate(OffsetT *newLengthsData, const OffsetT *newOffsetsData, const OffsetT *offsetsData,
+                    const IndexT *indicesData, IndexT *newIndicesData, IndexT *unbucketizePermuteData,
+                    int32_t numFeatures, int32_t batchSize, int64_t mySize)
 {
     int32_t uniqueOffset = 0;
     OffsetT curOffset = 0;
@@ -188,8 +188,9 @@ void BlockBucketizeSparseFeaturesCpuKernel(const at::Tensor& lengths, const at::
 
     // 去重逻辑 (需要时启用)
     if constexpr (DoUnique) {
-        int64_t uniqueSize = Deduplicate<OffsetT, IndexT>(newLengthsData, newOffsetsData, offsetsData, indicesData, newIndicesData,
-                                     unbucketizePermuteData, numFeatures, batchSize, mySize);
+        int64_t uniqueSize = Deduplicate<OffsetT, IndexT>(newLengthsData, newOffsetsData, offsetsData, indicesData,
+                                                          newIndicesData, unbucketizePermuteData, numFeatures,
+                                                          batchSize, mySize);
         newIndices.resize_(uniqueSize);
     }
 }
@@ -230,7 +231,7 @@ BucketTensorResult BlockBucketizeSparseFeaturesCpu(const at::Tensor& lengths,
             lengths, indices, weights, bucketizePos, blockSizes, totalNumBlocks, mySize, newLengths, newIndices,
             std::nullopt, std::nullopt, unbucketizePermute, batchSizePerFeature, blockBucketizePos, std::nullopt,
             keepOrigIdx);
-    } else if(sequence && !doUnique) {
+    } else if (sequence && !doUnique) {
         BlockBucketizeSparseFeaturesCpuKernel<true, false, false, int64_t, int64_t, int64_t, false>(
             lengths, indices, weights, bucketizePos, blockSizes, totalNumBlocks, mySize, newLengths, newIndices,
             std::nullopt, std::nullopt, unbucketizePermute, batchSizePerFeature, blockBucketizePos, std::nullopt,
