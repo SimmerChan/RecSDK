@@ -180,19 +180,10 @@ mlir::Type DataTypeToMlirType(mlir::OpBuilder b, DataType dtype)
     }
 }
 
-Status AppendIOAttr(mlir::ModuleOp module, const GraphImportConfig& specs, const CompilerInput& input,
-                    const std::string& default_device)
+// 处理输入输出设备放置信息
+Status SetupIOPlacements(mlir::OpBuilder& builder, SmallVector<mlir::NamedAttribute, 2>& attributes,
+                         const GraphImportConfig& specs, const CompilerInput& input, const std::string& default_device)
 {
-    auto main_func = module.lookupSymbol<mlir::func::FuncOp>("main");
-    auto dict_attr = main_func->getAttrOfType<mlir::DictionaryAttr>("tf.entry_function");
-    if (!dict_attr) {
-        return errors::Internal("main_func must has tf.entry_function attr");
-    }
-    SmallVector<mlir::NamedAttribute, 2> attributes;
-    for (auto attr : dict_attr) {
-        attributes.push_back(attr);
-    }
-    mlir::OpBuilder builder(module);
     SmallVector<mlir::StringRef, 4> input_placements;
     SmallVector<mlir::StringRef, 4> output_placements;
 
@@ -221,62 +212,106 @@ Status AppendIOAttr(mlir::ModuleOp module, const GraphImportConfig& specs, const
     attributes.push_back(
         builder.getNamedAttr("output_placements", builder.getStringAttr(llvm::join(output_placements, ","))));
 
-    // extract const inputs info
+    return absl::OkStatus();
+}
+
+// 处理常量输入信息
+Status ProcessConstantInput(mlir::OpBuilder& builder, SmallVector<mlir::NamedAttribute, 2>& attributes,
+                            const CompilerInput::Argument& arg_proto, int index)
+{
+    auto attr_name = (mlir::npu_hlo::kHloInputValueAttr + ("_" + llvm::Twine(index))).str();
+    TensorProto tensor_proto;
+    if (!tensor_proto.ParseFromString(arg_proto.constant_value())) {
+        return tensorflow::errors::Internal("Mlir parse failed for arg constant value");
+    }
+    Tensor constant_tensor;
+    CHECK(constant_tensor.FromProto(tensor_proto));
+    DenseElementsAttr attr;
+    auto elem_type = DataTypeToMlirType(builder, DataType(arg_proto.type()));
+    SmallVector<int64_t, 4> shape;
+    for (int dim = 0; dim < constant_tensor.dims(); ++dim) {
+        shape.push_back(constant_tensor.dim_size(dim));
+    }
+    auto shaped_type = mlir::RankedTensorType::get(shape, elem_type);
+    if (arg_proto.type() == DataType::DT_FLOAT) {
+        VLOG(0) << "Warning: usually there shouldn't be float const inputs";
+        auto data = constant_tensor.flat<float>();
+        attr = DenseElementsAttr::get(shaped_type, llvm::ArrayRef(data.data(), data.size()));
+    } else if (arg_proto.type() == DataType::DT_INT64) {
+        auto data = constant_tensor.flat<int64>();
+        attr = DenseElementsAttr::get(shaped_type, llvm::ArrayRef(data.data(), data.size()));
+    } else if (arg_proto.type() == DataType::DT_INT32) {
+        auto data = constant_tensor.flat<int32>();
+        attr = DenseElementsAttr::get(shaped_type, llvm::ArrayRef(data.data(), data.size()));
+    } else if (arg_proto.type() == DataType::DT_BOOL) {
+        auto data = constant_tensor.flat<bool>();
+        attr = DenseElementsAttr::get(shaped_type, llvm::ArrayRef(data.data(), data.size()));
+    } else {
+        return tensorflow::errors::Internal("Mlir datatype not implemented for constant input");
+    }
+    attributes.push_back(builder.getNamedAttr(attr_name, attr));
+    return absl::OkStatus();
+}
+
+// 处理固定形状输入信息
+Status ProcessFixedShapedInput(mlir::OpBuilder& builder, SmallVector<mlir::NamedAttribute, 2>& attributes,
+                               const CompilerInput::Argument& arg_proto, int index)
+{
+    auto attr_name = (mlir::npu_hlo::kHloInputShapeAttr + ("_" + llvm::Twine(index))).str();
+    SmallVector<int64_t, 4> input_shape;
+    tensorflow::TensorShapeProto shape_proto;
+    shape_proto.ParseFromString(arg_proto.shape());
+    for (int dim = 0; dim < shape_proto.dim_size(); ++dim) {
+        input_shape.push_back(shape_proto.dim(dim).size());
+    }
+    auto elem_tp = DataTypeToMlirType(builder, DataType(arg_proto.type()));
+    auto type = RankedTensorType::get(input_shape, elem_tp);
+    // a DenseElementsAttr with Splat zero value is to represent the
+    // shape/dtype
+    mlir::Attribute attr;
+    if (elem_tp.isSignlessInteger()) {
+        attr = DenseElementsAttr::get(type, mlir::IntegerAttr::get(elem_tp, 0));
+    } else {
+        attr = DenseElementsAttr::get(type, mlir::FloatAttr::get(elem_tp, 0));
+    }
+    attributes.push_back(builder.getNamedAttr(attr_name, attr));
+    return absl::OkStatus();
+}
+
+// 处理所有输入信息
+Status ProcessInputsInfo(mlir::OpBuilder& builder, SmallVector<mlir::NamedAttribute, 2>& attributes,
+                         const GraphImportConfig& specs, const CompilerInput& input)
+{
     for (int i = 0; i < specs.inputs.size(); ++i) {
         auto& arg_proto = input.args(i);
         if (arg_proto.kind_v2() == ArgumentKind::kConstant) {
-            auto attr_name = (mlir::npu_hlo::kHloInputValueAttr + ("_" + llvm::Twine(i))).str();
-            TensorProto tensor_proto;
-            if (!tensor_proto.ParseFromString(arg_proto.constant_value())) {
-                return tensorflow::errors::Internal("Mlir parse failed for arg constant value");
-            }
-            Tensor constant_tensor;
-            CHECK(constant_tensor.FromProto(tensor_proto));
-            DenseElementsAttr attr;
-            auto elem_type = DataTypeToMlirType(builder, DataType(arg_proto.type()));
-            SmallVector<int64_t, 4> shape;
-            for (int dim = 0; dim < constant_tensor.dims(); ++dim) {
-                shape.push_back(constant_tensor.dim_size(dim));
-            }
-            auto shaped_type = mlir::RankedTensorType::get(shape, elem_type);
-            if (arg_proto.type() == DataType::DT_FLOAT) {
-                VLOG(0) << "Warning: usually there shouldn't be float const inputs";
-                auto data = constant_tensor.flat<float>();
-                attr = DenseElementsAttr::get(shaped_type, llvm::ArrayRef(data.data(), data.size()));
-            } else if (arg_proto.type() == DataType::DT_INT64) {
-                auto data = constant_tensor.flat<int64>();
-                attr = DenseElementsAttr::get(shaped_type, llvm::ArrayRef(data.data(), data.size()));
-            } else if (arg_proto.type() == DataType::DT_INT32) {
-                auto data = constant_tensor.flat<int32>();
-                attr = DenseElementsAttr::get(shaped_type, llvm::ArrayRef(data.data(), data.size()));
-            } else if (arg_proto.type() == DataType::DT_BOOL) {
-                auto data = constant_tensor.flat<bool>();
-                attr = DenseElementsAttr::get(shaped_type, llvm::ArrayRef(data.data(), data.size()));
-            } else {
-                return tensorflow::errors::Internal("Mlir datatype not implemented for constant input");
-            }
-            attributes.push_back(builder.getNamedAttr(attr_name, attr));
+            TF_RETURN_IF_ERROR(ProcessConstantInput(builder, attributes, arg_proto, i));
         } else if (arg_proto.kind_v2() == ArgumentKind::kFixedShaped) {
-            auto attr_name = (mlir::npu_hlo::kHloInputShapeAttr + ("_" + llvm::Twine(i))).str();
-            SmallVector<int64_t, 4> input_shape;
-            tensorflow::TensorShapeProto shape_proto;
-            shape_proto.ParseFromString(arg_proto.shape());
-            for (int dim = 0; dim < shape_proto.dim_size(); ++dim) {
-                input_shape.push_back(shape_proto.dim(dim).size());
-            }
-            auto elem_tp = DataTypeToMlirType(builder, DataType(arg_proto.type()));
-            auto type = RankedTensorType::get(input_shape, elem_tp);
-            // a DenseElementsAttr with Splat zero value is to represent the
-            // shape/dtype
-            mlir::Attribute attr;
-            if (elem_tp.isSignlessInteger()) {
-                attr = DenseElementsAttr::get(type, mlir::IntegerAttr::get(elem_tp, 0));
-            } else {
-                attr = DenseElementsAttr::get(type, mlir::FloatAttr::get(elem_tp, 0));
-            }
-            attributes.push_back(builder.getNamedAttr(attr_name, attr));
+            TF_RETURN_IF_ERROR(ProcessFixedShapedInput(builder, attributes, arg_proto, i));
         }
     }
+    return absl::OkStatus();
+}
+
+Status AppendIOAttr(mlir::ModuleOp module, const GraphImportConfig& specs, const CompilerInput& input,
+                    const std::string& default_device)
+{
+    auto main_func = module.lookupSymbol<mlir::func::FuncOp>("main");
+    auto dict_attr = main_func->getAttrOfType<mlir::DictionaryAttr>("tf.entry_function");
+    if (!dict_attr) {
+        return errors::Internal("main_func must has tf.entry_function attr");
+    }
+    SmallVector<mlir::NamedAttribute, 2> attributes;
+    for (auto attr : dict_attr) {
+        attributes.push_back(attr);
+    }
+    mlir::OpBuilder builder(module);
+
+    // 设置输入输出设备放置信息
+    TF_RETURN_IF_ERROR(SetupIOPlacements(builder, attributes, specs, input, default_device));
+
+    // 处理所有输入信息
+    TF_RETURN_IF_ERROR(ProcessInputsInfo(builder, attributes, specs, input));
 
     main_func->setAttr("tf.entry_function", builder.getDictionaryAttr(attributes));
     return absl::OkStatus();
