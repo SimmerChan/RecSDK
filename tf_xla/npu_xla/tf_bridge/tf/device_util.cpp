@@ -141,12 +141,12 @@ absl::StatusOr<absl::optional<jit::DeviceId>> PickDeviceForXlaImpl(const jit::De
 
     // Returns 'true' if d0 and d1 are conflicting devices. If they are
     // compatible, update d1 with a more specific one.
-    // TODO(sanjoy): Cache DeviceNameUtils::ParsedName inside device_info_cache.
     const auto is_multiple_devices = [&](const jit::DeviceId& d0, absl::optional<jit::DeviceId>* d1) -> bool {
         const absl::string_view name0 = device_info_cache.GetNameFor(d0);
         const absl::string_view name1 = device_info_cache.GetNameFor(d1->value());
 
-        DeviceNameUtils::ParsedName parsed0, parsed1;
+        DeviceNameUtils::ParsedName parsed0;
+        DeviceNameUtils::ParsedName parsed1;
         if (!DeviceNameUtils::ParseFullName(name0, &parsed0) || !DeviceNameUtils::ParseFullName(name1, &parsed1) ||
             !DeviceNameUtils::AreCompatibleDevNames(parsed0, parsed1)) {
             return true;
@@ -246,7 +246,7 @@ absl::StatusOr<jit::DeviceId> PickDeviceForXla(const jit::DeviceInfoCache& devic
     TF_ASSIGN_OR_RETURN(
         absl::optional<jit::DeviceId> device_id,
         PickDeviceForXlaImpl(device_info_cache, devices, allow_mixing_unknown_and_cpu, allow_mixing_gpu_and_cpu = false,
-                             /*failure_to_pick_is_error=*/true));
+                             true));
     return *device_id;
 }
 
@@ -256,7 +256,7 @@ absl::StatusOr<absl::optional<jit::DeviceId>> MaybePickDeviceForXla(const jit::D
                                                                     bool allow_mixing_gpu_and_cpu)
 {
     return PickDeviceForXlaImpl(device_info_cache, devices, allow_mixing_unknown_and_cpu, allow_mixing_gpu_and_cpu,
-                                /*failure_to_pick_is_error=*/false);
+                                false);
 }
 }  // namespace npu_xla
 }  // namespace tensorflow

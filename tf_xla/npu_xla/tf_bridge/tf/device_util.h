@@ -91,8 +91,6 @@ public:
     // Calls `func` on each DeviceId in the set.  Stops iterating early if `func`
     // return false.
     //
-    // TODO(sanjoy): Change this to take a typed std::function if that's
-    // performance neutral.
     template <typename FnTy>
     void ForEach(FnTy func) const
     {
@@ -204,26 +202,18 @@ Status DeviceNameToDeviceType(const string& device, DeviceType* device_type);
 // executable by XLA, whereas a cluster that contains operations placed on the
 // CPU and also operations placed on the GPU will be compiled into a GPU
 // executable.
-//
 // Returns a non-OK Status if no unambiguous choice of device exists.
-//
 // We choose the device using the following rules:
-//
 //  - It is an error for `device_names` to contain more than one device of the
 //    same type.
 //  - GPU is preferred over CPU.
 //  - If `allow_mixing_unknown_and_cpu` is true then unknown devices are
 //    preferred over CPU.
 //  - XLA devices count as "unrecognized devices".
-//
 // This set of rules above implicitly assume that XLA:GPU can compile all
 // operations in the cluster that XLA:CPU can compile, and if
 // `allow_mixing_unknown_and_cpu` then the unrecognized device can also compile
 // all operations in the cluster that XLA:CPU can compile.
-//
-// We provide the `allow_mixing_unknown_and_cpu` knob so that we can do both of
-// the following things:
-//
 // - Let MarkForCompilationPass not inject CPU-placed operations into clusters
 //   that will run on unknown devices (because the unknown XLA backend may not
 //   support every operation supported by CPU).
@@ -238,7 +228,6 @@ absl::StatusOr<jit::DeviceId> PickDeviceForXla(const jit::DeviceInfoCache& devic
 
 // This is like `PickDeviceForXla` except that it returns nullopt (instead of a
 // non-OK Status) if no unambiguous choice of device exists.
-//
 // We return a failing Status for errors unrelated to the device choice
 // algorithm itself.
 absl::StatusOr<absl::optional<jit::DeviceId>> MaybePickDeviceForXla(const jit::DeviceInfoCache& device_info_cache,
