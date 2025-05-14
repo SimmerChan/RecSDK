@@ -49,7 +49,7 @@ template<typename T>
 bool CheckPtrIsNull(T ptr, const std::string& ptrName)
 {
     if (ptr == nullptr) {
-        printf("[ERROR] Failed to get %s!\n", ptrName);
+        printf("[ERROR] Failed to get %s!\n", ptrName.c_str());
         return true;
     }
     return false;
@@ -94,19 +94,19 @@ static ge::graphStatus ShapeTilingFunc(gert::TilingContext* context,
         indicesDim0 = context->GetInputShape(HASH_INDICES_INDEX)->GetStorageShape().GetDim(0);
     }
     
-    int64_t poolMode = *context->GetAttrs()->GetInt(POOL_MODE_INDEX);
+    int64_t poolMode = *attrs->GetInt(POOL_MODE_INDEX);
     // bag output shape[batchsize, totalD]
     int64_t outDim0 = (offsetsDim0 - 1) / weightsOffsetsDim0;
-    int64_t outDim1 = *context->GetAttrs()->GetInt(0);
+    int64_t outDim1 = *attrs->GetInt(0);
     // no bag output shape [indicesNum, maxD]
     if (poolMode == POOL_MODE_NOBAG) {
         outDim0 = indicesDim0;
-        outDim1 = *context->GetAttrs()->GetInt(MAX_D_INDEX);
+        outDim1 = *attrs->GetInt(MAX_D_INDEX);
     }
 
     int64_t bytesOfDataType = sizeof(float);
     int64_t offsetDataType = DATA_TYPE_INT64;
-    int64_t maxD = *context->GetAttrs()->GetInt(MAX_D_INDEX);
+    int64_t maxD = *attrs->GetInt(MAX_D_INDEX);
     
     tilingData.set_maxD(maxD);
     tilingData.set_poolMode(poolMode);
