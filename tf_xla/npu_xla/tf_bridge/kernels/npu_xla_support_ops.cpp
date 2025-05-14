@@ -27,7 +27,7 @@ class NpuDummyOp : public OpKernel {
 public:
     explicit NpuDummyOp(OpKernelConstruction* ctx) : OpKernel(ctx), name_(dummyOp)
     {
-        VLOG_LEVEL_1 << "Construct NPU dummy op: " << name_;
+        VLOG(VLOG_LEVEL_1) << "Construct NPU dummy op: " << name_;
     }
 
     void Compute(OpKernelContext* ctx) override
