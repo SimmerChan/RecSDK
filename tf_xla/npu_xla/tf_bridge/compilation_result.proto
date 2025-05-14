@@ -1,0 +1,38 @@
+syntax = "proto3";
+package tensorflow.npu_xla;
+
+message CompilationResultProto {
+  string compiled_model_path = 1;
+}
+
+message TypeRankPair {
+  int32 type = 1;
+  int32 rank = 2;
+}
+
+message TypeShapePair {
+  int32 type = 1;
+  bytes shape = 2;
+}
+
+message EntrySignature {
+  string name = 1;
+
+  repeated TypeRankPair arg_ranks = 2;
+
+  repeated TypeShapePair arg_types = 3;
+
+  repeated int32 host_args = 4;
+
+  repeated bytes arg_values = 5;
+}
+
+message CompilationCacheEntry {
+  EntrySignature sig = 1;
+
+  string filename = 2;
+}
+
+message CompilationCacheResult {
+  repeated CompilationCacheEntry entries = 1;
+}
