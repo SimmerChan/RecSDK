@@ -68,7 +68,7 @@ Status Executable::Run(OpKernelContext* ctx)
         Tensor* out = nullptr;
         TF_RETURN_IF_ERROR(ctx->allocate_output(i, outputShape, &out));
 
-        AclAdaptor& aclIns = AclAdaptor::GetInstance(0);  // TODO: get device id
+        AclAdaptor& aclIns = AclAdaptor::GetInstance(0);
         if (!aclIns.MemcpyHToD(out->data(), dataSize, dataPtr, dataSize)) {
             return absl::InternalError("MemcpyHToD failed");
         }

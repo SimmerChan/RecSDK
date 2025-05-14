@@ -36,7 +36,6 @@ REGISTER_OP("NpuXlaLaunch")
     .Attr("Tdeviceresults: list(type) >= 0")
     .Attr("mlir_function: func")
     // XLA random-number generation ops are stateful.
-    // TODO(phawkins): create stateful and non-stateful variants of XlaLaunch.
     .SetIsStateful()
     .Doc(R"(NpuXlaLaunchOp supports dynamic shape JIT. NpuXlaLaunchOp uses MLIR as the backend.)");
 }
