@@ -20,8 +20,8 @@ import shutil
 import time
 import warnings
 from glob import glob
-
 from typing import List, Tuple
+
 from sklearn.metrics import roc_auc_score
 import numpy as np
 from npu_bridge.npu_init import *

@@ -163,8 +163,6 @@ if __name__ == '__main__':
     hot_zhanbi = args.chongfudu
     hot_zhanbi = float(hot_zhanbi) / 10
 
-    #    if hot_zhanbi == 0:
-
     config = {
         "data_path": "./data1/data" + str(hot_zhanbi) + "_" + str(float(args.new_key)) + "/",
         "train_file_pattern": "tf",

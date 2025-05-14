@@ -27,7 +27,7 @@ logging.getLogger().setLevel(logging.INFO)
 np.random.seed(0)
 
 LINE_PER_SAMPLE = 10000
-samples_num = 10000 * 800  #
+SAMPLES_NUM = 10000 * 800 
 sparse_feat_list = ['feat_ids']
 # todo
 sparse_feat_len = [100]
@@ -87,7 +87,7 @@ def gen_tfrecords(tf_path):
         line_cnt += 1
         sample_cnt += LINE_PER_SAMPLE
         logging.info(f">>>>>>>>>>>>count {sample_cnt} end.")
-        if sample_cnt == samples_num:
+        if sample_cnt == SAMPLES_NUM:
             break
         if line_cnt == line_per_file:
             file_cnt += 1

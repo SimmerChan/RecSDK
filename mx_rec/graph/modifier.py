@@ -20,7 +20,6 @@ from typing import List, Dict, Tuple, DefaultDict, Union
 from collections import defaultdict
 from collections.abc import Callable
 
-import mxrec_pybind
 import tensorflow as tf
 from tensorflow import Operation, Tensor, Graph
 from tensorflow.core.framework.graph_pb2 import GraphDef
@@ -56,6 +55,7 @@ from mx_rec.util.tf_version_adapter import npu_ops
 from mx_rec.validator.validator import para_checker_decorator, ClassValidator
 from mx_rec.util.communication.hccl_ops import get_rank_id, get_device_id
 host_pipeline_ops = import_host_pipeline_ops()
+import mxrec_pybind
 
 
 class GraphModifierHook(tf.estimator.SessionRunHook):

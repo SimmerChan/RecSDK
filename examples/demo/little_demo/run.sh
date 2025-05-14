@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2025. Huawei Technologies Co.,Ltd. All rights reserved.
+# Copyright 2024. Huawei Technologies Co.,Ltd. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -104,8 +104,6 @@ export USE_PADDING_KEYS=0       # 0：不使用padding keys；1：使用padding 
 export KEY_PROCESS_THREAD_NUM=6 #default 6, max 10
 export FAST_UNIQUE=0   #if use fast unique
 export MGMT_HBM_TASK_MODE=0 #if async h2d (get and send tensors)
-############## DUMP CANN计算图 ##############
-
 ############## 精度对齐相关 ##############
 export PRECISION_CHECK=0
 if [ "$PRECISION_CHECK" == 1 ]; then

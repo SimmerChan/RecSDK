@@ -142,8 +142,6 @@ if __name__ == '__main__':
     custom_op.parameter_map["op_precision_mode"].s = tf.compat.as_bytes("op_impl_mode.ini")
     custom_op.parameter_map["graph_memory_max_size"].s = tf.compat.as_bytes(str(30000000000))
     custom_op.parameter_map["variable_memory_max_size"].s = tf.compat.as_bytes(str(30000000000))
-    #    custom_op.parameter_map["profiling_options"].s = tf.compat.as_bytes(
-    #         '{"output":"/home","training_trace":"on","task_trace":"on","fp_point":"","bp_point":"","aicpu":"on","aic_metrics":"PipeUtilization"}')
 
     global_start_time = time.time()
     tf.set_random_seed(10086)
@@ -154,8 +152,6 @@ if __name__ == '__main__':
 
     hot_zhanbi = args.chongfudu
     hot_zhanbi = float(hot_zhanbi) / 10
-
-    # if hot_zhanbi == 0:
 
     config = {
         "data_path": "./data1/data" + str(hot_zhanbi) + "_" + str(float(args.new_key)) + "/",
@@ -234,7 +230,7 @@ if __name__ == '__main__':
         while not train_finished:
             try:
                 current_steps += 1
-                logging.info("current step =", current_steps)
+                logging.info("current step =%d", current_steps)
                 #
                 run_dict = {
                     "adam": model.op,
