@@ -45,23 +45,42 @@ constexpr int MAX_D_INDEX = 1;
 constexpr int EC_KEY = 1;
 constexpr int EBC_KEY = 2;
 
+#ifndef OPS_LOGD_IF_NULL
+#define OPS_LOGD_IF_NULL(PTR, EXPR)                                     \
+    if (__builtin_expect((PTR) == nullptr, 0)) {                        \
+        printf("[ERROR] %s is nullptr!", #PTR);                                 \
+        EXPR;                                                           \
+    }
+#endif
+
 static ge::graphStatus ShapeTilingFunc(gert::TilingContext* context,
                                        SplitEmbeddingCodegenForwardUnweightedTilingData& tilingData)
 {
+    OPS_LOGD_IF_NULL(context->GetInputShape(DEV_WEIGHTS_INDEX), return ge::GRAPH_FAILED);
     int64_t devWeightsDim0 = context->GetInputShape(DEV_WEIGHTS_INDEX)->GetStorageShape().GetDim(0);
+
+    OPS_LOGD_IF_NULL(context->GetInputShape(WEIGHTS_OFFSETS_INDEX), return ge::GRAPH_FAILED);
     int64_t weightsOffsetsDim0 = context->GetInputShape(WEIGHTS_OFFSETS_INDEX)->GetStorageShape().GetDim(0);
+
+    OPS_LOGD_IF_NULL(context->GetInputShape(D_OFFSETS_INDEX), return ge::GRAPH_FAILED);
     int64_t dOffsetsDim0 = context->GetInputShape(D_OFFSETS_INDEX)->GetStorageShape().GetDim(0);
+
+    OPS_LOGD_IF_NULL(context->GetInputShape(INDICES_INDEX), return ge::GRAPH_FAILED);
     int64_t indicesDim0 = context->GetInputShape(INDICES_INDEX)->GetStorageShape().GetDim(0);
+
+    OPS_LOGD_IF_NULL(context->GetInputShape(OFFSETS_INDEX), return ge::GRAPH_FAILED);
     int64_t offsetsDim0 = context->GetInputShape(OFFSETS_INDEX)->GetStorageShape().GetDim(0);
-    int64_t poolMode = *context->GetAttrs()->GetInt(POOL_MODE_INDEX);
+
+    auto attrs = context->GetAttrs();
+    OPS_LOGD_IF_NULL(attrs, return ge::GRAPH_FAILED);
 
     if (weightsOffsetsDim0 == 0) {
         printf("[ERROR] Invalid weightsOffsets shape!\n");
-        return ge::FAILED;
+        return ge::GRAPH_FAILED;
     }
     if (dOffsetsDim0 <= 1) {
         printf("[ERROR] Invalid dOffsets shape!\n");
-        return ge::FAILED;
+        return ge::GRAPH_FAILED;
     }
 
     auto hashIndices = context->GetOptionalInputTensor(HASH_INDICES_INDEX);
@@ -69,9 +88,11 @@ static ge::graphStatus ShapeTilingFunc(gert::TilingContext* context,
         tilingData.set_enableHash(0);
     } else {
         tilingData.set_enableHash(1);
+        OPS_LOGD_IF_NULL(context->GetInputShape(HASH_INDICES_INDEX), return ge::GRAPH_FAILED);
         indicesDim0 = context->GetInputShape(HASH_INDICES_INDEX)->GetStorageShape().GetDim(0);
     }
-
+    
+    int64_t poolMode = *context->GetAttrs()->GetInt(POOL_MODE_INDEX);
     // bag output shape[batchsize, totalD]
     int64_t outDim0 = (offsetsDim0 - 1) / weightsOffsetsDim0;
     int64_t outDim1 = *context->GetAttrs()->GetInt(0);
@@ -83,7 +104,10 @@ static ge::graphStatus ShapeTilingFunc(gert::TilingContext* context,
 
     int64_t bytesOfDataType = sizeof(float);
     int64_t offsetDataType = DATA_TYPE_INT64;
-
+    int64_t maxD = *context->GetAttrs()->GetInt(MAX_D_INDEX);
+    
+    tilingData.set_maxD(maxD);
+    tilingData.set_poolMode(poolMode);
     tilingData.set_devWeightsDim0(devWeightsDim0);
     tilingData.set_weightsOffsetsDim0(weightsOffsetsDim0);
     tilingData.set_dOffsetsDim0(dOffsetsDim0);
@@ -99,23 +123,23 @@ static ge::graphStatus ShapeTilingFunc(gert::TilingContext* context,
 
 static ge::graphStatus TilingFunc(gert::TilingContext* context)
 {
+    OPS_LOGD_IF_NULL(context, return ge::GRAPH_FAILED);
     auto ascnedPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
     size_t* currentWorkspace = context->GetWorkspaceSizes(1);
     size_t systemWorkspacesSize = ascnedPlatform.GetLibApiWorkSpaceSize();
     currentWorkspace[0] = systemWorkspacesSize;
 
     SplitEmbeddingCodegenForwardUnweightedTilingData tiling;
-
     // Shape and dType
     if (ShapeTilingFunc(context, tiling) != ge::GRAPH_SUCCESS) {
-        return ge::FAILED;
+        return ge::GRAPH_FAILED;
     }
 
     // Tiling
     size_t coreNum = ascnedPlatform.GetCoreNumAiv();
     if (coreNum == 0) {
         printf("[ERROR] Core num is 0!\n");
-        return ge::FAILED;
+        return ge::GRAPH_FAILED;
     }
 
     int64_t splitBaseLen = (tiling.get_offsetsDim0() - 1) / coreNum;
@@ -129,19 +153,11 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     ubCanUsed = ubCanUsed - RESERVER_UB_SIZE;
     tiling.set_ubCanUsed(ubCanUsed);
 
-    int64_t poolMode = *context->GetAttrs()->GetInt(POOL_MODE_INDEX);
-    int64_t maxD = *context->GetAttrs()->GetInt(MAX_D_INDEX);
-
-    tiling.set_poolMode(poolMode);
-    tiling.set_maxD(maxD);
-
     context->SetBlockDim(coreNum);
     context->SetNeedAtomic(true);
     auto tilingData = context->GetRawTilingData();
-    if (tilingData == nullptr) {
-        printf("[ERROR] Context GetRawTilingData is nullptr\n");
-        return ge::GRAPH_FAILED;
-    }
+    OPS_LOGD_IF_NULL(tilingData, return ge::GRAPH_FAILED);
+
     tiling.SaveToBuffer(tilingData->GetData(), tilingData->GetCapacity());
     tilingData->SetDataSize(tiling.GetDataSize());
 
@@ -152,8 +168,12 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
 namespace ge {
 static ge::graphStatus InferShape(gert::InferShapeContext* context)
 {
+    OPS_LOGD_IF_NULL(context, return ge::GRAPH_FAILED);
     const gert::Shape* x1_shape = context->GetInputShape(0);
+    OPS_LOGD_IF_NULL(x1_shape, return ge::GRAPH_FAILED);
     gert::Shape* y_shape = context->GetOutputShape(0);
+    OPS_LOGD_IF_NULL(y_shape, return ge::GRAPH_FAILED);
+
     *y_shape = *x1_shape;
     return GRAPH_SUCCESS;
 }
