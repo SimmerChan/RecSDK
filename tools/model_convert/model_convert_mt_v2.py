@@ -44,6 +44,7 @@ ddr_prefix_list = ["HashTable", "DDR"]
 MIN_FILE_SIZE = 1
 MAX_FILE_SIZE = 1024 * 1024 * 1024 * 1024
 
+
 class DataAttr(Enum):
     SHAPE = "shape"
     DARATYPE = "data_type"

@@ -21,10 +21,11 @@
 from __future__ import absolute_import
 import os
 import json
-import psutil
 import logging
+import psutil
 
 logging.getLogger().setLevel(logging.INFO)
+
 
 def get_path():
     """

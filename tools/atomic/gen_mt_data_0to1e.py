@@ -46,6 +46,7 @@ tfpath = "/home/insert/data"+str(hot_zhanbi)+"/tf"
 
 part1 = np.array(random.sample(range(0, 2), 1)) 
 
+
 def write_records(writer, line_cnt, file_cnt):
     features = {
         'label': tf.train.Feature(
@@ -57,10 +58,16 @@ def write_records(writer, line_cnt, file_cnt):
         np.random.seed(count)
         # global num
         logging.info("===sparse=%s", sparse_feat)
-        part2=np.array(random.sample(range(0 + 100 * LINE_PER_SAMPLE * (10 * file_cnt + line_cnt), 100 * LINE_PER_SAMPLE * (10 * file_cnt + line_cnt+1)), int(100 * LINE_PER_SAMPLE * (1- hot_zhanbi))))
+        part2 = np.array(random.sample(
+            range(0 + 100 * LINE_PER_SAMPLE * (10 * file_cnt + line_cnt), 
+                  100 * LINE_PER_SAMPLE * (10 * file_cnt + line_cnt + 1)), 
+            int(100 * LINE_PER_SAMPLE * (1 - hot_zhanbi))
+        ))
         features[sparse_feat] = tf.train.Feature(
             int64_list=tf.train.Int64List(
-                value=part1.astype(np.int64).tolist() * int(100 * LINE_PER_SAMPLE * hot_zhanbi) + part2.astype(np.int64).tolist())
+                value=part1.astype(np.int64).tolist() * int(100 * LINE_PER_SAMPLE * hot_zhanbi) + 
+                      part2.astype(np.int64).tolist()
+            )
         )
 
         count += 1
