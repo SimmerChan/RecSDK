@@ -32,6 +32,7 @@ See the License for the specific language governing permissions and
 #include "tf_bridge/common.h"
 #include "tf_bridge/compilation_result.pb.h"
 #include "tf_bridge/tf/errors.h"
+#include "tf_bridge/tf/log.h"
 #include "tf_bridge/tf/subprocess.h"
 #include "tf_bridge/utils/common_utils.h"
 
@@ -159,7 +160,7 @@ Status PersistentCompliationCache::DumpToFileLocked()
     if (!is_cache_dirty_)
         return absl::OkStatus();
 
-    VLOG(2) << "Dump compilation cache to: " << cache_dump_path_;
+    VLOG(VLOG_LEVEL_2) << "Dump compilation cache to: " << cache_dump_path_;
     CompilationCacheResult result;
     Status s = tensorflow::Env::Default()->RecursivelyCreateDir(cache_dump_path_);
     if (!s.ok() && !errors::IsAlreadyExists(s)) {
@@ -207,7 +208,7 @@ Status PersistentCompliationCache::LoadFromFile()
     CompilationCacheResult result;
     // Early return if the cache file is not created before.
     if (!tensorflow::Env::Default()->FileExists(getCacheTableFilePath()).ok()) {
-        VLOG(2) << "Skip load compilation cache due to no " << getCacheTableFilePath();
+        VLOG(VLOG_LEVEL_2) << "Skip load compilation cache due to no " << getCacheTableFilePath();
         return absl::OkStatus();
     }
     if (!ReadBinaryProto(tensorflow::Env::Default(), getCacheTableFilePath(), &result).ok()) {
@@ -238,7 +239,7 @@ Status PersistentCompliationCache::LoadFromFile()
             sig.arg_values.emplace_back();
             TF_RET_CHECK(sig.arg_values.back().FromProto(tensor_proto));
         }
-        VLOG(2) << "loading signature: " << CompilationCache::SignatureDebugString(sig);
+        VLOG(VLOG_LEVEL_2) << "loading signature: " << CompilationCache::SignatureDebugString(sig);
         cache_[sig] = result.entries(i).filename();
     }
     LOG(INFO) << "Load compilation cache success from " << cache_dump_path_ << " with " << result.entries_size()
@@ -396,10 +397,10 @@ Status CompilationCache::CompileImpl(std::unique_ptr<CompilerInput> input, const
                                      OpKernelContext* ctx, Executable** executable)
 {
     Signature signature;
-    TF_RETURN_IF_ERROR(BuildSignature(function, constant_args, fixed_shape_args, host_args, variable_args, ctx,
-                                      &signature,
-                                      /*is_dynamic*/ false));
-    VLOG(2) << "Compile function " << function.name() << " with signature " << SignatureDebugString(signature);
+    TF_RETURN_IF_ERROR(
+        BuildSignature(function, constant_args, fixed_shape_args, host_args, variable_args, ctx, &signature, false));
+    VLOG(VLOG_LEVEL_2) << "Compile function " << function.name() << " with signature "
+                       << SignatureDebugString(signature);
 
     Entry* entry = nullptr;
     bool new_entry = false;
@@ -419,8 +420,8 @@ Status CompilationCache::CompileImpl(std::unique_ptr<CompilerInput> input, const
 
     mutex_lock l(entry->mu);
     if (!entry->compiled) {
-        VLOG(2) << "Compile missing cache function " << function.name() << " with signature "
-                << SignatureDebugString(signature);
+        VLOG(VLOG_LEVEL_2) << "Compile missing cache function " << function.name() << " with signature "
+                           << SignatureDebugString(signature);
         entry->compiled = true;
         bool hit_cache = false;
 
@@ -441,8 +442,7 @@ Status CompilationCache::CompileImpl(std::unique_ptr<CompilerInput> input, const
 
             std::string compile_dir;
             TF_RETURN_IF_ERROR(CreateCompilationPath(&compile_dir));
-            entry->compilation_status = CompileFunction(function.name(), tf_mlir_bin_path_, compile_dir, *input,
-                                                        /*remove_after_compile*/ false);
+            entry->compilation_status = CompileFunction(function.name(), tf_mlir_bin_path_, compile_dir, *input, false);
             TF_RETURN_IF_ERROR(entry->compilation_status);
             result_proto.set_compiled_model_path(compile_dir);
         }
@@ -453,8 +453,7 @@ Status CompilationCache::CompileImpl(std::unique_ptr<CompilerInput> input, const
             auto& disk_cache = PersistentCompliationCache::Global();
             auto filename = disk_cache.getNextUniqueNameOfCompiledResultProto();
             TF_RETURN_IF_ERROR(entry->executable->DumpToFile(filename));
-            disk_cache.update(signature, filename,
-                              /*override*/ false, /*write_through*/ true);
+            disk_cache.update(signature, filename, false, true);
         }
     }
 
@@ -468,7 +467,6 @@ Status CompilationCache::CompileImpl(std::unique_ptr<CompilerInput> input, const
 // Currently, we use a TF function to represent a compilable subgraph. TF
 // function can be arbitrarily nested both using explict way (e.g. a call node)
 // and implicit way (e.g. functional control flow ops).
-//
 // In order to compile a function, we need to dump all related functions (the
 // closure of the entry function). Ideally we should only dump the functions
 // that are called directly or indirectly by the entry function. Thus we prune
@@ -541,9 +539,8 @@ Status PrepareCompilerInput(const NameAttrList& function, const std::map<int, Te
                 } else if (host_args.count(input_num)) {
                     arg->set_kind_v2(ArgumentKind::kHostArgs);
                 } else {
-                    // arg->set_kind_v2(ArgumentKind::kParameter);
-                    // TODO only static shape for now
-                    // TODO add dynamic shape support
+                    // only static shape for now
+                    // add dynamic shape support
                     arg->set_kind_v2(ArgumentKind::kFixedShaped);
                 }
             } else {
@@ -613,9 +610,9 @@ Status CompileFunction(const std::string& func_name, const std::string& tf_mlir_
     });
     TF_RETURN_IF_ERROR(WriteBinaryProto(tensorflow::Env::Default(), input_file_name, input));
 
-    if (VLOG_IS_ON(2)) {
+    if (VLOG_IS_ON(VLOG_LEVEL_2)) {
         std::string dbg_input_file_name = input_file_name + ".input_txt";
-        VLOG(2) << "Writing CompilerInput to " << dbg_input_file_name;
+        VLOG(VLOG_LEVEL_2) << "Writing CompilerInput to " << dbg_input_file_name;
         TF_RETURN_IF_ERROR(WriteTextProto(tensorflow::Env::Default(), dbg_input_file_name, input));
     }
 
@@ -633,8 +630,7 @@ Status CompileFunction(const std::string& func_name, const std::string& tf_mlir_
     }
     string stdout_output;
     string stderr_output;
-    int exit_status = tf_mlir_bin.Communicate(
-        /*stdin_input=*/nullptr, &stdout_output, &stderr_output);
+    int exit_status = tf_mlir_bin.Communicate(nullptr, &stdout_output, &stderr_output);
     std::chrono::duration<double> elapsed_sec = std::chrono::steady_clock::now() - start;
 
     std::stringstream ss;
@@ -645,8 +641,8 @@ Status CompileFunction(const std::string& func_name, const std::string& tf_mlir_
        << "============= stderr ===============\n"
        << stderr_output << "\n\n"
        << "====================================";
-    if (VLOG_IS_ON(2)) {
-        VLOG(2) << ss.str();
+    if (VLOG_IS_ON(VLOG_LEVEL_2)) {
+        VLOG(VLOG_LEVEL_2) << ss.str();
     }
 
     if (exit_status != 0) {

@@ -30,6 +30,7 @@ See the License for the specific language governing permissions and
 #include "tf_bridge/executable/executable.h"
 #include "tf_bridge/kernels/compilation_cache.h"
 #include "tf_bridge/tf/errors.h"
+#include "tf_bridge/tf/log.h"
 #include "tf_mlir/compiler_input.pb.h"
 
 namespace tensorflow {
@@ -142,7 +143,7 @@ NpuXlaLaunchOp::NpuXlaLaunchOp(OpKernelConstruction* ctx)
 
 void NpuXlaLaunchOp::Compute(OpKernelContext* ctx)
 {
-    VLOG(2) << "NpuXlaLaunchOp::Compute: " << name();
+    VLOG(VLOG_LEVEL_2) << "NpuXlaLaunchOp::Compute: " << name();
     OP_REQUIRES_OK(ctx, CompileAndRunMlir(ctx));
 }
 
@@ -191,7 +192,7 @@ Status NpuXlaLaunchOp::CompileAndRunMlir(OpKernelContext* ctx)
     } else {
         return errors::Internal("NPU_XLA unsupported device type: ", device_type_);
     }
-    // TODO get ordinal
+    // get ordinal
     options.set_device_ordinal(0);
     options.set_graph_def_version(flib_def->graph_def_version());
     options.set_allow_cpu_custom_calls(false);
