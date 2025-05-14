@@ -3,7 +3,7 @@
 
 ## 说明
 本项目是基于开源项目TrochRec的1.1.0版本开发的hybrid hash表,（参考网站：https://github.com/pytorch/torchrec）为助力开发者快速应用TorchRec框架并适配到NPU进行模型训练和推理,
-Python版本要求 >= 3.7。
+Python版本要求 >= 3.11。
 ## 使用方法
 1.下载whl包并安装
 ```python
@@ -13,11 +13,11 @@ pip3 install -r requirements.txt
 ```
 2.源码安装
 ```python
-git clone https://gitee.com/ascend/torchrec.git
-cd torchrec/contrib/hybrid_torchrec
+git clone https://gitee.com/ascend/RecSDK.git
+cd RecSDK/torchrec/hybrid_torchrec
 bash build_whl.sh
 cd ../../../
-pip3 install torchrec/contrib/hybrid_torchrec/dist/hybrid_torchrec-1.1.0+npu-*.whl
+pip3 install RecSDK/torchrec/hybrid_torchrec/dist/hybrid_torchrec-1.1.0+npu-*.whl
 ```
 如果pip3 uninstall hybrid_torchrec提示file找不到，请换一个执行路径，不要在子目录有hybrid_torchrec的路径下执行该命令
 

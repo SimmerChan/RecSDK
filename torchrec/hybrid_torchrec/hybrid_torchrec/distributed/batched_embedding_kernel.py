@@ -186,11 +186,29 @@ class HybridSplitTableBatchedEmbeddingBagsCodegen(
             self.iter = self.iter.cpu()
         self.iter[0] += 1
 
+        momentum2 = invokers.lookup_args.Momentum(
+            dev=self.momentum2_dev,
+            host=self.momentum2_host,
+            uvm=self.momentum2_uvm,
+            offsets=self.momentum2_offsets,
+            placements=self.momentum2_placements,
+        )
         if self.optimizer == OptimType.EXACT_ROWWISE_WEIGHTED_ADAGRAD:
             return NotImplemented
 
         if self.optimizer == OptimType.ADAM:
-            return NotImplemented
+            return self._report_io_size_count(
+                "fwd_output",
+                invokers.lookup_adam.invoke(
+                    common_args,
+                    self.optimizer_args,
+                    momentum1,
+                    momentum2,
+                    # pyre-fixme[6]: Expected `int` for 5th param but got `Union[float,
+                    #  int]`.
+                    self.iter.item(),
+                ),
+            )
 
         if self.optimizer == OptimType.PARTIAL_ROWWISE_ADAM:
             return NotImplemented

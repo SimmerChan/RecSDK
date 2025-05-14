@@ -122,6 +122,7 @@ def bucketize_kjt_before_all2all(
     )
     return (
         KeyedJaggedTensor(
+            # duplicate keys will be resolved by AllToAll
             keys=_fx_wrap_gen_list_n_times(kjt.keys(), num_buckets),
             values=bucketized_indices,
             weights=pos if bucketize_pos else bucketized_weights,
