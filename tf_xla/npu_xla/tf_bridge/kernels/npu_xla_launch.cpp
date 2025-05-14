@@ -24,6 +24,7 @@ See the License for the specific language governing permissions and
 // limitations under the License.
 
 #include "tf_bridge/kernels/npu_xla_launch.h"
+#include <memory>
 
 #include "adaptor/acl_adaptor.h"
 #include "common_hdrs/types.h"
@@ -110,10 +111,10 @@ static std::vector<int> ResourcesVector(OpKernelConstruction* ctx)
     DataTypeVector arg_types;
     OP_REQUIRES_OK_RETURN(ctx, std::vector<int>(), ctx->GetAttr("Targs", &arg_types));
 
-    int num_resources = -1;
-    OP_REQUIRES_OK_RETURN(ctx, std::vector<int>(), ctx->GetAttr("Nresources", &num_resources));
+    int numResources = -1;
+    OP_REQUIRES_OK_RETURN(ctx, std::vector<int>(), ctx->GetAttr("Nresources", &numResources));
 
-    std::vector<int> resources(num_resources);
+    std::vector<int> resources(numResources);
     std::iota(resources.begin(), resources.end(),
               constant_types.size() + fixed_shaped_types.size() + host_arg_types.size() + arg_types.size());
     return resources;
@@ -127,6 +128,34 @@ static NameAttrList FunctionAttr(OpKernelConstruction* ctx, const char* const at
 }
 
 #undef OP_REQUIRES_OK_RETURN
+
+Status PrepareOptions(OpKernelContext* ctx, std::unique_ptr<CompileInput>& input_ptr)
+{
+    auto& options = *(input_ptr->mutable_options());
+    auto flib_def = ctx->function_library();
+    if (device_type_ == DEVICE_NPU) {
+        *options.mutable_device_type() = "MLIR_NPU";
+    } else {
+        return errors::Internal("NPU_XLA unsupported device type: ", device_type_);
+    }
+    // get ordinal
+    options.set_device_ordinal(0);
+    options.set_graph_def_version(flib_def->graph_def_version());
+    options.set_allow_cpu_custom_calls(false);
+    options.set_use_tuple_arg(false);
+    options.set_return_updated_values_for_all_resources(false);
+    options.set_resolve_compile_time_constants(true);
+    options.set_always_return_tuple(false);
+    options.set_is_entry_computation(true);
+
+    for (int i = 0; i < ctx->num_outputs(); ++i) {
+        if (ctx->output_memory_type(i) == DEVICE_MEMORY && ctx->op_device_context()) {
+            options.add_output_placements("npu");
+        } else {
+            options.add_output_placements("cpu");
+        }
+    }
+}
 }  // namespace
 
 namespace npu_xla {
@@ -185,30 +214,7 @@ Status NpuXlaLaunchOp::CompileAndRunMlir(OpKernelContext* ctx)
     }
 
     auto input_ptr = std::make_unique<CompilerInput>();
-    auto& options = *(input_ptr->mutable_options());
-    auto flib_def = ctx->function_library();
-    if (device_type_ == DEVICE_NPU) {
-        *options.mutable_device_type() = "MLIR_NPU";
-    } else {
-        return errors::Internal("NPU_XLA unsupported device type: ", device_type_);
-    }
-    // get ordinal
-    options.set_device_ordinal(0);
-    options.set_graph_def_version(flib_def->graph_def_version());
-    options.set_allow_cpu_custom_calls(false);
-    options.set_use_tuple_arg(false);
-    options.set_return_updated_values_for_all_resources(false);
-    options.set_resolve_compile_time_constants(true);
-    options.set_always_return_tuple(false);
-    options.set_is_entry_computation(true);
-
-    for (int i = 0; i < ctx->num_outputs(); ++i) {
-        if (ctx->output_memory_type(i) == DEVICE_MEMORY && ctx->op_device_context()) {
-            options.add_output_placements("npu");
-        } else {
-            options.add_output_placements("cpu");
-        }
-    }
+    TF_RETURN_IF_ERROR(PrepareOptions(ctx, input_ptr));
 
     std::map<int, Tensor> constant_args;
     for (int i : constants_) {

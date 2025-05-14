@@ -113,7 +113,7 @@ public:
 
     // Update the value for key `sig` to `filename`. Override the value if
     // `override` is ture. Returns true if updated.
-    bool update(const Signature& sig, const std::string& filename, bool override = false, bool write_through = true)
+    bool update(const Signature& sig, const std::string& filename, bool override = false, bool writeThrough = true)
     {
         mutex_lock lock(mu_);
         auto it = cache_.emplace(sig, filename);
@@ -123,8 +123,8 @@ public:
             updated = true;
         }
         if (updated) {
-            is_cache_dirty_ = true;
-            if (write_through) {
+            isCacheDirty_ = true;
+            if (writeThrough) {
                 TF_CHECK_OK(DumpToFileLocked());
             }
         }
@@ -152,7 +152,7 @@ private:
     string cache_dump_path_;
     std::unordered_map<Signature, string, Signature::Hash> cache_;
     std::atomic<uint64_t> next_idx_;
-    bool is_cache_dirty_ = false;
+    bool isCacheDirty_ = false;
 };
 
 Status PersistentCompliationCache::DumpToFileLocked()
@@ -199,7 +199,7 @@ Status PersistentCompliationCache::DumpToFileLocked()
     }
 
     TF_RETURN_IF_ERROR(WriteBinaryProto(tensorflow::Env::Default(), getCacheTableFilePath(), result));
-    is_cache_dirty_ = false;
+    isCacheDirty_ = false;
     return absl::OkStatus();
 }
 
@@ -487,14 +487,10 @@ Status SerializeFunctionLibrary(CompilerInput* compiler_input, const NameAttrLis
     return absl::OkStatus();
 }
 
-Status PrepareCompilerInput(const NameAttrList& function, const std::map<int, Tensor>& constant_args,
-                            const std::set<int>& fixed_shape_args, const std::set<int>& host_args,
-                            const std::map<int, OptionalTensor>& variable_args, OpKernelContext* ctx,
-                            CompilerInput* compiler_input, bool is_mlir)
+// 1. 序列化函数库并记录时间
+Status SerializeFunctionLibraryWithTiming(const NameAttrList& function, FunctionLibraryRuntime* flib_def,
+                                          CompilerInput* compiler_input)
 {
-    auto& options = *(compiler_input->mutable_options());
-    auto flib_def = ctx->function_library();
-
     std::chrono::time_point<std::chrono::steady_clock> start;
     if (VLOG_IS_ON(1)) {
         start = std::chrono::steady_clock::now();
@@ -512,95 +508,135 @@ Status PrepareCompilerInput(const NameAttrList& function, const std::map<int, Te
         VLOG(1) << "cluster size of function " << function.name() << ": " << func_def->node_def_size();
     }
 
-    // bool dump_arg_value = GetTfBridgeOptions()->debug_mode;
-    std::vector<std::string> value_proto_filenames;
-    for (int64 input_num = 0; input_num < ctx->num_inputs(); ++input_num) {
-        auto arg = compiler_input->add_args();
-        if (constant_args.count(input_num) > 0) {
-            // Handles compile-time constants.
-            const Tensor& input = constant_args.at(input_num);
-            CHECK(input.dtype() != tensorflow::DT_RESOURCE);
+    return absl::OkStatus();
+}
+
+// 2. 处理常量参数
+void ProcessConstantArg(int64 input_num, const Tensor& input, CompilerInput::Argument* arg)
+{
+    CHECK(input.dtype() != tensorflow::DT_RESOURCE);
+    arg->set_kind_v2(ArgumentKind::kConstant);
+    arg->set_type(static_cast<int>(input.dtype()));
+    tensorflow::TensorShapeProto shape_proto;
+    input.shape().AsProto(&shape_proto);
+    shape_proto.AppendToString(arg->mutable_shape());
+    tensorflow::TensorProto tensor_proto;
+    input.AsProtoTensorContent(&tensor_proto);
+    tensor_proto.AppendToString(arg->mutable_constant_value());
+}
+
+// 3. 处理非常量参数
+void ProcessNonConstantArg(int64 input_num, const Tensor& input, bool is_mlir, const std::set<int>& fixed_shape_args,
+                           const std::set<int>& host_args, CompilerInput::Argument* arg)
+{
+    CHECK(input.dtype() != tensorflow::DT_RESOURCE);
+    if (is_mlir) {
+        if (fixed_shape_args.count(input_num) > 0) {
+            // only used for Mlir dynamic shape compiler
+            arg->set_kind_v2(ArgumentKind::kFixedShaped);
+        } else if (host_args.count(input_num)) {
+            arg->set_kind_v2(ArgumentKind::kHostArgs);
+        } else {
+            // only static shape for now
+            // add dynamic shape support
+            arg->set_kind_v2(ArgumentKind::kFixedShaped);
+        }
+    } else {
+        if (input.NumElements() > 0) {
+            arg->set_kind_v2(ArgumentKind::kParameter);
+        } else {
+            VLOG(2) << "set empty parameter #" << input_num << " to constant";
             arg->set_kind_v2(ArgumentKind::kConstant);
-            arg->set_type(static_cast<int>(input.dtype()));
-            tensorflow::TensorShapeProto shape_proto;
-            input.shape().AsProto(&shape_proto);
-            shape_proto.AppendToString(arg->mutable_shape());
             tensorflow::TensorProto tensor_proto;
             input.AsProtoTensorContent(&tensor_proto);
             tensor_proto.AppendToString(arg->mutable_constant_value());
-        } else if (variable_args.count(input_num) == 0) {
-            // Handles the non-constant arguments.
-            const Tensor& input = ctx->input(input_num);
-            CHECK(input.dtype() != tensorflow::DT_RESOURCE);
-            if (is_mlir) {
-                if (fixed_shape_args.count(input_num) > 0) {
-                    // only used for Mlir dynamic shape compiler
-                    arg->set_kind_v2(ArgumentKind::kFixedShaped);
-                } else if (host_args.count(input_num)) {
-                    arg->set_kind_v2(ArgumentKind::kHostArgs);
-                } else {
-                    // only static shape for now
-                    // add dynamic shape support
-                    arg->set_kind_v2(ArgumentKind::kFixedShaped);
-                }
-            } else {
-                if (input.NumElements() > 0) {
-                    arg->set_kind_v2(ArgumentKind::kParameter);
-                } else {
-                    VLOG(2) << "set empty parameter #" << input_num << " to constant";
-                    arg->set_kind_v2(ArgumentKind::kConstant);
-                    tensorflow::TensorProto tensor_proto;
-                    input.AsProtoTensorContent(&tensor_proto);
-                    tensor_proto.AppendToString(arg->mutable_constant_value());
-                }
-            }
-            arg->set_type(static_cast<int>(input.dtype()));
-            tensorflow::TensorShapeProto shape_proto;
-            input.shape().AsProto(&shape_proto);
-            shape_proto.AppendToString(arg->mutable_shape());
-        } else {
-            // Handles resource variables.
-            const Tensor& input = ctx->input(input_num);
-            CHECK(input.dtype() == tensorflow::DT_RESOURCE);
-            const OptionalTensor& variable = variable_args.at(input_num);
-            *arg->mutable_name() = variable.name;
-            ;
-            arg->set_kind_v2(ArgumentKind::kResource);
-            arg->set_resource_kind_v2(ArgumentResourceKind::kVariable);
-            if (variable.present) {
-                const Tensor& value = variable.value;
-                arg->set_type(static_cast<int>(value.dtype()));
-                tensorflow::TensorShapeProto shape_proto;
-                value.shape().AsProto(&shape_proto);
-                shape_proto.AppendToString(arg->mutable_shape());
-                arg->set_initialized(true);
-            } else {
-                // The values of uninitialized variables are not passed as inputs, since
-                // they are meaningless. However, it is legal to assign to a resource
-                // variable for the first time inside the XLA computation, so we do
-                // permit uninitialized variables.
-                arg->set_initialized(false);
-                arg->set_type(static_cast<int>(tensorflow::DT_INVALID));
-                tensorflow::TensorShapeProto shape_proto;
-                tensorflow::TensorShape().AsProto(&shape_proto);
-                shape_proto.AppendToString(arg->mutable_shape());
-            }
         }
     }
+    arg->set_type(static_cast<int>(input.dtype()));
+    tensorflow::TensorShapeProto shape_proto;
+    input.shape().AsProto(&shape_proto);
+    shape_proto.AppendToString(arg->mutable_shape());
+}
+
+// 4. 处理资源变量参数
+void ProcessResourceArg(int64 input_num, const Tensor& input, const OptionalTensor& variable,
+                        CompilerInput::Argument* arg)
+{
+    CHECK(input.dtype() == tensorflow::DT_RESOURCE);
+    *arg->mutable_name() = variable.name;
+    arg->set_kind_v2(ArgumentKind::kResource);
+    arg->set_resource_kind_v2(ArgumentResourceKind::kVariable);
+    if (variable.present) {
+        const Tensor& value = variable.value;
+        arg->set_type(static_cast<int>(value.dtype()));
+        tensorflow::TensorShapeProto shape_proto;
+        value.shape().AsProto(&shape_proto);
+        shape_proto.AppendToString(arg->mutable_shape());
+        arg->set_initialized(true);
+    } else {
+        // The values of uninitialized variables are not passed as inputs, since
+        // they are meaningless. However, it is legal to assign to a resource
+        // variable for the first time inside the XLA computation, so we do
+        // permit uninitialized variables.
+        arg->set_initialized(false);
+        arg->set_type(static_cast<int>(tensorflow::DT_INVALID));
+        tensorflow::TensorShapeProto shape_proto;
+        tensorflow::TensorShape().AsProto(&shape_proto);
+        shape_proto.AppendToString(arg->mutable_shape());
+    }
+}
+
+// 5. 处理所有输入参数
+Status ProcessAllInputArgs(const std::map<int, Tensor>& constant_args, const std::set<int>& fixed_shape_args,
+                           const std::set<int>& host_args, const std::map<int, OptionalTensor>& variable_args,
+                           OpKernelContext* ctx, CompilerInput* compiler_input, bool is_mlir)
+{
+    for (int64 input_num = 0; input_num < ctx->num_inputs(); ++input_num) {
+        auto arg = compiler_input->add_args();
+        if (constant_args.count(input_num) > 0) {
+            // 处理编译时常量
+            ProcessConstantArg(input_num, constant_args.at(input_num), arg);
+        } else if (variable_args.count(input_num) == 0) {
+            // 处理非常量参数
+            ProcessNonConstantArg(input_num, ctx->input(input_num), is_mlir, fixed_shape_args, host_args, arg);
+        } else {
+            // 处理资源变量
+            ProcessResourceArg(input_num, ctx->input(input_num), variable_args.at(input_num), arg);
+        }
+    }
+    return absl::OkStatus();
+}
+
+// 6. 主函数 - PrepareCompilerInput
+Status PrepareCompilerInput(const NameAttrList& function, const std::map<int, Tensor>& constant_args,
+                            const std::set<int>& fixed_shape_args, const std::set<int>& host_args,
+                            const std::map<int, OptionalTensor>& variable_args, OpKernelContext* ctx,
+                            CompilerInput* compiler_input, bool is_mlir)
+{
+    auto flib_def = ctx->function_library();
+
+    // 1. 序列化函数库并记录时间
+    TF_RETURN_IF_ERROR(SerializeFunctionLibraryWithTiming(function, flib_def, compiler_input));
+
+    // 2. 处理所有输入参数
+    TF_RETURN_IF_ERROR(
+        ProcessAllInputArgs(constant_args, fixed_shape_args, host_args, variable_args, ctx, compiler_input, is_mlir));
 
     return absl::OkStatus();
 }
 
-Status CompileFunction(const std::string& func_name, const std::string& tf_mlir_bin_path,
-                       const std::string& compile_dir, CompilerInput& input, bool remove_after_compile)
+// 1. 准备编译输入文件
+Status PrepareCompilationInputFiles(const std::string& compile_dir, CompilerInput& input, std::string& input_file_name,
+                                    std::string& output_file_name, bool remove_after_compile)
 {
-    std::string output_file_name = compile_dir + "/model.stablehlo";
+    output_file_name = compile_dir + "/model.stablehlo";
     auto env = tensorflow::Env::Default();
-    std::string input_file_name;
+
     if (!env->LocalTempFilename(&input_file_name)) {
         return errors::Internal("couldn't get temp xla_compiler_input file name");
     }
     input_file_name = compile_dir + "/model.input";
+
     auto input_cleaner = tensorflow::gtl::MakeCleanup([&input_file_name, remove_after_compile] {
         if (remove_after_compile) {
             (void)tensorflow::Env::Default()->DeleteFile(input_file_name);
@@ -608,6 +644,7 @@ Status CompileFunction(const std::string& func_name, const std::string& tf_mlir_
             VLOG(0) << "xla_compiler_input: " << input_file_name;
         }
     });
+
     TF_RETURN_IF_ERROR(WriteBinaryProto(tensorflow::Env::Default(), input_file_name, input));
 
     if (VLOG_IS_ON(VLOG_LEVEL_2)) {
@@ -616,41 +653,58 @@ Status CompileFunction(const std::string& func_name, const std::string& tf_mlir_
         TF_RETURN_IF_ERROR(WriteTextProto(tensorflow::Env::Default(), dbg_input_file_name, input));
     }
 
-    // first convert to stablehlo
+    return absl::OkStatus();
+}
+
+// 2. 执行TF MLIR编译过程
+Status ExecuteTfMlirCompilation(const std::string& func_name, const std::string& tf_mlir_bin_path,
+                                const std::string& input_file_name, const std::string& output_file_name)
+{
+    std::chrono::duration<double> elapsed_sec;
     auto start = std::chrono::steady_clock::now();
     tensorflow::npu_xla::SubProcess tf_mlir_bin;
     VLOG(0) << "compiling function " << func_name << ", input file is " << input_file_name << ", output file is "
             << output_file_name;
+
     std::vector<string> tf_mlir_args = {tf_mlir_bin_path, input_file_name, output_file_name};
     tf_mlir_bin.SetProgram(tf_mlir_bin_path, tf_mlir_args);
     tf_mlir_bin.SetChannelAction(tensorflow::npu_xla::CHAN_STDOUT, tensorflow::npu_xla::ACTION_PIPE);
     tf_mlir_bin.SetChannelAction(tensorflow::npu_xla::CHAN_STDERR, tensorflow::npu_xla::ACTION_PIPE);
+
     if (!tf_mlir_bin.Start()) {
         return errors::Internal("Failed to launch tf_mlir_bin: " + tf_mlir_bin_path);
     }
+
     string stdout_output;
     string stderr_output;
-    int exit_status = tf_mlir_bin.Communicate(nullptr, &stdout_output, &stderr_output);
-    std::chrono::duration<double> elapsed_sec = std::chrono::steady_clock::now() - start;
+    int exitStatus = tf_mlir_bin.Communicate(nullptr, &stdout_output, &stderr_output);
+    elapsed_sec = std::chrono::steady_clock::now() - start;
 
     std::stringstream ss;
-    ss << "tf_mlir exits with errcode " << exit_status << " in " << std::fixed << elapsed_sec.count()
+    ss << "tf_mlir exits with errcode " << exitStatus << " in " << std::fixed << elapsed_sec.count()
        << " seconds to compile " << func_name << ":\n"
        << "============= stdout ===============\n"
        << stdout_output << "\n\n"
        << "============= stderr ===============\n"
        << stderr_output << "\n\n"
        << "====================================";
+
     if (VLOG_IS_ON(VLOG_LEVEL_2)) {
         VLOG(VLOG_LEVEL_2) << ss.str();
     }
 
-    if (exit_status != 0) {
+    if (exitStatus != 0) {
         VLOG(0) << ss.str();
         return errors::Internal("Failed to compile function " + func_name + ", tf_mlir_bin exits with errcode " +
-                                std::to_string(exit_status));
+                                std::to_string(exitStatus));
     }
 
+    return absl::OkStatus();
+}
+
+// 3. 执行StableHLO编译管道
+Status ExecuteStableHloPipeline(const std::string& compile_dir)
+{
     // clear old cache file if exist
     VLOG(1) << "Start CleanModelDirs";
     TF_RETURN_IF_ERROR(compiler::CleanModelDirs(compile_dir));
@@ -658,6 +712,26 @@ Status CompileFunction(const std::string& func_name, const std::string& tf_mlir_
     // compile stablehlo
     VLOG(1) << "Start mlir complier::RunPipeline";
     TF_RETURN_IF_ERROR(compiler::RunPipeline(compile_dir));
+
+    return absl::OkStatus();
+}
+
+// 4. 主函数 - CompileFunction
+Status CompileFunction(const std::string& func_name, const std::string& tf_mlir_bin_path,
+                       const std::string& compile_dir, CompilerInput& input, bool remove_after_compile)
+{
+    std::string input_file_name;
+    std::string output_file_name;
+
+    // 1. 准备编译输入文件
+    TF_RETURN_IF_ERROR(
+        PrepareCompilationInputFiles(compile_dir, input, input_file_name, output_file_name, remove_after_compile));
+
+    // 2. 执行TF MLIR编译过程
+    TF_RETURN_IF_ERROR(ExecuteTfMlirCompilation(func_name, tf_mlir_bin_path, input_file_name, output_file_name));
+
+    // 3. 执行StableHLO编译管道
+    TF_RETURN_IF_ERROR(ExecuteStableHloPipeline(compile_dir));
 
     return absl::OkStatus();
 }
