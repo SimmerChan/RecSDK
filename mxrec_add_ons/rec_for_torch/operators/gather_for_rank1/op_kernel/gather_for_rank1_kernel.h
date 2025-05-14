@@ -85,18 +85,19 @@ public:
     __aicore__ inline void DataCopyPadGm2Local(const LocalTensor<T>& lt, const GlobalTensor<T> &gt, int64_t len)
     {
         uint32_t dataCopyPadLen = DATA_COPY_PAD_ALIGN_BYTE2;
-        if ((std::is_same<T, float>::value) || (std::is_same<T, int32_t>::value)) {
+        TEventID eventId = GetTPipePtr()->FetchEventID(HardEvent::MTE3_V);
+        if constexpr (sizeof(T) == 4) {  // float、int32为4字节数据
             dataCopyPadLen = DATA_COPY_PAD_ALIGN_BYTE4;
             DataCopy<T>(lt, gt, dataCopyPadLen);
-            set_flag(PIPE_MTE3, PIPE_V, EVENT_ID0);
-            wait_flag(PIPE_MTE3, PIPE_V, EVENT_ID0);
+            SetFlag<HardEvent::MTE3_V>(eventId);
+            WaitFlag<HardEvent::MTE3_V>(eventId);
             uint64_t mask0 = (1uL << dataCopyPadLen) - (1uL << len);
             uint64_t mask[1] = { mask0 };
             Duplicate<T>(lt, 0, mask, 1, 1, 1);
         } else {
             DataCopy<T>(lt, gt, dataCopyPadLen);
-            set_flag(PIPE_MTE3, PIPE_V, EVENT_ID0);
-            wait_flag(PIPE_MTE3, PIPE_V, EVENT_ID0);
+            SetFlag<HardEvent::MTE3_V>(eventId);
+            WaitFlag<HardEvent::MTE3_V>(eventId);
             uint64_t mask0 = (1uL << dataCopyPadLen) - (1uL << len);
             uint64_t mask[2] = { mask0, 0 };
             Duplicate<T>(lt, 0, mask, 1, 1, 1);
@@ -139,7 +140,7 @@ public:
     {
         SetAtomicAdd<xType>();
         uint32_t dataCopyPadLen = DATA_COPY_PAD_ALIGN_BYTE2;
-        if (std::is_same<xType, float>::value) {
+        if constexpr (std::is_same<xType, float>::value) {
             dataCopyPadLen = DATA_COPY_PAD_ALIGN_BYTE4;
             uint64_t mask0 = (1uL << dataCopyPadLen) - (1uL << len);
             uint64_t mask[1] = { mask0 };
@@ -151,8 +152,9 @@ public:
         }
         
         pipe_barrier(PIPE_ALL);
-        set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-        wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+        TEventID eventId = GetTPipePtr()->FetchEventID(HardEvent::V_MTE3);
+        SetFlag<HardEvent::V_MTE3>(eventId);
+        WaitFlag<HardEvent::V_MTE3>(eventId);
 
         DataCopy<xType>(gt, lt, dataCopyPadLen);
 
