@@ -179,7 +179,7 @@ public:
         queOut.EnQue(outLt);
         outLt = queOut.DeQue<float>();
     
-        CpLocal2Gm(outGT[startIndices * maxD], outLt, allLen); // vecout-> gm
+        CpLocal2Gm(outGT[startIndices * maxD], outLt, allLen);
 
         queIn.FreeTensor(inputLt);
         queOut.FreeTensor(outLt);

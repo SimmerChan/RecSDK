@@ -72,10 +72,11 @@ static ge::graphStatus ShapeTilingFunc(gert::TilingContext* context,
         indicesDim0 = context->GetInputShape(HASH_INDICES_INDEX)->GetStorageShape().GetDim(0);
     }
 
-    // bag
+    // bag output shape[batchsize, totalD]
     int64_t outDim0 = (offsetsDim0 - 1) / weightsOffsetsDim0;
     int64_t outDim1 = *context->GetAttrs()->GetInt(0);
-    if (poolMode == POOL_MODE_NOBAG) { // no bag
+    // no bag output shape [indicesNum, maxD]
+    if (poolMode == POOL_MODE_NOBAG) {
         outDim0 = indicesDim0;
         outDim1 = *context->GetAttrs()->GetInt(MAX_D_INDEX);
     }
@@ -118,7 +119,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     }
 
     int64_t splitBaseLen = (tiling.get_offsetsDim0() - 1) / coreNum;
-    int64_t tailSplitIndex = (tiling.get_offsetsDim0() - 1)% coreNum;
+    int64_t tailSplitIndex = (tiling.get_offsetsDim0() - 1) % coreNum;
 
     tiling.set_splitBaseLen(splitBaseLen);
     tiling.set_tailSplitIndex(tailSplitIndex);
