@@ -568,11 +568,11 @@ void ProcessConstantArg(int64 input_num, const Tensor& input, CompilerInput::Arg
 }
 
 // 3. 处理非常量参数
-void ProcessNonConstantArg(int64 input_num, const Tensor& input, bool is_mlir, const std::set<int>& fixed_shape_args,
+void ProcessNonConstantArg(int64 input_num, const Tensor& input, bool isMlir, const std::set<int>& fixed_shape_args,
                            const std::set<int>& host_args, CompilerInput::Argument* arg)
 {
     CHECK(input.dtype() != tensorflow::DT_RESOURCE);
-    if (is_mlir) {
+    if (isMlir) {
         if (fixed_shape_args.count(input_num) > 0) {
             // only used for Mlir dynamic shape compiler
             arg->set_kind_v2(ArgumentKind::kFixedShaped);
@@ -673,7 +673,6 @@ Status PrepareCompilationInputFiles(const std::string& compile_dir, CompilerInpu
 {
     output_file_name = compile_dir + "/model.stablehlo";
     auto env = tensorflow::Env::Default();
-
     if (!env->LocalTempFilename(&input_file_name)) {
         return errors::Internal("couldn't get temp xla_compiler_input file name");
     }
