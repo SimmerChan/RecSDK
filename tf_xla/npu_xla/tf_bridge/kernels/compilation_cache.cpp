@@ -391,72 +391,114 @@ Status CompilationCache::Compile(std::unique_ptr<CompilerInput> input, const Nam
                        executable);
 }
 
+Entry* CompilationCache::CreateOrGetCacheEntry(const Signature& signature, bool* new_entry)
+{
+    Entry* entry = nullptr;
+    *new_entry = false;
+    {
+        mutex_lock l(compile_cache_mu_);
+        std::unique_ptr<Entry>& e = cache_[signature];
+        if (!e) {
+            *new_entry = true;
+            e = std::make_unique<Entry>();
+        }
+        entry = e.get();
+    }
+    return entry;
+}
+
+Status CompilationCache::CheckAndLoadFromCache(const Signature& signature, Entry* entry,
+                                               CompilationResultProto* result_proto, bool* hit_cache)
+{
+    *hit_cache = false;
+    if (!cache_path_.empty()) {
+        std::string output_file_name;
+        auto& persistent_cache = PersistentCompliationCache::Global();
+        *hit_cache = persistent_cache.find(signature, output_file_name);
+        if (*hit_cache) {
+            TF_RETURN_IF_ERROR(ReadBinaryProto(tensorflow::Env::Default(), output_file_name, result_proto));
+        }
+    }
+    return absl::OkStatus();
+}
+
+Status CompilationCache::CompileAndCacheResult(const NameAttrList& function, const std::map<int, Tensor>& constant_args,
+                                               const std::set<int>& fixed_shape_args, const std::set<int>& host_args,
+                                               const std::map<int, OptionalTensor>& variable_args, OpKernelContext* ctx,
+                                               CompilerInput* input, Entry* entry, CompilationResultProto* result_proto)
+{
+    entry->compilation_status =
+        PrepareCompilerInput(function, constant_args, fixed_shape_args, host_args, variable_args, ctx, input);
+    TF_RETURN_IF_ERROR(entry->compilation_status);
+
+    std::string compile_dir;
+    TF_RETURN_IF_ERROR(CreateCompilationPath(&compile_dir));
+    entry->compilation_status = CompileFunction(function.name(), tf_mlir_bin_path_, compile_dir, *input, false);
+    TF_RETURN_IF_ERROR(entry->compilation_status);
+    result_proto->set_compiled_model_path(compile_dir);
+
+    return absl::OkStatus();
+}
+
+Status CompilationCache::UpdateExecutable(const Signature& signature, Entry* entry,
+                                          CompilationResultProto&& result_proto, bool hit_cache)
+{
+    CHECK_EQ(entry->executable.get(), nullptr);
+    entry->executable = std::make_unique<Executable>(std::move(result_proto));
+    if (!cache_path_.empty() && !hit_cache) {
+        auto& disk_cache = PersistentCompliationCache::Global();
+        auto filename = disk_cache.getNextUniqueNameOfCompiledResultProto();
+        TF_RETURN_IF_ERROR(entry->executable->DumpToFile(filename));
+        disk_cache.update(signature, filename, false, true);
+    }
+
+    return absl::OkStatus();
+}
+
 Status CompilationCache::CompileImpl(std::unique_ptr<CompilerInput> input, const NameAttrList& function,
                                      const std::map<int, Tensor>& constant_args, const std::set<int>& fixed_shape_args,
                                      const std::set<int>& host_args, const std::map<int, OptionalTensor>& variable_args,
                                      OpKernelContext* ctx, Executable** executable)
 {
+    // 1. 构建签名
     Signature signature;
     TF_RETURN_IF_ERROR(
         BuildSignature(function, constant_args, fixed_shape_args, host_args, variable_args, ctx, &signature, false));
     VLOG(VLOG_LEVEL_2) << "Compile function " << function.name() << " with signature "
                        << SignatureDebugString(signature);
 
-    Entry* entry = nullptr;
+    // 2. 创建或获取缓存条目
     bool new_entry = false;
-    {
-        mutex_lock l(compile_cache_mu_);
-        std::unique_ptr<Entry>& e = cache_[signature];
-        if (!e) {
-            new_entry = true;
-            e.reset(new Entry);
-        }
-        entry = e.get();
-    }
+    Entry* entry = CreateOrGetCacheEntry(signature, &new_entry);
 
+    // 3. 设置哈希值
     Signature::Hash hash;
     auto hash_value = hash(signature);
     input->mutable_options()->set_func_hash(hash_value);
 
+    // 4. 编译处理
     mutex_lock l(entry->mu);
     if (!entry->compiled) {
         VLOG(VLOG_LEVEL_2) << "Compile missing cache function " << function.name() << " with signature "
                            << SignatureDebugString(signature);
         entry->compiled = true;
+
+        // 5. 检查并从缓存加载
         bool hit_cache = false;
-
         CompilationResultProto result_proto;
-        if (!cache_path_.empty()) {
-            std::string output_file_name;
-            auto& persistent_cache = PersistentCompliationCache::Global();
-            hit_cache = persistent_cache.find(signature, output_file_name);
-            if (hit_cache) {
-                TF_RETURN_IF_ERROR(ReadBinaryProto(tensorflow::Env::Default(), output_file_name, &result_proto));
-            }
-        }
+        TF_RETURN_IF_ERROR(CheckAndLoadFromCache(signature, entry, &result_proto, &hit_cache));
 
+        // 6. 如果缓存未命中，则编译并缓存结果
         if (!hit_cache) {
-            entry->compilation_status = PrepareCompilerInput(function, constant_args, fixed_shape_args, host_args,
-                                                             variable_args, ctx, input.get());
-            TF_RETURN_IF_ERROR(entry->compilation_status);
-
-            std::string compile_dir;
-            TF_RETURN_IF_ERROR(CreateCompilationPath(&compile_dir));
-            entry->compilation_status = CompileFunction(function.name(), tf_mlir_bin_path_, compile_dir, *input, false);
-            TF_RETURN_IF_ERROR(entry->compilation_status);
-            result_proto.set_compiled_model_path(compile_dir);
+            TF_RETURN_IF_ERROR(CompileAndCacheResult(function, constant_args, fixed_shape_args, host_args,
+                                                     variable_args, ctx, input.get(), entry, &result_proto));
         }
 
-        CHECK_EQ(entry->executable.get(), nullptr);
-        entry->executable = std::make_unique<Executable>(std::move(result_proto));
-        if (!cache_path_.empty() && !hit_cache) {
-            auto& disk_cache = PersistentCompliationCache::Global();
-            auto filename = disk_cache.getNextUniqueNameOfCompiledResultProto();
-            TF_RETURN_IF_ERROR(entry->executable->DumpToFile(filename));
-            disk_cache.update(signature, filename, false, true);
-        }
+        // 7. 更新可执行对象
+        TF_RETURN_IF_ERROR(UpdateExecutable(signature, entry, std::move(result_proto), hit_cache));
     }
 
+    // 8. 设置输出可执行对象
     if (entry->compilation_status == absl::OkStatus()) {
         *executable = entry->executable.get();
     }
