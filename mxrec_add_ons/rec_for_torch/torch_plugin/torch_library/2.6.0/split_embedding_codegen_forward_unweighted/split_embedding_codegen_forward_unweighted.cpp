@@ -56,8 +56,8 @@ at::Tensor split_embedding_codegen_forward_unweighted_npu(const at::Tensor& dev_
                                                           const bool is_experimental,
                                                           const Tensor& hash_indices)
 {
-    const int64_t tTotalD = total_D.guard_int(__FILE__, __LINE__);
-    const int64_t tMaxD = max_D.guard_int(__FILE__, __LINE__);
+    const int64_t totalD = total_D.guard_int(__FILE__, __LINE__);
+    const int64_t maxD = max_D.guard_int(__FILE__, __LINE__);
 
     const at::OptionalDeviceGuard guard(device_of(dev_weights));
 
@@ -72,16 +72,16 @@ at::Tensor split_embedding_codegen_forward_unweighted_npu(const at::Tensor& dev_
     }
 
     int64_t batchSize = (offsets.size(0) - 1) / featCnt;
-    auto output = at::full({batchSize, tTotalD}, 0.0, dev_weights.options());
+    auto output = at::full({batchSize, totalD}, 0.0, dev_weights.options());
 
     if (static_cast<PoolingMode>(pooling_mode) == PoolingMode::NONE) {
-        output = at::full({totalLen, tMaxD}, 0.0, dev_weights.options());
+        output = at::full({totalLen, maxD}, 0.0, dev_weights.options());
     }
 
     int64_t experimental = static_cast<int64_t>(is_experimental);
     EXEC_NPU_CMD(aclnnSplitEmbeddingCodegenForwardUnweighted, dev_weights, uvm_weights,         lxu_cache_weights,
                  weights_placements, weights_offsets, D_offsets, indices, offsets, lxu_cache_locations, hash_indices,
-                 tTotalD, tMaxD, pooling_mode, output_dtype, experimental, output);
+                 totalD, maxD, pooling_mode, output_dtype, experimental, output);
     return output;
 }
 

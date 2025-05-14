@@ -14,12 +14,6 @@
 #include <torch/library.h>
 #include "torch/extension.h"
 #include "../common/pytorch_npu_helper.hpp"
-using torch::autograd::Function;
-using torch::autograd::AutogradContext;
-using torch::autograd::variable_list;
-using tensor_list = std::vector<at::Tensor>;
-using Tensor = at::Tensor;
-using namespace at;
 
 enum class OptimizerType {
     ADAGRAD = 1,
@@ -45,22 +39,22 @@ enum class PoolingMode {
 };
 
 namespace fbgemm_npu_lookups {
-Tensor split_embedding_codegen_forward_unweighted_cuda(const Tensor& dev_weights,
-                                                       const Tensor& uvm_weights,
-                                                       const Tensor& lxu_cache_weights,
-                                                       const Tensor& weights_placements,
-                                                       const Tensor& weights_offsets,
-                                                       const Tensor& D_offsets,
+at::Tensor split_embedding_codegen_forward_unweighted_cuda(const at::Tensor& dev_weights,
+                                                       const at::Tensor& uvm_weights,
+                                                       const at::Tensor& lxu_cache_weights,
+                                                       const at::Tensor& weights_placements,
+                                                       const at::Tensor& weights_offsets,
+                                                       const at::Tensor& D_offsets,
                                                        const c10::SymInt total_D,
                                                        const c10::SymInt max_D,
-                                                       const Tensor& indices,
-                                                       const Tensor& offsets,
+                                                       const at::Tensor& indices,
+                                                       const at::Tensor& offsets,
                                                        const int64_t pooling_mode,
-                                                       const Tensor& lxu_cache_locations,
-                                                       const Tensor& uvm_cache_stats,
+                                                       const at::Tensor& lxu_cache_locations,
+                                                       const at::Tensor& uvm_cache_stats,
                                                        const int64_t output_dtype,
                                                        const bool is_experimental,
-                                                       const Tensor& hash_indices);
+                                                       const at::Tensor& hash_indices);
 
 at::Tensor split_embedding_codegen_forward_unweighted_npu(const at::Tensor& dev_weights,
                                                           const at::Tensor& uvm_weights,
@@ -77,6 +71,6 @@ at::Tensor split_embedding_codegen_forward_unweighted_npu(const at::Tensor& dev_
                                                           const at::Tensor& uvm_cache_stats,
                                                           const int64_t output_dtype,
                                                           const bool is_experimental,
-                                                          const Tensor& hash_indices);
+                                                          const at::Tensor& hash_indices);
 }; // namespace fbgemm_npu_lookups
 #endif // MXREC_ADD_ONS_SPLIT_EMBEDDING_CODEGEN_FORWARD_UNWEIGHTED_H
