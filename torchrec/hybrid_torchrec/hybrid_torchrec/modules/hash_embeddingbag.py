@@ -65,7 +65,7 @@ class EvictStrategy(Enum):
 class HashTableOption:
     init_capacity: int = 0
     max_capacity: int = 0
-    max_hbm_memory_for_vectors: int = 0
+    max_hbm_memory_for_vector_storage: int = 0
     max_bucket_size: int = 0
     dim: int = 64
     max_load_factor: float = 0.5
@@ -227,7 +227,7 @@ class HashEmbeddingBagCollection(EmbeddingBagCollectionInterface):
             for feature_name in self._feature_names[i]:
                 f = feature_dict[feature_name]
                 res = embedding_bag(
-                    input=f.values(),
+                    input_tensor=f.values(),
                     offsets=f.offsets(),
                     per_sample_weights=f.weights() if self._is_weighted else None,
                 ).float()

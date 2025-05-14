@@ -20,6 +20,8 @@ from hybrid_torchrec import (
 )
 from model import Model
 from util import setup_logging
+
+import torchrec
 from torchrec import EmbeddingBagCollection, EmbeddingBagConfig
 
 

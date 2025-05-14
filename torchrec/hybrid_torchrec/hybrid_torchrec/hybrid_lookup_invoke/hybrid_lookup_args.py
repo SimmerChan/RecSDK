@@ -9,7 +9,10 @@ from typing import NamedTuple, Optional
 
 import torch
 from fbgemm_gpu.split_embedding_codegen_lookup_invokers.lookup_adagrad import (
+    CommonArgs,
+    OptimizerArgs,
     VBEMetadata,
+    Momentum,
 )
 
 
