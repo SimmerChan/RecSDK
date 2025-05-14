@@ -100,7 +100,7 @@ absl::Status ExportModel(const std::string& binPath, const std::string& modelPat
 
 absl::Status RunPipeline(const std::string& modelPath)
 {
-    char* binPath = std::getenv(INFERENCE_GRAPH_PATH.c_str());
+    auto binPath = std::getenv(INFERENCE_GRAPH_PATH.c_str());
     if (binPath == nullptr) {
         std::string errMsg = "INFERENCE_GRAPH_PATH is not set, user need to export path to inference graph binary,"
                              " which include " +
