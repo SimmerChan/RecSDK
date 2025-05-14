@@ -75,19 +75,6 @@ private:
                        const std::set<int>& host_args, const std::map<int, OptionalTensor>& variable_args,
                        OpKernelContext* ctx, Executable** executable);
 
-    Entry* CreateOrGetCacheEntry(const Signature& signature, bool* new_entry);
-
-    Status CheckAndLoadFromCache(const Signature& signature, Entry* entry, CompilationResultProto* result_proto,
-                                 bool* hit_cache);
-
-    Status CompileAndCacheResult(const NameAttrList& function, const std::map<int, Tensor>& constant_args,
-                                 const std::set<int>& fixed_shape_args, const std::set<int>& host_args,
-                                 const std::map<int, OptionalTensor>& variable_args, OpKernelContext* ctx,
-                                 CompilerInput* input, Entry* entry, CompilationResultProto* result_proto);
-
-    Status UpdateExecutable(const Signature& signature, Entry* entry, CompilationResultProto&& result_proto,
-                            bool hit_cache);
-
     // Builds the signature for a compilation.
     static Status BuildSignature(const NameAttrList& function, const std::map<int, Tensor>& constant_args,
                                  const std::set<int>& fixed_shape_args, const std::set<int>& host_args,
@@ -110,6 +97,19 @@ private:
         bool compilation_slot_initialized = false;
         int compilation_slot = -1;
     };
+
+    Entry* CreateOrGetCacheEntry(const Signature& signature, bool* new_entry);
+
+    Status CheckAndLoadFromCache(const Signature& signature, Entry* entry, CompilationResultProto* result_proto,
+                                 bool* hit_cache);
+
+    Status CompileAndCacheResult(const NameAttrList& function, const std::map<int, Tensor>& constant_args,
+                                 const std::set<int>& fixed_shape_args, const std::set<int>& host_args,
+                                 const std::map<int, OptionalTensor>& variable_args, OpKernelContext* ctx,
+                                 CompilerInput* input, Entry* entry, CompilationResultProto* result_proto);
+
+    Status UpdateExecutable(const Signature& signature, Entry* entry, CompilationResultProto&& result_proto,
+                            bool hit_cache);
 
     mutex compile_cache_mu_;
     std::unordered_map<Signature, std::unique_ptr<Entry>, Signature::Hash> cache_ TF_GUARDED_BY(compile_cache_mu_);
