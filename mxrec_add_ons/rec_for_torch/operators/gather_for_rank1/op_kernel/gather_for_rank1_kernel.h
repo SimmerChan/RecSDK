@@ -28,7 +28,7 @@ constexpr int USE_QUEUE_NUM = 2;
 constexpr int DATA_ALIGN_BYTES = 32;
 constexpr int MAX_XDIM0 = 20480;
 constexpr int DATA_COPY_PAD_ALIGN_BYTE2 = 16;
-constexpr int DATA_COPY_PAD_ALIGN_BYTE4 = 16;
+constexpr int DATA_COPY_PAD_ALIGN_BYTE4 = 8;
 #ifdef SUPPORT_V200
     constexpr int ONEBLOCK_ELEM = 8192;
 #else
