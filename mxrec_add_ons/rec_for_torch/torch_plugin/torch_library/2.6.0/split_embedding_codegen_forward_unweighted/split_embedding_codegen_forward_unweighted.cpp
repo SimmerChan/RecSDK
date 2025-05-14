@@ -21,24 +21,6 @@ using namespace at;
 
 // using namespace fbgemm_gpu;
 namespace fbgemm_npu_lookups {
-
-Tensor split_embedding_codegen_forward_unweighted_cuda(const Tensor& dev_weights,
-                                                       const Tensor& uvm_weights,
-                                                       const Tensor& lxu_cache_weights,
-                                                       const Tensor& weights_placements,
-                                                       const Tensor& weights_offsets,
-                                                       const Tensor& D_offsets,
-                                                       const c10::SymInt total_D,
-                                                       const c10::SymInt max_D,
-                                                       const Tensor& indices,
-                                                       const Tensor& offsets,
-                                                       const int64_t pooling_mode,
-                                                       const Tensor& lxu_cache_locations,
-                                                       const Tensor& uvm_cache_stats,
-                                                       const int64_t output_dtype,
-                                                       const bool is_experimental,
-                                                       const Tensor& hash_indices);
-
 at::Tensor split_embedding_codegen_forward_unweighted_npu(const at::Tensor& dev_weights,
                                                           const at::Tensor& uvm_weights,
                                                           const at::Tensor& lxu_cache_weights,

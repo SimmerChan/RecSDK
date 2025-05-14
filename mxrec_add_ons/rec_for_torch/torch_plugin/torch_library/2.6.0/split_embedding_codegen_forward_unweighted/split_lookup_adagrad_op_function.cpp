@@ -1,5 +1,5 @@
 /**
- * @file backward_codegen_adagrad_unweighted_exact.cpp
+ * @file SplitLookupAdagradOpFunction.cpp
  *
  * Copyright (C) 2025. Huawei Technologies Co., Ltd. All rights reserved.
  * Copyright (c) Meta Platforms, Inc. and affiliates.
@@ -21,7 +21,7 @@ using Tensor = at::Tensor;
 using namespace at;
 
 namespace fbgemm_npu_lookups {
-class SplitLookupFunctionAdagradOp : public torch::autograd::Function<SplitLookupFunctionAdagradOp> {
+class SplitLookupAdagradOpFunction : public torch::autograd::Function<SplitLookupAdagradOpFunction> {
 public:
     static constexpr bool isTraceable = true;
 
@@ -178,7 +178,7 @@ Tensor split_embedding_codegen_lookup_adagrad_function(
     const bool apply_global_weight_decay = false,
     const double gwd_lower_bound = 0)
 {
-    return SplitLookupFunctionAdagradOp::apply(
+    return SplitLookupAdagradOpFunction::apply(
         placeholder_autograd_tensor, output_dtype, dev_weights, uvm_weights, lxu_cache_weights, weights_placements,
         weights_offsets, D_offsets, total_D, max_D, hash_size_cumsum, total_hash_size_bits, indices, hash_indices,
         unique_ids, unique_offsets, unique_inverse, offsets, pooling_mode, indice_weights, feature_requires_grad,
