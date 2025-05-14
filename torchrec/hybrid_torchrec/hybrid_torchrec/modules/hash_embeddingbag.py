@@ -65,7 +65,7 @@ class EvictStrategy(Enum):
 class HashTableOption:
     init_capacity: int = 0
     max_capacity: int = 0
-    max_hbm_memory_for_vector_storage: int = 0
+    max_npu_memory_for_vectors: int = 0
     max_bucket_size: int = 0
     dim: int = 64
     max_load_factor: float = 0.5
