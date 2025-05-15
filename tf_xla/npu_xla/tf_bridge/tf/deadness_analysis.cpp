@@ -755,14 +755,14 @@ Predicate* PredicateFactory::MakeInternedAndOr(std::vector<Predicate*> simplifie
 // Common code to create AndPredicate or OrPredicate instances.
 Predicate* PredicateFactory::MakeAndOrImpl(absl::Span<Predicate* const> operands, bool is_and)
 {
-    Predicate::Kind pred_kind = is_and ? Predicate::Kind::kAnd : Predicate::Kind::kOr;
+    Predicate::Kind pred_kind = is_and ? Predicate::Kind::K_AND : Predicate::Kind::K_OR;
 
     IncrementStackDepth stack_frame(this);
     if (stack_frame.HasOverflowed()) {
         return MakeInternedAndOr(std::vector<Predicate*>(operands.begin(), operands.end()), pred_kind);
     }
 
-    Predicate::Kind other_pred_kind = is_and ? Predicate::Kind::kOr : Predicate::Kind::kAnd;
+    Predicate::Kind other_pred_kind = is_and ? Predicate::Kind::K_OR : Predicate::Kind::K_AND;
     std::unordered_set<Predicate*> simplified_ops_set;
     std::vector<Predicate*> simplified_ops;
     for (Predicate* op : operands) {
@@ -820,7 +820,7 @@ Predicate* PredicateFactory::MakeAndOrImpl(absl::Span<Predicate* const> operands
         std::unordered_set<Predicate*> to_remove;
         std::vector<Predicate*> to_add;
         for (Predicate* op : simplified_ops) {
-            if (op->kind() == Predicate::Kind::kAndRecurrence) {
+            if (op->kind() == Predicate::Kind::K_AND_RECURRENCE) {
                 auto* and_rec = static_cast<AndRecurrencePredicate*>(op);
                 if (negated_ops.find(and_rec->step()) != negated_ops.end()) {
                     // Remove and_rec and ~X and insert S.  Note that checking the
@@ -922,8 +922,9 @@ private:
     {
         auto insert_result = predicate_map_.insert({TensorId(n->name(), output_idx), pred});
         if (!insert_result.second && insert_result.first->second != pred) {
-            VLOG(4) << "For " << n->name() << ":" << output_idx << " from " << insert_result.first->second->ToString()
-                    << " " << insert_result.first->second << " to " << pred->ToString() << " " << pred;
+            VLOG_LEVEL_4 << "For " << n->name() << ":" << output_idx << " from "
+                         << insert_result.first->second->ToString() << " " << insert_result.first->second << " to "
+                         << pred->ToString() << " " << pred;
             insert_result.first->second = pred;
             if (should_revisit != nullptr) {
                 for (const Edge* e : n->out_edges()) {
@@ -979,7 +980,6 @@ Status DeadnessAnalysisImpl::GetInputPreds(Node* n, DeadnessAnalysisImpl::EdgeKi
         bool should_process = edge_kind == EdgeKind::kDataAndControl ||
                               (in_edge->IsControlEdge() && edge_kind == EdgeKind::kControlOnly) ||
                               (!in_edge->IsControlEdge() && edge_kind == EdgeKind::kDataOnly);
-
         if (should_process) {
             auto it = predicate_map_.find(InputEdgeToTensorId(in_edge));
             if (it == predicate_map_.end()) {
@@ -1072,26 +1072,26 @@ Status FindUniqueBackedge(Node* merge, const Edge** result)
     return absl::OkStatus();
 }
 
-// If `backedge_predicate` is equal to `symbolic_predicate` & Step where Step
-// does not contain `symbolic_predicate` as an inner (not top-level) operand
+// If `backedgePredicate` is equal to `symbolicPredicate` & Step where Step
+// does not contain `symbolicPredicate` as an inner (not top-level) operand
 // then returns `Step`.  Otherwise returns nullptr.
-Predicate* DeduceStepPredicate(PredicateFactory* predicate_factory, Predicate* symbolic_predicate,
-                               Predicate* backedge_predicate)
+Predicate* DeduceStepPredicate(PredicateFactory* predicateFactory, Predicate* symbolicPredicate,
+                               Predicate* backedgePredicate)
 {
-    CHECK(dynamic_cast<SymbolPredicate*>(symbolic_predicate));
-    if (backedge_predicate->kind() != Predicate::Kind::kAnd) {
+    CHECK(dynamic_cast<SymbolPredicate*>(symbolicPredicate));
+    if (backedgePredicate->kind() != Predicate::Kind::K_AND) {
         return nullptr;
     }
 
     std::vector<Predicate*> and_ops;
-    absl::Span<Predicate* const> recurrent_pred_ops = backedge_predicate->GetOperands();
+    absl::Span<Predicate* const> recurrent_pred_ops = backedgePredicate->GetOperands();
 
-    bool found_sym = false;
+    bool foundSym = false;
     for (Predicate* and_op : recurrent_pred_ops) {
         // We want the `symbol_predicate` to be the one of the operands of
-        // `backedge_predicate`,
-        if (and_op == symbolic_predicate) {
-            found_sym = true;
+        // `backedgePredicate`,
+        if (and_op == symbolicPredicate) {
+            foundSym = true;
             continue;
         }
 
@@ -1100,7 +1100,7 @@ Predicate* DeduceStepPredicate(PredicateFactory* predicate_factory, Predicate* s
         // symbol_predicate&(X|symbol_predicate).
         bool found_sym_as_inner_operand = false;
         auto has_self_as_inner_operand = [&](Predicate* p) {
-            if (p == symbolic_predicate) {
+            if (p == symbolicPredicate) {
                 found_sym_as_inner_operand = true;
                 return true;  // Stop searching, we're done.
             }
@@ -1116,7 +1116,7 @@ Predicate* DeduceStepPredicate(PredicateFactory* predicate_factory, Predicate* s
         and_ops.push_back(and_op);
     }
 
-    return found_sym ? predicate_factory->MakeAndPredicate(and_ops) : nullptr;
+    return foundSym ? predicateFactory->MakeAndPredicate(and_ops) : nullptr;
 }
 
 Status GetFullFrame(const Node* n, absl::Span<const ControlFlowInfo> cfi_infos, std::vector<string>* frame)
@@ -1126,7 +1126,7 @@ Status GetFullFrame(const Node* n, absl::Span<const ControlFlowInfo> cfi_infos, 
          n = cfi_iter->parent_frame, cfi_iter = &cfi_infos[n->id()]) {
         frame->push_back(cfi_iter->frame_name);
 
-        if (depth++ > 5000) {
+        if (depth++ > 5000) { // 超过5000行基本认定为有bug
             return errors::Internal("Frame of depth > 5000:  Probably malformed graph or a bug in "
                                     "BuildControlFlowInfo");
         }
@@ -1145,7 +1145,7 @@ Status GetRootFrame(const Node* n, absl::Span<const ControlFlowInfo> cfi_infos, 
         n = cfi_iter->parent_frame;
         cfi_iter = &cfi_infos[n->id()];
 
-        if (depth++ > 5000) {
+        if (depth++ > 5000) { // 超过5000行基本认定为有bug
             return errors::Internal("Frame of depth > 5000:  Probably malformed graph or a bug in "
                                     "BuildControlFlowInfo");
         }
@@ -1163,7 +1163,6 @@ Status DeadnessAnalysisImpl::HandleMerge(Node* n, std::vector<bool>* should_revi
     // liveness of a merge that is the target of a backedge can sometimes be
     // represented using a AndRecurrencePredicate.  If neither apply, we represent
     // the liveness of the merge symbolically.
-
     bool has_unvisited_backedge = false;
     for (const Edge* e : n->in_edges()) {
         if (!e->IsControlEdge() && e->src()->IsNextIteration()) {
@@ -1188,8 +1187,7 @@ Status DeadnessAnalysisImpl::HandleMerge(Node* n, std::vector<bool>* should_revi
                 TF_RETURN_IF_ERROR(predicate_factory_.MakeSymbolPredicate(representative, 0,
                                                                           false, &input_data_pred));
             } else {
-                TF_RETURN_IF_ERROR(predicate_factory_.MakeSymbolPredicate(n, 0, false,
-                                                                          &input_data_pred));
+                TF_RETURN_IF_ERROR(predicate_factory_.MakeSymbolPredicate(n, 0, false, &input_data_pred));
             }
 
             SetPredicate(n, {0, 1, Graph::kControlSlot}, input_data_pred, should_revisit);
@@ -1205,7 +1203,7 @@ Status DeadnessAnalysisImpl::HandleMerge(Node* n, std::vector<bool>* should_revi
         return absl::OkStatus();
     }
 
-    if (it->second->kind() == Predicate::Kind::kSymbol) {
+    if (it->second->kind() == Predicate::Kind::K_SYMBOL) {
         // Last time we visited this merge we only got a symbolic predicate because
         // of an unvisited backedge.  Try to pattern match the predicate expression
         // for that backedge (which should be visited now) into an and recurrence
@@ -1330,7 +1328,7 @@ Status DeadnessAnalysisImpl::GetFrameBasedTopologicalOrder(std::vector<Node*>* o
         Node* curr_node = ready.front();
         ready.pop_front();
 
-        VLOG(4) << "Visiting " << curr_node->name();
+        VLOG_LEVEL_4 << "Visiting " << curr_node->name();
         order->push_back(curr_node);
 
         for (const Edge* out_edge : curr_node->out_edges()) {
@@ -1410,7 +1408,7 @@ Status DeadnessAnalysisImpl::Populate(bool enable_optimistic)
 
     // Do some opportunistic error checking:
     if (!unreachable_nodes.empty()) {
-        if (unreachable_nodes.size() > 5) {
+        if (unreachable_nodes.size() > 5) { // only keep 5 nodes
             unreachable_nodes.erase(unreachable_nodes.begin() + 5, unreachable_nodes.end());
         }
 
@@ -1451,7 +1449,7 @@ Status DeadnessAnalysisImpl::Populate(bool enable_optimistic)
             // pessimistic mode.
             TF_RETURN_IF_ERROR(PopulateFrame(sub_topo, false, nullptr));
         }
-        VLOG(2) << "Done populating frame " << cur_frame_name << " using the "
+        VLOG_LEVEL_2 << "Done populating frame " << cur_frame_name << " using the "
                 << (success ? "optimistic" : "pessimistic") << " mode.";
     }
 
@@ -1480,7 +1478,7 @@ Status DeadnessAnalysisImpl::PopulateFrame(absl::Span<Node* const> topo, bool us
     std::vector<bool> should_revisit;
     should_revisit.resize(graph_.num_node_ids());
     for (Node* n : topo) {
-        VLOG(4) << "Visiting " << n->name();
+        VLOG_LEVEL_4 << "Visiting " << n->name();
         TF_RETURN_IF_ERROR(HandleNode(n, nullptr, use_optimistic_mode));
         if (n->IsNextIteration()) {
             // If this is a backedge for a merge node then remember to reprocess the
@@ -1502,7 +1500,7 @@ Status DeadnessAnalysisImpl::PopulateFrame(absl::Span<Node* const> topo, bool us
         // ever add n's consumers to should_revisit, we won't "miss" an addition to
         // should_revisit.
         if (should_revisit[n->id()]) {
-            VLOG(4) << "Revisiting " << n->name();
+            VLOG_LEVEL_4 << "Revisiting " << n->name();
             TF_RETURN_IF_ERROR(HandleNode(n, &should_revisit));
         }
     }
@@ -1532,10 +1530,11 @@ Status DeadnessAnalysisImpl::PopulateFrame(absl::Span<Node* const> topo, bool us
             string frame_name = control_flow_info_[merge->id()].frame_name;
             auto it = predicate_map_.find(TensorId(merge->name(), 0));
             Predicate* merge_pred = it->second;
-            if (merge_pred->kind() != Predicate::Kind::kAndRecurrence) {
+            if (merge_pred->kind() != Predicate::Kind::K_AND_RECURRENCE) {
                 is_converged = false;
-                VLOG(2) << "Running the optimistic mode on frame " << frame_name << " does not converge because node "
-                        << merge->name() << " cannot be mapped into the AndRecurrence form.";
+                VLOG_LEVEL_2 << "Running the optimistic mode on frame " << frame_name
+                             << " does not converge because node " << merge->name()
+                             << " cannot be mapped into the AndRecurrence form.";
                 break;
             }
 
@@ -1547,7 +1546,7 @@ Status DeadnessAnalysisImpl::PopulateFrame(absl::Span<Node* const> topo, bool us
                 Predicate* prev_andrec = insert_result.first->second;
                 if (curr_andrec != prev_andrec) {
                     is_converged = false;
-                    VLOG(2) << "Running the optimistic mode on frame " << frame_name
+                    VLOG_LEVEL_2 << "Running the optimistic mode on frame " << frame_name
                             << " does not converge. Seeing different Merge predicates: \n"
                             << curr_andrec->ToString() << " and \n"
                             << prev_andrec->ToString();
@@ -1594,7 +1593,7 @@ void DeadnessAnalysisImpl::Print() const
     for (TensorId tensor_id : tensor_ids) {
         auto it = predicate_map_.find(tensor_id);
         CHECK(it != predicate_map_.end()) << tensor_id.ToString();
-        VLOG(2) << tensor_id.ToString() << " -> " << it->second->ToString();
+        VLOG_LEVEL_2 << tensor_id.ToString() << " -> " << it->second->ToString();
     }
 }
 
@@ -1604,10 +1603,10 @@ DeadnessAnalysis::~DeadnessAnalysis() {}
 
 Status DeadnessAnalysis::Run(const Graph& graph, std::unique_ptr<DeadnessAnalysis>* result)
 {
-    std::unique_ptr<DeadnessAnalysisImpl> analysis(new DeadnessAnalysisImpl(&graph));
+    auto analysis = std::make_unique<DeadnessAnalysisImpl>(&graph);
     TF_RETURN_IF_ERROR(analysis->Populate(true));
 
-    if (VLOG_IS_ON(2)) {
+    if (VLOG_IS_ON(2)) { // print if log level is 2
         analysis->Print();
     }
 
