@@ -272,7 +272,8 @@ if __name__ == '__main__':
                     try:
                         logging.info(
                             f"current_steps: {current_steps} ,deep_loss:{results['deep_loss']},"
-                            f"e2etime per step:{(end_time - start_time) * 1000}")
+                            f"e2etime per step:{(end_time - start_time) * 1000}"
+                        )
                     except KeyError:
                         logging.error(f"current_steps: {current_steps}")
                     logging.info("----------" * 10)
@@ -285,7 +286,9 @@ if __name__ == '__main__':
 
         # train_finished
         logging.info(
-            f"training {current_steps} steps, consume time: {(time.time() - total_start_time) / (current_steps - 5) * 1000} ")
+            f"training {current_steps} steps, consume time: "
+            f"{(time.time() - total_start_time) / (current_steps - 5) * 1000} "
+        )
 
         terminate_config_initializer()
         MPI.Finalize()
