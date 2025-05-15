@@ -563,6 +563,27 @@ std::unique_ptr<XlaOpRegistry::OpRegistration> XlaOpRegistrationBuilder::Build(X
     return std::move(registration_);
 }
 
+XlaOpRegistrar::XlaOpRegistrar(std::unique_ptr<XlaOpRegistry::OpRegistration> registration)
+{
+    XlaOpRegistry& registry = XlaOpRegistry::Instance();
+    mutex_lock lock(registry.mutex_);
+    auto& existing_ops = registry.ops_[registration->name];
+    for (auto& existing : existing_ops) {
+        if (!XlaOpRegistry::IsCompatible(*existing, *registration)) {
+            LOG(FATAL) << "XLA op registration " << registration->name
+                       << " is incompatible with existing registration of the same name.";
+        }
+    }
+    existing_ops.emplace_back(std::move(registration));
+}
+
+XlaBackendRegistrar::XlaBackendRegistrar(absl::string_view name, absl::Span<const DataType> types,
+                                         XlaOpRegistry::BackendOpFilter op_filter)
+{
+    XlaOpRegistry& registry = XlaOpRegistry::Instance();
+    registry.RegisterBackend(string(name), types, op_filter);
+    AddSymbolicExecutionDevice(name);
+}
 namespace {
 
 void AddDtypeToKernalDefConstraint(absl::string_view name, DataType dtype, KernelDef* kdef)
@@ -586,5 +607,595 @@ bool GpuOpFilter(KernelDef* kdef)
 }
 
 }  // namespace
+
+// clang-format off
+REGISTER_XLA_BACKEND_FOR_NPU(DEVICE_NPU_XLA_JIT, kGpuAllTypes, GpuOpFilter);
+
+// register ops
+REGISTER_XLA_OP_FOR_NPU(Name("MaxPool"));
+REGISTER_XLA_OP_FOR_NPU(Name("MaxPoolV2")
+                            .CompileTimeConstInput("ksize")
+                            .CompileTimeConstInput("strides")
+                            .MlirCompileTimeFixedShapeInput("ksize")
+                            .MlirCompileTimeFixedShapeInput("strides"));
+REGISTER_XLA_OP_FOR_NPU(Name("MaxPool3D"));
+REGISTER_XLA_OP_FOR_NPU(Name("AvgPool"));
+REGISTER_XLA_OP_FOR_NPU(Name("AvgPool3D"));
+REGISTER_XLA_OP_FOR_NPU(Name("MaxPoolGrad"));
+REGISTER_XLA_OP_FOR_NPU(Name("MaxPoolGradV2")
+                            .CompileTimeConstInput("ksize")
+                            .CompileTimeConstInput("strides")
+                            .MlirCompileTimeFixedShapeInput("ksize")
+                            .MlirCompileTimeFixedShapeInput("strides"));
+REGISTER_XLA_OP_FOR_NPU(Name("MaxPool3DGrad"));
+REGISTER_XLA_OP_FOR_NPU(Name("AvgPoolGrad")
+                            .CompileTimeConstInput("orig_input_shape")
+                            .MlirCompileTimeFixedShapeInput("orig_input_shape"));
+REGISTER_XLA_OP_FOR_NPU(Name("AvgPool3DGrad")
+                            .CompileTimeConstInput("orig_input_shape")
+                            .MlirCompileTimeFixedShapeInput("orig_input_shape"));
+REGISTER_XLA_OP_FOR_NPU(Name("MaxPoolGradGrad").TypeConstraint("T", DT_FLOAT));
+REGISTER_XLA_OP_FOR_NPU(Name("MaxPoolGradGradV2")
+                            .TypeConstraint("T", DT_FLOAT)
+                            .CompileTimeConstInput("ksize")
+                            .CompileTimeConstInput("strides")
+                            .MlirCompileTimeFixedShapeInput("ksize")
+                            .MlirCompileTimeFixedShapeInput("strides"));
+REGISTER_XLA_OP_FOR_NPU(Name("MaxPool3DGradGrad").TypeConstraint("T", DT_FLOAT));
+REGISTER_XLA_OP_FOR_NPU(Name("Softmax"));
+REGISTER_XLA_OP_FOR_NPU(Name("LogSoftmax"));
+REGISTER_XLA_OP_FOR_NPU(Name("SoftmaxCrossEntropyWithLogits"));
+REGISTER_XLA_OP_FOR_NPU(Name("SparseSoftmaxCrossEntropyWithLogits"));
+REGISTER_XLA_OP_FOR_NPU(Name("NoOp").CompilationOnly());
+REGISTER_XLA_OP_FOR_NPU(Name("ControlTrigger").CompilationOnly());
+REGISTER_XLA_OP_FOR_NPU(Name("_Arg").AllowResourceTypes().CompilationOnly());
+REGISTER_XLA_OP_FOR_NPU(Name("Reshape")
+                            .CompileTimeConstInput("shape")
+                            .MlirCompileTimeFixedShapeInput("shape"));
+REGISTER_XLA_OP_FOR_NPU(Name("MatMul").TypeConstraint(
+    "T", {DT_HALF, DT_BFLOAT16, DT_FLOAT, DT_DOUBLE, DT_COMPLEX64}));
+REGISTER_XLA_OP_FOR_NPU(Name("SparseMatMul"));
+REGISTER_XLA_OP_FOR_NPU(Name("Concat")
+                            .CompileTimeConstInput("concat_dim")
+                            .MlirCompileTimeConstInput("concat_dim"));
+REGISTER_XLA_OP_FOR_NPU(Name("ConcatV2")
+                            .TypeConstraint("Tidx", DT_INT32)
+                            .CompileTimeConstInput("axis")
+                            .MlirCompileTimeConstInput("axis"));
+REGISTER_XLA_OP_FOR_NPU(Name("ConcatOffset")
+                            .CompileTimeConstInput("concat_dim")
+                            .CompileTimeConstInput("shape")
+                            .MlirCompileTimeConstInput("concat_dim")
+                            .MlirCompileTimeFixedShapeInput("shape"));
+REGISTER_XLA_OP_FOR_NPU(Name("Fill")
+                            .CompileTimeConstInput("dims")
+                            .MlirCompileTimeFixedShapeInput("dims")
+                            );
+REGISTER_XLA_OP_FOR_NPU(Name("RGBToHSV"));
+REGISTER_XLA_OP_FOR_NPU(Name("HSVToRGB"));
+REGISTER_XLA_OP_FOR_NPU(Name("AdjustContrastv2"));
+REGISTER_XLA_OP_FOR_NPU(Name("AdjustSaturation"));
+REGISTER_XLA_OP_FOR_NPU(Name("AdjustHue"));
+REGISTER_XLA_OP_FOR_NPU(Name("NonMaxSuppressionV4")
+                            .CompileTimeConstInput("max_output_size")
+                            .MlirCompileTimeFixedShapeInput("max_output_size"));
+REGISTER_XLA_OP_FOR_NPU(Name("StatelessRandomUniform")
+                            .CompileTimeConstInput("shape")
+                            .MlirCompileTimeFixedShapeInput("shape")
+                            .TypeConstraint("dtype", DT_FLOAT)
+                            .TypeConstraint("Tseed", DT_INT32));
+REGISTER_XLA_OP_FOR_NPU(Name("StatelessRandomNormal")
+                            .CompileTimeConstInput("shape")
+                            .MlirCompileTimeFixedShapeInput("shape")
+                            .TypeConstraint("dtype", DT_FLOAT)
+                            .TypeConstraint("Tseed", DT_INT32));
+REGISTER_XLA_OP_FOR_NPU(Name("StatelessTruncatedNormal")
+                            .CompileTimeConstInput("shape")
+                            .MlirCompileTimeFixedShapeInput("shape")
+                            .TypeConstraint("dtype", DT_FLOAT)
+                            .TypeConstraint("Tseed", DT_INT32));
+REGISTER_XLA_OP_FOR_NPU(Name("MatrixSetDiag"));
+REGISTER_XLA_OP_FOR_NPU(Name("Identity").AllowResourceTypes().CompilationOnly());
+REGISTER_XLA_OP_FOR_NPU(Name("IdentityN").AllowResourceTypes().CompilationOnly());
+REGISTER_XLA_OP_FOR_NPU(Name("PlaceholderWithDefault"));
+REGISTER_XLA_OP_FOR_NPU(Name("PreventGradient"));
+REGISTER_XLA_OP_FOR_NPU(Name("StopGradient"));
+REGISTER_XLA_OP_FOR_NPU(Name("Snapshot"));
+REGISTER_XLA_OP_FOR_NPU(Name("BatchToSpaceND")
+                            .CompileTimeConstInput("block_shape")
+                            .CompileTimeConstInput("crops")
+                            .MlirCompileTimeFixedShapeInput("block_shape")
+                            .MlirCompileTimeFixedShapeInput("crops"));
+REGISTER_XLA_OP_FOR_NPU(Name("BatchToSpace")
+                            .CompileTimeConstInput("crops")
+                            .MlirCompileTimeFixedShapeInput("crops"));
+REGISTER_XLA_OP_FOR_NPU(Name("ListDiff")
+                            .TypeConstraint("T", {DT_INT32, DT_INT64})
+                            .CompileTimeConstInput("x")
+                            .CompileTimeConstInput("y")
+                            .MlirCompileTimeFixedShapeInput("x")
+                            .MlirCompileTimeFixedShapeInput("y"));
+REGISTER_XLA_OP_FOR_NPU(Name("BatchMatMul"));
+REGISTER_XLA_OP_FOR_NPU(Name("MatrixBandPart"));
+REGISTER_XLA_OP_FOR_NPU(Name("Range")
+                            .CompileTimeConstInput("start")
+                            .CompileTimeConstInput("limit")
+                            .CompileTimeConstInput("delta")
+                            .MlirCompileTimeFixedShapeInput("start")
+                            .MlirCompileTimeFixedShapeInput("limit")
+                            .MlirCompileTimeFixedShapeInput("delta"));
+REGISTER_XLA_OP_FOR_NPU(Name("LinSpace")
+                            .CompileTimeConstInput("start")
+                            .CompileTimeConstInput("stop")
+                            .CompileTimeConstInput("num")
+                            .MlirCompileTimeFixedShapeInput("start")
+                            .MlirCompileTimeFixedShapeInput("stop")
+                            .MlirCompileTimeFixedShapeInput("num"));
+// This OP is ONLY registered in AOT mode, thus ignore it.
+REGISTER_XLA_OP_FOR_NPU(Name("FusedBatchNorm"));
+REGISTER_XLA_OP_FOR_NPU(Name("FusedBatchNormV2"));
+REGISTER_XLA_OP_FOR_NPU(Name("FusedBatchNormGrad"));
+REGISTER_XLA_OP_FOR_NPU(Name("FusedBatchNormGradV2"));
+REGISTER_XLA_OP_FOR_NPU(Name("TensorArrayV3").CompileTimeConstInput("size"));
+REGISTER_XLA_OP_FOR_NPU(Name("TensorArrayWriteV3"));
+REGISTER_XLA_OP_FOR_NPU(Name("TensorArrayReadV3"));
+REGISTER_XLA_OP_FOR_NPU(Name("TensorArrayGatherV3"));
+REGISTER_XLA_OP_FOR_NPU(Name("TensorArrayScatterV3"));
+REGISTER_XLA_OP_FOR_NPU(Name("TensorArrayConcatV3"));
+REGISTER_XLA_OP_FOR_NPU(Name("TensorArraySplitV3")
+                            .CompileTimeConstInput("lengths")
+                            .MlirCompileTimeFixedShapeInput("lengths"));
+REGISTER_XLA_OP_FOR_NPU(Name("TensorArraySizeV3"));
+REGISTER_XLA_OP_FOR_NPU(Name("TensorArrayGradV3"));
+REGISTER_XLA_OP_FOR_NPU(Name("TensorArrayCloseV3"));
+REGISTER_XLA_OP_FOR_NPU(Name("_Retval").AllowResourceTypes().CompilationOnly());
+REGISTER_XLA_OP_FOR_NPU(Name("Tile")
+                            .CompileTimeConstInput("multiples")
+                            .MlirCompileTimeFixedShapeInput("multiples"));
+REGISTER_XLA_OP_FOR_NPU(Name("AddN"));
+REGISTER_XLA_OP_FOR_NPU(Name("While").AllowResourceTypes());
+REGISTER_XLA_OP_FOR_NPU(Name("StatelessWhile").AllowResourceTypes());
+REGISTER_XLA_OP_FOR_NPU(Name("FFT").TypeConstraint("Tcomplex", DT_COMPLEX64));
+REGISTER_XLA_OP_FOR_NPU(Name("FFT2D").TypeConstraint("Tcomplex", DT_COMPLEX64));
+REGISTER_XLA_OP_FOR_NPU(Name("FFT3D").TypeConstraint("Tcomplex", DT_COMPLEX64));
+REGISTER_XLA_OP_FOR_NPU(Name("IFFT").TypeConstraint("Tcomplex", DT_COMPLEX64));
+REGISTER_XLA_OP_FOR_NPU(Name("IFFT2D").TypeConstraint("Tcomplex",
+                                                      DT_COMPLEX64));
+REGISTER_XLA_OP_FOR_NPU(Name("IFFT3D").TypeConstraint("Tcomplex",
+                                                      DT_COMPLEX64));
+REGISTER_XLA_OP_FOR_NPU(Name("RFFT")
+                            .CompileTimeConstInput("fft_length")
+                            .MlirCompileTimeFixedShapeInput("fft_length"));
+REGISTER_XLA_OP_FOR_NPU(Name("RFFT2D")
+                            .CompileTimeConstInput("fft_length")
+                            .MlirCompileTimeFixedShapeInput("fft_length"));
+REGISTER_XLA_OP_FOR_NPU(Name("RFFT3D")
+                            .CompileTimeConstInput("fft_length")
+                            .MlirCompileTimeFixedShapeInput("fft_length"));
+REGISTER_XLA_OP_FOR_NPU(Name("IRFFT")
+                            .CompileTimeConstInput("fft_length")
+                            .MlirCompileTimeFixedShapeInput("fft_length"));
+REGISTER_XLA_OP_FOR_NPU(Name("IRFFT2D")
+                            .CompileTimeConstInput("fft_length")
+                            .MlirCompileTimeFixedShapeInput("fft_length"));
+REGISTER_XLA_OP_FOR_NPU(Name("IRFFT3D")
+                            .CompileTimeConstInput("fft_length")
+                            .MlirCompileTimeFixedShapeInput("fft_length"));
+REGISTER_XLA_OP_FOR_NPU(Name("QuantizeAndDequantizeV2"));
+REGISTER_XLA_OP_FOR_NPU(Name("QuantizeAndDequantizeV3"));
+REGISTER_XLA_OP_FOR_NPU(Name("Conv2D"));
+REGISTER_XLA_OP_FOR_NPU(Name("Conv3D"));
+REGISTER_XLA_OP_FOR_NPU(Name("DepthwiseConv2dNative"));
+REGISTER_XLA_OP_FOR_NPU(Name("Conv2DBackpropInput")
+                            .CompileTimeConstInput("input_sizes")
+                            .MlirCompileTimeFixedShapeInput("input_sizes"));
+REGISTER_XLA_OP_FOR_NPU(Name("Conv3DBackpropInputV2")
+                            .CompileTimeConstInput("input_sizes")
+                            .MlirCompileTimeFixedShapeInput("input_sizes"));
+REGISTER_XLA_OP_FOR_NPU(Name("DepthwiseConv2dNativeBackpropInput")
+                            .CompileTimeConstInput("input_sizes")
+                            .MlirCompileTimeFixedShapeInput("input_sizes"));
+REGISTER_XLA_OP_FOR_NPU(Name("Conv2DBackpropFilter")
+                            .CompileTimeConstInput("filter_sizes")
+                            .MlirCompileTimeFixedShapeInput("filter_sizes"));
+REGISTER_XLA_OP_FOR_NPU(Name("Conv3DBackpropFilterV2")
+                            .CompileTimeConstInput("filter_sizes")
+                            .MlirCompileTimeFixedShapeInput("filter_sizes"));
+REGISTER_XLA_OP_FOR_NPU(Name("DepthwiseConv2dNativeBackpropFilter")
+                            .CompileTimeConstInput("filter_sizes")
+                            .MlirCompileTimeFixedShapeInput("filter_sizes"));
+REGISTER_XLA_OP_FOR_NPU(Name("MirrorPad")
+                            .CompileTimeConstInput("paddings")
+                            .MlirCompileTimeFixedShapeInput("paddings"));
+REGISTER_XLA_OP_FOR_NPU(Name("Elu"));
+REGISTER_XLA_OP_FOR_NPU(Name("EluGrad"));
+REGISTER_XLA_OP_FOR_NPU(Name("Selu"));
+REGISTER_XLA_OP_FOR_NPU(Name("SeluGrad"));
+constexpr std::array<DataType, 3> kScanOpTypes = {
+    {DT_HALF, DT_BFLOAT16, DT_FLOAT}};
+REGISTER_XLA_OP_FOR_NPU(Name("Cumsum")
+                            .TypeConstraint("T", kScanOpTypes)
+                            .CompileTimeConstInput("axis")
+                            .MlirCompileTimeConstInput("axis"));
+REGISTER_XLA_OP_FOR_NPU(Name("Cumprod")
+                            .TypeConstraint("T", kScanOpTypes)
+                            .CompileTimeConstInput("axis")
+                            .MlirCompileTimeConstInput("axis"));
+REGISTER_XLA_OP_FOR_NPU(Name("Split")
+                            .CompileTimeConstInput("split_dim")
+                            .MlirCompileTimeConstInput("split_dim")
+                            );
+REGISTER_XLA_OP_FOR_NPU(Name("SplitV")
+                            .CompileTimeConstInput("split_dim")
+                            .CompileTimeConstInput("size_splits")
+                            .MlirCompileTimeConstInput("split_dim")
+                            .MlirCompileTimeFixedShapeInput("size_splits"));
+REGISTER_XLA_OP_FOR_NPU(Name("ClipByValue"));
+REGISTER_XLA_OP_FOR_NPU(Name("ExtractImagePatches"));
+REGISTER_XLA_OP_FOR_NPU(Name("Shape").CompilationOnly().IsMetadataOp());
+REGISTER_XLA_OP_FOR_NPU(Name("ShapeN").CompilationOnly().IsMetadataOp());
+REGISTER_XLA_OP_FOR_NPU(Name("Rank").CompilationOnly().IsMetadataOp());
+REGISTER_XLA_OP_FOR_NPU(Name("Size").CompilationOnly().IsMetadataOp());
+REGISTER_XLA_OP_FOR_NPU(Name("ExpandDims")
+                            .CompileTimeConstInput("dim")
+                            .MlirCompileTimeConstInput("dim"));
+REGISTER_XLA_OP_FOR_NPU(Name("Squeeze"));
+REGISTER_XLA_OP_FOR_NPU(Name("ZerosLike"));
+REGISTER_XLA_OP_FOR_NPU(Name("OnesLike"));
+REGISTER_XLA_OP_FOR_NPU(Name("If").AllowResourceTypes());
+REGISTER_XLA_OP_FOR_NPU(Name("StatelessIf").AllowResourceTypes());
+REGISTER_XLA_OP_FOR_NPU(Name("RandomUniform")
+                            .CompileTimeConstInput("shape")
+                            .MlirCompileTimeFixedShapeInput("shape"));
+REGISTER_XLA_OP_FOR_NPU(Name("RandomShuffle"));
+REGISTER_XLA_OP_FOR_NPU(Name("RandomUniformInt")
+                            .CompileTimeConstInput("shape")
+                            .MlirCompileTimeFixedShapeInput("shape"));
+REGISTER_XLA_OP_FOR_NPU(Name("RandomStandardNormal")
+                            .CompileTimeConstInput("shape")
+                            .MlirCompileTimeFixedShapeInput("shape"));
+REGISTER_XLA_OP_FOR_NPU(Name("TruncatedNormal")
+                            .CompileTimeConstInput("shape")
+                            .MlirCompileTimeFixedShapeInput("shape")
+                            .TypeConstraint("dtype", DT_FLOAT));
+REGISTER_XLA_OP_FOR_NPU(Name("Multinomial")
+                            .CompileTimeConstInput("num_samples")
+                            .MlirCompileTimeFixedShapeInput("num_samples"));
+REGISTER_XLA_OP_FOR_NPU(Name("SpaceToDepth"));
+REGISTER_XLA_OP_FOR_NPU(Name("Pad")
+                            .CompileTimeConstInput("paddings")
+                            .MlirCompileTimeFixedShapeInput("paddings"));
+REGISTER_XLA_OP_FOR_NPU(Name("PadV2")
+                            .CompileTimeConstInput("paddings")
+                            .MlirCompileTimeFixedShapeInput("paddings"));
+REGISTER_XLA_OP_FOR_NPU(Name("Sum")
+                            .CompileTimeConstInput("reduction_indices")
+                            .MlirCompileTimeConstInput("reduction_indices"));
+REGISTER_XLA_OP_FOR_NPU(Name("Prod")
+                            .CompileTimeConstInput("reduction_indices")
+                            .MlirCompileTimeConstInput("reduction_indices"));
+REGISTER_XLA_OP_FOR_NPU(Name("Min")
+                            .CompileTimeConstInput("reduction_indices")
+                            .MlirCompileTimeConstInput("reduction_indices"));
+REGISTER_XLA_OP_FOR_NPU(Name("Max")
+                            .CompileTimeConstInput("reduction_indices")
+                            .MlirCompileTimeConstInput("reduction_indices"));
+REGISTER_XLA_OP_FOR_NPU(Name("Mean")
+                            .CompileTimeConstInput("reduction_indices")
+                            .MlirCompileTimeConstInput("reduction_indices"));
+REGISTER_XLA_OP_FOR_NPU(Name("All")
+                            .CompileTimeConstInput("reduction_indices")
+                            .MlirCompileTimeConstInput("reduction_indices"));
+REGISTER_XLA_OP_FOR_NPU(Name("Any")
+                            .CompileTimeConstInput("reduction_indices")
+                            .MlirCompileTimeConstInput("reduction_indices"));
+REGISTER_XLA_OP_FOR_NPU(Name("Reverse")
+                            .CompileTimeConstInput("dims")
+                            .MlirCompileTimeConstInput("dims"));
+REGISTER_XLA_OP_FOR_NPU(Name("ReverseV2")
+                            .CompileTimeConstInput("axis")
+                            .MlirCompileTimeConstInput("axis"));
+REGISTER_XLA_OP_FOR_NPU(Name("UnsortedSegmentSum")
+                            .CompileTimeConstInput("num_segments")
+                            .MlirCompileTimeFixedShapeInput("num_segments"));
+REGISTER_XLA_OP_FOR_NPU(Name("UnsortedSegmentProd")
+                            .CompileTimeConstInput("num_segments")
+                            .MlirCompileTimeFixedShapeInput("num_segments"));
+REGISTER_XLA_OP_FOR_NPU(Name("UnsortedSegmentMin")
+                            .CompileTimeConstInput("num_segments")
+                            .MlirCompileTimeFixedShapeInput("num_segments"));
+REGISTER_XLA_OP_FOR_NPU(Name("UnsortedSegmentMax")
+                            .CompileTimeConstInput("num_segments")
+                            .MlirCompileTimeFixedShapeInput("num_segments"));
+REGISTER_XLA_OP_FOR_NPU(Name("SpaceToBatchND")
+                            .CompileTimeConstInput("paddings")
+                            .CompileTimeConstInput("block_shape")
+                            .MlirCompileTimeFixedShapeInput("paddings")
+                            .MlirCompileTimeFixedShapeInput("block_shape"));
+REGISTER_XLA_OP_FOR_NPU(Name("SpaceToBatch")
+                            .CompileTimeConstInput("paddings")
+                            .MlirCompileTimeFixedShapeInput("paddings"));
+REGISTER_XLA_OP_FOR_NPU(Name("BroadcastTo")
+                            .CompileTimeConstInput("shape")
+                            .MlirCompileTimeFixedShapeInput("shape"));
+REGISTER_XLA_OP_FOR_NPU(Name("Cross"));
+REGISTER_XLA_OP_FOR_NPU(Name("StridedSlice")
+                            .CompileTimeConstInput("begin")
+                            .CompileTimeConstInput("end")
+                            .CompileTimeConstInput("strides")
+                            .MlirCompileTimeFixedShapeInput("begin")
+                            .MlirCompileTimeFixedShapeInput("end")
+                            .MlirCompileTimeConstInput("strides"));
+REGISTER_XLA_OP_FOR_NPU(Name("StridedSliceGrad")
+                            .CompileTimeConstInput("shape")
+                            .CompileTimeConstInput("begin")
+                            .CompileTimeConstInput("end")
+                            .CompileTimeConstInput("strides")
+                            .MlirCompileTimeFixedShapeInput("shape")
+                            .MlirCompileTimeFixedShapeInput("begin")
+                            .MlirCompileTimeFixedShapeInput("end")
+                            .MlirCompileTimeFixedShapeInput("strides"));
+REGISTER_XLA_OP_FOR_NPU(Name("ResourceStridedSliceAssign")
+                            .CompileTimeConstInput("begin")
+                            .CompileTimeConstInput("end")
+                            .CompileTimeConstInput("strides")
+                            .MlirCompileTimeFixedShapeInput("begin")
+                            .MlirCompileTimeFixedShapeInput("end")
+                            .MlirCompileTimeFixedShapeInput("strides"));
+REGISTER_XLA_OP_FOR_NPU(Name("ScatterNd")
+                            .CompileTimeConstInput("shape")
+                            .MlirCompileTimeFixedShapeInput("shape"));
+REGISTER_XLA_OP_FOR_NPU(Name("Diag"));
+REGISTER_XLA_OP_FOR_NPU(Name("DiagPart"));
+REGISTER_XLA_OP_FOR_NPU(Name("MatrixDiag"));
+REGISTER_XLA_OP_FOR_NPU(Name("MatrixDiagPart"));
+REGISTER_XLA_OP_FOR_NPU(Name("Cholesky").TypeConstraint("T", kFloatTypes));
+REGISTER_XLA_OP_FOR_NPU(Name("Transpose")
+                            .CompileTimeConstInput("perm")
+                            .MlirCompileTimeConstInput("perm"));
+REGISTER_XLA_OP_FOR_NPU(Name("ConjugateTranspose")
+                            .CompileTimeConstInput("perm")
+                            .MlirCompileTimeConstInput("perm"));
+REGISTER_XLA_OP_FOR_NPU(Name("InvertPermutation")
+                            .TypeConstraint("T", DT_INT32)
+                            .CompileTimeConstInput("x")
+                            .MlirCompileTimeConstInput("x"));
+REGISTER_XLA_OP_FOR_NPU(
+    Name("ResourceApplyGradientDescent").TypeConstraint("T", kFloatTypes));
+REGISTER_XLA_OP_FOR_NPU(Name("ResourceApplyProximalGradientDescent")
+                            .TypeConstraint("T", kFloatTypes));
+REGISTER_XLA_OP_FOR_NPU(
+    Name("ResourceApplyMomentum").TypeConstraint("T", kFloatTypes));
+REGISTER_XLA_OP_FOR_NPU(
+    Name("ResourceApplyAdagrad").TypeConstraint("T", kFloatTypes));
+REGISTER_XLA_OP_FOR_NPU(
+    Name("ResourceApplyProximalAdagrad").TypeConstraint("T", kFloatTypes));
+REGISTER_XLA_OP_FOR_NPU(
+    Name("ResourceApplyAdagradDA").TypeConstraint("T", kFloatTypes));
+REGISTER_XLA_OP_FOR_NPU(
+    Name("ResourceApplyAdam").TypeConstraint("T", kFloatTypes));
+REGISTER_XLA_OP_FOR_NPU(
+    Name("ResourceApplyAdaMax").TypeConstraint("T", kFloatTypes));
+REGISTER_XLA_OP_FOR_NPU(
+    Name("ResourceApplyRMSProp").TypeConstraint("T", kFloatTypes));
+REGISTER_XLA_OP_FOR_NPU(
+    Name("ResourceApplyCenteredRMSProp").TypeConstraint("T", kFloatTypes));
+REGISTER_XLA_OP_FOR_NPU(
+    Name("ResourceApplyFtrl").TypeConstraint("T", kFloatTypes));
+REGISTER_XLA_OP_FOR_NPU(
+    Name("ResourceApplyFtrlV2").TypeConstraint("T", kFloatTypes));
+REGISTER_XLA_OP_FOR_NPU(
+    Name("ResourceApplyAdadelta").TypeConstraint("T", kFloatTypes));
+REGISTER_XLA_OP_FOR_NPU(
+    Name("ResourceApplyAddSign").TypeConstraint("T", kFloatTypes));
+REGISTER_XLA_OP_FOR_NPU(
+    Name("ResourceApplyPowerSign").TypeConstraint("T", kFloatTypes));
+REGISTER_XLA_OP_FOR_NPU(Name("ReverseSequence"));
+REGISTER_XLA_OP_FOR_NPU(Name("IsNan"));
+REGISTER_XLA_OP_FOR_NPU(Name("Erf"));
+REGISTER_XLA_OP_FOR_NPU(Name("Erfc"));
+REGISTER_XLA_OP_FOR_NPU(Name("Lgamma"));
+REGISTER_XLA_OP_FOR_NPU(Name("Digamma"));
+REGISTER_XLA_OP_FOR_NPU(Name("Slice")
+                            .CompileTimeConstInput("begin")
+                            .CompileTimeConstInput("size")
+                            .MlirCompileTimeFixedShapeInput("begin")
+                            .MlirCompileTimeFixedShapeInput("size"));
+REGISTER_XLA_OP_FOR_NPU(Name("Bucketize"));
+REGISTER_XLA_OP_FOR_NPU(Name("BiasAdd"));
+REGISTER_XLA_OP_FOR_NPU(Name("BiasAddV1"));
+REGISTER_XLA_OP_FOR_NPU(Name("BiasAddGrad"));
+REGISTER_XLA_OP_FOR_NPU(Name("FakeQuantWithMinMaxArgs"));
+REGISTER_XLA_OP_FOR_NPU(Name("FakeQuantWithMinMaxArgsGradient"));
+REGISTER_XLA_OP_FOR_NPU(Name("FakeQuantWithMinMaxVars"));
+REGISTER_XLA_OP_FOR_NPU(Name("FakeQuantWithMinMaxVarsGradient"));
+REGISTER_XLA_OP_FOR_NPU(Name("Const").CompilationOnly());
+REGISTER_XLA_OP_FOR_NPU(Name("VarIsInitializedOp"));
+REGISTER_XLA_OP_FOR_NPU(Name("VariableShape"));
+REGISTER_XLA_OP_FOR_NPU(Name("ReadVariableOp").CompilationOnly());
+REGISTER_XLA_OP_FOR_NPU(Name("AssignVariableOp").CompilationOnly());
+REGISTER_XLA_OP_FOR_NPU(Name("AssignAddVariableOp").TypeConstraint("dtype", kNumericTypes));
+REGISTER_XLA_OP_FOR_NPU(Name("AssignSubVariableOp").TypeConstraint("dtype", kNumericTypes));
+REGISTER_XLA_OP_FOR_NPU(Name("ResourceGather"));
+REGISTER_XLA_OP_FOR_NPU(Name("ResourceScatterAdd"));
+REGISTER_XLA_OP_FOR_NPU(Name("ResourceScatterSub"));
+REGISTER_XLA_OP_FOR_NPU(Name("ResourceScatterMul"));
+REGISTER_XLA_OP_FOR_NPU(Name("ResourceScatterDiv"));
+REGISTER_XLA_OP_FOR_NPU(Name("ResourceScatterMin"));
+REGISTER_XLA_OP_FOR_NPU(Name("ResourceScatterMax"));
+REGISTER_XLA_OP_FOR_NPU(Name("ResourceScatterUpdate"));
+REGISTER_XLA_OP_FOR_NPU(Name("ResourceScatterNdUpdate"));
+REGISTER_XLA_OP_FOR_NPU(Name("ResourceScatterNdAdd"));
+REGISTER_XLA_OP_FOR_NPU(Name("Pack"));
+REGISTER_XLA_OP_FOR_NPU(Name("DynamicStitch")
+                            .CompileTimeConstInput("indices")
+                            .MlirCompileTimeFixedShapeInput("indices"));
+REGISTER_XLA_OP_FOR_NPU(Name("ParallelDynamicStitch")
+                            .CompileTimeConstInput("indices")
+                            .MlirCompileTimeFixedShapeInput("indices"));
+REGISTER_XLA_OP_FOR_NPU(Name("Cast"));
+REGISTER_XLA_OP_FOR_NPU(Name("Bitcast"));
+REGISTER_XLA_OP_FOR_NPU(Name("MatrixTriangularSolve"));
+REGISTER_XLA_OP_FOR_NPU(Name("Gather"));
+REGISTER_XLA_OP_FOR_NPU(Name("GatherV2")
+                            .CompileTimeConstInput("axis")
+                            .MlirCompileTimeConstInput("axis"));
+REGISTER_XLA_OP_FOR_NPU(Name("GatherNd"));
+REGISTER_XLA_OP_FOR_NPU(Name("Relu"));
+REGISTER_XLA_OP_FOR_NPU(Name("Relu6"));
+REGISTER_XLA_OP_FOR_NPU(Name("LeakyRelu"));
+REGISTER_XLA_OP_FOR_NPU(Name("LeakyReluGrad"));
+REGISTER_XLA_OP_FOR_NPU(Name("ReluGrad"));
+REGISTER_XLA_OP_FOR_NPU(Name("Relu6Grad"));
+REGISTER_XLA_OP_FOR_NPU(Name("ArgMax")
+                            .TypeConstraint("T", DT_FLOAT)
+                            .Device(DEVICE_NPU_XLA_JIT)
+                            .CompileTimeConstInput("dimension")
+                            .MlirCompileTimeConstInput("dimension"));
+REGISTER_XLA_OP_FOR_NPU(Name("_ListToArray"));
+REGISTER_XLA_OP_FOR_NPU(Name("_ArrayToList"));
+REGISTER_XLA_OP_FOR_NPU(Name("SymbolicGradient"));
+REGISTER_XLA_OP_FOR_NPU(Name("StackV2")
+                            .CompileTimeConstInput("max_size")
+                            .MlirCompileTimeConstInput("max_size"));
+REGISTER_XLA_OP_FOR_NPU(Name("StackPushV2"));
+REGISTER_XLA_OP_FOR_NPU(Name("StackPopV2"));
+REGISTER_XLA_OP_FOR_NPU(Name("StackCloseV2"));
+REGISTER_XLA_OP_FOR_NPU(Name("DepthToSpace"));
+REGISTER_XLA_OP_FOR_NPU(Name("OneHot")
+                            .CompileTimeConstInput("depth")
+                            .MlirCompileTimeFixedShapeInput("depth"));
+REGISTER_XLA_OP_FOR_NPU(Name("BroadcastArgs")
+                            .CompileTimeConstInput("s0")
+                            .CompileTimeConstInput("s1")
+                            .MlirCompileTimeFixedShapeInput("s0")
+                            .MlirCompileTimeFixedShapeInput("s1"));
+REGISTER_XLA_OP_FOR_NPU(Name("BroadcastGradientArgs")
+                            .CompileTimeConstInput("s0")
+                            .CompileTimeConstInput("s1")
+                            .MlirCompileTimeFixedShapeInput("s0")
+                            .MlirCompileTimeFixedShapeInput("s1"));
+REGISTER_XLA_OP_FOR_NPU(Name("ApproximateEqual"));
+REGISTER_XLA_OP_FOR_NPU(Name("ResizeBilinear")
+                            .CompileTimeConstInput("size")
+                            .MlirCompileTimeFixedShapeInput("size"));
+REGISTER_XLA_OP_FOR_NPU(Name("ResizeBilinearGrad"));
+REGISTER_XLA_OP_FOR_NPU(Name("L2Loss"));
+REGISTER_XLA_OP_FOR_NPU(Name("Unpack"));
+REGISTER_XLA_OP_FOR_NPU(Name("ArgMin")
+                            .CompileTimeConstInput("dimension")
+                            .MlirCompileTimeConstInput("dimension"));
+REGISTER_XLA_OP_FOR_NPU(Name("LRN"));
+REGISTER_XLA_OP_FOR_NPU(Name("LRNGrad"));
+REGISTER_XLA_OP_FOR_NPU(Name("TopKV2")
+                            .CompileTimeConstInput("k")
+                            .MlirCompileTimeFixedShapeInput("k")
+                            .TypeConstraint("T", {DT_UINT32, DT_INT32, DT_FLOAT, DT_BFLOAT16}));
+REGISTER_XLA_OP_FOR_NPU(Name("SparseToDense")
+                            .CompileTimeConstInput("output_shape")
+                            .MlirCompileTimeFixedShapeInput("output_shape"));
+REGISTER_XLA_OP_FOR_NPU(Name("Select"));
+REGISTER_XLA_OP_FOR_NPU(Name("Qr").TypeConstraint("T", kFloatTypes));
+
+
+// binary
+REGISTER_XLA_OP_FOR_NPU(Name("Add"));
+REGISTER_XLA_OP_FOR_NPU(Name("Sub"));
+REGISTER_XLA_OP_FOR_NPU(Name("Mul"));
+REGISTER_XLA_OP_FOR_NPU(Name("Div"));
+REGISTER_XLA_OP_FOR_NPU(Name("Atan2"));
+REGISTER_XLA_OP_FOR_NPU(Name("Complex"));
+REGISTER_XLA_OP_FOR_NPU(Name("DivNoNan"));
+REGISTER_XLA_OP_FOR_NPU(Name("FloorDiv"));
+REGISTER_XLA_OP_FOR_NPU(Name("Xlogy"));
+REGISTER_XLA_OP_FOR_NPU(Name("Xdivy"));
+REGISTER_XLA_OP_FOR_NPU(Name("FloorMod"));
+REGISTER_XLA_OP_FOR_NPU(Name("BitwiseAnd"));
+REGISTER_XLA_OP_FOR_NPU(Name("BitwiseOr"));
+REGISTER_XLA_OP_FOR_NPU(Name("BitwiseXor"));
+REGISTER_XLA_OP_FOR_NPU(Name("LeftShift"));
+REGISTER_XLA_OP_FOR_NPU(Name("RightShift"));
+REGISTER_XLA_OP_FOR_NPU(Name("LogicalAnd"));
+REGISTER_XLA_OP_FOR_NPU(Name("LogicalOr"));
+REGISTER_XLA_OP_FOR_NPU(Name("Mod"));
+REGISTER_XLA_OP_FOR_NPU(Name("Maximum"));
+REGISTER_XLA_OP_FOR_NPU(Name("Minimum"));
+REGISTER_XLA_OP_FOR_NPU(Name("RealDiv"));
+REGISTER_XLA_OP_FOR_NPU(Name("ReciprocalGrad"));
+REGISTER_XLA_OP_FOR_NPU(Name("RsqrtGrad"));
+REGISTER_XLA_OP_FOR_NPU(Name("SqrtGrad"));
+REGISTER_XLA_OP_FOR_NPU(Name("SquaredDifference"));
+REGISTER_XLA_OP_FOR_NPU(Name("TruncateDiv"));
+REGISTER_XLA_OP_FOR_NPU(Name("TruncateMod"));
+REGISTER_XLA_OP_FOR_NPU(Name("Equal"));
+REGISTER_XLA_OP_FOR_NPU(Name("NotEqual"));
+REGISTER_XLA_OP_FOR_NPU(Name("Greater"));
+REGISTER_XLA_OP_FOR_NPU(Name("GreaterEqual"));
+REGISTER_XLA_OP_FOR_NPU(Name("Less"));
+REGISTER_XLA_OP_FOR_NPU(Name("LessEqual"));
+REGISTER_XLA_OP_FOR_NPU(Name("SigmoidGrad"));
+REGISTER_XLA_OP_FOR_NPU(Name("SoftplusGrad"));
+REGISTER_XLA_OP_FOR_NPU(Name("SoftsignGrad"));
+REGISTER_XLA_OP_FOR_NPU(Name("TanhGrad"));
+REGISTER_XLA_OP_FOR_NPU(Name("Pow"));
+
+// unary
+REGISTER_XLA_OP_FOR_NPU(Name("ComplexAbs"));
+REGISTER_XLA_OP_FOR_NPU(Name("Angle"));
+REGISTER_XLA_OP_FOR_NPU(Name("Conj"));
+REGISTER_XLA_OP_FOR_NPU(Name("Abs"));
+REGISTER_XLA_OP_FOR_NPU(Name("Acos"));
+REGISTER_XLA_OP_FOR_NPU(Name("Acosh"));
+REGISTER_XLA_OP_FOR_NPU(Name("Asin"));
+REGISTER_XLA_OP_FOR_NPU(Name("Asinh"));
+REGISTER_XLA_OP_FOR_NPU(Name("Atan"));
+REGISTER_XLA_OP_FOR_NPU(Name("Atanh"));
+REGISTER_XLA_OP_FOR_NPU(Name("Ceil"));
+REGISTER_XLA_OP_FOR_NPU(Name("Cos"));
+REGISTER_XLA_OP_FOR_NPU(Name("Cosh"));
+REGISTER_XLA_OP_FOR_NPU(Name("Sin"));
+REGISTER_XLA_OP_FOR_NPU(Name("Exp"));
+REGISTER_XLA_OP_FOR_NPU(Name("Expm1"));
+REGISTER_XLA_OP_FOR_NPU(Name("Floor"));
+REGISTER_XLA_OP_FOR_NPU(Name("IsFinite"));
+REGISTER_XLA_OP_FOR_NPU(Name("IsInf"));
+REGISTER_XLA_OP_FOR_NPU(Name("Inv"));
+REGISTER_XLA_OP_FOR_NPU(Name("Reciprocal"));
+REGISTER_XLA_OP_FOR_NPU(Name("Log"));
+REGISTER_XLA_OP_FOR_NPU(Name("Log1p"));
+REGISTER_XLA_OP_FOR_NPU(Name("Invert"));
+REGISTER_XLA_OP_FOR_NPU(Name("LogicalNot"));
+REGISTER_XLA_OP_FOR_NPU(Name("Neg"));
+REGISTER_XLA_OP_FOR_NPU(Name("Rint"));
+REGISTER_XLA_OP_FOR_NPU(Name("Round"));
+REGISTER_XLA_OP_FOR_NPU(Name("Rsqrt"));
+REGISTER_XLA_OP_FOR_NPU(Name("Sigmoid"));
+REGISTER_XLA_OP_FOR_NPU(Name("Sign"));
+REGISTER_XLA_OP_FOR_NPU(Name("Sinh"));
+REGISTER_XLA_OP_FOR_NPU(Name("Softplus"));
+REGISTER_XLA_OP_FOR_NPU(Name("Softsign"));
+REGISTER_XLA_OP_FOR_NPU(Name("Sqrt"));
+REGISTER_XLA_OP_FOR_NPU(Name("Square"));
+REGISTER_XLA_OP_FOR_NPU(Name("Tan"));
+REGISTER_XLA_OP_FOR_NPU(Name("Tanh"));
+REGISTER_XLA_OP_FOR_NPU(Name("Real"));
+REGISTER_XLA_OP_FOR_NPU(Name("Imag"));
+
+REGISTER_XLA_OP_FOR_NPU(Name("AddV2"));
+REGISTER_XLA_OP_FOR_NPU(Name("BatchMatMulV2"));
+REGISTER_XLA_OP_FOR_NPU(Name("FusedBatchNormV3"));
+REGISTER_XLA_OP_FOR_NPU(Name("FusedBatchNormGradV3"));
+REGISTER_XLA_OP_FOR_NPU(Name("SelectV2"));
+
+REGISTER_XLA_OP_FOR_NPU(Name("QuantizeV2"));
+REGISTER_XLA_OP_FOR_NPU(Name("Dequantize"));
+REGISTER_XLA_OP_FOR_NPU(Name("QuantizedConv2DWithBiasAndRequantize"));
+REGISTER_XLA_OP_FOR_NPU(Name("SparseReshape"));
+REGISTER_XLA_OP_FOR_NPU(Name("SparseFillEmptyRows"));
+REGISTER_XLA_OP_FOR_NPU(Name("SparseSegmentMean"));
+REGISTER_XLA_OP_FOR_NPU(Name("SparseSegmentSum"));
+REGISTER_XLA_OP_FOR_NPU(Name("Where"));
+
+// clang-format on
 }  // namespace npu_xla
 }  // namespace tensorflow

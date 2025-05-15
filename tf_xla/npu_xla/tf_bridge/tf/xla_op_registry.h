@@ -369,6 +369,31 @@ private:
     std::unique_ptr<XlaOpRegistry::OpRegistration> registration_;
 };
 
+// Implementation details.
+
+class XlaOpRegistrar {
+public:
+    XlaOpRegistrar(std::unique_ptr<XlaOpRegistry::OpRegistration> registration);
+};
+
+#define REGISTER_XLA_OP_FOR_NPU_UNIQ_HELPER(COUNTER, BUILDER) REGISTER_XLA_OP_FOR_NPU_UNIQ(COUNTER, BUILDER)
+
+#define REGISTER_XLA_OP_FOR_NPU_UNIQ(CTR, BUILDER)                                        \
+    static ::tensorflow::npu_xla::XlaOpRegistrar xla_op_registrar__body__##CTR##__object( \
+        ::tensorflow::npu_xla::XlaOpRegistrationBuilder::BUILDER.Build(nullptr));
+
+class XlaBackendRegistrar {
+public:
+    XlaBackendRegistrar(absl::string_view name, absl::Span<const DataType> types,
+                        XlaOpRegistry::BackendOpFilter op_filter = nullptr);
+};
+
+#define REGISTER_XLA_BACKEND_UNIQ_HELPER_FOR_NPU(COUNTER, NAME, ...) \
+    REGISTER_XLA_BACKEND_UNIQ_FOR_NPU(COUNTER, NAME, __VA_ARGS__)
+
+#define REGISTER_XLA_BACKEND_UNIQ_FOR_NPU(CTR, NAME, ...) \
+    static ::tensorflow::npu_xla::XlaBackendRegistrar xla_backend_registrar__body__##CTR##__object(NAME, __VA_ARGS__);
+
 }  // namespace npu_xla
 }  // namespace tensorflow
 
