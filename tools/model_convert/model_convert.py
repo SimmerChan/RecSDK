@@ -117,7 +117,8 @@ class ModelConverter:
                 sess.run(tf.global_variables_initializer())
                 sess.run(insert_op_list)
                 saver = tf.train.Saver()
-                saver.save(sess, self._output_path + "/model.ckpt-0")
+                model_path = os.path.join(self._output_path, "model.ckpt-0")
+                saver.save(sess, model_path)
 
     def _get_key_and_offset(self, sparse_file_path, table_name):
         if self._is_ddr:

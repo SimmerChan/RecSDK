@@ -55,11 +55,11 @@ class SparseOps:
 
     def forward_alltoall(self, all2all_args, restore_vec, hot_pos, emb_vec, emb_vec_size):
         """
-         emb的前向通信
-         all2all_args：用all2all用到的参数
-         restore_vec：恢复向量
-         emb_vec：输入的emb
-         """
+        emb的前向通信
+        all2all_args：用all2all用到的参数
+        restore_vec：恢复向量
+        emb_vec：输入的emb
+        """
         emb_vec = tf.reshape(emb_vec, [-1])
 
         result = self.all2all(send_data=emb_vec,
@@ -80,11 +80,11 @@ class SparseOps:
 
     def forward_alltoallc(self, all2all_args, restore_vec, emb_vec, emb_vec_size, rank):
         """
-         emb的前向通信
-         all2all_args：用all2all用到的参数
-         restore_vec：恢复向量
-         emb_vec：输入的emb
-         """
+        emb的前向通信
+        all2all_args：用all2all用到的参数
+        restore_vec：恢复向量
+        emb_vec：输入的emb
+        """
         emb_vec = tf.reshape(emb_vec, [-1])
 
         result = hccl_ops.all_to_all_v_c(send_data=emb_vec,
@@ -100,11 +100,11 @@ class SparseOps:
 
     def backward_alltoall(self, emb_grad, hot_pos, segment_ids, num_segments, all2all_args):
         """
-         emb梯度的反向通信
-         id_emb_grad：原始梯度
-         segment_ids：恢复向量
-         num_segments：压缩后的长度
-         """
+        emb梯度的反向通信
+        id_emb_grad：原始梯度
+        segment_ids：恢复向量
+        num_segments：压缩后的长度
+        """
         # unique_local_grad 2node shape 37755 same with rc total and num_segment
         # unique_local_grad shape is [40052, 80]
         if hot_pos is not None:
@@ -130,11 +130,11 @@ class SparseOps:
 
     def backward_alltoallc(self, emb_grad, segment_ids, num_segments, all2all_args, rank):
         """
-         emb梯度的反向通信
-         id_emb_grad：原始梯度
-         segment_ids：恢复向量
-         num_segments：压缩后的长度
-         """
+        emb梯度的反向通信
+        id_emb_grad：原始梯度
+        segment_ids：恢复向量
+        num_segments：压缩后的长度
+        """
         unique_local_grad = tf.math.unsorted_segment_sum(emb_grad,
                                                          segment_ids=segment_ids,
                                                          num_segments=num_segments, name="backward_combine")
