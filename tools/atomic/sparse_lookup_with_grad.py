@@ -92,17 +92,17 @@ class InputConfig:
         self.training = training
 
 
-def input_fn_tfrecord(input: InputConfig):
-    feature_spec_list = input.feature_spec_list
-    rank_id = input.rank_id
-    local_rank_id = input.local_rank_id
-    rank_size = input.rank_size
-    data_path = input.data_path
-    file_pattern = input.file_pattern
-    total_batch_size = input.total_batch_size
-    num_epochs = input.num_epochs
-    perform_shuffle = input.perform_shuffle
-    training = input.training
+def input_fn_tfrecord(input_config: InputConfig):
+    feature_spec_list = input_config.feature_spec_list
+    rank_id = input_config.rank_id
+    local_rank_id = input_config.local_rank_id
+    rank_size = input_config.rank_size
+    data_path = input_config.data_path
+    file_pattern = input_config.file_pattern
+    total_batch_size = input_config.total_batch_size
+    num_epochs = input_config.num_epochs
+    perform_shuffle = input_config.perform_shuffle
+    training = input_config.training
 
     line_per_sample = 1024 * 8
     total_batch_size = int(total_batch_size / line_per_sample)
