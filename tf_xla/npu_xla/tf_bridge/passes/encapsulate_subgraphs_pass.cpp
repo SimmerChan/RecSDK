@@ -1673,15 +1673,15 @@ int Encapsulator::FindOutputSlotOfEdgeDst(const string& src_func_id, const strin
                                           const Edge* edge)
 {
     if (IsInSubgraph(dst_func_id, dst_outside_compilation_id)) {
-        const Subgraph& dst_subgraph = subgraphs_.at(dst_func_id);
+        const Subgraph& dstSubgraph = subgraphs_.at(dst_func_id);
         if (dst_func_id == src_func_id) {
             // 'dst' is in a subgraph and 'src' is outside_compilation in the same
             // subgraph. Use the corresponding _SendFromHost input instead.
-            return dst_subgraph.GetSendFromHostSlot(src_outside_compilation_id, edge);
+            return dstSubgraph.GetSendFromHostSlot(src_outside_compilation_id, edge);
         } else {
             // 'dst' is in a subgraph and 'src' is a regular node in the output
             // graph. Use the corresponding call input instead.
-            return dst_subgraph.GetArgIndexForEdge(edge);
+            return dstSubgraph.GetArgIndexForEdge(edge);
         }
     } else {
         // The destination of the edge is in the output graph so use the regular
