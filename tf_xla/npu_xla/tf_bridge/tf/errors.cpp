@@ -36,10 +36,10 @@ namespace npu_xla {
 
 // Log the error at the given severity, optionally with a stack trace.
 static void LogError(const absl::Status& status, const char* filename, int line, absl::LogSeverity log_severity,
-                     bool should_log_stack_trace)
+                     bool shouldLogStackTrace)
 {
     std::string stack_trace;
-    if (should_log_stack_trace) {
+    if (shouldLogStackTrace) {
         stack_trace = absl::StrCat("\n", tsl::CurrentStackTrace());
     }
     switch (log_severity) {
@@ -62,11 +62,11 @@ static void LogError(const absl::Status& status, const char* filename, int line,
 
 // Make a absl::Status with a code, error message and payload,
 // and also send it to LOG(<log_severity>) using the given filename
-// and line (unless should_log is false).  If should_log_stack_trace is true,
+// and line (unless should_log is false).  If shouldLogStackTrace is true,
 // the stack trace is included in the log message (ignored if should_log is
 // false).
 static absl::Status MakeError(const char* filename, int line, absl::StatusCode code, const std::string& message,
-                              bool should_log, absl::LogSeverity log_severity, bool should_log_stack_trace)
+                              bool should_log, absl::LogSeverity log_severity, bool shouldLogStackTrace)
 {
     if (ABSL_PREDICT_FALSE(code == absl::StatusCode::kOk)) {
         LOG(ERROR) << "Cannot create error with status OK";
@@ -74,7 +74,7 @@ static absl::Status MakeError(const char* filename, int line, absl::StatusCode c
     }
     const absl::Status status = absl::Status(code, message);
     if (ABSL_PREDICT_TRUE(should_log)) {
-        LogError(status, filename, line, log_severity, should_log_stack_trace);
+        LogError(status, filename, line, log_severity, shouldLogStackTrace);
     }
     return status;
 }
@@ -147,7 +147,7 @@ absl::Status MakeErrorStream::Impl::GetStatus()
                                                                              : absl::StrCat(stream_str, prior_message_);
     if (ABSL_PREDICT_FALSE(str.empty())) {
         return MakeError(file_, line_, code_, absl::StrCat(str, "Error without message at ", file_, ":", line_),
-                         /*should_log=*/true, /* log_severity=*/absl::LogSeverity::kError, should_log_stack_trace_);
+                         true, absl::LogSeverity::kError, should_log_stack_trace_);
     } else {
         return MakeError(file_, line_, code_, str, should_log_, log_severity_, should_log_stack_trace_);
     }

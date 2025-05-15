@@ -170,38 +170,34 @@ void AllocateAndParseFlags()
         return true;
     };
 
-    flag_list = new std::vector<Flag>(
-        {Flag("tf_xla_enable_lazy_compilation", &build_ops_flags->tf_xla_enable_lazy_compilation, ""),
-         Flag("tf_xla_print_cluster_outputs", &build_ops_flags->tf_xla_print_cluster_outputs,
-              "If true then insert Print nodes to print out values produced by "
-              "XLA clusters."),
-         Flag("tf_xla_check_cluster_input_numerics", &build_ops_flags->tf_xla_check_cluster_input_numerics,
-              "If true then insert CheckNumerics nodes to to check all cluster "
-              "inputs."),
-         Flag("tf_xla_check_cluster_output_numerics", &build_ops_flags->tf_xla_check_cluster_output_numerics,
-              "If true then insert CheckNumerics nodes to to check all cluster "
-              "outputs."),
-         Flag("tf_xla_disable_constant_folding", &build_ops_flags->tf_xla_disable_constant_folding,
-              "If true then disables constant folding on TF graph before XLA "
-              "compilation."),
-
-         Flag("tf_xla_compile_on_demand", &device_flags->tf_xla_compile_on_demand,
-              "Switch a device into 'on-demand' mode, where instead of "
-              "autoclustering ops are compiled one by one just-in-time."),
-
-         Flag("tf_xla_enable_xla_devices", &device_flags->tf_xla_enable_xla_devices,
-              "Generate XLA_* devices, where placing a computation on such a "
-              "device"
-              "forces compilation by XLA. Deprecated."),
-
-         Flag("tf_xla_always_defer_compilation", &ops_flags->tf_xla_always_defer_compilation, ""),
-
-         Flag("tf_introduce_floating_point_jitter_to_tensors", setter_for_jitter_tensor_names, "",
-              "The Tensors to add the jitter to.  The tensors are named in the "
-              "TensorId format of <node name>:<output idx>."),
-         Flag("tf_introduce_floating_point_jitter_amount", &jitter_flags->jitter_amount,
-              "The amount of jitter to introduce.  This amount is added to each "
-              "element in the tensors named in `tensor_names.")});
+    flag_list = new std::vector<Flag>({
+        Flag("tf_xla_enable_lazy_compilation", &build_ops_flags->tf_xla_enable_lazy_compilation, ""),
+        Flag("tf_xla_print_cluster_outputs", &build_ops_flags->tf_xla_print_cluster_outputs,
+             "If true then insert Print nodes to print out values produced by "
+             "XLA clusters."),
+        Flag("tf_xla_check_cluster_input_numerics", &build_ops_flags->tf_xla_check_cluster_input_numerics,
+             "If true then insert CheckNumerics nodes to to check all cluster "
+             "inputs."),
+        Flag("tf_xla_check_cluster_output_numerics", &build_ops_flags->tf_xla_check_cluster_output_numerics,
+             "If true then insert CheckNumerics nodes to to check all cluster "
+             "outputs."),
+        Flag("tf_xla_disable_constant_folding", &build_ops_flags->tf_xla_disable_constant_folding,
+             "If true then disables constant folding on TF graph before XLA "
+             "compilation."),
+        Flag("tf_xla_compile_on_demand", &device_flags->tf_xla_compile_on_demand,
+             "Switch a device into 'on-demand' mode, where instead of "
+             "autoclustering ops are compiled one by one just-in-time."),
+        Flag("tf_xla_enable_xla_devices", &device_flags->tf_xla_enable_xla_devices,
+             "Generate XLA_* devices, where placing a computation on such a "
+             "device"
+             "forces compilation by XLA. Deprecated."),
+        Flag("tf_xla_always_defer_compilation", &ops_flags->tf_xla_always_defer_compilation, ""),
+        Flag("tf_introduce_floating_point_jitter_to_tensors", setter_for_jitter_tensor_names, "",
+             "The Tensors to add the jitter to.  The tensors are named in the "
+             "TensorId format of <node name>:<output idx>."),
+        Flag("tf_introduce_floating_point_jitter_amount", &jitter_flags->jitter_amount,
+             "The amount of jitter to introduce.  This amount is added to each "
+             "element in the tensors named in `tensor_names.")});
 
     AppendMarkForCompilationPassFlagsInternal(flag_list);
     xla::npu_xla::legacy_flags::ParseFlagsFromEnv(*flag_list);

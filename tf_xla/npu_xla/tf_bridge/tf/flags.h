@@ -13,6 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/* Copyright 2017 The TensorFlow Authors. All Rights Reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+==============================================================================*/
+
 #ifndef NPU_XLA_TF_BRIDGE_TF_FLAGS_H_
 #define NPU_XLA_TF_BRIDGE_TF_FLAGS_H_
 
@@ -39,8 +54,7 @@ struct XlaAutoJitFlag {
     int32 optimization_level_general;
 };
 
-// Sets the xla_auto_jit_flag based on the given flag sting. Supported syntax
-// is:
+// Sets the xla_auto_jit_flag based on the given flag sting. Supported syntax is:
 // <number>: sets general and single_gpu setting to the provided number.
 // single-gpu(<number>): sets the single_gpu setting to the provided number.
 bool SetXlaAutoJitFlagFromFlagString(const string& value);
@@ -150,12 +164,10 @@ const IntroduceFloatingPointJitterPassFlags& GetIntroduceFloatingPointJitterPass
 
 // Appends the flag definitions associated with
 // MarkForCompilationPassFlags/DumpGraphFlags to `flag_list`.
-//
 // Has the side-effect of parsing TF_XLA_FLAGS if that hasn't happened yet.
 void AppendMarkForCompilationPassFlags(std::vector<tensorflow::Flag>* flag_list);
 
 // Makes all future calls to `IsXlaEnabled()` return `true`.
-//
 // Should only be called when XLA is linked in.
 void SetXlaIsEnabled();
 
