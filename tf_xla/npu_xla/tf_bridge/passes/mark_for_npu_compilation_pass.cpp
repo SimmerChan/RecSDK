@@ -1946,9 +1946,9 @@ Status MarkForCompilation(const GraphOptimizationPassOptions& options,
     // When set tao_enable_control_flow, int32 TensorArray can be placed on GPU.
     // If there are not clustered, we need to move them back to CPU, as there is
     // no registered kernel for int32 TensorArray on GPU.
-    bool enable_npu_xla = GetTfBridgeOptions()->enable_npu_xla;
-    bool enable_control_flow = GetTfBridgeOptions()->enable_control_flow;
-    if (enable_npu_xla && (HasFunctionalControlFlowOps(graph) || enable_control_flow)) {
+    bool enableNpuXla = GetTfBridgeOptions()->enable_npu_xla;
+    bool enableControlFlow = GetTfBridgeOptions()->enable_control_flow;
+    if (enable_npu_xla && (HasFunctionalControlFlowOps(graph) || enableControlFlow)) {
         debug_options.forceAllowTensorArrayOps = true;
         debug_options.ignoreResourceVariableChecks = true;
         TF_RETURN_IF_ERROR(MarkForCompilationPassImpl{
@@ -1987,12 +1987,12 @@ Status MarkForCompilation(const GraphOptimizationPassOptions& options,
     }
 }
 
-std::atomic<int64_t>* GetPointerToFuel(int64_t initial_value)
+std::atomic<int64_t>* GetPointerToFuel(int64_t initialValue)
 {
-    static std::atomic<int64_t>* fuel = [&]() {
-        std::atomic<int64_t>* fuel = new std::atomic<int64_t>;
-        *fuel = initial_value;
-        return fuel;
+    static std::atomic<int64_t>* fuel = [&initialValue]() {
+        std::atomic<int64_t>* fuelInner = new std::atomic<int64_t>;
+        *fuelInner = initialValue;
+        return fuelInner;
     }();
 
     return fuel;
@@ -2020,129 +2020,129 @@ std::vector<string> GetNpuXlaSupportedOps()
 {
     std::vector<string> ops;
     // clang-format off
-  ops.insert(ops.end(), {
-    "Abs",
-    "Add",
-    "AddN",
-    "All",
-    "Any",
-    "BatchMatMul",
-    "BiasAdd",
-    "BiasAddGrad",
-    "BroadcastTo",
-    "Cast",
-    "Ceil",
-    "ConcatV2",
-    "Const",
-    "Conv2D",
-    "Cos",
-    "DepthwiseConv2dNative",
-    "DynamicStitch",
-    "Equal",
-    "Erf",
-    "Exp",
-    "ExpandDims",
-    "Fill",
-    "Floor",
-    "FloorDiv",
-    "FloorMod",
-    "GatherNd",
-    "Greater",
-    "GreaterEqual",
-    "Identity",
-    "If",
-    "IsFinite",
-    "LeakyRelu",
-    "Less",
-    "LessEqual",
-    "Log",
-    "LogSoftmax",
-    "LogicalAnd",
-    "LogicalNot",
-    "LogicalOr",
-    "MatMul",
-    "Max",
-    "Maximum",
-    "Mean",
-    "Min",
-    "Minimum",
-    "Mul",
-    "Neg",
-    "NoOp",
-    "NotEqual",
-    "Pack",
-    "Pad",
-    "Pow",
-    "Prod",
-    "Range",
-    "RealDiv",
-    "Reciprocal",
-    "Relu",
-    "Relu6",
-    "ReluGrad",
-    "Reshape",
-    "Round",
-    "Rsqrt",
-    "RsqrtGrad",
-    "Select",
-    "Shape",
-    "Sigmoid",
-    "SigmoidGrad",
-    "Sign",
-    "Sin",
-    "Size",
-    "Slice",
-    "Snapshot",
-    "Softmax",
-    "SoftmaxCrossEntropyWithLogits",
-    "Softplus",
-    "Split",
-    "Sqrt",
-    "Square",
-    "SquaredDifference",
-    "Squeeze",
-    "StopGradient",
-    "StridedSlice",
-    "Sub",
-    "Sum",
-    "Tanh",
-    "TanhGrad",
-    "Tile",
-    "TopKV2",
-    "Transpose",
-    "Unpack",
-    "While",
-    "ZerosLike"
-  });
+    ops.insert(ops.end(), {
+        "Abs",
+        "Add",
+        "AddN",
+        "All",
+        "Any",
+        "BatchMatMul",
+        "BiasAdd",
+        "BiasAddGrad",
+        "BroadcastTo",
+        "Cast",
+        "Ceil",
+        "ConcatV2",
+        "Const",
+        "Conv2D",
+        "Cos",
+        "DepthwiseConv2dNative",
+        "DynamicStitch",
+        "Equal",
+        "Erf",
+        "Exp",
+        "ExpandDims",
+        "Fill",
+        "Floor",
+        "FloorDiv",
+        "FloorMod",
+        "GatherNd",
+        "Greater",
+        "GreaterEqual",
+        "Identity",
+        "If",
+        "IsFinite",
+        "LeakyRelu",
+        "Less",
+        "LessEqual",
+        "Log",
+        "LogSoftmax",
+        "LogicalAnd",
+        "LogicalNot",
+        "LogicalOr",
+        "MatMul",
+        "Max",
+        "Maximum",
+        "Mean",
+        "Min",
+        "Minimum",
+        "Mul",
+        "Neg",
+        "NoOp",
+        "NotEqual",
+        "Pack",
+        "Pad",
+        "Pow",
+        "Prod",
+        "Range",
+        "RealDiv",
+        "Reciprocal",
+        "Relu",
+        "Relu6",
+        "ReluGrad",
+        "Reshape",
+        "Round",
+        "Rsqrt",
+        "RsqrtGrad",
+        "Select",
+        "Shape",
+        "Sigmoid",
+        "SigmoidGrad",
+        "Sign",
+        "Sin",
+        "Size",
+        "Slice",
+        "Snapshot",
+        "Softmax",
+        "SoftmaxCrossEntropyWithLogits",
+        "Softplus",
+        "Split",
+        "Sqrt",
+        "Square",
+        "SquaredDifference",
+        "Squeeze",
+        "StopGradient",
+        "StridedSlice",
+        "Sub",
+        "Sum",
+        "Tanh",
+        "TanhGrad",
+        "Tile",
+        "TopKV2",
+        "Transpose",
+        "Unpack",
+        "While",
+        "ZerosLike"
+    });
 
-  ops.insert(ops.end(), {
-    "AddV2",
-    "BatchMatMulV2",
-    "GatherV2"
-  });
+    ops.insert(ops.end(), {
+        "AddV2",
+        "BatchMatMulV2",
+        "GatherV2"
+    });
 
-  ops.insert(ops.end(), {
-    "SelectV2",
-  });
+    ops.insert(ops.end(), {
+        "SelectV2",
+    });
 
-  ops.insert(ops.end(), {
-    "Dequantize",
-    "QuantizeV2"
-  });
-  ops.insert(ops.end(), {
-    "SparseReshape",
-    "SparseFillEmptyRows",
-    "SparseSegmentMean",
-    "SparseSegmentSum",
-    "Where",
-  });
-  ops.insert(ops.end(), {
-    "QuantizedConv2DWithBiasAndRequantize"
-  });
+    ops.insert(ops.end(), {
+        "Dequantize",
+        "QuantizeV2"
+    });
+    ops.insert(ops.end(), {
+        "SparseReshape",
+        "SparseFillEmptyRows",
+        "SparseSegmentMean",
+        "SparseSegmentSum",
+        "Where",
+    });
+    ops.insert(ops.end(), {
+        "QuantizedConv2DWithBiasAndRequantize"
+    });
 
-  ops.insert(ops.end(), {
-    "RandomUniform"
-  });
+    ops.insert(ops.end(), {
+        "RandomUniform"
+    });
 
     // clang-format on
     return ops;
@@ -2157,54 +2157,55 @@ std::unordered_map<string, std::vector<string>>* GetWhitelistTable()
             // Unary
             {"PW",
             {"ComplexAbs", "Angle", "Conj", "Abs", "Acos", "Acosh", "Asin",
-              "Atan", "Atanh", "Ceil", "Cos", "Cosh", "Sin", "Exp", "Expm1",
-              "Floor", "IsFinite", "IsInf", "IsNan", "Inv", "Reciprocal", "Log",
-              "Log1p", "Invert", "LogicalNot", "Ndtri", "Neg", "Rint", "Round",
-              "Rsqrt", "Sigmoid", "Sign", "Sinh", "Softplus", "Softsign", "Sqrt",
-              "Square", "Tan", "Tanh", "Real", "Imag", "Erf", "Erfc", "Erfinv",
-              "Lgamma", "Digamma",
-              // Binary
-              "Add", "AddV2", "Sub", "Mul", "Div", "Atan2", "Complex", "DivNoNan",
-              "MulNoNan", "FloorDiv", "Xlogy", "Xlog1py", "Xdivy", "FloorMod",
-              "BitwiseAnd", "BitwiseOr", "BitwiseXor", "LeftShift", "RightShift",
-              "LogicalAnd", "LogicalOr", "Mod", "Maximum", "Minimum", "RealDiv",
-              "ReciprocalGrad", "RsqrtGrad", "SqrtGrad", "TruncateDiv",
-              "TruncateMod", "Equal", "NotEqual", "Greater", "GreaterEqual",
-              "Less", "LessEqual", "SigmoidGrad", "SoftplusGrad", "SoftsignGrad",
-              "TanhGrad", "Pow", "SquaredDifference", "ApproximateEqual",
-              // Others
-              "AddN", "Bitcast", "Cast", "ClipByValue", "Const", "Empty",
-              "Identity", "IdentityN", "Relu", "Relu6", "ReluGrad", "Relu6Grad",
-              "LeakyReluGrad", "Elu", "EluGrad", "Selu", "SeluGrad", "Select",
-              "SelectV2", "Transpose", "ConjugateTranspose",
-              "_UnaryOpsComposition",
-              // The following 4 operations are converted to identity
-              "PlaceholderWithDefault", "PreventGradient", "StopGradient",
-              "Snapshot"}},
+                "Atan", "Atanh", "Ceil", "Cos", "Cosh", "Sin", "Exp", "Expm1",
+                "Floor", "IsFinite", "IsInf", "IsNan", "Inv", "Reciprocal", "Log",
+                "Log1p", "Invert", "LogicalNot", "Ndtri", "Neg", "Rint", "Round",
+                "Rsqrt", "Sigmoid", "Sign", "Sinh", "Softplus", "Softsign", "Sqrt",
+                "Square", "Tan", "Tanh", "Real", "Imag", "Erf", "Erfc", "Erfinv",
+                "Lgamma", "Digamma",
+                // Binary
+                "Add", "AddV2", "Sub", "Mul", "Div", "Atan2", "Complex", "DivNoNan",
+                "MulNoNan", "FloorDiv", "Xlogy", "Xlog1py", "Xdivy", "FloorMod",
+                "BitwiseAnd", "BitwiseOr", "BitwiseXor", "LeftShift", "RightShift",
+                "LogicalAnd", "LogicalOr", "Mod", "Maximum", "Minimum", "RealDiv",
+                "ReciprocalGrad", "RsqrtGrad", "SqrtGrad", "TruncateDiv",
+                "TruncateMod", "Equal", "NotEqual", "Greater", "GreaterEqual",
+                "Less", "LessEqual", "SigmoidGrad", "SoftplusGrad", "SoftsignGrad",
+                "TanhGrad", "Pow", "SquaredDifference", "ApproximateEqual",
+                // Others
+                "AddN", "Bitcast", "Cast", "ClipByValue", "Const", "Empty",
+                "Identity", "IdentityN", "Relu", "Relu6", "ReluGrad", "Relu6Grad",
+                "LeakyReluGrad", "Elu", "EluGrad", "Selu", "SeluGrad", "Select",
+                "SelectV2", "Transpose", "ConjugateTranspose",
+                "_UnaryOpsComposition",
+                // The following 4 operations are converted to identity
+                "PlaceholderWithDefault", "PreventGradient", "StopGradient",
+                "Snapshot"}},
             {"RED",
             {"All", "Any", "Min", "Max", "Mean", "Prod", "Sum"}},
             {"PWRED",
             {"ArgMax", "ArgMin", "DiagPart", "Softmax",
-              "SparseSoftmaxCrossEntropyWithLogits", "LogSoftmax"}},
+                "SparseSoftmaxCrossEntropyWithLogits", "LogSoftmax"}},
             {"REDUCEWINDOW",
             {"ArgMax", "ArgMin", "DiagPart", "Softmax",
-              "SparseSoftmaxCrossEntropyWithLogits", "LogSoftmax"}},
+                "SparseSoftmaxCrossEntropyWithLogits", "LogSoftmax"}},
             {"REDUCEWINDOWPW", {"BiasAddGrad", "LRN", "LRNGrad"}},
             {"BN",
             {"FusedBatchNorm", "FusedBatchNormV2", "FusedBatchNormV3",
-              "_FusedBatchNormEx", "FusedBatchNormGrad", "FusedBatchNormGradV2",
-              "FusedBatchNormGradV3"}},
+                "_FusedBatchNormEx", "FusedBatchNormGrad", "FusedBatchNormGradV2",
+                "FusedBatchNormGradV3"}},
             {"SORT", {"TopKV2"}},  // XLA version much faster then TF version.
             {"MLIR", GetNpuXlaSupportedOps()},
             {"MISC",
-                  {"BroadcastTo", "ExpandDims", "Fill", "NoOp",
-        "Range", "Rank", "Reshape", "Shape", "ShapeN", "Size", "Squeeze",
-        "Transpose", "ZerosLike", "OnesLike", "BiasAdd" /* PW + Broadcast */,
-        "BroadcastArgs", "BroadcastGradientArgs", "OneHot", "Concat", "ConcatV2",
-        "ConcatOffset", "Const", "MirrorPad", "Pack", "Pad", "PadV2", "Reverse",
-        "ReverseV2", "ReverseSequence", "Slice", "Split", "SplitV",
-        "StridedSlice", "StridedSliceGrad", "ResourceStridedSliceAssign",
-        "Tile", "Transpose", "InvertPermutation", "Unpack"}}};
+            {"BroadcastTo", "ExpandDims", "Fill", "NoOp",
+                "Range", "Rank", "Reshape", "Shape", "ShapeN", "Size", "Squeeze",
+                "Transpose", "ZerosLike", "OnesLike", "BiasAdd" /* PW + Broadcast */,
+                "BroadcastArgs", "BroadcastGradientArgs", "OneHot", "Concat", "ConcatV2",
+                "ConcatOffset", "Const", "MirrorPad", "Pack", "Pad", "PadV2", "Reverse",
+                "ReverseV2", "ReverseSequence", "Slice", "Split", "SplitV",
+                "StridedSlice", "StridedSliceGrad", "ResourceStridedSliceAssign",
+                "Tile", "Transpose", "InvertPermutation", "Unpack"}}
+        };
     // clang-format on
     return result;
 }
