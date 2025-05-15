@@ -36,7 +36,7 @@ NUM = 0
 
 hot_zhanbi = sys.argv[1:][0]
 hot_zhanbi = float(hot_zhanbi)/10
-logging.info("%f", hot_zhanbi)
+logging.info("hot_ratio = %f", hot_zhanbi)
 
 tfpath = "/home/insert/data"+str(hot_zhanbi)
 if not os.path.exists(tfpath):
