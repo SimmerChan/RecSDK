@@ -61,38 +61,3 @@ class IdsMapper(HashMapBase):
         self.ids_mapper.ids2indices_unique_out(
             ids, hash_indices, offset, unique, unique_inverse, unique_offset, tensor_i
         )
-
-
-def block_bucketize_sparse_features_cpu(
-    lengths,
-    indices,
-    bucketize_pos,
-    sequence,
-    block_sizes,
-    my_size,
-    total_num_blocks=None,
-    weights=None,
-    batch_size_per_feature=None,
-    max_b=None,
-    block_bucketize_pos=None,
-    return_bucket_mapping=False,
-    keep_orig_idx=False,
-    do_unique=False
-):
-    result = torch.ops.hybrid.block_bucketize_sparse_features_cpu(
-        lengths,
-        indices,
-        bucketize_pos,
-        sequence,
-        block_sizes,
-        my_size,
-        total_num_blocks,
-        weights,
-        batch_size_per_feature,
-        max_b,
-        block_bucketize_pos,
-        return_bucket_mapping,
-        keep_orig_idx,
-        do_unique
-    )
-    return result

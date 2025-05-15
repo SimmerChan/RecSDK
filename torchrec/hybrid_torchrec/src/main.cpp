@@ -14,7 +14,6 @@
 
 #include "ids_mapper.h"
 #include "unique.h"
-#include "bucketize.h"
 
 constexpr int TEST_NUM = 100;
 void TestMapper()
@@ -108,39 +107,6 @@ void TestSort()
     // 秒
     double durationSecond = std::chrono::duration<double, std::micro>(afterTime - beforeTime).count();
     std::cout << "sort总耗时: " << durationSecond / TEST_NUM << "us" << std::endl;
-}
-
-void TestBucketize()
-{
-    auto indices = at::randint(0, 40000000, {1700000});
-    auto lengths = at::ones(17000) * 100;
-    lengths = lengths.to(at::kLong);
-
-    bool bucketizePos = false;
-    bool sequence = true;
-    std::vector<int64_t> blockSizesVector = {-1};
-    auto blockSizes = at::from_blob(blockSizesVector.data(), 1, indices.options());
-    int64_t mySize = 8;
-
-    std::optional<at::Tensor> totalNumBlocks = std::nullopt;
-    std::optional<at::Tensor> weights = std::nullopt;
-    int64_t maxBatchSize = -1;
-    std::optional<at::Tensor> batchSizePerFeature = std::nullopt;
-    std::optional<std::vector<at::Tensor>> blockBucketizePos = std::nullopt;
-    bool returnBucketMapping = false;
-    bool keepOrigIdx = false;
-
-    auto beforeTime = std::chrono::steady_clock::now();
-    for (int i = 0; i < TEST_NUM; i++) {
-        hybrid::BlockBucketizeSparseFeaturesCpu(lengths, indices, bucketizePos, sequence, blockSizes, mySize,
-                                                totalNumBlocks, weights, batchSizePerFeature, maxBatchSize,
-                                                blockBucketizePos, returnBucketMapping, keepOrigIdx, true);
-    }
-
-    auto afterTime = std::chrono::steady_clock::now();
-    // 秒
-    double durationSecond = std::chrono::duration<double, std::micro>(afterTime - beforeTime).count();
-    std::cout << "Bucketize总耗时: " << durationSecond / TEST_NUM << "us" << std::endl;
 }
 
 int main()
