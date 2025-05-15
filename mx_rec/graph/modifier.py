@@ -26,6 +26,7 @@ from tensorflow.core.framework.graph_pb2 import GraphDef
 from tensorflow.python.data.ops.dataset_ops import DatasetV1Adapter
 from tensorflow.python.framework.errors_impl import InvalidArgumentError
 
+import mxrec_pybind
 from mx_rec.core.embedding_proxy import MergeableEmbeddingTableProxy
 from mx_rec.graph import utils
 from mx_rec.constants.constants import (
@@ -55,7 +56,6 @@ from mx_rec.util.tf_version_adapter import npu_ops
 from mx_rec.validator.validator import para_checker_decorator, ClassValidator
 from mx_rec.util.communication.hccl_ops import get_rank_id, get_device_id
 host_pipeline_ops = import_host_pipeline_ops()
-import mxrec_pybind
 
 
 class GraphModifierHook(tf.estimator.SessionRunHook):
