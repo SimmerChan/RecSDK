@@ -125,13 +125,12 @@ void MarkGuaranteedConstants(const Graph& graph, const std::vector<std::pair<con
     for (const auto& src_arg : src_arg_pairs) {
         srcs.push_back(src_arg.first);
     }
-    ReverseDFSFrom(graph, srcs, /*enter=*/nullptr,
-                   /*leave=*/[&guaranteed_const_nodes](const Node* n) {
-                       // TODO(vinuraja): Doesn't work in the presence of loops.
-                       if (AreAllParentsGuaranteedConst(*n, guaranteed_const_nodes)) {
-                           guaranteed_const_nodes.insert(n);
-                       }
-                   });
+    ReverseDFSFrom(graph, srcs, nullptr, [&guaranteed_const_nodes](const Node* n) {
+        // Doesn't work in the presence of loops.
+        if (AreAllParentsGuaranteedConst(*n, guaranteed_const_nodes)) {
+            guaranteed_const_nodes.insert(n);
+        }
+    });
 
     for (auto& src_arg : src_arg_pairs) {
         if (guaranteed_const_nodes.count(src_arg.first) != 0) {
@@ -148,7 +147,7 @@ struct OutputInputTensorPairHasher {
     }
 };
 
-// TODO(phawkins) add a canonical copy of these operator names and refactor
+// add a canonical copy of these operator names and refactor
 // everything to use it.
 static const char* const kArgOp = "_Arg";
 static const char* const kRetValOp = "_Retval";
@@ -564,14 +563,12 @@ private:
     // recv_at_host_nodes contains the names of all the recv_at_host nodes that
     // send_node might depend on. These recv_at_host nodes have shapes that are
     // not known during the rewrite pass, but will be known at compile time.
-    //
     // If the shapes of all the inputs to send_node can be determined during the
     // rewrite pass, on exit graphdef_out is empty and the shapes are returned in
     // static_shape_out. Otherwise graphdef_out contains a graph that can be used
     // for shape inference at compile time, where all the source nodes of the
     // graph are either constants with known shapes, or nodes named in
     // recv_at_host_nodes.
-    //
     // A non-OK status is returned if neither of the above conditions can be
     // satisfied, e.g., because send_node depends on a node that doesn't have a
     // registered shape inference function.
@@ -655,8 +652,9 @@ void TopologicalClusterSort(const std::unordered_set<string>& clusters,
             continue;
         }
 
-        if (visited.find(item.cluster) != visited.end())
+        if (visited.find(item.cluster) != visited.end()) {
             continue;
+        }
         visited.insert(item.cluster);
 
         stack.push_back({item.cluster, true});
@@ -716,7 +714,7 @@ Node* Encapsulator::Subgraph::MakeNodeImage(const Graph* graph_in, Node* node)
         graph_->set_versions(graph_in->versions());
     }
 
-    // TODO(b/116981129): Enhance how the device for the encapsulated subgraph is
+    // Enhance how the device for the encapsulated subgraph is
     // determined. In case of hard placement, ensure all the encapsulated nodes
     // have the same requested device, which in turn will be the requested device
     // for the entire encapsulated subgraph. In case of soft placement, use a
@@ -749,18 +747,7 @@ Status Encapsulator::Subgraph::RecordArg(const Edge* edge, const std::unordered_
         DataType dtype = edge->dst()->input_type(edge->dst_input());
         builder.Attr("T", dtype);
         builder.Attr("index", arg_index);
-        // `tao_compiler_main` failed to load graphdef with ops having
-        // `_output_shapes`. Just remove such attribute here as a workaround to fix
-        // such problem.
-        //
-        // if (src_node->attrs().Find("_output_shapes") != nullptr) {
-        //   const auto& output_shape =
-        //       src_node->attrs().Find("_output_shapes")->shape();
-        //   builder.Attr("_output_shapes", PartialTensorShape(output_shape));
-        //   VLOG(2) << "Adding _output_shapes info to node: "
-        //           << absl::StrCat(src_node->name(), "_", src_slot, "_arg");
-        //   VLOG(2) << "Shape info: " << output_shape.DebugString();
-        // }
+
         Status s = builder.Finalize(&arg_def);
         if (!s.ok())
             return s;
