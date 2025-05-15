@@ -669,9 +669,30 @@ def patch_for_second_or_step_timer():
     logger.info("Class 'tf.compat.v1.train.SecondOrStepTimer' has been patched.")
 
 
-def checkpoint_saver_hook_init(self, checkpoint_dir, save_secs=None, save_steps=None, saver=None,
-                               checkpoint_basename="model.ckpt", scaffold=None, listeners=None, save_graph_def=True):
+class CheckpointConfig:
+    def __init__(self, checkpoint_dir, save_secs=None, save_steps=None, saver=None,
+                 checkpoint_basename="model.ckpt", scaffold=None, listeners=None, save_graph_def=True):
+        self.checkpoint_dir = checkpoint_dir
+        self.save_secs = save_secs
+        self.save_steps = save_steps
+        self.saver = saver
+        self.checkpoint_basename = checkpoint_basename
+        self.scaffold = scaffold
+        self.listeners = listeners
+        self.save_graph_def = save_graph_def
+
+
+def checkpoint_saver_hook_init(self, config: CheckpointConfig):
     logging.info("Create CheckpointSaverHook.")
+    checkpoint_dir = config.checkpoint_dir
+    save_secs = config.save_secs
+    save_steps = config.save_steps
+    saver = config.saver
+    checkpoint_basename = config.checkpoint_basename
+    scaffold = config.scaffold
+    listeners = config.listeners
+    save_graph_def = config.save_graph_def
+
     if saver is not None and scaffold is not None:
         raise ValueError("You cannot provide both saver and scaffold.")
     self._saver = saver
@@ -734,16 +755,32 @@ def patch_for_checkpoint_saver_hook():
     logger.info("Class 'tf.compat.v1.train.CheckpointSaverHook' has been patched.")
 
 
-def _export_all_saved_models(
-    self,
-    export_dir_base: str,
-    input_receiver_fn_map: Dict[str, Callable],
-    assets_extra: Optional[Dict[str, str]] = None,
-    as_text: bool = False,
-    checkpoint_path: Optional[str] = None,
-    strip_default_attrs: bool = True,
-):  # pragma: no cover
+class ExportSavedModelConfig:
+    def __init__(
+        self,
+        export_dir_base: str,
+        input_receiver_fn_map: Dict[str, Callable],
+        assets_extra: Optional[Dict[str, str]] = None,
+        as_text: bool = False,
+        checkpoint_path: Optional[str] = None,
+        strip_default_attrs: bool = True,
+    ):
+        self.export_dir_base = export_dir_base
+        self.input_receiver_fn_map = input_receiver_fn_map
+        self.assets_extra = assets_extra
+        self.as_text = as_text
+        self.checkpoint_path = checkpoint_path
+        self.strip_default_attrs = strip_default_attrs
+
+
+def _export_all_saved_models(config: ExportSavedModelConfig):  # pragma: no cover
     """Exports multiple modes in the model function to a SavedModel."""
+    export_dir_base = config.export_dir_base
+    input_receiver_fn_map = config.input_receiver_fn_map
+    assets_extra = config.assets_extra
+    as_text = config.as_text
+    checkpoint_path = config.checkpoint_path
+    strip_default_attrs = config.strip_default_attrs
 
     def _locate_latest_checkpoint() -> str:
         if tf.__version__.startswith("1"):

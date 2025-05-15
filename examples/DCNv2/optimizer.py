@@ -16,7 +16,7 @@
 
 import tensorflow as tf
 
-from mx_rec.optimizers.lazy_adam import create_hash_optimizer
+from mx_rec.optimizers.lazy_adam import create_hash_optimizer, OptimizerConfig
 from mx_rec.optimizers.lazy_adam_by_addr import create_hash_optimizer_by_address
 from mx_rec.util.initialize import ConfigInitializer
 
@@ -30,7 +30,8 @@ def get_dense_and_sparse_optimizer(cfg):
         sparse_optimizer = create_hash_optimizer_by_address(learning_rate=cfg.learning_rate[1])
         logger.info("optimizer lazy_adam_by_addr")
     else:
-        sparse_optimizer = create_hash_optimizer(learning_rate=cfg.learning_rate[1])
+        config = OptimizerConfig(learning_rate=cfg.learning_rate[1])
+        sparse_optimizer = create_hash_optimizer(config)
         logger.info("optimizer lazy_adam")
     sparse_optimizer = SparseLossScaleOptimizer(sparse_optimizer, 65536)
     dense_optimizer = DenseLossScaleOptimizer(dense_optimizer, 65536)
