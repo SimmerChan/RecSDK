@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
+# Copyright (c) Huawei Technologies Co., Ltd. 2024. All rights reserved.
 # Description: startup server
 
 taskset -c 0-32 /home/lmp/serving-1.15.0/bazel-bin/tensorflow_serving/model_servers/tensorflow_model_server \

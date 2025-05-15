@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# Copyright 2025. Huawei Technologies Co.,Ltd. All rights reserved.
+# Copyright 2024. Huawei Technologies Co.,Ltd. All rights reserved.
 # Some code is derived from Tensorflow, which is subject to the following copyright notice:
 # Copyright 2015 The TensorFlow Authors. All Rights Reserved.
 # We pick up the code of Tensorflow to make the api of Rec SDK compatible with Tensorflow for model saving and loading.
