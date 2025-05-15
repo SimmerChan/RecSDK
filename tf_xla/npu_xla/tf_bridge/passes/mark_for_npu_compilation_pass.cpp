@@ -1913,5 +1913,621 @@ StatusOr<bool> MaybeDeclusterAndLower(const GraphOptimizationPassOptions& option
     return isChanged;
 }
 
+Status MarkForCompilation(const GraphOptimizationPassOptions& options,
+                          MarkForCompilationPassImpl::DebugOptions& debug_options)
+{
+    Graph* graph = options.graph->get();
+    FunctionLibraryDefinition* flib_def = options.flib_def;
+
+    // Deadness analysis expects a graph with source and sink edges properly
+    // connected but sometimes the incoming graph does not follow this invariant.
+    // So fix up the source and sink edges before calling into deadness analysis.
+    FixupSourceAndSinkEdges(graph);
+
+    for (Node* n : graph->nodes()) {
+        // See explanation on `K_XLA_ALREADY_CLUSTERED`.
+        if (n->attrs().Find(K_XLA_ALREADY_CLUSTERED)) {
+            return absl::OkStatus();
+        }
+    }
+
+    // By default, XLA does not auto-cluster resource ops (e.g. TensorArrays).
+    // But XLA does support these ops if they are totally within an XLA cluster.
+    // Functional while/if ops typically have tensorarray inputs, thus are
+    // likely not auto-clustered by the default policy to avoid cross-cluster
+    // non-vairable resource edge.
+    //
+    // To solve this problem, we first enable auto-cluster resource ops and ignore
+    // resource variable checks. Then we will filter out invalid clusters. For
+    // those invalid clusters, we further lower functional while/if ops to
+    // traditional data control flow version and do another cluster pass without
+    // resource ops auto-cluster support.
+    //
+    // When set tao_enable_control_flow, int32 TensorArray can be placed on GPU.
+    // If there are not clustered, we need to move them back to CPU, as there is
+    // no registered kernel for int32 TensorArray on GPU.
+    bool enable_npu_xla = GetTfBridgeOptions()->enable_npu_xla;
+    bool enable_control_flow = GetTfBridgeOptions()->enable_control_flow;
+    if (enable_npu_xla && (HasFunctionalControlFlowOps(graph) || enable_control_flow)) {
+        debug_options.forceAllowTensorArrayOps = true;
+        debug_options.ignoreResourceVariableChecks = true;
+        TF_RETURN_IF_ERROR(MarkForCompilationPassImpl{
+            debug_options, graph, flib_def,
+            options.session_options != nullptr ? options.session_options->env : Env::Default(),
+            GetGlobalJitLevelForGraph(options)}
+                               .Run());
+
+        // XLA can not handle cross-cluster edge having non-variable resource
+        // type. This can not be checked unless we know the clustering result.
+        // Thus we do it here and revert those are not valid.
+        std::unordered_set<string> invalid_clusters;
+        TF_RETURN_IF_ERROR(FilterInvalidClusters(graph, &invalid_clusters));
+
+        TF_ASSIGN_OR_RETURN(bool is_changed, MaybeDeclusterAndLower(options, invalid_clusters));
+
+        if (is_changed) {
+            debug_options.skipClusteredOps = true;
+            // For safety, do not cluster any TensorArray in the second round
+            debug_options.forceAllowTensorArrayOps = false;
+            debug_options.ignoreResourceVariableChecks = false;
+            return MarkForCompilationPassImpl{
+                debug_options, graph, flib_def,
+                options.session_options != nullptr ? options.session_options->env : Env::Default(),
+                GetGlobalJitLevelForGraph(options)}
+                .Run();
+        } else {
+            return absl::OkStatus();
+        }
+    } else {
+        return MarkForCompilationPassImpl{
+            debug_options, graph, flib_def,
+            options.session_options != nullptr ? options.session_options->env : Env::Default(),
+            GetGlobalJitLevelForGraph(options)}
+            .Run();
+    }
+}
+
+std::atomic<int64_t>* GetPointerToFuel(int64_t initial_value)
+{
+    static std::atomic<int64_t>* fuel = [&]() {
+        std::atomic<int64_t>* fuel = new std::atomic<int64_t>;
+        *fuel = initial_value;
+        return fuel;
+    }();
+
+    return fuel;
+}
+
+}  // anonymous namespace
+
+Status MarkForNpuCompilationPass::Run(const GraphOptimizationPassOptions& options)
+{
+    MarkForCompilationPassFlags* flags = GetMarkForCompilationPassFlags();
+
+    MarkForCompilationPassImpl::DebugOptions debug_options;
+    debug_options.ignoreDeadnessChecks = flags->tf_xla_disable_deadness_safety_checks_for_debugging;
+    debug_options.ignoreResourceVariableChecks = flags->tf_xla_disable_resource_variable_safety_checks_for_debugging;
+    debug_options.ignoreXlaCompileAttr = false;
+    debug_options.maxClusterSize = flags->tf_xla_maxClusterSize;
+    debug_options.minClusterSize = flags->tf_xla_minClusterSize;
+    debug_options.fuel = GetPointerToFuel(flags->tf_xla_clustering_fuel);
+    debug_options.dumpGraphs = flags->tf_xla_clustering_debug;
+
+    return MarkForCompilation(options, debug_options);
+}
+
+std::vector<string> GetNpuXlaSupportedOps()
+{
+    std::vector<string> ops;
+    // clang-format off
+  ops.insert(ops.end(), {
+    "Abs",
+    "Add",
+    "AddN",
+    "All",
+    "Any",
+    "BatchMatMul",
+    "BiasAdd",
+    "BiasAddGrad",
+    "BroadcastTo",
+    "Cast",
+    "Ceil",
+    "ConcatV2",
+    "Const",
+    "Conv2D",
+    "Cos",
+    "DepthwiseConv2dNative",
+    "DynamicStitch",
+    "Equal",
+    "Erf",
+    "Exp",
+    "ExpandDims",
+    "Fill",
+    "Floor",
+    "FloorDiv",
+    "FloorMod",
+    "GatherNd",
+    "Greater",
+    "GreaterEqual",
+    "Identity",
+    "If",
+    "IsFinite",
+    "LeakyRelu",
+    "Less",
+    "LessEqual",
+    "Log",
+    "LogSoftmax",
+    "LogicalAnd",
+    "LogicalNot",
+    "LogicalOr",
+    "MatMul",
+    "Max",
+    "Maximum",
+    "Mean",
+    "Min",
+    "Minimum",
+    "Mul",
+    "Neg",
+    "NoOp",
+    "NotEqual",
+    "Pack",
+    "Pad",
+    "Pow",
+    "Prod",
+    "Range",
+    "RealDiv",
+    "Reciprocal",
+    "Relu",
+    "Relu6",
+    "ReluGrad",
+    "Reshape",
+    "Round",
+    "Rsqrt",
+    "RsqrtGrad",
+    "Select",
+    "Shape",
+    "Sigmoid",
+    "SigmoidGrad",
+    "Sign",
+    "Sin",
+    "Size",
+    "Slice",
+    "Snapshot",
+    "Softmax",
+    "SoftmaxCrossEntropyWithLogits",
+    "Softplus",
+    "Split",
+    "Sqrt",
+    "Square",
+    "SquaredDifference",
+    "Squeeze",
+    "StopGradient",
+    "StridedSlice",
+    "Sub",
+    "Sum",
+    "Tanh",
+    "TanhGrad",
+    "Tile",
+    "TopKV2",
+    "Transpose",
+    "Unpack",
+    "While",
+    "ZerosLike"
+  });
+
+  ops.insert(ops.end(), {
+    "AddV2",
+    "BatchMatMulV2",
+    "GatherV2"
+  });
+
+  ops.insert(ops.end(), {
+    "SelectV2",
+  });
+
+  ops.insert(ops.end(), {
+    "Dequantize",
+    "QuantizeV2"
+  });
+  ops.insert(ops.end(), {
+    "SparseReshape",
+    "SparseFillEmptyRows",
+    "SparseSegmentMean",
+    "SparseSegmentSum",
+    "Where",
+  });
+  ops.insert(ops.end(), {
+    "QuantizedConv2DWithBiasAndRequantize"
+  });
+
+  ops.insert(ops.end(), {
+    "RandomUniform"
+  });
+
+    // clang-format on
+    return ops;
+}
+
+std::unordered_map<string, std::vector<string>>* GetWhitelistTable()
+{
+    // Table format: category name: {list of TF operations in that category}
+    // clang-format off
+    static std::unordered_map<string, std::vector<string>>* result =
+        new std::unordered_map<string, std::vector<string>>{
+            // Unary
+            {"PW",
+            {"ComplexAbs", "Angle", "Conj", "Abs", "Acos", "Acosh", "Asin",
+              "Atan", "Atanh", "Ceil", "Cos", "Cosh", "Sin", "Exp", "Expm1",
+              "Floor", "IsFinite", "IsInf", "IsNan", "Inv", "Reciprocal", "Log",
+              "Log1p", "Invert", "LogicalNot", "Ndtri", "Neg", "Rint", "Round",
+              "Rsqrt", "Sigmoid", "Sign", "Sinh", "Softplus", "Softsign", "Sqrt",
+              "Square", "Tan", "Tanh", "Real", "Imag", "Erf", "Erfc", "Erfinv",
+              "Lgamma", "Digamma",
+              // Binary
+              "Add", "AddV2", "Sub", "Mul", "Div", "Atan2", "Complex", "DivNoNan",
+              "MulNoNan", "FloorDiv", "Xlogy", "Xlog1py", "Xdivy", "FloorMod",
+              "BitwiseAnd", "BitwiseOr", "BitwiseXor", "LeftShift", "RightShift",
+              "LogicalAnd", "LogicalOr", "Mod", "Maximum", "Minimum", "RealDiv",
+              "ReciprocalGrad", "RsqrtGrad", "SqrtGrad", "TruncateDiv",
+              "TruncateMod", "Equal", "NotEqual", "Greater", "GreaterEqual",
+              "Less", "LessEqual", "SigmoidGrad", "SoftplusGrad", "SoftsignGrad",
+              "TanhGrad", "Pow", "SquaredDifference", "ApproximateEqual",
+              // Others
+              "AddN", "Bitcast", "Cast", "ClipByValue", "Const", "Empty",
+              "Identity", "IdentityN", "Relu", "Relu6", "ReluGrad", "Relu6Grad",
+              "LeakyReluGrad", "Elu", "EluGrad", "Selu", "SeluGrad", "Select",
+              "SelectV2", "Transpose", "ConjugateTranspose",
+              "_UnaryOpsComposition",
+              // The following 4 operations are converted to identity
+              "PlaceholderWithDefault", "PreventGradient", "StopGradient",
+              "Snapshot"}},
+            {"RED",
+            {"All", "Any", "Min", "Max", "Mean", "Prod", "Sum"}},
+            {"PWRED",
+            {"ArgMax", "ArgMin", "DiagPart", "Softmax",
+              "SparseSoftmaxCrossEntropyWithLogits", "LogSoftmax"}},
+            {"REDUCEWINDOW",
+            {"ArgMax", "ArgMin", "DiagPart", "Softmax",
+              "SparseSoftmaxCrossEntropyWithLogits", "LogSoftmax"}},
+            {"REDUCEWINDOWPW", {"BiasAddGrad", "LRN", "LRNGrad"}},
+            {"BN",
+            {"FusedBatchNorm", "FusedBatchNormV2", "FusedBatchNormV3",
+              "_FusedBatchNormEx", "FusedBatchNormGrad", "FusedBatchNormGradV2",
+              "FusedBatchNormGradV3"}},
+            {"SORT", {"TopKV2"}},  // XLA version much faster then TF version.
+            {"MLIR", GetNpuXlaSupportedOps()},
+            {"MISC",
+                  {"BroadcastTo", "ExpandDims", "Fill", "NoOp",
+        "Range", "Rank", "Reshape", "Shape", "ShapeN", "Size", "Squeeze",
+        "Transpose", "ZerosLike", "OnesLike", "BiasAdd" /* PW + Broadcast */,
+        "BroadcastArgs", "BroadcastGradientArgs", "OneHot", "Concat", "ConcatV2",
+        "ConcatOffset", "Const", "MirrorPad", "Pack", "Pad", "PadV2", "Reverse",
+        "ReverseV2", "ReverseSequence", "Slice", "Split", "SplitV",
+        "StridedSlice", "StridedSliceGrad", "ResourceStridedSliceAssign",
+        "Tile", "Transpose", "InvertPermutation", "Unpack"}}};
+    // clang-format on
+    return result;
+}
+
+namespace testing {
+void ResetClusterSequenceNumber()
+{
+    g_clusterSequenceNum = 0;
+}
+
+absl::flat_hash_set<string> GetKnownXLAAllowlistOp()
+{
+    absl::flat_hash_set<string> result{"AdjustContrastv2",
+                                       "AdjustHue",
+                                       "AdjustSaturation",
+                                       "Asinh",
+                                       "Assert",
+                                       "AssignAddVariableOp",
+                                       "AssignSubVariableOp",
+                                       "AssignVariableOp",
+                                       "AssignVariableXlaConcatND",
+                                       "AvgPool",
+                                       "AvgPool3D",
+                                       "AvgPool3DGrad",
+                                       "AvgPoolGrad",
+                                       "BatchMatMul",
+                                       "BatchMatMulV2",
+                                       "BatchMatMulV3",
+                                       "BatchToSpace",
+                                       "BatchToSpaceND",
+                                       "BesselI0e",
+                                       "BesselI1e",
+                                       "Betainc",
+                                       "BiasAddV1",
+                                       "Bincount",
+                                       "Bucketize",
+                                       "Case",
+                                       "CheckNumerics",
+                                       "Cholesky",
+                                       "ControlTrigger",
+                                       "Conv",
+                                       "Conv2D",
+                                       "Conv2DBackpropFilter",
+                                       "Conv2DBackpropInput",
+                                       "Conv3D",
+                                       "Conv3DBackpropFilterV2",
+                                       "Conv3DBackpropInputV2",
+                                       "Cross",
+                                       "Cumprod",
+                                       "Cumsum",
+                                       "CumulativeLogsumexp",
+                                       "DenseBincount",
+                                       "DataFormatDimMap",
+                                       "DataFormatVecPermute",
+                                       "DepthToSpace",
+                                       "DepthwiseConv2dNative",
+                                       "DepthwiseConv2dNativeBackpropFilter",
+                                       "DepthwiseConv2dNativeBackpropInput",
+                                       "Dequantize",
+                                       "Diag",
+                                       "DynamicInfeedEnqueueTupleOp",
+                                       "DynamicInfeedDequeueTupleOp",
+                                       "DynamicStitch",
+                                       "DynamicPartition",
+                                       "Einsum",
+                                       "EmptyTensorList",
+                                       "EnsureShape",
+                                       "ExtractImagePatches",
+                                       "Igamma",
+                                       "IgammaGradA",
+                                       "RandomGammaGrad",
+                                       "Igammac",
+                                       "FFT",
+                                       "FFT2D",
+                                       "FFT3D",
+                                       "FakeParam",
+                                       "FakeQuantWithMinMaxArgs",
+                                       "FakeQuantWithMinMaxArgsGradient",
+                                       "FakeQuantWithMinMaxVars",
+                                       "FakeQuantWithMinMaxVarsGradient",
+                                       "FakeQuantWithMinMaxVarsPerChannel",
+                                       "FakeQuantWithMinMaxVarsPerChannelGradient",
+                                       "Gather",
+                                       "GatherNd",
+                                       "GatherV2",
+                                       "HSVToRGB",
+                                       "IFFT",
+                                       "IFFT2D",
+                                       "IFFT3D",
+                                       "IRFFT",
+                                       "IRFFT2D",
+                                       "IRFFT3D",
+                                       "If",
+                                       "InTopKV2",
+                                       "L2Loss",
+                                       "LeakyRelu",
+                                       "LinSpace",
+                                       "ListDiff",
+                                       "LogMatrixDeterminant",
+                                       "LowerBound",
+                                       "MatMul",
+                                       "MatrixBandPart",
+                                       "MatrixDiag",
+                                       "MatrixDiagPart",
+                                       "MatrixDiagPartV2",
+                                       "MatrixDiagPartV3",
+                                       "MatrixDiagV2",
+                                       "MatrixDiagV3",
+                                       "MatrixInverse",
+                                       "MatrixSetDiag",
+                                       "MatrixSetDiagV2",
+                                       "MatrixSetDiagV3",
+                                       "MatrixSolve",
+                                       "MatrixTriangularSolve",
+                                       "MaxPool",
+                                       "MaxPool3D",
+                                       "MaxPool3DGrad",
+                                       "MaxPool3DGradGrad",
+                                       "MaxPoolGrad",
+                                       "MaxPoolGradGrad",
+                                       "MaxPoolGradGradV2",
+                                       "MaxPoolGradV2",
+                                       "MaxPoolV2",
+                                       "Multinomial",
+                                       "NextAfter",
+                                       "NonMaxSuppressionV3",
+                                       "NonMaxSuppressionV4",
+                                       "ParallelDynamicStitch",
+                                       "ParameterizedTruncatedNormal",
+                                       "PartitionedCall",
+                                       "Polygamma",
+                                       "PopulationCount",
+                                       "Qr",
+                                       "QuantizeAndDequantizeV2",
+                                       "QuantizeAndDequantizeV3",
+                                       "QuantizeAndDequantizeV4",
+                                       "RFFT",
+                                       "RFFT2D",
+                                       "RFFT3D",
+                                       "RGBToHSV",
+                                       "RandomShuffle",
+                                       "RandomStandardNormal",
+                                       "RandomUniform",
+                                       "RandomUniformInt",
+                                       "ReadVariableOp",
+                                       "ReadVariableXlaSplitND",
+                                       "ResizeBilinear",
+                                       "ResizeBilinearGrad",
+                                       "ResizeNearestNeighbor",
+                                       "ResourceApplyAdaMax",
+                                       "ResourceApplyAdadelta",
+                                       "ResourceApplyAdagrad",
+                                       "ResourceApplyAdagradDA",
+                                       "ResourceApplyAdagradV2",
+                                       "ResourceApplyAdam",
+                                       "ResourceApplyAddSign",
+                                       "ResourceApplyCenteredRMSProp",
+                                       "ResourceApplyFtrl",
+                                       "ResourceApplyFtrlV2",
+                                       "ResourceApplyGradientDescent",
+                                       "ResourceApplyKerasMomentum",
+                                       "ResourceApplyMomentum",
+                                       "ResourceApplyPowerSign",
+                                       "ResourceApplyProximalAdagrad",
+                                       "ResourceApplyProximalGradientDescent",
+                                       "ResourceApplyRMSProp",
+                                       "ResourceGather",
+                                       "ResourceScatterAdd",
+                                       "ResourceScatterDiv",
+                                       "ResourceScatterMax",
+                                       "ResourceScatterMin",
+                                       "ResourceScatterMul",
+                                       "ResourceScatterNdAdd",
+                                       "ResourceScatterNdSub",
+                                       "ResourceScatterNdUpdate",
+                                       "ResourceScatterSub",
+                                       "ResourceScatterUpdate",
+                                       "RngReadAndSkip",
+                                       "RngSkip",
+                                       "Roll",
+                                       "ScatterNd",
+                                       "SegmentSumV2",
+                                       "SegmentProdV2",
+                                       "SegmentMinV2",
+                                       "SegmentMaxV2",
+                                       "SelfAdjointEigV2",
+                                       "SoftmaxCrossEntropyWithLogits",
+                                       "SpaceToBatch",
+                                       "SpaceToBatchND",
+                                       "SpaceToDepth",
+                                       "SparseMatMul",
+                                       "SparseToDense",
+                                       "StackCloseV2",
+                                       "StackPopV2",
+                                       "StackPushV2",
+                                       "StackV2",
+                                       "StatefulPartitionedCall",
+                                       "StatefulStandardNormalV2",
+                                       "StatefulTruncatedNormal",
+                                       "StatefulUniform",
+                                       "StatefulUniformFullInt",
+                                       "StatefulUniformInt",
+                                       "StatelessCase",
+                                       "StatelessIf",
+                                       "StatelessMultinomial",
+                                       "StatelessParameterizedTruncatedNormal",
+                                       "StatelessRandomGetAlg",
+                                       "StatelessRandomGetKeyCounter",
+                                       "StatelessRandomGetKeyCounterAlg",
+                                       "StatelessRandomNormal",
+                                       "StatelessRandomNormalV2",
+                                       "StatelessRandomUniform",
+                                       "StatelessRandomUniformV2",
+                                       "StatelessRandomUniformInt",
+                                       "StatelessRandomUniformIntV2",
+                                       "StatelessRandomUniformFullInt",
+                                       "StatelessRandomUniformFullIntV2",
+                                       "StatelessTruncatedNormal",
+                                       "StatelessTruncatedNormalV2",
+                                       "StatelessWhile",
+                                       "StochasticCastToInt",
+                                       "Svd",
+                                       "SymbolicGradient",
+                                       "TensorArrayCloseV3",
+                                       "TensorArrayConcatV3",
+                                       "TensorArrayGatherV3",
+                                       "TensorArrayGradV3",
+                                       "TensorArrayReadV3",
+                                       "TensorArrayScatterV3",
+                                       "TensorArraySizeV3",
+                                       "TensorArraySplitV3",
+                                       "TensorArrayV3",
+                                       "TensorArrayWriteV3",
+                                       "TensorListConcatV2",
+                                       "TensorListElementShape",
+                                       "TensorListFromTensor",
+                                       "TensorListGather",
+                                       "TensorListGetItem",
+                                       "TensorListLength",
+                                       "TensorListPopBack",
+                                       "TensorListPushBack",
+                                       "TensorListReserve",
+                                       "TensorListSetItem",
+                                       "TensorListSplit",
+                                       "TensorListStack",
+                                       "TensorScatterAdd",
+                                       "TensorScatterMax",
+                                       "TensorScatterMin",
+                                       "TensorScatterSub",
+                                       "TensorScatterUpdate",
+                                       "ToBool",
+                                       "TridiagonalSolve",
+                                       "TridiagonalMatMul",
+                                       "TruncatedNormal",
+                                       "UniformDequantize",
+                                       "UniformQuantize",
+                                       "UniformQuantizedAdd",
+                                       "UniformQuantizedClipByValue",
+                                       "UniformQuantizedConvolution",
+                                       "UniformQuantizedDot",
+                                       "UniformRequantize",
+                                       "Unique",
+                                       "UniqueV2",
+                                       "UpperBound",
+                                       "UnsortedSegmentMax",
+                                       "UnsortedSegmentMin",
+                                       "UnsortedSegmentProd",
+                                       "UnsortedSegmentSum",
+                                       "VarIsInitializedOp",
+                                       "VariableShape",
+                                       "Where",
+                                       "While",
+                                       "XlaAllReduce",
+                                       "XlaBroadcastHelper",
+                                       "XlaCallModule",
+                                       "XlaConcatND",
+                                       "XlaConv",
+                                       "XlaConvV2",
+                                       "XlaCustomCall",
+                                       "XlaCustomCallV2",
+                                       "XlaDequantize",
+                                       "XlaDot",
+                                       "XlaDotV2",
+                                       "XlaDynamicSlice",
+                                       "XlaDynamicUpdateSlice",
+                                       "XlaEinsum",
+                                       "XlaGather",
+                                       "XlaIf",
+                                       "XlaKeyValueSort",
+                                       "XlaOptimizationBarrier",
+                                       "XlaPad",
+                                       "XlaRecv",
+                                       "XlaReduce",
+                                       "XlaReducePrecision",
+                                       "XlaReduceScatter",
+                                       "XlaReduceWindow",
+                                       "XlaRemoveDynamicDimensionSize",
+                                       "XlaReplicaId",
+                                       "XlaRngBitGenerator",
+                                       "XlaScatter",
+                                       "XlaSelectAndScatter",
+                                       "XlaSelfAdjointEig",
+                                       "XlaSend",
+                                       "XlaSetBound",
+                                       "XlaSetDynamicDimensionSize",
+                                       "XlaSharding",
+                                       "XlaSort",
+                                       "XlaSplitND",
+                                       "XlaSpmdFullToShardShape",
+                                       "XlaSpmdShardToFullShape",
+                                       "XlaSvd",
+                                       "XlaVariadicReduce",
+                                       "XlaVariadicReduceV2",
+                                       "XlaVariadicSort",
+                                       "XlaWhile",
+                                       "Zeta",
+                                       "_Arg",
+                                       "_ArrayToList",
+                                       "_ListToArray",
+                                       "_Retval"};
+    return result;
+}
+
+}  // namespace testing
 }  // namespace npu_xla
 }  // namespace tensorflow
