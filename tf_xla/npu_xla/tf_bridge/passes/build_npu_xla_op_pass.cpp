@@ -79,7 +79,6 @@ Status GetXlaClusterInfo(Node* n, XlaClusterInfo* result)
 
     int numNonConstOrFixedshapeDeviceInputs = n->num_inputs() - numConstantInputs - numFixedShapeInputs -
                                               numNonConstOrFixedshapeHostInputs - numResourceInputs;
-
     if (numConstantInputs < 0 || numResourceInputs < 0 || numNonConstOrFixedshapeHostInputs < 0 ||
         numNonConstOrFixedshapeDeviceInputs < 0) {
         return errors::InvalidArgument("Invalid number of constant/fixedshape/resource arguments to XLA "
