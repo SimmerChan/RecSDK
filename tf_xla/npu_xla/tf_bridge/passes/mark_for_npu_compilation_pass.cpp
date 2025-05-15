@@ -934,6 +934,7 @@ Status MarkForCompilationPassImpl::DumpDebugInfo()
 
     return absl::OkStatus();
 }
+
 absl::StatusOr<bool> MarkForCompilationPassImpl::ClusteringWillIntroduceInterDeviceDependency(
     const Cluster& cluster_from, const Cluster& cluster_to)
 {
@@ -996,31 +997,31 @@ std::optional<string> MarkForCompilationPassImpl::GetXlaScope(Node* node)
     return std::nullopt;
 }
 
-// Returns true iff the attribute `attr_name` is attached to either the node or
+// Returns true iff the attribute `attrName` is attached to either the node or
 // to it's callee.
-static bool GetNodeOrFuncAttr(Node* node, FunctionLibraryDefinition* flib_def, const char* attr_name)
+static bool GetNodeOrFuncAttr(Node* node, FunctionLibraryDefinition* flib_def, const char* attrName)
 {
     bool out = false;
-    bool attr_value;
-    if (TryGetNodeAttr(node->attrs(), attr_name, &attr_value)) {
-        out |= attr_value;
+    bool attrValue;
+    if (TryGetNodeAttr(node->attrs(), attrName, &attrValue)) {
+        out |= attrValue;
     }
 
-    if (flib_def->GetAttr(*node, attr_name, &attr_value).ok()) {
-        out |= attr_value;
+    if (flib_def->GetAttr(*node, attrName, &attrValue).ok()) {
+        out |= attrValue;
     }
     return out;
 }
 
 Status MarkForCompilationPassImpl::BuildInitialClusterSet()
 {
-    auto ignore_resource_ops = [&](const Node& n, bool* ignore) {
+    auto ignoreResourceOps = [&device_info_cache_](const Node& n, bool* ignore) {
         return IgnoreResourceOpForSafetyAnalysis(&device_info_cache_, n, ignore);
     };
 
     std::vector<std::pair<int, int>> unsafe_resource_deps_vect;
     TF_RETURN_IF_ERROR(
-        ComputeIncompatibleResourceOperationPairs(*graph_, flib_def_, ignore_resource_ops, &unsafe_resource_deps_vect));
+        ComputeIncompatibleResourceOperationPairs(*graph_, flib_def_, ignoreResourceOps, &unsafe_resource_deps_vect));
     absl::c_copy(unsafe_resource_deps_vect, std::inserter(unsafe_resource_deps_, unsafe_resource_deps_.begin()));
 
     cluster_for_node_.resize(graph_->num_node_ids());
@@ -1100,9 +1101,9 @@ absl::StatusOr<bool> IsIdentityDrivingConstsInLoop(Node* node)
     }
 
     // Check if the Identity is driving any const nodes through a control edge.
-    bool driving_any_consts =
+    bool drivingAnyConsts =
         absl::c_any_of(node->out_edges(), [](const Edge* e) { return e->dst()->IsConstant() && e->IsControlEdge(); });
-    if (!driving_any_consts) {
+    if (!drivingAnyConsts) {
         return false;
     }
 
@@ -1460,6 +1461,9 @@ void MarkForCompilationPassImpl::DumpPostClusteringGraphs()
 
 string RatioToString(int numerator, int denominator)
 {
+    if (denominator == 0) {
+        throw std::invalid_argument("denominator is 0");
+    }
     return absl::StrFormat("%d / %d (%.2f%%)", numerator, denominator, (100.0 * numerator) / denominator);
 }
 
@@ -1546,8 +1550,8 @@ void MarkForCompilationPassImpl::VLogClusteringSummary()
         VLOG(VLOG_LEVEL_4) << "   [none]";
     }
 
-    auto print_edge_info_set_for_cluster = [&](absl::string_view cluster_name, const EdgeInfoMap& edge_info_map,
-                                               absl::string_view desc) {
+    auto printEdgeInfoSetForCluster = [](absl::string_view cluster_name, const EdgeInfoMap& edge_info_map,
+                                         absl::string_view desc) {
         auto it = edge_info_map.find(cluster_name);
         if (it != edge_info_map.end()) {
             VLOG(VLOG_LEVEL_4) << "  " << it->second.size() << " " << desc << " edges";
@@ -1562,8 +1566,8 @@ void MarkForCompilationPassImpl::VLogClusteringSummary()
 
     for (absl::string_view cluster_name : cluster_names_to_print) {
         VLOG(VLOG_LEVEL_4) << " ** Cluster " << cluster_name;
-        print_edge_info_set_for_cluster(cluster_name, incoming_edge_infos, "incoming");
-        print_edge_info_set_for_cluster(cluster_name, outgoing_edge_infos, "outgoing");
+        printEdgeInfoSetForCluster(cluster_name, incoming_edge_infos, "incoming");
+        printEdgeInfoSetForCluster(cluster_name, outgoing_edge_infos, "outgoing");
     }
 }
 
@@ -1587,12 +1591,11 @@ absl::StatusOr<bool> MarkForCompilationPassImpl::AreDevicesCompatible(const Clus
     // _XlaRun kernels are going to run on and therefore try to access the
     // resource variables from `chosen_device`, which will be an error if the
     // resource variables are placed on some other device.
-    auto resource_op_device_ok = [&](std::optional<DeviceId> resource_op_device) {
+    auto resourceOpDeviceOk = [&chosen_device](std::optional<DeviceId> resource_op_device) {
         return !resource_op_device.has_value() || *resource_op_device == chosen_device;
     };
 
-    return resource_op_device_ok(cluster_a.resource_op_device()) &&
-           resource_op_device_ok(cluster_b.resource_op_device());
+    return resourceOpDeviceOk(cluster_a.resource_op_device()) && resourceOpDeviceOk(cluster_b.resource_op_device());
 }
 
 // Returns `true` iff we should compile `cluster`.
@@ -1608,12 +1611,12 @@ absl::StatusOr<bool> MarkForCompilationPassImpl::ShouldCompileClusterImpl(const 
                                << device_info_cache_.DebugString(cluster.devices());
 
     auto policy = registration->autoclustering_policy;
-    bool should_compile =
+    bool shouldCompile =
         cluster.IsXlaCompileAttrTrue() ||
         registration->autoclustering_policy == XlaOpRegistry::AutoclusteringPolicy::kAlways ||
         (registration->autoclustering_policy == XlaOpRegistry::AutoclusteringPolicy::kIfEnabledGlobally &&
          global_jit_level_ != OptimizerOptions::OFF);
-    if (!should_compile && global_jit_level_ != OptimizerOptions::OFF && device_type.type_string() == DEVICE_CPU) {
+    if (!shouldCompile && global_jit_level_ != OptimizerOptions::OFF && device_type.type_string() == DEVICE_CPU) {
         static absl::once_flag once;
         absl::call_once(once, [] {
             LOG(WARNING) << "(One-time warning): Not using XLA:CPU for cluster because envvar "
@@ -1631,10 +1634,10 @@ absl::StatusOr<bool> MarkForCompilationPassImpl::ShouldCompileClusterImpl(const 
         });
     }
 
-    VLOG(VLOG_LEVEL_2) << (should_compile ? "Compiling" : "Not compiling") << " cluster with device "
+    VLOG(VLOG_LEVEL_2) << (shouldCompile ? "Compiling" : "Not compiling") << " cluster with device "
                        << device_info_cache_.GetNameFor(chosen_device);
 
-    return should_compile;
+    return shouldCompile;
 }
 
 absl::StatusOr<bool> MarkForCompilationPassImpl::ShouldCompileCluster(const Cluster& cluster)
@@ -1651,8 +1654,9 @@ absl::StatusOr<bool> MarkForCompilationPassImpl::ShouldCompileCluster(const Clus
 
 bool IsSupportedResourceForXLA(Node* resource_op)
 {
-    if (resource_op == nullptr)
+    if (resource_op == nullptr) {
         return false;
+    }
     // Skip trivial ops (e.g. Identity)
     while (resource_op->type_string() == "Enter" || resource_op->type_string() == "Identity") {
         TF_CHECK_OK(resource_op->input_node(0, &resource_op));
@@ -1719,7 +1723,7 @@ Status RecursivelySetDevice(const Graph* graph, const std::vector<Node*>& initia
     const absl::string_view kColocationAttrName("_class");
     const absl::string_view kColocationGroupPrefix("loc:@");
 
-    auto is_resource_edge = [](const Edge* e) {
+    auto isResourceEdge = [](const Edge* e) {
         if (e->IsControlEdge()) {
             return false;
         }
@@ -1727,7 +1731,8 @@ Status RecursivelySetDevice(const Graph* graph, const std::vector<Node*>& initia
         DataType input_type = dst->input_type(e->dst_input());
         return (input_type == DT_RESOURCE || IsRefType(input_type));
     };
-    auto parse_colocate_nodes = [&](const Node* node, std::vector<Node*>* colocate_nodes) {
+    auto parseColocateNodes = [&kColocationAttrName, &kColocationGroupPrefix, &name_to_node](
+                                  const Node* node, std::vector<Node*>* colocate_nodes) {
         const AttrValue* attr_value = node->attrs().Find(kColocationAttrName);
         if (attr_value != nullptr && attr_value->has_list()) {
             for (const absl::string_view& class_spec : attr_value->list().s()) {
@@ -1741,24 +1746,24 @@ Status RecursivelySetDevice(const Graph* graph, const std::vector<Node*>& initia
             }
         }
     };
-    auto is_partially_moved = [&](const Node* src, const Node* dst) {
-        int n_found = std::count_if(unsafe_nodes.begin(), unsafe_nodes.end(),
-                                    [=](const Node* node) { return node == src || node == dst; });
-        return n_found == 1;
+    auto isPartiallyMoved = [&unsafe_nodes](const Node* src, const Node* dst) {
+        int nFound = std::count_if(unsafe_nodes.begin(), unsafe_nodes.end(),
+                                   [=](const Node* node) { return node == src || node == dst; });
+        return nFound == 1;
     };
-    auto on_same_device = [](const Node* src, const Node* dst) {
+    auto onSameDevice = [](const Node* src, const Node* dst) {
         string src_device = src->assigned_device_name();
         string dst_device = dst->assigned_device_name();
         return src_device == dst_device;
     };
-    auto is_clustered = [](const Node* node) {
+    auto isClustered = [](const Node* node) {
         string cluster_name;
         return (GetNodeAttr(node->attrs(), kXlaClusterAttr, &cluster_name).ok() && !cluster_name.empty());
     };
 
     // Construct a map from string to Node as colocate is stored as string
     for (Node* node : graph->op_nodes()) {
-        if (is_clustered(node)) {
+        if (isClustered(node)) {
             continue;
         }
         name_to_node[node->name()] = node;
@@ -1774,7 +1779,7 @@ Status RecursivelySetDevice(const Graph* graph, const std::vector<Node*>& initia
         for (auto it = name_to_node.begin(); it != name_to_node.end(); ++it) {
             Node* node = it->second;
             std::vector<Node*> colocate_nodes;
-            parse_colocate_nodes(node, &colocate_nodes);
+            parseColocateNodes(node, &colocate_nodes);
             for (Node* colocate_node : colocate_nodes) {
                 unsafe_edges.push_back({node, colocate_node});
             }
@@ -1785,31 +1790,38 @@ Status RecursivelySetDevice(const Graph* graph, const std::vector<Node*>& initia
     for (Edge* edge : graph->edges()) {
         Node* src = edge->src();
         Node* dst = edge->dst();
-        if (is_clustered(src) || is_clustered(dst)) {
+        if (isClustered(src) || isClustered(dst)) {
             continue;
         }
-        if (is_resource_edge(edge)) {
+        if (isResourceEdge(edge)) {
             unsafe_edges.push_back({src, dst});
         }
     }
 
     VLOG(VLOG_LEVEL_2) << "Total unsafe edges: " << unsafe_edges.size();
 
+    int maxLoop = 1000000;
+    int loopCnt = 0;
     while (true) {
-        bool found_new_unsafe_nodes = false;
+        bool foundNewUnsafeNodes = false;
 
         for (auto& edge : unsafe_edges) {
             Node* src = edge.first;
             Node* dst = edge.second;
-            if (is_partially_moved(src, dst)) {
+            if (isPartiallyMoved(src, dst)) {
                 Node* node_to_move = (std::count(unsafe_nodes.begin(), unsafe_nodes.end(), dst) == 0) ? dst : src;
                 unsafe_nodes.push_back(node_to_move);
-                found_new_unsafe_nodes = true;
+                foundNewUnsafeNodes = true;
             }
         }
 
-        if (!found_new_unsafe_nodes) {
+        if (!foundNewUnsafeNodes) {
             break;
+        }
+
+        ++loopCnt;
+        if (loopCnt > maxLoop) {
+            throw std::runtime_error("exceed max loop: " + std::to_string(maxLoop));
         }
     }
 
@@ -1837,7 +1849,7 @@ StatusOr<bool> MaybeDeclusterAndLower(const GraphOptimizationPassOptions& option
 {
     Graph* graph = options.graph->get();
 
-    bool is_changed = false;
+    bool isChanged = false;
     std::vector<Node*> nodes_to_move;
 
     // This ensures that nested If/While nodes and TensorArray ops can be handled.
@@ -1859,10 +1871,10 @@ StatusOr<bool> MaybeDeclusterAndLower(const GraphOptimizationPassOptions& option
         if (IsFunctionalControlFlowOps(node)) {
             VLOG(VLOG_LEVEL_2) << node->name() << " is defunctionalized";
             TF_RETURN_IF_ERROR(DefunctionalizeFactory().defunctionalize(node, graph, *options.flib_def));
-            is_changed = true;
+            isChanged = true;
         } else if (IsInvalidTensorArrayOps(node)) {
             nodes_to_move.push_back(node);
-            is_changed = true;
+            isChanged = true;
         }
     }
 
@@ -1891,14 +1903,14 @@ StatusOr<bool> MaybeDeclusterAndLower(const GraphOptimizationPassOptions& option
             RecursivelySetDevice(graph, nodes_to_move, valid_host_device, false /* consider_colocate */));
     }
 
-    if (is_changed) {
+    if (isChanged) {
         auto session_options = options.session_options;
         Placer placer(graph, "", options.flib_def, options.device_set, nullptr /* default_local_device= */,
                       session_options->config.allow_soft_placement(), session_options->config.log_device_placement());
         TF_CHECK_OK(placer.Run());
     }
 
-    return is_changed;
+    return isChanged;
 }
 
 }  // namespace npu_xla
