@@ -65,6 +65,7 @@ limitations under the License.
 #include "tf_bridge/tf/compilability_check_util.h"
 #include "tf_bridge/tf/const_analysis.h"
 #include "tf_bridge/tf/errors.h"
+#include "tf_bridge/tf/log.h"
 #include "tf_bridge/tf/graphcycles.h"
 #include "tf_bridge/tf/shape_inference_helpers.h"
 #include "tf_bridge/utils/dump_graph.h"
@@ -792,6 +793,985 @@ Status Encapsulator::Subgraph::RecordResult(const Edge* edge, const std::unorder
 
         graph_->AddEdge(src_image, src_slot, ret, 0);
     }
+    return absl::OkStatus();
+}
+
+Encapsulator::Subgraph::OutsideCompilationSubgraph* Encapsulator::Subgraph::LookupOrCreateOutsideCompilationSubgraph(
+    const string& outside_compilation_id)
+{
+    auto iter = outside_compilation_subgraphs_.emplace(outside_compilation_id, OutsideCompilationSubgraph()).first;
+    OutsideCompilationSubgraph* outsideSubgraph = &iter->second;
+    return outsideSubgraph;
+}
+
+void Encapsulator::Subgraph::RecordOutsideCompilationInputOrControl(const string& outside_compilation_id,
+                                                                    const Edge* edge)
+{
+    OutsideCompilationSubgraph* outsideSubgraph = LookupOrCreateOutsideCompilationSubgraph(outside_compilation_id);
+    if (edge->IsControlEdge()) {
+        outsideSubgraph->control_inputs.insert(edge->src());
+    } else {
+        int inputIndex = outsideSubgraph->inputs.size();
+        outsideSubgraph->inputs.emplace(OutputTensor(edge->src(), edge->src_output()), inputIndex);
+    }
+}
+
+void Encapsulator::Subgraph::RecordOutsideCompilationOutputOrControl(const string& outside_compilation_id,
+                                                                     const Edge* edge)
+{
+    OutsideCompilationSubgraph* outsideSubgraph = LookupOrCreateOutsideCompilationSubgraph(outside_compilation_id);
+    if (edge->IsControlEdge()) {
+        outsideSubgraph->control_outputs.insert(edge->dst());
+    } else {
+        DataType dtype = edge->dst()->input_type(edge->dst_input());
+        auto output_iter =
+            outsideSubgraph->outputs_by_src
+                .emplace(OutputTensor(edge->src(), edge->src_output()),
+                         OutsideCompilationSubgraph::ArgNumAndType(outsideSubgraph->outputs_by_src.size(), dtype))
+                .first;
+        const int outputIndex = output_iter->second.index;
+        outsideSubgraph->outputs_by_dst[InputTensor(edge->dst(), edge->dst_input())] = outputIndex;
+    }
+}
+
+void Encapsulator::Subgraph::RecordOutsideCompilationDependency(const string& successor, const string& ancestor)
+{
+    outside_compilation_ancestors_[successor].insert(ancestor);
+    outside_compilation_successors_[ancestor].insert(successor);
+}
+
+const std::unordered_map<string, std::unordered_set<string>> Encapsulator::Subgraph::OutsideCompilationAncestorMap()
+    const
+{
+    return outside_compilation_ancestors_;
+}
+
+void Encapsulator::Subgraph::GetActiveClusterDependencyGraph(
+    std::unordered_set<string>* clusters, std::unordered_set<string>* has_successor,
+    std::unordered_map<string, std::unordered_set<string>>* ancestors_map)
+{
+    // During initial clustering the ancestor and successor datastructures may
+    // have been built including oc_cluster names that never turned into subgraphs
+    // because they had no edges into or out of the compiled cluster. Remove them
+    // before proceeding to simplify the logic. Get the set of clusters that was
+    // actually added, then remove references to the others.
+    for (const auto& oc_subgraph : outside_compilation_subgraphs_) {
+        clusters->insert(oc_subgraph.first);
+    }
+    for (const auto& cluster : outside_compilation_successors_) {
+        if (clusters->find(cluster.first) != clusters->end()) {
+            for (const auto& successor : cluster.second) {
+                if (clusters->find(successor) != clusters->end()) {
+                    has_successor->insert(cluster.first);
+                    break;
+                }
+            }
+        }
+    }
+    for (const auto& cluster : outside_compilation_ancestors_) {
+        if (clusters->find(cluster.first) != clusters->end()) {
+            std::unordered_set<string>& ancestors = (*ancestors_map)[cluster.first];
+            for (const auto& ancestor : cluster.second) {
+                if (clusters->find(ancestor) != clusters->end()) {
+                    ancestors.insert(ancestor);
+                }
+            }
+        }
+    }
+}
+
+Status Encapsulator::Subgraph::AddHostComputes(const string& subgraph_name,
+                                               const std::unordered_map<const Node*, Node*>& node_images)
+{
+    // Get the set of outside_compilation clusters and the dependency edges
+    // between them.
+    std::unordered_set<string> clusters;
+    std::unordered_set<string> has_successor;
+    std::unordered_map<string, std::unordered_set<string>> ancestors_map;
+    GetActiveClusterDependencyGraph(&clusters, &has_successor, &ancestors_map);
+    // Topologically sort the outside_compilation clusters according to their
+    // dependency relation.
+    std::vector<string> sorted_clusters;
+    TopologicalClusterSort(clusters, has_successor, ancestors_map, &sorted_clusters);
+
+    // The host compute nodes added for each outside_compilation_cluster;
+    std::unordered_map<string, Node*> host_compute_node;
+    for (const string& oc_subgraph_name : sorted_clusters) {
+        OutsideCompilationSubgraph& oc_subgraph = outside_compilation_subgraphs_[oc_subgraph_name];
+        if (!oc_subgraph.inputs.empty() || !oc_subgraph.control_inputs.empty() || !oc_subgraph.outputs_by_src.empty() ||
+            !oc_subgraph.control_outputs.empty()) {
+            // Build a _HostCompute node.
+            std::vector<NodeDefBuilder::NodeOut> inputs(oc_subgraph.inputs.size());
+            std::vector<DataType> input_dtypes(oc_subgraph.inputs.size(), DT_INVALID);
+            std::vector<DataType> output_dtypes(oc_subgraph.outputs_by_src.size(), DT_INVALID);
+
+            for (const auto& input_src : oc_subgraph.inputs) {
+                const Node* src_node = input_src.first.node;
+                Node* src_image = node_images.at(src_node);
+                int src_slot = input_src.first.index;
+                int input_index = input_src.second;
+
+                DataType dtype = src_node->output_type(src_slot);
+                inputs[input_index].Reset(src_image->name(), src_slot, dtype);
+                input_dtypes[input_index] = dtype;
+            }
+            for (const auto& output : oc_subgraph.outputs_by_src) {
+                DataType dtype = output.second.dtype;
+                int output_index = output.second.index;
+                output_dtypes[output_index] = dtype;
+            }
+
+            std::vector<string> host_compute_ancestors;
+            const auto iter = ancestors_map.find(oc_subgraph_name);
+            if (iter != ancestors_map.end()) {
+                for (const string& ancestor_cluster : iter->second) {
+                    host_compute_ancestors.push_back(
+                        outside_compilation_subgraphs_[ancestor_cluster].host_compute_name);
+                }
+            }
+
+            NodeDef host_compute_def;
+            NodeDefBuilder builder(absl::StrCat("outside_compilation_", oc_subgraph_name, "_host_compute"),
+                                   kHostComputeOp);
+            builder.Input(inputs);
+            builder.Attr("Tinputs", input_dtypes);
+            builder.Attr("Toutputs", output_dtypes);
+            builder.Attr("ancestors", host_compute_ancestors);
+            builder.Attr("key", absl::StrCat("host_compute_channel_", subgraph_name, "_", oc_subgraph_name));
+            builder.Attr("_outside_compilation_subgraph", oc_subgraph_name);
+            Status s = builder.Finalize(&host_compute_def);
+            if (!s.ok())
+                return s;
+
+            Node* host_compute = graph_->AddNode(host_compute_def, &s);
+            if (!s.ok())
+                return s;
+            host_compute_node[host_compute->name()] = host_compute;
+            oc_subgraph.host_compute_name = host_compute->name();
+
+            // Connect the _HostCompute node to its producers in the subgraph.
+            for (auto& input_src : oc_subgraph.inputs) {
+                const Node* src_node = input_src.first.node;
+                Node* src_image = node_images.at(src_node);
+                int src_slot = input_src.first.index;
+                int input_index = input_src.second;
+                graph_->AddEdge(src_image, src_slot, host_compute, input_index);
+            }
+
+            // Connect the _HostCompute node to its control edge producers in the
+            // subgraph.
+            for (const auto& src_node : oc_subgraph.control_inputs) {
+                Node* src_image = node_images.at(src_node);
+                graph_->AddControlEdge(src_image, host_compute);
+            }
+
+            // Connect the _HostCompute node to its ancestor host compute nodes.
+            for (const auto& ancestor_name : host_compute_ancestors) {
+                Node* ancestor = host_compute_node[ancestor_name];
+                graph_->AddControlEdge(ancestor, host_compute);
+            }
+
+            // Connect the consumers in the subgraph to the _HostCompute node.
+            for (const auto& output : oc_subgraph.outputs_by_dst) {
+                const Node* dst_node = output.first.node;
+                Node* dst_image = node_images.at(dst_node);
+                int dst_slot = output.first.index;
+                int output_index = output.second;
+
+                graph_->AddEdge(host_compute, output_index, dst_image, dst_slot);
+            }
+
+            // Connect the control edge consumers in the subgraph to the _HostCompute
+            // node.
+            for (const auto& dst_node : oc_subgraph.control_outputs) {
+                Node* dst_image = node_images.at(dst_node);
+                graph_->AddControlEdge(host_compute, dst_image);
+            }
+        }
+    }
+
+    return absl::OkStatus();
+}
+
+Status Encapsulator::Subgraph::MakeSequencingNode(const string& subgraph_name, Graph* graph_out)
+{
+    if (sequencer_ == nullptr) {
+        NodeDef seq_def;
+        NodeDefBuilder builder(absl::StrCat(subgraph_name, "_sequencer"), "NoOp");
+        builder.Attr(kXlaHostTransferSequencerAttr, subgraph_name);
+        builder.Device(device_);
+        Status s = builder.Finalize(&seq_def);
+        if (!s.ok())
+            return s;
+
+        sequencer_ = graph_out->AddNode(seq_def, &s);
+        if (!s.ok())
+            return s;
+    }
+    return absl::OkStatus();
+}
+
+void Encapsulator::Subgraph::ConnectSequencerToCallNode(Graph* graph_out)
+{
+    if (sequencer_ != nullptr) {
+        VLOG(VLOG_LEVEL_2) << "ConnectSequencerToCallNode";
+        graph_out->AddControlEdge(sequencer_, call_node_);
+    }
+}
+
+StatusOr<bool> Encapsulator::Subgraph::MaybeDefunctionalize(FunctionLibraryDefinition* library)
+{
+    bool isDefunc = false;
+    for (int i = 2; i < graph_->num_node_ids(); ++i) {
+        Node* node = graph_->FindNodeId(i);
+        if (node == nullptr)
+            continue;  // deleted node
+        if (IsFunctionalControlFlowOps(node)) {
+            TF_RETURN_IF_ERROR(DefunctionalizeFactory().defunctionalize(node, graph_.get(), *library));
+            isDefunc = true;
+        }
+    }
+    // NOTE(pengzhan): After lowering control flow ops, it is safe to leave device
+    // attr empty, so we don't run Placer here.
+
+    // Consider rerun the mark pass. This may bring some
+    // performance gain.
+    return isDefunc;
+}
+
+Status Encapsulator::Subgraph::AddShapeToFunctionDef(Graph& graph, FunctionDef* fdef)
+{
+    auto fdef_attr = fdef->mutable_attr();
+    AttrValue attr_value;
+    auto arg_shape = attr_value.mutable_func();
+    *arg_shape->mutable_name() = "shape_info";
+    for (auto& input_arg : fdef->signature().input_arg()) {
+        for (auto n : graph.nodes()) {
+            if (absl::AsciiStrToLower(n->name()) == input_arg.name() && n->attrs().Find("_output_shapes") != nullptr) {
+                *(*arg_shape->mutable_attr())[input_arg.name()].mutable_shape() =
+                    n->attrs().Find("_output_shapes")->shape();
+            }
+        }
+    }
+    (*fdef_attr)["input_args_info"] = attr_value;
+    return absl::OkStatus();
+}
+
+Status Encapsulator::Subgraph::BuildFunctionDef(const string& name_in, const RewriteSubgraphFn& rewrite_subgraph_fn,
+                                                bool reuse_existing_functions, FunctionLibraryDefinition* library)
+{
+    // name_in is copied here because name may be modified below if
+    // rewrite_subgraph_fn is true.
+    string name = name_in;
+    call_node_def_.set_op(name);
+    call_node_def_.set_name(name);
+    call_node_def_.set_device(device_);
+
+    if (rewrite_subgraph_fn) {
+        std::vector<OutputTensor> arg_source_tensors(args_by_src_.size());
+        for (const auto& arg : args_by_src_) {
+            arg_source_tensors.at(arg.second) = arg.first;
+        }
+        // Initialize the input and output permutations to the identity.
+        std::vector<int> input_permutation(args_by_src_.size());
+        std::iota(input_permutation.begin(), input_permutation.end(), 0);
+        std::vector<int> output_permutation(results_.size());
+        std::iota(output_permutation.begin(), output_permutation.end(), 0);
+
+        TF_RETURN_IF_ERROR(
+            rewrite_subgraph_fn(arg_source_tensors, &graph_, &input_permutation, &output_permutation, &call_node_def_));
+
+        // Apply the input/output permutations to the 'args_by_...' and 'results_'
+        // mappings, so when we build edges in BuildOutputGraph() we
+        // connect them to the right input/output positions.
+        if (input_permutation.size() != args_by_src_.size()) {
+            return errors::InvalidArgument("Input permutation has incorrect size.");
+        }
+        if (output_permutation.size() != results_.size()) {
+            return errors::InvalidArgument("Output permutation has incorrect size.");
+        }
+        for (auto& arg : args_by_src_) {
+            arg.second = input_permutation[arg.second];
+        }
+        for (auto& arg : args_by_dst_) {
+            arg.second = input_permutation[arg.second];
+        }
+        for (auto& result : results_) {
+            result.second = output_permutation[result.second];
+        }
+
+        name = call_node_def_.op();
+    }
+
+    function_def_name_ = name;
+
+    FunctionDef fdef;
+    TF_RETURN_IF_ERROR(GraphToFunctionDef(*graph_, name, &fdef));
+    TF_RETURN_IF_ERROR(AddShapeToFunctionDef(*graph_, &fdef));
+
+    if (VLOG_IS_ON(1)) {
+        VLOG(VLOG_LEVEL_2) << "Build function def " << name;
+        dump_graph::DumpGraphToFile(absl::StrCat("encapsulate_fdef_graph_", name), *graph_, library);
+        dump_graph::DumpFunctionDefToFile(absl::StrCat("encapsulate_fdef_", name), fdef);
+    }
+
+    if (!reuse_existing_functions || library->Find(name) == nullptr) {
+        TF_RETURN_IF_ERROR(library->AddFunctionDef(fdef));
+    }
+
+    string defunct_name = name + kDefunctionalizedSuffix;
+    if (library->Find(defunct_name) == nullptr) {
+        TF_ASSIGN_OR_RETURN(bool is_defunc, MaybeDefunctionalize(library));
+        if (is_defunc) {
+            FunctionDef fdef_defunc;
+            TF_RETURN_IF_ERROR(GraphToFunctionDef(*graph_, defunct_name, &fdef_defunc));
+            TF_RETURN_IF_ERROR(library->AddFunctionDef(fdef_defunc));
+
+            VLOG(VLOG_LEVEL_2) << dump_graph::DumpFunctionDefToFile(
+                absl::StrCat("encapsulate_fdef_defunc_", defunct_name), fdef_defunc);
+        }
+    }
+
+    return absl::OkStatus();
+}
+
+Status Encapsulator::Subgraph::AddShapeInferenceInfo(const string& subgraph_name,
+                                                     const string& outside_compilation_subgraph_name,
+                                                     const std::vector<TensorShapeProto>& shapes,
+                                                     Graph* inference_graph, FunctionLibraryDefinition* library)
+{
+    OutsideCompilationSubgraph& ocSubgraph = outside_compilation_subgraphs_.at(outside_compilation_subgraph_name);
+
+    Node* host_compute = nullptr;
+    for (Node* n : graph_->nodes()) {
+        if (n->name() == ocSubgraph.host_compute_name) {
+            host_compute = n;
+            break;
+        }
+    }
+    if (host_compute == nullptr) {
+        return errors::InvalidArgument("After rewriting subgraph ", outside_compilation_subgraph_name,
+                                       " there is no HostCompute Op for outside compilation subgraph ",
+                                       ocSubgraph.host_compute_name);
+    }
+
+    if (inference_graph == nullptr) {
+        host_compute->AddAttr("shape_inference_graph", "");
+        host_compute->AddAttr("shapes", shapes);
+    } else {
+        string inference_graph_name = absl::StrCat("_outside_compilation_shape_inference_", subgraph_name, "_",
+                                                   outside_compilation_subgraph_name);
+        FunctionDef fdef;
+        TF_RETURN_IF_ERROR(GraphToFunctionDef(*inference_graph, inference_graph_name, &fdef));
+        host_compute->AddAttr("shape_inference_graph", inference_graph_name);
+        host_compute->AddAttr("shapes", std::vector<TensorShapeProto>());
+        // Understand why there are multiple calls to
+        // Encapsulator.
+        if (library->Find(inference_graph_name) == nullptr) {
+            TF_RETURN_IF_ERROR(library->AddFunctionDef(fdef));
+        }
+    }
+    return absl::OkStatus();
+}
+
+Status Encapsulator::Subgraph::ReplaceFunctionDef(FunctionLibraryDefinition* library)
+{
+    const string& name = function_def_name_;
+
+    FunctionDef fdef;
+    TF_RETURN_IF_ERROR(GraphToFunctionDef(*graph_, name, &fdef));
+
+    if (VLOG_IS_ON(1)) {
+        VLOG(VLOG_LEVEL_2) << "Replace function def " << name;
+        dump_graph::DumpGraphToFile(absl::StrCat("replace_encapsulate_fdef_graph_", name), *graph_, library);
+        dump_graph::DumpFunctionDefToFile(absl::StrCat("replace_encapsulate_fdef_", name), fdef);
+    }
+
+    TF_RETURN_IF_ERROR(library->ReplaceFunction(name, fdef));
+    return absl::OkStatus();
+}
+
+Status Encapsulator::Subgraph::AddFunctionCallNode(const std::unordered_map<const Node*, Node*>& node_images,
+                                                   Graph* graph_out)
+{
+    Status s;
+    call_node_ = graph_out->AddNode(call_node_def_, &s);
+    if (!s.ok())
+        return s;
+
+    // Copy the assigned device and the key_annotation over.
+    call_node_->set_assigned_device_name(device_);
+
+    return absl::OkStatus();
+}
+
+Status Encapsulator::Subgraph::AddHostComputeKeyPlaceholder(OutsideCompilationSubgraph* oc_subgraph, Graph* graph_out)
+{
+    TensorShapeProto shape_proto;
+    TensorShape shape({2});
+    shape.AsProto(&shape_proto);
+    GraphDefBuilder::Options options(graph_out, nullptr);
+    NodeDef key_def;
+    NodeDefBuilder builder(absl::StrCat(call_node_def_.name(), "_key_placeholder"), "Placeholder");
+    builder.Attr("dtype", DT_STRING);
+    builder.Attr("shape", shape_proto);
+    builder.Attr("_host_compute_call_node", call_node_def_.name());
+    Status s = builder.Finalize(&key_def);
+    if (!s.ok())
+        return s;
+
+    host_compute_key_placeholder_ = graph_out->AddNode(key_def, &s);
+    if (!s.ok())
+        return s;
+    host_compute_key_placeholder_->set_assigned_device_name(device_);
+
+    return absl::OkStatus();
+}
+
+Status Encapsulator::Subgraph::AddRecvAtHostNode(const string& group_attribute, const string& subgraph_name,
+                                                 const string& outside_compilation_attribute,
+                                                 const string& oc_subgraph_name,
+                                                 OutsideCompilationSubgraph* oc_subgraph, Graph* graph_out)
+{
+    if (host_compute_key_placeholder_ == nullptr) {
+        TF_RETURN_IF_ERROR(AddHostComputeKeyPlaceholder(oc_subgraph, graph_out));
+    }
+
+    std::vector<DataType> dtypes(oc_subgraph->inputs.size(), DT_INVALID);
+
+    for (const auto& input : oc_subgraph->inputs) {
+        const Node* src_node = input.first.node;
+        int src_slot = input.first.index;
+        int input_index = input.second;
+
+        DataType dtype = src_node->output_type(src_slot);
+        dtypes[input_index] = dtype;
+    }
+
+    NodeDef recv_def;
+    NodeDefBuilder builder(absl::StrCat("outside_compilation_", subgraph_name, "_", oc_subgraph_name, "_recv"),
+                           kRecvAtHostOp);
+    builder.Device(device_);
+    builder.Attr("Toutputs", dtypes);
+    // The correct device_ordinal will be inserted during replication in a
+    // subsequent rewrite.
+    builder.Attr("device_ordinal", 0);
+    builder.Attr("key", absl::StrCat("host_compute_channel_", subgraph_name, "_", oc_subgraph_name));
+    builder.Attr(group_attribute, subgraph_name);
+    builder.Attr(outside_compilation_attribute, oc_subgraph_name);
+    builder.Input(host_compute_key_placeholder_->name(), 0, DT_STRING);
+    Status s = builder.Finalize(&recv_def);
+    if (!s.ok())
+        return s;
+
+    oc_subgraph->recv_at_host = graph_out->AddNode(recv_def, &s);
+    if (!s.ok())
+        return s;
+    graph_out->AddEdge(host_compute_key_placeholder_, 0, oc_subgraph->recv_at_host, 0);
+
+    // Add a control dependency forcing the RecvAtHost to run before the subgraph
+    // completes. This has no effect on execution order but prevents the
+    // RecvAtHost being pruned.
+    TF_RETURN_IF_ERROR(MakeSequencingNode(subgraph_name, graph_out));
+    graph_out->AddControlEdge(oc_subgraph->recv_at_host, sequencer_);
+
+    return absl::OkStatus();
+}
+
+Status Encapsulator::Subgraph::AddSendFromHostNode(const std::unordered_map<const Node*, Node*>& node_images,
+                                                   const string& group_attribute, const string& subgraph_name,
+                                                   const string& outside_compilation_attribute,
+                                                   const string& oc_subgraph_name,
+                                                   OutsideCompilationSubgraph* oc_subgraph, Graph* graph_out)
+{
+    if (host_compute_key_placeholder_ == nullptr) {
+        TF_RETURN_IF_ERROR(AddHostComputeKeyPlaceholder(oc_subgraph, graph_out));
+    }
+
+    std::vector<DataType> dtypes(oc_subgraph->outputs_by_src.size(), DT_INVALID);
+    std::vector<NodeDefBuilder::NodeOut> inputs(oc_subgraph->outputs_by_src.size());
+
+    for (const auto& output : oc_subgraph->outputs_by_src) {
+        const Node* src_node = output.first.node;
+        Node* src_image = node_images.at(src_node);
+        int src_slot = output.first.index;
+        int output_index = output.second.index;
+
+        DataType dtype = src_node->output_type(src_slot);
+        dtypes[output_index] = dtype;
+        inputs[output_index].Reset(src_image->name(), src_slot, dtype);
+    }
+
+    NodeDef send_def;
+    NodeDefBuilder builder(absl::StrCat("outside_compilation_", subgraph_name, "_", oc_subgraph_name, "_send"),
+                           kSendFromHostOp);
+    builder.Device(device_);
+    builder.Attr("Tinputs", dtypes);
+    builder.Attr("key", absl::StrCat("host_compute_channel_", subgraph_name, "_", oc_subgraph_name));
+    // The correct device_ordinal will be inserted during replication in a
+    // subsequent rewrite.
+    builder.Attr("device_ordinal", 0);
+    builder.Attr(group_attribute, subgraph_name);
+    builder.Attr(outside_compilation_attribute, oc_subgraph_name);
+    builder.Input(inputs);
+    builder.Input(host_compute_key_placeholder_->name(), 0, DT_STRING);
+    Status s = builder.Finalize(&send_def);
+    if (!s.ok())
+        return s;
+
+    oc_subgraph->send_from_host = graph_out->AddNode(send_def, &s);
+    if (!s.ok())
+        return s;
+    graph_out->AddEdge(host_compute_key_placeholder_, 0, oc_subgraph->send_from_host, inputs.size());
+
+    // Add a control dependency forcing the SendFromHost to run before the
+    // subgraph completes. This has no effect on execution order but prevents the
+    // RecvAtHost being pruned.
+    TF_RETURN_IF_ERROR(MakeSequencingNode(subgraph_name, graph_out));
+    graph_out->AddControlEdge(oc_subgraph->send_from_host, sequencer_);
+
+    return absl::OkStatus();
+}
+
+Status Encapsulator::Subgraph::AddOutsideCompilationHostIONodes(
+    const string& group_attribute, const string& subgraph_name, const string& outside_compilation_attribute,
+    const std::unordered_map<const Node*, Node*>& node_images, Graph* graph_out)
+{
+    for (auto& outside_compilation_subgraph_entry : outside_compilation_subgraphs_) {
+        const string& oc_name = outside_compilation_subgraph_entry.first;
+        OutsideCompilationSubgraph& oc_subgraph = outside_compilation_subgraph_entry.second;
+
+        if (!oc_subgraph.inputs.empty() || !oc_subgraph.control_inputs.empty()) {
+            TF_RETURN_IF_ERROR(AddRecvAtHostNode(group_attribute, subgraph_name, outside_compilation_attribute, oc_name,
+                                                 &oc_subgraph, graph_out));
+        }
+
+        if (!oc_subgraph.outputs_by_src.empty() || !oc_subgraph.control_outputs.empty()) {
+            TF_RETURN_IF_ERROR(AddSendFromHostNode(node_images, group_attribute, subgraph_name,
+                                                   outside_compilation_attribute, oc_name, &oc_subgraph, graph_out));
+        }
+    }
+    return absl::OkStatus();
+}
+
+void Encapsulator::Subgraph::GetOutsideCompilationSubgraphNames(std::vector<string>* names) const
+{
+    for (auto& entry : outside_compilation_subgraphs_) {
+        names->push_back(entry.first);
+    }
+}
+
+Status Encapsulator::GetFunctionNameAttr(Node const* node, string* attr, string* outside_compilation_attr) const
+{
+    AttrSlice attrs = node->attrs();
+    attr->clear();
+    outside_compilation_attr->clear();
+    bool foundGroupAttribute = false;
+    bool foundOutsideCompilationAttribute = false;
+    for (const auto& node_attr : attrs) {
+        if (node_attr.first == group_attribute_) {
+            TF_RETURN_IF_ERROR(AttrValueHasType(node_attr.second, "string"));
+            *attr = node_attr.second.s();
+            found_group_attribute = true;
+        } else if (node_attr.first == outside_compilation_attribute_) {
+            TF_RETURN_IF_ERROR(AttrValueHasType(node_attr.second, "string"));
+            *outside_compilation_attr = node_attr.second.s();
+            found_outside_compilation_attribute = true;
+        }
+        if (found_group_attribute && found_outside_compilation_attribute)
+            break;
+    }
+
+    if (foundOutsideCompilationAttribute && !foundGroupAttribute) {
+        return errors::InvalidArgument("Node ", node->name(), " has ", outside_compilation_attribute_,
+                                       " attribute but no ", group_attribute_, " attribute.");
+    } else {
+        return absl::OkStatus();
+    }
+}
+
+bool IsInSubgraph(const string& func_id, const string& outside_compilation_id)
+{
+    return !func_id.empty() && outside_compilation_id.empty();
+}
+
+Status Encapsulator::CopySubgraphNodes(std::unordered_map<const Node*, Node*>* node_images)
+{
+    for (Node* node : graph_in_->op_nodes()) {
+        string func_id;
+        string outside_compilation_id;
+        TF_RETURN_IF_ERROR(GetFunctionNameAttr(node, &func_id, &outside_compilation_id));
+        if (!IsInSubgraph(func_id, outside_compilation_id))
+            continue;
+
+        Subgraph& subgraph = subgraphs_[func_id];
+        Node* image = subgraph.MakeNodeImage(graph_in_, node);
+        image->ClearAttr(group_attribute_);
+        image->ClearAttr("_grappler:ArithmeticOptimizer:MinimizeBroadcasts");
+        image->ClearAttr("_grappler:ArithmeticOptimizer:AddOpsRewriteStage");
+        // `tao_compiler_main` failed to load graphdef with ops having
+        // `_output_shapes`. Just remove such attribute here as a workaround to fix
+        // such problem.
+        image->ClearAttr("_output_shapes");
+        (*node_images)[node] = image;
+    }
+    return absl::OkStatus();
+}
+
+Status Encapsulator::CopySubgraphEdges(const std::unordered_map<const Node*, Node*>& node_images,
+                                       std::vector<std::pair<const Node*, Node*>>* src_arg_pairs)
+{
+    for (const Edge* edge : graph_in_->edges()) {
+        string src_func_id;
+        string src_outside_compilation_id;
+        TF_RETURN_IF_ERROR(GetFunctionNameAttr(edge->src(), &src_func_id, &src_outside_compilation_id));
+        string dst_func_id;
+        string dst_outside_compilation_id;
+        TF_RETURN_IF_ERROR(GetFunctionNameAttr(edge->dst(), &dst_func_id, &dst_outside_compilation_id));
+        Node* src_image = gtl::FindWithDefault(node_images, edge->src(), nullptr);
+        Node* dst_image = gtl::FindWithDefault(node_images, edge->dst(), nullptr);
+
+        // Copy edges that are local to a subgraph.
+        if (IsInSubgraph(src_func_id, src_outside_compilation_id) &&
+            IsInSubgraph(dst_func_id, dst_outside_compilation_id) && src_func_id == dst_func_id) {
+            Graph* g = subgraphs_[src_func_id].GetGraph();
+            if (edge->IsControlEdge()) {
+                g->AddControlEdge(src_image, dst_image);
+            } else {
+                g->AddEdge(src_image, edge->src_output(), dst_image, edge->dst_input());
+            }
+            continue;
+        }
+
+        // Record 'src' as an output of its subgraph, if applicable.
+        if (IsInSubgraph(src_func_id, src_outside_compilation_id)) {
+            if (!edge->IsControlEdge()) {
+                DataType dtype = edge->src()->output_type(edge->src_output());
+                if (IsRefType(dtype)) {
+                    return errors::InvalidArgument("Ref Tensors (e.g., Variables) are not supported as results: "
+                                                   "tensor ",
+                                                   edge->src()->name(), ":", edge->src_output());
+                }
+            }
+
+            Subgraph& src_subgraph = subgraphs_[src_func_id];
+            if (src_func_id == dst_func_id) {
+                // src is in the subgraph and dst is outside_compilation in the same
+                // subgraph.
+                src_subgraph.RecordOutsideCompilationInputOrControl(dst_outside_compilation_id, edge);
+            } else {
+                // Ignore control edges leaving the subgraph. We will lift them onto the
+                // enclosing call operators in BuildOutputGraph().
+                if (!edge->IsControlEdge()) {
+                    TF_RETURN_IF_ERROR(src_subgraph.RecordResult(edge, node_images));
+                }
+            }
+        }
+
+        // Record 'dst' as an input of its subgraph, if applicable.
+        if (IsInSubgraph(dst_func_id, dst_outside_compilation_id)) {
+            // Look at the type of the destination not the source, since Ref output
+            // Tensors can be automatically cast to non-Ref Tensors at the
+            // destination.
+            if (!edge->IsControlEdge()) {
+                DataType dtype = edge->dst()->input_type(edge->dst_input());
+                if (IsRefType(dtype)) {
+                    return errors::InvalidArgument("Ref Tensors (e.g., Variables) are not supported as args: "
+                                                   "tensor ",
+                                                   edge->src()->name(), ":", edge->src_output());
+                }
+            }
+
+            Subgraph& dst_subgraph = subgraphs_[dst_func_id];
+            if (src_func_id == dst_func_id) {
+                // dst is in the subgraph and src is outside_compilation in the same
+                // subgraph.
+                dst_subgraph.RecordOutsideCompilationOutputOrControl(src_outside_compilation_id, edge);
+            } else {
+                // Ignore control edges entering the subgraph. We will lift them onto
+                // the enclosing call operators in BuildOutputGraph().
+                if (!edge->IsControlEdge()) {
+                    TF_RETURN_IF_ERROR(dst_subgraph.RecordArg(edge, node_images, src_arg_pairs));
+                }
+            }
+        }
+    }
+    return absl::OkStatus();
+}
+
+Status Encapsulator::SplitIntoSubgraphs(FunctionLibraryDefinition* library)
+{
+    Status s;
+
+    // Map from input graph nodes to subgraph nodes.
+    std::unordered_map<const Node*, Node*> node_images;
+
+    // Each entry of src_arg_pairs is a pair whose first element is a node in the
+    // original graph that has an output edge in the subgraph, and whose second
+    // element is the arg node in the subgraph that it sends to. The vector will
+    // be filled in below in AddArgs.
+    std::vector<std::pair<const Node*, Node*>> src_arg_pairs;
+
+    TF_RETURN_IF_ERROR(CopySubgraphNodes(&node_images));
+    TF_RETURN_IF_ERROR(CopySubgraphEdges(node_images, &src_arg_pairs));
+
+    // For each subgraph, add the nodes that deal with inputs and outputs its
+    // nested outside_compilation subgraphs. These could not be added earlier
+    // during CopySubgraphEdges since we need to discover all the types of the
+    // inputs and outputs for an outside_compilation subgraph before creating a
+    // single input and output node for it.
+    for (auto& entry : subgraphs_) {
+        Subgraph& subgraph = entry.second;
+        TF_RETURN_IF_ERROR(subgraph.AddHostComputes(entry.first, node_images));
+    }
+
+    MarkGuaranteedConstants(*graph_in_, src_arg_pairs);
+
+    for (auto& entry : subgraphs_) {
+        Subgraph& subgraph = entry.second;
+        FixupSourceAndSinkEdges(subgraph.GetGraph());
+        // Verify that the graph has well-formed control flow structure.
+        std::vector<ControlFlowInfo> dummy;
+        TF_RETURN_IF_ERROR(BuildControlFlowInfo(subgraph.GetGraph(), &dummy));
+    }
+
+    if (VLOG_IS_ON(1)) {
+        // Dump subgraphs.
+        for (auto& entry : subgraphs_) {
+            dump_graph::DumpGraphToFile(absl::StrCat("encapsulate_subgraphs_subgraph_", entry.first),
+                                        *entry.second.GetGraph(), library);
+        }
+    }
+
+    return s;
+}
+
+Status Encapsulator::BuildFunctionDefs(const RewriteSubgraphFn& rewrite_subgraph_fn, bool reuse_existing_functions,
+                                       FunctionLibraryDefinition* library)
+{
+    for (auto& subgraph_entry : subgraphs_) {
+        string name = subgraph_entry.first;
+        Subgraph& subgraph = subgraph_entry.second;
+        TF_RETURN_IF_ERROR(subgraph.BuildFunctionDef(name, rewrite_subgraph_fn, reuse_existing_functions, library));
+    }
+    return absl::OkStatus();
+}
+
+Status Encapsulator::CopyNodesToOutputGraph(Graph* graph_out, std::unordered_map<const Node*, Node*>* node_images)
+{
+    for (Node* node : graph_in_->op_nodes()) {
+        string func_id;
+        string outside_compilation_id;
+        TF_RETURN_IF_ERROR(GetFunctionNameAttr(node, &func_id, &outside_compilation_id));
+
+        // Don't copy nodes that are going to be encapsulated.
+        if (IsInSubgraph(func_id, outside_compilation_id))
+            continue;
+
+        Node* image = graph_out->CopyNode(node);
+        (*node_images)[node] = image;
+    }
+    (*node_images)[graph_in_->source_node()] = graph_out->source_node();
+    (*node_images)[graph_in_->sink_node()] = graph_out->sink_node();
+    return absl::OkStatus();
+}
+
+Status Encapsulator::AddFunctionCallNodes(const std::unordered_map<const Node*, Node*>& node_images, Graph* graph_out)
+{
+    for (auto& subgraph_entry : subgraphs_) {
+        TF_RETURN_IF_ERROR(subgraph_entry.second.AddFunctionCallNode(node_images, graph_out));
+    }
+    return absl::OkStatus();
+}
+
+Status Encapsulator::AddOutsideCompilationHostIONodes(const std::unordered_map<const Node*, Node*>& node_images,
+                                                      Graph* graph_out)
+{
+    for (auto& subgraph_entry : subgraphs_) {
+        const string& subgraph_name = subgraph_entry.first;
+        Subgraph& subgraph = subgraph_entry.second;
+        TF_RETURN_IF_ERROR(subgraph.AddOutsideCompilationHostIONodes(
+            group_attribute_, subgraph_name, outside_compilation_attribute_, node_images, graph_out));
+    }
+    return absl::OkStatus();
+}
+
+Status Encapsulator::FindOutputImageOfEdgeSrc(const string& src_func_id, const string& src_outside_compilation_id,
+                                              const string& dst_func_id, const string& dst_outside_compilation_id,
+                                              const std::unordered_map<const Node*, Node*>& node_images,
+                                              const Node* original_src_node, Node** src_image)
+{
+    if (IsInSubgraph(src_func_id, src_outside_compilation_id)) {
+        if (dst_func_id == src_func_id) {
+            // The edge is from a subgraph to an outside_compilation cluster in the
+            // same subgraph so use the appropriate _RecvAtHost node in the output
+            // graph.
+            TF_RET_CHECK(!dst_outside_compilation_id.empty());
+            *src_image = subgraphs_.at(src_func_id).GetRecvAtHostNode(dst_outside_compilation_id);
+        } else {
+            // The edge is from a subgraph to a regular node in the output graph so
+            // use the subgraph's call node output.
+            *src_image = subgraphs_.at(src_func_id).GetCallNode();
+        }
+    } else {
+        // The source of the edge is in the output graph so use the node image in
+        // the output graph.
+        *src_image = node_images.at(original_src_node);
+    }
+    return absl::OkStatus();
+}
+
+int Encapsulator::FindOutputSlotOfEdgeSrc(const string& src_func_id, const string& src_outside_compilation_id,
+                                          const string& dst_func_id, const string& dst_outside_compilation_id,
+                                          const Edge* edge)
+{
+    if (IsInSubgraph(src_func_id, src_outside_compilation_id)) {
+        const Subgraph& srcSubgraph = subgraphs_.at(src_func_id);
+        if (src_func_id == dst_func_id) {
+            // 'src' is in a subgraph and 'dst' is outside_compilation in the same
+            // subgraph. Use the corresponding _RecvAtHost output instead.
+            return srcSubgraph.GetRecvAtHostSlot(dst_outside_compilation_id, edge);
+        } else {
+            // 'src' is in a subgraph and 'dst' is a regular node in the output
+            // graph. Use the corresponding call output instead.
+            return srcSubgraph.GetResultIndexForEdge(edge);
+        }
+    } else {
+        // The source of the edge is in the output graph so use the regular edge
+        // slot.
+        return edge->src_output();
+    }
+}
+
+Status Encapsulator::FindOutputImageOfEdgeDst(const string& src_func_id, const string& src_outside_compilation_id,
+                                              const string& dst_func_id, const string& dst_outside_compilation_id,
+                                              const std::unordered_map<const Node*, Node*>& node_images,
+                                              const Node* original_dst_node, Node** dst_image)
+{
+    if (IsInSubgraph(dst_func_id, dst_outside_compilation_id)) {
+        if (src_func_id == dst_func_id) {
+            // The edge is to a subgraph from an outside_compilation cluster in the
+            // same subgraph so use the appropriate _SendFromHost node in the output
+            // graph.
+            TF_RET_CHECK(!src_outside_compilation_id.empty());
+            *dst_image = subgraphs_.at(dst_func_id).GetSendFromHostNode(src_outside_compilation_id);
+        } else {
+            // The edge is to a subgraph from a regular node in the output graph so
+            // use the subgraph's call node input.
+            *dst_image = subgraphs_.at(dst_func_id).GetCallNode();
+        }
+    } else {
+        // The destination of the edge is in the output graph so use the node image
+        // in the output graph.
+        *dst_image = node_images.at(original_dst_node);
+    }
+    return absl::OkStatus();
+}
+
+int Encapsulator::FindOutputSlotOfEdgeDst(const string& src_func_id, const string& src_outside_compilation_id,
+                                          const string& dst_func_id, const string& dst_outside_compilation_id,
+                                          const Edge* edge)
+{
+    if (IsInSubgraph(dst_func_id, dst_outside_compilation_id)) {
+        const Subgraph& dstSubgraph = subgraphs_.at(dst_func_id);
+        if (dst_func_id == src_func_id) {
+            // 'dst' is in a subgraph and 'src' is outside_compilation in the same
+            // subgraph. Use the corresponding _SendFromHost input instead.
+            return dstSubgraph.GetSendFromHostSlot(src_outside_compilation_id, edge);
+        } else {
+            // 'dst' is in a subgraph and 'src' is a regular node in the output
+            // graph. Use the corresponding call input instead.
+            return dstSubgraph.GetArgIndexForEdge(edge);
+        }
+    } else {
+        // The destination of the edge is in the output graph so use the regular
+        // edge slot.
+        return edge->dst_input();
+    }
+}
+
+Status Encapsulator::CopyEdgeToOutputGraph(
+    const Edge* edge, const string& src_func_id, const string& src_outside_compilation_id, const string& dst_func_id,
+    const string& dst_outside_compilation_id, const std::unordered_map<const Node*, Node*>& node_images,
+    Graph* graph_out,
+    std::unordered_set<std::pair<OutputTensor, InputTensor>, OutputInputTensorPairHasher>* edges_added)
+{
+    Node* src_image = nullptr;
+    TF_RETURN_IF_ERROR(FindOutputImageOfEdgeSrc(src_func_id, src_outside_compilation_id, dst_func_id,
+                                                dst_outside_compilation_id, node_images, edge->src(), &src_image));
+    Node* dst_image = nullptr;
+    TF_RETURN_IF_ERROR(FindOutputImageOfEdgeDst(src_func_id, src_outside_compilation_id, dst_func_id,
+                                                dst_outside_compilation_id, node_images, edge->dst(), &dst_image));
+
+    // If this is a control edge then copy it and return. Lift control edges onto
+    // the enclosing call operator.
+    if (edge->IsControlEdge()) {
+        // Add the control edge, if we have not already added it, using the images
+        // determined above (potentially call operators or RecvAtHost/SendFromHost).
+        if (edges_added->emplace(OutputTensor(src_image, -1), InputTensor(dst_image, -1)).second) {
+            graph_out->AddControlEdge(src_image, dst_image);
+        }
+
+        return absl::OkStatus();
+    }
+
+    int srcOutput =
+        FindOutputSlotOfEdgeSrc(src_func_id, src_outside_compilation_id, dst_func_id, dst_outside_compilation_id, edge);
+
+    int dstInput =
+        FindOutputSlotOfEdgeDst(src_func_id, src_outside_compilation_id, dst_func_id, dst_outside_compilation_id, edge);
+    // Add the edge, if we have not already added it.
+    if (edges_added->emplace(OutputTensor(src_image, srcOutput), InputTensor(dst_image, dstInput)).second) {
+        graph_out->AddEdge(src_image, srcOutput, dst_image, dstInput);
+    }
+    return absl::OkStatus();
+}
+
+Status Encapsulator::AddCallNodeDependencies(Graph* graph_out)
+{
+    for (const auto& ancestors : subgraph_ancestors_) {
+        const string& subgraph = ancestors.first;
+        for (const string& ancestor : ancestors.second) {
+            graph_out->AddControlEdge(subgraphs_[ancestor].GetCallNode(), subgraphs_[subgraph].GetCallNode());
+        }
+    }
+    return absl::OkStatus();
+}
+
+Status Encapsulator::AddEdgesToOutputGraph(const std::unordered_map<const Node*, Node*>& node_images, Graph* graph_out)
+{
+    // Set of edges already added to the output graph, represented as (src, dst)
+    // pairs. We use the set to deduplicate edges; multiple edges in the input
+    // graph may map to one edge in the output graph.
+    std::unordered_set<std::pair<OutputTensor, InputTensor>, OutputInputTensorPairHasher> edges_added;
+
+    for (const Edge* edge : graph_in_->edges()) {
+        string src_func_id;
+        string src_outside_compilation_id;
+        TF_RETURN_IF_ERROR(GetFunctionNameAttr(edge->src(), &src_func_id, &src_outside_compilation_id));
+        string dst_func_id;
+        string dst_outside_compilation_id;
+        TF_RETURN_IF_ERROR(GetFunctionNameAttr(edge->dst(), &dst_func_id, &dst_outside_compilation_id));
+
+        // Ignore edges that are strictly contained within one subgraph, unless
+        // we are constructing parallel check graphs.
+        if (IsInSubgraph(src_func_id, src_outside_compilation_id) &&
+            IsInSubgraph(dst_func_id, dst_outside_compilation_id) && src_func_id == dst_func_id) {
+            continue;
+        }
+
+        // We have an edge that crosses a cluster boundary or is entirely within the
+        // unclustered graph.
+        TF_RETURN_IF_ERROR(CopyEdgeToOutputGraph(edge, src_func_id, src_outside_compilation_id, dst_func_id,
+                                                 dst_outside_compilation_id, node_images, graph_out, &edges_added));
+    }
+
+    for (auto& subgraph_entry : subgraphs_) {
+        Subgraph& subgraph = subgraph_entry.second;
+        subgraph.ConnectSequencerToCallNode(graph_out);
+    }
+    TF_RETURN_IF_ERROR(AddCallNodeDependencies(graph_out));
+
     return absl::OkStatus();
 }
 
