@@ -105,16 +105,16 @@ bool AreAllParentsGuaranteedConst(const Node& n, const std::unordered_set<const 
         return true;
     }
 
-    bool all_parents_const = true;
-    bool atleast_one_non_control_edge = false;
+    bool allParentsConst = true;
+    bool atleastOneNonControlEdge = false;
     for (const Edge* in : n.in_edges()) {
-        atleast_one_non_control_edge = atleast_one_non_control_edge || !in->IsControlEdge();
+        atleastOneNonControlEdge = atleastOneNonControlEdge || !in->IsControlEdge();
         if (!in->IsControlEdge() && runtime_const_nodes.count(in->src()) == 0) {
-            all_parents_const = false;
+            allParentsConst = false;
             break;
         }
     }
-    return all_parents_const && atleast_one_non_control_edge;
+    return allParentsConst && atleastOneNonControlEdge;
 }
 
 void MarkGuaranteedConstants(const Graph& graph, const std::vector<std::pair<const Node*, Node*>>& src_arg_pairs)
