@@ -669,30 +669,9 @@ def patch_for_second_or_step_timer():
     logger.info("Class 'tf.compat.v1.train.SecondOrStepTimer' has been patched.")
 
 
-class CheckpointConfig:
-    def __init__(self, checkpoint_dir, save_secs=None, save_steps=None, saver=None,
-                 checkpoint_basename="model.ckpt", scaffold=None, listeners=None, save_graph_def=True):
-        self.checkpoint_dir = checkpoint_dir
-        self.save_secs = save_secs
-        self.save_steps = save_steps
-        self.saver = saver
-        self.checkpoint_basename = checkpoint_basename
-        self.scaffold = scaffold
-        self.listeners = listeners
-        self.save_graph_def = save_graph_def
-
-
-def checkpoint_saver_hook_init(self, config: CheckpointConfig):
+def checkpoint_saver_hook_init(self, checkpoint_dir, save_secs=None, save_steps=None, saver=None,
+                               checkpoint_basename="model.ckpt", scaffold=None, listeners=None, save_graph_def=True):
     logging.info("Create CheckpointSaverHook.")
-    checkpoint_dir = config.checkpoint_dir
-    save_secs = config.save_secs
-    save_steps = config.save_steps
-    saver = config.saver
-    checkpoint_basename = config.checkpoint_basename
-    scaffold = config.scaffold
-    listeners = config.listeners
-    save_graph_def = config.save_graph_def
-
     if saver is not None and scaffold is not None:
         raise ValueError("You cannot provide both saver and scaffold.")
     self._saver = saver

@@ -221,7 +221,7 @@ if __name__ == '__main__':
     feature_spec_list = [
         FeatureSpec("feat_ids", feat_count=128, table_name="merged_sparse_embeddings", batch_size=config["batch_size"])]
     with tf.device('/cpu:0'):
-        input = InputConfig(feature_spec_list=feature_spec_list,
+        input_config = InputConfig(feature_spec_list=feature_spec_list,
                             rank_id=rank_id,
                             local_rank_id=local_rank_id,
                             rank_size=rank_size,
@@ -230,7 +230,7 @@ if __name__ == '__main__':
                             total_batch_size=int(rank_size * config["batch_size"]),
                             perform_shuffle=(not USE_PIPELINE_TEST),
                             num_epochs=config["train_epoch"])
-        train_dataset = input_fn_tfrecord(input)
+        train_dataset = input_fn_tfrecord(input_config)
         train_iterator = train_dataset.make_initializable_iterator()
         train_next_iter = train_iterator.get_next()
 
