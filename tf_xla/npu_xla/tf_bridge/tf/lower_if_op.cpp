@@ -155,7 +155,6 @@ Status CondBuilder::AddInput(Node* src, int src_output)
     TF_RETURN_IF_ERROR(NodeBuilder(NewName(src->name()), "Switch", graph_->op_registry())
                            .Input(src, src_output)
                            .Input(pred_, 0)
-                           //.Device(if_op_->requested_device())
                            .Finalize(graph_, &input));
     then_call_builder_.Input(input, K_THEN_BRANCH);
     else_call_builder_.Input(input, K_ELSE_BRANCH);
@@ -231,7 +230,7 @@ Status CondBuilder::BuildLoweredIfOutput()
 {
     // Build the identity node output.
     NodeBuilder ib(name_, "IdentityN");
-    ib.Input(outputs_);  //.Device(if_op_->requested_device());
+    ib.Input(outputs_);
     return ib.Finalize(graph_, &lowered_if_output_);
 }
 
