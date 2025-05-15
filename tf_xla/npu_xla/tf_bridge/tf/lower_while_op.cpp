@@ -242,7 +242,6 @@ Status LowerWhileHelper::CreateEnterNodes()
         NodeBuilder builder = NodeBuilder(NewName("enter"), "Enter", graph_->op_registry())
                                   .Input(NodeOut(edge->src(), edge->src_output()))
                                   .Attr("frame_name", name_);
-        //.Device(while_op_->requested_device());
         if (IsResource(edge->dst_input())) {
             builder.Attr("is_constant", true);
         }
@@ -295,7 +294,6 @@ Status LowerWhileHelper::CreateCondFuncCallNode()
             cond_call_builder_.Input(NodeOut(merge_nodes_[op_input_output_to_lowered_node_[i]], 0));
         }
     }
-    // cond_call_builder_.Device(while_op_->requested_device());
     TF_RETURN_IF_ERROR(cond_call_builder_.Finalize(graph_, &cond_call_node_));
     // Add a control edge to make sure the Const nodes in the cond function
     // are in the same frame as the rest of the function, otherwise
@@ -344,7 +342,6 @@ Status LowerWhileHelper::CreateBodyFuncCallNode()
             body_call_builder_.Input(NodeOut(switch_nodes_[op_input_output_to_lowered_node_[i]], 1));
         }
     }
-    // body_call_builder_.Device(while_op_->requested_device());
     TF_RETURN_IF_ERROR(body_call_builder_.Finalize(graph_, &body_call_node_));
     // Add a control edge to make sure the Const nodes in the body function
     // are in the same frame as the rest of the function, otherwise

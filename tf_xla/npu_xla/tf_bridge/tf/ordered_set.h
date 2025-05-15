@@ -34,7 +34,6 @@ limitations under the License.
 #include <unordered_map>
 #include <vector>
 
-// #include "absl/container/flat_hash_map.h"
 #include "absl/types/span.h"
 #include "tensorflow/core/platform/logging.h"
 
