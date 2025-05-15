@@ -1775,7 +1775,856 @@ Status Encapsulator::AddEdgesToOutputGraph(const std::unordered_map<const Node*,
     return absl::OkStatus();
 }
 
+namespace {
+// Adds a dummy Const node to graph_out. The "constant" has the type of
+// data_type and the shape indicated in 'shape'. The dummy node is not a valid
+// Const node because it does not have any value defined, but this doesn't
+// matter because it will only be used subsequently for shape inference. (It
+// would be possible to add a switch statement over data_type to create a value
+// for the constant, but that would entail maintaining the logic as new types
+// are added, and is not necessary.) If the node being replaced was within a
+// control flow frame, adds appropriate Enter nodes so that the use of the Const
+// is well-formed.
+Node* AddDummyShapedNode(const Node* src_node, int src_port, const std::vector<ControlFlowInfo>& control_flow_info,
+                         const TensorShapeProto& shape, Graph* graph_out)
+{
+    DataType data_type = src_node->output_type(src_port);
+    TensorProto dummy_proto;
+    dummy_proto.set_dtype(data_type);
+    *dummy_proto.mutable_tensor_shape() = shape;
+    // Don't set any value field in the proto, since it is only going to be used
+    // for shape inference.
+
+    GraphDefBuilder::Options options(graph_out, /*status=*/nullptr);
+    NodeBuilder node_builder(options.GetNameForOp("KnownShape"), "Const", options.op_registry());
+    node_builder.Attr("dtype", data_type).Attr("value", dummy_proto);
+    Node* node = options.FinalizeBuilder(&node_builder);
+    // Add any Enter nodes required to bring the constant to the correct control
+    // flow frame.
+    while (!control_flow_info[src_node->id()].frame_name.empty()) {
+        NodeBuilder enter_builder(options.GetNameForOp("Enter"), "Enter", options.op_registry());
+        enter_builder.Attr("frame_name", control_flow_info[src_node->id()].frame_name);
+        enter_builder.Attr("is_constant", true);
+        enter_builder.Input(node, 0);
+        Node* enter_node = options.FinalizeBuilder(&enter_builder);
+        // Adopt the new Enter node as the value in the current frame.
+        node = enter_node;
+        // Recurse to the parent frame to see if more Enter nodes need to be added.
+        src_node = control_flow_info[src_node->id()].parent_frame;
+    }
+    return node;
+}
+
+// Adds a copy of node_in to graph_out and adds the mapping to
+// copied_node_images.
+Status CopyShapeInferenceNodeToGraph(Node* node_in, const Node* send_node,
+                                     const std::unordered_map<Node*, Node*>& dummy_node_images,
+                                     FunctionLibraryDefinition* library,
+                                     std::unordered_map<Node*, Node*>* copied_node_images, Graph* graph_out)
+{
+    // Once all the ancestor nodes have been added to graph_out, add this node
+    // and connect it to its ancestors.
+    Node* node_out = graph_out->CopyNode(node_in);
+    (*copied_node_images)[node_in] = node_out;
+    // Don't bother to build the shape inference graph if there's a node with no
+    // shape inference function, since it would just result in an error later at
+    // compile time.
+    const OpRegistrationData* op_reg_data;
+    TF_RETURN_IF_ERROR(library->LookUp(node_in->type_string(), &op_reg_data));
+    if (op_reg_data->shape_inference_fn == nullptr) {
+        return errors::InvalidArgument("Shape inference is not possible for outside_compilation "
+                                       "SendFromHost node ",
+                                       send_node->name(), " because it depends on node ", node_in->name(),
+                                       " which does not have a shape inference function registered.");
+    }
+    // Add all the edges to the newly copied node.
+    for (const Edge* in_edge : node_in->in_edges()) {
+        if (!in_edge->IsControlEdge()) {
+            Node* src = in_edge->src();
+            const auto iter = dummy_node_images.find(src);
+            if (iter == dummy_node_images.end()) {
+                // The src is a copied node so use the original output port.
+                graph_out->AddEdge((*copied_node_images)[in_edge->src()], in_edge->src_output(), node_out,
+                                   in_edge->dst_input());
+            } else {
+                // The src is a dummy node so use output port 0.
+                graph_out->AddEdge(iter->second, 0, node_out, in_edge->dst_input());
+            }
+        }
+    }
+    // Work around the fact that Enter nodes refuse to propagate shape information
+    // unless they are marked loop invariant. Since we are never going to execute
+    // this graph, marking them all loop invariant is fine.
+    if (node_out->type_string() == "Enter") {
+        node_out->ClearAttr("is_constant");
+        node_out->AddAttr("is_constant", true);
+    }
+    return absl::OkStatus();
+}
+
 }  // namespace
+
+Status Encapsulator::DoStaticShapeInferenceForOutsideCompilationSend(
+    const Graph& graph_in, const BackEdgeHelper& back_edge_helper, const ShapeRefiner& shape_refiner,
+    const std::unordered_set<string>& recv_at_host_nodes, Node* send_node, FunctionLibraryDefinition* library,
+    std::vector<TensorShapeProto>* static_shape_out, std::unique_ptr<Graph>* graph_out)
+{
+    // Get the control flow structure of the input graph so we can build
+    // well-formed output graphs.
+    std::vector<ControlFlowInfo> control_flow_info;
+    TF_RETURN_IF_ERROR(BuildControlFlowInfo(&graph_in, &control_flow_info));
+
+    // Maps from nodes in graph_in to nodes in graph_out.
+    //
+    // When an edge has fully defined shape the source node in graph_in is
+    // replaced in graph_out by a dummy constant node. The mapping from nodes
+    // in graph_in to dummy nodes is stored in dummy_node_images.
+    //
+    // When a node in graph_in has at least one ancestor that doesn't have fully
+    // defined shape, it is copied into graph_out. The mapping from nodes in
+    // graph_in to copied nodes is stored in copied_node_images.
+    //
+    // The two types of node are treated differently because, when adding edges to
+    // graph_out, an output from a dummy node always uses port 0, whereas an
+    // output from a copied node uses the same port that was used in graph_in.
+    std::unordered_map<Node*, Node*> dummy_node_images;
+    std::unordered_map<Node*, Node*> copied_node_images;
+
+    graph_out->reset(new Graph(graph_in.op_registry()));
+    (*graph_out)->set_versions(graph_in.versions());
+    // The final input to the send node is the dynamic key, which we don't include
+    // in the static shapes.
+    static_shape_out->resize(send_node->num_inputs() - 1);
+
+    // We don't use the standard ReverseDFS because we want to cut off traversal
+    // whenever we find an output with fully defined shape.
+    struct Work {
+        Node* node;
+        bool leave;  // Are we entering or leaving node?
+    };
+    std::vector<Work> stack({{send_node, false}});
+    std::vector<bool> visited(graph_in.num_node_ids(), false);
+    while (!stack.empty()) {
+        Work w = stack.back();
+        stack.pop_back();
+        Node* n = w.node;
+
+        if (w.leave) {
+            TF_RETURN_IF_ERROR(CopyShapeInferenceNodeToGraph(n, send_node, dummy_node_images, library,
+                                                             &copied_node_images, graph_out->get()));
+        } else {
+            if (visited[n->id()])
+                continue;
+            visited[n->id()] = true;
+
+            // Arrange to revisit when all done with all inputs.
+            stack.push_back(Work{n, true});
+
+            bool has_parent_with_unknown_shape = false;
+            for (const Edge* in_edge : n->in_edges()) {
+                if (!in_edge->IsControlEdge()) {
+                    Node* src_node = in_edge->src();
+                    int src_port = in_edge->src_output();
+                    shape_inference::InferenceContext* context = shape_refiner.GetContext(src_node);
+                    shape_inference::ShapeHandle shape = context->output(src_port);
+                    if (context->FullyDefined(shape)) {
+                        // This ancestor has known shape, so instead of adding it to the
+                        // stack, add a dummy node with that shape to graph_out and
+                        // continue.
+                        TensorShapeProto proto;
+                        context->ShapeHandleToProto(shape, &proto);
+                        VLOG(2) << "Node " << src_node->name() << " has known shape: " << proto.DebugString();
+                        if (dummy_node_images.find(src_node) == dummy_node_images.end()) {
+                            dummy_node_images[src_node] =
+                                AddDummyShapedNode(src_node, src_port, control_flow_info, proto, graph_out->get());
+                        }
+                        // The final input to the send node is the dynamic key, which we
+                        // don't include in the static shapes.
+                        if (n == send_node && static_cast<size_t>(in_edge->dst_input()) < static_shape_out->size()) {
+                            (*static_shape_out)[in_edge->dst_input()] = proto;
+                        }
+                    } else {
+                        has_parent_with_unknown_shape = true;
+                        if (!visited[src_node->id()]) {
+                            if (VLOG_IS_ON(2)) {
+                                TensorShapeProto proto;
+                                context->ShapeHandleToProto(shape, &proto);
+                                VLOG(2) << "Node " << src_node->name() << " has unknown shape: " << proto.DebugString();
+                            }
+                            stack.push_back({src_node, false});
+                        }
+                    }
+                }
+            }
+            if (!has_parent_with_unknown_shape) {
+                if (n == send_node) {
+                    // The shapes of all the inputs to send_node are statically known. We
+                    // won't have to do any inference at compile time so return now: the
+                    // shapes were stored in static_shape_out above.
+                    graph_out->reset();
+                    return absl::OkStatus();
+                } else {
+                    // Any shape that is being processed is either the original send node
+                    // or has at least one output with statically-unknown shape. If the
+                    // latter and it doesn't have any inputs with statically-unknown
+                    // shape, then check that it is of the recv nodes that we can fill in
+                    // the shape of at run-time later. If it isn't one of those, then we
+                    // won't have any additional knowledge at compile time, so we already
+                    // know we won't be able to do shape inference and we can return an
+                    // error now.
+                    if (recv_at_host_nodes.find(n->name()) == recv_at_host_nodes.end()) {
+                        return errors::InvalidArgument("Shape inference is not possible for outside_compilation "
+                                                       "SendFromHost node ",
+                                                       send_node->name(), " because shape of node ", n->name(),
+                                                       " will not be known at compilation time.");
+                    }
+                }
+            }
+        }
+    }
+
+    for (const auto edge : back_edge_helper.RemovedEdges()) {
+        if (copied_node_images.find(edge.dst) != copied_node_images.end()) {
+            // The destination of this back edge was added to the inference graph, so
+            // fix it up.
+            Node* dst = copied_node_images[edge.dst];
+            if (dst->type_string() != "Merge") {
+                return errors::InvalidArgument("outside_compilation cluster contains a back-edge to node ", dst->name(),
+                                               " of type ", dst->type_string(),
+                                               ". The analysis pass only supports back-edges to Merge nodes.");
+            }
+            const Edge* existing_input_edge;
+            if (edge.dst_input != 1 || dst->num_inputs() != 2 || !dst->input_edge(0, &existing_input_edge).ok()) {
+                // TODO(misard) if we see graphs built with a different structure, relax
+                // this constraint. Leaving it here for now to avoid writing unnecessary
+                // complex code since we believe graphs generated by front ends all have
+                // the back edge as the second input to the merge node.
+                return errors::Internal("Internal assumption failed while rewriting an outside_compilation "
+                                        "cluster that contains a while loop. Logic assumes back-edge is to "
+                                        "port 1 of a 2-input "
+                                        "Merge node.");
+            }
+            // Connect the existing edge to both inputs of the Merge node so that the
+            // graph will be well-formed.
+            (*graph_out)->AddEdge(existing_input_edge->src(), existing_input_edge->src_output(), dst, edge.dst_input);
+        }
+    }
+
+    return absl::OkStatus();
+}
+
+namespace {
+
+// Helper struct for building cluster dependencies and also debugging cycles in
+// the dependencies. While computing dependencies we construct a mapping from
+// Node* to PathDetails.
+struct PathDetails {
+    struct SubgraphAndCluster {
+        string subgraph;
+        string outside_compilation_cluster;
+        bool operator==(const SubgraphAndCluster& other) const
+        {
+            return subgraph == other.subgraph && outside_compilation_cluster == other.outside_compilation_cluster;
+        }
+    };
+
+    struct SubgraphAndClusterHash {
+        inline std::size_t operator()(const SubgraphAndCluster& v) const
+        {
+            return hash<string>()(absl::StrCat(v.subgraph, v.outside_compilation_cluster));
+        }
+    };
+
+    typedef std::unordered_set<SubgraphAndCluster, SubgraphAndClusterHash> SubgraphAndClusterSet;
+
+    // Returns the set of (subgraph, oc_cluster) pairs that should be recorded as
+    // ancestors for any successor of this node. If the node is in the outer
+    // graph, it returns the transitive union of the ancestors of the node's
+    // inputs. If the node is in an outside_compilation cluster, it returns just
+    // that cluster. If the node is compiled, it returns the empty set.
+    SubgraphAndClusterSet AncestorsForSuccessor()
+    {
+        if (subgraph.empty()) {
+            return ancestor_clusters;
+        } else if (outside_compilation_cluster.empty()) {
+            return SubgraphAndClusterSet();
+        } else {
+            SubgraphAndCluster entry;
+            entry.subgraph = subgraph;
+            entry.outside_compilation_cluster = outside_compilation_cluster;
+            return SubgraphAndClusterSet({entry});
+        }
+    }
+
+    // The transitive union of the ancestor's of this node's inputs. This is only
+    // saved for debugging in order to print out enough information to debug a
+    // discovered cycle.
+    SubgraphAndClusterSet ancestor_clusters;
+    // The subgraph attr on this node.
+    string subgraph;
+    // The outside_compilation attr on this node.
+    string outside_compilation_cluster;
+};
+
+// Adds an edge from ancestor to successor to the cycle detector, and returns an
+// error if that edge causes the formation of a cycle. In the error case, logs
+// the contents of the node_ancestors_map to facilitate debugging.
+Status CheckClusterDependencyForCycles(const string& ancestor, const string& successor,
+                                       const std::unordered_map<string, std::unordered_set<string>>& ancestors,
+                                       const std::unordered_map<Node*, PathDetails>& node_ancestors_map,
+                                       GraphCycles* cycle_detector, std::map<string, int>* cycle_detector_map)
+{
+    if (cycle_detector_map->find(ancestor) == cycle_detector_map->end()) {
+        (*cycle_detector_map)[ancestor] = cycle_detector->NewNode();
+    }
+    if (cycle_detector_map->find(successor) == cycle_detector_map->end()) {
+        (*cycle_detector_map)[successor] = cycle_detector->NewNode();
+    }
+
+    if (!cycle_detector->InsertEdge((*cycle_detector_map)[ancestor], (*cycle_detector_map)[successor])) {
+        LOG(ERROR) << "Cycle in outside_compilation clusters";
+        for (const auto& cluster : ancestors) {
+            LOG(ERROR) << "Cluster " << cluster.first << " depends on:";
+            for (const auto& ancestor : cluster.second) {
+                LOG(ERROR) << "  " << ancestor;
+            }
+        }
+        for (const auto& node_ancestors : node_ancestors_map) {
+            LOG(ERROR) << "Node " << node_ancestors.first->name() << " (" << node_ancestors.second.subgraph << ";"
+                       << node_ancestors.second.outside_compilation_cluster << ") has ancestor clusters:";
+            for (const auto& ancestor : node_ancestors.second.ancestor_clusters) {
+                LOG(ERROR) << "  " << ancestor.subgraph << ";" << ancestor.outside_compilation_cluster;
+            }
+        }
+        return errors::InvalidArgument("Can't compile outside_compilation clusters because there is a "
+                                       "dependency cycle: see error log for details.");
+    }
+    return absl::OkStatus();
+}
+
+}  // namespace
+
+Status Encapsulator::FindClusterDependencies()
+{
+    // Map from nodes to ancestor details. A node is entered into the map if it is
+    // in a compilation subgraph, and outside_compilation cluster, or appears on a
+    // path in the outer graph leading from an outside_compilation subgraph.
+    std::unordered_map<Node*, PathDetails> node_ancestors_map;
+    // We check that clusters are acyclic using this cycle detector.
+    GraphCycles cycle_detector;
+    // Map from cluster name to cycle detector node id.
+    std::map<string, int> cycle_detector_map;
+    // Process the nodes in topologically-sorted order.
+    std::vector<Node*> nodes;
+    GetReversePostOrder(*graph_in_, &nodes);
+    for (Node* node : nodes) {
+        string subgraph_name;
+        string oc_cluster;
+        TF_RETURN_IF_ERROR(GetFunctionNameAttr(node, &subgraph_name, &oc_cluster));
+        // First create an entry in the ancestors map if the node is in a compiled
+        // subgraph or outside_compilation cluster, or if any incoming edge is from
+        // a node with an ancestor map entry; and find the union of all the
+        // ancestors.
+        if (!subgraph_name.empty()) {
+            node_ancestors_map[node].subgraph = subgraph_name;
+            node_ancestors_map[node].outside_compilation_cluster = oc_cluster;
+        }
+        for (Node* src : node->in_nodes()) {
+            const auto iter = node_ancestors_map.find(src);
+            if (iter != node_ancestors_map.end()) {
+                const auto& ancestors_to_follow = iter->second.AncestorsForSuccessor();
+                for (const auto& ancestor : ancestors_to_follow) {
+                    if (ancestor.subgraph != subgraph_name || ancestor.outside_compilation_cluster != oc_cluster) {
+                        node_ancestors_map[node].ancestor_clusters.insert(ancestor);
+                    }
+                }
+            }
+        }
+        if (!subgraph_name.empty()) {
+            // The node is in a compiled subgraph or an outside_compilation cluster.
+            if (oc_cluster.empty()) {
+                // The node is not in an outside_compilation cluster. Record the
+                // subgraph's ancestor dependencies.
+                for (const auto& cluster : node_ancestors_map[node].ancestor_clusters) {
+                    if (cluster.subgraph != subgraph_name) {
+                        subgraph_ancestors_[subgraph_name].insert(cluster.subgraph);
+                        TF_RETURN_IF_ERROR(CheckClusterDependencyForCycles(cluster.subgraph, subgraph_name,
+                                                                           subgraph_ancestors_, node_ancestors_map,
+                                                                           &cycle_detector, &cycle_detector_map));
+                    }
+                }
+            } else {
+                Subgraph& subgraph = subgraphs_[subgraph_name];
+                // The node is in an outside_compilation cluster. Record the cluster
+                // and/or subgraph ancestor dependencies.
+                for (const auto& cluster : node_ancestors_map[node].ancestor_clusters) {
+                    if (cluster.subgraph == subgraph_name) {
+                        // The ancestor is in the same subgraph.
+                        if (cluster.outside_compilation_cluster != oc_cluster) {
+                            // But not in the same oc_cluster, so record the dependency.
+                            subgraph.RecordOutsideCompilationDependency(oc_cluster,
+                                                                        cluster.outside_compilation_cluster);
+                            TF_RETURN_IF_ERROR(CheckClusterDependencyForCycles(
+                                cluster.outside_compilation_cluster, oc_cluster,
+                                subgraph.OutsideCompilationAncestorMap(), node_ancestors_map, &cycle_detector,
+                                &cycle_detector_map));
+                        }
+                    } else {
+                        // The ancestor is in a different subgraph, so record the
+                        // dependency.
+                        subgraph_ancestors_[subgraph_name].insert(cluster.subgraph);
+                        TF_RETURN_IF_ERROR(CheckClusterDependencyForCycles(cluster.subgraph, subgraph_name,
+                                                                           subgraph_ancestors_, node_ancestors_map,
+                                                                           &cycle_detector, &cycle_detector_map));
+                    }
+                }
+            }
+        }
+    }
+    if (VLOG_IS_ON(2)) {
+        // Print debug information.
+        VLOG(2) << "node_ancestors_map:";
+        for (const auto& node_iter : node_ancestors_map) {
+            VLOG(2) << "\t" << node_iter.first->name() << ": subgraph = '" << node_iter.second.subgraph
+                    << "', outside_compilation_cluster = '" << node_iter.second.outside_compilation_cluster
+                    << "', ancestor_clusters: " << (node_iter.second.ancestor_clusters.empty() ? "(empty)" : "");
+            for (const auto& cluster_iter : node_iter.second.ancestor_clusters) {
+                VLOG(2) << "\t\tsubgraph = '" << cluster_iter.subgraph << "', outside_compilation_cluster = '"
+                        << cluster_iter.outside_compilation_cluster << "'";
+            }
+        }
+    }
+    return absl::OkStatus();
+}
+
+Status Encapsulator::MakePrunedGraphCopyAndInline(const Graph& graph, const std::vector<Node*>& sink_nodes,
+                                                  std::unique_ptr<Graph>* pruned_graph,
+                                                  std::unordered_map<const Node*, Node*>* node_images,
+                                                  FunctionLibraryDefinition* library)
+{
+    // First copy all ancestor nodes of sink_nodes into a new graph.
+    pruned_graph->reset(new Graph(library));
+    (*pruned_graph)->set_versions(graph.versions());
+    ReverseDFSFrom(graph, sink_nodes,
+                   /*enter=*/nullptr,
+                   /*leave=*/[&](Node* n) {
+                       if (!n->IsSource()) {
+                           Node* copied = (*pruned_graph)->CopyNode(n);
+                           node_images->emplace(n, copied);
+                       }
+                   });
+
+    // Add all the edges between copied nodes.
+    for (auto entry : *node_images) {
+        const Node* orig = entry.first;
+        Node* image = entry.second;
+        for (const Edge* out_edge : orig->out_edges()) {
+            auto iter = node_images->find(out_edge->dst());
+            if (iter != node_images->end()) {
+                // The source and destination are both in the copied graph.
+                (*pruned_graph)->AddEdge(image, out_edge->src_output(), iter->second, out_edge->dst_input());
+            }
+        }
+    }
+
+    // Find all the function call nodes, and inline them.
+    std::vector<Node*> function_nodes;
+    for (auto node : (*pruned_graph)->nodes()) {
+        const OpRegistrationData* op_reg_data;
+        TF_RETURN_IF_ERROR(library->LookUp(node->type_string(), &op_reg_data));
+        if (op_reg_data->is_function_op) {
+            function_nodes.push_back(node);
+        }
+    }
+    for (auto node : function_nodes) {
+        VLOG(2) << "Inlining function " << node->name();
+        const FunctionDef* fdef = library->Find(node->type_string());
+        if (fdef == nullptr) {
+            return errors::Internal("Failed to find function ", node->type_string(), " in function library.");
+        }
+
+        std::unique_ptr<FunctionBody> fbody;
+
+        TF_RETURN_IF_ERROR(FunctionDefToBodyHelper(*fdef, node->attrs(), library, &fbody));
+
+        TF_RETURN_IF_ERROR(InlineFunctionBody(*library, pruned_graph->get(), node, fbody.get(), {}));
+    }
+    return absl::OkStatus();
+}
+
+Status Encapsulator::MakeGraphForOutsideCompilationSends(const Graph& graph, std::unique_ptr<Graph>* pruned_graph,
+                                                         BackEdgeHelper* back_edge_helper, ShapeRefiner* shape_refiner,
+                                                         std::unordered_map<const Node*, Node*>* node_images,
+                                                         FunctionLibraryDefinition* library)
+{
+    // Find all the send_from_host nodes in all subgraphs, to use as roots for the
+    // pruning.
+    std::vector<Node*> send_from_host_nodes;
+    for (auto& subgraph_entry : subgraphs_) {
+        Subgraph& subgraph = subgraph_entry.second;
+        std::vector<string> outside_compilation_names;
+        subgraph.GetOutsideCompilationSubgraphNames(&outside_compilation_names);
+        for (const auto& name : outside_compilation_names) {
+            Node* send_node = subgraph.GetSendFromHostNode(name);
+            if (send_node != nullptr) {
+                send_from_host_nodes.push_back(send_node);
+            }
+        }
+    }
+
+    // Make a copy of all the graph nodes needed to evaluate the send_from_host
+    // nodes, inlining any functions as needed.
+    TF_RETURN_IF_ERROR(MakePrunedGraphCopyAndInline(graph, send_from_host_nodes, pruned_graph, node_images, library));
+    FixupSourceAndSinkEdges(pruned_graph->get());
+
+    // Remove back edges from any cycles in the pruned graph to simplify shape
+    // inference traversal. They will be fixed up in the per-subgraph shape
+    // inference graphs stored in the function library.
+    TF_RETURN_IF_ERROR(back_edge_helper->Remove(pruned_graph->get()));
+
+    // Perform shape inference on the pruned graph.
+    shape_refiner->set_require_shape_inference_fns(false);
+    std::vector<Node*> post_order;
+    GetReversePostOrder(*(*pruned_graph), &post_order);
+    for (auto node : post_order) {
+        // Ignore the status returned by the shape_refiner. At this point we want
+        // the best effort shapes, even if no shape function is registered for a
+        // node.
+        Status status = shape_refiner->AddNode(node);
+        if (!status.ok()) {
+            VLOG(1) << "Shape inference failed for node: " << status;
+        }
+    }
+
+    return absl::OkStatus();
+}
+
+Status Encapsulator::GetShapeInfoForOutsideCompilationSends(Graph* graph_out, FunctionLibraryDefinition* library)
+{
+    BackEdgeHelper back_edge_helper;
+    std::unique_ptr<Graph> pruned_graph;
+    ShapeRefiner shape_refiner(graph_out->versions(), graph_out->op_registry());
+    std::unordered_map<const Node*, Node*> node_images;
+    TF_RETURN_IF_ERROR(MakeGraphForOutsideCompilationSends(*graph_out, &pruned_graph, &back_edge_helper, &shape_refiner,
+                                                           &node_images, library));
+
+    if (VLOG_IS_ON(1)) {
+        dump_graph::DumpGraphToFile("pruned_graph_for_shape_inference", *pruned_graph, library);
+    }
+
+    for (auto& subgraph_entry : subgraphs_) {
+        const string& subgraph_name = subgraph_entry.first;
+        Subgraph& subgraph = subgraph_entry.second;
+        // Find all the recv_at_host nodes in this subgraph.
+        std::vector<string> outside_compilation_names;
+        subgraph.GetOutsideCompilationSubgraphNames(&outside_compilation_names);
+        std::unordered_set<string> recv_at_host_names;
+        for (const auto& oc_name : outside_compilation_names) {
+            Node* recv_node = subgraph.GetRecvAtHostNode(oc_name);
+            if (recv_node != nullptr) {
+                recv_at_host_names.insert(recv_node->name());
+            }
+        }
+        // For each send_from_host node, do as much shape inference as possible
+        // without knowing the shape of the recv_at_host nodes, and store the
+        // result, along with enough information to complete the job at compile time
+        // once the recv_at_host shapes are known.
+        for (const auto& oc_name : outside_compilation_names) {
+            Node* send_node = subgraph.GetSendFromHostNode(oc_name);
+            std::vector<TensorShapeProto> static_shape;
+            std::unique_ptr<Graph> graph;
+            if (send_node != nullptr) {
+                TF_RETURN_IF_ERROR(DoStaticShapeInferenceForOutsideCompilationSend(
+                    *pruned_graph, back_edge_helper, shape_refiner, recv_at_host_names, node_images[send_node], library,
+                    &static_shape, &graph));
+                if (graph == nullptr) {
+                    VLOG(2) << "Send node  " << send_node->name() << " shapes";
+                    for (size_t i = 0; i < static_shape.size(); ++i) {
+                        VLOG(2) << static_shape[i].DebugString();
+                    }
+                } else {
+                    if (VLOG_IS_ON(2)) {
+                        GraphDef graphdef;
+                        graph->ToGraphDef(&graphdef);
+                        VLOG(2) << "Send node " << send_node->name() << " graph\n" << graphdef.DebugString();
+                    }
+                }
+            }
+            TF_RETURN_IF_ERROR(
+                subgraph.AddShapeInferenceInfo(subgraph_name, oc_name, static_shape, graph.get(), library));
+        }
+        if (!outside_compilation_names.empty()) {
+            TF_RETURN_IF_ERROR(subgraph.ReplaceFunctionDef(library));
+        }
+    }
+
+    return absl::OkStatus();
+}
+
+Status Encapsulator::BuildOutputGraph(Graph* graph_out, FunctionLibraryDefinition* library)
+{
+    // Map from nodes in the input graph to nodes in the output graph.
+    std::unordered_map<const Node*, Node*> node_images;
+
+    TF_RETURN_IF_ERROR(CopyNodesToOutputGraph(graph_out, &node_images));
+    TF_RETURN_IF_ERROR(AddFunctionCallNodes(node_images, graph_out));
+    TF_RETURN_IF_ERROR(AddOutsideCompilationHostIONodes(node_images, graph_out));
+    TF_RETURN_IF_ERROR(AddEdgesToOutputGraph(node_images, graph_out));
+
+    TF_RETURN_IF_ERROR(GetShapeInfoForOutsideCompilationSends(graph_out, library));
+
+    return absl::OkStatus();
+}
+
+}  // anonymous namespace
+
+Status EncapsulateSubgraphsInFunctions(string group_attribute, string outside_compilation_attribute,
+                                       const Graph& graph_in, const RewriteSubgraphFn& rewrite_subgraph_fn,
+                                       bool reuse_existing_functions, std::unique_ptr<Graph>* graph_out,
+                                       FunctionLibraryDefinition* library)
+{
+    Status s;
+
+    Encapsulator encapsulator(std::move(group_attribute), std::move(outside_compilation_attribute), &graph_in);
+    TF_RETURN_IF_ERROR(encapsulator.FindClusterDependencies());
+    TF_RETURN_IF_ERROR(encapsulator.SplitIntoSubgraphs(library));
+
+    TF_RETURN_IF_ERROR(encapsulator.BuildFunctionDefs(rewrite_subgraph_fn, reuse_existing_functions, library));
+
+    std::unique_ptr<Graph> out(new Graph(library));
+    out->set_versions(graph_in.versions());
+    TF_RETURN_IF_ERROR(encapsulator.BuildOutputGraph(out.get(), library));
+
+    *graph_out = std::move(out);
+    return absl::OkStatus();
+}
+
+// Finds the types of the _Arg nodes, indexed by position.
+static Status GetArgTypes(const Graph& graph, DataTypeVector* types)
+{
+    for (Node* n : graph.op_nodes()) {
+        if (n->type_string() == kArgOp) {
+            int index;
+            TF_RETURN_IF_ERROR(GetNodeAttr(n->attrs(), "index", &index));
+            if (index < 0 || static_cast<size_t>(index) >= types->size()) {
+                return errors::InvalidArgument("Invalid argument number");
+            }
+            (*types)[index] = n->output_type(0);
+        }
+    }
+    return absl::OkStatus();
+}
+
+// Renumber the indices of _Arg nodes in a graph, according to
+// 'permutation' that maps old indices to new indices.
+static Status RenumberArguments(Graph* graph, const std::vector<int>& permutation)
+{
+    for (Node* n : graph->op_nodes()) {
+        if (n->type_string() == kArgOp) {
+            int index;
+            TF_RETURN_IF_ERROR(GetNodeAttr(n->attrs(), "index", &index));
+            if (index < 0 || static_cast<size_t>(index) >= permutation.size()) {
+                return errors::InvalidArgument("Invalid argument number");
+            }
+            n->AddAttr("index", permutation[index]);
+        }
+    }
+    return absl::OkStatus();
+}
+
+// Finds the types of the _Retval nodes, indexed by position.
+static Status GetRetTypes(const Graph& graph, DataTypeVector* types)
+{
+    for (Node* n : graph.op_nodes()) {
+        if (n->type_string() == kRetValOp) {
+            int index;
+            TF_RETURN_IF_ERROR(GetNodeAttr(n->attrs(), "index", &index));
+            if (index < 0 || static_cast<size_t>(index) >= types->size()) {
+                return errors::InvalidArgument("Invalid argument number");
+            }
+            (*types)[index] = n->input_type(0);
+        }
+    }
+    return absl::OkStatus();
+}
+
+// Renumber the indices of _Arg nodes in a graph, according to
+// 'permutation' that maps old indices to new indices.
+static Status RenumberResults(Graph* graph, const std::vector<int>& permutation)
+{
+    for (Node* n : graph->op_nodes()) {
+        if (n->type_string() == kRetValOp) {
+            int index;
+            TF_RETURN_IF_ERROR(GetNodeAttr(n->attrs(), "index", &index));
+            if (index < 0 || static_cast<size_t>(index) >= permutation.size()) {
+                return errors::InvalidArgument("Invalid argument number");
+            }
+            n->AddAttr("index", permutation[index]);
+        }
+    }
+    return absl::OkStatus();
+}
+
+Status EncapsulateSubgraphsPass::Run(const GraphOptimizationPassOptions& options)
+{
+    VLOG(1) << "EncapsulateSubgraphsPass::Run";
+    if (VLOG_IS_ON(1)) {
+        VLOG(1) << dump_graph::DumpGraphToFile("encapsulate_subgraphs_before", **options.graph, options.flib_def);
+    }
+
+    std::unique_ptr<Graph> graph_out;
+    FunctionLibraryDefinition* const library = options.flib_def;
+
+    OptimizerOptions opts;
+    std::unique_ptr<ProcessFunctionLibraryRuntime> pflr(
+#if TF_MAJOR_VERSION > 1
+        // TF2.4
+        new ProcessFunctionLibraryRuntime(nullptr, options.session_options->env,
+                                          /*new:config=*/&options.session_options->config, TF_GRAPH_DEF_VERSION,
+                                          library, opts));
+#else
+        // TF1.12, TF1.15
+        new ProcessFunctionLibraryRuntime(nullptr, options.session_options->env, TF_GRAPH_DEF_VERSION, library, opts));
+#endif
+    FunctionLibraryRuntime* flr = pflr->GetFLR(ProcessFunctionLibraryRuntime::kDefaultFLRDevice);
+
+    auto rewrite_subgraph = [flr, this](const std::vector<OutputTensor>& arg_source_tensors,
+                                        std::unique_ptr<Graph>* subgraph, std::vector<int>* input_permutation,
+                                        std::vector<int>* output_permutation, NodeDef* node) {
+        // Optimize the subgraph.
+        OptimizeGraph(flr, subgraph);
+
+        const int num_args = input_permutation->size();
+        std::vector<bool> const_args(num_args);
+        std::vector<bool> fixed_shape_args(num_args);
+        if (inner_) {
+            TF_RETURN_IF_ERROR(BackwardsConstAnalysis(
+                **subgraph, &const_args,
+                /*compile_time_const_nodes=*/nullptr, &fixed_shape_args,
+                /*compile_time_fixed_shape_nodes=*/nullptr, flr, [](const Edge& e) { return true; },
+                /*is_mlir*/ true));
+        } else {
+            TF_RETURN_IF_ERROR(BackwardsConstAnalysis(**subgraph, &const_args,
+                                                      /*compile_time_const_nodes=*/nullptr,
+                                                      /*compile_time_fixed_shape_arg_indices*/ nullptr,
+                                                      /*compile_time_fixed_shape_nodes=*/nullptr, flr));
+        }
+
+        DataTypeVector arg_types(num_args);
+        TF_RETURN_IF_ERROR(GetArgTypes(**subgraph, &arg_types));
+
+        // Compute a permutation of the arguments such that the constant
+        // arguments are first.
+        // For Xla, the inputs are renumbered in the format:
+        //   [ConstInputs, FixedShapeInputs(others), ResourceInputs]
+        // For Mlir, the format is:
+        //   [ConstInputs, FixedShapeInputs,
+        //   FixedRankDynamicShapeInputs(others), ResourceInputs]
+        const int num_consts = std::count(const_args.begin(), const_args.end(), true);
+        // always zero for outer xla
+        const int num_fixed_shapes = std::count(fixed_shape_args.begin(), fixed_shape_args.end(), true);
+        const int num_resources = std::count(arg_types.begin(), arg_types.end(), DT_RESOURCE);
+        int num_host_args = 0;
+        if (inner_) {
+            for (size_t i = 0; i < const_args.size(); ++i) {
+                if (const_args[i] || fixed_shape_args[i]) {
+                    continue;
+                } else if (arg_types[i] == DT_INT32) {
+                    // no special action for this type for now
+                    // ++num_host_args;
+                }
+            }
+        }
+        const int num_nonconsts_or_fixedshape =
+            num_args - num_resources - num_consts - num_fixed_shapes - num_host_args;
+        if (num_nonconsts_or_fixedshape < 0) {
+            return errors::Internal("num_nonconsts_or_fixedshape should be >= 0, was ", num_nonconsts_or_fixedshape);
+        }
+
+        int const_pos = 0;
+        int fixed_shape_pos = num_consts;
+        int host_arg_pos = fixed_shape_pos + num_fixed_shapes;
+        int device_arg_pos = host_arg_pos + num_host_args;
+        int resource_pos = device_arg_pos + num_nonconsts_or_fixedshape;
+        for (int i = 0; i < num_args; ++i) {
+            if (const_args[i]) {
+                if (arg_types[i] == DT_RESOURCE) {
+                    return errors::Internal("Resource arguments cannot be constant (argument ", i, ")");
+                }
+                (*input_permutation)[i] = const_pos;
+                ++const_pos;
+            } else if (fixed_shape_args[i]) {
+                if (arg_types[i] == DT_RESOURCE) {
+                    return errors::Internal("Resource arguments cannot be fixed shape(argument ", i, ")");
+                }
+                (*input_permutation)[i] = fixed_shape_pos;
+                ++fixed_shape_pos;
+            } else if (arg_types[i] == DT_RESOURCE) {
+                (*input_permutation)[i] = resource_pos;
+                ++resource_pos;
+            } else if (num_host_args > 0 && arg_types[i] == DT_INT32) {
+                (*input_permutation)[i] = host_arg_pos;
+                ++host_arg_pos;
+            } else {
+                (*input_permutation)[i] = device_arg_pos;
+                ++device_arg_pos;
+            }
+        }
+
+        // Renumber argument nodes in the graph.
+        TF_RETURN_IF_ERROR(RenumberArguments(subgraph->get(), *input_permutation));
+
+        // TODO(phawkins): add a forward is-constant analysis, similarly split
+        // outputs into host-memory constants and device-memory non-constants.
+
+        AddNodeAttr(kXlaCompiledKernelAttr, true, node);
+        AddNodeAttr(kXlaNumConstantArgsAttr, num_consts, node);
+        AddNodeAttr(kXlaNumResourceArgsAttr, num_resources, node);
+        AddNodeAttr(kMlirNumFixedShapeArgsAttr, num_fixed_shapes, node);
+        AddNodeAttr(kMlirNumHostArgsAttr, num_host_args, node);
+
+        int num_host_rets = 0;
+        if (inner_) {
+            int num_rets = output_permutation->size();
+            DataTypeVector ret_types(num_rets);
+            TF_RETURN_IF_ERROR(GetRetTypes(**subgraph, &ret_types));
+            num_host_rets = std::count(ret_types.begin(), ret_types.end(), DT_INT32);
+            int host_rets_pos = 0;
+            int device_rets_pos = num_host_rets;
+            for (int i = 0; i < num_rets; ++i) {
+                if (ret_types[i] == DT_INT32) {
+                    (*output_permutation)[i] = host_rets_pos++;
+                } else {
+                    (*output_permutation)[i] = device_rets_pos++;
+                }
+            }
+            // Renumber argument nodes in the graph.
+            TF_RETURN_IF_ERROR(RenumberResults(subgraph->get(), *output_permutation));
+        }
+        AddNodeAttr(kMlirNumHostRetsAttr, num_host_rets, node);
+
+        return absl::OkStatus();
+    };
+
+    TF_RETURN_WITH_CONTEXT_IF_ERROR(
+        EncapsulateSubgraphsInFunctions(kXlaClusterAttr, kXlaOutsideCompilationAttr, **options.graph, rewrite_subgraph,
+                                        /*reuse_existing_functions=*/false, &graph_out, library),
+        "EncapsulateSubgraphsPass failed");
+
+    if (VLOG_IS_ON(1)) {
+        VLOG(1) << dump_graph::DumpGraphToFile("encapsulate_subgraphs_after", *graph_out, options.flib_def);
+    }
+
+    *options.graph = std::move(graph_out);
+    return absl::OkStatus();
+}
+
+bool IsXlaCompiledKernel(const Node& node)
+{
+    bool is_compiled = false;
+    bool has_compilation_attr = GetNodeAttr(node.attrs(), kXlaCompiledKernelAttr, &is_compiled).ok() && is_compiled;
+    return has_compilation_attr ? is_compiled : false;
+}
 
 }  // namespace npu_xla
 }  // namespace tensorflow
