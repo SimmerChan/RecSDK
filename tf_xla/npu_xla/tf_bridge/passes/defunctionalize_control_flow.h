@@ -30,13 +30,11 @@ See the License for the specific language governing permissions and
 #include <map>
 #include <string>
 
+#include "tensorflow/core/framework/function.h"
+#include "tensorflow/core/graph/graph.h"
 #include "tensorflow/core/lib/core/status.h"
 
 namespace tensorflow {
-
-class Graph;
-class Node;
-class FunctionLibraryDefinition;
 
 namespace npu_xla {
 

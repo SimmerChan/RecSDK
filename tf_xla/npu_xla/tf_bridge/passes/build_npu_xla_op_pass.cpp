@@ -68,20 +68,20 @@ NodeBuilder::NodeOut IncomingEdgeAsOutput(const Edge* e)
 
 Status GetXlaClusterInfo(Node* n, XlaClusterInfo* result)
 {
-    int num_constant_inputs = 0;
-    int num_fixed_shape_inputs = 0;
-    int num_non_const_or_fixedshape_host_inputs = 0;
-    int num_resource_inputs = 0;
-    TF_RETURN_IF_ERROR(GetNodeAttr(n->attrs(), kXlaNumConstantArgsAttr, &num_constant_inputs));
-    TF_RETURN_IF_ERROR(GetNodeAttr(n->attrs(), kMlirNumFixedShapeArgsAttr, &num_fixed_shape_inputs));
-    TF_RETURN_IF_ERROR(GetNodeAttr(n->attrs(), kMlirNumHostArgsAttr, &num_non_const_or_fixedshape_host_inputs));
-    TF_RETURN_IF_ERROR(GetNodeAttr(n->attrs(), kXlaNumResourceArgsAttr, &num_resource_inputs));
+    int numConstantInputs = 0;
+    int numFixedShapeInputs = 0;
+    int numNonConstOrFixedshapeHostInputs = 0;
+    int numResourceInputs = 0;
+    TF_RETURN_IF_ERROR(GetNodeAttr(n->attrs(), kXlaNumConstantArgsAttr, &numConstantInputs));
+    TF_RETURN_IF_ERROR(GetNodeAttr(n->attrs(), kMlirNumFixedShapeArgsAttr, &numFixedShapeInputs));
+    TF_RETURN_IF_ERROR(GetNodeAttr(n->attrs(), kMlirNumHostArgsAttr, &numNonConstOrFixedshapeHostInputs));
+    TF_RETURN_IF_ERROR(GetNodeAttr(n->attrs(), kXlaNumResourceArgsAttr, &numResourceInputs));
 
-    int num_non_const_or_fixedshape_device_inputs = n->num_inputs() - num_constant_inputs - num_fixed_shape_inputs -
-                                                    num_non_const_or_fixedshape_host_inputs - num_resource_inputs;
+    int numNonConstOrFixedshapeDeviceInputs = n->num_inputs() - numConstantInputs - numFixedShapeInputs -
+                                              numNonConstOrFixedshapeHostInputs - numResourceInputs;
 
-    if (num_constant_inputs < 0 || num_resource_inputs < 0 || num_non_const_or_fixedshape_host_inputs < 0 ||
-        num_non_const_or_fixedshape_device_inputs < 0) {
+    if (numConstantInputs < 0 || numResourceInputs < 0 || numNonConstOrFixedshapeHostInputs < 0 ||
+        numNonConstOrFixedshapeDeviceInputs < 0) {
         return errors::InvalidArgument("Invalid number of constant/fixedshape/resource arguments to XLA "
                                        "kernel.");
     }
@@ -90,14 +90,14 @@ Status GetXlaClusterInfo(Node* n, XlaClusterInfo* result)
     TF_RETURN_IF_ERROR(n->input_edges(&input_edges_vector));
     int idx = 0;
     for (const Edge* e : input_edges_vector) {
-        if (idx < num_constant_inputs) {
+        if (idx < numConstantInputs) {
             result->constant_inputs.push_back(IncomingEdgeAsOutput(e));
-        } else if (idx < num_constant_inputs + num_fixed_shape_inputs) {
+        } else if (idx < numConstantInputs + numFixedShapeInputs) {
             result->fixed_shape_inputs.push_back(IncomingEdgeAsOutput(e));
-        } else if (idx < num_constant_inputs + num_fixed_shape_inputs + num_non_const_or_fixedshape_host_inputs) {
+        } else if (idx < numConstantInputs + numFixedShapeInputs + numNonConstOrFixedshapeHostInputs) {
             result->non_const_or_fixedshape_host_inputs.push_back(IncomingEdgeAsOutput(e));
-        } else if (idx < num_constant_inputs + num_fixed_shape_inputs + num_non_const_or_fixedshape_host_inputs +
-                             num_non_const_or_fixedshape_device_inputs) {
+        } else if (idx < numConstantInputs + numFixedShapeInputs + numNonConstOrFixedshapeHostInputs +
+                             numNonConstOrFixedshapeDeviceInputs) {
             result->non_const_or_fixedshape_device_inputs.push_back(IncomingEdgeAsOutput(e));
         } else {
             result->resource_inputs.push_back(IncomingEdgeAsOutput(e));
@@ -108,11 +108,11 @@ Status GetXlaClusterInfo(Node* n, XlaClusterInfo* result)
     result->function.set_name(n->type_string());
     *result->function.mutable_attr() = n->def().attr();
 
-    int num_host_rets = 0;
-    TF_RETURN_IF_ERROR(GetNodeAttr(n->attrs(), kMlirNumHostRetsAttr, &num_host_rets));
+    int numHostRets = 0;
+    TF_RETURN_IF_ERROR(GetNodeAttr(n->attrs(), kMlirNumHostRetsAttr, &numHostRets));
     for (int i = 0; i < n->num_outputs(); ++i) {
         auto t = n->output_type(i);
-        if (i < num_host_rets) {
+        if (i < numHostRets) {
             result->host_rets.push_back(t);
         } else {
             result->device_rets.push_back(t);
@@ -137,7 +137,7 @@ void MoveOutgoingEdges(Graph* g, Node* old_node, Node* new_node)
 {
     std::vector<const Edge*> out_edges(old_node->out_edges().begin(), old_node->out_edges().end());
     for (const Edge* edge : out_edges) {
-        // TODO(sanjoy): This does not update NodeDef inputs.  To be able to update
+        // This does not update NodeDef inputs.  To be able to update
         // NodeDef inputs we first need to fix encapsulate_subgraphs_pass to fix up
         // the NodeDef inputs to the function call nodes.
         g->AddEdge(new_node, edge->src_output(), edge->dst(), edge->dst_input());
@@ -162,33 +162,33 @@ Status CreateFallbackFunction(const GraphOptimizationPassOptions& options, const
 Status ReplaceNodeWithNpuXlaLaunchOp(const GraphOptimizationPassOptions& options, Graph* g, Node* n, bool inner)
 {
     VLOG(1) << "Run ReplaceNodeWithNpuXlaLaunchOp with " << n->name();
-    XlaClusterInfo cluster_info;
-    TF_RETURN_IF_ERROR(GetXlaClusterInfo(n, &cluster_info));
+    XlaClusterInfo clusterInfo;
+    TF_RETURN_IF_ERROR(GetXlaClusterInfo(n, &clusterInfo));
 
     auto mlir_func = absl::make_unique<NameAttrList>();
 
     NameAttrList fallback_function;
-    TF_RETURN_IF_ERROR(CreateFallbackFunction(options, n, cluster_info.function, &fallback_function));
+    TF_RETURN_IF_ERROR(CreateFallbackFunction(options, n, clusterInfo.function, &fallback_function));
 
     VLOG(1) << "is_mlir: " << inner;
-    VLOG(1) << "const_input size: " << cluster_info.constant_inputs.size();
-    VLOG(1) << "fixed_shape_input size: " << cluster_info.fixed_shape_inputs.size();
-    VLOG(1) << "host args size: " << cluster_info.non_const_or_fixedshape_host_inputs.size();
-    VLOG(1) << "host rets size: " << cluster_info.host_rets.size();
+    VLOG(1) << "const_input size: " << clusterInfo.constant_inputs.size();
+    VLOG(1) << "fixed_shape_input size: " << clusterInfo.fixed_shape_inputs.size();
+    VLOG(1) << "host args size: " << clusterInfo.non_const_or_fixedshape_host_inputs.size();
+    VLOG(1) << "host rets size: " << clusterInfo.host_rets.size();
 
     NodeBuilder nb = NodeBuilder(n->name() + "_npu_xla_launch", "NpuXlaLaunch")
-                         .Input(cluster_info.constant_inputs)
-                         .Input(cluster_info.fixed_shape_inputs)
-                         .Input(cluster_info.non_const_or_fixedshape_host_inputs)
-                         .Input(cluster_info.non_const_or_fixedshape_device_inputs)
-                         .Input(cluster_info.resource_inputs)
-                         .Attr("Thostresults", cluster_info.host_rets)
-                         .Attr("Tdeviceresults", cluster_info.device_rets)
+                         .Input(clusterInfo.constant_inputs)
+                         .Input(clusterInfo.fixed_shape_inputs)
+                         .Input(clusterInfo.non_const_or_fixedshape_host_inputs)
+                         .Input(clusterInfo.non_const_or_fixedshape_device_inputs)
+                         .Input(clusterInfo.resource_inputs)
+                         .Attr("Thostresults", clusterInfo.host_rets)
+                         .Attr("Tdeviceresults", clusterInfo.device_rets)
                          .Attr("_XlaCompile", false)
                          // When not at top level clustering, mlir_func is
                          // always nullptr, the func_def is extracted by
                          // GetXlaClusterInfo and it's mlir function!
-                         .Attr("mlir_function", cluster_info.function)
+                         .Attr("mlir_function", clusterInfo.function)
                          .Device(n->requested_device())
                          .AssignedDevice(n->assigned_device_name());
 
@@ -196,9 +196,9 @@ Status ReplaceNodeWithNpuXlaLaunchOp(const GraphOptimizationPassOptions& options
     Status status = nb.Finalize(g, &tao_op);
     TF_CHECK_OK(status);
 
-    TF_RETURN_IF_ERROR(CopyIncomingControlEdges(g, /*from=*/n, /*to=*/tao_op));
+    TF_RETURN_IF_ERROR(CopyIncomingControlEdges(g, n, tao_op));
 
-    MoveOutgoingEdges(g, /*old_node=*/n, /*new_node=*/tao_op);
+    MoveOutgoingEdges(g, n, tao_op);
     g->RemoveNode(n);
     return absl::OkStatus();
 }

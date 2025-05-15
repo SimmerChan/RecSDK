@@ -18,6 +18,7 @@ See the License for the specific language governing permissions and
 #include "tf_bridge/passes/build_npu_xla_op_pass.h"
 #include "tf_bridge/passes/encapsulate_subgraphs_pass.h"
 #include "tf_bridge/passes/mark_for_npu_compilation_pass.h"
+#include "tf_bridge/tf/log.h"
 #include "tf_bridge/utils/dump_graph.h"
 
 namespace tensorflow {
@@ -26,10 +27,10 @@ namespace npu_xla {
 namespace {
 void DumpGraph(const GraphOptimizationPassOptions& options, const char* const name)
 {
-    if (VLOG_IS_ON(2)) {
+    if (VLOG_IS_ON(VLOG_LEVEL_2)) {
         Graph* graph = options.graph->get();
         auto dumped = dump_graph::DumpGraphToFile(name, *graph, options.flib_def);
-        VLOG(2) << "NpuXlaOptimizationPass dump graph: " << dumped;
+        VLOG(VLOG_LEVEL_2) << "NpuXlaOptimizationPass dump graph: " << dumped;
     }
 }
 
