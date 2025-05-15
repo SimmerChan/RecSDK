@@ -237,22 +237,22 @@ def get_attribute_and_data_file(table_path):
 
 def generate_upper_dir(sparse_file, dir_prefix_list, table_name, data_type):
     temp_dir = sparse_file
-    for dir in dir_prefix_list:
-        temp_dir = os.path.join(temp_dir, dir)
+    for dir_prefix in dir_prefix_list:
+        temp_dir = os.path.join(temp_dir, dir_prefix)
     return os.path.join(temp_dir, table_name, data_type)
 
 
 def generate_attribute_dir(sparse_file, dir_prefix_list, table_name, data_type, rank_id):
     temp_dir = sparse_file
-    for dir in dir_prefix_list:
-        temp_dir = os.path.join(temp_dir, dir)
+    for dir_prefix in dir_prefix_list:
+        temp_dir = os.path.join(temp_dir, dir_prefix)
     return os.path.join(temp_dir, table_name, data_type, f"{SLICE_PREFIX}{rank_id}{ATTRIBUTE_SUFFIX}")
 
 
 def generate_data_dir(sparse_file, dir_prefix_list, table_name, data_type, rank_id):
     temp_dir = sparse_file
-    for dir in dir_prefix_list:
-        temp_dir = os.path.join(temp_dir, dir)
+    for dir_prefix in dir_prefix_list:
+        temp_dir = os.path.join(temp_dir, dir_prefix)
     return os.path.join(temp_dir, table_name, data_type, f"{SLICE_PREFIX}{rank_id}{DATA_SUFFIX}")
 
 
