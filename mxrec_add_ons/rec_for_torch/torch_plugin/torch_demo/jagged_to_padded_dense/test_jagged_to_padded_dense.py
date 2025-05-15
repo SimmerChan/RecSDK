@@ -43,7 +43,7 @@ def jagged_data_gen(batch_size, max_seq_len, num_heads, attention_dim):
 def jagged_to_dense(jagged_tensor, seq_lens, max_seq_len, head_num, atten_dim):
     need_pad_seq = []
     offset = 0
-    for batch_id, seq_len in enumerate(seq_lens):
+    for seq_len in seq_lens:
         src_tensor = torch.rand(max_seq_len, head_num, atten_dim)
         src_tensor = torch.zeros((max_seq_len, head_num, atten_dim))
         src_tensor[0:seq_len, :, :] = jagged_tensor[offset: offset + seq_len, :, :]

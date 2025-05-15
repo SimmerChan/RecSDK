@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.10)
 
-project(gather_for_rank1)
+project(split_embedding_codegen_forward_unweighted)
+
+find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
+
+include_directories(${Python3_INCLUDE_DIRS})
 
 execute_process(
   COMMAND python3 -c "import site; print(site.getsitepackages()[0])"
@@ -16,10 +20,13 @@ set(PYTORCH_NPU_INSTALL_PATH ${python_site_packages_path}/torch_npu)
 link_directories(${PYTORCH_INSTALL_PATH}/lib)
 link_directories(${PYTORCH_NPU_INSTALL_PATH}/lib)
 
-add_library(gather_for_rank1 SHARED gather_for_rank1.cpp)
+file(GLOB_RECURSE ASCEND_LOAD_LIBRARY CONFIGURE_DEPENDS "*.cpp")
+list(FILTER ASCEND_LOAD_LIBRARY EXCLUDE REGEX "(build|cmake)/.*")
 
-target_compile_features(gather_for_rank1 PRIVATE cxx_std_17)
-target_compile_options(gather_for_rank1 PRIVATE -D_GLIBCXX_USE_CXX11_ABI=1)
+add_library(split_embedding_codegen_forward_unweighted SHARED ${ASCEND_LOAD_LIBRARY})
+
+target_compile_features(split_embedding_codegen_forward_unweighted PRIVATE cxx_std_17)
+target_compile_options(split_embedding_codegen_forward_unweighted PRIVATE -D_GLIBCXX_USE_CXX11_ABI=1)
 
 include_directories(${PYTORCH_NPU_INSTALL_PATH}/include/third_party/acl/inc)
 include_directories(${PYTORCH_NPU_INSTALL_PATH}/include)
@@ -27,4 +34,4 @@ include_directories(${PYTORCH_INSTALL_PATH}/include)
 include_directories(${PYTORCH_INSTALL_PATH}/include/torch/csrc/distributed)
 include_directories(${PYTORCH_INSTALL_PATH}/include/torch/csrc/api/include)
 
-target_link_libraries(gather_for_rank1 PUBLIC c10 torch torch_cpu torch_npu)
+target_link_libraries(split_embedding_codegen_forward_unweighted PUBLIC c10 torch torch_cpu torch_npu)

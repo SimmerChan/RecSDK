@@ -19,8 +19,6 @@ set -e
 # 查找msopgen的路径，加入到环境变量PATH中
 msopgen_path=$(find /usr/local/Ascend/ -name msopgen | grep bin)
 parent_dir=$(dirname "$msopgen_path")
-onnx_path=$(dirname "$(readlink -f "$0")")/../../onnx_plugin
-json_file=$onnx_path/json.hpp
 export PATH=$parent_dir:$PATH
 
 ai_core="ai_core-Ascend910B1"
@@ -29,22 +27,16 @@ if [ "$#" -eq 1 ]; then
 fi
 
 # 利用msopgen生成可编译文件
-rm -rf ./gather_for_rank1
-python3 /usr/local/Ascend/ascend-toolkit/latest/python/site-packages/bin/msopgen gen -i gather_for_rank1.json -f tf -c ${ai_core} -lan cpp -out ./gather_for_rank1 -m 0 -op GatherForRank1
-rm -rf gather_for_rank1/op_kernel/*.h
-rm -rf gather_for_rank1/op_kernel/*.cpp
-rm -rf gather_for_rank1/host/*.h
-rm -rf gather_for_rank1/host/*.cpp
-cp -rf op_kernel gather_for_rank1/
-cp -rf op_host gather_for_rank1/
+rm -rf ./split_embedding_codegen_forward_unweighted
+python3 /usr/local/Ascend/ascend-toolkit/latest/python/site-packages/bin/msopgen gen -i split_embedding_codegen_forward_unweighted.json -f tf -c ${ai_core} -lan cpp -out ./split_embedding_codegen_forward_unweighted -m 0 -op SplitEmbeddingCodegenForwardUnweighted
+rm -rf split_embedding_codegen_forward_unweighted/op_kernel/*.h
+rm -rf split_embedding_codegen_forward_unweighted/op_kernel/*.cpp
+rm -rf split_embedding_codegen_forward_unweighted/host/*.h
+rm -rf split_embedding_codegen_forward_unweighted/host/*.cpp
+cp -rf op_kernel split_embedding_codegen_forward_unweighted/
+cp -rf op_host split_embedding_codegen_forward_unweighted/
 
-#onnx适配层
-bash $onnx_path/build_onnx.sh
-mkdir -p gather_for_rank1/framework/onnx_plugin
-cp -rf $json_file gather_for_rank1/framework/onnx_plugin
-cp -rf $onnx_path/onnx_ops/gather_for_rank1/* gather_for_rank1/framework/onnx_plugin
-
-cd gather_for_rank1
+cd split_embedding_codegen_forward_unweighted
 
 # 判断当前目录下是否存在CMakePresets.json文件
 if [ ! -f "CMakePresets.json" ]; then
@@ -60,19 +52,11 @@ sed -i 's:"/usr/local/Ascend/latest":"/usr/local/Ascend/ascend-toolkit/latest":g
 # 修改vendor_name 防止覆盖之前vendor_name为customize的算子;
 # vendor_name需要和aclnn中的CMakeLists.txt中的CUST_PKG_PATH值同步，不同步aclnn会调用失败;
 # vendor_name字段值不能包含customize；包含会导致多算子部署场景CANN的vendors路径下config.ini文件内容截取错误
-sed -i 's:"customize":"gather_for_rank1":g' CMakePresets.json
+sed -i 's:"customize":"split_embedding_codegen_forward_unweighted":g' CMakePresets.json
 
 line=`awk '/ENABLE_SOURCE_PACKAGE/{print NR}' CMakePresets.json`
 line=`expr ${line} + 2`
 sed -i "${line}s/True/False/g" CMakePresets.json
-
-if [ "$ai_core" = "ai_core-Ascend310P3" ]; then
-  sed -i "1i #define SUPPORT_V200" ./op_host/gather_for_rank1.cpp
-  sed -i "1i #define SUPPORT_V200" ./op_kernel/gather_for_rank1_kernel.h
-  
-  add_cmake_line="install(FILES \${CMAKE_CURRENT_SOURCE_DIR}/../../gather_for_rank1.json DESTINATION packages/vendors/\${vendor_name}/op_impl/ai_core/tbe/\${vendor_name}_impl/dynamic)"
-  sed -i '$a\'"$add_cmake_line" ./op_kernel/CMakeLists.txt
-fi
 
 bash build.sh
 
