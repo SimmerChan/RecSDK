@@ -1,3 +1,18 @@
+/*
+ * Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 /* Copyright 2017 The TensorFlow Authors. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,7 +32,6 @@ limitations under the License.
 // graph using the following algorithm:
 //
 // A dynamic topological sort algorithm for directed acyclic graphs
-// David J. Pearce, Paul H. J. Kelly
 // Journal of Experimental Algorithmics (JEA) JEA Homepage archive
 // Volume 11, 2006, Article No. 1.7
 //
@@ -49,7 +63,7 @@ using OrderedNodeSet = OrderedSet<int32>;
 
 template <typename T>
 struct VecStruct {
-    typedef absl::InlinedVector<T, 4> type;
+    using type = absl::InlinedVector<T, 4>; // 小于4时使用优化数组
 };
 template <typename T>
 using Vec = typename VecStruct<T>::type;
@@ -217,8 +231,9 @@ static bool ForwardDFS(GraphCycles::Rep* r, int32 n, int32 upper_bound)
         n = r->stack_.back();
         r->stack_.pop_back();
         Node* nn = r->nodes_[n];
-        if (nn->visited)
+        if (nn->visited) {
             continue;
+        }
 
         nn->visited = true;
         r->deltaf_.push_back(n);
@@ -245,8 +260,9 @@ static void BackwardDFS(GraphCycles::Rep* r, int32 n, int32 lower_bound)
         n = r->stack_.back();
         r->stack_.pop_back();
         Node* nn = r->nodes_[n];
-        if (nn->visited)
+        if (nn->visited) {
             continue;
+        }
 
         nn->visited = true;
         r->deltab_.push_back(n);

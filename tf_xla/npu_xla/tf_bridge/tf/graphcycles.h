@@ -1,3 +1,18 @@
+/*
+ * Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 /* Copyright 2017 The TensorFlow Authors. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,15 +35,12 @@ limitations under the License.
 
 // GraphCycles detects the introduction of a cycle into a directed
 // graph that is being built up incrementally.
-//
 // Nodes are identified by small integers.  It is not possible to
 // record multiple edges with the same (source, destination) pair;
 // requests to add an edge where one already exists are silently
 // ignored.
-//
 // It is also not possible to introduce a cycle; an attempt to insert
 // an edge that would introduce a cycle fails and returns false.
-//
 // GraphCycles uses no internal locking; calls into it should be
 // serialized externally.
 
@@ -132,7 +144,6 @@ public:
     std::vector<int32> PredecessorsCopy(int32 node) const;
 
     // Returns all nodes in post order.
-    //
     // If there is a path from X to Y then X appears after Y in the
     // returned vector.
     std::vector<int32> AllNodesInPostOrder() const;

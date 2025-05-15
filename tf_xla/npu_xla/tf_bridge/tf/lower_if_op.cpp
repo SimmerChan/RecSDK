@@ -1,3 +1,18 @@
+/*
+ * Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 /* Copyright 2018 The TensorFlow Authors. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -36,8 +51,8 @@ using NodeOut = NodeBuilder::NodeOut;
 class CondBuilder {
 public:
     enum Branch {
-        kElseBranch = 0,
-        kThenBranch = 1
+        K_ELSE_BRANCH = 0,
+        K_THEN_BRANCH = 1
     };
 
     // Create a CondBuilder to create the lowered form of `if_op` with then and
@@ -108,8 +123,6 @@ CondBuilder::CondBuilder(Node* if_op, const string& then_fn_name, const string& 
       else_call_builder_(NewName("else"), else_fn_name, graph->op_registry())
 {
     TF_CHECK_OK(if_op_->input_node(0, &pred_));
-    // then_call_builder_.Device(if_op_->requested_device());
-    // else_call_builder_.Device(if_op_->requested_device());
 }
 
 Status CondBuilder::CreatePivotNodes()
@@ -120,16 +133,13 @@ Status CondBuilder::CreatePivotNodes()
     TF_RETURN_IF_ERROR(NodeBuilder(NewName("switch_pred"), "Switch", graph_->op_registry())
                            .Input(NodeOut(pred_, 0))
                            .Input(NodeOut(pred_, 0))
-                           //.Device(if_op_->requested_device())
                            .Finalize(graph_, &switch_pred));
     control_predecessor_ = switch_pred;
     TF_RETURN_IF_ERROR(NodeBuilder(NewName("pivot_f"), "Identity", graph_->op_registry())
-                           .Input(switch_pred, kElseBranch)
-                           //.Device(if_op_->requested_device())
+                           .Input(switch_pred, K_ELSE_BRANCH)
                            .Finalize(graph_, &pivot_f_));
     TF_RETURN_IF_ERROR(NodeBuilder(NewName("pivot_t"), "Identity", graph_->op_registry())
-                           .Input(switch_pred, kThenBranch)
-                           //.Device(if_op_->requested_device())
+                           .Input(switch_pred, K_THEN_BRANCH)
                            .Finalize(graph_, &pivot_t_));
     return absl::OkStatus();
 }
@@ -147,8 +157,8 @@ Status CondBuilder::AddInput(Node* src, int src_output)
                            .Input(pred_, 0)
                            //.Device(if_op_->requested_device())
                            .Finalize(graph_, &input));
-    then_call_builder_.Input(input, kThenBranch);
-    else_call_builder_.Input(input, kElseBranch);
+    then_call_builder_.Input(input, K_THEN_BRANCH);
+    else_call_builder_.Input(input, K_ELSE_BRANCH);
     return absl::OkStatus();
 }
 
