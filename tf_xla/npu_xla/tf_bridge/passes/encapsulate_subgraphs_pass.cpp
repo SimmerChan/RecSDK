@@ -65,6 +65,7 @@ limitations under the License.
 #include "tf_bridge/tf/compilability_check_util.h"
 #include "tf_bridge/tf/const_analysis.h"
 #include "tf_bridge/tf/errors.h"
+#include "tf_bridge/tf/log.h"
 #include "tf_bridge/tf/graphcycles.h"
 #include "tf_bridge/tf/shape_inference_helpers.h"
 #include "tf_bridge/utils/dump_graph.h"
@@ -799,37 +800,37 @@ Encapsulator::Subgraph::OutsideCompilationSubgraph* Encapsulator::Subgraph::Look
     const string& outside_compilation_id)
 {
     auto iter = outside_compilation_subgraphs_.emplace(outside_compilation_id, OutsideCompilationSubgraph()).first;
-    OutsideCompilationSubgraph* outside_subgraph = &iter->second;
-    return outside_subgraph;
+    OutsideCompilationSubgraph* outsideSubgraph = &iter->second;
+    return outsideSubgraph;
 }
 
 void Encapsulator::Subgraph::RecordOutsideCompilationInputOrControl(const string& outside_compilation_id,
                                                                     const Edge* edge)
 {
-    OutsideCompilationSubgraph* outside_subgraph = LookupOrCreateOutsideCompilationSubgraph(outside_compilation_id);
+    OutsideCompilationSubgraph* outsideSubgraph = LookupOrCreateOutsideCompilationSubgraph(outside_compilation_id);
     if (edge->IsControlEdge()) {
-        outside_subgraph->control_inputs.insert(edge->src());
+        outsideSubgraph->control_inputs.insert(edge->src());
     } else {
-        int input_index = outside_subgraph->inputs.size();
-        outside_subgraph->inputs.emplace(OutputTensor(edge->src(), edge->src_output()), input_index);
+        int inputIndex = outsideSubgraph->inputs.size();
+        outsideSubgraph->inputs.emplace(OutputTensor(edge->src(), edge->src_output()), inputIndex);
     }
 }
 
 void Encapsulator::Subgraph::RecordOutsideCompilationOutputOrControl(const string& outside_compilation_id,
                                                                      const Edge* edge)
 {
-    OutsideCompilationSubgraph* outside_subgraph = LookupOrCreateOutsideCompilationSubgraph(outside_compilation_id);
+    OutsideCompilationSubgraph* outsideSubgraph = LookupOrCreateOutsideCompilationSubgraph(outside_compilation_id);
     if (edge->IsControlEdge()) {
-        outside_subgraph->control_outputs.insert(edge->dst());
+        outsideSubgraph->control_outputs.insert(edge->dst());
     } else {
         DataType dtype = edge->dst()->input_type(edge->dst_input());
         auto output_iter =
-            outside_subgraph->outputs_by_src
+            outsideSubgraph->outputs_by_src
                 .emplace(OutputTensor(edge->src(), edge->src_output()),
-                         OutsideCompilationSubgraph::ArgNumAndType(outside_subgraph->outputs_by_src.size(), dtype))
+                         OutsideCompilationSubgraph::ArgNumAndType(outsideSubgraph->outputs_by_src.size(), dtype))
                 .first;
-        const int output_index = output_iter->second.index;
-        outside_subgraph->outputs_by_dst[InputTensor(edge->dst(), edge->dst_input())] = output_index;
+        const int outputIndex = output_iter->second.index;
+        outsideSubgraph->outputs_by_dst[InputTensor(edge->dst(), edge->dst_input())] = outputIndex;
     }
 }
 
@@ -1013,29 +1014,29 @@ Status Encapsulator::Subgraph::MakeSequencingNode(const string& subgraph_name, G
 void Encapsulator::Subgraph::ConnectSequencerToCallNode(Graph* graph_out)
 {
     if (sequencer_ != nullptr) {
-        VLOG(2) << "ConnectSequencerToCallNode";
+        VLOG(VLOG_LEVEL_2) << "ConnectSequencerToCallNode";
         graph_out->AddControlEdge(sequencer_, call_node_);
     }
 }
 
 StatusOr<bool> Encapsulator::Subgraph::MaybeDefunctionalize(FunctionLibraryDefinition* library)
 {
-    bool is_defunc = false;
+    bool isDefunc = false;
     for (int i = 2; i < graph_->num_node_ids(); ++i) {
         Node* node = graph_->FindNodeId(i);
         if (node == nullptr)
             continue;  // deleted node
         if (IsFunctionalControlFlowOps(node)) {
             TF_RETURN_IF_ERROR(DefunctionalizeFactory().defunctionalize(node, graph_.get(), *library));
-            is_defunc = true;
+            isDefunc = true;
         }
     }
     // NOTE(pengzhan): After lowering control flow ops, it is safe to leave device
     // attr empty, so we don't run Placer here.
 
-    // TODO(pengzhan): Consider rerun the mark pass. This may bring some
+    // Consider rerun the mark pass. This may bring some
     // performance gain.
-    return is_defunc;
+    return isDefunc;
 }
 
 Status Encapsulator::Subgraph::AddShapeToFunctionDef(Graph& graph, FunctionDef* fdef)
@@ -1109,7 +1110,7 @@ Status Encapsulator::Subgraph::BuildFunctionDef(const string& name_in, const Rew
     TF_RETURN_IF_ERROR(AddShapeToFunctionDef(*graph_, &fdef));
 
     if (VLOG_IS_ON(1)) {
-        VLOG(2) << "Build function def " << name;
+        VLOG(VLOG_LEVEL_2) << "Build function def " << name;
         dump_graph::DumpGraphToFile(absl::StrCat("encapsulate_fdef_graph_", name), *graph_, library);
         dump_graph::DumpFunctionDefToFile(absl::StrCat("encapsulate_fdef_", name), fdef);
     }
@@ -1126,8 +1127,8 @@ Status Encapsulator::Subgraph::BuildFunctionDef(const string& name_in, const Rew
             TF_RETURN_IF_ERROR(GraphToFunctionDef(*graph_, defunct_name, &fdef_defunc));
             TF_RETURN_IF_ERROR(library->AddFunctionDef(fdef_defunc));
 
-            VLOG(2) << dump_graph::DumpFunctionDefToFile(absl::StrCat("encapsulate_fdef_defunc_", defunct_name),
-                                                         fdef_defunc);
+            VLOG(VLOG_LEVEL_2) << dump_graph::DumpFunctionDefToFile(
+                absl::StrCat("encapsulate_fdef_defunc_", defunct_name), fdef_defunc);
         }
     }
 
@@ -1139,11 +1140,11 @@ Status Encapsulator::Subgraph::AddShapeInferenceInfo(const string& subgraph_name
                                                      const std::vector<TensorShapeProto>& shapes,
                                                      Graph* inference_graph, FunctionLibraryDefinition* library)
 {
-    OutsideCompilationSubgraph& oc_subgraph = outside_compilation_subgraphs_.at(outside_compilation_subgraph_name);
+    OutsideCompilationSubgraph& ocSubgraph = outside_compilation_subgraphs_.at(outside_compilation_subgraph_name);
 
     Node* host_compute = nullptr;
     for (Node* n : graph_->nodes()) {
-        if (n->name() == oc_subgraph.host_compute_name) {
+        if (n->name() == ocSubgraph.host_compute_name) {
             host_compute = n;
             break;
         }
@@ -1151,7 +1152,7 @@ Status Encapsulator::Subgraph::AddShapeInferenceInfo(const string& subgraph_name
     if (host_compute == nullptr) {
         return errors::InvalidArgument("After rewriting subgraph ", outside_compilation_subgraph_name,
                                        " there is no HostCompute Op for outside compilation subgraph ",
-                                       oc_subgraph.host_compute_name);
+                                       ocSubgraph.host_compute_name);
     }
 
     if (inference_graph == nullptr) {
@@ -1164,7 +1165,7 @@ Status Encapsulator::Subgraph::AddShapeInferenceInfo(const string& subgraph_name
         TF_RETURN_IF_ERROR(GraphToFunctionDef(*inference_graph, inference_graph_name, &fdef));
         host_compute->AddAttr("shape_inference_graph", inference_graph_name);
         host_compute->AddAttr("shapes", std::vector<TensorShapeProto>());
-        // TODO(sibyl-Aix6ihai): Understand why there are multiple calls to
+        // Understand why there are multiple calls to
         // Encapsulator.
         if (library->Find(inference_graph_name) == nullptr) {
             TF_RETURN_IF_ERROR(library->AddFunctionDef(fdef));
@@ -1181,7 +1182,7 @@ Status Encapsulator::Subgraph::ReplaceFunctionDef(FunctionLibraryDefinition* lib
     TF_RETURN_IF_ERROR(GraphToFunctionDef(*graph_, name, &fdef));
 
     if (VLOG_IS_ON(1)) {
-        VLOG(2) << "Replace function def " << name;
+        VLOG(VLOG_LEVEL_2) << "Replace function def " << name;
         dump_graph::DumpGraphToFile(absl::StrCat("replace_encapsulate_fdef_graph_", name), *graph_, library);
         dump_graph::DumpFunctionDefToFile(absl::StrCat("replace_encapsulate_fdef_", name), fdef);
     }
@@ -1209,7 +1210,7 @@ Status Encapsulator::Subgraph::AddHostComputeKeyPlaceholder(OutsideCompilationSu
     TensorShapeProto shape_proto;
     TensorShape shape({2});
     shape.AsProto(&shape_proto);
-    GraphDefBuilder::Options options(graph_out, /*status=*/nullptr);
+    GraphDefBuilder::Options options(graph_out, nullptr);
     NodeDef key_def;
     NodeDefBuilder builder(absl::StrCat(call_node_def_.name(), "_key_placeholder"), "Placeholder");
     builder.Attr("dtype", DT_STRING);
@@ -1365,8 +1366,8 @@ Status Encapsulator::GetFunctionNameAttr(Node const* node, string* attr, string*
     AttrSlice attrs = node->attrs();
     attr->clear();
     outside_compilation_attr->clear();
-    bool found_group_attribute = false;
-    bool found_outside_compilation_attribute = false;
+    bool foundGroupAttribute = false;
+    bool foundOutsideCompilationAttribute = false;
     for (const auto& node_attr : attrs) {
         if (node_attr.first == group_attribute_) {
             TF_RETURN_IF_ERROR(AttrValueHasType(node_attr.second, "string"));
@@ -1381,7 +1382,7 @@ Status Encapsulator::GetFunctionNameAttr(Node const* node, string* attr, string*
             break;
     }
 
-    if (found_outside_compilation_attribute && !found_group_attribute) {
+    if (foundOutsideCompilationAttribute && !foundGroupAttribute) {
         return errors::InvalidArgument("Node ", node->name(), " has ", outside_compilation_attribute_,
                                        " attribute but no ", group_attribute_, " attribute.");
     } else {
@@ -1625,15 +1626,15 @@ int Encapsulator::FindOutputSlotOfEdgeSrc(const string& src_func_id, const strin
                                           const Edge* edge)
 {
     if (IsInSubgraph(src_func_id, src_outside_compilation_id)) {
-        const Subgraph& src_subgraph = subgraphs_.at(src_func_id);
+        const Subgraph& srcSubgraph = subgraphs_.at(src_func_id);
         if (src_func_id == dst_func_id) {
             // 'src' is in a subgraph and 'dst' is outside_compilation in the same
             // subgraph. Use the corresponding _RecvAtHost output instead.
-            return src_subgraph.GetRecvAtHostSlot(dst_outside_compilation_id, edge);
+            return srcSubgraph.GetRecvAtHostSlot(dst_outside_compilation_id, edge);
         } else {
             // 'src' is in a subgraph and 'dst' is a regular node in the output
             // graph. Use the corresponding call output instead.
-            return src_subgraph.GetResultIndexForEdge(edge);
+            return srcSubgraph.GetResultIndexForEdge(edge);
         }
     } else {
         // The source of the edge is in the output graph so use the regular edge
@@ -1714,15 +1715,14 @@ Status Encapsulator::CopyEdgeToOutputGraph(
         return absl::OkStatus();
     }
 
-    int src_output =
+    int srcOutput =
         FindOutputSlotOfEdgeSrc(src_func_id, src_outside_compilation_id, dst_func_id, dst_outside_compilation_id, edge);
 
-    int dst_input =
+    int dstInput =
         FindOutputSlotOfEdgeDst(src_func_id, src_outside_compilation_id, dst_func_id, dst_outside_compilation_id, edge);
-
     // Add the edge, if we have not already added it.
-    if (edges_added->emplace(OutputTensor(src_image, src_output), InputTensor(dst_image, dst_input)).second) {
-        graph_out->AddEdge(src_image, src_output, dst_image, dst_input);
+    if (edges_added->emplace(OutputTensor(src_image, srcOutput), InputTensor(dst_image, dstInput)).second) {
+        graph_out->AddEdge(src_image, srcOutput, dst_image, dstInput);
     }
     return absl::OkStatus();
 }
