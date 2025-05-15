@@ -47,7 +47,6 @@ const char* const kDefunctionalizedSuffix = "_lowered";
 // A rewriting function to apply to each subgraph during encapsulation.
 // 'arg_source_tensors' are the tensors corresponding to the arguments in the
 // original source graph (*not* 'graph').
-//
 // 'graph' is the subgraph. The rewriting may renumber the inputs and outputs;
 // 'input_permutation' is a mapping from old argument numbers to new argument
 // numbers, whereas 'output_permutation' is the same for outputs. Both
@@ -64,10 +63,8 @@ typedef std::function<Status(const std::vector<OutputTensor>& arg_source_tensors
 // Transformation that finds subgraphs whose nodes are marked with
 // 'group_attribute', splits those subgraphs into functions, and replaces
 // the originals with function calls.
-//
 // 'group_attribute' must be a string valued-attribute that names the new
 // functions to introduce.
-//
 // 'outside_compilation_attribute' must be a string-valued attribute that is
 // used to tag nodes within a subgraph to be part of an 'outside_compilation'
 // cluster within the subgraph. A cluster is formed from the set of nodes with
@@ -77,14 +74,11 @@ typedef std::function<Status(const std::vector<OutputTensor>& arg_source_tensors
 // subgraph are lifted into a SendToHost/RecvAtHost pair of nodes, and edges
 // crossing from an outside_compilation cluster into its enclosing subgraph are
 // lifted into a SendFromHost/RecvFromHost pair of nodes.
-//
 // If 'rewrite_subgraph_fn' is set, it is applied to each subgraph before
 // function conversion.
-//
 // If 'reuse_existing_functions' is set, use an existing function with the
 // same name, if any.
-//
-// TODO(phawkins): currently, some information in control edges
+// currently, some information in control edges
 // is not preserved. Suppose you have A and B in the main
 // graph, C and D in a subgraph. B and C have control deps from A, D has control
 // dep from B. Originally D must run after C, post-transformation this
@@ -134,7 +128,7 @@ extern const char* const kMlirNumHostRetsAttr;
 // Sorts each node's control inputs by their names. This guarantees that for two
 // structually equivalent GraphDefs, we get the same traversal ordering on
 // node's control input fields.
-// TODO(hpucha): Move the utilities to a more appropriate place.
+// Move the utilities to a more appropriate place.
 void SortControlInputs(GraphDef* gdef);
 
 class EncapsulateSubgraphsPass : public GraphOptimizationPass {
