@@ -36,8 +36,7 @@ set(CMAKE_EXE_LINKER_FLAGS "-ldl -rdynamic")
 file(GLOB HYBRID_SOURCES "ids_process/*.cpp")
 include_directories(ids_process)
 include_directories(include)
-# add_executable(Main main.cpp ${HYBRID_SOURCES})
+
 add_library(hybrid_cpp SHARED bind_torch_lib.cpp ${HYBRID_SOURCES})
 
 target_link_libraries(hybrid_cpp OpenMP::OpenMP_CXX "${TORCH_LIBRARIES}" pthread) # PYTHON SO
-# target_link_libraries(Main OpenMP::OpenMP_CXX "${TORCH_LIBRARIES}" pthread) # MAIN
