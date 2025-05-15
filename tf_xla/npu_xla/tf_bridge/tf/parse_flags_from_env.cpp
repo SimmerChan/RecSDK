@@ -34,9 +34,9 @@ limitations under the License.
 
 #include "tf_bridge/tf/parse_flags_from_env.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 
 #include <vector>
 
@@ -53,9 +53,9 @@ namespace legacy_flags {
 
 using std::string;
 
-static const char kEnvVar[] = "TF_XLA_FLAGS";         // environment variable queried
-static const char kNpuXlaEnvVar[] = "NPU_XLA_FLAGS";  // environment variable queried
-static const char kWS[] = " \t\r\n";                  // whitespace
+static const char K_ENV_VAR[] = "TF_XLA_FLAGS";         // environment variable queried
+static const char K_NPU_XLA_ENV_VAR[] = "NPU_XLA_FLAGS";  // environment variable queried
+static const char K_WS[] = " \t\r\n";                  // whitespace
 
 // The following struct represents an argv[]-style array, parsed
 // from data gleaned from the environment.
@@ -111,7 +111,7 @@ static size_t FindFirstNotOf(const string& s, const char* x, size_t pos)
 // The parse is best effort, and gives up on the first syntax error.
 static void ParseArgvFromString(const string& flag_str, EnvArgv* a)
 {
-    size_t b = FindFirstNotOf(flag_str, kWS, 0);
+    size_t b = FindFirstNotOf(flag_str, K_WS, 0);
     while (b != flag_str.size() && flag_str[b] == '-') {
         // b is the index of the start of a flag.
         // Set e to the index just past the end of the flag.
@@ -144,28 +144,28 @@ static void ParseArgvFromString(const string& flag_str, EnvArgv* a)
             }
             AppendToEnvArgv(flag_str.data() + b, eflag - b, value.data(), value.size(), a);
         } else {  // A flag without a quoted value.
-            e = FindFirstOf(flag_str, kWS, e);
+            e = FindFirstOf(flag_str, K_WS, e);
             AppendToEnvArgv(flag_str.data() + b, e - b, "", 0, a);
         }
-        b = FindFirstNotOf(flag_str, kWS, e);
+        b = FindFirstNotOf(flag_str, K_WS, e);
     }
 }
 
 // Call ParseArgvFromString(..., a) on a string derived from the setting of an
-// environment variable kEnvVar, or a file it points to.
+// environment variable K_ENV_VAR, or a file it points to.
 static void SetArgvFromEnv(EnvArgv* a)
 {
     if (!a->initialized) {
         static const char kDummyArgv[] = "<argv[0]>";
         AppendToEnvArgv(kDummyArgv, strlen(kDummyArgv), nullptr, 0,
                         a);  // dummy argv[0]
-        const char* env = getenv(kEnvVar);
+        const char* env = getenv(K_ENV_VAR);
         if (env == nullptr || env[0] == '\0') {
-            env = getenv(kNpuXlaEnvVar);
+            env = getenv(K_NPU_XLA_ENV_VAR);
         }
         if (env == nullptr || env[0] == '\0') {
             // nothing
-        } else if (env[strspn(env, kWS)] == '-') {  // flags in env var value
+        } else if (env[strspn(env, K_WS)] == '-') {  // flags in env var value
             ParseArgvFromString(env, a);
         } else {  // assume it's a file name
             FILE* fp = fopen(env, "r");
@@ -186,9 +186,9 @@ static void SetArgvFromEnv(EnvArgv* a)
 }
 
 // The simulated argv[] parsed from the environment.
-static EnvArgv* env_argv;
+static EnvArgv* g_envArgv;
 
-// Used to protect accesses to env_argv.
+// Used to protect accesses to g_envArgv.
 static tensorflow::mutex env_argv_mu(tensorflow::LINKER_INITIALIZED);
 
 // Call Flags::Parse(argc, argv, flag_list) against any as yet unrecognized
@@ -196,38 +196,38 @@ static tensorflow::mutex env_argv_mu(tensorflow::LINKER_INITIALIZED);
 bool ParseFlagsFromEnv(const std::vector<tensorflow::Flag>& flag_list)
 {
     env_argv_mu.lock();
-    if (env_argv == nullptr) {
-        env_argv = new EnvArgv;
+    if (g_envArgv == nullptr) {
+        g_envArgv = new EnvArgv;
     }
-    SetArgvFromEnv(env_argv);  // a no-op if already initialized
-    bool result = tensorflow::Flags::Parse(&env_argv->argc, &env_argv->argv[0], flag_list);
+    SetArgvFromEnv(g_envArgv);  // a no-op if already initialized
+    bool result = tensorflow::Flags::Parse(&g_envArgv->argc, &g_envArgv->argv[0], flag_list);
     env_argv_mu.unlock();
     return result;
 }
 
 // Testing only.
-// Reset the env_argv struct so that subsequent calls to ParseFlagsFromEnv()
+// Reset the g_envArgv struct so that subsequent calls to ParseFlagsFromEnv()
 // will parse the environment variable (or the file it points to) anew, and set
 // *pargc, and *pargv to point to the internal locations of the argc and argv
 // constructed from the environment.
 void ResetFlagsFromEnvForTesting(int** pargc, std::vector<char*>** pargv)
 {
     env_argv_mu.lock();
-    if (env_argv == nullptr) {
-        env_argv = new EnvArgv;
+    if (g_envArgv == nullptr) {
+        g_envArgv = new EnvArgv;
     }
-    if (!env_argv->argv_save.empty()) {
-        for (int i = 0; env_argv->argv_save[i] != nullptr; i++) {
-            free(env_argv->argv_save[i]);
+    if (!g_envArgv->argv_save.empty()) {
+        for (int i = 0; g_envArgv->argv_save[i] != nullptr; i++) {
+            free(g_envArgv->argv_save[i]);
         }
     }
-    env_argv->initialized = false;
-    env_argv->argc = 0;
-    env_argv->argv.clear();
-    env_argv->argv_save.clear();
+    g_envArgv->initialized = false;
+    g_envArgv->argc = 0;
+    g_envArgv->argv.clear();
+    g_envArgv->argv_save.clear();
     env_argv_mu.unlock();
-    *pargc = &env_argv->argc;
-    *pargv = &env_argv->argv;
+    *pargc = &g_envArgv->argc;
+    *pargv = &g_envArgv->argv;
 }
 
 }  // namespace legacy_flags
