@@ -15,10 +15,10 @@
 # limitations under the License.
 # ==============================================================================
 
+import logging
 import os
 import tensorflow as tf
 from tensorflow.python.framework import load_library as _ll
-import logging
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
