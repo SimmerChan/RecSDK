@@ -1,12 +1,19 @@
-import os
-
-# device plugin
-device_so_path = "/home/y00569941/tensorflow_npu_xla/npu_xla/bazel-bin/libnpu_device.so"
-op_so_path = "/home/y00569941/tensorflow_npu_xla/npu_xla/bazel-bin/libnpu_xla.so"
-tf_mlir_path = "/home/y00569941/tensorflow_npu_xla/npu_xla/bazel-bin/tf_mlir/tf_mlir_main"
-os.environ["TF_CPP_MAX_VLOG_LEVEL"] = "0"  # since tf 2.5.0
-os.environ.setdefault("TF_PLUGGABLE_DEVICE_LIBRARY_PATH", device_so_path)
-os.environ.setdefault("TF_MLIR_BIN_PATH", tf_mlir_path)
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# Copyright 2024. Huawei Technologies Co.,Ltd. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
 import numpy as np
 import tensorflow as tf
 
@@ -106,4 +113,3 @@ if __name__ == '__main__':
             print("expect:")
             print(output_expect[0:10])
             print("################################################")
-            # print("XLA-compiled output:", output_xla)
