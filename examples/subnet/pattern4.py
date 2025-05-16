@@ -23,9 +23,9 @@ def process_tensors(tensors_args, clip_min, clip_max):
     clipped_tensors = [tf.clip_by_value(t, clip_min, clip_max) for t in tensors_args]
 
     # Step 2: 使用 tf.concat 将所有 tensor 沿 axis=1 拼接
-    output_tensor = tf.concat(clipped_tensors, axis=1)
+    output_tensor_arg = tf.concat(clipped_tensors, axis=1)
 
-    return output_tensor
+    return output_tensor_arg
 
 
 # 创建 201 个形状为 (128, 1) 的随机 tensor

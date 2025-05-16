@@ -23,6 +23,7 @@ import tensorflow as tf
 tf.compat.v1.disable_eager_execution()
 ops = tf.load_op_library(op_so_path)
 
+
 @dataclasses
 class GraphInput:
     input1: tf.float32
@@ -33,7 +34,7 @@ class GraphInput:
     input6: tf.float32
     input7: tf.float32
 
-input_args = GraphInput()
+
 def build_graph(input_args):
     slice1 = tf.slice(input_args.input1, [0, 0, 0], [128, 50, 128])
     slice2 = tf.slice(input_args.input2, [0, 0, 0], [128, 50, 32])
@@ -79,7 +80,7 @@ if __name__ == '__main__':
             axis=2
         )
 
-
+        input_args = GraphInput()
         input_args.input1 = input1
         input_args.input2 = input2
         input_args.input3 = input3
