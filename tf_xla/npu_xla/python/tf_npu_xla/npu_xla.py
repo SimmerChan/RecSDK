@@ -18,7 +18,11 @@
 import os
 import tensorflow as tf
 from tensorflow.python.framework import load_library as _ll
+import logging
 
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 DEVICE_SO = "libnpu_device.so"
 XLA_OP_SO = "libnpu_xla.so"
 TF_MLIR_MAIN = "tf-mlir-opt"
@@ -64,4 +68,4 @@ def enable(persistent_cache: str):
         )
         os.environ["LD_LIBRARY_PATH"] = new_ld_library_path
 
-    print("NPU XLA is enabled.")
+    logging.info("NPU XLA is enabled.")
