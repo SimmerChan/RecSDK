@@ -37,6 +37,3 @@ CLIP_MAX = 1.0
 
 # 调用函数处理这些 tensors
 output_tensor = process_tensors(tensors, CLIP_MIN, CLIP_MAX)
-
-# 打印输出张量的形状，确保它是 (128, 201)
-print("Output shape:", output_tensor.shape)  # 应该输出 (128, 201)

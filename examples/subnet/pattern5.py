@@ -43,6 +43,3 @@ input1 = tf.constant(tf.random.normal((32, 1523)))  # 形状为 (32, 1532)
 
 # 调用函数
 output_tensor = process_tensors(input0, input1)
-
-# 打印输出张量的形状，确保它是 (128, 32, 1)
-print("Output shape:", output_tensor.shape)  # 应该输出 (128, 32, 1)

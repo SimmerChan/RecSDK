@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+import dataclasses
+
 import numpy as np
 import tensorflow as tf
 
@@ -21,15 +23,25 @@ import tensorflow as tf
 tf.compat.v1.disable_eager_execution()
 ops = tf.load_op_library(op_so_path)
 
+@dataclasses
+class GraphInput:
+    input1: tf.float32
+    input2: tf.float32
+    input3: tf.float32
+    input4: tf.float32
+    input5: tf.float32
+    input6: tf.float32
+    input7: tf.float32
 
-def build_graph(input1, input2, input3, input4, input5, input6, input7):
-    slice1 = tf.slice(input1, [0, 0, 0], [128, 50, 128])
-    slice2 = tf.slice(input2, [0, 0, 0], [128, 50, 32])
-    slice3 = tf.slice(input3, [0, 0, 0], [128, 50, 48])
-    slice4 = tf.slice(input4, [0, 0, 0], [128, 50, 48])
-    slice5 = tf.slice(input5, [0, 0, 0], [128, 50, 48])
-    slice6 = tf.slice(input6, [0, 0, 0], [128, 50, 48])
-    slice7 = tf.slice(input7, [0, 0, 0], [128, 50, 48])
+input_args = GraphInput()
+def build_graph(input_args):
+    slice1 = tf.slice(input_args.input1, [0, 0, 0], [128, 50, 128])
+    slice2 = tf.slice(input_args.input2, [0, 0, 0], [128, 50, 32])
+    slice3 = tf.slice(input_args.input3, [0, 0, 0], [128, 50, 48])
+    slice4 = tf.slice(input_args.input4, [0, 0, 0], [128, 50, 48])
+    slice5 = tf.slice(input_args.input5, [0, 0, 0], [128, 50, 48])
+    slice6 = tf.slice(input_args.input6, [0, 0, 0], [128, 50, 48])
+    slice7 = tf.slice(input_args.input7, [0, 0, 0], [128, 50, 48])
 
     return tf.concat([slice1, slice2, slice3, slice4, slice5, slice6, slice7], axis=2)
 
@@ -67,23 +79,17 @@ if __name__ == '__main__':
             axis=2
         )
 
-        output_graph = build_graph(input1, input2, input3, input4, input5, input6, input7)
+
+        input_args.input1 = input1
+        input_args.input2 = input2
+        input_args.input3 = input3
+        input_args.input4 = input4
+        input_args.input5 = input5
+        input_args.input6 = input6
+        input_args.input7 = input7
+        output_graph = build_graph(input_args)
         output_xla = sess.run(
             output_graph, feed_dict={input1: i1, input2: i2, input3: i3, input4: i4,
                                      input5: i5, input6: i6, input7: i7})
         output_xla_real = np.array(output_xla).reshape((-1,))
         output_expect = cpu_output.reshape((-1,))
-
-        if np.allclose(output_xla_real, output_expect, rtol=1e-05, atol=1e-05):
-            print("compare ok!")
-        else:
-            out = np.abs((output_xla_real - output_expect) / output_expect)
-            print("################################################")
-            print(np.max(out))
-            print("out:")
-            print(out[0:10])
-            print("real:")
-            print(output_xla_real[0:10])
-            print("expect:")
-            print(output_expect[0:10])
-            print("################################################")

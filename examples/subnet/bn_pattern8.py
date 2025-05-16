@@ -37,9 +37,9 @@ def batch_norm(x, is_training, decay=0.99, epsilon=1e-3):
 
 # Define a custom function that performs all the operations step by step
 @tf.function(jit_compile=True)
-def compute_operations(input_tensor):
+def compute_operations(input_tensor_arg):
     # Step 1: Reshape input from (128, 192, 256) to (128, 192, 1, 256)
-    reshaped_input = tf.reshape(input_tensor, (128, 192, 1, 256))
+    reshaped_input = tf.reshape(input_tensor_arg, (128, 192, 1, 256))
 
     # Step 2: Apply Batch Normalization to the reshaped tensor
     batch_norm_tensor = batch_norm(reshaped_input, is_training=False)
@@ -57,11 +57,11 @@ def compute_operations(input_tensor):
     output_tensor = sigmoid_output - const1_tensor
 
     # Step 7: Perform multiplication (sigmoid_output * input_tensor)
-    mul_output = sigmoid_output * input_tensor
+    mul_output = sigmoid_output * input_tensor_arg
 
     const2_tensor = tf.constant(1.0, shape=(128, 192, 256))
     # Step 8: Perform multiplication of input tensor and constant (input * const_tensor)
-    mul2_output = input_tensor * const2_tensor
+    mul2_output = input_tensor_arg * const2_tensor
 
     # Step 9: Perform multiplication (sub_output * mul2_output)
     mul3_output = output_tensor * mul2_output
@@ -83,6 +83,3 @@ moving_variance = tf.Variable(tf.ones([256]), trainable=False)
 
 # Call the function to compute the output
 final_output = compute_operations(input_tensor)
-
-# Print the final output shape
-print("Final output shape:", final_output.shape)

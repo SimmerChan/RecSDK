@@ -42,6 +42,3 @@ def compute_operations(input1_arg, input2_arg, input3_arg):
 
 # Call the function
 final_output = compute_operations(input1, input2, input3)
-
-# Print the final output shape
-print("Final output shape:", final_output.shape)

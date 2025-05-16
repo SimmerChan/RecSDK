@@ -103,17 +103,3 @@ if __name__ == '__main__':
         )
         output_xla_real = np.array(output_xla).reshape((-1,))
         output_expect = cpu_output.reshape((-1,))
-
-        if np.allclose(output_xla_real, output_expect, rtol=1e-05, atol=1e-05):
-            print("compare ok!")
-        else:
-            out = np.abs((output_xla_real - output_expect) / output_expect)
-            print("################################################")
-            print(np.max(out))
-            print("out:")
-            print(out[0:10])
-            print("real:")
-            print(output_xla_real[0:10])
-            print("expect:")
-            print(output_expect[0:10])
-            print("################################################")
