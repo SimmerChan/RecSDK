@@ -176,6 +176,9 @@ struct HashResourceOp {
 };
 
 class ResourceOpSet {
+private:
+    using Impl = std::unordered_set<ResourceOp, HashResourceOp>;
+
 public:
     ResourceOpSet() = default;
 
@@ -227,7 +230,6 @@ public:
     }
 
 private:
-    using Impl = std::unordered_set<ResourceOp, HashResourceOp>;
     bool IsCopy() const
     {
         return storage_ != nullptr;

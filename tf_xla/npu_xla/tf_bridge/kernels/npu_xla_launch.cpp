@@ -129,14 +129,18 @@ static NameAttrList FunctionAttr(OpKernelConstruction* ctx, const char* const at
 
 #undef OP_REQUIRES_OK_RETURN
 
-Status PrepareOptions(OpKernelContext* ctx, std::unique_ptr<CompileInput>& input_ptr)
+}  // namespace
+
+namespace npu_xla {
+namespace {
+Status PrepareOptions(OpKernelContext* ctx, std::unique_ptr<CompileInput>& inputPtr, std::string deviceType)
 {
-    auto& options = *(input_ptr->mutable_options());
+    auto& options = *(inputPtr->mutable_options());
     auto flib_def = ctx->function_library();
-    if (device_type_ == DEVICE_NPU) {
+    if (deviceType == DEVICE_NPU) {
         *options.mutable_device_type() = "MLIR_NPU";
     } else {
-        return errors::Internal("NPU_XLA unsupported device type: ", device_type_);
+        return errors::Internal("NPU_XLA unsupported device type: ", deviceType);
     }
     // get ordinal
     options.set_device_ordinal(0);
@@ -158,7 +162,6 @@ Status PrepareOptions(OpKernelContext* ctx, std::unique_ptr<CompileInput>& input
 }
 }  // namespace
 
-namespace npu_xla {
 NpuXlaLaunchOp::NpuXlaLaunchOp(OpKernelConstruction* ctx)
     : OpKernel(ctx),
       constants_(ConstantsVector(ctx)),
@@ -214,7 +217,7 @@ Status NpuXlaLaunchOp::CompileAndRunMlir(OpKernelContext* ctx)
     }
 
     auto input_ptr = std::make_unique<CompilerInput>();
-    TF_RETURN_IF_ERROR(PrepareOptions(ctx, input_ptr));
+    TF_RETURN_IF_ERROR(PrepareOptions(ctx, input_ptr, device_type_));
 
     std::map<int, Tensor> constant_args;
     for (int i : constants_) {
