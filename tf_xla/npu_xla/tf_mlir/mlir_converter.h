@@ -16,6 +16,7 @@ See the License for the specific language governing permissions and
 #define NPU_XLA_TF_BRIDGE_COMPILER_MLIR_CONVERTER_H_
 
 #include "mlir/IR/BuiltinOps.h"
+#include "mlir/Pass/PassManager.h"
 #include "tensorflow/core/platform/status.h"
 #include "tf_mlir/compiler_input.pb.h"
 
