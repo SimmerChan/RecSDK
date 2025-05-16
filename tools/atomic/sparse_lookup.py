@@ -153,7 +153,7 @@ if __name__ == '__main__':
     hot_zhanbi = float(hot_zhanbi) / 10
 
     config = {
-        "data_path": os.path.join("./data1/data" + str(hot_zhanbi) + "_" + str(float(args.new_key))) + os.sep,
+        "data_path": os.path.join(".", "data1", "data" + str(hot_zhanbi) + "_" + str(float(args.new_key))) + os.sep,
         "train_file_pattern": "tf",
         "test_file_pattern": "test",
         "batch_size": 1024 * 8,
