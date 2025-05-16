@@ -393,7 +393,7 @@ void PopulateNpuPlatformRegistrationParams(
         PopulateNpuPlatform(params->platform, params->platform_fns);
         params->destroy_platform = DestroyPlatform;
         params->destroy_platform_fns = DestroyPlatformFns;
-}      
+}
 
 }  // namespace npu_xla
 }  // namespace tensorflow
