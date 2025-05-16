@@ -226,7 +226,7 @@ Status SetupIOPlacements(mlir::OpBuilder& builder, SmallVector<mlir::NamedAttrib
 // 处理常量输入信息
 Status ProcessConstantInput(mlir::OpBuilder& builder,
                             SmallVector<mlir::NamedAttribute, SMALL_VECTOR_SIZE_2>& attributes,
-                            const CompilerInput::Argument& arg_proto, int index)
+                            const ArgumentProto& arg_proto, int index)
 {
     auto attr_name = (mlir::npu_hlo::kHloInputValueAttr + ("_" + llvm::Twine(index))).str();
     TensorProto tensor_proto;
@@ -265,7 +265,7 @@ Status ProcessConstantInput(mlir::OpBuilder& builder,
 // 处理固定形状输入信息
 Status ProcessFixedShapedInput(mlir::OpBuilder& builder,
                                SmallVector<mlir::NamedAttribute, SMALL_VECTOR_SIZE_2>& attributes,
-                               const CompilerInput::Argument& arg_proto, int index)
+                               const ArgumentProto& arg_proto, int index)
 {
     auto attr_name = (mlir::npu_hlo::kHloInputShapeAttr + ("_" + llvm::Twine(index))).str();
     SmallVector<int64_t, SMALL_VECTOR_SIZE_4> input_shape;
