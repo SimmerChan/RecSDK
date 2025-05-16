@@ -17,6 +17,8 @@
 import numpy as np
 import tensorflow as tf
 
+tf.compat.v1.disable_eager_execution()
+
 
 def numpy_bias_add(x, bias, data_format="NHWC"):
     if data_format == "NHWC":

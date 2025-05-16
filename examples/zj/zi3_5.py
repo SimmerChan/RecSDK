@@ -21,7 +21,6 @@ import tensorflow as tf
 
 # 禁用 TensorFlow 2.x 的急切执行模式
 tf.compat.v1.disable_eager_execution()
-ops = tf.load_op_library(op_so_path)
 
 
 @dataclasses
