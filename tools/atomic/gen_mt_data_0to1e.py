@@ -29,7 +29,6 @@ np.random.seed(0)
 LINE_PER_SAMPLE = 10000
 SAMPLES_NUM = 10000 * 800 
 sparse_feat_list = ['feat_ids']
-# todo
 sparse_feat_len = [100]
 
 NUM = 0
@@ -54,7 +53,7 @@ def write_records(writer, line_cnt, file_cnt):
     }
 
     count = 0
-    for i, sparse_feat in enumerate(sparse_feat_list):
+    for _, sparse_feat in enumerate(sparse_feat_list):
         np.random.seed(count)
         # global num
         logging.info("===sparse=%s", sparse_feat)

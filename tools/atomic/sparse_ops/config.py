@@ -123,9 +123,9 @@ def set_ascend_env(rank, rank_size, local_rank_size, host, file=None, dev_id=-1,
 
 def bind_cpu():
     p = psutil.Process()
+    bind_start = 48
+    bind_count = 96
     try:
-        bind_start = 48
-        bind_count = 96
         p.cpu_affinity([bind_start + x for x in range(bind_count)])
     except IndexError:
         logging.error("error cpu bind info, skipped.")

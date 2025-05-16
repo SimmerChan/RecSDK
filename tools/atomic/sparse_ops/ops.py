@@ -78,7 +78,8 @@ class SparseOps:
         output = tf.gather(result, restore_vec)
         return output
 
-    def forward_alltoallc(self, all2all_args, restore_vec, emb_vec, emb_vec_size, rank):
+    @staticmethod
+    def forward_alltoallc(all2all_args, restore_vec, emb_vec, emb_vec_size, rank):
         """
         emb的前向通信
         all2all_args：用all2all用到的参数
@@ -128,7 +129,8 @@ class SparseOps:
                                    )
         return unique_grad
 
-    def backward_alltoallc(self, emb_grad, segment_ids, num_segments, all2all_args, rank):
+    @staticmethod
+    def backward_alltoallc(emb_grad, segment_ids, num_segments, all2all_args, rank):
         """
         emb梯度的反向通信
         id_emb_grad：原始梯度

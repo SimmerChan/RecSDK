@@ -73,7 +73,7 @@ class ModelConverter:
         self._build_table_info_dict()
 
     def convert(self):
-        for table_name, emb_size in self.table_info_dict.items():
+        for table_name, _ in self.table_info_dict.items():
             result_key = np.array([])
             result_embedding = np.array([])
             for rank in range(self._rank_size):
@@ -116,7 +116,8 @@ class ModelConverter:
         key = key_offset_data[:, 0]
         return offset, key
 
-    def _get_key_array(self, sparse_file_path, table_name):
+    @staticmethod
+    def _get_key_array(sparse_file_path, table_name):
         upper_dir = generate_upper_dir(sparse_file_path, hbm_prefix_list, table_name, "key")
         attribute_data_dir, target_data_dir = get_attribute_and_data_file(upper_dir)
         with tf.io.gfile.GFile(attribute_data_dir, "r") as fin:
