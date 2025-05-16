@@ -18,14 +18,14 @@ import tensorflow as tf
 
 
 @tf.function(jit_compile=True)  # 启用 XLA JIT 编译
-def process_tensors(input0, input1, activation_fn=tf.nn.relu):
+def process_tensors(input0_arg, input1_arg, activation_fn=tf.nn.relu):
     # Step 1: 对 input0 和 input1 进行矩阵乘法
     # input0 形状是 (128, 1523, 1)，input1 形状是 (32, 1532)
     # 使用 tf.matmul 进行矩阵乘法，得到形状 (32, 128, 1)
-    input0_trans = tf.transpose(input0, perm=[1,0,2])
+    input0_trans = tf.transpose(input0_arg, perm=[1,0,2])
     #print(input0_trans.shape, tf.size(input0_trans).numpy())
     input0_reshape = tf.reshape(input0_trans, (1523, 128))
-    matmul_output = tf.matmul(input1, input0_reshape)
+    matmul_output = tf.matmul(input1_arg, input0_reshape)
     matmul_output = tf.reshape(matmul_output, (32,128,1))
     # Step 2: 应用激活函数
     # 对 matmul_output 应用激活函数 (默认使用 ReLU)

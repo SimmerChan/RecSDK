@@ -16,6 +16,7 @@
 # ==============================================================================
 import tensorflow as tf
 
+
 # Create the tensors
 def batch_norm(x, is_training, decay=0.99, epsilon=1e-3):
     """
@@ -70,6 +71,7 @@ def compute_operations(input_tensor):
 
     return add_output
 
+
 # Example input tensor of shape (128, 192, 256)
 input_tensor = tf.random.normal((128, 192, 256))
 scale = tf.Variable(tf.ones([256]))
@@ -84,4 +86,3 @@ final_output = compute_operations(input_tensor)
 
 # Print the final output shape
 print("Final output shape:", final_output.shape)
-

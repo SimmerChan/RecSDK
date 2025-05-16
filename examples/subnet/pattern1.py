@@ -16,12 +16,12 @@
 # ==============================================================================
 import tensorflow as tf
 
-
 tf.config.optimizer.set_jit(True)
 
-def process_tensor(input_tensor):
+
+def process_tensor(input_tensor_arg):
     # Step 1: 先 reshape 为 (128, 192, 1, 256)
-    reshaped_tensor = tf.reshape(input_tensor, (128, 192, 1, 256))
+    reshaped_tensor = tf.reshape(input_tensor_arg, (128, 192, 1, 256))
 
     # Step 2: BatchNormalization (假设使用标准的 BN 操作)
     # 注意：BatchNormalization 在训练模式下会有不同的行为，因此需要指定训练模式
