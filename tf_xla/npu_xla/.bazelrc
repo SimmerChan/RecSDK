@@ -1,0 +1,28 @@
+build --experimental_repo_remote_exec
+build --verbose_failures
+build --spawn_strategy=sandboxed
+
+build --cxxopt=-std=c++17
+build --host_cxxopt=-std=c++17
+build --cxxopt=-D_GLIBCXX_USE_CXX11_ABI=1
+build --host_cxxopt=-D_GLIBCXX_USE_CXX11_ABI=1
+build --compilation_mode=opt
+
+build --host_copt=-w
+# Suppress most C++ compiler warnings to reduce log size but allow
+# for specific warnings to still be present.
+build --copt="-Wno-all"
+build --copt="-Wno-extra"
+build --copt="-Wno-deprecated"
+build --copt="-Wno-deprecated-declarations"
+build --copt="-Wno-ignored-attributes"
+build --copt="-Wno-array-bounds"
+
+# Add unused-result as an error on Linux.
+build --copt="-Wunused-result"
+build --copt="-Werror=unused-result"
+# Add switch as an error on Linux.
+build --copt="-Wswitch"
+build --copt="-Werror=switch"
+# Required for building with clang
+build --copt="-Wno-error=unused-but-set-variable"
