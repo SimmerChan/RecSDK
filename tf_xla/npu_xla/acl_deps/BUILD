@@ -46,9 +46,3 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
 )
-
-cc_library(
-    name = "acl_rt_hdrs",
-    hdrs = ["hacl_rt.h"],
-    visibility = ["//visibility:public"]
-)
