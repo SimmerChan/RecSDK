@@ -13,6 +13,9 @@ See the License for the specific language governing permissions and
         limitations under the License.
 ==============================================================================*/
 
+#ifndef ACL_ADAPTOR_H
+#define ACL_ADAPTOR_H
+
 #include <cstdint>
 #include <cstddef>
 
@@ -35,10 +38,10 @@ public:
 
 private:
     AclAdaptor();
-
     void SetDevice(int32_t deviceID);
-
 };
 
 } // namespace npu_xla
-} // namesapce tensorflow
+} // namespace tensorflow
+
+#endif // ACL_ADAPTOR_H
