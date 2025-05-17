@@ -155,7 +155,8 @@ Status GetCompileTimeConstInputs(const NodeDef& node, const OpKernel* op_kernel,
 {
     DCHECK(op_def != nullptr || op_kernel != nullptr);
     if (node.op() == "While" || node.op() == "StatelessWhile") {
-        return GetWhileOpConstInputs();
+        return GetWhileOpConstInputs(node, op_kernel, op_def, const_input_idxs, fixed_shape_input_idxs, flib_runtime,
+                                     is_mlir);
     } else if (node.op() == "If" || node.op() == "StatelessIf") {
         const FunctionBody* fthen = nullptr;
         const FunctionBody* felse = nullptr;
