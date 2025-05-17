@@ -19,7 +19,6 @@ See the License for the specific language governing permissions and
 #include "tensorflow/c/experimental/stream_executor/stream_executor.h"
 #include "tsl/platform/logging.h"
 #include "tensorflow/core/platform/stacktrace.h"
-#include "tf_bridge/tf/log.h"
 
 /** Copy from stream_excutor_test_util.h **/
 /** ------------------------------------ **/
@@ -45,16 +44,14 @@ constexpr int K_DEVICE_COUNT = 1;
 constexpr char K_DEVICE_NAME[] = "ASCEND_NPU";
 
 /*** Functions for creating SP_Device ***/
-void GetDeviceCount(const SP_Platform* platform, int* deviceCount,
-                    TF_Status* status)
+void GetDeviceCount(const SP_Platform* platform, int* deviceCount, TF_Status* status)
 {
     VLOG(VLOG_LEVEL_2) << "Pluggable NPU GetDeviceCount";
     TF_SetStatus(status, TF_OK, "");
     *deviceCount = K_DEVICE_COUNT;
 }
 
-void CreateDevice(const SP_Platform* platform, SE_CreateDeviceParams* params,
-                  TF_Status* status)
+void CreateDevice(const SP_Platform* platform, SE_CreateDeviceParams* params, TF_Status* status)
 {
     VLOG(VLOG_LEVEL_2) << "Pluggable NPU CreateDevice";
     TF_SetStatus(status, TF_OK, "");
@@ -69,8 +66,7 @@ void DestroyDevice(const SP_Platform* platform, SP_Device* device)
     VLOG(VLOG_LEVEL_2) << "Pluggable NPU DestroyDevice";
 }
 
-void CreateDeviceFns(const SP_Platform* platform,
-                     SE_CreateDeviceFnsParams* params, TF_Status* status)
+void CreateDeviceFns(const SP_Platform* platform, SE_CreateDeviceFnsParams* params, TF_Status* status)
 {
     VLOG(VLOG_LEVEL_2) << "Pluggable NPU CreateDeviceFns";
     TF_SetStatus(status, TF_OK, "");
@@ -83,11 +79,10 @@ void DestroyDeviceFns(const SP_Platform* platform, SP_DeviceFns* device_fns)
 }
 
 /*** Functions for creating SP_StreamExecutor ***/
-void Allocate(const SP_Device* const device, uint64_t size,
-              int64_t memorySpace, SP_DeviceMemoryBase* const mem)
+void Allocate(const SP_Device* const device, uint64_t size, int64_t memorySpace, SP_DeviceMemoryBase* const mem)
 {
     VLOG(VLOG_LEVEL_2) << "Pluggable NPU Allocate";
-    AclAdaptor &adaptor = AclAdaptor::GetInstance(device->ordinal);
+    AclAdaptor& adaptor = AclAdaptor::GetInstance(device->ordinal);
     mem->opaque = adaptor.Allocate(size);
     mem->size = mem->opaque != nullptr ? size : 0;
     mem->payload = 0;
@@ -97,7 +92,7 @@ void Allocate(const SP_Device* const device, uint64_t size,
 void Deallocate(const SP_Device* const device, SP_DeviceMemoryBase* const mem)
 {
     VLOG(VLOG_LEVEL_2) << "Pluggable NPU Deallocate";
-    AclAdaptor &adaptor = AclAdaptor::GetInstance(device->ordinal);
+    AclAdaptor& adaptor = AclAdaptor::GetInstance(device->ordinal);
     adaptor.Deallocate(mem->opaque);
     VLOG(VLOG_LEVEL_2) << "Pluggable NPU Deallocate opaque " << mem->opaque;
     mem->opaque = nullptr;
@@ -111,8 +106,8 @@ void* HostMemoryAllocate(const SP_Device* const device, uint64_t size)
         VLOG(VLOG_LEVEL_3) << "HostMemoryAllocate error, input size:" << size;
         return nullptr;
     }
-  
-    void *mem = std::aligned_alloc(64, size);
+
+    void* mem = std::aligned_alloc(64, size);
     if (mem == nullptr) {
         VLOG(VLOG_LEVEL_3) << "HostMemoryAllocate new error, input size:" << size;
     }
@@ -126,22 +121,19 @@ void HostMemoryDeallocate(const SP_Device* const device, void* mem)
     free(mem);
 }
 
-TF_Bool GetAllocatorStats(const SP_Device* const device,
-                          SP_AllocatorStats* const stats)
+TF_Bool GetAllocatorStats(const SP_Device* const device, SP_AllocatorStats* const stats)
 {
     VLOG(VLOG_LEVEL_2) << "Pluggable NPU GetAllocatorStats";
     return true;
 }
 
-TF_Bool DeviceMemoryUsage(const SP_Device* const device, int64_t* const free,
-                          int64_t* const total)
+TF_Bool DeviceMemoryUsage(const SP_Device* const device, int64_t* const free, int64_t* const total)
 {
     VLOG(VLOG_LEVEL_2) << "Pluggable NPU DeviceMemoryUsage";
     return true;
 }
 
-void CreateStream(const SP_Device* const device, SP_Stream* stream,
-                  TF_Status* const status)
+void CreateStream(const SP_Device* const device, SP_Stream* stream, TF_Status* const status)
 {
     VLOG(VLOG_LEVEL_2) << "Pluggable NPU CreateStream";
     *stream = nullptr;
@@ -152,20 +144,18 @@ void DestroyStream(const SP_Device* const device, SP_Stream stream)
     VLOG(VLOG_LEVEL_2) << "Pluggable NPU DestroyStream";
 }
 
-void CreateStreamDependency(const SP_Device* const device, SP_Stream dependent,
-                            SP_Stream other, TF_Status* const status)
+void CreateStreamDependency(const SP_Device* const device, SP_Stream dependent, SP_Stream other,
+                            TF_Status* const status)
 {
     VLOG(VLOG_LEVEL_2) << "Pluggable NPU CreateStreamDependency";
 }
 
-void GetStreamStatus(const SP_Device* const device, SP_Stream stream,
-                     TF_Status* const status)
+void GetStreamStatus(const SP_Device* const device, SP_Stream stream, TF_Status* const status)
 {
     VLOG(VLOG_LEVEL_2) << "Pluggable NPU GetStreamStatus";
 }
 
-void CreateEvent(const SP_Device* const device, SP_Event* event,
-                 TF_Status* const status)
+void CreateEvent(const SP_Device* const device, SP_Event* event, TF_Status* const status)
 {
     VLOG(VLOG_LEVEL_2) << "Pluggable NPU CreateEvent";
     *event = new SpEventSt(0);
@@ -186,20 +176,17 @@ SE_EventStatus GetEventStatus(const SP_Device* const device, SP_Event event)
     return SE_EVENT_COMPLETE;
 }
 
-void RecordEvent(const SP_Device* const device, SP_Stream stream,
-                 SP_Event event, TF_Status* const status)
+void RecordEvent(const SP_Device* const device, SP_Stream stream, SP_Event event, TF_Status* const status)
 {
     VLOG(VLOG_LEVEL_2) << "Pluggable NPU RecordEvent";
 }
 
-void WaitForEvent(const SP_Device* const device, SP_Stream stream,
-                  SP_Event event, TF_Status* const status)
+void WaitForEvent(const SP_Device* const device, SP_Stream stream, SP_Event event, TF_Status* const status)
 {
     VLOG(VLOG_LEVEL_2) << "Pluggable NPU WaitForEvent";
 }
 
-void CreateTimer(const SP_Device* const device, SP_Timer* timer,
-                 TF_Status* const status)
+void CreateTimer(const SP_Device* const device, SP_Timer* timer, TF_Status* const status)
 {
     VLOG(VLOG_LEVEL_2) << "Pluggable NPU CreateTimer";
 }
@@ -209,24 +196,21 @@ void DestroyTimer(const SP_Device* const device, SP_Timer timer)
     VLOG(VLOG_LEVEL_2) << "Pluggable NPU DestroyTimer";
 }
 
-void StartTimer(const SP_Device* const device, SP_Stream stream, SP_Timer timer,
-                TF_Status* const status)
+void StartTimer(const SP_Device* const device, SP_Stream stream, SP_Timer timer, TF_Status* const status)
 {
     VLOG(VLOG_LEVEL_2) << "Pluggable NPU StartTimer";
 }
 
-void StopTimer(const SP_Device* const device, SP_Stream stream, SP_Timer timer,
-               TF_Status* const status)
+void StopTimer(const SP_Device* const device, SP_Stream stream, SP_Timer timer, TF_Status* const status)
 {
     VLOG(VLOG_LEVEL_2) << "Pluggable NPU StopTimer";
 }
 
-void SyncMemcpyDToH(const SP_Device* const device, void* hostDst,
-                    const SP_DeviceMemoryBase* const device_src, uint64_t size,
-                    TF_Status* const status)
+void SyncMemcpyDToH(const SP_Device* const device, void* hostDst, const SP_DeviceMemoryBase* const device_src,
+                    uint64_t size, TF_Status* const status)
 {
     VLOG(VLOG_LEVEL_2) << "Pluggable NPU SyncMemcpyDToH";
-    AclAdaptor &adaptor = AclAdaptor::GetInstance(device->ordinal);
+    AclAdaptor& adaptor = AclAdaptor::GetInstance(device->ordinal);
     auto success = adaptor.MemcpyDToH(hostDst, size, device_src->opaque, device_src->size);
     if (!success) {
         TF_SetStatus(status, TF_INTERNAL, "MemcpyDToH failed");
@@ -234,12 +218,11 @@ void SyncMemcpyDToH(const SP_Device* const device, void* hostDst,
     TF_SetStatus(status, TF_OK, "");
 }
 
-void SyncMemcpyHToD(const SP_Device* const device,
-                    SP_DeviceMemoryBase* const device_dst, const void* hostSrc,
+void SyncMemcpyHToD(const SP_Device* const device, SP_DeviceMemoryBase* const device_dst, const void* hostSrc,
                     uint64_t size, TF_Status* const status)
 {
     VLOG(VLOG_LEVEL_2) << "Pluggable NPU SyncMemcpyHToD";
-    AclAdaptor &adaptor = AclAdaptor::GetInstance(device->ordinal);
+    AclAdaptor& adaptor = AclAdaptor::GetInstance(device->ordinal);
     auto success = adaptor.MemcpyHToD(device_dst->opaque, device_dst->size, hostSrc, size);
     if (!success) {
         TF_SetStatus(status, TF_INTERNAL, "MemcpyHToD failed");
@@ -248,56 +231,48 @@ void SyncMemcpyHToD(const SP_Device* const device,
 }
 
 void MemcpyDToH(const SP_Device* const device, SP_Stream stream, void* hostDst,
-                const SP_DeviceMemoryBase* const device_src, uint64_t size,
-                TF_Status* const status)
+                const SP_DeviceMemoryBase* const device_src, uint64_t size, TF_Status* const status)
 {
     VLOG(VLOG_LEVEL_2) << "Pluggable NPU MemcpyDToH";
     SyncMemcpyDToH(device, hostDst, device_src, size, status);
 }
 
-void MemcpyHToD(const SP_Device* const device, SP_Stream stream,
-                SP_DeviceMemoryBase* const device_dst, const void* hostSrc,
-                uint64_t size, TF_Status* const status)
+void MemcpyHToD(const SP_Device* const device, SP_Stream stream, SP_DeviceMemoryBase* const device_dst,
+                const void* hostSrc, uint64_t size, TF_Status* const status)
 {
     VLOG(VLOG_LEVEL_2) << "Pluggable NPU MemcpyHToD";
     SyncMemcpyHToD(device, device_dst, hostSrc, size, status);
 }
 
-void BlockHostForEvent(const SP_Device* const device, SP_Event event,
-                       TF_Status* const status)
+void BlockHostForEvent(const SP_Device* const device, SP_Event event, TF_Status* const status)
 {
     VLOG(VLOG_LEVEL_2) << "Pluggable NPU BlockHostForEvent";
 }
 
-void SynchronizeAllActivity(const SP_Device* const device,
-                            TF_Status* const status)
+void SynchronizeAllActivity(const SP_Device* const device, TF_Status* const status)
 {
     VLOG(VLOG_LEVEL_2) << "Pluggable NPU SynchronizeAllActivity";
 }
 
-TF_Bool HostCallback(const SP_Device* const device, SP_Stream stream,
-                     SE_StatusCallbackFn const callback_fn,
+TF_Bool HostCallback(const SP_Device* const device, SP_Stream stream, SE_StatusCallbackFn const callback_fn,
                      void* const callback_arg)
 {
     VLOG(VLOG_LEVEL_2) << "Pluggable NPU HostCallback";
     return true;
 }
 
-void MemZero(const SP_Device* device, SP_Stream stream,
-             SP_DeviceMemoryBase* location, uint64_t size, TF_Status* status)
+void MemZero(const SP_Device* device, SP_Stream stream, SP_DeviceMemoryBase* location, uint64_t size, TF_Status* status)
 {
     VLOG(VLOG_LEVEL_2) << "Pluggable NPU MemZero";
 }
 
-void Memset(const SP_Device* device, SP_Stream stream,
-            SP_DeviceMemoryBase* location, uint8_t pattern, uint64_t size,
+void Memset(const SP_Device* device, SP_Stream stream, SP_DeviceMemoryBase* location, uint8_t pattern, uint64_t size,
             TF_Status* status)
 {
     VLOG(VLOG_LEVEL_2) << "Pluggable NPU Memset";
 }
 
-void Memset32(const SP_Device* device, SP_Stream stream,
-              SP_DeviceMemoryBase* location, uint32_t pattern, uint64_t size,
+void Memset32(const SP_Device* device, SP_Stream stream, SP_DeviceMemoryBase* location, uint32_t pattern, uint64_t size,
               TF_Status* status)
 {
     VLOG(VLOG_LEVEL_2) << "Pluggable NPU Memset32";
@@ -337,9 +312,7 @@ void PopulateNpuStreamExecutor(SP_StreamExecutor* se)
     se->memset32 = Memset32;
 }
 
-void CreateStreamExecutor(const SP_Platform* platform,
-                          SE_CreateStreamExecutorParams* params,
-                          TF_Status* status)
+void CreateStreamExecutor(const SP_Platform* platform, SE_CreateStreamExecutorParams* params, TF_Status* status)
 {
     VLOG(VLOG_LEVEL_2) << "Pluggable NPU CreateStreamExecutor";
     TF_SetStatus(status, TF_OK, "");
@@ -351,15 +324,17 @@ void DestroyStreamExecutor(const SP_Platform* platform, SP_StreamExecutor* se)
     VLOG(VLOG_LEVEL_2) << "Pluggable NPU DestroyStreamExecutor";
 }
 
-uint64_t Nanoseconds(SP_Timer timer) { return timer->timer_id; }
+uint64_t Nanoseconds(SP_Timer timer)
+{
+    return timer->timer_id;
+}
 
 void PopulateNpuTimerFns(SP_TimerFns* timer_fns)
 {
     timer_fns->nanoseconds = Nanoseconds;
 }
 
-void CreateTimerFns(const SP_Platform* platform, SP_TimerFns* timer_fns,
-                    TF_Status* status)
+void CreateTimerFns(const SP_Platform* platform, SP_TimerFns* timer_fns, TF_Status* status)
 {
     TF_SetStatus(status, TF_OK, "");
     PopulateNpuTimerFns(timer_fns);
@@ -387,12 +362,11 @@ void DestroyPlatform(SP_Platform* platform) {}
 
 void DestroyPlatformFns(SP_PlatformFns* platform_fns) {}
 
-void PopulateNpuPlatformRegistrationParams(
-    SE_PlatformRegistrationParams* const params)
+void PopulateNpuPlatformRegistrationParams(SE_PlatformRegistrationParams* const params)
 {
-        PopulateNpuPlatform(params->platform, params->platform_fns);
-        params->destroy_platform = DestroyPlatform;
-        params->destroy_platform_fns = DestroyPlatformFns;
+    PopulateNpuPlatform(params->platform, params->platform_fns);
+    params->destroy_platform = DestroyPlatform;
+    params->destroy_platform_fns = DestroyPlatformFns;
 }
 
 }  // namespace npu_xla
@@ -409,8 +383,7 @@ extern "C" {
  * NPU platform information
  * @param status: Status object to report any errors during initialization
  */
-void SE_InitPlugin(SE_PlatformRegistrationParams* const params,
-                   TF_Status* const status)
+void SE_InitPlugin(SE_PlatformRegistrationParams* const params, TF_Status* const status)
 {
     TF_SetStatus(status, TF_OK, "");
     tensorflow::npu_xla::PopulateNpuPlatformRegistrationParams(params);

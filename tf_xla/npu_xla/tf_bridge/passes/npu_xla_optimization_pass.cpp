@@ -15,10 +15,10 @@ See the License for the specific language governing permissions and
 
 #include "tf_bridge/passes/npu_xla_optimization_pass.h"
 
+#include "common_hdrs/types.h"
 #include "tf_bridge/passes/build_npu_xla_op_pass.h"
 #include "tf_bridge/passes/encapsulate_subgraphs_pass.h"
 #include "tf_bridge/passes/mark_for_npu_compilation_pass.h"
-#include "tf_bridge/tf/log.h"
 #include "tf_bridge/utils/dump_graph.h"
 
 namespace tensorflow {

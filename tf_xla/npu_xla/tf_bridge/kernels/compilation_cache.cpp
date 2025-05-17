@@ -28,11 +28,11 @@ See the License for the specific language governing permissions and
 #include <chrono>
 
 #include "compiler_pipeline.h"
+#include "common_hdrs/types.h"
 #include "tensorflow/core/lib/gtl/cleanup.h"
 #include "tf_bridge/common.h"
 #include "tf_bridge/compilation_result.pb.h"
 #include "tf_bridge/tf/errors.h"
-#include "tf_bridge/tf/log.h"
 #include "tf_bridge/tf/subprocess.h"
 #include "tf_bridge/utils/common_utils.h"
 

@@ -34,13 +34,13 @@ limitations under the License.
 
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
+#include "common_hdrs/types.h"
 #include "tensorflow/core/framework/tensor.pb.h"
 #include "tensorflow/core/graph/algorithm.h"
 #include "tensorflow/core/graph/control_flow.h"
 #include "tensorflow/core/graph/tensor_id.h"
 #include "tensorflow/core/lib/hash/hash.h"
 #include "tf_bridge/tf/errors.h"
-#include "tf_bridge/tf/log.h"
 #include "tf_bridge/tf/xla_cluster_util.h"
 #include "tf_bridge/tf_compatible.h"
 
@@ -330,7 +330,7 @@ public:
     }
 
 private:
-    std::array<Predicate*, 2> operands_; // 创建2个元素的数组
+    std::array<Predicate*, 2> operands_;  // 创建2个元素的数组
     std::vector<string> frame_;
 };
 
@@ -713,7 +713,7 @@ private:
         std::size_t operator()(const SignatureForAndRec& k) const
         {
             auto result = std::hash<Predicate*>{}(std::get<0>(k)) ^ std::hash<Predicate*>{}(std::get<1>(k));
-            for (auto s : std::get<2>(k)) { // 获取第2个元素
+            for (auto s : std::get<2>(k)) {  // 获取第2个元素
                 result = result ^ std::hash<string>{}(s);
             }
             return result;
@@ -1126,7 +1126,7 @@ Status GetFullFrame(const Node* n, absl::Span<const ControlFlowInfo> cfi_infos, 
          n = cfi_iter->parent_frame, cfi_iter = &cfi_infos[n->id()]) {
         frame->push_back(cfi_iter->frame_name);
 
-        if (depth++ > 5000) { // 超过5000行基本认定为有bug
+        if (depth++ > 5000) {  // 超过5000行基本认定为有bug
             return errors::Internal("Frame of depth > 5000:  Probably malformed graph or a bug in "
                                     "BuildControlFlowInfo");
         }
@@ -1145,7 +1145,7 @@ Status GetRootFrame(const Node* n, absl::Span<const ControlFlowInfo> cfi_infos, 
         n = cfi_iter->parent_frame;
         cfi_iter = &cfi_infos[n->id()];
 
-        if (depth++ > 5000) { // 超过5000行基本认定为有bug
+        if (depth++ > 5000) {  // 超过5000行基本认定为有bug
             return errors::Internal("Frame of depth > 5000:  Probably malformed graph or a bug in "
                                     "BuildControlFlowInfo");
         }

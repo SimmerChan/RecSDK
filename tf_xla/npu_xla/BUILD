@@ -23,6 +23,7 @@ cc_library(
     srcs = ["adaptor/acl_adaptor.cpp"],
     hdrs = ["adaptor/acl_adaptor.h"],
     deps = [
+        ":common_hdrs",
         "@acl_base//:acl_deps",
         "@com_google_absl//absl/numeric:int128",
         "@eigen_archive//:eigen3",

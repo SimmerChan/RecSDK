@@ -42,7 +42,7 @@ limitations under the License.
 #include "tensorflow/core/protobuf/config.pb.h"
 #include "tf_bridge/tf/graphcycles.h"
 #include "tf_bridge/xla_activity.pb.h"
-#include "log.h"
+#include "common_hdrs/types.h"
 
 namespace tensorflow {
 namespace npu_xla {
