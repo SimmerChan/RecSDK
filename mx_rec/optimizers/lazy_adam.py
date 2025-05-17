@@ -50,25 +50,9 @@ from mx_rec.validator.validator import (
         ("use_fusion_optim", ClassValidator, {"classes": (bool,)}),
     ]
 )
-class OptimizerConfig:
-    def __init__(
-        self,
-        learning_rate=0.001,
-        beta1=0.9,
-        beta2=0.999,
-        epsilon=1e-8,
-        name="LazyAdam",
-        use_fusion_optim=False,
-    ):
-        self.learning_rate = learning_rate
-        self.beta1 = beta1
-        self.beta2 = beta2
-        self.epsilon = epsilon
-        self.name = name
-        self.use_fusion_optim = use_fusion_optim
-
-
-def create_hash_optimizer(config: OptimizerConfig):
+def create_hash_optimizer(
+    learning_rate=0.001, beta1=0.9, beta2=0.999, epsilon=1e-8, name="LazyAdam", use_fusion_optim=False
+):
     """
     Args:
         learning_rate: learning rate
@@ -85,12 +69,12 @@ def create_hash_optimizer(config: OptimizerConfig):
             "expansion mode and optimizer correctly."
         )
     optimizer = CustomizedLazyAdam(
-        learning_rate=config.learning_rate,
-        beta1=config.beta1,
-        beta2=config.beta2,
-        epsilon=config.epsilon,
-        name=config.name,
-        use_fusion_optim=config.use_fusion_optim,
+        learning_rate=learning_rate,
+        beta1=beta1,
+        beta2=beta2,
+        epsilon=epsilon,
+        name=name,
+        use_fusion_optim=use_fusion_optim,
     )
     ConfigInitializer.get_instance().optimizer_config.optimizer_instance = optimizer
     return optimizer

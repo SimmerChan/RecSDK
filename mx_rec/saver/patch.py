@@ -734,32 +734,16 @@ def patch_for_checkpoint_saver_hook():
     logger.info("Class 'tf.compat.v1.train.CheckpointSaverHook' has been patched.")
 
 
-class ExportSavedModelConfig:
-    def __init__(
-        self,
-        export_dir_base: str,
-        input_receiver_fn_map: Dict[str, Callable],
-        assets_extra: Optional[Dict[str, str]] = None,
-        as_text: bool = False,
-        checkpoint_path: Optional[str] = None,
-        strip_default_attrs: bool = True,
-    ):
-        self.export_dir_base = export_dir_base
-        self.input_receiver_fn_map = input_receiver_fn_map
-        self.assets_extra = assets_extra
-        self.as_text = as_text
-        self.checkpoint_path = checkpoint_path
-        self.strip_default_attrs = strip_default_attrs
-
-
-def _export_all_saved_models(config: ExportSavedModelConfig):  # pragma: no cover
+def _export_all_saved_models(
+    self,
+    export_dir_base: str,
+    input_receiver_fn_map: Dict[str, Callable],
+    assets_extra: Optional[Dict[str, str]] = None,
+    as_text: bool = False,
+    checkpoint_path: Optional[str] = None,
+    strip_default_attrs: bool = True,
+):  # pragma: no cover
     """Exports multiple modes in the model function to a SavedModel."""
-    export_dir_base = config.export_dir_base
-    input_receiver_fn_map = config.input_receiver_fn_map
-    assets_extra = config.assets_extra
-    as_text = config.as_text
-    checkpoint_path = config.checkpoint_path
-    strip_default_attrs = config.strip_default_attrs
 
     def _locate_latest_checkpoint() -> str:
         if tf.__version__.startswith("1"):

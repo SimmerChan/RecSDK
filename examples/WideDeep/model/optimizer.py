@@ -17,7 +17,7 @@
 import tensorflow as tf
 from delay_loss_scale import DenseLossScaleOptimizer, SparseLossScaleOptimizer
 from mx_rec.util.initialize import ConfigInitializer
-from mx_rec.optimizers.lazy_adam import create_hash_optimizer, OptimizerConfig
+from mx_rec.optimizers.lazy_adam import create_hash_optimizer
 from mx_rec.optimizers.lazy_adam_by_addr import create_hash_optimizer_by_address
 
 
@@ -27,8 +27,7 @@ def get_dense_and_sparse_optimizer(cfg):
     if use_dynamic_expansion:
         sparse_optimizer = create_hash_optimizer_by_address(learning_rate=cfg.learning_rate[1])
     else:
-        config = OptimizerConfig(learning_rate=cfg.learning_rate[1])
-        sparse_optimizer = create_hash_optimizer(config)
+        sparse_optimizer = create_hash_optimizer(learning_rate=cfg.learning_rate[1])
     loss_scale = 1
     sparse_optimizer = SparseLossScaleOptimizer(sparse_optimizer, loss_scale)
     dense_optimizer = DenseLossScaleOptimizer(dense_optimizer, loss_scale)

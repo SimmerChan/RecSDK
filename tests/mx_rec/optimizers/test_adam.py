@@ -21,7 +21,7 @@ from unittest import mock
 import tensorflow as tf
 from tensorflow.python.framework import ops
 
-from mx_rec.optimizers.lazy_adam import create_hash_optimizer, OptimizerConfig
+from mx_rec.optimizers.lazy_adam import create_hash_optimizer
 from tests.mx_rec.core.mock_class import MockConfigInitializer, MockSparseEmbedding
 
 
@@ -35,8 +35,7 @@ class TestCreateHashOptimizerFunc(unittest.TestCase):
         adam_config_initializer.get_instance = mock.Mock(return_value=mock_config_initializer)
 
         with self.assertRaises(ValueError) as e:
-            config = OptimizerConfig(learning_rate=0.01)
-            create_hash_optimizer(config)
+            create_hash_optimizer(learning_rate=0.01)
 
         self.assertIn("The dynamic expansion mode is not compatible with the optimizer", str(e.exception))
 
@@ -46,8 +45,7 @@ class TestCreateHashOptimizerFunc(unittest.TestCase):
         adam_config_initializer.get_instance = mock.Mock(return_value=mock_config_initializer)
 
         with self.assertRaises(ValueError) as e:
-            config = OptimizerConfig(learning_rate="xxx")
-            create_hash_optimizer(config)
+            create_hash_optimizer(learning_rate="xxx")
 
         self.assertIn("is not float", str(e.exception))
 
@@ -57,8 +55,7 @@ class TestCreateHashOptimizerFunc(unittest.TestCase):
         adam_config_initializer.get_instance = mock.Mock(return_value=mock_config_initializer)
 
         with self.assertRaises(ValueError) as e:
-            config = OptimizerConfig(learning_rate=10.1)
-            create_hash_optimizer(config)
+            create_hash_optimizer(learning_rate=10.1)
 
         self.assertIn("is bigger than", str(e.exception))
 
@@ -68,8 +65,7 @@ class TestCreateHashOptimizerFunc(unittest.TestCase):
         adam_config_initializer.get_instance = mock.Mock(return_value=mock_config_initializer)
 
         with self.assertRaises(ValueError) as e:
-            config = OptimizerConfig(learning_rate=-0.01)
-            create_hash_optimizer(config)
+            create_hash_optimizer(learning_rate=-0.01)
 
         self.assertIn("is less than", str(e.exception))
 
@@ -79,8 +75,7 @@ class TestCreateHashOptimizerFunc(unittest.TestCase):
         adam_config_initializer.get_instance = mock.Mock(return_value=mock_config_initializer)
 
         with self.assertRaises(ValueError) as e:
-            config = OptimizerConfig(beta1="xxx")
-            create_hash_optimizer(config)
+            create_hash_optimizer(beta1="xxx")
 
         self.assertIn("is not float", str(e.exception))
 
@@ -90,8 +85,7 @@ class TestCreateHashOptimizerFunc(unittest.TestCase):
         adam_config_initializer.get_instance = mock.Mock(return_value=mock_config_initializer)
 
         with self.assertRaises(ValueError) as e:
-            config = OptimizerConfig(beta1=10.1)
-            create_hash_optimizer(config)
+            create_hash_optimizer(beta1=10.1)
 
         self.assertIn("is bigger than", str(e.exception))
 
@@ -101,8 +95,7 @@ class TestCreateHashOptimizerFunc(unittest.TestCase):
         adam_config_initializer.get_instance = mock.Mock(return_value=mock_config_initializer)
 
         with self.assertRaises(ValueError) as e:
-            config = OptimizerConfig(beta1=-0.01)
-            create_hash_optimizer(config)
+            create_hash_optimizer(beta1=-0.01)
 
         self.assertIn("is less than", str(e.exception))
 
@@ -112,8 +105,7 @@ class TestCreateHashOptimizerFunc(unittest.TestCase):
         adam_config_initializer.get_instance = mock.Mock(return_value=mock_config_initializer)
 
         with self.assertRaises(ValueError) as e:
-            config = OptimizerConfig(beta2="xxx")
-            create_hash_optimizer(config)
+            create_hash_optimizer(beta2="xxx")
 
         self.assertIn("is not float", str(e.exception))
 
@@ -123,8 +115,7 @@ class TestCreateHashOptimizerFunc(unittest.TestCase):
         adam_config_initializer.get_instance = mock.Mock(return_value=mock_config_initializer)
 
         with self.assertRaises(ValueError) as e:
-            config = OptimizerConfig(beta2=10.1)
-            create_hash_optimizer(config)
+            create_hash_optimizer(beta2=10.1)
 
         self.assertIn("is bigger than", str(e.exception))
 
@@ -134,8 +125,7 @@ class TestCreateHashOptimizerFunc(unittest.TestCase):
         adam_config_initializer.get_instance = mock.Mock(return_value=mock_config_initializer)
 
         with self.assertRaises(ValueError) as e:
-            config = OptimizerConfig(beta2=-0.01)
-            create_hash_optimizer(config)
+            create_hash_optimizer(beta2=-0.01)
 
         self.assertIn("is less than", str(e.exception))
 
@@ -145,8 +135,7 @@ class TestCreateHashOptimizerFunc(unittest.TestCase):
         adam_config_initializer.get_instance = mock.Mock(return_value=mock_config_initializer)
 
         with self.assertRaises(ValueError) as e:
-            config = OptimizerConfig(epsilon="xxx")
-            create_hash_optimizer(config)
+            create_hash_optimizer(epsilon="xxx")
 
         self.assertIn("is not float", str(e.exception))
 
@@ -156,8 +145,7 @@ class TestCreateHashOptimizerFunc(unittest.TestCase):
         adam_config_initializer.get_instance = mock.Mock(return_value=mock_config_initializer)
 
         with self.assertRaises(ValueError) as e:
-            config = OptimizerConfig(epsilon=10.1)
-            create_hash_optimizer(config)
+            create_hash_optimizer(epsilon=10.1)
 
         self.assertIn("is bigger than", str(e.exception))
 
@@ -167,8 +155,7 @@ class TestCreateHashOptimizerFunc(unittest.TestCase):
         adam_config_initializer.get_instance = mock.Mock(return_value=mock_config_initializer)
 
         with self.assertRaises(ValueError) as e:
-            config = OptimizerConfig(epsilon=-0.01)
-            create_hash_optimizer(config)
+            create_hash_optimizer(epsilon=-0.01)
 
         self.assertIn("is less than", str(e.exception))
 
@@ -178,8 +165,7 @@ class TestCreateHashOptimizerFunc(unittest.TestCase):
         adam_config_initializer.get_instance = mock.Mock(return_value=mock_config_initializer)
 
         with self.assertRaises(ValueError) as e:
-            config = OptimizerConfig(learning_rate=0.01, use_fusion_optim="xxx")
-            create_hash_optimizer(config)
+            create_hash_optimizer(learning_rate=0.01, use_fusion_optim="xxx")
 
         self.assertIn("Invalid parameter type of para", str(e.exception))
 
@@ -189,8 +175,7 @@ class TestCreateHashOptimizerFunc(unittest.TestCase):
         adam_config_initializer.get_instance = mock.Mock(return_value=mock_config_initializer)
 
         with self.assertRaises(ValueError) as e:
-            config = OptimizerConfig(learning_rate=0.01, name=1)
-            create_hash_optimizer(config)
+            create_hash_optimizer(learning_rate=0.01, name=1)
 
         self.assertIn("is not str", str(e.exception))
 
@@ -200,8 +185,7 @@ class TestCreateHashOptimizerFunc(unittest.TestCase):
         adam_config_initializer.get_instance = mock.Mock(return_value=mock_config_initializer)
 
         with self.assertRaises(ValueError) as e:
-            config = OptimizerConfig(learning_rate=0.01, name="")
-            create_hash_optimizer(config)
+            create_hash_optimizer(learning_rate=0.01, name="")
 
         self.assertIn("length is less than", str(e.exception))
 
@@ -212,8 +196,7 @@ class TestCreateHashOptimizerFunc(unittest.TestCase):
 
         name = "a" * 201
         with self.assertRaises(ValueError) as e:
-            config = OptimizerConfig(learning_rate=0.01, name=name)
-            create_hash_optimizer(config)
+            create_hash_optimizer(learning_rate=0.01, name=name)
 
         self.assertIn("length is bigger than", str(e.exception))
 
@@ -221,8 +204,7 @@ class TestCreateHashOptimizerFunc(unittest.TestCase):
     def test_get_slot_init_values(self, adam_config_initializer):
         mock_config_initializer = MockConfigInitializer(use_dynamic_expansion=False)
         adam_config_initializer.get_instance = mock.Mock(return_value=mock_config_initializer)
-        config = OptimizerConfig(learning_rate=0.01)
-        sparse_optimizer = create_hash_optimizer(config)
+        sparse_optimizer = create_hash_optimizer(learning_rate=0.01)
         self.assertEqual(sparse_optimizer.get_slot_init_values(), [0.0, 0.0])
 
     @mock.patch("mx_rec.optimizers.base.CustomizedOptimizer.sum_same_id_gradients")
@@ -252,8 +234,7 @@ class TestCreateHashOptimizerFunc(unittest.TestCase):
             loss = tf.nn.sigmoid_cross_entropy_with_logits(logits=logits, labels=labels)
             loss = tf.reduce_mean(loss)
 
-            config = OptimizerConfig(learning_rate=0.01)
-            sparse_optimizer = create_hash_optimizer(config)
+            sparse_optimizer = create_hash_optimizer(learning_rate=0.01)
             grads = tf.gradients(loss, [table.variable])
             sum_same_id_gradients.return_value = [
                 tf.constant([[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]]),

@@ -23,7 +23,7 @@ from mx_rec.util.log import logger
 
 
 def get_dense_and_sparse_optimizer_adam(cfg):
-    from mx_rec.optimizers.lazy_adam import create_hash_optimizer, OptimizerConfig
+    from mx_rec.optimizers.lazy_adam import create_hash_optimizer
     from mx_rec.optimizers.lazy_adam_by_addr import create_hash_optimizer_by_address
     dense_optimizer = tf.compat.v1.train.AdamOptimizer(learning_rate=cfg.learning_rate[0])
     use_dynamic_expansion = ConfigInitializer.get_instance().use_dynamic_expansion
@@ -31,8 +31,7 @@ def get_dense_and_sparse_optimizer_adam(cfg):
         sparse_optimizer = create_hash_optimizer_by_address(learning_rate=cfg.learning_rate[1])
         logger.info("optimizer lazy_adam_by_addr")
     else:
-        config = OptimizerConfig(learning_rate=cfg.learning_rate[1])
-        sparse_optimizer = create_hash_optimizer(config)
+        sparse_optimizer = create_hash_optimizer(learning_rate=cfg.learning_rate[1])
         logger.info("optimizer lazy_adam")
     sparse_optimizer = SparseLossScaleOptimizer(sparse_optimizer, cfg.loss_scale)
     dense_optimizer = DenseLossScaleOptimizer(dense_optimizer, cfg.loss_scale)
