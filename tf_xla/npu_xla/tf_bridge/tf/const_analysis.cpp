@@ -283,7 +283,7 @@ Status BackwardsConstAnalysis(const Graph& g, std::vector<bool>* compile_time_co
             return;
         }
 
-        for (Edge const* edge : node->in_edges()) {
+        for (const Edge* edge : node->in_edges()) {
             if (!edge->IsControlEdge() &&
                 std::binary_search(const_input_idxs.begin(), const_input_idxs.end(), edge->dst_input()) &&
                 edge_filter(*edge)) {
@@ -338,7 +338,7 @@ Status BackwardsConstAnalysis(const Graph& g, std::vector<bool>* compile_time_co
             }
         }
 
-        for (Edge const* edge : node->in_edges()) {
+        for (const Edge* edge : node->in_edges()) {
             if (!edge->IsControlEdge() && edge_filter(*edge)) {
                 if (std::binary_search(const_input_idxs.begin(), const_input_idxs.end(), edge->dst_input())) {
                     while (edge_filter(*edge) && edge->src()->type_string() == "IdentityN") {
