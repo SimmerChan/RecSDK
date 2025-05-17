@@ -176,10 +176,8 @@ struct HashResourceOp {
 };
 
 class ResourceOpSet {
-private:
-    using Impl = std::unordered_set<ResourceOp, HashResourceOp>;
-
 public:
+    using Impl = std::unordered_set<ResourceOp, HashResourceOp>;
     ResourceOpSet() = default;
 
     // Adds all ResourceOp s in `other` to this set.
