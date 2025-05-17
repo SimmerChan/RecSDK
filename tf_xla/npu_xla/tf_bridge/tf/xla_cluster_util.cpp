@@ -166,7 +166,7 @@ absl::StatusOr<bool> CreateCycleDetectionGraph(const Graph* graph, GraphCycles* 
         return frameId;
     };
 
-    for (Edge const * edge : graph->edges()) {
+    for (const Edge* edge : graph->edges()) {
         if (edge->dst()->IsEnter() || edge->src()->IsExit()) {
             const char* src_type = "pre-enter";
             const char* dst_type = "post-exit";
@@ -293,7 +293,7 @@ bool IsSingleGpuGraph(const Graph& g)
 
         int gpuNumber = GetGpuNumber(n->assigned_device_name());
         if (gpuNumber != -1) {
-            if (++gpus_seen > 1) {
+            if (++gpusSeen > 1) {
                 return false;
             }
         }
@@ -318,7 +318,7 @@ OptimizerOptions::GlobalJitLevel GetGlobalJitLevelForGraph(const GraphOptimizati
         return xlaGlobalJitLevel.single_gpu;
     }
     OptimizerOptions::GlobalJitLevel result =
-        IsSingleGpuGraph(**options.graph) ? xla_global_jit_level.single_gpu : xla_global_jit_level.general;
+        IsSingleGpuGraph(**options.graph) ? xlaGlobalJitLevel.single_gpu : xlaGlobalJitLevel.general;
     return result;
 }
 
