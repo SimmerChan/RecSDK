@@ -15,8 +15,8 @@ See the License for the specific language governing permissions and
 
 #include <string>
 
+#include "common_hdrs/types.h"
 #include "tensorflow/core/framework/op_kernel.h"
-#include "tf_bridge/tf/log.h"
 
 namespace tensorflow {
 const char* const DEVICE_NPU = "NPU";

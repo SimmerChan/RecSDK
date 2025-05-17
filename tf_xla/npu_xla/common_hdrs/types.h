@@ -20,7 +20,13 @@ namespace tensorflow {
 namespace npu_xla {
 
 const char* const DEVICE_NPU = "NPU";
-}
+const int VLOG_LEVEL_0 = 0;
+const int VLOG_LEVEL_1 = 1;
+const int VLOG_LEVEL_2 = 2;
+const int VLOG_LEVEL_3 = 3;
+const int VLOG_LEVEL_4 = 4;
+
+}  // namespace npu_xla
 }  // namespace tensorflow
 
 #endif  // NPU_XLA_COMMON_HDRS_TYPES_H_

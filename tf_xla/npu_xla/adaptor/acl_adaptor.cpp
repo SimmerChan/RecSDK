@@ -17,11 +17,11 @@ See the License for the specific language governing permissions and
 
 #include <acl/acl.h>
 #include "tsl/platform/logging.h"
-#include "tf_bridge/tf/log.h"
+#include "common_hdrs/types.h"
 
 using namespace tensorflow::npu_xla;
 
-AclAdaptor &AclAdaptor::GetInstance(int32_t deviceId)
+AclAdaptor& AclAdaptor::GetInstance(int32_t deviceId)
 {
     static AclAdaptor instance;
     instance.SetDevice(deviceId);
@@ -39,9 +39,9 @@ AclAdaptor::~AclAdaptor()
     aclFinalize();
 }
 
-void *AclAdaptor::Allocate(size_t size)
+void* AclAdaptor::Allocate(size_t size)
 {
-    void *ptr = nullptr;
+    void* ptr = nullptr;
     auto ret = aclrtMalloc(&ptr, size, ACL_MEM_MALLOC_HUGE_FIRST);
     if (ret != ACL_SUCCESS) {
         VLOG(VLOG_LEVEL_3) << "aclrtMalloc " << "size " << size << " failed, ret: " << ret;
@@ -50,7 +50,7 @@ void *AclAdaptor::Allocate(size_t size)
     return ptr;
 }
 
-void AclAdaptor::Deallocate(void *ptr)
+void AclAdaptor::Deallocate(void* ptr)
 {
     auto ret = aclrtFree(ptr);
     if (ret != ACL_SUCCESS) {
@@ -64,7 +64,7 @@ void AclAdaptor::SetDevice(int32_t deviceId)
     VLOG(VLOG_LEVEL_2) << "aclrtSetDevice " << deviceId << " ret: " << ret;
 }
 
-bool AclAdaptor::MemcpyHToD(void *dst, size_t dstSize, const void *src, size_t srcSize)
+bool AclAdaptor::MemcpyHToD(void* dst, size_t dstSize, const void* src, size_t srcSize)
 {
     auto ret = aclrtMemcpy(dst, dstSize, src, srcSize, ACL_MEMCPY_HOST_TO_DEVICE);
     if (ret != ACL_SUCCESS) {
@@ -74,7 +74,7 @@ bool AclAdaptor::MemcpyHToD(void *dst, size_t dstSize, const void *src, size_t s
     return true;
 }
 
-bool AclAdaptor::MemcpyDToH(void *dst, size_t dstSize, const void *src, size_t srcSize)
+bool AclAdaptor::MemcpyDToH(void* dst, size_t dstSize, const void* src, size_t srcSize)
 {
     auto ret = aclrtMemcpy(dst, dstSize, src, srcSize, ACL_MEMCPY_DEVICE_TO_HOST);
     if (ret != ACL_SUCCESS) {

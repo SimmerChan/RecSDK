@@ -31,7 +31,6 @@ See the License for the specific language governing permissions and
 #include "tf_bridge/executable/executable.h"
 #include "tf_bridge/kernels/compilation_cache.h"
 #include "tf_bridge/tf/errors.h"
-#include "tf_bridge/tf/log.h"
 #include "tf_mlir/compiler_input.pb.h"
 
 namespace tensorflow {
