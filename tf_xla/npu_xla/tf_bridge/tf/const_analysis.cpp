@@ -26,6 +26,7 @@
 #include "tensorflow/core/graph/algorithm.h"
 #include "tensorflow/core/lib/core/errors.h"
 #include "tf_bridge/tf/errors.h"
+#include "tf_bridge/tf/log.h"
 #include "tf_bridge/tf/xla_op_registry.h"
 
 namespace tensorflow {
@@ -226,8 +227,7 @@ Status BackwardsConstAnalysis(const Graph& g, std::vector<bool>* compile_time_co
     Status status;
     // If this node must be const, and it isn't a metadata op, then all of its
     // parents must be const.
-    auto processIfMustBeConst = [&compile_time_const_arg_indices, &edge_filter](std::vector<bool>* const_nodes,
-                                                                                Node* node) -> bool {
+    auto processIfMustBeConst = [&](std::vector<bool>* const_nodes, Node* node) -> bool {
         if ((*const_nodes)[node->id()]) {
             if (node->type_string() == "_Arg") {
                 int index;
@@ -262,8 +262,7 @@ Status BackwardsConstAnalysis(const Graph& g, std::vector<bool>* compile_time_co
         return false;
     };
 
-    auto visitXla = [&compile_time_const_arg_indices, &compile_time_const_nodes, &flib_runtime, &edge_filter,
-                     &status](Node* node) {
+    auto visitXla = [&](Node* node) {
         if (!status.ok()) {
             return;
         }
@@ -305,8 +304,7 @@ Status BackwardsConstAnalysis(const Graph& g, std::vector<bool>* compile_time_co
         }
     };
 
-    auto visitMlir = [&compile_time_const_arg_indices, &compile_time_const_nodes, &compile_time_fixed_shape_arg_indices,
-                      &compile_time_fixed_shape_nodes, &edge_filter, &flib_runtime, &status](Node* node) {
+    auto visitMlir = [&](Node* node) {
         if (!status.ok()) {
             return;
         }

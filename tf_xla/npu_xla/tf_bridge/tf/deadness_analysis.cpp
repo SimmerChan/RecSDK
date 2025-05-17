@@ -40,6 +40,7 @@ limitations under the License.
 #include "tensorflow/core/graph/tensor_id.h"
 #include "tensorflow/core/lib/hash/hash.h"
 #include "tf_bridge/tf/errors.h"
+#include "tf_bridge/tf/log.h"
 #include "tf_bridge/tf/xla_cluster_util.h"
 #include "tf_bridge/tf_compatible.h"
 
@@ -155,7 +156,7 @@ public:
 
     virtual absl::Span<Predicate* const> GetOperands() const = 0;
 
-    virtual Kind Kind() const = 0;
+    virtual Kind kind() const = 0;
     virtual ~Predicate() {}
 
     // Invokes func on p and on all of its operands recursively.  Does not invoke
@@ -191,7 +192,7 @@ public:
         return absl::StrCat("(", absl::StrJoin(operands_str, " & "), ")");
     }
 
-    Kind Kind() const override
+    Kind kind() const override
     {
         return Kind::K_AND;
     }
@@ -227,7 +228,7 @@ public:
         return absl::StrCat("(", absl::StrJoin(operands_str, " | "), ")");
     }
 
-    Kind Kind() const override
+    Kind kind() const override
     {
         return Kind::K_OR;
     }
@@ -254,7 +255,7 @@ public:
         return absl::StrCat("~", Operand()->ToString());
     }
 
-    Kind Kind() const override
+    Kind kind() const override
     {
         return Kind::K_NOT;
     }
@@ -318,7 +319,7 @@ public:
                             ">");
     }
 
-    Kind Kind() const override
+    Kind kind() const override
     {
         return Kind::K_AND_RECURRENCE;
     }
@@ -352,7 +353,7 @@ public:
         return MustBeTrue() ? absl::StrCat("*", tensor_id_.ToString()) : tensor_id_.ToString();
     }
 
-    Kind Kind() const override
+    Kind kind() const override
     {
         return Kind::K_SYMBOL;
     }
@@ -399,7 +400,7 @@ public:
                                              : tensor_id_.ToString();
     }
 
-    Kind Kind() const override
+    Kind kind() const override
     {
         return Kind::K_INIT_SYMBOL;
     }
@@ -605,7 +606,7 @@ private:
     {
         // ~(A & B & C & ...) => ~A | ~B | ~C | ~...
         // ~(A | B | C | ...) -> ~A & ~B & ~C & ~...
-        Predicate::Kind kind = pred->Kind();
+        Predicate::Kind kind = pred->kind();
         if (kind == Predicate::Kind::K_AND || kind == Predicate::Kind::K_OR) {
             std::vector<Predicate*> new_operands;
             std::transform(pred->GetOperands().begin(), pred->GetOperands().end(), std::back_inserter(new_operands),
@@ -922,9 +923,9 @@ private:
     {
         auto insert_result = predicate_map_.insert({TensorId(n->name(), output_idx), pred});
         if (!insert_result.second && insert_result.first->second != pred) {
-            VLOG_LEVEL_4 << "For " << n->name() << ":" << output_idx << " from "
-                         << insert_result.first->second->ToString() << " " << insert_result.first->second << " to "
-                         << pred->ToString() << " " << pred;
+            VLOG(VLOG_LEVEL_4) << "For " << n->name() << ":" << output_idx << " from "
+                               << insert_result.first->second->ToString() << " " << insert_result.first->second
+                               << " to " << pred->ToString() << " " << pred;
             insert_result.first->second = pred;
             if (should_revisit != nullptr) {
                 for (const Edge* e : n->out_edges()) {
@@ -1007,8 +1008,8 @@ Status DeadnessAnalysisImpl::HandleSwitch(Node* n, std::vector<bool>* should_rev
 
     if (n->type_string() != "_SwitchN") {  // bool pred branch selector.
         Predicate* true_switch;
-        TF_RETURN_IF_ERROR(predicate_factory_.MakeSymbolPredicate(pred_edge->src(), pred_edge->src_output(),
-                                                                  true, &true_switch));
+        TF_RETURN_IF_ERROR(
+            predicate_factory_.MakeSymbolPredicate(pred_edge->src(), pred_edge->src_output(), true, &true_switch));
 
         Predicate* false_switch = predicate_factory_.MakeNotPredicate(true_switch);
 
@@ -1025,8 +1026,7 @@ Status DeadnessAnalysisImpl::HandleSwitch(Node* n, std::vector<bool>* should_rev
         Predicate* branch_pred = nullptr;
         for (int i = 0; i < n->num_outputs() - 1; i++) {
             TF_RETURN_IF_ERROR(predicate_factory_.MakeSymbolPredicate(pred_edge->src(), pred_edge->src_output(),
-                                                                      absl::optional<int32>(i),
-                                                                      &branch_pred));
+                                                                      absl::optional<int32>(i), &branch_pred));
             input_preds.push_back(branch_pred);
             SetPredicate(n, i, predicate_factory_.MakeAndPredicate(input_preds), should_revisit);
             input_preds.pop_back();
@@ -1184,8 +1184,7 @@ Status DeadnessAnalysisImpl::HandleMerge(Node* n, std::vector<bool>* should_revi
                 string frame_name = control_flow_info_[n->id()].frame_name;
                 auto insert_result = frame_to_merge_node_.insert({frame_name, n});
                 Node* representative = insert_result.first->second;
-                TF_RETURN_IF_ERROR(predicate_factory_.MakeSymbolPredicate(representative, 0,
-                                                                          false, &input_data_pred));
+                TF_RETURN_IF_ERROR(predicate_factory_.MakeSymbolPredicate(representative, 0, false, &input_data_pred));
             } else {
                 TF_RETURN_IF_ERROR(predicate_factory_.MakeSymbolPredicate(n, 0, false, &input_data_pred));
             }
@@ -1242,8 +1241,7 @@ Status DeadnessAnalysisImpl::HandleRecv(Node* n, std::vector<bool>* should_revis
     std::vector<Predicate*> input_preds;
     TF_RETURN_IF_ERROR(GetInputPreds(n, EdgeKind::kDataAndControl, &input_preds));
     Predicate* signal_is_alive;
-    TF_RETURN_IF_ERROR(
-        predicate_factory_.MakeSymbolPredicate(n, 0, false, &signal_is_alive));
+    TF_RETURN_IF_ERROR(predicate_factory_.MakeSymbolPredicate(n, 0, false, &signal_is_alive));
     input_preds.push_back(signal_is_alive);
     SetPredicate(n, {0, Graph::kControlSlot}, predicate_factory_.MakeAndPredicate(input_preds), should_revisit);
     return absl::OkStatus();
@@ -1328,7 +1326,7 @@ Status DeadnessAnalysisImpl::GetFrameBasedTopologicalOrder(std::vector<Node*>* o
         Node* curr_node = ready.front();
         ready.pop_front();
 
-        VLOG_LEVEL_4 << "Visiting " << curr_node->name();
+        VLOG(VLOG_LEVEL_4) << "Visiting " << curr_node->name();
         order->push_back(curr_node);
 
         for (const Edge* out_edge : curr_node->out_edges()) {
@@ -1408,7 +1406,7 @@ Status DeadnessAnalysisImpl::Populate(bool enable_optimistic)
 
     // Do some opportunistic error checking:
     if (!unreachable_nodes.empty()) {
-        if (unreachable_nodes.size() > 5) { // only keep 5 nodes
+        if (unreachable_nodes.size() > 5) {  // only keep 5 nodes
             unreachable_nodes.erase(unreachable_nodes.begin() + 5, unreachable_nodes.end());
         }
 
@@ -1435,8 +1433,7 @@ Status DeadnessAnalysisImpl::Populate(bool enable_optimistic)
                 break;
             }
         }
-        absl::Span<Node*> sub_topo(topo.data() + frame_start,
-                                   frame_end - frame_start + 1);
+        absl::Span<Node*> sub_topo(topo.data() + frame_start, frame_end - frame_start + 1);
         frame_start = frame_end + 1;
 
         // First, try the optimistic mode.
@@ -1449,8 +1446,8 @@ Status DeadnessAnalysisImpl::Populate(bool enable_optimistic)
             // pessimistic mode.
             TF_RETURN_IF_ERROR(PopulateFrame(sub_topo, false, nullptr));
         }
-        VLOG_LEVEL_2 << "Done populating frame " << cur_frame_name << " using the "
-                << (success ? "optimistic" : "pessimistic") << " mode.";
+        VLOG(VLOG_LEVEL_2) << "Done populating frame " << cur_frame_name << " using the "
+                           << (success ? "optimistic" : "pessimistic") << " mode.";
     }
 
     return absl::OkStatus();
@@ -1478,7 +1475,7 @@ Status DeadnessAnalysisImpl::PopulateFrame(absl::Span<Node* const> topo, bool us
     std::vector<bool> should_revisit;
     should_revisit.resize(graph_.num_node_ids());
     for (Node* n : topo) {
-        VLOG_LEVEL_4 << "Visiting " << n->name();
+        VLOG(VLOG_LEVEL_4) << "Visiting " << n->name();
         TF_RETURN_IF_ERROR(HandleNode(n, nullptr, use_optimistic_mode));
         if (n->IsNextIteration()) {
             // If this is a backedge for a merge node then remember to reprocess the
@@ -1500,7 +1497,7 @@ Status DeadnessAnalysisImpl::PopulateFrame(absl::Span<Node* const> topo, bool us
         // ever add n's consumers to should_revisit, we won't "miss" an addition to
         // should_revisit.
         if (should_revisit[n->id()]) {
-            VLOG_LEVEL_4 << "Revisiting " << n->name();
+            VLOG(VLOG_LEVEL_4) << "Revisiting " << n->name();
             TF_RETURN_IF_ERROR(HandleNode(n, &should_revisit));
         }
     }
@@ -1532,9 +1529,9 @@ Status DeadnessAnalysisImpl::PopulateFrame(absl::Span<Node* const> topo, bool us
             Predicate* merge_pred = it->second;
             if (merge_pred->kind() != Predicate::Kind::K_AND_RECURRENCE) {
                 is_converged = false;
-                VLOG_LEVEL_2 << "Running the optimistic mode on frame " << frame_name
-                             << " does not converge because node " << merge->name()
-                             << " cannot be mapped into the AndRecurrence form.";
+                VLOG(VLOG_LEVEL_2) << "Running the optimistic mode on frame " << frame_name
+                                   << " does not converge because node " << merge->name()
+                                   << " cannot be mapped into the AndRecurrence form.";
                 break;
             }
 
@@ -1546,10 +1543,10 @@ Status DeadnessAnalysisImpl::PopulateFrame(absl::Span<Node* const> topo, bool us
                 Predicate* prev_andrec = insert_result.first->second;
                 if (curr_andrec != prev_andrec) {
                     is_converged = false;
-                    VLOG_LEVEL_2 << "Running the optimistic mode on frame " << frame_name
-                            << " does not converge. Seeing different Merge predicates: \n"
-                            << curr_andrec->ToString() << " and \n"
-                            << prev_andrec->ToString();
+                    VLOG(VLOG_LEVEL_2) << "Running the optimistic mode on frame " << frame_name
+                                       << " does not converge. Seeing different Merge predicates: \n"
+                                       << curr_andrec->ToString() << " and \n"
+                                       << prev_andrec->ToString();
                     break;
                 }
             }
@@ -1593,7 +1590,7 @@ void DeadnessAnalysisImpl::Print() const
     for (TensorId tensor_id : tensor_ids) {
         auto it = predicate_map_.find(tensor_id);
         CHECK(it != predicate_map_.end()) << tensor_id.ToString();
-        VLOG_LEVEL_2 << tensor_id.ToString() << " -> " << it->second->ToString();
+        VLOG(VLOG_LEVEL_2) << tensor_id.ToString() << " -> " << it->second->ToString();
     }
 }
 
@@ -1606,7 +1603,7 @@ Status DeadnessAnalysis::Run(const Graph& graph, std::unique_ptr<DeadnessAnalysi
     auto analysis = std::make_unique<DeadnessAnalysisImpl>(&graph);
     TF_RETURN_IF_ERROR(analysis->Populate(true));
 
-    if (VLOG_IS_ON(2)) { // print if log level is 2
+    if (VLOG_IS_ON(2)) {  // print if log level is 2
         analysis->Print();
     }
 

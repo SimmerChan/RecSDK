@@ -61,6 +61,7 @@ limitations under the License.
 #include "tf_bridge/tf/device_util.h"
 #include "tf_bridge/tf/flags.h"
 #include "tf_bridge/tf/graphcycles.h"
+#include "tf_bridge/tf/log.h"
 #include "tf_bridge/tf/resource_operation_safety_analysis.h"
 #include "tf_bridge/tf/resource_operation_table.h"
 #include "tf_bridge/tf/union_find.h"
@@ -85,8 +86,8 @@ bool HasResourceInput(const Node& node)
 
 void LogNotCompilable(const Node& node, absl::string_view reason = "")
 {
-    VLOG_LEVEL_3 << "Found uncompilable node " << node.name() << " (op " << node.type_string() << ")"
-                 << (reason.empty() ? "" : ": ") << reason;
+    VLOG(VLOG_LEVEL_3) << "Found uncompilable node " << node.name() << " (op " << node.type_string() << ")"
+                       << (reason.empty() ? "" : ": ") << reason;
 }
 
 Status MakeCallNodeFromAttribute(const Node& node, const std::string& attr_name, NodeDef* node_def)
@@ -148,8 +149,7 @@ RecursiveCompilabilityChecker::UncompilableNodesMap RecursiveCompilabilityChecke
     stack_trace.emplace_back(StackFrameView{node.name(), ""});
 
     RecursiveCompilabilityChecker::UncompilableNodesMap uncompilable_nodes;
-    IsCompilableNode(node, lib_runtime, &stack_trace,
-                     nullptr, &uncompilable_nodes);
+    IsCompilableNode(node, lib_runtime, &stack_trace, nullptr, &uncompilable_nodes);
     return uncompilable_nodes;
 }
 
@@ -169,8 +169,7 @@ RecursiveCompilabilityChecker::UncompilableNodesMap RecursiveCompilabilityChecke
     stack_trace.emplace_back(StackFrameView{call_def.name(), ""});
 
     RecursiveCompilabilityChecker::UncompilableNodesMap uncompilable_nodes;
-    IsCompilableCall(call_def, lib_runtime, &stack_trace,
-                     nullptr, &uncompilable_nodes);
+    IsCompilableCall(call_def, lib_runtime, &stack_trace, nullptr, &uncompilable_nodes);
     return uncompilable_nodes;
 }
 
@@ -198,7 +197,7 @@ bool RecursiveCompilabilityChecker::HasXLAKernel(const Node& node, string* uncom
     // XLA cluster so it can't implement the forward-tensor-ref semantic.  Leave
     // such nodes out of XLA clusters.
     if (HasForwardedRefInput(node)) {
-        VLOG_LEVEL_2 << "Rejecting " << node.name() << ": Identity with unsafe cast.";
+        VLOG(VLOG_LEVEL_2) << "Rejecting " << node.name() << ": Identity with unsafe cast.";
         *uncompilable_reason = "Identity with unsafe cast.";
         return false;
     }
@@ -256,11 +255,11 @@ bool RecursiveCompilabilityChecker::ExtractNodeDefAndCheckCompilability(
     if (!MakeCallNodeFromAttribute(node, attr_name, &call).ok()) {
         const auto uncompilable_reason = absl::StrCat("missing '", attr_name, "' attribute from node", node.name());
         MaybeMarkUncompilableNode(uncompilable_reason, *stack_trace, encapsulating_function, uncompilable_nodes);
-        VLOG_LEVEL_2 << "Rejecting node " << node.name() << ": " << uncompilable_reason << ".";
+        VLOG(VLOG_LEVEL_2) << "Rejecting node " << node.name() << ": " << uncompilable_reason << ".";
         return false;
     }
     if (!IsCompilableCall(call, lib_runtime, stack_trace, encapsulating_function, uncompilable_nodes)) {
-        VLOG_LEVEL_2 << "Rejecting node " << node.name() << ": can't compile : " << call.op();
+        VLOG(VLOG_LEVEL_2) << "Rejecting node " << node.name() << ": can't compile : " << call.op();
         return false;
     }
     return true;
@@ -276,7 +275,7 @@ bool RecursiveCompilabilityChecker::IsCompilableCall(
     if (stack_trace->size() > kMaxRecursionDepth) {
         std::string uncompilable_reason = "function depth limit exceeded";
         MaybeMarkUncompilableNode(uncompilable_reason, *stack_trace, encapsulating_function, uncompilable_nodes);
-        VLOG_LEVEL_2 << "Rejecting " << call_def.op() << ": " << uncompilable_reason << ".";
+        VLOG(VLOG_LEVEL_2) << "Rejecting " << call_def.op() << ": " << uncompilable_reason << ".";
         return false;
     }
 
@@ -290,7 +289,7 @@ bool RecursiveCompilabilityChecker::IsCompilableCall(
     if (!s.ok()) {
         std::string uncompilable_reason = absl::StrCat("could not instantiate call: '", call_def.DebugString(), "'");
         MaybeMarkUncompilableNode(uncompilable_reason, *stack_trace, encapsulating_function, uncompilable_nodes);
-        VLOG_LEVEL_2 << "Rejecting " << call_def.DebugString() << ": " << uncompilable_reason << " : " << s;
+        VLOG(VLOG_LEVEL_2) << "Rejecting " << call_def.DebugString() << ": " << uncompilable_reason << " : " << s;
         return false;
     }
 
@@ -424,6 +423,7 @@ bool RecursiveCompilabilityChecker::IsCompilableNodeCheckPartThree(
     const Node& node, FunctionLibraryRuntime* lib_runtime, std::vector<StackFrameView>* stack_trace,
     NameAttrList* encapsulating_function, RecursiveCompilabilityChecker::UncompilableNodesMap* uncompilable_nodes) const
 {
+    auto stack_depth = stack_trace->size();
     if (!op_filter_.allow_stack_ops && IsStackOp(node)) {
         absl::string_view uncompilable_reason = "Stack op";
         MaybeMarkUncompilableNode(uncompilable_reason, *stack_trace, encapsulating_function, uncompilable_nodes);
@@ -476,15 +476,15 @@ bool RecursiveCompilabilityChecker::IsCompilableNode(
     const Node& node, FunctionLibraryRuntime* lib_runtime, std::vector<StackFrameView>* stack_trace,
     NameAttrList* encapsulating_function, RecursiveCompilabilityChecker::UncompilableNodesMap* uncompilable_nodes) const
 {
-    if (!IsCompilableNodeCheckPartOne()) {
+    if (!IsCompilableNodeCheckPartOne(node, lib_runtime, stack_trace, encapsulating_function, uncompilable_nodes)) {
         return false;
     }
 
-    if (!IsCompilableNodeCheckPartTwo()) {
+    if (!IsCompilableNodeCheckPartTwo(node, lib_runtime, stack_trace, encapsulating_function, uncompilable_nodes)) {
         return false;
     }
 
-    if (!IsCompilableNodeCheckPartThree()) {
+    if (!IsCompilableNodeCheckPartThree(node, lib_runtime, stack_trace, encapsulating_function, uncompilable_nodes)) {
         return false;
     }
 
