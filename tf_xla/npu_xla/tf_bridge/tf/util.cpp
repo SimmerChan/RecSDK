@@ -30,7 +30,7 @@ limitations under the License.
 
 #include "tf_bridge/tf/util.h"
 
-#include <cstdarg.h>
+#include <cstdarg>
 
 #include <numeric>
 
