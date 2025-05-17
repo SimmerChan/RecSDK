@@ -787,15 +787,9 @@ def _export_all_saved_models(
 
     with context.graph_mode():
         if not checkpoint_path:
-            try:
-                checkpoint_path = _locate_latest_checkpoint()
-            except Exception as e:
-                logging.error(f"Error locating latest checkpoint: {e}")
+            checkpoint_path = _locate_latest_checkpoint()
         if not checkpoint_path:
-            try:
-                checkpoint_path = _process_warm_start()
-            except Exception as e:
-                logging.error(f"Error processing warm start: {e}")
+            checkpoint_path = _process_warm_start()
 
         export_dir_base = tf.compat.as_bytes(export_dir_base)
         builder = tf.compat.v1.saved_model.Builder(export_dir_base)
