@@ -157,7 +157,7 @@ private:
 
 Status PersistentCompliationCache::DumpToFileLocked()
 {
-    if (!is_cache_dirty_)
+    if (!isCacheDirty_)
         return absl::OkStatus();
 
     VLOG(VLOG_LEVEL_2) << "Dump compilation cache to: " << cache_dump_path_;
@@ -391,7 +391,7 @@ Status CompilationCache::Compile(std::unique_ptr<CompilerInput> input, const Nam
                        executable);
 }
 
-Entry* CompilationCache::CreateOrGetCacheEntry(const Signature& signature, bool* new_entry)
+CompilationCache::Entry* CompilationCache::CreateOrGetCacheEntry(const Signature& signature, bool* new_entry)
 {
     Entry* entry = nullptr;
     *new_entry = false;
@@ -554,7 +554,7 @@ Status SerializeFunctionLibraryWithTiming(const NameAttrList& function, Function
 }
 
 // 2. 处理常量参数
-void ProcessConstantArg(int64 input_num, const Tensor& input, CompilerInput::Argument* arg)
+void ProcessConstantArg(int64 input_num, const Tensor& input, ArgumentProto* arg)
 {
     CHECK(input.dtype() != tensorflow::DT_RESOURCE);
     arg->set_kind_v2(ArgumentKind::kConstant);
@@ -569,7 +569,7 @@ void ProcessConstantArg(int64 input_num, const Tensor& input, CompilerInput::Arg
 
 // 3. 处理非常量参数
 void ProcessNonConstantArg(int64 input_num, const Tensor& input, bool isMlir, const std::set<int>& fixed_shape_args,
-                           const std::set<int>& host_args, CompilerInput::Argument* arg)
+                           const std::set<int>& host_args, ArgumentProto* arg)
 {
     CHECK(input.dtype() != tensorflow::DT_RESOURCE);
     if (isMlir) {
@@ -601,8 +601,7 @@ void ProcessNonConstantArg(int64 input_num, const Tensor& input, bool isMlir, co
 }
 
 // 4. 处理资源变量参数
-void ProcessResourceArg(int64 input_num, const Tensor& input, const OptionalTensor& variable,
-                        CompilerInput::Argument* arg)
+void ProcessResourceArg(int64 input_num, const Tensor& input, const OptionalTensor& variable, ArgumentProto* arg)
 {
     CHECK(input.dtype() == tensorflow::DT_RESOURCE);
     *arg->mutable_name() = variable.name;
