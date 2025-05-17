@@ -133,7 +133,7 @@ static NameAttrList FunctionAttr(OpKernelConstruction* ctx, const char* const at
 
 namespace npu_xla {
 namespace {
-Status PrepareOptions(OpKernelContext* ctx, std::unique_ptr<CompilerInput>& inputPtr, std::string deviceType)
+Status PrepareOptions(OpKernelContext* ctx, std::unique_ptr<CompilerInput>& inputPtr, const std::string& deviceType)
 {
     auto& options = *(inputPtr->mutable_options());
     auto flib_def = ctx->function_library();
