@@ -97,14 +97,13 @@ limitations under the License.
 #include "absl/memory/memory.h"
 #include "absl/strings/str_join.h"
 #include "absl/types/optional.h"
+#include "common_hdrs/types.h"
 #include "tensorflow/core/framework/node_def.pb.h"
 #include "tensorflow/core/graph/algorithm.h"
 #include "tensorflow/core/graph/tensor_id.h"
 #include "tensorflow/core/lib/hash/hash.h"
 #include "tf_bridge/tf/resource_operation_table.h"
 #include "tf_bridge/tf/xla_cluster_util.h"
-
-#include "log.h"
 
 namespace tensorflow {
 namespace npu_xla {

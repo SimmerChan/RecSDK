@@ -45,7 +45,6 @@ limitations under the License.
 #include "tensorflow/core/public/version.h"
 #include "tf_bridge/tf/flags.h"
 #include "tf_bridge/tf/xla_cluster_util.h"
-#include "log.h"
 
 namespace tensorflow {
 namespace npu_xla {
