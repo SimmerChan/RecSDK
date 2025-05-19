@@ -8,13 +8,11 @@
 #include <memory>
 #include <utility>
 
-#include "unique.h"
-
 namespace hybrid {
 void IdsMapper::UniqueAndLookupOut(const torch::Tensor& globalIds, const torch::Tensor& hashIndices,
                                    const torch::Tensor& offset, const torch::Tensor& unique,
                                    const torch::Tensor& uniqueInverse, const torch::Tensor& uniqueOffset,
-                                   int64_t tensorI)
+                                   int64_t tableId, bool isUnique)
 {
     at::ThreadLocalStateGuard tlsGrad(state);
     RECORD_FUNCTION(c10::str("hybrid::UniqueAndLookupOut"), c10::ArrayRef<const c10::IValue>());
@@ -22,11 +20,11 @@ void IdsMapper::UniqueAndLookupOut(const torch::Tensor& globalIds, const torch::
     int64_t* hashIndicesPtr = hashIndices.data_ptr<int64_t>();
     int64_t* globalIdsPtr = globalIds.data_ptr<int64_t>();
     int64_t* offsetPtr = offset.data_ptr<int64_t>();
-    int64_t start = offsetPtr[tensorI];
-    int64_t end = offsetPtr[tensorI + 1];
+    int64_t start = offsetPtr[tableId];
+    int64_t end = offsetPtr[tableId + 1];
     int64_t* uniqueOffsetPtr = uniqueOffset.data_ptr<int64_t>();
     if (start == end) {
-        uniqueOffsetPtr[tensorI + 1] = uniqueOffsetPtr[tensorI];
+        uniqueOffsetPtr[tableId + 1] = uniqueOffsetPtr[tableId];
         return;
     }
     for (int64_t i = start; i < end; i++) {
@@ -49,31 +47,37 @@ void IdsMapper::UniqueAndLookupOut(const torch::Tensor& globalIds, const torch::
     }
 
     // Unique
-    UniqueProcessing(hashIndices, offset, unique, uniqueInverse, uniqueOffset, tensorI);
+    if (isUnique) {
+        UniqueProcessing(hashIndices, offset, unique, uniqueInverse, uniqueOffset, tableId);
+    }
 }
 
 void IdsMapper::UniqueProcessing(const torch::Tensor& hashIndices, const torch::Tensor& offset,
                                  const torch::Tensor& unique, const torch::Tensor& uniqueInverse,
-                                 const torch::Tensor& uniqueOffset, int64_t tensorI)
+                                 const torch::Tensor& uniqueOffset, int64_t tableId)
 {
     at::ThreadLocalStateGuard tlsGrad(state);
     RECORD_FUNCTION(c10::str("hybrid::UniqueProcessing"), c10::ArrayRef<const c10::IValue>());
 
     int64_t* hashIndicesPtr = hashIndices.data_ptr<int64_t>();
     int64_t* offsetPtr = offset.data_ptr<int64_t>();
-    int64_t start = offsetPtr[tensorI];
-    int64_t end = offsetPtr[tensorI + 1];
+    int64_t start = offsetPtr[tableId];
+    int64_t end = offsetPtr[tableId + 1];
     int64_t* uniqueOffsetPtr = uniqueOffset.data_ptr<int64_t>();
     if (start == end) {
-        uniqueOffsetPtr[tensorI + 1] = uniqueOffsetPtr[tensorI];
+        uniqueOffsetPtr[tableId + 1] = uniqueOffsetPtr[tableId];
         return;
     }
 
     auto aHashMap = AllocFullHashMap();
     auto aHashMapPtr = aHashMap->data();
-    int64_t* uniquePr = unique.data_ptr<int64_t>();
+    int64_t* uniquePtr = unique.data_ptr<int64_t>();
     int64_t* uniqueInversePtr = uniqueInverse.data_ptr<int64_t>();
-    int64_t globalUniqueOffset = uniqueOffsetPtr[tensorI];
+    if (uniqueOffsetPtr == nullptr || uniquePtr == nullptr || uniqueInversePtr == nullptr) {
+        printf("[ERROR] unique, uniqueOffset and uniqueInverse cannot be None!");
+        return;
+    }
+    int64_t globalUniqueOffset = uniqueOffsetPtr[tableId];
     int64_t thisUniqueOffset = 0;
 
     for (const auto i : c10::irange(start, end)) {
@@ -85,10 +89,10 @@ void IdsMapper::UniqueProcessing(const torch::Tensor& hashIndices, const torch::
         }
     }
 
-    if (tensorI == 0) {
-        uniqueOffsetPtr[tensorI] = 0;
+    if (tableId == 0) {
+        uniqueOffsetPtr[tableId] = 0;
     }
-    uniqueOffsetPtr[tensorI + 1] = uniqueOffsetPtr[tensorI] + thisUniqueOffset;
+    uniqueOffsetPtr[tableId + 1] = uniqueOffsetPtr[tableId] + thisUniqueOffset;
 
     for (const auto i : c10::irange(globalUniqueOffset, globalUniqueOffset + thisUniqueOffset)) {
         int64_t key = uniquePr[i];

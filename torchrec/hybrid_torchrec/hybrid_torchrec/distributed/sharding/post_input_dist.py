@@ -179,7 +179,7 @@ def do_unique_hash_out(
 
     for table_i in range(num_of_table):
         hashmap_list[table_i].ids2indices_unique_out(
-            ids, hash_indices, offsets, unique, unique_inverse, unique_offset, table_i
+            ids, hash_indices, offsets, unique, unique_inverse, unique_offset, table_i, True
         )
 
     unique_offset_list_single = unique_offset.tolist()

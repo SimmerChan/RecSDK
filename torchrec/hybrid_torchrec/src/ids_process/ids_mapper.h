@@ -29,10 +29,10 @@ public:
     {
         return *this;
     };
-    std::tuple<at::Tensor, at::Tensor, at::Tensor> UniqueAndLookup(const torch::Tensor& globalIds, bool high_precison);
+
     void UniqueAndLookupOut(const torch::Tensor& globalIds, const torch::Tensor& hashIndices,
                             const torch::Tensor& offset, const torch::Tensor& unique,
-                            const torch::Tensor& uniqueInverse, const torch::Tensor& uniqueOffset, int64_t tensorI);
+                            const torch::Tensor& uniqueInverse, const torch::Tensor& uniqueOffset, int64_t tableId, bool isUnique);
 
     std::unique_ptr<std::vector<int64_t>> AllocFullHashMap()
     {
@@ -60,7 +60,7 @@ private:
     
     void UniqueProcessing(const torch::Tensor& hashIndices, const torch::Tensor& offset,
         const torch::Tensor& unique, const torch::Tensor& uniqueInverse,
-        const torch::Tensor& uniqueOffset, int64_t tensorI);
+        const torch::Tensor& uniqueOffset, int64_t tableId);
     ska::flat_hash_map<int64_t, int64_t> ids2indicesMap;
 
     int numThread;
