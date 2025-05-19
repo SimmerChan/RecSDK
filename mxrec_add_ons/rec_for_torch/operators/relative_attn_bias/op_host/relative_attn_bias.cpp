@@ -25,6 +25,16 @@ constexpr int RAB_TIME_INDEX = 1;
 // attr index
 constexpr int PAST_VALID_LENS_INDEX = 0;
 constexpr int BUCKET_DIV_INDEX = 1;
+// output dim
+constexpr int RAB_POS_OUT_DIM = 3;
+constexpr int RAB_TIME_OUT_DIM = 6;
+constexpr int DIM_PLACE_HOLDER = 1;
+constexpr int DIM0 = 0;
+constexpr int DIM1 = 1;
+constexpr int DIM2 = 2;
+constexpr int DIM3 = 3;
+constexpr int DIM4 = 4;
+constexpr int DIM5 = 5;
 
 namespace optiling {
 static ge::graphStatus TilingFunc(gert::TilingContext* context)
@@ -78,6 +88,10 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     int intSize = ge::GetSizeByDataType(intType);
     tilingData.set_floatType(floatType);
     tilingData.set_intType(intType);
+    if (floatSize == 0) {
+        printf("[ERROR]float type(%d) error. sizeof(float) = %d\n", floatType, floatSize);
+        return ge::GRAPH_FAILED;
+    }
 
     // 计算一次处理的窗口大小(stride)
     int stride = ub / (NUM_BUFFER * 3 * floatSize);
@@ -122,25 +136,25 @@ static ge::graphStatus InferShape(gert::InferShapeContext* context)
     const auto pastValidLensPtr = attrs->GetAttrPointer<gert::ContinuousVector>(PAST_VALID_LENS_INDEX);
     int bs = pastValidLensPtr->GetSize();
     const gert::Shape* identityShape = context->GetInputShape(IDENTITY_INDEX);
-    int s = identityShape->GetDim(0);  // identityShape(2s, 2s)
+    int s = identityShape->GetDim(DIM0);  // identityShape(2s, 2s)
 
-    rabPosOutShape->SetDimNum(3);
-    rabPosOutShape->SetDim(0, bs);
-    rabPosOutShape->SetDim(1, s);
-    rabPosOutShape->SetDim(2, s);
+    rabPosOutShape->SetDimNum(RAB_POS_OUT_DIM);
+    rabPosOutShape->SetDim(DIM0, bs);
+    rabPosOutShape->SetDim(DIM1, s);
+    rabPosOutShape->SetDim(DIM2, s);
 
     const gert::Shape* tShape = context->GetInputShape(TIMESTAMPS_INDEX);
     const gert::Shape* tswShape = context->GetInputShape(TIMESTAMPS_WEIGHTS_INDEX);
     gert::Shape* rabTimeOutShape = context->GetOutputShape(RAB_TIME_INDEX);
-    int numLayers = tswShape->GetDim(1);
+    int numLayers = tswShape->GetDim(DIM1);
 
-    rabTimeOutShape->SetDimNum(6);
-    rabPosOutShape->SetDim(0, numLayers);
-    rabPosOutShape->SetDim(1, bs);
-    rabPosOutShape->SetDim(2, s);
-    rabPosOutShape->SetDim(3, 1);
-    rabPosOutShape->SetDim(4, s);
-    rabPosOutShape->SetDim(5, 1);
+    rabTimeOutShape->SetDimNum(RAB_TIME_OUT_DIM);
+    rabPosOutShape->SetDim(DIM0, numLayers);
+    rabPosOutShape->SetDim(DIM1, bs);
+    rabPosOutShape->SetDim(DIM2, s);
+    rabPosOutShape->SetDim(DIM3, DIM_PLACE_HOLDER);
+    rabPosOutShape->SetDim(DIM4, s);
+    rabPosOutShape->SetDim(DIM5, DIM_PLACE_HOLDER);
     return GRAPH_SUCCESS;
 }
 }  // namespace ge

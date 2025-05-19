@@ -1,11 +1,10 @@
 import random
 import sysconfig
-import time
 
-import torch
-import torch_npu
 import pytest
+import torch
 import torch.nn.functional as F
+import torch_npu
 
 torch.ops.load_library(f"{sysconfig.get_path('purelib')}/libfbgemm_npu_api.so")
 
@@ -146,8 +145,6 @@ def rab_pos_golden(rel_pos_bias: torch.Tensor, identity: torch.Tensor, past_vali
 
 @torch.no_grad()
 def rab(num_layers, train_len, candidate_len, bs, dtype):
-    print(f"\n{num_layers}\t{train_len}\t{candidate_len}\t{bs}\t{dtype}", end="\t")
-    t0 = time.time()
     layer_num = random.randint(0, num_layers - 1)
 
     pos_w = create_pos_w(train_len, num_layers).to(dtype)
@@ -159,8 +156,6 @@ def rab(num_layers, train_len, candidate_len, bs, dtype):
                                                          candidate_len=candidate_len,
                                                          num_layers=num_layers)
     rel_pos_bias_list, identity_list = rel_pos_bias_list.to(dtype), identity_list.to(dtype)
-    t1 = time.time()
-    print(f"create_data: {t1 - t0:.4f}s", end="\t")
 
     rel_pos_bias_list = rel_pos_bias_list.to(DEVICE)
     identity_list = identity_list.to(DEVICE)
@@ -168,8 +163,6 @@ def rab(num_layers, train_len, candidate_len, bs, dtype):
     timestamps_weights = timestamps_weights.to(DEVICE)
     past_valid_lens = past_valid_lens.to(DEVICE)
     torch_npu.npu.synchronize()
-    t2 = time.time()
-    print(f"to_device: {t2 - t1:.4f}s", end="\t")
 
     rab_pos_out, rab_time_out = rab_npu(rel_pos_bias=rel_pos_bias_list[layer_num, ...],
                                         identity=identity_list[layer_num, ...],
@@ -177,8 +170,6 @@ def rab(num_layers, train_len, candidate_len, bs, dtype):
                                         timestamps_weights=timestamps_weights,
                                         past_valid_lens=past_valid_lens)
     torch_npu.npu.synchronize()
-    t3 = time.time()
-    print(f"rab_npu: {t3 - t2:.4f}s", end="\t")
 
     # rab_pos_out_golden = rab_pos_golden(rel_pos_bias=rel_pos_bias_list[layer_num, ...],
     #                                     identity=identity_list[layer_num, ...],
@@ -186,9 +177,7 @@ def rab(num_layers, train_len, candidate_len, bs, dtype):
     rab_time_out_golden = rab_time_golden(ts_w=timestamps_weights.transpose(0, 1),
                                           timestamps=timestamps)
     torch_npu.npu.synchronize()
-    t4 = time.time()
-    print(f"rab_golden: {t4 - t3:.4f}s", end="\t")
-    
+
     # assert torch.allclose(rab_pos_out_golden, rab_pos_out)
     assert torch.allclose(rab_time_out_golden, rab_time_out)
 

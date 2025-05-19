@@ -1,10 +1,9 @@
 /**
-* @file rab_common.h
-*
-* Copyright (C) 2025. Huawei Technologies Co., Ltd. All rights reserved.
-*
-*/
-
+ * @file rab_common.h
+ *
+ * Copyright (C) 2025. Huawei Technologies Co., Ltd. All rights reserved.
+ *
+ */
 
 #ifndef MXREC_ADD_ONS_RAB_COMMON_H
 #define MXREC_ADD_ONS_RAB_COMMON_H
@@ -23,7 +22,7 @@ constexpr int8_t TYPE_INT64 = 9;
 
 using namespace AscendC;
 
-struct Args{
+struct Args {
     // pos_bias
     GM_ADDR positionBias;
     GM_ADDR identity;
@@ -37,4 +36,4 @@ struct Args{
     GM_ADDR workspace;
     GM_ADDR tiling;
 };
-#endif //MXREC_ADD_ONS_RAB_COMMON_H
+#endif  // MXREC_ADD_ONS_RAB_COMMON_H

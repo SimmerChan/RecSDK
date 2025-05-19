@@ -1,10 +1,9 @@
 /**
-* @file relative_attn_bias_time.h
-*
-* Copyright (C) 2025. Huawei Technologies Co., Ltd. All rights reserved.
-*
-*/
-
+ * @file relative_attn_bias_time.h
+ *
+ * Copyright (C) 2025. Huawei Technologies Co., Ltd. All rights reserved.
+ *
+ */
 
 #ifndef MXREC_ADD_ONS_RELATIVE_ATTN_BIAS_TIME_H
 #define MXREC_ADD_ONS_RELATIVE_ATTN_BIAS_TIME_H
@@ -19,7 +18,7 @@ struct SequenceParams {
     int subValue;
 };
 
-template<typename floatType>
+template <typename floatType>
 class RelativeAttnBiasTime {
 public:
     __aicore__ inline RelativeAttnBiasTime() {}
@@ -31,7 +30,7 @@ public:
         bs = tilingData.bs;
         stride = tilingData.timeStride;
         alignSeqLen = Ceil(s * sizeof(floatType)) / sizeof(floatType);
-        
+
         int totalLen = bs * s;
         uint32_t seqDatasize = s * sizeof(floatType);
         alignLen = seqDatasize / DATA_ALIGN_BYTES * DATA_ALIGN_BYTES;
@@ -56,7 +55,6 @@ public:
         pipe.InitBuffer(queTimestampsWeights, 1, alignNumBuckets * numLayer * sizeof(floatType));
         pipe.InitBuffer(tmpQue, 1, Ceil(tilingData.buffSize));
 
-
         int totalTableSizeSplit = totalLen % GetBlockNum();
         int baseLen = totalLen / GetBlockNum();
         if (GetBlockIdx() >= totalTableSizeSplit) {
@@ -72,7 +70,7 @@ public:
     {
         LocalTensor<int32_t> ts = queTimestamps.AllocTensor<int32_t>();
         DataCopy(ts, timestampsGT[offset], Ceil(cnt));
-        for (int i=0; i < cnt; ++i) {
+        for (int i = 0; i < cnt; ++i) {
             int seqSubValue = ts.GetValue(i);
             int seqId = (offset + i) / s;
             int seqOffsetUb = i * alignSeqLen;
@@ -88,7 +86,7 @@ public:
     __aicore__ inline void DataCopyIn(SequenceParams* params, int cnt)
     {
         LocalTensor<int32_t> ts = queTimestamps.AllocTensor<int32_t>();
-        for (int i=0; i < cnt; ++i) {
+        for (int i = 0; i < cnt; ++i) {
             SequenceParams param = params[i];
             int startIndexGT = param.startIndexGT;
             int startIndexUb = param.startIndexUb;
@@ -100,17 +98,16 @@ public:
 
     __aicore__ inline void ComputeBucketTimestamps(SequenceParams* params, int rowCnt)
     {
-
         LocalTensor<int32_t> tsInt = queTimestamps.DeQue<int32_t>();
         LocalTensor<float> tsTmp = tsInt.template ReinterpretCast<float>();
         LocalTensor<float> ts = queTimestampsFloat.AllocTensor<float>();
         LocalTensor<uint8_t> buff = tmpQue.AllocTensor<uint8_t>();
 
-        for (int i=0; i < rowCnt; ++i) {
+        for (int i = 0; i < rowCnt; ++i) {
             SequenceParams param = params[i];
             int startIndexUb = param.startIndexUb;
             int value = param.subValue;
-            Adds(tsInt[startIndexUb], tsInt[startIndexUb], (int32_t) -value, s);
+            Adds(tsInt[startIndexUb], tsInt[startIndexUb], (int32_t)-value, s);
         }
 
         uint32_t cnt = rowCnt * alignSeqLen;
@@ -120,10 +117,10 @@ public:
         ClampMin(tsTmp, ts, buff, clampMin, cnt);
         Log(ts, tsTmp, cnt);
         Muls(ts, ts, div, cnt);
-        ClampMax(tsTmp, ts, buff, (float) numBuckets, cnt);
+        ClampMax(tsTmp, ts, buff, (float)numBuckets, cnt);
 
         Cast(tsInt, tsTmp, RoundMode::CAST_TRUNC, cnt);
-        Muls(tsInt, tsInt, (int32_t) sizeof(floatType), cnt);  // 计算gather时的偏移量单位为bytes
+        Muls(tsInt, tsInt, (int32_t)sizeof(floatType), cnt);  // 计算gather时的偏移量单位为bytes
 
         tmpQue.FreeTensor(buff);
         queTimestampsFloat.FreeTensor(ts);
@@ -138,7 +135,7 @@ public:
         uint32_t tmpOffset = 0;
         while (tmpOffset < cnt) {
             uint32_t processLen = (cnt - tmpOffset) > processLenMax ? processLenMax : (cnt - tmpOffset);
-            Gather(rabTime[tmpOffset], tsw[layer * alignNumBuckets], tsInt[tmpOffset], (uint32_t) 0, processLen);
+            Gather(rabTime[tmpOffset], tsw[layer * alignNumBuckets], tsInt[tmpOffset], (uint32_t)0, processLen);
             tmpOffset += processLen;
         }
         queTimestampsFloat.EnQue(rabTime);
@@ -156,26 +153,25 @@ public:
                 DataCopy(rabTimeBiasOutGT[ptr + i * s], rabTime[ptrUb], s);
             }
             // 非对齐拷出
-            if (unalignLen == 0) {continue;}
+            if (unalignLen == 0) {
+                continue;
+            }
 #ifdef SUPPORT_V200
             uint64_t mask0 = (1ul << (DATA_ALIGN_BYTES / sizeof(floatType))) - (1ul << unalignCnt);
             uint64_t mask[2] = {mask0, 0};
-            Duplicate(rabTime[ptrUb + alignCnt], (floatType) 0, mask, 1, 1, 1);
+            Duplicate(rabTime[ptrUb + alignCnt], (floatType)0, mask, 1, 1, 1);
             set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
             wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
             SetAtomicAdd<floatType>();
-            DataCopy(rabTimeBiasOutGT[ptr + i * s + alignCnt], 
-                     rabTime[ptrUb + alignCnt], 
+            DataCopy(rabTimeBiasOutGT[ptr + i * s + alignCnt], rabTime[ptrUb + alignCnt],
                      Ceil(unalignLen) / sizeof(floatType));
             SetAtomicNone();
 #else
             const DataCopyExtParams dataCopyExtParams{1, unalignLen, 0, 0, 0};
 
-            DataCopyPad(rabTimeBiasOutGT[ptr + i * s + alignCnt],
-                        rabTime[ptrUb + alignCnt],
-                        dataCopyExtParams);
+            DataCopyPad(rabTimeBiasOutGT[ptr + i * s + alignCnt], rabTime[ptrUb + alignCnt], dataCopyExtParams);
 #endif
-            }
+        }
         queTimestampsFloat.FreeTensor(rabTime);
     }
 
@@ -188,7 +184,7 @@ public:
         queTimestampsWeights.EnQue(tsw);
     }
 
-    __aicore__ inline int64_t Ceil(int64_t a, int64_t b=DATA_ALIGN_BYTES)
+    __aicore__ inline int64_t Ceil(int64_t a, int64_t b = DATA_ALIGN_BYTES)
     {
         if (b == 0) {
             return 0;
@@ -220,10 +216,10 @@ public:
                 DataCopyOut(ptr, rowCnt);
             }
             queTimestamps.FreeTensor(tsInt);
-
         }
         queTimestampsWeights.FreeTensor(tsw);
     }
+
 private:
     // shape
     uint32_t s;
@@ -256,6 +252,5 @@ private:
     TQue<TPosition::VECOUT, 1> queTimestampsFloat;
     TQue<TPosition::VECIN, 1> queTimestampsWeights;
     TQue<TPosition::VECCALC, 1> tmpQue;
-
 };
-#endif //MXREC_ADD_ONS_RELATIVE_ATTN_BIAS_TIME_H
+#endif  // MXREC_ADD_ONS_RELATIVE_ATTN_BIAS_TIME_H

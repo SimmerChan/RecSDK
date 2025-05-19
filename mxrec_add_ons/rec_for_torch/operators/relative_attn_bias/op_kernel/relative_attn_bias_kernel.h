@@ -1,9 +1,9 @@
 /**
-* @file relative_attn_bias_kernel.h
-*
-* Copyright (C) 2025. Huawei Technologies Co., Ltd. All rights reserved.
-*
-*/
+ * @file relative_attn_bias_kernel.h
+ *
+ * Copyright (C) 2025. Huawei Technologies Co., Ltd. All rights reserved.
+ *
+ */
 
 #ifndef MXREC_ADD_ONS_RELATIVE_ATTN_BIAS_KERNEL_H
 #define MXREC_ADD_ONS_RELATIVE_ATTN_BIAS_KERNEL_H
@@ -14,8 +14,8 @@
 #include "kernel_operator.h"
 using namespace AscendC;
 
-template<typename floatType>
-class RelativeAttnBias {
+template <typename floatType>
+class RelativeAttnBiasKernel {
 public:
     __aicore__ inline RelativeAttnBias() {}
 
@@ -29,7 +29,6 @@ public:
         RelativeAttnBiasTime<floatType> rabTime;
         rabTime.Compute(args);
     }
-
 };
 
-#endif //MXREC_ADD_ONS_RELATIVE_ATTN_BIAS_KERNEL_H
+#endif  // MXREC_ADD_ONS_RELATIVE_ATTN_BIAS_KERNEL_H

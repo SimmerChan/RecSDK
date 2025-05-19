@@ -1,10 +1,9 @@
 /**
-* @file relative_attn_bias_pos.h
-*
-* Copyright (C) 2025. Huawei Technologies Co., Ltd. All rights reserved.
-*
-*/
-
+ * @file relative_attn_bias_pos.h
+ *
+ * Copyright (C) 2025. Huawei Technologies Co., Ltd. All rights reserved.
+ *
+ */
 
 #ifndef MXREC_ADD_ONS_RELATIVE_ATTN_BIAS_POS_H
 #define MXREC_ADD_ONS_RELATIVE_ATTN_BIAS_POS_H
@@ -12,7 +11,9 @@
 #include "kernel_operator.h"
 using namespace AscendC;
 
-template<typename floatType>
+constexpr SEQ_EXPAND = 2;  // rab_pos中序列长度为原本输入的两倍
+
+template <typename floatType>
 class RelativeAttnBiasPos {
 public:
     __aicore__ inline RelativeAttnBiasPos() {}
@@ -20,7 +21,7 @@ public:
     __aicore__ inline void Init(Args args)
     {
         GET_TILING_DATA(tilingData, args.tiling);
-        s = 2 * tilingData.s;
+        s = SEQ_EXPAND * tilingData.s;
         bs = tilingData.bs;
         stride = tilingData.positionStride;
         for (auto i = 0; i < bs; ++i) {
@@ -31,7 +32,7 @@ public:
         identityGT.SetGlobalBuffer((__gm__ floatType*)args.identity, s * s);
         rabPosBiasOutGT.SetGlobalBuffer((__gm__ floatType*)args.rabPosOut, bs * s * s);
 
-        pipe.InitBuffer(queIdentityIn, NUM_BUFFER, Ceil(2 * stride * sizeof(floatType)));
+        pipe.InitBuffer(queIdentityIn, NUM_BUFFER, Ceil(SEQ_EXPAND * stride * sizeof(floatType)));
         pipe.InitBuffer(quePosIn, NUM_BUFFER, Ceil(stride * sizeof(floatType)));
 
         int64_t totalTableSizeSplit = s % GetBlockNum();
@@ -58,8 +59,8 @@ public:
         LocalTensor<floatType> identityFilledUb = queIdentityIn.DeQue<floatType>();
 
         // 后半段 (1 - identity)
-        Muls(identityFilledUb[stride], identityFilledUb, (floatType) -1, cnt);
-        Adds(identityFilledUb[stride], identityFilledUb[stride], (floatType) 1, cnt);
+        Muls(identityFilledUb[stride], identityFilledUb, (floatType)-1, cnt);
+        Adds(identityFilledUb[stride], identityFilledUb[stride], (floatType)1, cnt);
 
         // 前半段 identity * rel_pos_bias[0, 0]
         Muls(identityFilledUb, identityFilledUb, REL_POS_BIAS_FIRST, cnt);
@@ -83,7 +84,7 @@ public:
         quePosIn.EnQue(posBiasUb);
     }
 
-    __aicore__ inline int64_t Ceil(int64_t a, int64_t b=DATA_ALIGN_BYTES)
+    __aicore__ inline int64_t Ceil(int64_t a, int64_t b = DATA_ALIGN_BYTES)
     {
         if (b == 0) {
             return 0;
@@ -109,19 +110,15 @@ public:
 #ifdef SUPPORT_V200
             uint64_t mask0 = (1ul << (DATA_ALIGN_BYTES / sizeof(floatType))) - (1ul << unAlignCnt);
             uint64_t mask[2] = {mask0, 0};
-            Duplicate(posBiasUb[alignCnt], (floatType) 0, mask, 1, 1, 1);
+            Duplicate(posBiasUb[alignCnt], (floatType)0, mask, 1, 1, 1);
             set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
             wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
             SetAtomicAdd<floatType>();
-            DataCopy(rabPosBiasOutGT[offset + alignCnt], 
-                     posBiasUb[alignCnt], 
-                     Ceil(unAlignLen) / sizeof(floatType));
+            DataCopy(rabPosBiasOutGT[offset + alignCnt], posBiasUb[alignCnt], Ceil(unAlignLen) / sizeof(floatType));
             SetAtomicNone();
 #else
             const DataCopyExtParams dataCopyExtParams{1, unAlignLen, 0, 0, 0};
-            DataCopyPad(rabPosBiasOutGT[offset + alignCnt],
-                        posBiasUb[alignCnt],
-                        dataCopyExtParams);
+            DataCopyPad(rabPosBiasOutGT[offset + alignCnt], posBiasUb[alignCnt], dataCopyExtParams);
 #endif
         }
         quePosIn.FreeTensor(posBiasUb);
@@ -130,7 +127,7 @@ public:
     __aicore__ inline void Compute(Args args)
     {
         Init(args);
-        for (int row=rowOffset; row < rowOffset + totalRow; ++row) {
+        for (int row = rowOffset; row < rowOffset + totalRow; ++row) {
             int offset = 0;
             for (int j = 0; j < (s + stride - 1) / stride; ++j) {
                 int remain = s - offset;
@@ -159,7 +156,7 @@ private:
     int stride;
     // tiling
     int rowOffset;  // identity、rel_pos_bias(s, s)的行偏移
-    int totalRow;  // 需要处理的总行数
+    int totalRow;   // 需要处理的总行数
 
 private:
     TPipe pipe;
@@ -172,7 +169,6 @@ private:
     GlobalTensor<floatType> rabPosBiasOutGT;
     uint32_t pastValidLens[MAX_BATCH_SIZE];
     floatType REL_POS_BIAS_FIRST;  // identity[0, 0]
-
 };
 
-#endif //MXREC_ADD_ONS_RELATIVE_ATTN_BIAS_POS_H
+#endif  // MXREC_ADD_ONS_RELATIVE_ATTN_BIAS_POS_H

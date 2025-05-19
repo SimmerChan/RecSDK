@@ -15,43 +15,33 @@
 #include "../common/pytorch_npu_helper.hpp"
 using torch::autograd::AutogradContext;
 using torch::autograd::Function;
-using tensor_list = std::vector<at::Tensor>;
 using namespace at;
 using namespace std;
 
-std::tuple<Tensor, Tensor> relative_attn_bias_impl_npu(
-    const Tensor &rel_pos_bias,
-    const Tensor &identity,
-    const Tensor &timestamps,
-    const Tensor &timestamps_weights,
-    const at::IntArrayRef past_valid_lens,
-    const double bucket_divisor)
+std::tuple<Tensor, Tensor> relative_attn_bias_impl_npu(const Tensor& relPosBias, 
+                                                       const Tensor& identity,
+                                                       const Tensor& timestamps, 
+                                                       const Tensor& timestampsWeights,
+                                                       const at::IntArrayRef pastValidLens, 
+                                                       const double bucketDivisor)
 {
-    auto rel_pos_bias_conti = rel_pos_bias.contiguous();
-    auto identity_conti = identity.contiguous();
-    auto timestamps_conti = timestamps.contiguous();
-    auto timestamps_weights_conti = timestamps_weights.contiguous();
+    auto relPosBiasConti = relPosBias.contiguous();
+    auto identityConti = identity.contiguous();
+    auto timestampsConti = timestamps.contiguous();
+    auto timestampsWeightsConti = timestampsWeights.contiguous();
 
-    const int bs = past_valid_lens.size();
-    const int s = rel_pos_bias.size(0);  // (2s, 2s)
-    const int _s = s / 2;  // (2s, 2s)
-    const int num_layers = timestamps_weights.size(0);
+    const int bs = pastValidLens.size();
+    const int sx2 = relPosBias.size(0);  // relPosBias(2s, 2s)
+    const int s = sx2 / 2;
+    const int numLayers = timestampsWeights.size(0);
 
-    at::Tensor rab_pos_out = at::zeros({bs, s, s}, rel_pos_bias_conti.options());
-    at::Tensor rab_time_out = at::zeros({num_layers, bs, _s, 1, _s, 1}, timestamps_weights_conti.options());
+    at::Tensor rabPosOut = at::zeros({bs, sx2, sx2}, relPosBiasConti.options());
+    at::Tensor rabTimeOut = at::zeros({numLayers, bs, s, 1, s, 1}, timestampsWeightsConti.options());
 
-    EXEC_NPU_CMD(aclnnRelativeAttnBias,
-                 rel_pos_bias_conti,
-                 identity_conti,
-                 timestamps_conti,
-                 timestamps_weights_conti,
-                 past_valid_lens,
-                 bucket_divisor,
-                 rab_pos_out,
-                 rab_time_out);
-    rab_time_out = rab_time_out.repeat({1, 1, 1, 2, 1, 2})
-                               .reshape({num_layers, bs, s, s});
-    return {rab_pos_out, rab_time_out};
+    EXEC_NPU_CMD(aclnnRelativeAttnBias, relPosBiasConti, identityConti, timestampsConti, timestampsWeightsConti,
+                 pastValidLens, bucketDivisor, rabPosOut, rabTimeOut);
+    rabTimeOut = rabTimeOut.repeat({1, 1, 1, 2, 1, 2}).reshape({numLayers, bs, sx2, sx2});
+    return {rabPosOut, rabTimeOut};
 }
 
 TORCH_LIBRARY_FRAGMENT(mxrec, m)

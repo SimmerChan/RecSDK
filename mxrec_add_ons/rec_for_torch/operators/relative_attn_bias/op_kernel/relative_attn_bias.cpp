@@ -9,8 +9,7 @@
 #include "relative_attn_bias_kernel.h"
 #include "kernel_operator.h"
 
-extern "C" __global__ __aicore__ void relative_attn_bias(
-                                                         GM_ADDR positionBias,
+extern "C" __global__ __aicore__ void relative_attn_bias(GM_ADDR positionBias,
                                                          GM_ADDR identity,
                                                          GM_ADDR timestamps,
                                                          GM_ADDR timestampsWeights,
@@ -24,11 +23,10 @@ extern "C" __global__ __aicore__ void relative_attn_bias(
         positionBias, identity, timestamps, timestampsWeights, rabPosOut, rabTimeOut, workspace, tiling
     };
     if (tilingData.floatType == TYPE_FP32) {
-        RelativeAttnBias<float> kernel;
+        RelativeAttnBiasKernel<float> kernel;
         kernel.Compute(args);
     } else if (tilingData.floatType == TYPE_FP16) {
-        RelativeAttnBias<half> kernel;
+        RelativeAttnBiasKernel<half> kernel;
         kernel.Compute(args);
     }
-
 }

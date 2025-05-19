@@ -1,10 +1,9 @@
 /**
-* @file relative_attn_bias_tiling.h
-*
-* Copyright (C) 2025. Huawei Technologies Co., Ltd. All rights reserved.
-*
-*/
-
+ * @file relative_attn_bias_tiling.h
+ *
+ * Copyright (C) 2025. Huawei Technologies Co., Ltd. All rights reserved.
+ *
+ */
 
 #ifndef MXREC_ADD_ONS_RELATIVE_ATTN_BIAS_TILING_H
 #define MXREC_ADD_ONS_RELATIVE_ATTN_BIAS_TILING_H
@@ -30,5 +29,5 @@ TILING_DATA_FIELD_DEF(int, buffSize);
 
 END_TILING_DATA_DEF;
 REGISTER_TILING_DATA_CLASS(RelativeAttnBias, RelativeAttnBiasTilingData)
-}
-#endif //MXREC_ADD_ONS_RELATIVE_ATTN_BIAS_TILING_H
+}  // namespace optiling
+#endif  // MXREC_ADD_ONS_RELATIVE_ATTN_BIAS_TILING_H
