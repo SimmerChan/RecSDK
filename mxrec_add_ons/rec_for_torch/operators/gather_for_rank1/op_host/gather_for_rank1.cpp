@@ -17,7 +17,7 @@ See the License for the specific language governing permissions and
 #include "register/op_def_registry.h"
 #include "tiling/platform/platform_ascendc.h"
 
-#include "../../common/utils.h"
+#include "../../../common/utils.h"
 
 namespace optiling {
 constexpr int RESERVER_UB_SIZE = 20 * 1024;

@@ -17,13 +17,13 @@
 #include "index_select_for_rank1_backward_tiling.h"
 #include "register/op_def_registry.h"
 #include "tiling/platform/platform_ascendc.h"
-#include "../../common/utils.h"
+#include "../../../common/utils.h"
 
 namespace optiling {
 
 constexpr int GM_ALIGN = 64;
 constexpr int FLOAT_BYTESIZE = 4;
-constexpr int GRAD_IDX= 0;
+constexpr int GRAD_IDX = 0;
 constexpr int X_IDX = 1;
 constexpr int INDEX_IDX = 2;
 

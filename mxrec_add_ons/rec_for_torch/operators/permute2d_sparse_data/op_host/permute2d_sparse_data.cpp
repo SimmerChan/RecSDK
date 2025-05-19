@@ -17,7 +17,7 @@ See the License for the specific language governing permissions and
 #include "register/op_def_registry.h"
 #include "tiling/platform/platform_ascendc.h"
 
-#include "../../common/utils.h"
+#include "../../../common/utils.h"
 namespace optiling {
 
 constexpr int GM_ALIGN = 64;
@@ -134,10 +134,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
 
     context->SetBlockDim(coreNum);
 
-    if (context->GetRawTilingData() == nullptr) {
-        printf("[ERROR]context->GetRawTilingData() is nullptr.");
-        return ge::GRAPH_FAILED;
-    }
+    if (CheckPtrIsNull(context->GetRawTilingData(), "raw tilingData")) return ge::GRAPH_FAILED;
 
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());

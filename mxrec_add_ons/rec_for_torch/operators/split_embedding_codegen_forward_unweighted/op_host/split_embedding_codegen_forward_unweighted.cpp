@@ -20,7 +20,7 @@ See the License for the specific language governing permissions and
 #include "split_embedding_codegen_forward_unweighted_tiling.h"
 #include "tiling/platform/platform_ascendc.h"
 
-#include "../../common/utils.h"
+#include "../../../common/utils.h"
 
 namespace optiling {
 
@@ -165,11 +165,11 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
 namespace ge {
 static ge::graphStatus InferShape(gert::InferShapeContext* context)
 {
-    if (optiling::CheckPtrIsNull(context, "context")) return ge::GRAPH_FAILED;
+    if (CheckPtrIsNull(context, "context")) return ge::GRAPH_FAILED;
     const gert::Shape* x1_shape = context->GetInputShape(0);
-    if (optiling::CheckPtrIsNull(x1_shape, "x1_shape")) return ge::GRAPH_FAILED;
+    if (CheckPtrIsNull(x1_shape, "x1_shape")) return ge::GRAPH_FAILED;
     gert::Shape* y_shape = context->GetOutputShape(0);
-    if (optiling::CheckPtrIsNull(y_shape, "y_shape")) return ge::GRAPH_FAILED;
+    if (CheckPtrIsNull(y_shape, "y_shape")) return ge::GRAPH_FAILED;
 
     *y_shape = *x1_shape;
     return GRAPH_SUCCESS;

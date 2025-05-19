@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 #include "asynchronous_complete_cumsum_tiling.h"
 #include "register/op_def_registry.h"
 
-#include "../../common/utils.h"
+#include "../../../common/utils.h"
 
 namespace {
     constexpr int32_t EMBEDDING_TYPE_INT64 = 0;

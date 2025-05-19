@@ -18,7 +18,7 @@ See the License for the specific language governing permissions and
 #include "register/op_def_registry.h"
 #include "tiling/platform/platform_ascendc.h"
 
-#include "../../common/utils.h"
+#include "../../../common/utils.h"
 
 namespace optiling {
 constexpr int32_t ALIGN_32 = 32;
@@ -34,7 +34,6 @@ constexpr int32_t SIZEOF_INT64 = 8;
 
 static ge::graphStatus TilingFunc(gert::TilingContext* context)
 {
-
     if (CheckPtrIsNull(context->GetInputShape(0), "denseShape")) return ge::GRAPH_FAILED;
     if (CheckPtrIsNull(context->GetInputShape(1), "offsetShape")) return ge::GRAPH_FAILED;
     if (CheckPtrIsNull(context->GetInputTensor(0), "dense")) return ge::GRAPH_FAILED;
@@ -107,7 +106,7 @@ static ge::graphStatus InferShape(gert::InferShapeContext* context)
 
     if (CheckPtrIsNull(denseShape, "denseShape")) return ge::GRAPH_FAILED;
     if (CheckPtrIsNull(jaggedShape, "denseShape")) return ge::GRAPH_FAILED;
-    if (CheckPtrIsNull( context->GetAttrs(), "attrs")) return ge::GRAPH_FAILED;
+    if (CheckPtrIsNull(context->GetAttrs(), "attrs")) return ge::GRAPH_FAILED;
 
     const int32_t* jaggedDim0 = context->GetAttrs()->GetAttrPointer<int32_t>(0);
 
