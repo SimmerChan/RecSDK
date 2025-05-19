@@ -31,7 +31,7 @@ from tensorflow.python.framework import ops
 from tensorflow.core.protobuf.rewriter_config_pb2 import RewriterConfig
 from npu_bridge.hccl import hccl_ops
 from npu_bridge.estimator import npu_ops
-from sparse_ops.config import set_ascend_env
+from sparse_ops.config import set_ascend_env, AscendEnv
 
 from mx_rec.graph.modifier import modify_graph_and_start_emb_cache
 from mx_rec.core.asc.manager import start_asc_pipeline
@@ -41,6 +41,7 @@ from mx_rec.util.initialize import get_rank_size, init, clear_channel, get_rank_
 from mx_rec.constants.constants import MxRecMode
 from mx_rec.core.embedding import create_table, sparse_lookup
 from mx_rec.util.initialize import get_ascend_global_hashtable_collection
+from mx_rec.constants.constants import ASCEND_SPARSE_LOOKUP_LOCAL_EMB, ASCEND_SPARSE_LOOKUP_ID_OFFSET
 
 
 logging.getLogger().setLevel(logging.INFO)
@@ -48,8 +49,6 @@ logging.getLogger().setLevel(logging.INFO)
 USE_PIPELINE_TEST = False
 USE_STATIC = False
 USE_EXPANSION = False
-
-from mx_rec.constants.constants import ASCEND_SPARSE_LOOKUP_LOCAL_EMB, ASCEND_SPARSE_LOOKUP_ID_OFFSET
 
 
 class WideDeep:
@@ -70,8 +69,33 @@ class WideDeep:
         return self.op
 
 
-def input_fn_tfrecord(feature_spec_list, rank_id, local_rank_id, rank_size, data_path, file_pattern, total_batch_size,
-                      num_epochs=1, perform_shuffle=False, training=True):
+class InputConfig:
+    def __init__(self, feature_spec_list, rank_id, local_rank_id, rank_size, data_path, file_pattern, 
+                 total_batch_size, num_epochs=1, perform_shuffle=False, training=True):
+        self.feature_spec_list = feature_spec_list
+        self.rank_id = rank_id
+        self.local_rank_id = local_rank_id
+        self.rank_size = rank_size
+        self.data_path = data_path
+        self.file_pattern = file_pattern
+        self.total_batch_size = total_batch_size
+        self.num_epochs = num_epochs
+        self.perform_shuffle = perform_shuffle
+        self.training = training
+
+
+def input_fn_tfrecord(input_config: InputConfig):
+    feature_spec_list = input_config.feature_spec_list
+    rank_id = input_config.rank_id
+    local_rank_id = input_config.local_rank_id
+    rank_size = input_config.rank_size
+    data_path = input_config.data_path
+    file_pattern = input_config.file_pattern
+    total_batch_size = input_config.total_batch_size
+    num_epochs = input_config.num_epochs
+    perform_shuffle = input_config.perform_shuffle
+    training = input_config.training
+
     line_per_sample = 1024 * 8
     total_batch_size = int(total_batch_size / line_per_sample)
     num_parallel = 8
@@ -121,7 +145,8 @@ if __name__ == '__main__':
     rank_size = comm.Get_size()
     logging.info(f"rank {rank_id}/{rank_size}")
     local_rank_id = rank_id % local_rank_size
-    set_ascend_env(rank_id, rank_size, local_rank_size, host=args.hosts, file=args.hccl_json)
+    ascend_env = AscendEnv(rank_id, rank_size, local_rank_size, host=args.hosts, file=args.hccl_json)
+    set_ascend_env(ascend_env)
 
     # create session
     sess_config = tf.ConfigProto()
@@ -154,7 +179,7 @@ if __name__ == '__main__':
     hot_zhanbi = float(hot_zhanbi) / 10
 
     config = {
-        "data_path": "./data1/data" + str(hot_zhanbi) + "_" + str(float(args.new_key)) + "/",
+        "data_path": os.path.join(".", "data1", "data" + str(hot_zhanbi) + "_" + str(float(args.new_key))) + os.sep,
         "train_file_pattern": "tf",
         "test_file_pattern": "test",
         "batch_size": 1024 * 8,
@@ -185,15 +210,16 @@ if __name__ == '__main__':
     feature_spec_list = [
         FeatureSpec("feat_ids", feat_count=128, table_name="merged_sparse_embeddings", batch_size=config["batch_size"])]
     with tf.device('/cpu:0'):
-        train_dataset = input_fn_tfrecord(feature_spec_list=feature_spec_list,
-                                          rank_id=rank_id,
-                                          local_rank_id=local_rank_id,
-                                          rank_size=rank_size,
-                                          data_path=config["data_path"],
-                                          file_pattern=config["train_file_pattern"],
-                                          total_batch_size=int(rank_size * config["batch_size"]),
-                                          perform_shuffle=(not USE_PIPELINE_TEST),
-                                          num_epochs=config["train_epoch"])
+        input_config = InputConfig(feature_spec_list=feature_spec_list,
+                            rank_id=rank_id,
+                            local_rank_id=local_rank_id,
+                            rank_size=rank_size,
+                            data_path=config["data_path"],
+                            file_pattern=config["train_file_pattern"],
+                            total_batch_size=int(rank_size * config["batch_size"]),
+                            perform_shuffle=(not USE_PIPELINE_TEST),
+                            num_epochs=config["train_epoch"])
+        train_dataset = input_fn_tfrecord(input_config)
         train_iterator = train_dataset.make_initializable_iterator()
         train_next_iter = train_iterator.get_next()
 
@@ -251,7 +277,8 @@ if __name__ == '__main__':
                     try:
                         logging.info(
                             f"current_steps: {current_steps} ,deep_loss:{results['deep_loss']},"
-                            f"e2etime per step:{(end_time - start_time) * 1000}")
+                            f"e2etime per step:{(end_time - start_time) * 1000}"
+                        )
                     except KeyError:
                         logging.error(f"current_steps: {current_steps}")
                     logging.info("----------" * 10)
@@ -264,6 +291,8 @@ if __name__ == '__main__':
 
         # train_finished
         logging.info(
-            f"training {current_steps} steps, consume time: {(time.time() - total_start_time) / (current_steps - 5) * 1000} ")
+            f"training {current_steps} steps, consume time: "
+            f"{(time.time() - total_start_time) / (current_steps - 5) * 1000} "
+        )
 
         terminate_config_initializer()
