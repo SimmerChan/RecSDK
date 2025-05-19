@@ -17,6 +17,7 @@ See the License for the specific language governing permissions and
 #include "register/op_def_registry.h"
 #include "tiling/platform/platform_ascendc.h"
 
+#include "../../common/utils.h"
 namespace optiling {
 
 constexpr int GM_ALIGN = 64;
@@ -27,9 +28,17 @@ constexpr int DATA_TYPE_FLOAT32 = 4;
 constexpr int NUM_QUEUE = 4;
 constexpr int UB_ALIGN = 32;
 constexpr int SUPPORT_EMBEDDING_DIM_NUM = 2;
+constexpr int PERMUTE_INDEX = 0;
+constexpr int LENGTH_INDEX = 1;
+constexpr int VALUES_INDEX = 2;
 
 static void SetTypeTiling(gert::TilingContext* context, Permute2dSparseDataTilingData& tiling)
 {
+    // check tensor is nullptr
+    if (CheckPtrIsNull(context->GetInputTensor(PERMUTE_INDEX), "permute tensor")) return ge::GRAPH_FAILED;
+    if (CheckPtrIsNull(context->GetInputTensor(LENGTH_INDEX), "length tensor")) return ge::GRAPH_FAILED;
+    if (CheckPtrIsNull(context->GetInputTensor(VALUE_INDEX), "value tensor")) return ge::GRAPH_FAILED;
+
     // permute: InputTensor(0), support int32
     int64_t permuteDataType = 0;
     ge::DataType permuteDataTypeGe = context->GetInputTensor(0)->GetDataType();
@@ -64,6 +73,11 @@ static void SetTypeTiling(gert::TilingContext* context, Permute2dSparseDataTilin
 
 static ge::graphStatus TilingFunc(gert::TilingContext* context)
 {
+    if (CheckPtrIsNull(context, "context")) return ge::GRAPH_FAILED;
+    if (CheckPtrIsNull(context->GetInputShape(PERMUTE_INDEX), "permuteShape")) return ge::GRAPH_FAILED;
+    if (CheckPtrIsNull(context->GetInputShape(LENGTH_INDEX), "lengthsShape")) return ge::GRAPH_FAILED;
+    if (CheckPtrIsNull(context->GetInputShape(VALUE_INDEX), "valuesShape")) return ge::GRAPH_FAILED;
+
     Permute2dSparseDataTilingData tiling;
     auto ascendPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
 
@@ -135,12 +149,20 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
 namespace ge {
 static ge::graphStatus InferShape(gert::InferShapeContext* context)
 {
-    const gert::Shape* permuteShape = context->GetInputShape(0);
-    const gert::Shape* lengthsShape = context->GetInputShape(1);
-    const gert::Shape* valuesShape = context->GetInputShape(2);
+    if (CheckPtrIsNull(context, "context")) return ge::GRAPH_FAILED;
+  
+    const gert::Shape* permuteShape = context->GetInputShape(PERMUTE_INDEX);
+    const gert::Shape* lengthsShape = context->GetInputShape(LENGTH_INDEX);
+    const gert::Shape* valuesShape = context->GetInputShape(VALUE_INDEX);
 
     gert::Shape* outPermutedLengths = context->GetOutputShape(0);
     gert::Shape* outPermutedValues = context->GetOutputShape(1);
+
+    if (CheckPtrIsNull(permuteShape, "permuteShape")) return ge::GRAPH_FAILED;
+    if (CheckPtrIsNull(lengthsShape, "lengthsShape")) return ge::GRAPH_FAILED;
+    if (CheckPtrIsNull(valuesShape, "valuesShape")) return ge::GRAPH_FAILED;
+    if (CheckPtrIsNull(outPermutedLengths, "permuteShape")) return ge::GRAPH_FAILED;
+    if (CheckPtrIsNull(outPermutedValues, "lengthsShape")) return ge::GRAPH_FAILED;
 
     int dimSize = 2;
     outPermutedLengths->SetDimNum(dimSize);

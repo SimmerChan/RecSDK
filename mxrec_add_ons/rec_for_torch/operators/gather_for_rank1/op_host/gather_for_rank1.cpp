@@ -17,6 +17,8 @@ See the License for the specific language governing permissions and
 #include "register/op_def_registry.h"
 #include "tiling/platform/platform_ascendc.h"
 
+#include "../../common/utils.h"
+
 namespace optiling {
 constexpr int RESERVER_UB_SIZE = 20 * 1024;
 constexpr int AT_LEAST_INDEX_UB_SIZE = 32;
@@ -24,6 +26,10 @@ constexpr int MAX_DIM = 20480;
 static ge::graphStatus TilingFunc(gert::TilingContext* context)
 {
     GatherForRank1TilingData tiling;
+
+    if (CheckPtrIsNull(context->GetInputShape(0), "xShape")) return ge::GRAPH_FAILED;
+    if (CheckPtrIsNull(context->GetInputShape(1), "indexShape")) return ge::GRAPH_FAILED;
+    if (CheckPtrIsNull(context->GetInputTensor(0), "x")) return ge::GRAPH_FAILED;
 
     int32_t xDim0 = context->GetInputShape(0)->GetStorageShape().GetShapeSize();
     int32_t indexDim0 = context->GetInputShape(1)->GetStorageShape().GetShapeSize();
@@ -69,6 +75,9 @@ static ge::graphStatus InferShape(gert::InferShapeContext* context)
 {
     const gert::Shape* x1_shape = context->GetInputShape(1);
     gert::Shape* y_shape = context->GetOutputShape(0);
+    if (CheckPtrIsNull(x1_shape, "x1_shape")) return ge::GRAPH_FAILED;
+    if (CheckPtrIsNull(y_shape, "y_shape")) return ge::GRAPH_FAILED;
+
     *y_shape = *x1_shape;
     return GRAPH_SUCCESS;
 }

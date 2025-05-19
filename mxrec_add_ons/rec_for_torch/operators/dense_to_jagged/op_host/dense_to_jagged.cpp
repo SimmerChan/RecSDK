@@ -18,6 +18,8 @@ See the License for the specific language governing permissions and
 #include "register/op_def_registry.h"
 #include "tiling/platform/platform_ascendc.h"
 
+#include "../../common/utils.h"
+
 namespace optiling {
 constexpr int32_t ALIGN_32 = 32;
 constexpr int32_t ALIGN_512 = 512;
@@ -32,11 +34,17 @@ constexpr int32_t SIZEOF_INT64 = 8;
 
 static ge::graphStatus TilingFunc(gert::TilingContext* context)
 {
+
+    if (CheckPtrIsNull(context->GetInputShape(0), "denseShape")) return ge::GRAPH_FAILED;
+    if (CheckPtrIsNull(context->GetInputShape(1), "offsetShape")) return ge::GRAPH_FAILED;
+    if (CheckPtrIsNull(context->GetInputTensor(0), "dense")) return ge::GRAPH_FAILED;
+    if (CheckPtrIsNull(context->GetInputTensor(1), "offset")) return ge::GRAPH_FAILED;
+
     auto denseShape = context->GetInputShape(0)->GetStorageShape();
     auto offsetShape = context->GetInputShape(1)->GetStorageShape();
     auto denseType = context->GetInputTensor(0)->GetDataType();
     auto offsetType = context->GetInputTensor(1)->GetDataType();
-
+   
     DenseToJaggedTilling tilingData;
     // Platform configuration
     auto ascnedPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
@@ -52,6 +60,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     ascnedPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ub);
     ub = ub - RESERVER_UB_SIZE;
 
+    if (CheckPtrIsNull(context->GetAttrs(), "attrs")) return ge::GRAPH_FAILED;
     const int32_t* outDim0 = context->GetAttrs()->GetAttrPointer<int32_t>(0);
     int outDim1 = denseShape.GetDim(DIM2);
     int64_t jaggedTotal = *outDim0 * outDim1;
@@ -95,6 +104,11 @@ static ge::graphStatus InferShape(gert::InferShapeContext* context)
     const gert::Shape* denseShape = context->GetInputShape(0);
 
     gert::Shape* jaggedShape = context->GetOutputShape(0);
+
+    if (CheckPtrIsNull(denseShape, "denseShape")) return ge::GRAPH_FAILED;
+    if (CheckPtrIsNull(jaggedShape, "denseShape")) return ge::GRAPH_FAILED;
+    if (CheckPtrIsNull( context->GetAttrs(), "attrs")) return ge::GRAPH_FAILED;
+
     const int32_t* jaggedDim0 = context->GetAttrs()->GetAttrPointer<int32_t>(0);
 
     jaggedShape->SetDimNum(DIM2);

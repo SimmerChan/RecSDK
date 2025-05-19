@@ -17,17 +17,26 @@
 #include "index_select_for_rank1_backward_tiling.h"
 #include "register/op_def_registry.h"
 #include "tiling/platform/platform_ascendc.h"
+#include "../../common/utils.h"
 
 namespace optiling {
 
 constexpr int GM_ALIGN = 64;
 constexpr int FLOAT_BYTESIZE = 4;
+constexpr int GRAD_IDX= 0;
+constexpr int X_IDX = 1;
+constexpr int INDEX_IDX = 2;
 
 static ge::graphStatus TilingFunc(gert::TilingContext* context)
 {
-    auto gradShape = context->GetInputShape(0)->GetStorageShape();
-    auto xShape = context->GetInputShape(1)->GetStorageShape();
-    auto indexShape = context->GetInputShape(2)->GetStorageShape();
+    if (CheckPtrIsNull(context, "context")) return ge::GRAPH_FAILED;
+    if (CheckPtrIsNull(context->GetInputShape(GRAD_IDX), "gradShape")) return ge::GRAPH_FAILED;
+    if (CheckPtrIsNull(context->GetInputShape(X_IDX), "xShape")) return ge::GRAPH_FAILED;
+    if (CheckPtrIsNull(context->GetInputShape(INDEX_IDX), "indexShape")) return ge::GRAPH_FAILED;
+
+    auto gradShape = context->GetInputShape(GRAD_IDX)->GetStorageShape();
+    auto xShape = context->GetInputShape(X_IDX)->GetStorageShape();
+    auto indexShape = context->GetInputShape(INDEX_IDX)->GetStorageShape();
 
     if (xShape.GetDimNum() != 1) {
         printf("IndexSectForRank1Backward is only used for input-1 with dim 0 but x.dim is %ld",
@@ -78,11 +87,18 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
 namespace ge {
 static ge::graphStatus InferShape(gert::InferShapeContext* context)
 {
-    const gert::Shape* xShape = context->GetInputShape(2);
-    const gert::Shape* indexShape = context->GetInputShape(1);
+    if (CheckPtrIsNull(context, "context")) return ge::GRAPH_FAILED;
 
-    gert::Shape* gradXShape = context->GetOutputShape(0);
-    gert::Shape* gradIndexShape = context->GetOutputShape(1);
+    const gert::Shape* xShape = context->GetInputShape(X_IDX);
+    const gert::Shape* indexShape = context->GetInputShape(INDEX_IDX);
+
+    gert::Shape* gradXShape = context->GetOutputShape(GRAD_IDX);
+    gert::Shape* gradIndexShape = context->GetOutputShape(INDEX_IDX);
+
+    if (CheckPtrIsNull(xShape, "xShape")) return ge::GRAPH_FAILED;
+    if (CheckPtrIsNull(indexShape, "indexShape")) return ge::GRAPH_FAILED;
+    if (CheckPtrIsNull(gradXShape, "gradXShape")) return ge::GRAPH_FAILED;
+    if (CheckPtrIsNull(gradIndexShape, "gradIndexShape")) return ge::GRAPH_FAILED;
 
     *gradXShape = *xShape;
     *gradIndexShape = *indexShape;

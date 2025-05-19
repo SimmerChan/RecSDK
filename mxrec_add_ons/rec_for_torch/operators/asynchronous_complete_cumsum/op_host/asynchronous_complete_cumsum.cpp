@@ -16,6 +16,8 @@ See the License for the specific language governing permissions and
 #include "asynchronous_complete_cumsum_tiling.h"
 #include "register/op_def_registry.h"
 
+#include "../../common/utils.h"
+
 namespace {
     constexpr int32_t EMBEDDING_TYPE_INT64 = 0;
     constexpr int32_t EMBEDDING_TYPE_INT32 = 1;
@@ -25,7 +27,14 @@ namespace optiling {
     static ge::graphStatus TilingFunc(gert::TilingContext* context)
     {
         AsynchronousCompleteCumsumTilingData tiling;
+        if (CheckPtrIsNull(context, "context")) return ge::GRAPH_FAILED;
+
         auto inputTensor0 = context->GetInputTensor(0);
+        if (CheckPtrIsNull(inputTensor0, "inputTensor0")) return ge::GRAPH_FAILED;
+
+        auto inputShape0 =  context->GetInputShape(0);
+        if (CheckPtrIsNull(inputShape0, "inputShape0")) return ge::GRAPH_FAILED;
+
         uint32_t totalLength = context->GetInputShape(0)->GetOriginShape().GetShapeSize();
         uint32_t dimNum = context->GetInputShape(0)->GetOriginShape().GetDimNum();
 
@@ -49,6 +58,7 @@ namespace optiling {
             return ge::GRAPH_FAILED;
         }
         context->SetBlockDim(1);
+        if (CheckPtrIsNull(context->GetRawTilingData(), "raw tilingData")) return ge::GRAPH_FAILED;
         tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
         context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
 
@@ -60,8 +70,13 @@ namespace optiling {
 namespace ge {
     static ge::graphStatus InferShape(gert::InferShapeContext* context)
     {
+        if (CheckPtrIsNull(context, "context")) return ge::GRAPH_FAILED;
+
         const gert::Shape* xShape = context->GetInputShape(0);
+        if (CheckPtrIsNull(xShape, "xShape")) return ge::GRAPH_FAILED;
+
         gert::Shape* yShape = context->GetOutputShape(0);
+        if (CheckPtrIsNull(yShape, "yShape")) return ge::GRAPH_FAILED;
 
         int64_t inputLength = xShape->GetShapeSize();
         yShape->SetDimNum(1);

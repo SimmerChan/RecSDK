@@ -20,6 +20,8 @@ See the License for the specific language governing permissions and
 #include "split_embedding_codegen_forward_unweighted_tiling.h"
 #include "tiling/platform/platform_ascendc.h"
 
+#include "../../common/utils.h"
+
 namespace optiling {
 
 constexpr int DATA_TYPE_FLOAT32 = 0;
@@ -46,14 +48,6 @@ constexpr int EC_KEY = 1;
 constexpr int EBC_KEY = 2;
 
 template<typename T>
-bool CheckPtrIsNull(T ptr, const std::string& ptrName)
-{
-    if (ptr == nullptr) {
-        printf("[ERROR] Failed to get %s!\n", ptrName.c_str());
-        return true;
-    }
-    return false;
-}
 
 static ge::graphStatus ShapeTilingFunc(gert::TilingContext* context,
                                        SplitEmbeddingCodegenForwardUnweightedTilingData& tilingData)
