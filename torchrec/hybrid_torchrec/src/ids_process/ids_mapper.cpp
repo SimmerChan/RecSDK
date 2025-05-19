@@ -11,20 +11,6 @@
 #include "unique.h"
 
 namespace hybrid {
-// 交换两个元素的值
-std::tuple<at::Tensor, at::Tensor, at::Tensor> IdsMapper::UniqueAndLookup(const torch::Tensor& globalIds,
-                                                                          bool highPrecison)
-{
-    TORCH_CHECK(globalIds.device() == torch::kCPU, "globalIds must be on CPU but on ", globalIds.device());
-    TORCH_CHECK(globalIds.scalar_type() == at::kLong,
-                "globalIds must be int64_t tensor expected but got a tensor with dtype: ", globalIds.scalar_type());
-    at::ThreadLocalStateGuard tlsGrad(state);
-    if (highPrecison)
-        return FindOrInsertHighPrecison(globalIds);
-    else
-        return FindOrInsert(globalIds);
-}
-
 void IdsMapper::UniqueAndLookupOut(const torch::Tensor& globalIds, const torch::Tensor& hashIndices,
                                    const torch::Tensor& offset, const torch::Tensor& unique,
                                    const torch::Tensor& uniqueInverse, const torch::Tensor& uniqueOffset,
@@ -120,63 +106,5 @@ void IdsMapper::UniqueProcessing(const torch::Tensor& hashIndices, const torch::
     }
 
     DeallocFullHashMap(std::move(aHashMap));
-}
-
-std::tuple<at::Tensor, at::Tensor, at::Tensor> IdsMapper::FindOrInsertHighPrecison(const torch::Tensor& globalIds)
-{
-    at::Tensor hashIndices = at::empty_like(globalIds);
-
-    int64_t* hashIndicesPtr = hashIndices.data_ptr<int64_t>();
-    int64_t* globalIdsPtr = globalIds.data_ptr<int64_t>();
-    for (int64_t i = 0; i < globalIds.numel(); i++) {
-        int64_t key = globalIdsPtr[i];
-        auto findResult = ids2indicesMap.find(key);
-        if (findResult == ids2indicesMap.end()) {
-            int64_t r = maxIndex++;
-            auto findResult = ids2indicesMap.find(key);
-            ids2indicesMap.insert_or_assign(key, r);
-            hashIndicesPtr[i] = r;
-        } else {
-            hashIndicesPtr[i] = findResult->second;
-        }
-    }
-
-    at::Tensor unique;
-    at::Tensor uniqueInverse;
-    std::tie(unique, uniqueInverse) = UniqueParallel(hashIndices);
-    return {hashIndices, unique, uniqueInverse};
-}
-
-std::tuple<at::Tensor, at::Tensor, at::Tensor> IdsMapper::FindOrInsert(const torch::Tensor& globalIds)
-{
-    at::Tensor hashIndices = at::empty_like(globalIds);
-
-    int64_t* hashIndicesPtr = hashIndices.data_ptr<int64_t>();
-    int64_t* globalIdsPtr = globalIds.data_ptr<int64_t>();
-    at::parallel_for(0, globalIds.numel(), at::internal::GRAIN_SIZE, [&](int64_t begin, int64_t end) {
-        for (int64_t i = begin; i < end; i++) {
-            int64_t key = globalIdsPtr[i];
-            auto findResult = ids2indicesMap.find(key);
-            if (findResult == ids2indicesMap.end()) {
-                std::lock_guard<std::mutex> lock(insertMute);
-                auto findResult = ids2indicesMap.find(key);
-                if (findResult == ids2indicesMap.end()) {
-                    int64_t r = maxIndex++;
-                    auto findResult = ids2indicesMap.find(key);
-                    ids2indicesMap.insert_or_assign(key, r);
-                    hashIndicesPtr[i] = r;
-                } else {
-                    hashIndicesPtr[i] = findResult->second;
-                }
-            } else {
-                hashIndicesPtr[i] = findResult->second;
-            }
-        }
-    });
-
-    at::Tensor unique;
-    at::Tensor uniqueInverse;
-    std::tie(unique, uniqueInverse) = UniqueParallel(hashIndices);
-    return {hashIndices, unique, uniqueInverse};
 }
 }  // namespace hybrid

@@ -39,13 +39,6 @@ class IdsMapper(HashMapBase):
         self.ids_mapper = torch.classes.hybrid.IdsMapper(n)
         self.n = n
 
-    def forward(self, ids: torch.Tensor, high_precison: bool):
-        with record_function("## ids2indices ##"):
-            result, unique, unique_inverse = self.ids_mapper.ids2indices_unique(
-                ids, high_precison
-            )
-            return result, unique, unique_inverse
-
     def ids2indices_unique_out(
         self,
         ids: torch.Tensor,
