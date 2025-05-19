@@ -101,7 +101,6 @@ cc_library(
     deps = [
             "acl_adaptor",
             "common_hdrs",
-            "//acl_deps:acl_rt_hdrs",
             "@acl_base//:acl_deps",
             "@local_config_tf//:tf_header_lib",
             "@local_config_tf//:libtensorflow_framework",

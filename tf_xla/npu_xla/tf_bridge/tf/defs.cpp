@@ -19,20 +19,20 @@
 namespace tensorflow {
 namespace npu_xla {
 
-const char* const K_XLA_MUST_COMPILE_ATTR = "_NpuXlaMustCompile";
+const char* const kXlaMustCompileAttr = "_NpuXlaMustCompile";
 
-const char* const K_XLA_COMPILE_ATTR = "_NpuXlaCompile";
+const char* const kXlaCompileAttr = "_NpuXlaCompile";
 
-const char* const K_REUSE_XLA_COMPILE_ATTR = "_XlaCompile";
+const char* const kReuseXlaCompileAttr = "_XlaCompile";
 
 // User-provided through jit_scope APIs. Effective only when auto_jit is OFF.
-const char* const K_XLA_SCOPE_ATTR = "_NpuXlaScope";
+const char* const kXlaScopeAttr = "_NpuXlaScope";
 
-const char* const K_REUSE_XLA_SCOPE_ATTR = "_XlaScope";
+const char* const kReuseXlaScopeAttr = "_XlaScope";
 
 // Automatically inserted by auto_jit to guide clustering results.  Effective
 // only when auto_jit is ON.
-const char* const K_XLA_INTERNAL_SCOPE_ATTR = "_NpuXlaInternalScope";
+const char* const kXlaInternalScopeAttr = "_NpuXlaInternalScope";
 
 }  // namespace npu_xla
 }  // namespace tensorflow

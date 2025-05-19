@@ -823,14 +823,14 @@ Predicate* PredicateFactory::MakeAndOrImpl(absl::Span<Predicate* const> operands
         for (Predicate* op : simplified_ops) {
             if (op->kind() == Predicate::Kind::K_AND_RECURRENCE) {
                 auto* and_rec = static_cast<AndRecurrencePredicate*>(op);
-                if (negated_ops.find(and_rec->step()) != negated_ops.end()) {
+                if (negated_ops.find(and_rec->Step()) != negated_ops.end()) {
                     // Remove and_rec and ~X and insert S.  Note that checking the
                     // existence of ~X through negated_ops is sufficient since it makes
                     // sure the predicate is in the input operands.  It does not need to
                     // be in simplified_ops if it was already cancelled out.
                     to_remove.insert(and_rec);
-                    to_remove.insert(MakeNotPredicate(and_rec->step()));
-                    to_add.push_back(and_rec->start());
+                    to_remove.insert(MakeNotPredicate(and_rec->Step()));
+                    to_add.push_back(and_rec->Start());
                 }
             }
         }
