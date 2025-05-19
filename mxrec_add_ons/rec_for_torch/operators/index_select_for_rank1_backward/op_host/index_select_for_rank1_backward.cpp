@@ -89,11 +89,11 @@ static ge::graphStatus InferShape(gert::InferShapeContext* context)
 {
     if (CheckPtrIsNull(context, "context")) return ge::GRAPH_FAILED;
 
-    const gert::Shape* xShape = context->GetInputShape(X_IDX);
-    const gert::Shape* indexShape = context->GetInputShape(INDEX_IDX);
+    const gert::Shape* xShape = context->GetInputShape(optiling::X_IDX);
+    const gert::Shape* indexShape = context->GetInputShape(optiling::INDEX_IDX);
 
-    gert::Shape* gradXShape = context->GetOutputShape(GRAD_IDX);
-    gert::Shape* gradIndexShape = context->GetOutputShape(INDEX_IDX);
+    gert::Shape* gradXShape = context->GetOutputShape(optiling::GRAD_IDX);
+    gert::Shape* gradIndexShape = context->GetOutputShape(optiling::INDEX_IDX);
 
     if (CheckPtrIsNull(xShape, "xShape")) return ge::GRAPH_FAILED;
     if (CheckPtrIsNull(indexShape, "indexShape")) return ge::GRAPH_FAILED;

@@ -32,12 +32,12 @@ constexpr int PERMUTE_INDEX = 0;
 constexpr int LENGTH_INDEX = 1;
 constexpr int VALUES_INDEX = 2;
 
-static void SetTypeTiling(gert::TilingContext* context, Permute2dSparseDataTilingData& tiling)
+static ge::graphStatus SetTypeTiling(gert::TilingContext* context, Permute2dSparseDataTilingData& tiling)
 {
     // check tensor is nullptr
     if (CheckPtrIsNull(context->GetInputTensor(PERMUTE_INDEX), "permute tensor")) return ge::GRAPH_FAILED;
     if (CheckPtrIsNull(context->GetInputTensor(LENGTH_INDEX), "length tensor")) return ge::GRAPH_FAILED;
-    if (CheckPtrIsNull(context->GetInputTensor(VALUE_INDEX), "value tensor")) return ge::GRAPH_FAILED;
+    if (CheckPtrIsNull(context->GetInputTensor(VALUES_INDEX), "value tensor")) return ge::GRAPH_FAILED;
 
     // permute: InputTensor(0), support int32
     int64_t permuteDataType = 0;
@@ -69,6 +69,7 @@ static void SetTypeTiling(gert::TilingContext* context, Permute2dSparseDataTilin
     tiling.set_valueDataType(valueDataType);
     tiling.set_permuteDataType(permuteDataType);
     tiling.set_lengthsDataType(lengthsDataType);
+    return ge::GRAPH_SUCCESS;
 }
 
 static ge::graphStatus TilingFunc(gert::TilingContext* context)
@@ -76,7 +77,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     if (CheckPtrIsNull(context, "context")) return ge::GRAPH_FAILED;
     if (CheckPtrIsNull(context->GetInputShape(PERMUTE_INDEX), "permuteShape")) return ge::GRAPH_FAILED;
     if (CheckPtrIsNull(context->GetInputShape(LENGTH_INDEX), "lengthsShape")) return ge::GRAPH_FAILED;
-    if (CheckPtrIsNull(context->GetInputShape(VALUE_INDEX), "valuesShape")) return ge::GRAPH_FAILED;
+    if (CheckPtrIsNull(context->GetInputShape(VALUES_INDEX), "valuesShape")) return ge::GRAPH_FAILED;
 
     Permute2dSparseDataTilingData tiling;
     auto ascendPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
@@ -130,7 +131,9 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     currentWorkspace[0] = systemWorkspacesSize + (lengthsT + 1) * GM_ALIGN +
                           (lengthsT + 1) * GM_ALIGN * coreNum;
 
-    SetTypeTiling(context, tiling);
+    if (SetTypeTiling(context, tiling) == ge::GRAPH_FAILED) {
+        return ge::GRAPH_FAILED;
+    }
 
     context->SetBlockDim(coreNum);
 
@@ -148,9 +151,9 @@ static ge::graphStatus InferShape(gert::InferShapeContext* context)
 {
     if (CheckPtrIsNull(context, "context")) return ge::GRAPH_FAILED;
   
-    const gert::Shape* permuteShape = context->GetInputShape(PERMUTE_INDEX);
-    const gert::Shape* lengthsShape = context->GetInputShape(LENGTH_INDEX);
-    const gert::Shape* valuesShape = context->GetInputShape(VALUE_INDEX);
+    const gert::Shape* permuteShape = context->GetInputShape(optiling::PERMUTE_INDEX);
+    const gert::Shape* lengthsShape = context->GetInputShape(optiling::LENGTH_INDEX);
+    const gert::Shape* valuesShape = context->GetInputShape(optiling::VALUES_INDEX);
 
     gert::Shape* outPermutedLengths = context->GetOutputShape(0);
     gert::Shape* outPermutedValues = context->GetOutputShape(1);

@@ -47,8 +47,6 @@ constexpr int MAX_D_INDEX = 1;
 constexpr int EC_KEY = 1;
 constexpr int EBC_KEY = 2;
 
-template<typename T>
-
 static ge::graphStatus ShapeTilingFunc(gert::TilingContext* context,
                                        SplitEmbeddingCodegenForwardUnweightedTilingData& tilingData)
 {
