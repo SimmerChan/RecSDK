@@ -168,7 +168,6 @@ public:
             SetAtomicNone();
 #else
             const DataCopyExtParams dataCopyExtParams{1, unalignLen, 0, 0, 0};
-
             DataCopyPad(rabTimeBiasOutGT[ptr + i * s + alignCnt], rabTime[ptrUb + alignCnt], dataCopyExtParams);
 #endif
         }
