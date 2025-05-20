@@ -110,12 +110,12 @@ static ge::graphStatus ShapeTilingFunc(gert::TilingContext* context,
     int64_t weightsOffsetsDim0 = context->GetInputShape(WEIGHTS_OFFSETS_INDEX)->GetStorageShape().GetDim(0);
     OPS_CHECK(weightsOffsetsDim0 == 0,
               OPS_LOG_E("Tiling Debug", "weightsOffsets shape is invalid."),
-              ge::GRAPH_FAILED);
+              return ge::GRAPH_FAILED);
 
     int64_t dOffsetsDim0 = context->GetInputShape(D_OFFSETS_INDEX)->GetStorageShape().GetDim(0);
     OPS_CHECK(dOffsetsDim0 <= 1,
               OPS_LOG_E("Tiling Debug", "dOffsets shape is invalid."),
-              ge::GRAPH_FAILED);
+              return ge::GRAPH_FAILED);
     int64_t indicesDim0 = context->GetInputShape(INDICES_INDEX)->GetStorageShape().GetDim(0);
     int64_t offsetsDim0 = context->GetInputShape(OFFSETS_INDEX)->GetStorageShape().GetDim(0);
 
@@ -146,7 +146,7 @@ static ge::graphStatus ShapeTilingFunc(gert::TilingContext* context,
     } else if (optimType == SGD) {
         context->SetTilingKey(NORMAL_SGD);
     } else {
-        OPS_LOG_E("Tiling Debug", "OptimType shape is not supported.")
+        OPS_LOG_E("Tiling Debug", "OptimType shape is not supported.");
         return ge::GRAPH_FAILED;
     }
 
@@ -190,7 +190,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     size_t coreNum = ascendPlatform.GetCoreNumAiv();
     OPS_CHECK(coreNum == 0,
               OPS_LOG_E("Tiling Debug", "Core num is 0."),
-              ge::GRAPH_FAILED);
+              return ge::GRAPH_FAILED);
 
     int64_t splitBaseLen = tiling.get_indicesDim0() / coreNum;
     int64_t tailSplitIndex = tiling.get_indicesDim0() % coreNum;
