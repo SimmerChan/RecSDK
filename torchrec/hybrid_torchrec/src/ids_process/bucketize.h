@@ -15,7 +15,7 @@ namespace hybrid {
 std::tuple<at::Tensor, at::Tensor, std::optional<at::Tensor>, std::optional<at::Tensor>, std::optional<at::Tensor>,
            std::optional<at::Tensor>>
 BlockBucketizeSparseFeaturesCpu(const at::Tensor& lengths, const at::Tensor& indices, const bool bucketizePos,
-                                const bool sequence, const at::Tensor& blockSizes, const int64_t mySize,
+                                const bool sequence, const at::Tensor& blockSizes, const int64_t bucketSize,
                                 const std::optional<at::Tensor>& totalNumBlocks,
                                 const std::optional<at::Tensor>& weights,
                                 const std::optional<at::Tensor>& batchSizePerFeature, const int64_t /* maxBatchSize */,

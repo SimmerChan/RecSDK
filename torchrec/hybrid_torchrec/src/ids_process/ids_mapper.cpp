@@ -8,6 +8,8 @@
 #include <memory>
 #include <utility>
 
+#include "torch/torch.h"
+
 namespace hybrid {
 void IdsMapper::UniqueAndLookupOut(const torch::Tensor& globalIds, const torch::Tensor& hashIndices,
                                    const torch::Tensor& offset, const torch::Tensor& unique,
@@ -32,6 +34,9 @@ void IdsMapper::UniqueAndLookupOut(const torch::Tensor& globalIds, const torch::
         auto findResult = ids2indicesMap.find(key);
         if (findResult == ids2indicesMap.end()) {
             std::lock_guard<std::mutex> lock(insertMute);
+            TORCH_CHECK(key < initMaxIndex,
+                "indices = ", key,
+                "must smaller than table Size", initMaxIndex);
             auto findResult = ids2indicesMap.find(key);
             if (findResult == ids2indicesMap.end()) {
                 int64_t r = maxIndex++;
@@ -84,7 +89,7 @@ void IdsMapper::UniqueProcessing(const torch::Tensor& hashIndices, const torch::
         int64_t key = hashIndicesPtr[i];
         if (aHashMapPtr[key] == -1) {
             aHashMapPtr[key] = thisUniqueOffset;
-            uniquePr[globalUniqueOffset + thisUniqueOffset] = hashIndicesPtr[i];
+            uniquePtr[globalUniqueOffset + thisUniqueOffset] = hashIndicesPtr[i];
             thisUniqueOffset++;
         }
     }
@@ -95,7 +100,7 @@ void IdsMapper::UniqueProcessing(const torch::Tensor& hashIndices, const torch::
     uniqueOffsetPtr[tableId + 1] = uniqueOffsetPtr[tableId] + thisUniqueOffset;
 
     for (const auto i : c10::irange(globalUniqueOffset, globalUniqueOffset + thisUniqueOffset)) {
-        int64_t key = uniquePr[i];
+        int64_t key = uniquePtr[i];
         aHashMapPtr[key] = i - globalUniqueOffset;
     }
 
@@ -105,7 +110,7 @@ void IdsMapper::UniqueProcessing(const torch::Tensor& hashIndices, const torch::
     }
 
     for (const auto i : c10::irange(globalUniqueOffset, globalUniqueOffset + thisUniqueOffset)) {
-        int64_t key = uniquePr[i];
+        int64_t key = uniquePtr[i];
         aHashMapPtr[key] = -1;
     }
 

@@ -28,10 +28,10 @@ void PrefixSum(const int length, const T* array, T* preSum)
 }
 template <bool Sequence, typename OffsetT, typename IndexT, bool DoUnique>
 void ComputeNewLengths(const OffsetT* offsetsData, const IndexT* indicesData, OffsetT* newLengthsData,
-                       int32_t numFeatures, int32_t batchSize, int64_t mySize, int64_t lengthsSize)
+                       int32_t numFeatures, int32_t batchSize, int64_t bucketSize, int64_t lengthsSize)
 {
     for (const auto featureIdx : c10::irange(numFeatures)) {
-        const auto blockSize = mySize;
+        const auto blockSize = bucketSize;
         for (const auto batchIdx : c10::irange(batchSize)) {
             const auto linearIndex = featureIdx * batchSize + batchIdx;
             const OffsetT start = offsetsData[linearIndex];
@@ -48,10 +48,10 @@ void ComputeNewLengths(const OffsetT* offsetsData, const IndexT* indicesData, Of
 template <bool Sequence, typename OffsetT, typename IndexT, bool DoUnique>
 void FillNewIndices(const OffsetT* offsetsData, const IndexT* indicesData, OffsetT* newOffsetsData,
                     IndexT* newIndicesData, IndexT* unbucketizePermuteData, int32_t numFeatures, int32_t batchSize,
-                    int64_t mySize, int64_t lengthsSize)
+                    int64_t bucketSize, int64_t lengthsSize)
 {
     for (const auto featureIdx : c10::irange(numFeatures)) {
-        const auto blockSize = mySize;
+        const auto blockSize = bucketSize;
         for (const auto batchIdx : c10::irange(batchSize)) {
             const auto linearIndex = featureIdx * batchSize + batchIdx;
             const OffsetT start = offsetsData[linearIndex];
@@ -73,13 +73,13 @@ void FillNewIndices(const OffsetT* offsetsData, const IndexT* indicesData, Offse
 template <typename OffsetT, typename IndexT>
 void Deduplicate(OffsetT* newLengthsData, const OffsetT* newOffsetsData, const OffsetT* offsetsData,
                  const IndexT* indicesData, IndexT* newIndicesData, IndexT* unbucketizePermuteData, int32_t numFeatures,
-                 int32_t batchSize, int64_t mySize)
+                 int32_t batchSize, int64_t bucketSize)
 {
     int32_t uniqueOffset = 0;
     OffsetT curOffset = 0;
-    std::vector<ska::flat_hash_map<IndexT, int32_t>> uniqueMaps(numFeatures * mySize);
+    std::vector<ska::flat_hash_map<IndexT, int32_t>> uniqueMaps(numFeatures * bucketSize);
     IndexT lastOffset = 0;
-    for (const auto featureBucketIdx : c10::irange(numFeatures * mySize)) {
+    for (const auto featureBucketIdx : c10::irange(numFeatures * bucketSize)) {
         auto& uniqueMap = uniqueMaps[featureBucketIdx];
         for (const auto batchIdx : c10::irange(batchSize)) {
             const auto linearIndex = featureBucketIdx * batchSize + batchIdx;
@@ -101,7 +101,7 @@ void Deduplicate(OffsetT* newLengthsData, const OffsetT* newOffsetsData, const O
     }
 
     for (const auto featureIdx : c10::irange(numFeatures)) {
-        const auto blockSize = mySize;
+        const auto blockSize = bucketSize;
         for (const auto batchIdx : c10::irange(batchSize)) {
             const auto linearIndex = featureIdx * batchSize + batchIdx;
             const OffsetT rowStart = offsetsData[linearIndex];
@@ -129,7 +129,7 @@ template <bool Sequence,             // 是否序列模式
 void BlockBucketizeSparseFeaturesCpuKernel(const at::Tensor& lengths, const at::Tensor& indices,
                                            const std::optional<at::Tensor>& weights, const bool bucketizePos,
                                            const at::Tensor& blockSizes,
-                                           const std::optional<at::Tensor>& totalNumBlocks, const int64_t mySize,
+                                           const std::optional<at::Tensor>& totalNumBlocks, const int64_t bucketSize,
                                            at::Tensor newLengths, at::Tensor newIndices,
                                            std::optional<at::Tensor> newWeights, std::optional<at::Tensor> newPos,
                                            const std::optional<at::Tensor>& unbucketizePermute,
@@ -139,7 +139,7 @@ void BlockBucketizeSparseFeaturesCpuKernel(const at::Tensor& lengths, const at::
 {
     // 基本参数校验
     const auto lengthsSize = lengths.numel();
-    const auto newLengthsSize = lengthsSize * mySize;
+    const auto newLengthsSize = lengthsSize * bucketSize;
     const int32_t numFeatures = blockSizes.numel();
     if (numFeatures == 0) {
         return;
@@ -174,20 +174,20 @@ void BlockBucketizeSparseFeaturesCpuKernel(const at::Tensor& lengths, const at::
 
     // 第一阶段: 计算新长度
     ComputeNewLengths<Sequence, OffsetT, IndexT, DoUnique>(offsetsData, indicesData, newLengthsData, numFeatures,
-                                                           batchSize, mySize, lengthsSize);
+                                                           batchSize, bucketSize, lengthsSize);
 
     // 计算新偏移量
     PrefixSum(newLengthsSize, newLengthsData, newOffsetsData);
 
     // 第二阶段: 填充新索引
     FillNewIndices<Sequence, OffsetT, IndexT, DoUnique>(offsetsData, indicesData, newOffsetsData, newIndicesData,
-                                                        unbucketizePermuteData, numFeatures, batchSize, mySize,
+                                                        unbucketizePermuteData, numFeatures, batchSize, bucketSize,
                                                         lengthsSize);
 
     // 去重逻辑 (需要时启用)
     if constexpr (DoUnique) {
         Deduplicate<OffsetT, IndexT>(newLengthsData, newOffsetsData, offsetsData, indicesData, newIndicesData,
-                                     unbucketizePermuteData, numFeatures, batchSize, mySize);
+                                     unbucketizePermuteData, numFeatures, batchSize, bucketSize);
     }
 }
 
@@ -195,7 +195,7 @@ void BlockBucketizeSparseFeaturesCpuKernel(const at::Tensor& lengths, const at::
 std::tuple<at::Tensor, at::Tensor, std::optional<at::Tensor>, std::optional<at::Tensor>, std::optional<at::Tensor>,
            std::optional<at::Tensor>>
 BlockBucketizeSparseFeaturesCpu(const at::Tensor& lengths, const at::Tensor& indices, const bool bucketizePos,
-                                const bool sequence, const at::Tensor& blockSizes, const int64_t mySize,
+                                const bool sequence, const at::Tensor& blockSizes, const int64_t bucketSize,
                                 const std::optional<at::Tensor>& totalNumBlocks,
                                 const std::optional<at::Tensor>& weights,
                                 const std::optional<at::Tensor>& batchSizePerFeature, const int64_t /* maxBatchSize */,
@@ -215,7 +215,7 @@ BlockBucketizeSparseFeaturesCpu(const at::Tensor& lengths, const at::Tensor& ind
 
     // 初始化输出张量
     const auto lengthsSize = lengths.numel();
-    const auto newLengthsSize = lengthsSize * mySize;
+    const auto newLengthsSize = lengthsSize * bucketSize;
 
     auto newLengths = at::zeros({newLengthsSize}, lengths.options());
     auto newIndices = at::empty_like(indices);
@@ -224,12 +224,12 @@ BlockBucketizeSparseFeaturesCpu(const at::Tensor& lengths, const at::Tensor& ind
     // 根据序列模式选择不同内核
     if (sequence) {
         BlockBucketizeSparseFeaturesCpuKernel<true, false, false, int64_t, int64_t, int64_t, false>(
-            lengths, indices, weights, bucketizePos, blockSizes, totalNumBlocks, mySize, newLengths, newIndices,
+            lengths, indices, weights, bucketizePos, blockSizes, totalNumBlocks, bucketSize, newLengths, newIndices,
             std::nullopt, std::nullopt, unbucketizePermute, batchSizePerFeature, blockBucketizePos, std::nullopt,
             keepOrigIdx);
     } else {
         BlockBucketizeSparseFeaturesCpuKernel<false, false, false, int64_t, int64_t, int64_t, false>(
-            lengths, indices, weights, bucketizePos, blockSizes, totalNumBlocks, mySize, newLengths, newIndices,
+            lengths, indices, weights, bucketizePos, blockSizes, totalNumBlocks, bucketSize, newLengths, newIndices,
             std::nullopt, std::nullopt, unbucketizePermute, batchSizePerFeature, blockBucketizePos, std::nullopt,
             keepOrigIdx);
     }
