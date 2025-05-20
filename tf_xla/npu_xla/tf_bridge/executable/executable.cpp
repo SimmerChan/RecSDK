@@ -82,7 +82,6 @@ Status Executable::DumpToFile(const std::string& filename) const
 {
     // Get the directory name from the filename
     std::string parent_dir = std::string(tensorflow::io::Dirname(filename));
-
     // Create the parent directory if it doesn't exist
     if (!parent_dir.empty()) {
         TF_RETURN_IF_ERROR(Env::Default()->RecursivelyCreateDir(parent_dir));
