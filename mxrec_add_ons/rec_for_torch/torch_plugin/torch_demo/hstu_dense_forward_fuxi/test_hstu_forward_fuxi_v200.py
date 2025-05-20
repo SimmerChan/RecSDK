@@ -117,7 +117,7 @@ class TestHstuNormalFuxiDemo:
                 q, k, v, ts_bias, pos_bias, mask, mask_type, max_seq_len, silu_scale, "normal"
             )
         else:
-            output = torch.ops.mxrec.hstu_dense(
+            output = torch.ops.mxrec.hstu_fuxi(
                 q, k, v, None, None, mask, mask_type, max_seq_len, silu_scale, "normal"
             )
 
@@ -140,7 +140,7 @@ class TestHstuNormalFuxiDemo:
 
     @pytest.mark.parametrize("batch_size", [1, 2])
     @pytest.mark.parametrize("head_num", [2, 4])
-    @pytest.mark.parametrize("max_seq_len", [768, 1024])
+    @pytest.mark.parametrize("max_seq_len", [768, 1024, 1536])
     @pytest.mark.parametrize("head_dim", [64])
     @pytest.mark.parametrize("enable_bias", [True, False])
     @pytest.mark.parametrize("mask_type", [mask_tril])

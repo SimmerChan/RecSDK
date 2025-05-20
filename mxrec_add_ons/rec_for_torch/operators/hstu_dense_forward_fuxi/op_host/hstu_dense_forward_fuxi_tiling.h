@@ -10,7 +10,7 @@ BEGIN_TILING_DATA_DEF(HstuDenseForwardFuxiTilingData)
 TILING_DATA_FIELD_DEF(uint32_t, size);
 TILING_DATA_FIELD_DEF_STRUCT(TCubeTiling, qkMatmul);
 TILING_DATA_FIELD_DEF_STRUCT(TCubeTiling, svMatmul);
-TILING_DATA_FIELD_DEF_STRUCT(TCubeTiling, tkMatmul);
+TILING_DATA_FIELD_DEF_STRUCT(TCubeTiling, tvMatmul);
 TILING_DATA_FIELD_DEF_STRUCT(TCubeTiling, pvMatmul);
 
 TILING_DATA_FIELD_DEF(int64_t, batchSize);
