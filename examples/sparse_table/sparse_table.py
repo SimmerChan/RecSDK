@@ -18,7 +18,7 @@ import os
 import logging
 
 logger = logging.getLogger(__name__)
-
+from dataclasses import dataclass
 import torch
 import torch.nn as nn
 import torch.distributed as dist
@@ -33,21 +33,36 @@ except ImportError:
 torch.set_grad_enabled(True)
 
 
+@dataclass
+class DistributedEmbeddingFunctionInput:
+    """封装分布式嵌入查找的输入参数"""
+    input_ids: torch.Tensor  # 输入索引张量 (batch_size, seq_len)
+    local_embedding: torch.Tensor  # 本地嵌入分片 (shard_size, embedding_dim)
+    shard_start: int  # 当前分片处理的全局起始索引
+    shard_end: int  # 当前分片处理的全局结束索引
+    embedding_dim: int  # 嵌入向量维度
+
+
 class DistributedEmbeddingFunction(Function):
     @staticmethod
-    def forward(ctx, input_ids, local_embedding, shard_start, shard_end,
-                embedding_dim):
+    def forward(ctx, embedding_input):
         """
         Forward pass for distributed embedding lookup
         """
         world_size = dist.get_world_size()
         rank = dist.get_rank()
         if torch.cuda.is_available():
-            device = torch.device(f'cuda:{dist.get_rank()}')
+            device = torch.device(f'cuda:{rank}')
         elif torch.npu.is_available():
-            device = torch.device(f'npu:{dist.get_rank()}')
+            device = torch.device(f'npu:{rank}')
         else:
             device = "cpu"
+
+        input_ids = embedding_input.input_ids
+        local_embedding = embedding_input.local_embedding
+        shard_start = embedding_input.shard_start
+        shard_end = embedding_input.shard_end
+        embedding_dim = embedding_input.embedding_dim
 
         if world_size == 1:
             global_emb = local_embedding[input_ids]
@@ -146,17 +161,16 @@ class DistributedEmbedding(nn.Module):
             device=self.device,
             dtype=torch.float32
         )
-        print(self.local_embedding.weight.requires_grad)
         nn.init.xavier_uniform_(self.local_embedding.weight)
 
     def forward(self, input_ids):
-        return DistributedEmbeddingFunction.apply(
+        embedding_input_params = DistributedEmbeddingFunctionInput(
             input_ids,
             self.local_embedding,
             self.shard_start,
             self.shard_end,
-            self.embedding_dim,
-        )
+            self.embedding_dim)
+        return DistributedEmbeddingFunction.apply(embedding_input_params)
 
 
 def initialize_distributed():
@@ -211,7 +225,6 @@ def main():
 
     # 前向查表
     outputs = ddp_model(input_ids)
-    print(f"Rank {dist.get_rank()}: Output shape={outputs.shape}")
 
     base_tensor = torch.randn(
         (32, 10, 64),
