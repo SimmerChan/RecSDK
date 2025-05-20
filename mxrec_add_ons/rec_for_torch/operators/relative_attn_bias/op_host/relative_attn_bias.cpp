@@ -44,6 +44,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     OPS_LOG_E_IF_NULL("identityShape", context->GetInputShape(IDENTITY_INDEX), return ge::GRAPH_FAILED);
     OPS_LOG_E_IF_NULL("timestampShape", context->GetInputShape(TIMESTAMPS_INDEX), return ge::GRAPH_FAILED);
     OPS_LOG_E_IF_NULL("tswShape", context->GetInputShape(TIMESTAMPS_WEIGHTS_INDEX), return ge::GRAPH_FAILED);
+    OPS_LOG_E_IF_NULL("attrs", attrs, return ge::GRAPH_FAILED);
 
     auto ascendPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
     size_t coreNum = ascendPlatform.GetCoreNumAiv();
@@ -69,6 +70,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
 
     const gert::RuntimeAttrs* attrs = context->GetAttrs();
     const auto pastValidLensPtr = attrs->GetAttrPointer<gert::ContinuousVector>(PAST_VALID_LENS_INDEX);
+    OPS_LOG_E_IF_NULL("past_valid_len", pastValidLensPtr, return ge::GRAPH_FAILED);
     int bsValid = pastValidLensPtr->GetSize();
     OPS_CHECK(bsValid != bs,
               OPS_LOG_E("Tiling Debug", "mismatch batchsize of past_valid_len and timestamps."),
