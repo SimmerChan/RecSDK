@@ -24,7 +24,6 @@ public:
 #ifdef SUPPORT_V200
         RelativeAttnBiasPos<FloatType> rabPos;
         rabPos.Compute(args);
-#else
 #endif
         RelativeAttnBiasTime<FloatType> rabTime;
         rabTime.Compute(args);
