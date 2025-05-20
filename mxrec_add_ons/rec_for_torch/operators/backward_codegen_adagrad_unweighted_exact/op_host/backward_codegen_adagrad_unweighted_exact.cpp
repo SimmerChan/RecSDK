@@ -135,15 +135,7 @@ static ge::graphStatus ShapeTilingFunc(gert::TilingContext* context,
 
     int optimType = *context->GetAttrs()->GetInt(OPTIM_TYPE_INDEX);
     auto uniqueId = context->GetOptionalInputTensor(UNIQUE_ID_INDEX);
-    if (uniqueId != nullptr) {
-        ret = UniqueTilingFunc(context, tilingData);
-        context->SetTilingKey(UNIQUE_ADAGRAD);
-    } else if (optimType == ADAGRAD) {
-        context->SetTilingKey(NORMAL_ADAGRAD);
-    } else if (optimType == ADAM) {
-        ret = NormalAdamTilingFunc(context, tilingData);
-        context->SetTilingKey(NORMAL_ADAM);
-    } else if (optimType == SGD) {
+    if (optimType == SGD) {
         context->SetTilingKey(NORMAL_SGD);
     } else {
         OPS_LOG_E("Tiling Debug", "OptimType shape is not supported.");
