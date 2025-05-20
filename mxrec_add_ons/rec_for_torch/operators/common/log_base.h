@@ -12,8 +12,8 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
         limitations under the License.
 ==============================================================================*/
-#ifndef COMMON_DFX_BASE_H
-#define COMMON_DFX_BASE_H
+#ifndef COMMON_LOG_BASE_H
+#define COMMON_LOG_BASE_H
 #pragma once
 
 #include <string>
@@ -94,14 +94,15 @@ private:
 } // namespace utils
 
 template <typename T>
-std::string Shape2String(const T& shape) {
-std::ostringstream oss;
-oss << "[";
-if (shape.GetDimNum() > 0) {
-    for (size_t i = 0; i < shape.GetDimNum() - 1; ++i) {
-    oss << shape.GetDim(i) << ", ";
-    }
-    oss << shape.GetDim(shape.GetDimNum() - 1);
+std::string Shape2String(const T& shape)
+{
+    std::ostringstream oss;
+    oss << "[";
+    if (shape.GetDimNum() > 0) {
+        for (size_t i = 0; i < shape.GetDimNum() - 1; ++i) {
+        oss << shape.GetDim(i) << ", ";
+        }
+        oss << shape.GetDim(shape.GetDimNum() - 1);
 }
 oss << "]";
 return oss.str();

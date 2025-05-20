@@ -56,8 +56,8 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     JaggedToPaddedDenseTilingData tiling;
     auto ascnedPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
 
-    OPS_LOG_E_IF_NULL("context->GetInputShape(0)", valuesShape, return ge::GRAPH_FAILED);
-    OPS_LOG_E_IF_NULL("context->GetInputShape(1)", offsetsShape, return ge::GRAPH_FAILED);
+    OPS_LOG_E_IF_NULL("valuesShape", context->GetInputShape(0), return ge::GRAPH_FAILED);
+    OPS_LOG_E_IF_NULL("offsetsShape", context->GetInputShape(1), return ge::GRAPH_FAILED);
 
     auto valuesShape = context->GetInputShape(0)->GetStorageShape();
     auto offsetsShape = context->GetInputShape(1)->GetStorageShape();
