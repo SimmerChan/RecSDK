@@ -6,6 +6,7 @@
 
 #include "ids_mapper.h"
 #include "ids_process/ids_mapper.h"
+#include "ids_process/bucketize.h"
 
 TORCH_LIBRARY(hybrid, m)
 {

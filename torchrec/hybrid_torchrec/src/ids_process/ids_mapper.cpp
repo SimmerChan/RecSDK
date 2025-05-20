@@ -36,7 +36,7 @@ void IdsMapper::UniqueAndLookupOut(const torch::Tensor& globalIds, const torch::
             std::lock_guard<std::mutex> lock(insertMute);
             TORCH_CHECK(key < initMaxIndex,
                 "indices = ", key,
-                "must smaller than table Size", initMaxIndex);
+                " must smaller than table Size = ", initMaxIndex);
             auto findResult = ids2indicesMap.find(key);
             if (findResult == ids2indicesMap.end()) {
                 int64_t r = maxIndex++;

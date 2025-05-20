@@ -43,13 +43,46 @@ class IdsMapper(HashMapBase):
         self,
         ids: torch.Tensor,
         hash_indices: torch.Tensor,
-        offset: torch.Tensor = None,
-        unique: torch.Tensor = None,
-        unique_inverse: torch.Tensor = None,
-        unique_offset: List[int] = None,
-        table_id: int = 0,
-        is_unique: bool = False
+        offset: torch.Tensor,
+        unique: torch.Tensor,
+        unique_inverse: torch.Tensor,
+        unique_offset: List[int],
+        table_id: int,
+        is_unique: bool
     ):
         self.ids_mapper.ids2indices_unique_out(
             ids, hash_indices, offset, unique, unique_inverse, unique_offset, table_id, is_unique
         )
+
+def block_bucketize_sparse_features_cpu(
+    lengths,
+    indices,
+    bucketize_pos,
+    sequence,
+    block_sizes,
+    my_size,
+    total_num_blocks=None,
+    weights=None,
+    batch_size_per_feature=None,
+    max_B=None,
+    block_bucketize_pos=None,
+    return_bucket_mapping=False,
+    keep_orig_idx=False,
+):
+    result = torch.ops.hybrid.block_bucketize_sparse_features_cpu(
+        lengths,
+        indices,
+        bucketize_pos,
+        sequence,
+        block_sizes,
+        my_size,
+        total_num_blocks,
+        weights,
+        batch_size_per_feature,
+        max_B,
+        block_bucketize_pos,
+        return_bucket_mapping,
+        keep_orig_idx,
+    )
+    return result
+

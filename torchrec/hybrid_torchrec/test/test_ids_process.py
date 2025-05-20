@@ -80,17 +80,44 @@ def test_ids2indices_out(input_size, pin_memory, num_mapper):
             unique_this = unique[unique_start:unique_end]
             unique_inverse_this = unique_inverse[start:end]
             verify_unique(indices, unique_this, unique_inverse_this)
+
+@pytest.mark.parametrize("input_size", [10000])
+@pytest.mark.parametrize("pin_memory", [False, True])
+@pytest.mark.parametrize("num_mapper", [3])
+def test_ids2indices_out_ids_max_than_tableSize(input_size, pin_memory, num_mapper):
+    """Test ids2indices with sequential numbers"""
+    logging.info("Testing sequential ids mapping")
+    mappers = [IdsMapper(input_size * IDS_RANGE_TIMES) for _ in range(num_mapper)]
+
+    for _ in range(TEST_NUM):
+        input_ids = [
+            torch.randint(0, input_size, (input_size,))
+            for _ in range(num_mapper)
+        ]
+
+        ids = torch.concat(input_ids)
+        hash_indices = torch.empty_like(ids, pin_memory=pin_memory)
+        offsets = torch.LongTensor([0, input_size, input_size * 2, input_size * 3])
+        unique = torch.empty_like(ids, pin_memory=pin_memory)
+        unique_inverse = torch.empty_like(ids, pin_memory=pin_memory)
+        unique_offset = torch.LongTensor([0 for _ in range(num_mapper + 1)])
+        for i in range(num_mapper):
+            with pytest.raises(RuntimeError):
+                mappers[i].ids2indices_unique_out(
+                    ids, hash_indices, offsets, unique, unique_inverse, unique_offset, i
+                )
+
 def check_bucketized_valid(
     bucketized_lengths,
     bucketized_indices,
     origin_len,
     origin_indices,
     feat_num,
-    my_size,
+    bucketSize,
 ):
-    batch_size = bucketized_lengths.numel() // my_size // feat_num
+    batch_size = bucketized_lengths.numel() // bucketSize // feat_num
     bucketized_offset = 0
-    for rank in range(my_size):
+    for rank in range(bucketSize):
         this_rank_length = bucketized_lengths[
             rank * feat_num * batch_size : (rank + 1) * feat_num * batch_size
         ]
@@ -109,7 +136,7 @@ def check_bucketized_valid(
                 for _ in range(this_indices_len):
                     id = bucketized_indices[bucketized_offset]
                     assert (
-                        id % my_size
+                        id % bucketSize
                     ) == rank, f"bucketized_indices {id} in invalid bucket {rank} bucketized_offset {bucketized_offset}"
                     assert (
                         id in origin_index
@@ -121,8 +148,8 @@ def check_bucketized_valid(
 
 @pytest.mark.parametrize("input_size", [1000])
 @pytest.mark.parametrize("mutil_hots", [[1, 2, 3, 4]])
-@pytest.mark.parametrize("my_size", [4])
-def test_block_bucketize_sparse_features_cpu(input_size, mutil_hots, my_size):
+@pytest.mark.parametrize("bucketSize", [4])
+def test_block_bucketize_sparse_features_cpu(input_size, mutil_hots, bucketSize):
     for _ in range(TEST_NUM):
         jt_dict = {}
         for ind, mutil_hot in enumerate(mutil_hots):
@@ -148,7 +175,7 @@ def test_block_bucketize_sparse_features_cpu(input_size, mutil_hots, my_size):
             bucketize_pos=False,
             sequence=True,
             block_sizes=block_size,
-            my_size=my_size,
+            bucketSize=bucketSize,
             weights=kjt.weights_or_none(),
             batch_size_per_feature=None,
             max_B=-1,
@@ -160,7 +187,7 @@ def test_block_bucketize_sparse_features_cpu(input_size, mutil_hots, my_size):
             lengths,
             values,
             len(mutil_hots),
-            my_size,
+            bucketSize,
         )
         inverse_result = torch.index_select(
             bucketized_indices, dim=0, index=unbucketize_permute
