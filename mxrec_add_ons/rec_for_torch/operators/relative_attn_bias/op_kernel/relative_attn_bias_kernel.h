@@ -14,7 +14,7 @@
 #include "kernel_operator.h"
 using namespace AscendC;
 
-template <typename floatType>
+template <typename FloatType>
 class RelativeAttnBiasKernel {
 public:
     __aicore__ inline RelativeAttnBiasKernel() {}
@@ -22,11 +22,11 @@ public:
     __aicore__ inline void Compute(Args args)
     {
 #ifdef SUPPORT_V200
-        RelativeAttnBiasPos<floatType> rabPos;
+        RelativeAttnBiasPos<FloatType> rabPos;
         rabPos.Compute(args);
 #else
 #endif
-        RelativeAttnBiasTime<floatType> rabTime;
+        RelativeAttnBiasTime<FloatType> rabTime;
         rabTime.Compute(args);
     }
 };

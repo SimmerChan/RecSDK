@@ -13,7 +13,7 @@ using namespace AscendC;
 
 constexpr int SEQ_EXPAND = 2;  // rab_pos中序列长度为原本输入的两倍
 
-template <typename floatType>
+template <typename FloatType>
 class RelativeAttnBiasPos {
 public:
     __aicore__ inline RelativeAttnBiasPos() {}
@@ -28,12 +28,12 @@ public:
             pastValidLens[i] = tilingData.pastValidLens[i];
         }
 
-        posBiasGT.SetGlobalBuffer((__gm__ floatType*)args.positionBias, s * s);
-        identityGT.SetGlobalBuffer((__gm__ floatType*)args.identity, s * s);
-        rabPosBiasOutGT.SetGlobalBuffer((__gm__ floatType*)args.rabPosOut, bs * s * s);
+        posBiasGT.SetGlobalBuffer((__gm__ FloatType*)args.positionBias, s * s);
+        identityGT.SetGlobalBuffer((__gm__ FloatType*)args.identity, s * s);
+        rabPosBiasOutGT.SetGlobalBuffer((__gm__ FloatType*)args.rabPosOut, bs * s * s);
 
-        pipe.InitBuffer(queIdentityIn, NUM_BUFFER, Ceil(SEQ_EXPAND * stride * sizeof(floatType)));
-        pipe.InitBuffer(quePosIn, NUM_BUFFER, Ceil(stride * sizeof(floatType)));
+        pipe.InitBuffer(queIdentityIn, NUM_BUFFER, Ceil(SEQ_EXPAND * stride * sizeof(FloatType)));
+        pipe.InitBuffer(quePosIn, NUM_BUFFER, Ceil(stride * sizeof(FloatType)));
 
         int64_t totalTableSizeSplit = s % GetBlockNum();
         int64_t baseLen = s / GetBlockNum();
@@ -50,17 +50,17 @@ public:
     __aicore__ inline void ComputeIdentity(int offset, int cnt)
     {
         // DataCopyIn identity
-        LocalTensor<floatType> identityUb = queIdentityIn.AllocTensor<floatType>();
+        LocalTensor<FloatType> identityUb = queIdentityIn.AllocTensor<FloatType>();
 
-        DataCopy(identityUb, identityGT[offset], Ceil(cnt * sizeof(floatType)) / sizeof(floatType));
+        DataCopy(identityUb, identityGT[offset], Ceil(cnt * sizeof(FloatType)) / sizeof(FloatType));
         queIdentityIn.EnQue(identityUb);
 
         // Compute identity * rel_pos_bias[0, 0], (1 - identity)
-        LocalTensor<floatType> identityFilledUb = queIdentityIn.DeQue<floatType>();
+        LocalTensor<FloatType> identityFilledUb = queIdentityIn.DeQue<FloatType>();
 
         // 后半段 (1 - identity)
-        Muls(identityFilledUb[stride], identityFilledUb, (floatType)-1, cnt);
-        Adds(identityFilledUb[stride], identityFilledUb[stride], (floatType)1, cnt);
+        Muls(identityFilledUb[stride], identityFilledUb, (FloatType)-1, cnt);
+        Adds(identityFilledUb[stride], identityFilledUb[stride], (FloatType)1, cnt);
 
         // 前半段 identity * rel_pos_bias[0, 0]
         Muls(identityFilledUb, identityFilledUb, REL_POS_BIAS_FIRST, cnt);
@@ -70,14 +70,14 @@ public:
 
     __aicore__ inline void DataCopyIn(int row, int offset, int cnt)
     {
-        LocalTensor<floatType> posBiasUb = quePosIn.AllocTensor<floatType>();
-        DataCopy(posBiasUb, posBiasGT[row * s + offset], Ceil(cnt * sizeof(floatType)) / sizeof(floatType));
+        LocalTensor<FloatType> posBiasUb = quePosIn.AllocTensor<FloatType>();
+        DataCopy(posBiasUb, posBiasGT[row * s + offset], Ceil(cnt * sizeof(FloatType)) / sizeof(FloatType));
         quePosIn.EnQue(posBiasUb);
     }
 
-    __aicore__ inline void ComputeRabBias(LocalTensor<floatType>& identityCalcUb, int cnt)
+    __aicore__ inline void ComputeRabBias(LocalTensor<FloatType>& identityCalcUb, int cnt)
     {
-        LocalTensor<floatType> posBiasUb = quePosIn.DeQue<floatType>();
+        LocalTensor<FloatType> posBiasUb = quePosIn.DeQue<FloatType>();
         Mul(posBiasUb, posBiasUb, identityCalcUb[stride], cnt);
         Add(posBiasUb, posBiasUb, identityCalcUb, cnt);
         pipe_barrier(PIPE_ALL);
@@ -94,13 +94,13 @@ public:
 
     __aicore__ inline void DataCopyOut(int offset, int cnt)
     {
-        uint32_t datasize = cnt * sizeof(floatType);
+        uint32_t datasize = cnt * sizeof(FloatType);
         uint32_t alignLen = datasize / DATA_ALIGN_BYTES * DATA_ALIGN_BYTES;
         uint32_t unAlignLen = datasize - alignLen;
-        uint32_t alignCnt = alignLen / sizeof(floatType);
-        uint32_t unAlignCnt = unAlignLen / sizeof(floatType);
+        uint32_t alignCnt = alignLen / sizeof(FloatType);
+        uint32_t unAlignCnt = unAlignLen / sizeof(FloatType);
 
-        LocalTensor<floatType> posBiasUb = quePosIn.DeQue<floatType>();
+        LocalTensor<FloatType> posBiasUb = quePosIn.DeQue<FloatType>();
         // 对齐部分拷出
         if (alignLen > 0) {
             DataCopy(rabPosBiasOutGT[offset], posBiasUb, cnt);
@@ -108,13 +108,13 @@ public:
         // 非对齐部分拷出
         if (unAlignLen > 0) {
 #ifdef SUPPORT_V200
-            uint64_t mask0 = (1ul << (DATA_ALIGN_BYTES / sizeof(floatType))) - (1ul << unAlignCnt);
+            uint64_t mask0 = (1ul << (DATA_ALIGN_BYTES / sizeof(FloatType))) - (1ul << unAlignCnt);
             uint64_t mask[2] = {mask0, 0};
-            Duplicate(posBiasUb[alignCnt], (floatType)0, mask, 1, 1, 1);
+            Duplicate(posBiasUb[alignCnt], (FloatType)0, mask, 1, 1, 1);
             quePosIn.EnQue(posBiasUb);
-            posBiasUb = quePosIn.DeQue<floatType>();
-            SetAtomicAdd<floatType>();
-            DataCopy(rabPosBiasOutGT[offset + alignCnt], posBiasUb[alignCnt], Ceil(unAlignLen) / sizeof(floatType));
+            posBiasUb = quePosIn.DeQue<FloatType>();
+            SetAtomicAdd<FloatType>();
+            DataCopy(rabPosBiasOutGT[offset + alignCnt], posBiasUb[alignCnt], Ceil(unAlignLen) / sizeof(FloatType));
             SetAtomicNone();
 #else
             const DataCopyExtParams dataCopyExtParams{1, unAlignLen, 0, 0, 0};
@@ -133,7 +133,7 @@ public:
                 int remain = s - offset;
                 int cnt = remain > stride ? stride : remain;
                 ComputeIdentity(offset + row * s, cnt);
-                LocalTensor<floatType> identityCalcUb = queIdentityIn.DeQue<floatType>();
+                LocalTensor<FloatType> identityCalcUb = queIdentityIn.DeQue<FloatType>();
 
                 for (int b = 0; b < bs; ++b) {
                     int valid_len = pastValidLens[b];
@@ -164,11 +164,11 @@ private:
     TQue<TPosition::VECIN, 1> queIdentityCalcIn;
     TQue<TPosition::VECIN, 1> quePosIn;
 
-    GlobalTensor<floatType> identityGT;
-    GlobalTensor<floatType> posBiasGT;
-    GlobalTensor<floatType> rabPosBiasOutGT;
+    GlobalTensor<FloatType> identityGT;
+    GlobalTensor<FloatType> posBiasGT;
+    GlobalTensor<FloatType> rabPosBiasOutGT;
     uint32_t pastValidLens[MAX_BATCH_SIZE];
-    floatType REL_POS_BIAS_FIRST;  // identity[0, 0]
+    FloatType REL_POS_BIAS_FIRST;  // identity[0, 0]
 };
 
 #endif  // MXREC_ADD_ONS_RELATIVE_ATTN_BIAS_POS_H
