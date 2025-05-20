@@ -74,20 +74,20 @@ bool TilingPolicyNormalv200Fuxi::TilingShape(gert::TilingContext* context,
     auto qShape = context->GetInputShape(INDEX_T::INDEX_0)->GetStorageShape();
 
     int64_t batchSize = qShape.GetDim(INDEX_T::INDEX_0);
-    tiling->set_batchSize(batchSize);
+    tiling.set_batchSize(batchSize);
     int64_t seqLen = qShape.GetDim(INDEX_T::INDEX_1);
-    tiling->set_seqLen(seqLen);
+    tiling.set_seqLen(seqLen);
     int64_t headNum = qShape.GetDim(INDEX_T::INDEX_2);
-    tiling->set_headNum(headNum);
+    tiling.set_headNum(headNum);
     int64_t dim = qShape.GetDim(INDEX_T::INDEX_3);
-    tiling->set_dim(dim);
+    tiling.set_dim(dim);
 
     OPS_LOGD_IF(!GeneralShapeCheck(batchSize, seqLen, headNum, dim), printf("Shape check failed"), return false);
     return true;
 }
 
 bool TilingPolicyNormalv200Fuxi::TilingHeighLevelApi(gert::TilingContext* context,
-                                                 optiling::HstuDenseForwardFuxiTilingData &tiling)
+    optiling::HstuDenseForwardFuxiTilingData &tiling)
 {
     int64_t dim = tiling.get_dim();
 
@@ -177,16 +177,17 @@ bool TilingPolicyNormalv200Fuxi::TilingHeighLevelApi(gert::TilingContext* contex
     tiling.set_svBaseM(tiling.svMatmul.get_baseM());
     tiling.set_svBaseN(tiling.svMatmul.get_baseN());
 
-    tiling.set_svBaseM(tiling.tvMatmul.get_baseM());
-    tiling.set_svBaseN(tiling.tvMatmul.get_baseN());
+    tiling.set_tvBaseM(tiling.tvMatmul.get_baseM());
+    tiling.set_tvBaseN(tiling.tvMatmul.get_baseN());
 
-    tiling.set_svBaseM(tiling.pvMatmul.get_baseM());
-    tiling.set_svBaseN(tiling.pvMatmul.get_baseN());
+    tiling.set_pvBaseM(tiling.pvMatmul.get_baseM());
+    tiling.set_pvBaseN(tiling.pvMatmul.get_baseN());
 
     return true;
 }
 
-bool TilingPolicyNormalv200Fuxi::TilingKeySet(gert::TilingContext* context, optiling::HstuDenseForwardFuxiTilingData &tiling)
+bool TilingPolicyNormalv200Fuxi::TilingKeySet(gert::TilingContext* context,
+    optiling::HstuDenseForwardFuxiTilingData &tiling)
 {
     ge::DataType qTypeGe = context->GetInputTensor(0)->GetDataType();
     if (qTypeGe == ge::DataType::DT_FLOAT16) {

@@ -102,11 +102,6 @@
                 "param_type": "optional",
                 "type": "string",
                 "default_value": "normal"
-            },
-            {
-                "name": "seq_offets",
-                "param_type": "optional",
-                "type": "list_int"
             }
         ]
     }

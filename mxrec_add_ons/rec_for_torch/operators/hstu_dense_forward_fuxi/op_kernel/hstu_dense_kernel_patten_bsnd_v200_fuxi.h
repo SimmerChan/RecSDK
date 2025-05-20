@@ -287,20 +287,20 @@ public:
         LocalTensor<uint8_t> tmpTensor = queTmp.AllocTensor<uint8_t>();
 
         auto timeBiasTensor = queTimeBiasIn.DeQue<qType>();
-        svMatmul.SetLocalWorkspace(tmpTensor);
-        svMatmul.SetTensorA(timeBiasTensor);
+        tvMatmul.SetLocalWorkspace(tmpTensor);
+        tvMatmul.SetTensorA(timeBiasTensor);
 
         LocalTensor<qType> inVTensor = queInputKV.AllocTensor<qType>();
         CopyInputGm2Ub(inVTensor, vGt[vOffset], blockHeight, dim);
         queInputKV.EnQue(inVTensor);
         inVTensor = queInputKV.DeQue<qType>();
-        svMatmul.SetTensorB(inVTensor);
+        tvMatmul.SetTensorB(inVTensor);
 
-        svMatmul.IterateAll(tvResultGt, enAtomicAdd);
-        svMatmul.End();
+        tvMatmul.IterateAll(tvResultGt, enAtomicAdd);
+        tvMatmul.End();
 
         queTmp.FreeTensor(tmpTensor);
-        queAttnScore.FreeTensor(timeBiasTensor);
+        queTimeBiasIn.FreeTensor(timeBiasTensor);
         queInputKV.FreeTensor(inVTensor);
     }
 
@@ -309,20 +309,20 @@ public:
         LocalTensor<uint8_t> tmpTensor = queTmp.AllocTensor<uint8_t>();
 
         auto posBiasTensor = quePosBiasIn.DeQue<qType>();
-        svMatmul.SetLocalWorkspace(tmpTensor);
-        svMatmul.SetTensorA(posBiasTensor);
+        pvMatmul.SetLocalWorkspace(tmpTensor);
+        pvMatmul.SetTensorA(posBiasTensor);
 
         LocalTensor<qType> inVTensor = queInputKV.AllocTensor<qType>();
         CopyInputGm2Ub(inVTensor, vGt[vOffset], blockHeight, dim);
         queInputKV.EnQue(inVTensor);
         inVTensor = queInputKV.DeQue<qType>();
-        svMatmul.SetTensorB(inVTensor);
+        pvMatmul.SetTensorB(inVTensor);
 
-        svMatmul.IterateAll(pvResultGt, enAtomicAdd);
-        svMatmul.End();
+        pvMatmul.IterateAll(pvResultGt, enAtomicAdd);
+        pvMatmul.End();
 
         queTmp.FreeTensor(tmpTensor);
-        queAttnScore.FreeTensor(posBiasTensor);
+        quePosBiasIn.FreeTensor(posBiasTensor);
         queInputKV.FreeTensor(inVTensor);
     }
 
@@ -408,7 +408,7 @@ public:
             DataCopyParams copyParams = {static_cast<uint16_t>(thisLen / blockHeight), maskCopyLen, maskSrcStride, 0};
 
             LocalTensor<qType> inMaskLt = queMaskIn.AllocTensor<qType>();
-            DataCopy(inMaskLt, attenMaskGt[thisMaskOffset], copyParams);
+            DataCopy(inMaskLt, attnMaskGt[thisMaskOffset], copyParams);
             queMaskIn.EnQue(inMaskLt);
 
             // timestampBias
@@ -427,7 +427,7 @@ public:
             queTransIn.EnQue(tmpPosBiasLt);
 
             tmpPosBiasLt = queTransIn.DeQue<qType>();
-            Mul<qType>(inTimeBiasLt[thisOffset], tmpPosBiasLt, inMaskLt, thisLen);
+            Mul<qType>(inPosBiasLt[thisOffset], tmpPosBiasLt, inMaskLt, thisLen);
             queTransIn.FreeTensor(tmpPosBiasLt);
             queMaskIn.FreeTensor(inMaskLt);
 

@@ -13,8 +13,8 @@ See the License for the specific language governing permissions and
         limitations under the License.
 ==============================================================================*/
 
-#ifndef HSTU_DENSE_FORWARD_KERNEL_V200_FUXI_FUN_H
-#define HSTU_DENSE_FORWARD_KERNEL_V200_FUXI_FUN_H
+#ifndef HSTU_DENSE_FORWARD_KERNEL_V200_FUXI_H
+#define HSTU_DENSE_FORWARD_KERNEL_V200_FUXI_H
 #include "hstu_dense_kernel_patten_bsnd_v200_fuxi.h"
 
 namespace HstuDenseForwardFuxi {
@@ -24,7 +24,7 @@ struct TpMaskArgs {
     int64_t batchId;
     int64_t qSeqId;
     int64_t kSeqId;
-}
+};
 
 struct QkMatmulArgs {
     int64_t taskId = INVALID_TASK_ID;
@@ -118,7 +118,7 @@ public:
                           svArgs.vSeqId * this->blockHeight * this->numHead * this->dim +
                           svArgs.headId * this->dim;
 
-        uint8_t enAtomicAdd = (svArgs.vSeqId == 0) ? 0 : 1
+        uint8_t enAtomicAdd = (svArgs.vSeqId == 0) ? 0 : 1;
 
         this->DoSvMatmulImpl(vOffset, enAtomicAdd);
     }
@@ -133,7 +133,7 @@ public:
                           tvArgs.vSeqId * this->blockHeight * this->numHead * this->dim +
                           tvArgs.headId * this->dim;
 
-        uint8_t enAtomicAdd = (tvArgs.vSeqId == 0) ? 0 : 1
+        uint8_t enAtomicAdd = (tvArgs.vSeqId == 0) ? 0 : 1;
 
         this->DoTvMatmulImpl(vOffset, enAtomicAdd);
     }
@@ -148,7 +148,7 @@ public:
                           pvArgs.vSeqId * this->blockHeight * this->numHead * this->dim +
                           pvArgs.headId * this->dim;
 
-        uint8_t enAtomicAdd = (pvArgs.vSeqId == 0) ? 0 : 1
+        uint8_t enAtomicAdd = (pvArgs.vSeqId == 0) ? 0 : 1;
 
         this->DoPvMatmulImpl(vOffset, enAtomicAdd);
     }
@@ -158,7 +158,6 @@ public:
         if (tpMaskArgs.taskId == INVALID_TASK_ID) {
             return;
         }
-        
 
         int64_t maskOffset = tpMaskArgs.batchId * this->seqLen * this->seqLen + \
             tpMaskArgs.qSeqId * this->blockHeight * this->seqLen + \
@@ -223,7 +222,6 @@ public:
             offsetOfThisCore = GetBlockIdx() / SPLIT_CORE * (cubeCoreLen + 1);
         }
 
-
         for (int64_t qBlockId = offsetOfThisCore; qBlockId < offsetOfThisCore + lenOfThisCore; qBlockId++) {
             int64_t batchId = qBlockId / blockNumOfOneBatch;
             int64_t batchRemain = qBlockId % blockNumOfOneBatch;
@@ -267,7 +265,7 @@ public:
             }
             this->DoFreeQImpl();
             SVTransArgs svTransArgs = {transTaskId, qBlockId * seqBlockNumQk, batchId, headId, qSeqId};
-            this->DoTransSv(svTransArgs);
+            this->DoTransResult(svTransArgs);
             transTaskId += 1;
         }
     }

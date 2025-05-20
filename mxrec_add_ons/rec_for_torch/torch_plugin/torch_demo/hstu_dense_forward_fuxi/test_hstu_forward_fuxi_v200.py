@@ -76,6 +76,7 @@ class TestHstuNormalFuxiDemo:
         real_silu_scale = 1 / max_seq_len if silu_scale == 0 else silu_scale
         qk_attn = F.silu(qk_attn) * real_silu_scale
 
+        mask = mask.repeat(1, N, 1, 1)
         qk_attn = qk_attn * mask
 
         v = v.permute(0, 2, 1, 3)
@@ -97,7 +98,7 @@ class TestHstuNormalFuxiDemo:
             ts_out = ts_out.reshape(B, S, -1)
 
             pos_bias = pos_bias.to(torch.float32)
-            pos_bias = pos_bias.unsqueeze(1)
+            pos_bias = pos_bias.unsqueeze(0)
             pos_bias = pos_bias.repeat(B, N, 1, 1)
             pos_tmp = pos_bias * mask
             pos_tmp = pos_tmp.to(data_type)

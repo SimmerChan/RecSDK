@@ -35,10 +35,12 @@ ge::graphStatus TilingPolicy::InferShape(gert::InferShapeContext* context)
 
 ge::graphStatus TilingPolicy::InferDtype(gert::InferDataTypeContext* context)
 {
-    context->SetOutputDataType(0, context->GetInputDataType(0));
-    context->SetOutputDataType(1, context->GetInputDataType(0));
+    auto ret = context->SetOutputDataType(INDEX_T::INDEX_0, context->GetInputDataType(INDEX_T::INDEX_0));
+    if (ret != ge::GRAPH_SUCCESS) {
+        OPS_LOG("SetOutputDataType faild. ret = %d", ret);
+    }
 
-    return ge::GRAPH_SUCCESS;
+    return ret;
 }
 
 ge::graphStatus TilingPolicy::TilingProcess(gert::TilingContext *context)
@@ -130,8 +132,9 @@ bool TilingPolicy::TilingAttribute(gert::TilingContext* context, optiling::HstuD
     const float *siluScale = attrs->GetAttrPointer<float>(INDEX_T::INDEX_2);
     OPS_LOGD_IF_NULL(siluScale, return false);
 
-    auto biasTensor = context->GetOptionalInputTensor(INDEX_T::INDEX_4);
-    if (biasTensor == nullptr) {
+    auto tsBiasTensor = context->GetOptionalInputTensor(INDEX_T::INDEX_3);
+    auto posBiasTensor = context->GetOptionalInputTensor(INDEX_T::INDEX_4);
+    if ((tsBiasTensor == nullptr) || (posBiasTensor == nullptr)) {
         tiling.set_enableBias(0);
     } else {
         tiling.set_enableBias(1);

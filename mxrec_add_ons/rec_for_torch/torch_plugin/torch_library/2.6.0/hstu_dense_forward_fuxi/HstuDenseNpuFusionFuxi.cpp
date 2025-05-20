@@ -115,8 +115,7 @@ at::Tensor hstu_dense_forward_impl_npu(
     TORCH_CHECK(layout == "normal" || layout == "jagged",
         "The layout should be normal/jagged but got ", layout);
 
-    TORCH_CHECK(q.scalar_type() == at::kHalf || q.scalar_type() == at::kFloat || q.scalar_type() == at::kBFloat16,
-                "float16, float32 or bfloat16 tensor expected but got a tensor with dtype: ", q.scalar_type());
+    TORCH_CHECK(q.scalar_type() == at::kHalf, "float16 tensor expected but got a tensor with dtype: ", q.scalar_type());
 
     if (layout == "normal") {
         return hstu_dense_normal_forward_impl_npu(q, k, v, timestampBias, positionBias, mask, maskType, maxSeqLen,
@@ -127,7 +126,7 @@ at::Tensor hstu_dense_forward_impl_npu(
 
 TORCH_LIBRARY_FRAGMENT(mxrec, m)
 {
-    m.def("hstu_dense(Tensor q, Tensor k, Tensor v, Tensor? timestampBias=None, Tensor? positionBias=None,\
+    m.def("hstu_fuxi(Tensor q, Tensor k, Tensor v, Tensor? timestampBias=None, Tensor? positionBias=None,\
         Tensor? mask=None, int maskType=0, int maxSeqLen=0, float siluScale=0.0, str layout=\"normal\") -> Tensor");
 
 }
