@@ -130,9 +130,8 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     currentWorkspace[0] = systemWorkspacesSize + (lengthsT + 1) * GM_ALIGN +
                           (lengthsT + 1) * GM_ALIGN * coreNum;
 
-    if (SetTypeTiling(context, tiling) == ge::GRAPH_FAILED) {
-        return ge::GRAPH_FAILED;
-    }
+    OPS_LOG_E_IF(SetTypeTiling(context, tiling) == ge::GRAPH_FAILED, context, return ge::GRAPH_FAILED,
+                "SetTypeTiling Failed.");
 
     context->SetBlockDim(coreNum);
 

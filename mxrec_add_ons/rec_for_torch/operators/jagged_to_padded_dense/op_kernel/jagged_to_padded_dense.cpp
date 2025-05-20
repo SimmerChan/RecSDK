@@ -15,7 +15,7 @@ See the License for the specific language governing permissions and
 
 #include "jagged_to_padded_dense_kernel.h"
 #include "kernel_operator.h"
-#include "ops_log.h"
+#include "utils.h"
 
 using namespace AscendC;
 

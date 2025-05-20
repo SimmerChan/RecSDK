@@ -19,7 +19,7 @@ See the License for the specific language governing permissions and
 #include <cstdint>
 
 #include "kernel_operator.h"
-#include "ops_log.h"
+#include "utils.h"
 
 using namespace AscendC;
 

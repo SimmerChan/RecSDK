@@ -129,6 +129,11 @@ do {                                                                            
     }                                                                                                              \
 } while (0)
         
+#define OPS_INNER_ERR_STUB(ERR_CODE_STR, OPS_DESC, FMT, ...)                                                          \
+    do {                                                                                                              \
+        OPS_LOG_STUB(OP, DLOG_ERROR, OPS_DESC, FMT, ##__VA_ARGS__);                                                   \
+        REPORT_INNER_ERROR(ERR_CODE_STR, FMT, ##__VA_ARGS__);                                                         \
+    } while (0)
 
 #define OPS_CALL_ERR_STUB(ERR_CODE_STR, OPS_DESC, FMT, ...)                                                           \
     do {                                                                                                              \
