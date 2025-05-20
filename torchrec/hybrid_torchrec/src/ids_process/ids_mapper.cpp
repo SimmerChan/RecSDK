@@ -10,7 +10,44 @@
 
 #include "torch/torch.h"
 
+#include "unique.h"
+
 namespace hybrid {
+
+std::tuple<at::Tensor, at::Tensor, at::Tensor> IdsMapper::UniqueAndLookup(const torch::Tensor& globalIds)
+{
+    TORCH_CHECK(globalIds.device() == torch::kCPU, "globalIds must be on CPU but on ", globalIds.device());
+    TORCH_CHECK(globalIds.scalar_type() == at::kLong,
+    "globalIds must be int64_t tensor expected but got a tensor with dtype: ", globalIds.scalar_type());
+    at::ThreadLocalStateGuard tlsGrad(state);
+    return FindOrInsertHighPrecison(globalIds);
+}
+
+std::tuple<at::Tensor, at::Tensor, at::Tensor> IdsMapper::FindOrInsertHighPrecison(const torch::Tensor& globalIds)
+{
+    at::Tensor hashIndices = at::empty_like(globalIds);
+
+    int64_t* hashIndicesPtr = hashIndices.data_ptr<int64_t>();
+    int64_t* globalIdsPtr = globalIds.data_ptr<int64_t>();
+    for (int64_t i = 0; i < globalIds.numel(); i++) {
+        int64_t key = globalIdsPtr[i];
+        auto findResult = ids2indicesMap.find(key);
+        if (findResult == ids2indicesMap.end()) {
+            int64_t r = maxIndex++;
+            auto findResult = ids2indicesMap.find(key);
+            ids2indicesMap.insert_or_assign(key, r);
+            hashIndicesPtr[i] = r;
+        } else {
+            hashIndicesPtr[i] = findResult->second;
+        }
+    }
+
+    at::Tensor unique;
+    at::Tensor uniqueInverse;
+    std::tie(unique, uniqueInverse) = UniqueParallel(hashIndices);
+    return {hashIndices, unique, uniqueInverse};
+}
+
 void IdsMapper::UniqueAndLookupOut(const torch::Tensor& globalIds, const torch::Tensor& hashIndices,
                                    const torch::Tensor& offset, const torch::Tensor& unique,
                                    const torch::Tensor& uniqueInverse, const torch::Tensor& uniqueOffset,
@@ -34,9 +71,9 @@ void IdsMapper::UniqueAndLookupOut(const torch::Tensor& globalIds, const torch::
         auto findResult = ids2indicesMap.find(key);
         if (findResult == ids2indicesMap.end()) {
             std::lock_guard<std::mutex> lock(insertMute);
-            TORCH_CHECK(key < initMaxIndex,
+            TORCH_CHECK(key < initMaxIndex && key >= 0,
                 "indices = ", key,
-                " must smaller than table Size = ", initMaxIndex);
+                " must be in range of [0, ", initMaxIndex, "]");
             auto findResult = ids2indicesMap.find(key);
             if (findResult == ids2indicesMap.end()) {
                 int64_t r = maxIndex++;

@@ -43,69 +43,6 @@ def verify_mapper(id2indices, indices2id, input_ids, indices):
         else:
             indices2id[v] = k
 
-@pytest.mark.parametrize("input_size", [10000])
-@pytest.mark.parametrize("pin_memory", [False, True])
-@pytest.mark.parametrize("num_mapper", [3])
-def test_ids2indices_out(input_size, pin_memory, num_mapper):
-    """Test ids2indices with sequential numbers"""
-    logging.info("Testing sequential ids mapping")
-    mappers = [IdsMapper(input_size * IDS_RANGE_TIMES) for _ in range(num_mapper)]
-    id2indices = [{} for _ in range(num_mapper)]
-    indices2id = [{} for _ in range(num_mapper)]
-
-    for _ in range(TEST_NUM):
-        input_ids = [
-            torch.randint(0, input_size * IDS_RANGE_TIMES, (input_size,))
-            for _ in range(num_mapper)
-        ]
-
-        ids = torch.concat(input_ids)
-        hash_indices = torch.empty_like(ids, pin_memory=pin_memory)
-        offsets = torch.LongTensor([0, input_size, input_size * 2, input_size * 3])
-        unique = torch.empty_like(ids, pin_memory=pin_memory)
-        unique_inverse = torch.empty_like(ids, pin_memory=pin_memory)
-        unique_offset = torch.LongTensor([0 for _ in range(num_mapper + 1)])
-        for i in range(num_mapper):
-            mappers[i].ids2indices_unique_out(
-                ids, hash_indices, offsets, unique, unique_inverse, unique_offset, i
-            )
-
-            start = offsets[i].item()
-            end = offsets[i + 1].item()
-            input_id = ids[start:end]
-            indices = hash_indices[start:end]
-            verify_mapper(id2indices[i], indices2id[i], input_id, indices)
-            unique_start = unique_offset[i].item()
-            unique_end = unique_offset[i + 1].item()
-            unique_this = unique[unique_start:unique_end]
-            unique_inverse_this = unique_inverse[start:end]
-            verify_unique(indices, unique_this, unique_inverse_this)
-
-@pytest.mark.parametrize("input_size", [10000])
-@pytest.mark.parametrize("pin_memory", [False, True])
-@pytest.mark.parametrize("num_mapper", [3])
-def test_ids2indices_out_ids_max_than_tableSize(input_size, pin_memory, num_mapper):
-    """Test ids2indices with sequential numbers"""
-    logging.info("Testing sequential ids mapping")
-    mappers = [IdsMapper(input_size * IDS_RANGE_TIMES) for _ in range(num_mapper)]
-
-    for _ in range(TEST_NUM):
-        input_ids = [
-            torch.randint(0, input_size, (input_size,))
-            for _ in range(num_mapper)
-        ]
-
-        ids = torch.concat(input_ids)
-        hash_indices = torch.empty_like(ids, pin_memory=pin_memory)
-        offsets = torch.LongTensor([0, input_size, input_size * 2, input_size * 3])
-        unique = torch.empty_like(ids, pin_memory=pin_memory)
-        unique_inverse = torch.empty_like(ids, pin_memory=pin_memory)
-        unique_offset = torch.LongTensor([0 for _ in range(num_mapper + 1)])
-        for i in range(num_mapper):
-            with pytest.raises(RuntimeError):
-                mappers[i].ids2indices_unique_out(
-                    ids, hash_indices, offsets, unique, unique_inverse, unique_offset, i
-                )
 
 def check_bucketized_valid(
     bucketized_lengths,
@@ -143,8 +80,206 @@ def check_bucketized_valid(
                     ), f"bucketized_indices {id} in invalid position {origin_batch_offset} origin_index {origin_index} bucketized_offset {bucketized_offset}"
                     bucketized_offset += 1
                 origin_batch_offset += origin_indices_len
-    return
 
+@pytest.mark.parametrize("input_size", [1000])
+def test_ids2indices_sequential(input_size):
+    """Test ids2indices with sequential numbers"""
+    logging.info("Testing sequential ids mapping")
+    mapper = IdsMapper(input_size)
+    id2indices = {}
+    indices2id = {}
+    for _ in range(TEST_NUM):
+        input_ids = torch.randint(0, input_size * IDS_RANGE_TIMES, (input_size,))
+        indices, unique, unique_inverse = mapper(input_ids)
+        verify_mapper(id2indices, indices2id, input_ids, indices)
+        verify_unique(indices, unique, unique_inverse)
+
+@pytest.mark.parametrize("input_size", [10000])
+@pytest.mark.parametrize("pin_memory", [False, True])
+@pytest.mark.parametrize("num_mapper", [3])
+def test_ids2indices_out(input_size, pin_memory, num_mapper):
+    """Test ids2indices with sequential numbers"""
+    logging.info("Testing sequential ids mapping")
+    mappers = [IdsMapper(input_size * IDS_RANGE_TIMES) for _ in range(num_mapper)]
+    id2indices = [{} for _ in range(num_mapper)]
+    indices2id = [{} for _ in range(num_mapper)]
+
+    for _ in range(TEST_NUM):
+        input_ids = [
+            torch.randint(0, input_size * IDS_RANGE_TIMES, (input_size,))
+            for _ in range(num_mapper)
+        ]
+
+        ids = torch.concat(input_ids)
+        hash_indices = torch.empty_like(ids, pin_memory=pin_memory)
+        offsets = torch.LongTensor([0, input_size, input_size * 2, input_size * 3])
+        unique = torch.empty_like(ids, pin_memory=pin_memory)
+        unique_inverse = torch.empty_like(ids, pin_memory=pin_memory)
+        unique_offset = torch.LongTensor([0 for _ in range(num_mapper + 1)])
+        for i in range(num_mapper):
+            mappers[i].ids2indices_unique_out(
+                ids, hash_indices, offsets, unique, unique_inverse, unique_offset, i, True
+            )
+
+            start = offsets[i].item()
+            end = offsets[i + 1].item()
+            input_id = ids[start:end]
+            indices = hash_indices[start:end]
+            verify_mapper(id2indices[i], indices2id[i], input_id, indices)
+            unique_start = unique_offset[i].item()
+            unique_end = unique_offset[i + 1].item()
+            unique_this = unique[unique_start:unique_end]
+            unique_inverse_this = unique_inverse[start:end]
+            verify_unique(indices, unique_this, unique_inverse_this)
+
+@pytest.mark.parametrize("input_size", [10000])
+@pytest.mark.parametrize("pin_memory", [False, True])
+@pytest.mark.parametrize("num_mapper", [3])
+def test_ids2indices_out_ids_max_than_tableSize(input_size, pin_memory, num_mapper):
+    """Test ids2indices with sequential numbers"""
+    logging.info("Testing sequential ids mapping")
+    mappers = [IdsMapper(input_size) for _ in range(num_mapper)]
+    input_ids = [
+        torch.randint(0, input_size * IDS_RANGE_TIMES, (input_size,))
+        for _ in range(num_mapper)
+    ]
+
+    ids = torch.concat(input_ids)
+    hash_indices = torch.empty_like(ids, pin_memory=pin_memory)
+    offsets = torch.LongTensor([0, input_size, input_size * 2, input_size * 3])
+    unique = torch.empty_like(ids, pin_memory=pin_memory)
+    unique_inverse = torch.empty_like(ids, pin_memory=pin_memory)
+    unique_offset = torch.LongTensor([0 for _ in range(num_mapper + 1)])
+    for i in range(num_mapper):
+        with pytest.raises(RuntimeError):
+            mappers[i].ids2indices_unique_out(
+                ids, hash_indices, offsets, unique, unique_inverse, unique_offset, i
+            )
+
+@pytest.mark.parametrize("input_size", [10000])
+@pytest.mark.parametrize("pin_memory", [False, True])
+@pytest.mark.parametrize("num_mapper", [3])
+def test_ids2indices_out_ids_smaller_than_0(input_size, pin_memory, num_mapper):
+    """Test ids2indices with sequential numbers"""
+    logging.info("Testing sequential ids mapping")
+    mappers = [IdsMapper(input_size * IDS_RANGE_TIMES) for _ in range(num_mapper)]
+
+    input_ids = [
+        torch.randint(-input_size, input_size, (input_size,))
+        for _ in range(num_mapper)
+    ]
+
+    ids = torch.concat(input_ids)
+    hash_indices = torch.empty_like(ids, pin_memory=pin_memory)
+    offsets = torch.LongTensor([0, input_size, input_size * 2, input_size * 3])
+    unique = torch.empty_like(ids, pin_memory=pin_memory)
+    unique_inverse = torch.empty_like(ids, pin_memory=pin_memory)
+    unique_offset = torch.LongTensor([0 for _ in range(num_mapper + 1)])
+    for i in range(num_mapper):
+        with pytest.raises(RuntimeError):
+            mappers[i].ids2indices_unique_out(
+                ids, hash_indices, offsets, unique, unique_inverse, unique_offset, i
+            )
+
+@pytest.mark.parametrize("input_size", [10000])
+@pytest.mark.parametrize("pin_memory", [False, True])
+@pytest.mark.parametrize("num_mapper", [3])
+def test_ids2indices_out_ids_unique_is_none(input_size, pin_memory, num_mapper):
+    """Test ids2indices with sequential numbers"""
+    logging.info("Testing sequential ids mapping")
+    mappers = [IdsMapper(input_size * IDS_RANGE_TIMES) for _ in range(num_mapper)]
+
+    input_ids = [
+        torch.randint(0, input_size * IDS_RANGE_TIMES, (input_size,))
+        for _ in range(num_mapper)
+    ]
+
+    ids = torch.concat(input_ids)
+    hash_indices = torch.empty_like(ids, pin_memory=pin_memory)
+    offsets = torch.LongTensor([0, input_size, input_size * 2, input_size * 3])
+    unique = None
+    unique_inverse = torch.empty_like(ids, pin_memory=pin_memory)
+    unique_offset = torch.LongTensor([0 for _ in range(num_mapper + 1)])
+    for i in range(num_mapper):
+        with pytest.raises(RuntimeError):
+            mappers[i].ids2indices_unique_out(
+                ids, hash_indices, offsets, unique, unique_inverse, unique_offset, i, True
+            )
+
+@pytest.mark.parametrize("input_size", [10000])
+@pytest.mark.parametrize("pin_memory", [False, True])
+@pytest.mark.parametrize("num_mapper", [3])
+def test_ids2indices_out_ids_ids_is_none(input_size, pin_memory, num_mapper):
+    """Test ids2indices with sequential numbers"""
+    logging.info("Testing sequential ids mapping")
+    mappers = [IdsMapper(input_size * IDS_RANGE_TIMES) for _ in range(num_mapper)]
+
+    input_ids = [
+        torch.randint(0, input_size * IDS_RANGE_TIMES, (input_size,))
+        for _ in range(num_mapper)
+    ]
+
+    ids = torch.concat(input_ids)
+    hash_indices = None
+    offsets = torch.LongTensor([0, input_size, input_size * 2, input_size * 3])
+    unique = torch.empty_like(ids, pin_memory=pin_memory)
+    unique_inverse = torch.empty_like(ids, pin_memory=pin_memory)
+    unique_offset = torch.LongTensor([0 for _ in range(num_mapper + 1)])
+    for i in range(num_mapper):
+        with pytest.raises(RuntimeError):
+            mappers[i].ids2indices_unique_out(
+                ids, hash_indices, offsets, unique, unique_inverse, unique_offset, i, True
+            )
+
+@pytest.mark.parametrize("input_size", [10000])
+@pytest.mark.parametrize("pin_memory", [False, True])
+@pytest.mark.parametrize("num_mapper", [3])
+def test_ids2indices_out_ids_invalid_offset(input_size, pin_memory, num_mapper):
+    """Test ids2indices with sequential numbers"""
+    logging.info("Testing sequential ids mapping")
+    mappers = [IdsMapper(input_size * IDS_RANGE_TIMES) for _ in range(num_mapper)]
+
+    input_ids = [
+        torch.randint(0, input_size * IDS_RANGE_TIMES, (input_size,))
+        for _ in range(num_mapper)
+    ]
+
+    ids = torch.concat(input_ids)
+    hash_indices = torch.empty_like(ids, pin_memory=pin_memory)
+    offsets = torch.LongTensor([0, input_size])
+    unique = torch.empty_like(ids, pin_memory=pin_memory)
+    unique_inverse = torch.empty_like(ids, pin_memory=pin_memory)
+    unique_offset = torch.LongTensor([0 for _ in range(num_mapper + 1)])
+    for i in range(num_mapper):
+        with pytest.raises(RuntimeError):
+            mappers[i].ids2indices_unique_out(
+                ids, hash_indices, offsets, unique, unique_inverse, unique_offset, i, True
+            )
+
+@pytest.mark.parametrize("input_size", [10000])
+@pytest.mark.parametrize("pin_memory", [False, True])
+@pytest.mark.parametrize("num_mapper", [3])
+def test_ids2indices_out_ids_hashIndices_is_none(input_size, pin_memory, num_mapper):
+    """Test ids2indices with sequential numbers"""
+    logging.info("Testing sequential ids mapping")
+    mappers = [IdsMapper(input_size * IDS_RANGE_TIMES) for _ in range(num_mapper)]
+
+    input_ids = [
+        torch.randint(0, input_size * IDS_RANGE_TIMES, (input_size,))
+        for _ in range(num_mapper)
+    ]
+
+    ids = None
+    hash_indices = torch.empty_like(ids, pin_memory=pin_memory)
+    offsets = torch.LongTensor([0, input_size, input_size * 2, input_size * 3])
+    unique = torch.empty_like(ids, pin_memory=pin_memory)
+    unique_inverse = torch.empty_like(ids, pin_memory=pin_memory)
+    unique_offset = torch.LongTensor([0 for _ in range(num_mapper + 1)])
+    for i in range(num_mapper):
+        with pytest.raises(RuntimeError):
+            mappers[i].ids2indices_unique_out(
+                ids, hash_indices, offsets, unique, unique_inverse, unique_offset, i, True
+            )
 
 @pytest.mark.parametrize("input_size", [1000])
 @pytest.mark.parametrize("mutil_hots", [[1, 2, 3, 4]])
@@ -193,3 +328,41 @@ def test_block_bucketize_sparse_features_cpu(input_size, mutil_hots, bucketSize)
             bucketized_indices, dim=0, index=unbucketize_permute
         )
         assert (inverse_result == values).all(), "unbucketize_permute is invalid"
+
+
+@pytest.mark.parametrize("input_size", [1000])
+@pytest.mark.parametrize("mutil_hots", [[1, 2, 3, 4]])
+@pytest.mark.parametrize("bucketSize", [0])
+def test_block_bucketize_sparse_features_cpu(input_size, mutil_hots, bucketSize):
+    for _ in range(TEST_NUM):
+        jt_dict = {}
+        for ind, mutil_hot in enumerate(mutil_hots):
+            v = torch.randint(0, input_size, (input_size * mutil_hot,))
+            jt_dict[f"feat{ind}"] = JaggedTensor(
+                values=v, lengths=torch.ones(input_size, dtype=torch.int64) * mutil_hot
+            )
+        kjt = KeyedJaggedTensor.from_jt_dict(jt_dict)
+
+        lengths = kjt.lengths().view(-1)
+        values = kjt.values()
+        with pytest.raises(RuntimeError):
+            block_size = torch.Tensor([100 for _ in range(len(mutil_hots))]).long()
+            (
+                bucketized_lengths,
+                bucketized_indices,
+                bucketized_weights,
+                pos,
+                unbucketize_permute,
+                _,
+            ) = block_bucketize_sparse_features_cpu(
+                lengths,
+                values,
+                bucketize_pos=False,
+                sequence=True,
+                block_sizes=block_size,
+                bucketSize=bucketSize,
+                weights=kjt.weights_or_none(),
+                batch_size_per_feature=None,
+                max_B=-1,
+                block_bucketize_pos=None,
+            )

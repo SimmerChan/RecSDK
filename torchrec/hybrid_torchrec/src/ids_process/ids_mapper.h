@@ -29,7 +29,7 @@ public:
     {
         return *this;
     };
-
+    std::tuple<at::Tensor, at::Tensor, at::Tensor> UniqueAndLookup(const torch::Tensor& globalIds);
     void UniqueAndLookupOut(const torch::Tensor& globalIds, const torch::Tensor& hashIndices,
                             const torch::Tensor& offset, const torch::Tensor& unique,
                             const torch::Tensor& uniqueInverse, const torch::Tensor& uniqueOffset, int64_t tableId, bool isUnique);
@@ -61,6 +61,7 @@ private:
     void UniqueProcessing(const torch::Tensor& hashIndices, const torch::Tensor& offset,
         const torch::Tensor& unique, const torch::Tensor& uniqueInverse,
         const torch::Tensor& uniqueOffset, int64_t tableId);
+    std::tuple<at::Tensor, at::Tensor, at::Tensor> FindOrInsertHighPrecison(const            torch::Tensor& global_ids);
     ska::flat_hash_map<int64_t, int64_t> ids2indicesMap;
 
     int numThread;
