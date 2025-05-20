@@ -19,7 +19,7 @@ torch.ops.load_library(os.path.join(os.path.dirname(__file__), "libhybrid_cpp.so
 
 
 class HashMapBase(torch.nn.Module):
-    def forward(self, ids: torch.Tensor, high_precison: bool) -> tuple[torch.Tensor]:
+    def forward(self, ids: torch.Tensor) -> tuple[torch.Tensor]:
         pass
 
 
@@ -39,10 +39,10 @@ class IdsMapper(HashMapBase):
         self.ids_mapper = torch.classes.hybrid.IdsMapper(n)
         self.n = n
 
-    def forward(self, ids: torch.Tensor, high_precison: bool):
+    def forward(self, ids: torch.Tensor):
         with record_function("## ids2indices ##"):
             result, unique, unique_inverse = self.ids_mapper.ids2indices_unique(
-                ids, high_precison
+                ids
             )
             return result, unique, unique_inverse
     def ids2indices_unique_out(
@@ -65,7 +65,7 @@ def block_bucketize_sparse_features_cpu(
     bucketize_pos,
     sequence,
     block_sizes,
-    my_size,
+    bucket_size,
     total_num_blocks=None,
     weights=None,
     batch_size_per_feature=None,
@@ -80,7 +80,7 @@ def block_bucketize_sparse_features_cpu(
         bucketize_pos,
         sequence,
         block_sizes,
-        my_size,
+        bucket_size,
         total_num_blocks,
         weights,
         batch_size_per_feature,

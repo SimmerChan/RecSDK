@@ -27,16 +27,16 @@ if [ "$#" -eq 1 ]; then
 fi
 
 # 利用msopgen生成可编译文件
-rm -rf ./split_embedding_codegen_forward_unweighted
-python3 /usr/local/Ascend/ascend-toolkit/latest/python/site-packages/bin/msopgen gen -i split_embedding_codegen_forward_unweighted.json -f tf -c ${ai_core} -lan cpp -out ./split_embedding_codegen_forward_unweighted -m 0 -op SplitEmbeddingCodegenForwardUnweighted
-rm -rf split_embedding_codegen_forward_unweighted/op_kernel/*.h
-rm -rf split_embedding_codegen_forward_unweighted/op_kernel/*.cpp
-rm -rf split_embedding_codegen_forward_unweighted/host/*.h
-rm -rf split_embedding_codegen_forward_unweighted/host/*.cpp
-cp -rf op_kernel split_embedding_codegen_forward_unweighted/
-cp -rf op_host split_embedding_codegen_forward_unweighted/
+rm -rf ./backward_codegen_adagrad_unweighted_exact
+python3 /usr/local/Ascend/ascend-toolkit/latest/python/site-packages/bin/msopgen gen -i backward_codegen_adagrad_unweighted_exact.json -f tf -c ${ai_core} -lan cpp -out ./backward_codegen_adagrad_unweighted_exact -m 0 -op BackwardCodegenAdagradUnweightedExact
+rm -rf backward_codegen_adagrad_unweighted_exact/op_kernel/*.h
+rm -rf backward_codegen_adagrad_unweighted_exact/op_kernel/*.cpp
+rm -rf backward_codegen_adagrad_unweighted_exact/host/*.h
+rm -rf backward_codegen_adagrad_unweighted_exact/host/*.cpp
+cp -rf op_kernel backward_codegen_adagrad_unweighted_exact/
+cp -rf op_host backward_codegen_adagrad_unweighted_exact/
 
-cd split_embedding_codegen_forward_unweighted
+cd backward_codegen_adagrad_unweighted_exact
 
 # 判断当前目录下是否存在CMakePresets.json文件
 if [ ! -f "CMakePresets.json" ]; then
@@ -52,7 +52,7 @@ sed -i 's:"/usr/local/Ascend/latest":"/usr/local/Ascend/ascend-toolkit/latest":g
 # 修改vendor_name 防止覆盖之前vendor_name为customize的算子;
 # vendor_name需要和aclnn中的CMakeLists.txt中的CUST_PKG_PATH值同步，不同步aclnn会调用失败;
 # vendor_name字段值不能包含customize；包含会导致多算子部署场景CANN的vendors路径下config.ini文件内容截取错误
-sed -i 's:"customize":"split_embedding_codegen_forward_unweighted":g' CMakePresets.json
+sed -i 's:"customize":"backward_codegen_adagrad_unweighted_exact":g' CMakePresets.json
 
 line=`awk '/ENABLE_SOURCE_PACKAGE/{print NR}' CMakePresets.json`
 line=`expr ${line} + 2`
@@ -69,5 +69,5 @@ sed -i "${line2}s/OP_PROTO_LIB/OP_PROTO_LIB LOG_CPP/g" ./op_host/CMakeLists.txt
 
 bash build.sh
 
-# # 安装编译成功的算子包
+# 安装编译成功的算子包
 bash ./build_out/custom_opp*.run

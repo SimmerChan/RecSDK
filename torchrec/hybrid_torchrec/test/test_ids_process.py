@@ -213,8 +213,12 @@ def test_ids2indices_out_ids_is_none(input_size, pin_memory, num_mapper):
     """Test ids2indices with sequential numbers"""
     logging.info("Testing sequential ids mapping")
     mappers = [IdsMapper(input_size * IDS_RANGE_TIMES) for _ in range(num_mapper)]
+    input_ids = [
+        torch.randint(0, input_size * IDS_RANGE_TIMES, (input_size,))
+        for _ in range(num_mapper)
+    ]
 
-    ids = None
+    ids = torch.concat(input_ids)
     hash_indices = torch.empty_like(ids, pin_memory=pin_memory)
     offsets = torch.LongTensor([0, input_size, input_size * 2, input_size * 3])
     unique = torch.empty_like(ids, pin_memory=pin_memory)
@@ -223,7 +227,7 @@ def test_ids2indices_out_ids_is_none(input_size, pin_memory, num_mapper):
     for i in range(num_mapper):
         with pytest.raises(RuntimeError):
             mappers[i].ids2indices_unique_out(
-                ids, hash_indices, offsets, unique, unique_inverse, unique_offset, i
+                None, hash_indices, offsets, unique, unique_inverse, unique_offset, i
             )
 
 @pytest.mark.parametrize("input_size", [10000])
@@ -264,8 +268,8 @@ def test_ids2indices_out_ids_hashIndices_is_none(input_size, pin_memory, num_map
         for _ in range(num_mapper)
     ]
 
-    ids = None
-    hash_indices = torch.empty_like(ids, pin_memory=pin_memory)
+    ids = torch.concat(input_ids)
+    hash_indices = None
     offsets = torch.LongTensor([0, input_size, input_size * 2, input_size * 3])
     unique = torch.empty_like(ids, pin_memory=pin_memory)
     unique_inverse = torch.empty_like(ids, pin_memory=pin_memory)
@@ -305,7 +309,7 @@ def test_block_bucketize_sparse_features_cpu(input_size, mutil_hots, bucketSize)
             bucketize_pos=False,
             sequence=True,
             block_sizes=block_size,
-            bucketSize=bucketSize,
+            bucket_size=bucketSize,
             weights=kjt.weights_or_none(),
             batch_size_per_feature=None,
             max_B=-1,
@@ -355,7 +359,7 @@ def test_block_bucketize_sparse_features_cpu(input_size, mutil_hots, bucketSize)
                 bucketize_pos=False,
                 sequence=True,
                 block_sizes=block_size,
-                bucketSize=bucketSize,
+                bucket_size=bucketSize,
                 weights=kjt.weights_or_none(),
                 batch_size_per_feature=None,
                 max_B=-1,

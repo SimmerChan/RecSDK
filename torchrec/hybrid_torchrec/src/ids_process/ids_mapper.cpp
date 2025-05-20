@@ -55,7 +55,7 @@ void IdsMapper::UniqueAndLookupOut(const torch::Tensor& globalIds, const torch::
 {
     at::ThreadLocalStateGuard tlsGrad(state);
     RECORD_FUNCTION(c10::str("hybrid::UniqueAndLookupOut"), c10::ArrayRef<const c10::IValue>());
-
+    TORCH_CHECK(offset.numel() - 1 >= tableId, "offset must be equal to table size + 1");
     int64_t* hashIndicesPtr = hashIndices.data_ptr<int64_t>();
     int64_t* globalIdsPtr = globalIds.data_ptr<int64_t>();
     int64_t* offsetPtr = offset.data_ptr<int64_t>();

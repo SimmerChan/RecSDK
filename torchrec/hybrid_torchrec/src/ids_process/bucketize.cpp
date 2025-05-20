@@ -213,6 +213,10 @@ BlockBucketizeSparseFeaturesCpu(const at::Tensor& lengths, const at::Tensor& ind
 
     TORCH_CHECK(!returnBucketMapping, "Bucket mapping return is not supported");
 
+    TORCH_CHECK(!batchSizePerFeature, "batchSize PerFeature return is not supported");
+
+    TORCH_CHECK(!blockBucketizePos, "block BucketizePos return is not supported");
+
     TORCH_CHECK(bucketSize > 0, "Bucket size must be greater than 0");
 
     // 初始化输出张量
