@@ -17,7 +17,7 @@
 #include "index_select_for_rank1_backward_tiling.h"
 #include "register/op_def_registry.h"
 #include "tiling/platform/platform_ascendc.h"
-#include "../../../common/utils.h"
+#include "../../../common/ops_log.h"
 
 namespace optiling {
 
@@ -29,10 +29,10 @@ constexpr int INDEX_IDX = 2;
 
 static ge::graphStatus TilingFunc(gert::TilingContext* context)
 {
-    if (CheckPtrIsNull(context, "context")) return ge::GRAPH_FAILED;
-    if (CheckPtrIsNull(context->GetInputShape(GRAD_IDX), "gradShape")) return ge::GRAPH_FAILED;
-    if (CheckPtrIsNull(context->GetInputShape(X_IDX), "xShape")) return ge::GRAPH_FAILED;
-    if (CheckPtrIsNull(context->GetInputShape(INDEX_IDX), "indexShape")) return ge::GRAPH_FAILED;
+    OPS_LOG_E_IF_NULL("context", context, return ge::GRAPH_FAILED);
+    OPS_LOG_E_IF_NULL("gradShape", context->GetInputShape(GRAD_IDX), return ge::GRAPH_FAILED);
+    OPS_LOG_E_IF_NULL("xShape", context->GetInputShape(X_IDX), return ge::GRAPH_FAILED);
+    OPS_LOG_E_IF_NULL("indexShape", context->GetInputShape(INDEX_IDX), return ge::GRAPH_FAILED);
 
     auto gradShape = context->GetInputShape(GRAD_IDX)->GetStorageShape();
     auto xShape = context->GetInputShape(X_IDX)->GetStorageShape();
@@ -73,10 +73,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
 
     context->SetBlockDim(coreNum);
     auto tilingData = context->GetRawTilingData();
-    if (tilingData == nullptr) {
-        printf("[ERROR]context->GetRawTilingData() is nullptr\n");
-        return ge::GRAPH_FAILED;
-    }
+    OPS_LOG_E_IF_NULL("tilingData", tilingData, return ge::GRAPH_FAILED);
     tiling.SaveToBuffer(tilingData->GetData(), tilingData->GetCapacity());
     tilingData->SetDataSize(tiling.GetDataSize());
 
@@ -87,7 +84,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
 namespace ge {
 static ge::graphStatus InferShape(gert::InferShapeContext* context)
 {
-    if (CheckPtrIsNull(context, "context")) return ge::GRAPH_FAILED;
+    OPS_LOG_E_IF_NULL("context", context, return ge::GRAPH_FAILED);
 
     const gert::Shape* xShape = context->GetInputShape(optiling::X_IDX);
     const gert::Shape* indexShape = context->GetInputShape(optiling::INDEX_IDX);
@@ -95,10 +92,10 @@ static ge::graphStatus InferShape(gert::InferShapeContext* context)
     gert::Shape* gradXShape = context->GetOutputShape(optiling::GRAD_IDX);
     gert::Shape* gradIndexShape = context->GetOutputShape(optiling::INDEX_IDX);
 
-    if (CheckPtrIsNull(xShape, "xShape")) return ge::GRAPH_FAILED;
-    if (CheckPtrIsNull(indexShape, "indexShape")) return ge::GRAPH_FAILED;
-    if (CheckPtrIsNull(gradXShape, "gradXShape")) return ge::GRAPH_FAILED;
-    if (CheckPtrIsNull(gradIndexShape, "gradIndexShape")) return ge::GRAPH_FAILED;
+    OPS_LOG_E_IF_NULL("xShape", xShape, return ge::GRAPH_FAILED);
+    OPS_LOG_E_IF_NULL("indexShape", indexShape, return ge::GRAPH_FAILED);
+    OPS_LOG_E_IF_NULL("gradXShape", gradXShape, return ge::GRAPH_FAILED);
+    OPS_LOG_E_IF_NULL("gradIndexShape", gradIndexShape, return ge::GRAPH_FAILED);
 
     *gradXShape = *xShape;
     *gradIndexShape = *indexShape;

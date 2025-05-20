@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 #include "jagged_to_padded_dense_tiling.h"
 #include "register/op_def_registry.h"
 #include "tiling/platform/platform_ascendc.h"
-#include "../../../common/utils.h"
+#include "../../../common/ops_log.h"
 namespace optiling {
 
 constexpr int GM_ALIGN = 64;
@@ -51,13 +51,13 @@ static void SetTypeTiling(gert::TilingContext* context, JaggedToPaddedDenseTilin
 
 static ge::graphStatus TilingFunc(gert::TilingContext* context)
 {
-    if (CheckPtrIsNull(context, "context")) return ge::GRAPH_FAILED;
+    OPS_LOG_E_IF_NULL("context", context, return ge::GRAPH_FAILED);
 
     JaggedToPaddedDenseTilingData tiling;
     auto ascnedPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
 
-    if (CheckPtrIsNull(context->GetInputShape(0), "valuesShape")) return ge::GRAPH_FAILED;
-    if (CheckPtrIsNull(context->GetInputShape(1), "offsetsShape")) return ge::GRAPH_FAILED;
+    OPS_LOG_E_IF_NULL("context->GetInputShape(0)", valuesShape, return ge::GRAPH_FAILED);
+    OPS_LOG_E_IF_NULL("context->GetInputShape(1)", offsetsShape, return ge::GRAPH_FAILED);
 
     auto valuesShape = context->GetInputShape(0)->GetStorageShape();
     auto offsetsShape = context->GetInputShape(1)->GetStorageShape();
@@ -101,11 +101,8 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
 
     context->SetBlockDim(coreNum);
 
-    if (context->GetRawTilingData() == nullptr) {
-        printf("[ERROR]context->GetRawTilingData() is nullptr.");
-        return ge::GRAPH_FAILED;
-    }
-
+    OPS_LOG_E_IF_NULL("context->GetRawTilingData(0)", context->GetRawTilingData(), return ge::GRAPH_FAILED);
+    
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
 
@@ -116,17 +113,16 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
 namespace ge {
 static ge::graphStatus InferShape(gert::InferShapeContext* context)
 {
-    if (CheckPtrIsNull(context, "context")) return ge::GRAPH_FAILED;
-
+    OPS_LOG_E_IF_NULL("context", context, return ge::GRAPH_FAILED);
     int64_t maxLen = *context->GetAttrs()->GetInt(0);
     const gert::Shape* valuesShape = context->GetInputShape(0);
     const gert::Shape* offsetsShape = context->GetInputShape(1);
 
     gert::Shape* outShape = context->GetOutputShape(0);
 
-    if (CheckPtrIsNull(valuesShape, "valuesShape")) return ge::GRAPH_FAILED;
-    if (CheckPtrIsNull(offsetsShape, "offsetsShape")) return ge::GRAPH_FAILED;
-    if (CheckPtrIsNull(outShape, "outShape")) return ge::GRAPH_FAILED;
+    OPS_LOG_E_IF_NULL("valuesShape", valuesShape, return ge::GRAPH_FAILED);
+    OPS_LOG_E_IF_NULL("offsetsShape", offsetsShape, return ge::GRAPH_FAILED);
+    OPS_LOG_E_IF_NULL("outShape", outShape, return ge::GRAPH_FAILED);
 
     int dimSize = 3;
     int dimIndex2 = 2;
