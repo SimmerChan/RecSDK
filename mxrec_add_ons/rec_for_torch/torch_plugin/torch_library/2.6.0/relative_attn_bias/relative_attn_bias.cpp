@@ -18,11 +18,11 @@ using torch::autograd::Function;
 using namespace at;
 using namespace std;
 
-std::tuple<Tensor, Tensor> relative_attn_bias_impl_npu(const Tensor& relPosBias, 
+std::tuple<Tensor, Tensor> relative_attn_bias_impl_npu(const Tensor& relPosBias,
                                                        const Tensor& identity,
-                                                       const Tensor& timestamps, 
+                                                       const Tensor& timestamps,
                                                        const Tensor& timestampsWeights,
-                                                       const at::IntArrayRef pastValidLens, 
+                                                       const at::IntArrayRef pastValidLens,
                                                        const double bucketDivisor)
 {
     auto relPosBiasConti = relPosBias.contiguous();

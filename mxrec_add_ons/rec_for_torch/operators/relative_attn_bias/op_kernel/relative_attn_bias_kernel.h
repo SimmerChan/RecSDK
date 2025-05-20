@@ -17,7 +17,7 @@ using namespace AscendC;
 template <typename floatType>
 class RelativeAttnBiasKernel {
 public:
-    __aicore__ inline RelativeAttnBias() {}
+    __aicore__ inline RelativeAttnBiasKernel() {}
 
     __aicore__ inline void Compute(Args args)
     {

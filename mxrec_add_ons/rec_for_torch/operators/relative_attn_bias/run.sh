@@ -54,5 +54,5 @@ sed -i "${line}s/True/False/g" CMakePresets.json
 
 bash build.sh
 
-# # 安装编译成功的算子包
+# 安装编译成功的算子包
 bash ./build_out/custom_opp*.run

@@ -160,8 +160,8 @@ public:
             uint64_t mask0 = (1ul << (DATA_ALIGN_BYTES / sizeof(floatType))) - (1ul << unalignCnt);
             uint64_t mask[2] = {mask0, 0};
             Duplicate(rabTime[ptrUb + alignCnt], (floatType)0, mask, 1, 1, 1);
-            set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-            wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+            queTimestampsFloat.EnQue(rabTime);
+            rabTime = queTimestampsFloat.DeQue<floatType>();
             SetAtomicAdd<floatType>();
             DataCopy(rabTimeBiasOutGT[ptr + i * s + alignCnt], rabTime[ptrUb + alignCnt],
                      Ceil(unalignLen) / sizeof(floatType));

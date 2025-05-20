@@ -11,7 +11,7 @@
 #include "kernel_operator.h"
 using namespace AscendC;
 
-constexpr SEQ_EXPAND = 2;  // rab_pos中序列长度为原本输入的两倍
+constexpr int SEQ_EXPAND = 2;  // rab_pos中序列长度为原本输入的两倍
 
 template <typename floatType>
 class RelativeAttnBiasPos {
@@ -111,8 +111,8 @@ public:
             uint64_t mask0 = (1ul << (DATA_ALIGN_BYTES / sizeof(floatType))) - (1ul << unAlignCnt);
             uint64_t mask[2] = {mask0, 0};
             Duplicate(posBiasUb[alignCnt], (floatType)0, mask, 1, 1, 1);
-            set_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
-            wait_flag(PIPE_V, PIPE_MTE3, EVENT_ID0);
+            quePosIn.EnQue(posBiasUb);
+            posBiasUb = quePosIn.DeQue<floatType>();
             SetAtomicAdd<floatType>();
             DataCopy(rabPosBiasOutGT[offset + alignCnt], posBiasUb[alignCnt], Ceil(unAlignLen) / sizeof(floatType));
             SetAtomicNone();
