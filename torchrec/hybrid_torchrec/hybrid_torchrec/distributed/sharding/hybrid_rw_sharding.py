@@ -105,10 +105,10 @@ def bucketize_kjt_before_all2all(
         bucketize_pos=bucketize_pos,
         sequence=output_permute,
         block_sizes=block_sizes_new_type,
-        my_size=num_buckets,
+        bucket_size=num_buckets,
         weights=kjt.weights_or_none(),
         batch_size_per_feature=_fx_wrap_batch_size_per_feature(kjt),
-        max_B=_fx_wrap_max_B(kjt),
+        max_b=_fx_wrap_max_B(kjt),
         block_bucketize_pos=block_bucketize_row_pos,  # each tensor should have the same dtype as kjt.lengths()
         keep_orig_idx=keep_original_indices,)
     (

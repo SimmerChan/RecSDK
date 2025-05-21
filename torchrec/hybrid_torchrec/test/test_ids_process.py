@@ -262,8 +262,8 @@ def test_ids2indices_out_ids_invalid_offset(input_size, pin_memory, num_mapper):
     unique = torch.empty_like(ids, pin_memory=pin_memory)
     unique_inverse = torch.empty_like(ids, pin_memory=pin_memory)
     unique_offset = torch.LongTensor([0 for _ in range(num_mapper + 1)])
-    for i in range(num_mapper):
-        with pytest.raises(RuntimeError):
+    with pytest.raises(RuntimeError):
+        for i in range(num_mapper):
             mappers[i].ids2indices_unique_out(
                 ids, hash_indices, offsets, unique, unique_inverse, unique_offset, i
             )
@@ -311,7 +311,7 @@ def test_block_bucketize_sparse_features_cpu(input_size, mutil_hots, bucket_size
         lengths = kjt.lengths().view(-1)
         values = kjt.values()
         block_size = torch.Tensor([100 for _ in range(len(mutil_hots))]).long()
-        paramsIn = BucketParams(
+        params_in = BucketParams(
             lengths,
             values,
             bucketize_pos=False,
@@ -330,7 +330,7 @@ def test_block_bucketize_sparse_features_cpu(input_size, mutil_hots, bucket_size
             pos,
             unbucketize_permute,
             _,
-        ) = block_bucketize_sparse_features_cpu(paramsIn)
+        ) = block_bucketize_sparse_features_cpu(params_in)
 
         params = BucketResult(bucketized_lengths,
                               bucketized_indices,
@@ -362,7 +362,7 @@ def test_block_bucketize_sparse_features_cpu_invalid_bucket_size(input_size, mut
     values = kjt.values()
     with pytest.raises(RuntimeError):
         block_size = torch.Tensor([100 for _ in range(len(mutil_hots))]).long()
-        paramsIn = BucketParams(
+        params_in = BucketParams(
             lengths,
             values,
             bucketize_pos=False,
@@ -381,7 +381,7 @@ def test_block_bucketize_sparse_features_cpu_invalid_bucket_size(input_size, mut
             pos,
             unbucketize_permute,
             _,
-        ) = block_bucketize_sparse_features_cpu(paramsIn)
+        ) = block_bucketize_sparse_features_cpu(params_in)
 
 
 @pytest.mark.parametrize("input_size", [1000])
@@ -400,7 +400,7 @@ def test_block_bucketize_sparse_features_cpu_invalid_block_size(input_size, muti
     values = kjt.values()
     with pytest.raises(RuntimeError):
         block_size = None
-        paramsIn = BucketParams(
+        params_in = BucketParams(
             lengths,
             values,
             bucketize_pos=False,
@@ -419,4 +419,4 @@ def test_block_bucketize_sparse_features_cpu_invalid_block_size(input_size, muti
             pos,
             unbucketize_permute,
             _,
-        ) = block_bucketize_sparse_features_cpu(paramsIn)
+        ) = block_bucketize_sparse_features_cpu(params_in)

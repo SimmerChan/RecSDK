@@ -207,13 +207,13 @@ void BlockBucketizeSparseFeaturesCpuKernel(const at::Tensor& lengths, const at::
 }
 
 // 对外接口函数
-BucketResult BlockBucketizeSparseFeaturesCpu (
+BucketResult BlockBucketizeSparseFeaturesCpu(
     const at::Tensor& lengths, const at::Tensor& indices,
     const bool bucketizePos, const bool sequence,
     const at::Tensor& blockSizes, const int64_t bucketSize,
     const std::optional<at::Tensor>& totalNumBlocks,
     const std::optional<at::Tensor>& weights,
-    const std::optional<at::Tensor>& batchSizePerFeature, const int64_t  maxBatchSize,
+    const std::optional<at::Tensor>& batchSizePerFeature, const int64_t maxBatchSize,
     const std::optional<std::vector<at::Tensor>>& blockBucketizePos,
     const bool returnBucketMapping, const bool keepOrigIdx)
 {

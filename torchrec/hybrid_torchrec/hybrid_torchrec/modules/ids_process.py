@@ -26,13 +26,14 @@ class BucketParams:
     sequence: bool
     block_sizes: torch.Tensor
     bucket_size: int
-    total_num_blocks: torch.Tensor = None,
-    weight: torch.Tensor = None,
-    batch_size_per_feature: torch.Tensor = None,
-    max_b: torch.Tensor = None,
-    block_bucketize_pos: torch.Tensor = None,
-    return_bucket_mapping: bool = False,
-    keep_orig_idx: bool = False,
+    total_num_blocks: torch.Tensor = None
+    weights: torch.Tensor = None
+    batch_size_per_feature: torch.Tensor = None
+    max_b: torch.Tensor = None
+    block_bucketize_pos: torch.Tensor = None
+    return_bucket_mapping: bool = False
+    keep_orig_idx: bool = False
+
 
 class HashMapBase(torch.nn.Module):
     def forward(self, ids: torch.Tensor) -> tuple[torch.Tensor]:
@@ -78,5 +79,17 @@ class IdsMapper(HashMapBase):
 
 
 def block_bucketize_sparse_features_cpu(bucket_params: BucketParams):
-    return torch.ops.hybrid.block_bucketize_sparse_features_cpu(**asdict(bucket_params))
+    return torch.ops.hybrid.block_bucketize_sparse_features_cpu(bucket_params.lengths,
+                                                                bucket_params.indices,
+                                                                bucket_params.bucketize_pos,
+                                                                bucket_params.sequence,
+                                                                bucket_params.block_sizes,
+                                                                bucket_params.bucket_size,
+                                                                bucket_params.total_num_blocks,
+                                                                bucket_params.weights,
+                                                                bucket_params.batch_size_per_feature,
+                                                                bucket_params.max_b,
+                                                                bucket_params.block_bucketize_pos,
+                                                                bucket_params.return_bucket_mapping,
+                                                                bucket_params.keep_orig_idx)
 
