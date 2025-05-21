@@ -17,7 +17,7 @@ std::optional<at::Tensor>, std::optional<at::Tensor>> BlockBucketizeSparseFeatur
                                 const bool sequence, const at::Tensor& blockSizes, const int64_t bucketSize,
                                 const std::optional<at::Tensor>& totalNumBlocks,
                                 const std::optional<at::Tensor>& weights,
-                                const std::optional<at::Tensor>& batchSizePerFeature, const int64_t /* maxBatchSize */,
+                                const std::optional<at::Tensor>& batchSizePerFeature, const int64_t maxBatchSize,
                                 const std::optional<std::vector<at::Tensor>>& blockBucketizePos,
                                 const bool returnBucketMapping, const bool keepOrigIdx);
 

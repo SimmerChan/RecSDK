@@ -30,7 +30,7 @@ void PrefixSum(const int length, const T* array, T* preSum)
 template <typename T>
 T* GetSafeDataPtr(const at::Tensor& tensor, const char* message)
 {
-    TORCH_CHECK(tensor.has_value(), message, " is an empty tensor");
+    TORCH_CHECK(lengths.defined() && lengths.numel() > 0, message, " is an empty tensor");
 
     TORCH_CHECK(tensor.dtype() == at::CppTypeToScalarType<T>::value, message, " tensor type mismatch");
 
@@ -210,14 +210,14 @@ BlockBucketizeSparseFeaturesCpu(const at::Tensor& lengths, const at::Tensor& ind
                                 const bool sequence, const at::Tensor& blockSizes, const int64_t bucketSize,
                                 const std::optional<at::Tensor>& totalNumBlocks,
                                 const std::optional<at::Tensor>& weights,
-                                const std::optional<at::Tensor>& batchSizePerFeature, const int64_t /* maxBatchSize */,
+                                const std::optional<at::Tensor>& batchSizePerFeature, const int64_t  maxBatchSize,
                                 const std::optional<std::vector<at::Tensor>>& blockBucketizePos,
                                 const bool returnBucketMapping, const bool keepOrigIdx)
 {
     // 参数校验
-    TORCH_CHECK(lengths.has_value(), "Lengths tensor can not be an empty tensor");
+    TORCH_CHECK(lengths.defined() && lengths.numel() > 0, "Lengths tensor is an empty tensor");
 
-    TORCH_CHECK(indices.has_value(), "Indices tensor can not be an empty tensor");
+    TORCH_CHECK(indices.defined() && indices.numel() > 0, "Indices tensor is an empty tensor");
 
     TORCH_CHECK(lengths.scalar_type() == at::kLong, "Lengths tensor must be int64 type, got: ", lengths.scalar_type());
 
