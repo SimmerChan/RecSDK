@@ -5,13 +5,12 @@
 # LICENSE file in the root directory of this source tree.
 
 import os
+from typing import Tuple, Any
 
 import torchx.specs as specs
 from torchx.components.dist import ddp
-from torchx.specs.api import Resource
 
-
-def run_dlrm_main(num_trainers: int = 8, *script_args: str) -> specs.AppDef:
+def run_dlrm_main(num_trainers: int = 8, *script_args: Tuple[Any]) -> specs.AppDef:
     """
     Args:
         num_trainers: The number of trainers to use.
