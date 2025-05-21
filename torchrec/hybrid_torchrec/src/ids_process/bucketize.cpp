@@ -15,6 +15,9 @@
 
 #include "torch/torch.h"
 
+using BucketResult = std::tuple<at::Tensor, at::Tensor, std::optional<at::Tensor>,
+                     std::optional<at::Tensor>,
+                     std::optional<at::Tensor>, std::optional<at::Tensor>>;
 namespace hybrid {
 
 // 计算前缀和，preSum数组长度应为length+1
@@ -204,15 +207,15 @@ void BlockBucketizeSparseFeaturesCpuKernel(const at::Tensor& lengths, const at::
 }
 
 // 对外接口函数
-std::tuple<at::Tensor, at::Tensor, std::optional<at::Tensor>, std::optional<at::Tensor>,
-std::optional<at::Tensor>, std::optional<at::Tensor>>
-BlockBucketizeSparseFeaturesCpu (const at::Tensor& lengths, const at::Tensor& indices, const bool bucketizePos,
-                                 const bool sequence, const at::Tensor& blockSizes, const int64_t bucketSize,
-                                 const std::optional<at::Tensor>& totalNumBlocks,
-                                 const std::optional<at::Tensor>& weights,
-                                 const std::optional<at::Tensor>& batchSizePerFeature, const int64_t  maxBatchSize,
-                                 const std::optional<std::vector<at::Tensor>>& blockBucketizePos,
-                                 const bool returnBucketMapping, const bool keepOrigIdx)
+BucketResult BlockBucketizeSparseFeaturesCpu (
+    const at::Tensor& lengths, const at::Tensor& indices,
+    const bool bucketizePos, const bool sequence,
+    const at::Tensor& blockSizes, const int64_t bucketSize,
+    const std::optional<at::Tensor>& totalNumBlocks,
+    const std::optional<at::Tensor>& weights,
+    const std::optional<at::Tensor>& batchSizePerFeature, const int64_t  maxBatchSize,
+    const std::optional<std::vector<at::Tensor>>& blockBucketizePos,
+    const bool returnBucketMapping, const bool keepOrigIdx)
 {
     // 参数校验
     TORCH_CHECK(lengths.defined() && lengths.numel() > 0, "Lengths tensor is an empty tensor");

@@ -24,7 +24,10 @@ from hybrid_torchrec.distributed.sharding.post_input_dist import (
     UniqueHashFeatureProcess,
     get_feature_len_groupby_table_name,
 )
-from hybrid_torchrec.modules.ids_process import block_bucketize_sparse_features_cpu
+from hybrid_torchrec.modules.ids_process import (
+    block_bucketize_sparse_features_cpu,
+    BucketParams,
+)
 
 from torchrec.distributed.embedding_sharding import (
     BaseEmbeddingLookup,
@@ -96,14 +99,7 @@ def bucketize_kjt_before_all2all(
         f"Expecting block sizes for {num_features} features, but {block_sizes.numel()} received.",
     )
     block_sizes_new_type = _fx_wrap_tensor_to_device_dtype(block_sizes, kjt.values())
-    (
-        bucketized_lengths,
-        bucketized_indices,
-        bucketized_weights,
-        pos,
-        unbucketize_permute,
-        _,
-    ) = block_bucketize_sparse_features_cpu(
+    bucket_params = BucketParams( 
         kjt.lengths().view(-1),
         kjt.values(),
         bucketize_pos=bucketize_pos,
@@ -114,8 +110,15 @@ def bucketize_kjt_before_all2all(
         batch_size_per_feature=_fx_wrap_batch_size_per_feature(kjt),
         max_B=_fx_wrap_max_B(kjt),
         block_bucketize_pos=block_bucketize_row_pos,  # each tensor should have the same dtype as kjt.lengths()
-        keep_orig_idx=keep_original_indices,
-    )
+        keep_orig_idx=keep_original_indices,)
+    (
+        bucketized_lengths,
+        bucketized_indices,
+        bucketized_weights,
+        pos,
+        unbucketize_permute,
+        _,
+    ) = block_bucketize_sparse_features_cpu(bucket_params)
     return (
         KeyedJaggedTensor(
             # duplicate keys will be resolved by AllToAll

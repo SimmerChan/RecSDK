@@ -10,12 +10,29 @@
 import os
 import logging
 from typing import List
+from dataclasses import dataclass, asdict
 
 import torch
 from torch.autograd.profiler import record_function
 
 torch.ops.load_library(os.path.join(os.path.dirname(__file__), "libhybrid_cpp.so"))
 
+
+@dataclass
+class BucketParams:
+    lengths: torch.Tensor
+    indices: torch.Tensor
+    bucketize_pos: bool
+    sequence: bool
+    block_sizes: torch.Tensor
+    bucket_size: int
+    total_num_blocks: torch.Tensor = None,
+    weight: torch.Tensor = None,
+    batch_size_per_feature: torch.Tensor = None,
+    max_b: torch.Tensor = None,
+    block_bucketize_pos: torch.Tensor = None,
+    return_bucket_mapping: bool = False,
+    keep_orig_idx: bool = False,
 
 class HashMapBase(torch.nn.Module):
     def forward(self, ids: torch.Tensor) -> tuple[torch.Tensor]:
@@ -60,34 +77,6 @@ class IdsMapper(HashMapBase):
         )
 
 
-def block_bucketize_sparse_features_cpu(
-    lengths,
-    indices,
-    bucketize_pos,
-    sequence,
-    block_sizes,
-    bucket_size,
-    total_num_blocks=None,
-    weights=None,
-    batch_size_per_feature=None,
-    max_b=None,
-    block_bucketize_pos=None,
-    return_bucket_mapping=False,
-    keep_orig_idx=False,
-):
-    return torch.ops.hybrid.block_bucketize_sparse_features_cpu(
-        lengths,
-        indices,
-        bucketize_pos,
-        sequence,
-        block_sizes,
-        bucket_size,
-        total_num_blocks,
-        weights,
-        batch_size_per_feature,
-        max_b,
-        block_bucketize_pos,
-        return_bucket_mapping,
-        keep_orig_idx,
-    )
+def block_bucketize_sparse_features_cpu(bucket_params: BucketParams):
+    return torch.ops.hybrid.block_bucketize_sparse_features_cpu(**asdict(bucket_params))
 

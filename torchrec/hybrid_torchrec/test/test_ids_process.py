@@ -14,6 +14,7 @@ import torch
 from hybrid_torchrec.modules.ids_process import (
     IdsMapper,
     block_bucketize_sparse_features_cpu,
+    BucketParams,
 )
 
 from torchrec import JaggedTensor, KeyedJaggedTensor
@@ -310,15 +311,7 @@ def test_block_bucketize_sparse_features_cpu(input_size, mutil_hots, bucket_size
         lengths = kjt.lengths().view(-1)
         values = kjt.values()
         block_size = torch.Tensor([100 for _ in range(len(mutil_hots))]).long()
-
-        (
-            bucketized_lengths,
-            bucketized_indices,
-            bucketized_weights,
-            pos,
-            unbucketize_permute,
-            _,
-        ) = block_bucketize_sparse_features_cpu(
+        paramsIn = BucketParams(
             lengths,
             values,
             bucketize_pos=False,
@@ -328,8 +321,17 @@ def test_block_bucketize_sparse_features_cpu(input_size, mutil_hots, bucket_size
             weights=kjt.weights_or_none(),
             batch_size_per_feature=None,
             max_b=-1,
-            block_bucketize_pos=None,
-        )
+            block_bucketize_pos=None,)
+
+        (
+            bucketized_lengths,
+            bucketized_indices,
+            bucketized_weights,
+            pos,
+            unbucketize_permute,
+            _,
+        ) = block_bucketize_sparse_features_cpu(paramsIn)
+
         params = BucketResult(bucketized_lengths,
                               bucketized_indices,
                               lengths,
@@ -360,14 +362,7 @@ def test_block_bucketize_sparse_features_cpu_invalid_bucket_size(input_size, mut
     values = kjt.values()
     with pytest.raises(RuntimeError):
         block_size = torch.Tensor([100 for _ in range(len(mutil_hots))]).long()
-        (
-            bucketized_lengths,
-            bucketized_indices,
-            bucketized_weights,
-            pos,
-            unbucketize_permute,
-            _,
-        ) = block_bucketize_sparse_features_cpu(
+        paramsIn = BucketParams(
             lengths,
             values,
             bucketize_pos=False,
@@ -377,8 +372,16 @@ def test_block_bucketize_sparse_features_cpu_invalid_bucket_size(input_size, mut
             weights=kjt.weights_or_none(),
             batch_size_per_feature=None,
             max_b=-1,
-            block_bucketize_pos=None,
-        )
+            block_bucketize_pos=None,)
+
+        (
+            bucketized_lengths,
+            bucketized_indices,
+            bucketized_weights,
+            pos,
+            unbucketize_permute,
+            _,
+        ) = block_bucketize_sparse_features_cpu(paramsIn)
 
 
 @pytest.mark.parametrize("input_size", [1000])
@@ -397,14 +400,7 @@ def test_block_bucketize_sparse_features_cpu_invalid_block_size(input_size, muti
     values = kjt.values()
     with pytest.raises(RuntimeError):
         block_size = None
-        (
-            bucketized_lengths,
-            bucketized_indices,
-            bucketized_weights,
-            pos,
-            unbucketize_permute,
-            _,
-        ) = block_bucketize_sparse_features_cpu(
+        paramsIn = BucketParams(
             lengths,
             values,
             bucketize_pos=False,
@@ -414,5 +410,13 @@ def test_block_bucketize_sparse_features_cpu_invalid_block_size(input_size, muti
             weights=kjt.weights_or_none(),
             batch_size_per_feature=None,
             max_b=-1,
-            block_bucketize_pos=None,
-        )
+            block_bucketize_pos=None,)
+
+        (
+            bucketized_lengths,
+            bucketized_indices,
+            bucketized_weights,
+            pos,
+            unbucketize_permute,
+            _,
+        ) = block_bucketize_sparse_features_cpu(paramsIn)
