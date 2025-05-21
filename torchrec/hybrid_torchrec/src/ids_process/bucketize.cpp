@@ -30,7 +30,7 @@ void PrefixSum(const int length, const T* array, T* preSum)
 template <typename T>
 T* GetSafeDataPtr(const at::Tensor& tensor, const char* message)
 {
-    TORCH_CHECK(lengths.defined() && lengths.numel() > 0, message, " is an empty tensor");
+    TORCH_CHECK(tensor.defined() && tensor.numel() > 0, message, " is an empty tensor");
 
     TORCH_CHECK(tensor.dtype() == at::CppTypeToScalarType<T>::value, message, " tensor type mismatch");
 
