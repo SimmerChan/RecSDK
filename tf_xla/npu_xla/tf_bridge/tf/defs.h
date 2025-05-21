@@ -38,18 +38,18 @@ namespace npu_xla {
 
 // Implies must-compile semantics: either it will be compiled
 // with XLA, or an error will be thrown.
-extern const char* const K_XLA_MUST_COMPILE_ATTR;
+extern const char* const kXlaMustCompileAttr;
 
 // Implies auto-clustering: tagged nodes will be clustered and compiled with XLA
 // on a best-effort basis.
-extern const char* const K_XLA_COMPILE_ATTR;
-extern const char* const K_REUSE_XLA_COMPILE_ATTR;
+extern const char* const kXlaCompileAttr;
+extern const char* const kReuseXlaCompileAttr;
 
 // Implies auto-clustering within the given scope.
-extern const char* const K_XLA_SCOPE_ATTR;
-extern const char* const K_REUSE_XLA_SCOPE_ATTR;
+extern const char* const kXlaScopeAttr;
+extern const char* const kReuseXlaScopeAttr;
 
-extern const char* const K_XLA_INTERNAL_SCOPE_ATTR;
+extern const char* const kXlaInternalScopeAttr;
 
 }  // namespace npu_xla
 }  // namespace tensorflow
