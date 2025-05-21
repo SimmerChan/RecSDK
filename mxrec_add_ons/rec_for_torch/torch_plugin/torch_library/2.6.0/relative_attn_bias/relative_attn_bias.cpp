@@ -44,6 +44,26 @@ std::tuple<Tensor, Tensor> relative_attn_bias_impl_npu(const Tensor& relPosBias,
     return {rabPosOut, rabTimeOut};
 }
 
+Tensor relative_attn_bias_backward_impl_npu(const Tensor& rabTimeGrad,
+                                            const Tensor& bucketTimestamps,
+                                            const int numBuckets)
+{
+    const int numLayers = rabTimeGrad.size(0);  // rabTimeGrad(n, b, 2s, 2s)
+    const int batchsize = rabTimeGrad.size(1);  // rabTimeGrad(n, b, 2s, 2s)
+    const int sx2 = rabTimeGrad.size(2);  // rabTimeGrad(n, b, 2s, 2s)
+    const int s = sx2 / 2;
+
+    auto rabTimeGradConti = rabTimeGrad.contiguous();
+    auto bucketTimestampsConti = bucketTimestamps.contiguous();  // (n, b, s, s)
+    bucketTimestampsConti = bucketTimestampsConti.reshape({numLayers, batchsize, s, 1, s, 1})
+                                                 .repeat({1, 1, 1, 2, 1, 2})
+                                                 .reshape({numLayers, batchsize, sx2, sx2});
+
+    at::Tensor rabTimeGradOut = at::zeros({numLayers, numBuckets}, rabTimeGrad.options());
+    EXEC_NPU_CMD(aclnnRelativeAttnBiasBackward, rabTimeGradConti, bucketTimestampsConti, rabTimeGradOut, numBuckets);
+    return rabTimeGradOut;
+}
+
 TORCH_LIBRARY_FRAGMENT(mxrec, m)
 {
     m.def("relative_attn_bias(Tensor rel_pos_bias, "
@@ -53,6 +73,10 @@ TORCH_LIBRARY_FRAGMENT(mxrec, m)
           "                   int[] past_valid_lens,"
           "                   float bucket_divisor"
           "                   ) -> (Tensor, Tensor)");
+    m.def("relative_attn_bias(Tensor rab_time_grad, "
+          "                   Tensor bucket_timestamps, "
+          "                   int num_buckets"
+          "                   ) -> Tensor")
 }
 
 TORCH_LIBRARY_IMPL(mxrec, PrivateUse1, m)

@@ -1,0 +1,153 @@
+/**
+* @file relative_attn_bias_backward.cpp
+*
+* Copyright (C) 2025. Huawei Technologies Co., Ltd. All rights reserved.
+*
+*/
+
+#include <cmath>
+#include "relative_attn_bias_backward_tiling.h"
+#include "register/op_def_registry.h"
+#include "tiling/tiling_api.h"
+#include "tiling/platform/platform_ascendc.h"
+#include "../../../common/ops_log.h"
+
+constexpr int32_t RESERVER_UB_SIZE = (20 * 1024);
+constexpr int32_t DATA_ALIGN_BYTES = 32;
+constexpr uint8_t NUM_BUFFER = 2;
+
+// input index
+constexpr int TIMESTAMPS_WEIGHTS_GRAD_INDEX = 0;
+constexpr int BUCKET_TIMESTAMPS_INDEX = 1;
+// output index
+constexpr int RAB_POSITION_INDEX = 0;
+constexpr int RAB_TIME_INDEX = 1;
+// attr index
+constexpr int NUM_BUCKET_INDEX = 0;
+// output dim
+constexpr int RAB_POS_OUT_DIM = 3;
+constexpr int RAB_TIME_OUT_DIM = 6;
+constexpr int DIM_PLACE_HOLDER = 1;
+constexpr int DIM0 = 0;
+constexpr int DIM1 = 1;
+constexpr int DIM2 = 2;
+constexpr int DIM3 = 3;
+constexpr int DIM4 = 4;
+constexpr int DIM5 = 5;
+
+namespace optiling {
+static ge::graphStatus TimeTilingFunc(gert::TilingContext* context)
+{
+    auto ascendPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
+    size_t coreNum = ascendPlatform.GetCoreNumAiv();
+
+    RelativeAttnBiasTilingData tilingData;
+    // 获取、校验必要shape数据
+    auto gradShape = context->GetInputShape(TIMESTAMPS_WEIGHTS_GRAD_INDEX)->GetStorageShape();  // grad(n, b, 2s, 2s)
+    int numBuckets = *context->GetAttrs()->GetInt(NUM_BUCKET_INDEX);
+    int numLayer = gradShape.GetDim(DIM0);
+    int batchsize = gradShape.GetDim(DIM1);
+    int s = gradShape.GetDim(DIM2);
+    int s2 = gradShape.GetDim(DIM3);
+
+    OPS_CHECK(numBuckets <= 0,
+              OPS_LOG_E("Tiling Debug", "NumBuckets is invalid."),
+              return ge::GRAPH_FAILED);
+    OPS_CHECK(numLayer <= 0,
+              OPS_LOG_E("Tiling Debug", "Numlayer is invalid."),
+              return ge::GRAPH_FAILED);
+    OPS_CHECK(batchsize <= 0,
+              OPS_LOG_E("Tiling Debug", "Batchsize is invalid."),
+              return ge::GRAPH_FAILED);
+    OPS_CHECK(s <= 0 || s != s2,
+              OPS_LOG_E("Tiling Debug", "Sequence len is invalid."),
+              return ge::GRAPH_FAILED);
+
+    tilingData.set_numBuckets(numBuckets);
+    tilingData.set_numLayer(numLayer);
+    tilingData.set_bs(batchsize);
+    tilingData.set_s(s);
+    // 获取计算中使用的步长等数据
+    uint64_t ub;
+    auto ascendPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
+    ascendPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ub);
+    ub = ub - RESERVER_UB_SIZE;
+    // 获取数据类型
+    auto floatType = context->GetInputTensor(TIMESTAMPS_WEIGHTS_GRAD_INDEX)->GetDataType();
+    auto intType = context->GetInputTensor(BUCKET_TIMESTAMPS_INDEX)->GetDataType();
+    int floatSize = ge::GetSizeByDataType(floatType);
+    int intSize = ge::GetSizeByDataType(intType);
+    OPS_CHECK(floatSize == 0 || intSize == 0,
+              OPS_LOG_E("Tiling Debug", "Invalid data type."),
+              return ge::GRAPH_FAILED);
+    // 去除tswGrad所需ub
+    ub = ub - numBuckets * numLayer * floatSize;
+    // 计算单次处理的block大小
+    int stride = ub / (intSize + floatSize);
+    tilingData.set_floatType(floatType);
+    tilingData.set_intType(intType);
+    tilingData.set_timeStride(stride);
+    return ge::GRAPH_SUCCESS;
+}
+
+static ge::graphStatus TilingFunc(gert::TilingContext* context)
+{
+    OPS_LOG_E_IF_NULL("context", context, return ge::GRAPH_FAILED);
+    OPS_LOG_E_IF_NULL("rabTimeGrad", context->GetInputShape(TIMESTAMPS_WEIGHTS_GRAD_INDEX), return ge::GRAPH_FAILED);
+    OPS_LOG_E_IF_NULL("bucketTimestamps", context->GetInputShape(BUCKET_TIMESTAMPS_INDEX), return ge::GRAPH_FAILED);
+    OPS_LOG_E_IF_NULL("attrs", context->GetAttrs(), return ge::GRAPH_FAILED);
+
+    auto ascendPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
+    size_t coreNum = ascendPlatform.GetCoreNumAiv();
+    OPS_CHECK(coreNum == 0,
+              OPS_LOG_E("Tiling Debug", "Core num is 0."),
+              return ge::GRAPH_FAILED);
+    auto ret = TimeTilingFunc(context);
+
+    context->SetBlockDim(coreNum);
+    auto rowTilingData = context->GetRawTilingData();
+    OPS_LOG_E_IF_NULL("GetRawTilingData", rowTilingData, return ge::GRAPH_FAILED);
+    tilingData.SaveToBuffer(rowTilingData->GetData(), rowTilingData->GetCapacity());
+    rowTilingData->SetDataSize(tilingData.GetDataSize());
+    return ret;
+}
+}  // namespace optiling
+
+namespace ops {
+class RelativeAttnBiasBackward : public OpDef {
+public:
+    explicit RelativeAttnBiasBackward(const char* name) : OpDef(name)
+    {
+        this->Input("rab_time_grad")
+            .ParamType(REQUIRED)
+            .DataType({ge::DT_FLOAT, ge::DT_FLOAT16})
+            .Format({ge::FORMAT_ND, ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND});
+        this->Input("bucket_timestamps")
+            .ParamType(REQUIRED)
+            .DataType({ge::DT_INT32, ge::DT_INT32})
+            .Format({ge::FORMAT_ND, ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND});
+        this->Output("timestamps_weights_grad")
+            .ParamType(REQUIRED)
+            .DataType({ge::DT_FLOAT, ge::DT_FLOAT16})
+            .Format({ge::FORMAT_ND, ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND});
+        this->Attr("num_buckets").Int();
+
+        OpAICoreConfig aicore_config;
+        aicore_config.DynamicCompileStaticFlag(true)
+                .ExtendCfgInfo("jitCompile.flag", "static_false,dynamic_false")
+                .ExtendCfgInfo("coreType.value", "AiCore")
+                .ExtendCfgInfo("prebuildPattern.value", "Opaque");
+
+        this->AICore().SetTiling(optiling::TilingFunc);
+        this->AICore().AddConfig("ascend910", aicore_config);
+        this->AICore().AddConfig("ascend910b", aicore_config);
+        this->AICore().AddConfig("ascend910_93", aicore_config);
+    }
+};
+
+OP_ADD(RelativeAttnBiasBackward);
+
+}  // namespace ops
