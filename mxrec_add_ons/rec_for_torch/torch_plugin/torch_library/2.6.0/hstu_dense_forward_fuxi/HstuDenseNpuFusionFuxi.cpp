@@ -1,7 +1,5 @@
 /**
- * @file extension_add.cpp
- *
- * Copyright (C) 2024. Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (C) 2025. Huawei Technologies Co., Ltd. All rights reserved.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -74,14 +72,13 @@ at::Tensor hstu_dense_normal_forward_impl_npu(
     TORCH_CHECK(seqLen >= MIN_SEQ_LEN && seqLen <= MAX_SEQ_LEN,
         "maxSeqLen expect in [1, 20480], but value is ", seqLen);
     TORCH_CHECK(maxSeqLen == seqLen, "maxSeqLen should equal to q dim 1");
+    double realSiluScale = (siluScale == 0.0) ? 1.0f / maxSeqLen : siluScale;
 
     TORCH_CHECK(MaskCheck(maskType, maskNpu.defined()), "maskType check failed");
 
     bool useRab = (timestampBias.has_value() && positionBias.has_value());
     uint32_t outDim2 = useRab ? (CONST_3 * headNum * headDim) : (headNum * headDim);
     auto attnOutput = at::empty({batchSize, seqLen, outDim2}, q.options());
-
-    double realSiluScale = (siluScale == 0.0) ? 1.0f / maxSeqLen : siluScale;
 
     const char *layout = "normal";
     EXEC_NPU_CMD(aclnnHstuDenseForwardFuxi,
@@ -112,15 +109,12 @@ at::Tensor hstu_dense_forward_impl_npu(
     const double siluScale,
     const std::string layout)
 {
-    TORCH_CHECK(layout == "normal" || layout == "jagged",
-        "The layout should be normal/jagged but got ", layout);
+    TORCH_CHECK(layout == "normal", "The layout should be normal but got ", layout);
 
     TORCH_CHECK(q.scalar_type() == at::kHalf, "float16 tensor expected but got a tensor with dtype: ", q.scalar_type());
 
-    if (layout == "normal") {
-        return hstu_dense_normal_forward_impl_npu(q, k, v, timestampBias, positionBias, mask, maskType, maxSeqLen,
-            siluScale);
-    }
+    return hstu_dense_normal_forward_impl_npu(q, k, v, timestampBias, positionBias, mask, maskType, maxSeqLen,
+        siluScale);
 }
 
 
@@ -128,7 +122,6 @@ TORCH_LIBRARY_FRAGMENT(mxrec, m)
 {
     m.def("hstu_fuxi(Tensor q, Tensor k, Tensor v, Tensor? timestampBias=None, Tensor? positionBias=None,\
         Tensor? mask=None, int maskType=0, int maxSeqLen=0, float siluScale=0.0, str layout=\"normal\") -> Tensor");
-
 }
 
 TORCH_LIBRARY_IMPL(mxrec, PrivateUse1, m)

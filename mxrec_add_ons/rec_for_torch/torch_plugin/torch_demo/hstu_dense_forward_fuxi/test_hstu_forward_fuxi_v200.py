@@ -20,24 +20,24 @@ import os
 import shutil
 import unittest
 import sysconfig
+import subprocess
 
 import pytest
 import torch
 import numpy as np
 import torch.nn.functional as F
 import torch_npu
-import subprocess
 
 torch.npu.config.allow_internal_format = False
 CURR_DIR = Path(__file__).resolve().parent
 torch.ops.load_library(str(CURR_DIR.parent.parent /
     "torch_library/2.6.0/hstu_fuxi/build/libhstu_dense_fuxi_ops.so"))
 
-device_id:int = 0
-mask_tril:int = 0
-mask_triu:int = 1
-mask_none:int = 2
-mask_custom:int = 3
+device_id: int = 0
+mask_tril: int = 0
+mask_triu: int = 1
+mask_none: int = 2
+mask_custom: int = 3
 
 torch.npu.set_device(device_id)
 
@@ -64,7 +64,7 @@ class TestHstuNormalFuxiDemo:
     def gloden_op_exec(self, q, k, v, ts_bias, pos_bias, mask, mask_type, max_seq_len, silu_scale, enable_bias, \
         data_type):
 
-        B, S, N, D = q.shape
+        batch, seq_len, num_head, dim = q.shape
 
         q = q.permute(0, 2, 1, 3)
         k = k.permute(0, 2, 3, 1)
@@ -76,7 +76,7 @@ class TestHstuNormalFuxiDemo:
         real_silu_scale = 1 / max_seq_len if silu_scale == 0 else silu_scale
         qk_attn = F.silu(qk_attn) * real_silu_scale
 
-        mask = mask.repeat(1, N, 1, 1)
+        mask = mask.repeat(1, num_head, 1, 1)
         qk_attn = qk_attn * mask
 
         v = v.permute(0, 2, 1, 3)
@@ -84,27 +84,27 @@ class TestHstuNormalFuxiDemo:
         qk_attn = qk_attn.to(data_type)
         atten_output = torch.matmul(qk_attn, v)
         atten_output = atten_output.permute(0, 2, 1, 3)
-        atten_output = atten_output.reshape(B, S, -1)
+        atten_output = atten_output.reshape(batch, seq_len, -1)
         torch.npu.synchronize()
 
         if enable_bias:
             ts_bias = ts_bias.to(torch.float32)
             ts_bias = ts_bias.unsqueeze(1)
-            ts_bias = ts_bias.repeat(1, N, 1, 1)
+            ts_bias = ts_bias.repeat(1, num_head, 1, 1)
             ts_tmp = ts_bias * mask
             ts_tmp = ts_tmp.to(data_type)
             ts_out = torch.matmul(ts_tmp, v)
             ts_out = ts_out.permute(0, 2, 1, 3)
-            ts_out = ts_out.reshape(B, S, -1)
+            ts_out = ts_out.reshape(batch, seq_len, -1)
 
             pos_bias = pos_bias.to(torch.float32)
             pos_bias = pos_bias.unsqueeze(0)
-            pos_bias = pos_bias.repeat(B, N, 1, 1)
+            pos_bias = pos_bias.repeat(batch, num_head, 1, 1)
             pos_tmp = pos_bias * mask
             pos_tmp = pos_tmp.to(data_type)
             pos_out = torch.matmul(pos_tmp, v)
             pos_out = pos_out.permute(0, 2, 1, 3)
-            pos_out = pos_out.reshape(B, S, -1)
+            pos_out = pos_out.reshape(batch, seq_len, -1)
 
             atten_output = torch.cat([atten_output, ts_out, pos_out], -1)
 
@@ -144,7 +144,8 @@ class TestHstuNormalFuxiDemo:
     @pytest.mark.parametrize("head_dim", [64])
     @pytest.mark.parametrize("enable_bias", [True, False])
     @pytest.mark.parametrize("mask_type", [mask_tril])
-    @pytest.mark.parametrize("silu_scale", [1/256])
+    @pytest.mark.parametrize("silu_scale", [1 / 256])
     @pytest.mark.parametrize("data_type", [torch.float16])
-    def test_hstu_dens_normal(self, batch_size, head_num, max_seq_len, head_dim, enable_bias, mask_type, silu_scale, data_type):
+    def test_hstu_dens_normal(self, batch_size, head_num, max_seq_len, head_dim, enable_bias, mask_type, \
+        silu_scale, data_type):
         self.execute(batch_size, max_seq_len, head_num, head_dim, enable_bias, mask_type, silu_scale, data_type)

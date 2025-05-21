@@ -1,8 +1,11 @@
 ## hstu_dense_forward算子适配onnx框架说明
+
 ### 约束
 Atlas 推理系列产品
+
 ### 1.编译算子工程
 执行算子run包进行算子安装部署
+
 ### 2.转模型
   - 生成onnx模型（已有模型请跳过）
     ```bash
@@ -12,6 +15,7 @@ Atlas 推理系列产品
     ```bash
     atc --model=./hstu_fuxi.onnx --framework=5 --output=hstu_fuxi --soc_version=Ascend310P3 --input_format=ND --output_type=FP16
     ```
+
 ### 3.模型推理
   - 准备符合模型输入的测试数据，使用(msame)[https://gitee.com/ascend/tools/tree/master/msame]进行模型推理
     ```bash
