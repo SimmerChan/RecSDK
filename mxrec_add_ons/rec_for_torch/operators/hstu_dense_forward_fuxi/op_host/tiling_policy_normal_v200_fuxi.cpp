@@ -34,11 +34,11 @@ bool TilingPolicyNormalv200Fuxi::GeneralShapeCheck(int64_t batchSize, int64_t se
 {
     static const ShapeRange seqRange(64, 20480, BLOCK_HEIGHT, "seq size");
     static const ShapeRange batchRange(1, MAX_BATCH_SIZE, 1, "batch size");
-    static const ShapeRange dimRange(16, 128, 16, "dim size");
     static const ShapeRange headRange(2, 8, 2, "head num");
+    static const ShapeRange dimRange(16, 128, 16, "dim size");
 
     if ((!seqRange.Check(seqLen)) || (!batchRange.Check(batchSize)) ||
-        (!dimRange.Check(headNum)) || (!headRange.Check(dim))) {
+        (!headRange.Check(headNum)) || (!dimRange.Check(dim))) {
         return false;
     }
 

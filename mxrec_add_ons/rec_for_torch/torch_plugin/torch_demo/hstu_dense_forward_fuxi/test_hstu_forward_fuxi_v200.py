@@ -31,7 +31,7 @@ import torch_npu
 torch.npu.config.allow_internal_format = False
 CURR_DIR = Path(__file__).resolve().parent
 torch.ops.load_library(str(CURR_DIR.parent.parent /
-    "torch_library/2.6.0/hstu_fuxi/build/libhstu_dense_fuxi_ops.so"))
+    "torch_library/2.6.0/hstu_dense_forward_fuxi/build/libhstu_dense_fuxi_ops.so"))
 
 device_id: int = 0
 mask_tril: int = 0
