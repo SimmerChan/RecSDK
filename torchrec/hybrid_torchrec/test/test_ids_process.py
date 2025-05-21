@@ -11,16 +11,26 @@ import logging
 import pytest
 import torch
 
+from dataclasses import dataclass
+
 from hybrid_torchrec.modules.ids_process import (
     IdsMapper,
     block_bucketize_sparse_features_cpu,
-    BucketParams
 )
 
 from torchrec import JaggedTensor, KeyedJaggedTensor
 
 TEST_NUM = 10
 IDS_RANGE_TIMES = 10
+
+@dataclass
+class BucketResult:
+    bucketized_lengths: torch.Tensor
+    bucketized_indices: torch.Tensor
+    origin_len: torch.Tensor
+    origin_indices: torch.Tensor
+    feat_num: int
+    bucket_size: int
 
 
 def verify_unique(indices, unique, unique_inverse):
@@ -46,35 +56,30 @@ def verify_mapper(id2indices, indices2id, input_ids, indices):
 
 
 def check_bucketized_valid(
-    bucketized_lengths,
-    bucketized_indices,
-    origin_len,
-    origin_indices,
-    feat_num,
-    bucket_size,
+    params:BucketResult
 ):
-    batch_size = bucketized_lengths.numel() // bucket_size // feat_num
+    batch_size = params.bucketized_lengths.numel() // params.bucket_size // params.feat_num
     bucketized_offset = 0
-    for rank in range(bucket_size):
-        this_rank_length = bucketized_lengths[
-            rank * feat_num * batch_size : (rank + 1) * feat_num * batch_size
+    for rank in range(params.bucket_size):
+        this_rank_length = params.bucketized_lengths[
+            rank * params.feat_num * batch_size : (rank + 1) * params.feat_num * batch_size
         ]
         origin_batch_offset = 0
-        for feat_id in range(feat_num):
+        for feat_id in range(params.feat_num):
             this_feat_length = this_rank_length[
                 feat_id * batch_size : (feat_id + 1) * batch_size
             ]
             for ind in range(batch_size):
                 this_indices_len = this_feat_length[ind].item()
 
-                origin_indices_len = origin_len[feat_id * batch_size + ind]
-                origin_index = origin_indices[
+                origin_indices_len = params.origin_len[feat_id * batch_size + ind]
+                origin_index = params.origin_indices[
                     origin_batch_offset : origin_batch_offset + origin_indices_len
                 ]
                 for _ in range(this_indices_len):
-                    ids = bucketized_indices[bucketized_offset]
+                    ids = params.bucketized_indices[bucketized_offset]
                     assert (
-                        id % bucket_size
+                        id % params.bucket_size
                     ) == rank, f"bucketized_indices {ids} in invalid bucket {rank} bucketized_offset {bucketized_offset}"
                     assert (
                         ids in origin_index
@@ -307,6 +312,7 @@ def test_block_bucketize_sparse_features_cpu(input_size, mutil_hots, bucket_size
         lengths = kjt.lengths().view(-1)
         values = kjt.values()
         block_size = torch.Tensor([100 for _ in range(len(mutil_hots))]).long()
+
         (
             bucketized_lengths,
             bucketized_indices,
@@ -326,14 +332,14 @@ def test_block_bucketize_sparse_features_cpu(input_size, mutil_hots, bucket_size
             max_B=-1,
             block_bucketize_pos=None,
         )
-        check_bucketized_valid(
-            bucketized_lengths,
-            bucketized_indices,
-            lengths,
-            values,
-            len(mutil_hots),
-            bucket_size,
-        )
+        params = BucketResult(bucketized_lengths,
+                              bucketized_indices,
+                              lengths,
+                              values,
+                              len(mutil_hots),
+                              bucket_size)
+        check_bucketized_valid(params)
+
         inverse_result = torch.index_select(
             bucketized_indices, dim=0, index=unbucketize_permute
         )
