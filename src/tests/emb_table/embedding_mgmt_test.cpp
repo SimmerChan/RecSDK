@@ -183,7 +183,7 @@ TEST_F(EmbeddingMgmtTest, EvictKeys)
     LOG_INFO("test Key2Offset: lookupKeys: {}, kom[tableName] size: {}",
              VectorToString(testKeys), kom[tableName].size());
 
-    EXPECT_EQ(kom[tableName].size(), testNum - 2 * partialNum);
+    EXPECT_EQ(kom[tableName].size(), testNum - partialNum - partialNum);
 }
 
 /**
@@ -207,7 +207,7 @@ TEST_F(EmbeddingMgmtTest, SaveAndLoadSingleTable)
         EXPECT_EQ(testKeys[i], i);
     }
 
-    EmbeddingMgmt::Instance()->Save(tableName,"test_dir",1);
+    EmbeddingMgmt::Instance()->Save(tableName, "test_dir", 1);
     const char* filePath = "./test_dir/test1/key/slice_0.data";
     // 检查文件是否存在
     if (access(filePath, F_OK) != 0) {
@@ -259,8 +259,10 @@ TEST_F(EmbeddingMgmtTest, SaveAndLoadAllTable)
     map<emb_key_t, KeyInfo> keyInfo;
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::uniform_int_distribution<> dis(0, 100);
-    for (size_t i = 0; i < 100; ++i) {
+    int leftBound = 0;
+    int rightBound = 100;
+    std::uniform_int_distribution<> dis(leftBound, rightBound);
+    for (size_t i = 0; i < testNum; ++i) {
         KeyInfo info;
         info.lastUseTime = std::time(nullptr);
         info.recentCount = dis(gen);
@@ -273,7 +275,7 @@ TEST_F(EmbeddingMgmtTest, SaveAndLoadAllTable)
 
     map<string, map<emb_key_t, KeyInfo>> keyInfoMap;
     keyInfoMap[tableName] = keyInfo;
-    EmbeddingMgmt::Instance()->Save("test_dir",1, true, keyInfoMap);
+    EmbeddingMgmt::Instance()->Save("test_dir", 1, true, keyInfoMap);
 
     const char* filePath = "./test_dir/test1/key/slice_0.data";
     // 检查文件是否存在
@@ -290,7 +292,7 @@ TEST_F(EmbeddingMgmtTest, SaveAndLoadAllTable)
     if (rankInfo_.rankId == 0) {
         map<string, unordered_set<emb_cache_key_t>> trainKeySetOne;
         vector<string> warmStartTablesOne;
-        EmbeddingMgmt::Instance()->Load("./test_dir",trainKeySetOne, warmStartTablesOne);
+        EmbeddingMgmt::Instance()->Load("./test_dir", trainKeySetOne, warmStartTablesOne);
 
         bool fileExist = false;
         if (access("./test_dir/test1/key/slice.data", F_OK) == 0) {

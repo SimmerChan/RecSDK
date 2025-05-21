@@ -219,14 +219,15 @@ TEST_F(EmbeddingStaticTest, SaveAndLoadKeyData)
 {
     vector<EmbInfo> embInfos = {embInfo_};
     map<emb_key_t, KeyInfo> keyInfo;
-    shared_ptr<EmbeddingStatic> hbm = std::make_shared<EmbeddingStatic>(embInfo_, rankInfo_, 0);
+    shared_ptr<EmbeddingStatic> table = std::make_shared<EmbeddingStatic>(embInfo_, rankInfo_, 0);
 
+    constexpr int testNum = 100;
     vector<emb_key_t> keyData;
-    for (size_t i = 0; i < 100; ++i) {
+    for (size_t i = 0; i < testNum; ++i) {
         keyData.push_back(i);
     }
 
-    hbm->Key2Offset(keyData, TRAIN_CHANNEL_ID);
+    table->Key2Offset(keyData, TRAIN_CHANNEL_ID);
     MxRec::KeyOffsetMemT kom = EmbeddingMgmt::Instance()->GetKeyOffsetMap();
     map<EmbNameT, string> tmp;
     for (auto it = kom.begin(); it != kom.end(); ++it) {
@@ -235,8 +236,8 @@ TEST_F(EmbeddingStaticTest, SaveAndLoadKeyData)
     LOG_INFO("test Key2Offset: lookupKeys: {}, keyOffsetMap: {}",
              VectorToString(keyData), MapToString(tmp));
 
-    hbm->SetFileSystemPtr("test_dir");
-    hbm->Save("test_dir", 1, false, keyInfo);
+    table->SetFileSystemPtr("test_dir");
+    table->Save("test_dir", 1, false, keyInfo);
     const char* filePath = "./test_dir/test1/key/slice_0.data";
     // 检查文件是否存在
     if (access(filePath, F_OK) != 0) {
@@ -251,15 +252,15 @@ TEST_F(EmbeddingStaticTest, SaveAndLoadKeyData)
 
     map<string, unordered_set<emb_cache_key_t>> trainKeySetOne;
     vector<string> warmStartTablesOne;
-    hbm->Load("./test_dir", trainKeySetOne, warmStartTablesOne);
+    table->Load("./test_dir", trainKeySetOne, warmStartTablesOne);
 
     bool fileExist = false;
     if (access("./test_dir/test1/key", F_OK) == 0) {
         fileExist = true;
     }
-    vector<int64_t> deviceOffsetOne = hbm->GetDeviceOffset();
+    vector<int64_t> deviceOffsetOne = table->GetDeviceOffset();
 
-    EXPECT_EQ(hbm->GetMaxOffset(), 100);
+    EXPECT_EQ(table->GetMaxOffset(), testNum);
     EXPECT_EQ(fileExist, true);
     EXPECT_NE(deviceOffsetOne.size(), 0);
 }
@@ -270,14 +271,17 @@ TEST_F(EmbeddingStaticTest, SaveAndLoadKeyData)
 TEST_F(EmbeddingStaticTest, SaveKeyDataForExp)
 {
     vector<EmbInfo> embInfos = {embInfo_};
-    shared_ptr<EmbeddingStatic> hbm = std::make_shared<EmbeddingStatic>(embInfo_, rankInfo_, 0);
+    shared_ptr<EmbeddingStatic> table = std::make_shared<EmbeddingStatic>(embInfo_, rankInfo_, 0);
 
+    constexpr int testNum = 100;
     map<emb_key_t, KeyInfo> keyInfo;
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::uniform_int_distribution<> dis(0, 100);
+    int leftBound = 0;
+    int rightBound = 100;
+    std::uniform_int_distribution<> dis(leftBound, rightBound);
 
-    for (size_t i = 0; i < 10; ++i) {
+    for (size_t i = 0; i < testNum; ++i) {
         KeyInfo info;
         info.lastUseTime = std::time(nullptr);
         info.recentCount = dis(gen);
@@ -288,16 +292,16 @@ TEST_F(EmbeddingStaticTest, SaveKeyDataForExp)
         keyInfo[i] = info;
     }
 
-    hbm->SetFileSystemPtr("test_dir");
+    table->SetFileSystemPtr("test_dir");
     int exp = 0;
     try {
-        hbm->Save("test_dir", 1, true, keyInfo);
-    } catch (exception& e){
+        table->Save("test_dir", 1, true, keyInfo);
+    } catch (exception& e) {
         exp = 1;
     }
 
     EXPECT_EQ(exp, 1);
-    EXPECT_EQ(hbm->capacity(), 100);
+    EXPECT_EQ(table->capacity(), testNum);
 }
 
 TEST_F(EmbeddingStaticTest, ShouldReturnTargetOffsetWhenFindExistKey)
