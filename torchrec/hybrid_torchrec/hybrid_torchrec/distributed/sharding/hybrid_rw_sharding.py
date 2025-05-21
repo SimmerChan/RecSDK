@@ -23,6 +23,7 @@ from hybrid_torchrec.distributed.sharding.post_input_dist import (
     UniqueHashFeatureProcess,
     get_feature_len_groupby_table_name,
 )
+from hybrid_torchrec.modules.ids_process import block_bucketize_sparse_features_cpu
 
 from torchrec.distributed.embedding_sharding import (
     BaseEmbeddingLookup,
@@ -53,10 +54,8 @@ from torchrec.distributed.types import (
     ShardingType,
 )
 
-from hybrid_torchrec.modules.ids_process import block_bucketize_sparse_features_cpu
 from torchrec.fx.utils import assert_fx_safe
 from concurrent.futures import ThreadPoolExecutor
-
 
 class InputDistThreadPoolExecutorSingleton:
     _instance: "InputDistThreadPoolExecutorSingleton" = None
@@ -66,13 +65,13 @@ class InputDistThreadPoolExecutorSingleton:
             cls._instance = super(InputDistThreadPoolExecutorSingleton, cls).__new__(
                 cls, *args, **kwargs
             )
-            DEFAULT_POST_INPUT_THREADS = 6
-            MAX_THREADS = (
-                DEFAULT_POST_INPUT_THREADS
+            default_post_input_threads = 6
+            max_threads = (
+                default_post_input_threads
                 if "INPUT_DIST_THREADS" not in os.environ
                 else int(os.environ["INPUT_DIST_THREADS"])
             )
-            cls.executor = ThreadPoolExecutor(MAX_THREADS)
+            cls.executor = ThreadPoolExecutor(max_threads)
         return cls._instance
 
 C = TypeVar("C", bound=Multistreamable)

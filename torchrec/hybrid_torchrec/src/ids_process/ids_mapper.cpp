@@ -17,8 +17,8 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> IdsMapper::UniqueAndLookup(const 
 {
     TORCH_CHECK(globalIds.device() == torch::kCPU, "globalIds must be on CPU but on ", globalIds.device());
     TORCH_CHECK(globalIds.scalar_type() == at::kLong,
-    "globalIds must be int64_t tensor expected but got a tensor with dtype: ", globalIds.scalar_type());
-    at::ThreadLocalStateGuard tlsGrad(state);
+        "globalIds must be int64_t tensor expected but got a tensor with dtype: ", globalIds.scalar_type());
+        at::ThreadLocalStateGuard tlsGrad(state);
     return FindOrInsertHighPrecison(globalIds);
 }
 
@@ -50,11 +50,11 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> IdsMapper::FindOrInsertHighPrecis
 void IdsMapper::UniqueAndLookupOut(const torch::Tensor& globalIds, const torch::Tensor& hashIndices,
                                    const torch::Tensor& offset, const torch::Tensor& unique,
                                    const torch::Tensor& uniqueInverse, const torch::Tensor& uniqueOffset,
-                                   int64_t tableId, bool isUnique)
+                                   int64_t tableId)
 {
     at::ThreadLocalStateGuard tlsGrad(state);
     RECORD_FUNCTION(c10::str("hybrid::UniqueAndLookupOut"), c10::ArrayRef<const c10::IValue>());
-    TORCH_CHECK(offset.numel() - 1 >= tableId, "offset must be equal to table size + 1")
+    TORCH_CHECK(offset.numel() - 1 > tableId, "offset must be equal to table size + 1")
     int64_t* hashIndicesPtr = hashIndices.data_ptr<int64_t>();
     int64_t* globalIdsPtr = globalIds.data_ptr<int64_t>();
     int64_t* offsetPtr = offset.data_ptr<int64_t>();
@@ -88,9 +88,7 @@ void IdsMapper::UniqueAndLookupOut(const torch::Tensor& globalIds, const torch::
     }
 
     // Unique
-    if (isUnique) {
-        UniqueProcessing(hashIndices, offset, unique, uniqueInverse, uniqueOffset, tableId);
-    }
+    UniqueProcessing(hashIndices, offset, unique, uniqueInverse, uniqueOffset, tableId);
 }
 
 void IdsMapper::UniqueProcessing(const torch::Tensor& hashIndices, const torch::Tensor& offset,

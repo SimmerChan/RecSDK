@@ -30,18 +30,18 @@ void PrefixSum(const int length, const T* array, T* preSum)
 template <typename T>
 T* GetSafeDataPtr(const at::Tensor& tensor, const char* message)
 {
-    TORCH_CHECK(!tensor.defined(), message, " is not defined");
+    TORCH_CHECK(tensor.has_value(), message, " is an empty tensor");
 
-    TORCH_CHECK(tensor.dtype() != at::CppTypeToScalarType<T>::value, message, " tensor type mismatch");
+    TORCH_CHECK(tensor.dtype() == at::CppTypeToScalarType<T>::value, message, " tensor type mismatch");
 
-    TORCH_CHECK(!tensor.is_contiguous(), message, " must be contiguous");
+    TORCH_CHECK(tensor.is_contiguous(), message, " must be contiguous");
 
     return tensor.data_ptr<T>();
 }
 
 template <typename OffsetT, typename IndexT>
 void ComputeNewLengths(const OffsetT* offsetsData, const IndexT* indicesData, OffsetT* newLengthsData,
-                    int32_t numFeatures, int32_t batchSize, int64_t bucketSize, int64_t lengthsSize)
+                       int32_t numFeatures, int32_t batchSize, int64_t bucketSize, int64_t lengthsSize)
 {
     for (const auto featureIdx : c10::irange(numFeatures)) {
         const auto blockSize = bucketSize;
@@ -60,8 +60,8 @@ void ComputeNewLengths(const OffsetT* offsetsData, const IndexT* indicesData, Of
 
 template <bool Sequence, typename OffsetT, typename IndexT>
 void FillNewIndices(const OffsetT* offsetsData, const IndexT* indicesData, OffsetT* newOffsetsData,
-                    IndexT* newIndicesData, IndexT* unbucketizePermuteData, int32_t numFeatures, int32_t batchSize,
-                    int64_t bucketSize, int64_t lengthsSize)
+                    IndexT* newIndicesData, IndexT* unbucketizePermuteData, int32_t numFeatures,
+                    int32_t batchSize, int64_t bucketSize, int64_t lengthsSize)
 {
     for (const auto featureIdx : c10::irange(numFeatures)) {
         const auto blockSize = bucketSize;
@@ -85,8 +85,8 @@ void FillNewIndices(const OffsetT* offsetsData, const IndexT* indicesData, Offse
 
 template <typename OffsetT, typename IndexT>
 void Deduplicate(OffsetT* newLengthsData, const OffsetT* newOffsetsData, const OffsetT* offsetsData,
-                const IndexT* indicesData, IndexT* newIndicesData, IndexT* unbucketizePermuteData, int32_t numFeatures,
-                int32_t batchSize, int64_t bucketSize)
+                 const IndexT* indicesData, IndexT* newIndicesData, IndexT* unbucketizePermuteData,
+                 int32_t numFeatures, int32_t batchSize, int64_t bucketSize)
 {
     int32_t uniqueOffset = 0;
     OffsetT curOffset = 0;
@@ -140,15 +140,15 @@ template <bool Sequence,             // 是否序列模式
         bool DoUnique              // 是否去重
         >
 void BlockBucketizeSparseFeaturesCpuKernel(const at::Tensor& lengths, const at::Tensor& indices,
-                                        const std::optional<at::Tensor>& weights, const bool bucketizePos,
-                                        const at::Tensor& blockSizes,
-                                        const std::optional<at::Tensor>& totalNumBlocks, const int64_t bucketSize,
-                                        at::Tensor newLengths, at::Tensor newIndices,
-                                        std::optional<at::Tensor> newWeights, std::optional<at::Tensor> newPos,
-                                        const std::optional<at::Tensor>& unbucketizePermute,
-                                        const std::optional<at::Tensor>& batchSizePerFeature,
-                                        const std::optional<std::vector<at::Tensor>>& blockBucketizePos,
-                                        const std::optional<at::Tensor>& bucketMapping, const bool keepOrigIdx)
+                                           const std::optional<at::Tensor>& weights, const bool bucketizePos,
+                                           const at::Tensor& blockSizes,
+                                           const std::optional<at::Tensor>& totalNumBlocks, const int64_t bucketSize,
+                                           at::Tensor newLengths, at::Tensor newIndices,
+                                           std::optional<at::Tensor> newWeights, std::optional<at::Tensor> newPos,
+                                           const std::optional<at::Tensor>& unbucketizePermute,
+                                           const std::optional<at::Tensor>& batchSizePerFeature,
+                                           const std::optional<std::vector<at::Tensor>>& blockBucketizePos,
+                                           const std::optional<at::Tensor>& bucketMapping, const bool keepOrigIdx)
 {
     // 基本参数校验
     const auto lengthsSize = lengths.numel();
@@ -181,25 +181,25 @@ void BlockBucketizeSparseFeaturesCpuKernel(const at::Tensor& lengths, const at::
     // 可选参数处理
     IndexT* unbucketizePermuteData = nullptr;
     if constexpr (Sequence) {
-        unbucketizePermuteData = GetSafeDataPtr<IndexT>(unbucketizePermute.value(), "unbucketizePermute")
+        unbucketizePermuteData = GetSafeDataPtr<IndexT>(unbucketizePermute.value(), "unbucketizePermute");
     }
 
     // 第一阶段: 计算新长度
     ComputeNewLengths<OffsetT, IndexT>(offsetsData, indicesData, newLengthsData, numFeatures,
-                                    batchSize, bucketSize, lengthsSize);
+                                       batchSize, bucketSize, lengthsSize);
 
     // 计算新偏移量
     PrefixSum(newLengthsSize, newLengthsData, newOffsetsData);
 
     // 第二阶段: 填充新索引
     FillNewIndices<Sequence, OffsetT, IndexT>(offsetsData, indicesData, newOffsetsData, newIndicesData,
-                                            unbucketizePermuteData, numFeatures, batchSize, bucketSize,
-                                            lengthsSize);
+                                              unbucketizePermuteData, numFeatures, batchSize, bucketSize,
+                                              lengthsSize);
 
     // 去重逻辑 (需要时启用)
     if constexpr (DoUnique) {
         Deduplicate<OffsetT, IndexT>(newLengthsData, newOffsetsData, offsetsData, indicesData, newIndicesData,
-                                    unbucketizePermuteData, numFeatures, batchSize, bucketSize);
+                                     unbucketizePermuteData, numFeatures, batchSize, bucketSize);
     }
 }
 
@@ -215,6 +215,10 @@ BlockBucketizeSparseFeaturesCpu(const at::Tensor& lengths, const at::Tensor& ind
                                 const bool returnBucketMapping, const bool keepOrigIdx)
 {
     // 参数校验
+    TORCH_CHECK(lengths.has_value(), "Lengths tensor can not be an empty tensor");
+
+    TORCH_CHECK(indices.has_value(), "Indices tensor can not be an empty tensor");
+
     TORCH_CHECK(lengths.scalar_type() == at::kLong, "Lengths tensor must be int64 type, got: ", lengths.scalar_type());
 
     TORCH_CHECK(indices.scalar_type() == at::kLong, "Indices tensor must be int64 type, got: ", indices.scalar_type());
