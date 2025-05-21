@@ -22,6 +22,7 @@ from torch import distributed as dist
 from torch.utils.data import DataLoader
 from ec_dcnv2 import DlrmDcnEc as DLRM_DCN_EC
 
+import torch_npu
 from torchrec import EmbeddingBagCollection, EmbeddingCollection, EmbeddingConfig
 from torchrec.datasets.criteo import DEFAULT_CAT_NAMES, DEFAULT_INT_NAMES
 from torchrec.distributed import TrainPipelineSparseDist
@@ -39,12 +40,8 @@ from torchrec.modules.embedding_configs import EmbeddingBagConfig
 from torchrec.optim.apply_optimizer_in_backward import apply_optimizer_in_backward
 from torchrec.optim.keyed import CombinedOptimizer, KeyedOptimizerWrapper
 from torchrec.optim.optimizers import in_backward_optimizer_filter
-
 from torchrec.distributed.types import ShardingEnv
-from hybrid_torchrec.distributed.sharding_plan import get_default_hybrid_sharders
-from hybrid_torchrec.distributed.hybrid_train_pipeline import (
-    HybridTrainPipelineSparseDist,
-)
+
 
 for handler in logging.root.handlers[:]:
     logging.root.removeHandler(handler)
@@ -383,8 +380,8 @@ def _evaluate(
     dist.reduce(num_samples, 0, op=dist.ReduceOp.SUM)
 
     if is_rank_zero:
-        logging.info(f"AUROC over {stage} set: {auroc_result}.")
-        logging.info(f"Number of {stage} samples: {num_samples}")
+        logging.info("AUROC over %s set: %s.", stage, auroc_result)
+        logging.info(f"Number of %s samples: %s.", stage, num_samples)
     return auroc_result
 
 
@@ -473,14 +470,14 @@ def _train(epoch: int,
             try:
                 if is_rank_zero and print_lr:
                     for i, g in enumerate(pipeline._optimizer.param_groups):
-                        logging.info(f"lr: {it} {i} {g['lr']:.6f}")
+                        logging.info("lr: %s %s %.6f", it, i, g['lr'])
                 pipeline.progress(batched_iterator)
                 lr_scheduler.step()
                 if is_rank_zero:
                     pbar.update(1)
             except StopIteration:
                 if is_rank_zero:
-                    logging.info(f"Total number of iterations:{it}")
+                    logging.info("Total number of iterations: %s.", it)
                 start_it = it
                 break
 
@@ -529,6 +526,7 @@ def train_val_test(
     results = TrainValTestResults()
 
     if with_hybrid_torchrec:
+        from hybrid_torchrec.distributed.hybrid_train_pipeline import HybridTrainPipelineSparseDist
         pipeline = HybridTrainPipelineSparseDist(
             model, optimizer, device, execute_all_batches=True
         )
@@ -560,8 +558,6 @@ def train_val_test(
             epoch,
             train_params
         )
-        # val_auroc = _evaluate(args.limit_val_batches, pipeline, val_dataloader, "val")
-        # results.val_aurocs.append(val_auroc)
 
     test_auroc = _evaluate(args.limit_test_batches, pipeline, test_dataloader, "test")
     results.test_auroc = test_auroc
@@ -592,7 +588,6 @@ def main(argv: List[str]) -> None:
         except (ValueError, AttributeError):
             pass
 
-    import torch_npu
     torch_npu.npu.matmul.allow_hf32 = args.allow_tf32
 
     if args.multi_hot_sizes is not None:
@@ -633,8 +628,13 @@ def main(argv: List[str]) -> None:
             "--multi_hot_distribution_type is used to convert 1-hot to multi-hot. "
             "It's inapplicable with --synthetic_multi_hot_criteo_path."
         )
+    try:
+        rank = int(os.environ["LOCAL_RANK"])
+    except KeyError:
+        raise Exception("Environment varoable LOCAL_RANK is not set.")
+    except ValueError:
+        raise Exception("Environment varoable LOCAL_RANK is not a valid integer.")
 
-    rank = int(os.environ["LOCAL_RANK"])
     if torch.cuda.is_available():
         device: torch.device = torch.device(f"cuda:{rank}")
         backend = "nccl"
@@ -649,9 +649,8 @@ def main(argv: List[str]) -> None:
 
     if rank == 0:
         logging.info(
-            "PARAMS: (lr, batch_size, warmup_steps, decay_start, decay_steps): "
-            f"{(args.learning_rate, args.batch_size, args.lr_warmup_steps, args.lr_decay_start, args.lr_decay_steps)}"
-        )
+            "PARAMS: (%s, %s, %s, %s, %s): ",
+            args.learning_rate, args.batch_size, args.lr_warmup_steps, args.lr_decay_start, args.lr_decay_steps)
     dist.init_process_group(backend=backend)
 
     if args.num_embeddings_per_feature is not None:
@@ -901,6 +900,7 @@ def main(argv: List[str]) -> None:
             )
         sharders = [embcache_sharder]
     elif with_hybrid_torchrec:
+        from hybrid_torchrec.distributed.sharding_plan import get_default_hybrid_sharders
         sharders = get_default_hybrid_sharders(host_env)
     else:
         sharders = get_default_sharders()
@@ -909,7 +909,7 @@ def main(argv: List[str]) -> None:
         train_model, sharders, dist.GroupMember.WORLD
     )
     if rank == 0:
-        logging.info(f"plan:{plan}")
+        logging.info("plan:%s", plan)
 
     model = DistributedModelParallel(
         module=train_model,
@@ -919,17 +919,16 @@ def main(argv: List[str]) -> None:
     )
     if rank == 0 and args.print_sharding_plan:
         for collectionkey, plans in model._plan.plan.items():
-            logging.info(f"collectionkey: {collectionkey}")
+            logging.info("collectionkey: %s", collectionkey)
             for table_name, plan in plans.items():
-                logging.info(f"{table_name}\n{plan}\n")
+                logging.info("%s\n%s\n", table_name, plan)
 
     def optimizer_with_params():
         if args.adagrad:
             return lambda params: torch.optim.Adagrad(
                 params, lr=args.learning_rate, eps=args.eps
             )
-        else:
-            return lambda params: torch.optim.SGD(params, lr=args.learning_rate)
+        return lambda params: torch.optim.SGD(params, lr=args.learning_rate)
 
     dense_optimizer = KeyedOptimizerWrapper(
         dict(in_backward_optimizer_filter(model.named_parameters())),
@@ -973,8 +972,8 @@ def main(argv: List[str]) -> None:
         multihot.save_freqs_stats()
 
     if rank == 0:
-        logging.info(f"Train avg speed: {results.train_speed:.4f} its/s")
-        logging.info(f"Test AUROC: {results.test_auroc:.6f}")
+        logging.info("Train avg speed: %.4f its/s", results.train_speed)
+        logging.info("Test AUROC: %.6f", results.test_auroc)
     return results
 
 
