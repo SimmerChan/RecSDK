@@ -16,7 +16,6 @@ See the License for the specific language governing permissions and
 #include <cstdint>
 
 #include "register/op_def_registry.h"
-#include "tiling_policy_define.h"
 #include "tiling_policy_factory.h"
 #include "tiling_policy_normal_v200_fuxi.h"
 
@@ -63,10 +62,10 @@ ge::graphStatus TilingPolicyNormalv200Fuxi::InferShape(gert::InferShapeContext* 
     auto timestampBias = context->GetOptionalInputTensor(INDEX_T::INDEX_3);
     auto positionBias = context->GetOptionalInputTensor(INDEX_T::INDEX_4);
     if ((timestampBias == nullptr) || (positionBias == nullptr)) {
-        outputShape->SetDim(INDEX_T::INDEX_2, qShape->GetDim(INDEX_T::INDEX_2) * qShape->GetDim(INDEX_T::INDEX_3))
+        outputShape->SetDim(INDEX_T::INDEX_2, qShape->GetDim(INDEX_T::INDEX_2) * qShape->GetDim(INDEX_T::INDEX_3));
     } else {
         // 3:attnOut + tsOut + posOut
-        outputShape->SetDim(INDEX_T::INDEX_2, 3 * qShape->GetDim(INDEX_T::INDEX_2) * qShape->GetDim(INDEX_T::INDEX_3))
+        outputShape->SetDim(INDEX_T::INDEX_2, 3 * qShape->GetDim(INDEX_T::INDEX_2) * qShape->GetDim(INDEX_T::INDEX_3));
     }
 
     return ge::GRAPH_SUCCESS;
@@ -148,7 +147,7 @@ bool TilingPolicyNormalv200Fuxi::TilingMatmul(gert::TilingContext* context,
 
     if ((qkMatmul.GetTiling(tiling.qkMatmul) == -1) || (svMatmul.GetTiling(tiling.svMatmul) == -1) ||
         (tvMatmul.GetTiling(tiling.tvMatmul) == -1) || (pvMatmul.GetTiling(tiling.pvMatmul) == -1)) {
-        OPS_LOG_E("GetTiling failed.\n");
+        OPS_LOG_E(context, "GetTiling failed.\n");
         return false;
     }
 
@@ -209,7 +208,7 @@ bool TilingPolicyNormalv200Fuxi::TilingKeySet(gert::TilingContext* context,
     if (qTypeGe == ge::DataType::DT_FLOAT16) {
         context->SetTilingKey(FLOAT16_TILING_KEY);
     } else {
-        OPS_LOG_E("invalid datatype, only support fp16.\n");
+        OPS_LOG_E(context, "invalid datatype, only support fp16.\n");
         return false;
     }
 
