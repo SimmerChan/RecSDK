@@ -9,6 +9,7 @@
 import os
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Optional, TypeVar, Tuple
+from concurrent.futures import ThreadPoolExecutor
 
 import torch
 import torch.distributed as dist
@@ -55,7 +56,7 @@ from torchrec.distributed.types import (
 )
 
 from torchrec.fx.utils import assert_fx_safe
-from concurrent.futures import ThreadPoolExecutor
+
 
 class InputDistThreadPoolExecutorSingleton:
     _instance: "InputDistThreadPoolExecutorSingleton" = None
