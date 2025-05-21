@@ -628,12 +628,14 @@ def main(argv: List[str]) -> None:
             "--multi_hot_distribution_type is used to convert 1-hot to multi-hot. "
             "It's inapplicable with --synthetic_multi_hot_criteo_path."
         )
+
+    rank_str = os.environ["LOCAL_RANK"]
+    if rank_str is None:
+        raise KeyError("Environment variable LOCAL_RANK is not set.")
     try:
-        rank = int(os.environ["LOCAL_RANK"])
-    except KeyError:
-        raise Exception("Environment varoable LOCAL_RANK is not set.")
-    except ValueError:
-        raise Exception("Environment varoable LOCAL_RANK is not a valid integer.")
+        rank = int(rank_str)
+    except ValueError as e:
+        raise Exception("Environment variable LOCAL_RANK is not a valid integer.") from e
 
     if torch.cuda.is_available():
         device: torch.device = torch.device(f"cuda:{rank}")
