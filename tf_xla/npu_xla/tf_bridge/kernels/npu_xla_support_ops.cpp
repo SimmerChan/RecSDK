@@ -22,10 +22,279 @@ namespace tensorflow {
 const char* const DEVICE_NPU = "NPU";
 using ::tensorflow::npu_xla::VLOG_LEVEL_1;
 
-template <std::string dummyOp>
+enum class DummyOpT {
+    Const = 0,
+    RandomStandardNormal,
+    Mul,
+    AddV2,
+    RandomUniformInt,
+    RandomUniform,
+    Max,
+    Maximum,
+    Minimum,
+    Range,
+    ExpandDims,
+    Cast,
+    Less,
+    LessEqual,
+    StridedSlice,
+    Pack,
+    Unpack,
+    Reshape,
+    RealDiv,
+    Sqrt,
+    TruncatedNormal,
+    VariableV2,
+    Assign,
+    Identity,
+    MatMul,
+    Transpose,
+    BatchMatMulV2,
+    Sigmoid,
+    IdentityN,
+    VarHandleOp,
+    VarIsInitializedOp,
+    AssignVariableOp,
+    ReadVariableOp,
+    Mean,
+    StopGradient,
+    SquaredDifference,
+    Rsqrt,
+    Sub,
+    BiasAdd,
+    ConcatV2,
+    FloorDiv,
+    Tile,
+    Neg,
+    Relu,
+    Abs,
+    Squeeze,
+    Greater,
+    GreaterEqual,
+    Select,
+    Exp,
+    Log1p,
+    Equal,
+    Switch,
+    Merge,
+    Fill,
+    NoOp,
+    BroadcastGradientArgs,
+    Sum,
+    Shape,
+    Reciprocal,
+    AddN,
+    BiasAddGrad,
+    ReluGrad,
+    Sign,
+    RsqrtGrad,
+    FloorMod,
+    ConcatOffset,
+    Slice,
+    StridedSliceGrad,
+    ZerosLike,
+    InvertPermutation,
+    ApplyAdam,
+    ResourceApplyAdam,
+    Snapshot,
+    LogicalOr,
+    LogicalNot,
+    Prod,
+    Where,
+    GatherV2,
+    Split,
+    SplitV,
+    OneHot,
+    Pow,
+    Softmax,
+    Tanh,
+    Pad,
+};
+
+std::string DummyOpTToString(DummyOpT op)
+{
+    switch (op) {
+        case DummyOpT::Const:
+            return "Const";
+        case DummyOpT::RandomStandardNormal:
+            return "RandomStandardNormal";
+        case DummyOpT::Mul:
+            return "Mul";
+        case DummyOpT::AddV2:
+            return "AddV2";
+        case DummyOpT::RandomUniformInt:
+            return "RandomUniformInt";
+        case DummyOpT::RandomUniform:
+            return "RandomUniform";
+        case DummyOpT::Max:
+            return "Max";
+        case DummyOpT::Maximum:
+            return "Maximum";
+        case DummyOpT::Minimum:
+            return "Minimum";
+        case DummyOpT::Range:
+            return "Range";
+        case DummyOpT::ExpandDims:
+            return "ExpandDims";
+        case DummyOpT::Cast:
+            return "Cast";
+        case DummyOpT::Less:
+            return "Less";
+        case DummyOpT::LessEqual:
+            return "LessEqual";
+        case DummyOpT::StridedSlice:
+            return "StridedSlice";
+        case DummyOpT::Pack:
+            return "Pack";
+        case DummyOpT::Unpack:
+            return "Unpack";
+        case DummyOpT::Reshape:
+            return "Reshape";
+        case DummyOpT::RealDiv:
+            return "RealDiv";
+        case DummyOpT::Sqrt:
+            return "Sqrt";
+        case DummyOpT::TruncatedNormal:
+            return "TruncatedNormal";
+        case DummyOpT::VariableV2:
+            return "VariableV2";
+        case DummyOpT::Assign:
+            return "Assign";
+        case DummyOpT::Identity:
+            return "Identity";
+        case DummyOpT::MatMul:
+            return "MatMul";
+        case DummyOpT::Transpose:
+            return "Transpose";
+        case DummyOpT::BatchMatMulV2:
+            return "BatchMatMulV2";
+        case DummyOpT::Sigmoid:
+            return "Sigmoid";
+        case DummyOpT::IdentityN:
+            return "IdentityN";
+        case DummyOpT::VarHandleOp:
+            return "VarHandleOp";
+        case DummyOpT::VarIsInitializedOp:
+            return "VarIsInitializedOp";
+        case DummyOpT::AssignVariableOp:
+            return "AssignVariableOp";
+        case DummyOpT::ReadVariableOp:
+            return "ReadVariableOp";
+        case DummyOpT::Mean:
+            return "Mean";
+        case DummyOpT::StopGradient:
+            return "StopGradient";
+        case DummyOpT::SquaredDifference:
+            return "SquaredDifference";
+        case DummyOpT::Rsqrt:
+            return "Rsqrt";
+        case DummyOpT::Sub:
+            return "Sub";
+        case DummyOpT::BiasAdd:
+            return "BiasAdd";
+        case DummyOpT::ConcatV2:
+            return "ConcatV2";
+        case DummyOpT::FloorDiv:
+            return "FloorDiv";
+        case DummyOpT::Tile:
+            return "Tile";
+        case DummyOpT::Neg:
+            return "Neg";
+        case DummyOpT::Relu:
+            return "Relu";
+        case DummyOpT::Abs:
+            return "Abs";
+        case DummyOpT::Squeeze:
+            return "Squeeze";
+        case DummyOpT::Greater:
+            return "Greater";
+        case DummyOpT::GreaterEqual:
+            return "GreaterEqual";
+        case DummyOpT::Select:
+            return "Select";
+        case DummyOpT::Exp:
+            return "Exp";
+        case DummyOpT::Log1p:
+            return "Log1p";
+        case DummyOpT::Equal:
+            return "Equal";
+        case DummyOpT::Switch:
+            return "Switch";
+        case DummyOpT::Merge:
+            return "Merge";
+        case DummyOpT::Fill:
+            return "Fill";
+        case DummyOpT::NoOp:
+            return "NoOp";
+        case DummyOpT::BroadcastGradientArgs:
+            return "BroadcastGradientArgs";
+        case DummyOpT::Sum:
+            return "Sum";
+        case DummyOpT::Shape:
+            return "Shape";
+        case DummyOpT::Reciprocal:
+            return "Reciprocal";
+        case DummyOpT::AddN:
+            return "AddN";
+        case DummyOpT::BiasAddGrad:
+            return "BiasAddGrad";
+        case DummyOpT::ReluGrad:
+            return "ReluGrad";
+        case DummyOpT::Sign:
+            return "Sign";
+        case DummyOpT::RsqrtGrad:
+            return "RsqrtGrad";
+        case DummyOpT::FloorMod:
+            return "FloorMod";
+        case DummyOpT::ConcatOffset:
+            return "ConcatOffset";
+        case DummyOpT::Slice:
+            return "Slice";
+        case DummyOpT::StridedSliceGrad:
+            return "StridedSliceGrad";
+        case DummyOpT::ZerosLike:
+            return "ZerosLike";
+        case DummyOpT::InvertPermutation:
+            return "InvertPermutation";
+        case DummyOpT::ApplyAdam:
+            return "ApplyAdam";
+        case DummyOpT::ResourceApplyAdam:
+            return "ResourceApplyAdam";
+        case DummyOpT::Snapshot:
+            return "Snapshot";
+        case DummyOpT::LogicalOr:
+            return "LogicalOr";
+        case DummyOpT::LogicalNot:
+            return "LogicalNot";
+        case DummyOpT::Prod:
+            return "Prod";
+        case DummyOpT::Where:
+            return "Where";
+        case DummyOpT::GatherV2:
+            return "GatherV2";
+        case DummyOpT::Split:
+            return "Split";
+        case DummyOpT::SplitV:
+            return "SplitV";
+        case DummyOpT::OneHot:
+            return "OneHot";
+        case DummyOpT::Pow:
+            return "Pow";
+        case DummyOpT::Softmax:
+            return "Softmax";
+        case DummyOpT::Tanh:
+            return "Tanh";
+        case DummyOpT::Pad:
+            return "Pad";
+        default:
+            return "UnknownOp";
+    }
+}
+
+template <DummyOpT dummyOp>
 class NpuDummyOp : public OpKernel {
 public:
-    explicit NpuDummyOp(OpKernelConstruction* ctx) : OpKernel(ctx), name_(dummyOp)
+    explicit NpuDummyOp(OpKernelConstruction* ctx) : OpKernel(ctx), name_(DummyOpTToString(dummyOp))
     {
         VLOG(VLOG_LEVEL_1) << "Construct NPU dummy op: " << name_;
     }
@@ -39,7 +308,7 @@ private:
     std::string name_;
 };
 
-#define REGISTER_DUMMY_OP(op) REGISTER_KERNEL_BUILDER(Name(#op).Device(DEVICE_NPU), NpuDummyOp<#op>);
+#define REGISTER_DUMMY_OP(op) REGISTER_KERNEL_BUILDER(Name(#op).Device(DEVICE_NPU), NpuDummyOp<DummyOpT::op>);
 
 REGISTER_DUMMY_OP(AddV2);
 REGISTER_DUMMY_OP(Cast);
