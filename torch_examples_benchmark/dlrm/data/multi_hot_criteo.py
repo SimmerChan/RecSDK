@@ -125,15 +125,6 @@ class MultiHotCriteoIterDataPipe(IterableDataset):
             self.sparse_arrs[0] = [
                 feats[second_half_start_index:, :] for feats in self.sparse_arrs[0]
             ]
-        # When mmap_mode is enabled, sparse features are hashed when
-        # samples are batched in def __iter__. Otherwise, the dataset has been
-        # preloaded with sparse features hashed in the preload stage, here:
-        # if not self.mmap_mode and self.hashes is not None:
-        #     for k, _ in enumerate(self.sparse_arrs):
-        #         self.sparse_arrs[k] = [
-        #             feat % hash
-        #             for (feat, hash) in zip(self.sparse_arrs[k], self.hashes)
-        #         ]
 
         self.num_rows_per_file: List[int] = list(map(len, self.dense_arrs))
         total_rows = sum(self.num_rows_per_file)
@@ -285,12 +276,6 @@ class MultiHotCriteoIterDataPipe(IterableDataset):
                         feats[slice_, :] for feats in self.sparse_arrs[file_idx]
                     ]
                     target_labels = self.labels_arrs[file_idx][slice_, :]
-
-                    # if self.mmap_mode and self.hashes is not None:
-                    #     sparse_inputs = [
-                    #         feats % hash
-                    #         for (feats, hash) in zip(sparse_inputs, self.hashes)
-                    #     ]
 
                     append_to_buffer(
                         dense_inputs,
