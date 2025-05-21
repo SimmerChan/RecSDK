@@ -1372,13 +1372,13 @@ Status Encapsulator::GetFunctionNameAttr(Node const* node, string* attr, string*
         if (node_attr.first == group_attribute_) {
             TF_RETURN_IF_ERROR(AttrValueHasType(node_attr.second, "string"));
             *attr = node_attr.second.s();
-            found_group_attribute = true;
+            foundGroupAttribute = true;
         } else if (node_attr.first == outside_compilation_attribute_) {
             TF_RETURN_IF_ERROR(AttrValueHasType(node_attr.second, "string"));
             *outside_compilation_attr = node_attr.second.s();
-            found_outside_compilation_attribute = true;
+            foundOutsideCompilationAttribute = true;
         }
-        if (found_group_attribute && found_outside_compilation_attribute)
+        if (foundGroupAttribute && foundOutsideCompilationAttribute)
             break;
     }
 

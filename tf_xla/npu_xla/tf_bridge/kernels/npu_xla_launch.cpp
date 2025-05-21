@@ -158,6 +158,8 @@ Status PrepareOptions(OpKernelContext* ctx, std::unique_ptr<CompilerInput>& inpu
             options.add_output_placements("cpu");
         }
     }
+    
+    return absl::OkStatus();
 }
 }  // namespace
 

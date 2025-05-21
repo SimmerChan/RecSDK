@@ -22,18 +22,18 @@ See the License for the specific language governing permissions and
 
 /** Copy from stream_excutor_test_util.h **/
 /** ------------------------------------ **/
-struct SpStreamSt {
-    explicit SpStreamSt(int id) : streamId(id) {}
+struct SP_Stream_st {
+    explicit SP_Stream_st(int id) : streamId(id) {}
     int streamId;
 };
 
-struct SpEventSt {
-    explicit SpEventSt(int id) : eventId(id) {}
+struct SP_Event_st {
+    explicit SP_Event_st(int id) : eventId(id) {}
     int eventId;
 };
 
-struct SpTimerSt {
-    explicit SpTimerSt(int id) : timerId(id) {}
+struct SP_Timer_st {
+    explicit SP_Timer_st(int id) : timerId(id) {}
     int timerId;
 };
 /** ------------------------------------ **/
@@ -158,7 +158,7 @@ void GetStreamStatus(const SP_Device* const device, SP_Stream stream, TF_Status*
 void CreateEvent(const SP_Device* const device, SP_Event* event, TF_Status* const status)
 {
     VLOG(VLOG_LEVEL_2) << "Pluggable NPU CreateEvent";
-    *event = new SpEventSt(0);
+    *event = new SP_Event_st(0);
     VLOG(VLOG_LEVEL_2) << "Pluggable NPU CreateEvent event:" << *event;
     TF_SetStatus(status, TF_OK, "");
 }
@@ -326,7 +326,7 @@ void DestroyStreamExecutor(const SP_Platform* platform, SP_StreamExecutor* se)
 
 uint64_t Nanoseconds(SP_Timer timer)
 {
-    return timer->timer_id;
+    return timer->timerId;
 }
 
 void PopulateNpuTimerFns(SP_TimerFns* timer_fns)

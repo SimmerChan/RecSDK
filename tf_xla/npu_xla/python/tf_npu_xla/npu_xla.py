@@ -37,18 +37,27 @@ def enable(persistent_cache: str):
     device_path = os.path.join(_ROOT, DEVICE_SO)
     xla_op_path = os.path.join(_ROOT, XLA_OP_SO)
     tf_mlir_path = os.path.join(_ROOT, TF_MLIR_MAIN)
+    mlir_opt = os.path.join(_ROOT, MLIR_OPT)
+    mlir_compiler = os.path.join(_ROOT, MLIR_COMPILER)
     if not os.path.exists(device_path):
         raise FileNotFoundError("Device library %s not found" % device_path)
     if not os.path.exists(xla_op_path):
         raise FileNotFoundError("NPU_XLA library %s not found" % xla_op_path)
     if not os.path.exists(tf_mlir_path):
         raise FileNotFoundError("TF MLIR executable %s not found" % tf_mlir_path)
-    if not os.path.exists(MLIR_OPT):
+    if not os.path.exists(mlir_opt):
         raise FileNotFoundError("IG MLIR opt executable %s not found" % MLIR_OPT)
-    if not os.path.exists(MLIR_COMPILER):
+    if not os.path.exists(mlir_compiler):
         raise FileNotFoundError(
             "IG MLIR compiler executable %s not found" % MLIR_COMPILER
         )
+    # Add _ROOT to LD_LIBRARY_PATH
+    ld_library_path = os.environ.get("LD_LIBRARY_PATH", "")
+    if _ROOT not in ld_library_path.split(os.pathsep):
+        new_ld_library_path = (
+            os.pathsep.join([_ROOT, ld_library_path]) if ld_library_path else _ROOT
+        )
+        os.environ["LD_LIBRARY_PATH"] = new_ld_library_path
     _ll.load_pluggable_device_library(device_path)
     tf.load_op_library(xla_op_path)
     os.environ.setdefault("TF_MLIR_BIN_PATH", tf_mlir_path)
@@ -60,12 +69,5 @@ def enable(persistent_cache: str):
     os.environ.setdefault("COMPILE_PRODUCT_PATH", compilation_production_path)
     os.environ.setdefault("INFERENCE_GRAPH_PATH", _ROOT)
 
-    # Add _ROOT to LD_LIBRARY_PATH
-    ld_library_path = os.environ.get("LD_LIBRARY_PATH", "")
-    if _ROOT not in ld_library_path.split(os.pathsep):
-        new_ld_library_path = (
-            os.pathsep.join([_ROOT, ld_library_path]) if ld_library_path else _ROOT
-        )
-        os.environ["LD_LIBRARY_PATH"] = new_ld_library_path
 
     logging.info("NPU XLA is enabled.")

@@ -60,6 +60,12 @@ const char* const K_XLA_COMPILE_TIME_CONSTANT_INPUTS_ATTR = "_XlaCompileTimeCons
 const char* const K_MLIR_COMPILE_TIME_CONSTANT_INPUTS_ATTR = "_MlirCompileTimeConstantInputs";
 const char* const K_MLIR_COMPILE_TIME_FIXED_SHAPE_INPUTS_ATTR = "_MlirCompileTimeFixedShapeInputs";
 
+const char* const kXlaClusterAttr = K_XLA_CLUSTER_ATTR;
+const char* const kXlaOutsideCompilationAttr = K_XLA_OUTSIDE_COMPILATION_ATTR;
+const char* const kXlaCompileTimeConstantInputsAttr = K_XLA_COMPILE_TIME_CONSTANT_INPUTS_ATTR;
+const char* const kMlirCompileTimeConstantInputsAttr = K_MLIR_COMPILE_TIME_CONSTANT_INPUTS_ATTR;
+const char* const kMlirCompileTimeFixedShapeInputsAttr = K_MLIR_COMPILE_TIME_FIXED_SHAPE_INPUTS_ATTR;
+
 namespace {
 // Returns a string describing how an edge from src to dst would
 // create a cycle.

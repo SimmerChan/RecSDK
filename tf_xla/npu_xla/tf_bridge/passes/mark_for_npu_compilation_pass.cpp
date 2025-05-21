@@ -1015,7 +1015,7 @@ static bool GetNodeOrFuncAttr(Node* node, FunctionLibraryDefinition* flib_def, c
 
 Status MarkForCompilationPassImpl::BuildInitialClusterSet()
 {
-    auto ignoreResourceOps = [&device_info_cache_](const Node& n, bool* ignore) {
+    auto ignoreResourceOps = [&](const Node& n, bool* ignore) {
         return IgnoreResourceOpForSafetyAnalysis(&device_info_cache_, n, ignore);
     };
 
@@ -1219,7 +1219,7 @@ Status MarkForCompilationPassImpl::FindCompilationCandidates()
         if (debug_options_.clusterForMlir) {
             op_filter.allow_stateful_rng_ops = true;
         }
-        op_filter.skipClusteredOps = debug_options_.skipClusteredOps;
+        op_filter.skip_clustered_ops = debug_options_.skipClusteredOps;
 
         if (!RecursiveCompilabilityChecker{&op_filter, &jit_device_type}.IsCompilableNode(*node, lib_runtime)) {
             VLOG(VLOG_LEVEL_2) << "Rejecting TF operation " << node->def().op() << " as it is not compilable";
@@ -1462,7 +1462,7 @@ void MarkForCompilationPassImpl::DumpPostClusteringGraphs()
 string RatioToString(int numerator, int denominator)
 {
     if (denominator == 0) {
-        throw std::invalid_argument("denominator is 0");
+        return "denominator is zero";
     }
     return absl::StrFormat("%d / %d (%.2f%%)", numerator, denominator, (100.0 * numerator) / denominator);
 }
@@ -1800,8 +1800,6 @@ Status RecursivelySetDevice(const Graph* graph, const std::vector<Node*>& initia
 
     VLOG(VLOG_LEVEL_2) << "Total unsafe edges: " << unsafe_edges.size();
 
-    int maxLoop = 1000000;
-    int loopCnt = 0;
     while (true) {
         bool foundNewUnsafeNodes = false;
 
@@ -1817,11 +1815,6 @@ Status RecursivelySetDevice(const Graph* graph, const std::vector<Node*>& initia
 
         if (!foundNewUnsafeNodes) {
             break;
-        }
-
-        ++loopCnt;
-        if (loopCnt > maxLoop) {
-            throw std::runtime_error("exceed max loop: " + std::to_string(maxLoop));
         }
     }
 
@@ -1948,7 +1941,7 @@ Status MarkForCompilation(const GraphOptimizationPassOptions& options,
     // no registered kernel for int32 TensorArray on GPU.
     bool enableNpuXla = GetTfBridgeOptions()->enable_npu_xla;
     bool enableControlFlow = GetTfBridgeOptions()->enable_control_flow;
-    if (enable_npu_xla && (HasFunctionalControlFlowOps(graph) || enableControlFlow)) {
+    if (enableNpuXla && (HasFunctionalControlFlowOps(graph) || enableControlFlow)) {
         debug_options.forceAllowTensorArrayOps = true;
         debug_options.ignoreResourceVariableChecks = true;
         TF_RETURN_IF_ERROR(MarkForCompilationPassImpl{
@@ -2008,8 +2001,8 @@ Status MarkForNpuCompilationPass::Run(const GraphOptimizationPassOptions& option
     debug_options.ignoreDeadnessChecks = flags->tf_xla_disable_deadness_safety_checks_for_debugging;
     debug_options.ignoreResourceVariableChecks = flags->tf_xla_disable_resource_variable_safety_checks_for_debugging;
     debug_options.ignoreXlaCompileAttr = false;
-    debug_options.maxClusterSize = flags->tf_xla_maxClusterSize;
-    debug_options.minClusterSize = flags->tf_xla_minClusterSize;
+    debug_options.maxClusterSize = flags->tf_xla_max_cluster_size;
+    debug_options.minClusterSize = flags->tf_xla_min_cluster_size;
     debug_options.fuel = GetPointerToFuel(flags->tf_xla_clustering_fuel);
     debug_options.dumpGraphs = flags->tf_xla_clustering_debug;
 
