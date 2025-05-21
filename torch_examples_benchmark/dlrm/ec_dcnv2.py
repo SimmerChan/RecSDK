@@ -36,8 +36,7 @@ def choose(n: int, k: int) -> int:
             ktok *= t
             n -= 1
         return ntok // ktok
-    else:
-        return 0
+    return 0
 
 
 class SparseArchEC(nn.Module):

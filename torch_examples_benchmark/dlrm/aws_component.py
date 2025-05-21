@@ -21,6 +21,8 @@ def run_dlrm_main(num_trainers: int = 8, *script_args: str) -> specs.AppDef:
     entrypoint = os.path.join(cwd, "dlrm_main.py")
 
     user = os.environ.get("USER")
+    if user is None:
+        raise ValueError("Environment variable 'USER' is not set.")
     image = f"/data/home/{user}"
 
     if num_trainers > 8 and num_trainers % 8 != 0:
