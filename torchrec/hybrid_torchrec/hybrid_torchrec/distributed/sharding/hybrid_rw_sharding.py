@@ -60,6 +60,8 @@ from torchrec.distributed.types import (
 
 from torchrec.fx.utils import assert_fx_safe
 
+DEFAULT_POST_INPUT_THREADS = 6
+
 
 class InputDistThreadPoolExecutorSingleton:
     _instance: "InputDistThreadPoolExecutorSingleton" = None
@@ -70,12 +72,13 @@ class InputDistThreadPoolExecutorSingleton:
         cls._instance = super(InputDistThreadPoolExecutorSingleton, cls).__new__(
             cls, *args, **kwargs
         )
-        default_post_input_threads = 6
-        max_threads = (
-            default_post_input_threads
-            if "INPUT_DIST_THREADS" not in os.environ
-            else int(os.environ["INPUT_DIST_THREADS"])
-        )
+        max_threads = DEFAULT_POST_INPUT_THREADS
+        input_dist_threads_str = os.environ["INPUT_DIST_THREADS"]
+        if input_dist_threads_str is not None:
+            try:
+                max_threads = int(input_dist_threads_str)
+            except ValueError as e:
+                raise Exception("Environment variable INPUT_DIST_THREADS is not a valid integer.") from e
         cls.executor = ThreadPoolExecutor(max_threads)
         return cls._instance
 
