@@ -65,17 +65,18 @@ class InputDistThreadPoolExecutorSingleton:
     _instance: "InputDistThreadPoolExecutorSingleton" = None
 
     def __new__(cls, *args, **kwargs):
-        if not cls._instance:
-            cls._instance = super(InputDistThreadPoolExecutorSingleton, cls).__new__(
-                cls, *args, **kwargs
-            )
-            default_post_input_threads = 6
-            max_threads = (
-                default_post_input_threads
-                if "INPUT_DIST_THREADS" not in os.environ
-                else int(os.environ["INPUT_DIST_THREADS"])
-            )
-            cls.executor = ThreadPoolExecutor(max_threads)
+        if cls._instance:
+            return cls._instance
+        cls._instance = super(InputDistThreadPoolExecutorSingleton, cls).__new__(
+            cls, *args, **kwargs
+        )
+        default_post_input_threads = 6
+        max_threads = (
+            default_post_input_threads
+            if "INPUT_DIST_THREADS" not in os.environ
+            else int(os.environ["INPUT_DIST_THREADS"])
+        )
+        cls.executor = ThreadPoolExecutor(max_threads)
         return cls._instance
 
 C = TypeVar("C", bound=Multistreamable)
