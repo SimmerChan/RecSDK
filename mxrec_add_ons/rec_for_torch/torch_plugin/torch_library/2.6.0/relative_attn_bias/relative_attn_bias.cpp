@@ -1,7 +1,7 @@
 /**
  * @file relative_attn_bias.cpp
  *
- * Copyright (C) 2024. Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright (C) 2025. Huawei Technologies Co., Ltd. All rights reserved.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of

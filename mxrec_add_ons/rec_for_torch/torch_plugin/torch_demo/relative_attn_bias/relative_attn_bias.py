@@ -1,3 +1,20 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# Copyright 2025. Huawei Technologies Co.,Ltd. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+
 import random
 import sysconfig
 
@@ -171,14 +188,15 @@ def rab(num_layers, train_len, candidate_len, bs, dtype):
                                         past_valid_lens=past_valid_lens)
     torch_npu.npu.synchronize()
 
-    # rab_pos_out_golden = rab_pos_golden(rel_pos_bias=rel_pos_bias_list[layer_num, ...],
-    #                                     identity=identity_list[layer_num, ...],
-    #                                     past_valid_lens=past_valid_lens)
+    # 验证训练正向精度时需注释rab_pos_golden部分
+    rab_pos_out_golden = rab_pos_golden(rel_pos_bias=rel_pos_bias_list[layer_num, ...],
+                                        identity=identity_list[layer_num, ...],
+                                        past_valid_lens=past_valid_lens)
     rab_time_out_golden = rab_time_golden(ts_w=timestamps_weights.transpose(0, 1),
                                           timestamps=timestamps)
     torch_npu.npu.synchronize()
 
-    # assert torch.allclose(rab_pos_out_golden, rab_pos_out)
+    assert torch.allclose(rab_pos_out_golden, rab_pos_out)
     assert torch.allclose(rab_time_out_golden, rab_time_out)
 
 

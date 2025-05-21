@@ -10,6 +10,7 @@
 #include "register/op_def_registry.h"
 #include "tiling/tiling_api.h"
 #include "tiling/platform/platform_ascendc.h"
+#include "../../../common/ops_log.h"
 
 constexpr int32_t RESERVER_UB_SIZE = (5 * 1024);
 constexpr int32_t DATA_ALIGN_BYTES = 32;
@@ -39,24 +40,41 @@ constexpr int DIM5 = 5;
 namespace optiling {
 static ge::graphStatus TilingFunc(gert::TilingContext* context)
 {
+    OPS_LOG_E_IF_NULL("context", context, return ge::GRAPH_FAILED);
+    OPS_LOG_E_IF_NULL("identityShape", context->GetInputShape(IDENTITY_INDEX), return ge::GRAPH_FAILED);
+    OPS_LOG_E_IF_NULL("timestampShape", context->GetInputShape(TIMESTAMPS_INDEX), return ge::GRAPH_FAILED);
+    OPS_LOG_E_IF_NULL("tswShape", context->GetInputShape(TIMESTAMPS_WEIGHTS_INDEX), return ge::GRAPH_FAILED);
+    OPS_LOG_E_IF_NULL("attrs", context->GetAttrs(), return ge::GRAPH_FAILED);
+
     auto ascendPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
     size_t coreNum = ascendPlatform.GetCoreNumAiv();
-    if (coreNum == 0) {
-        printf("[ERROR]No available aicore\n");
-        return ge::GRAPH_FAILED;
-    }
+    OPS_CHECK(coreNum == 0,
+              OPS_LOG_E("Tiling Debug", "Core num is 0."),
+              return ge::GRAPH_FAILED);
 
     RelativeAttnBiasTilingData tilingData;
+
+    auto timeShape = context->GetInputShape(TIMESTAMPS_INDEX)->GetStorageShape();  // timestamps(b, s)
+    // 获取batchsize
+    int bs = timeShape.GetDim(0);
+    OPS_CHECK(bs <= 0,
+              OPS_LOG_E("Tiling Debug", "Batchsize is invalid."),
+              return ge::GRAPH_FAILED);
+    tilingData.set_bs(bs);
     // 获取序列长度大小
-    auto identityShape = context->GetInputShape(IDENTITY_INDEX)->GetStorageShape();
-    int s = identityShape.GetDim(0) / 2;  // identityShape(2s, 2s)
+    int s = timeShape.GetDim(1);
+    OPS_CHECK(s > 4300,
+              OPS_LOG_E("Tiling Debug", "Input table larger than (4300, 4300)."),
+              return ge::GRAPH_FAILED);
     tilingData.set_s(s);
 
-    // 获取batchsize
     const gert::RuntimeAttrs* attrs = context->GetAttrs();
     const auto pastValidLensPtr = attrs->GetAttrPointer<gert::ContinuousVector>(PAST_VALID_LENS_INDEX);
-    int bs = pastValidLensPtr->GetSize();
-    tilingData.set_bs(bs);
+    OPS_LOG_E_IF_NULL("past_valid_len", pastValidLensPtr, return ge::GRAPH_FAILED);
+    int bsValid = pastValidLensPtr->GetSize();
+    OPS_CHECK(bsValid != bs,
+              OPS_LOG_E("Tiling Debug", "mismatch batchsize of past_valid_len and timestamps."),
+              return ge::GRAPH_FAILED);
 
     auto *pastValidLensData = const_cast<int64_t *>(reinterpret_cast<const int64_t *>(pastValidLensPtr->GetData()));
     uint32_t pastValidLens[MAX_BATCH_SIZE];
@@ -88,10 +106,9 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     int intSize = ge::GetSizeByDataType(intType);
     tilingData.set_floatType(floatType);
     tilingData.set_intType(intType);
-    if (floatSize == 0) {
-        printf("[ERROR]float type(%d) error. sizeof(float) = %d\n", floatType, floatSize);
-        return ge::GRAPH_FAILED;
-    }
+    OPS_CHECK(floatSize == 0,
+              OPS_LOG_E("Tiling Debug", "Invalid data type."),
+              return ge::GRAPH_FAILED);
 
     // 计算一次处理的窗口大小(stride)
     int stride = ub / (NUM_BUFFER * 3 * floatSize);
@@ -116,10 +133,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
 
     context->SetBlockDim(coreNum);
     auto rowTilingData = context->GetRawTilingData();
-    if (rowTilingData == nullptr) {
-        printf("[ERROR]Raw tiling data is nullptr\n");
-        return ge::GRAPH_FAILED;
-    }
+    OPS_LOG_E_IF_NULL("GetRawTilingData", rowTilingData, return ge::GRAPH_FAILED);
     tilingData.SaveToBuffer(rowTilingData->GetData(), rowTilingData->GetCapacity());
     rowTilingData->SetDataSize(tilingData.GetDataSize());
 
