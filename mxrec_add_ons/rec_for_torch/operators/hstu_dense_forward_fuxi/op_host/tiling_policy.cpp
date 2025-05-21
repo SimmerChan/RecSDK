@@ -31,7 +31,7 @@ bool ShapeRange::Check(int64_t val) const
 {
     OPS_LOG_E_IF((val < lbound || val > ubound || val % mutiple != 0), "[ERROR]", return false,
         "%s must meet range[%lld %lld] and mutiple of [%lld]. but get value %lld\n",
-        name, lbound, ubound, mutiple, val)
+        name, lbound, ubound, mutiple, val);
     
     return true;
 }
