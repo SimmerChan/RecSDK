@@ -10,12 +10,30 @@
 import os
 import logging
 from typing import List
+from dataclasses import dataclass
 
 import torch
 from torch.autograd.profiler import record_function
 
 
 torch.ops.load_library(os.path.join(os.path.dirname(__file__), "libhybrid_cpp.so"))
+
+
+@dataclass
+class BucketParams:
+    lengths: torch.Tensor
+    indices: torch.Tensor
+    bucketize_pos: bool
+    sequence: bool
+    block_sizes: torch.Tensor
+    bucket_size: int
+    total_num_blocks: torch.Tensor = None,
+    weight: torch.Tensor = None,
+    batch_size_per_feature: torch.Tensor = None,
+    max_b: torch.Tensor = None,
+    block_bucketize_pos: torch.Tensor = None,
+    return_bucket_mapping: bool = False,
+    keep_orig_idx: bool = False,
 
 
 class HashMapBase(torch.nn.Module):
@@ -45,6 +63,7 @@ class IdsMapper(HashMapBase):
                 ids
             )
             return result, unique, unique_inverse
+
     def ids2indices_unique_out(
         self,
         ids: torch.Tensor,
@@ -59,35 +78,21 @@ class IdsMapper(HashMapBase):
             ids, hash_indices, offset, unique, unique_inverse, unique_offset, table_id
         )
 
-def block_bucketize_sparse_features_cpu(
-    lengths,
-    indices,
-    bucketize_pos,
-    sequence,
-    block_sizes,
-    bucket_size,
-    total_num_blocks=None,
-    weights=None,
-    batch_size_per_feature=None,
-    max_B=None,
-    block_bucketize_pos=None,
-    return_bucket_mapping=False,
-    keep_orig_idx=False,
-):
-    result = torch.ops.hybrid.block_bucketize_sparse_features_cpu(
-        lengths,
-        indices,
-        bucketize_pos,
-        sequence,
-        block_sizes,
-        bucket_size,
-        total_num_blocks,
-        weights,
-        batch_size_per_feature,
-        max_B,
-        block_bucketize_pos,
-        return_bucket_mapping,
-        keep_orig_idx,
+
+def block_bucketize_sparse_features_cpu(bucket_param: BucketParams):
+    return torch.ops.hybrid.block_bucketize_sparse_features_cpu(
+        bucket_param.lengths,
+        bucket_param.indices,
+        bucket_param.bucketize_pos,
+        bucket_param.sequence,
+        bucket_param.block_sizes,
+        bucket_param.bucket_size,
+        bucket_param.total_num_blocks,
+        bucket_param.weight,
+        bucket_param.batch_size_per_feature,
+        bucket_param.max_b,
+        bucket_param.block_bucketize_pos,
+        bucket_param.return_bucket_mapping,
+        bucket_param.keep_orig_idx,
     )
-    return result
 

@@ -14,6 +14,7 @@ import torch
 from hybrid_torchrec.modules.ids_process import (
     IdsMapper,
     block_bucketize_sparse_features_cpu,
+    BucketParams
 )
 
 from torchrec import JaggedTensor, KeyedJaggedTensor
@@ -50,11 +51,11 @@ def check_bucketized_valid(
     origin_len,
     origin_indices,
     feat_num,
-    bucketSize,
+    bucket_size,
 ):
-    batch_size = bucketized_lengths.numel() // bucketSize // feat_num
+    batch_size = bucketized_lengths.numel() // bucket_size // feat_num
     bucketized_offset = 0
-    for rank in range(bucketSize):
+    for rank in range(bucket_size):
         this_rank_length = bucketized_lengths[
             rank * feat_num * batch_size : (rank + 1) * feat_num * batch_size
         ]
@@ -71,15 +72,17 @@ def check_bucketized_valid(
                     origin_batch_offset : origin_batch_offset + origin_indices_len
                 ]
                 for _ in range(this_indices_len):
-                    id = bucketized_indices[bucketized_offset]
+                    ids = bucketized_indices[bucketized_offset]
                     assert (
-                        id % bucketSize
-                    ) == rank, f"bucketized_indices {id} in invalid bucket {rank} bucketized_offset {bucketized_offset}"
+                        id % bucket_size
+                    ) == rank, f"bucketized_indices {ids} in invalid bucket {rank} bucketized_offset {bucketized_offset}"
                     assert (
-                        id in origin_index
-                    ), f"bucketized_indices {id} in invalid position {origin_batch_offset} origin_index {origin_index} bucketized_offset {bucketized_offset}"
+                        ids in origin_index
+                    ), f"bucketized_indices {ids} in invalid position {origin_batch_offset} \
+                    origin_index {origin_index} bucketized_offset {bucketized_offset}"
                     bucketized_offset += 1
                 origin_batch_offset += origin_indices_len
+
 
 @pytest.mark.parametrize("input_size", [1000])
 def test_ids2indices_sequential(input_size):
@@ -93,6 +96,7 @@ def test_ids2indices_sequential(input_size):
         indices, unique, unique_inverse = mapper(input_ids)
         verify_mapper(id2indices, indices2id, input_ids, indices)
         verify_unique(indices, unique, unique_inverse)
+
 
 @pytest.mark.parametrize("input_size", [10000])
 @pytest.mark.parametrize("pin_memory", [False, True])
@@ -132,6 +136,7 @@ def test_ids2indices_out(input_size, pin_memory, num_mapper):
             unique_inverse_this = unique_inverse[start:end]
             verify_unique(indices, unique_this, unique_inverse_this)
 
+
 @pytest.mark.parametrize("input_size", [10000])
 @pytest.mark.parametrize("pin_memory", [False, True])
 @pytest.mark.parametrize("num_mapper", [3])
@@ -155,6 +160,7 @@ def test_ids2indices_out_ids_max_than_tableSize(input_size, pin_memory, num_mapp
             mappers[i].ids2indices_unique_out(
                 ids, hash_indices, offsets, unique, unique_inverse, unique_offset, i
             )
+
 
 @pytest.mark.parametrize("input_size", [10000])
 @pytest.mark.parametrize("pin_memory", [False, True])
@@ -181,6 +187,7 @@ def test_ids2indices_out_ids_smaller_than_0(input_size, pin_memory, num_mapper):
                 ids, hash_indices, offsets, unique, unique_inverse, unique_offset, i
             )
 
+
 @pytest.mark.parametrize("input_size", [10000])
 @pytest.mark.parametrize("pin_memory", [False, True])
 @pytest.mark.parametrize("num_mapper", [3])
@@ -206,6 +213,7 @@ def test_ids2indices_out_ids_unique_is_none(input_size, pin_memory, num_mapper):
                 ids, hash_indices, offsets, unique, unique_inverse, unique_offset, i
             )
 
+
 @pytest.mark.parametrize("input_size", [10000])
 @pytest.mark.parametrize("pin_memory", [False, True])
 @pytest.mark.parametrize("num_mapper", [3])
@@ -229,6 +237,7 @@ def test_ids2indices_out_ids_is_none(input_size, pin_memory, num_mapper):
             mappers[i].ids2indices_unique_out(
                 None, hash_indices, offsets, unique, unique_inverse, unique_offset, i
             )
+
 
 @pytest.mark.parametrize("input_size", [10000])
 @pytest.mark.parametrize("pin_memory", [False, True])
@@ -255,6 +264,7 @@ def test_ids2indices_out_ids_invalid_offset(input_size, pin_memory, num_mapper):
                 ids, hash_indices, offsets, unique, unique_inverse, unique_offset, i
             )
 
+
 @pytest.mark.parametrize("input_size", [10000])
 @pytest.mark.parametrize("pin_memory", [False, True])
 @pytest.mark.parametrize("num_mapper", [3])
@@ -280,10 +290,11 @@ def test_ids2indices_out_ids_hashIndices_is_none(input_size, pin_memory, num_map
                 ids, hash_indices, offsets, unique, unique_inverse, unique_offset, i
             )
 
+
 @pytest.mark.parametrize("input_size", [1000])
 @pytest.mark.parametrize("mutil_hots", [[1, 2, 3, 4]])
-@pytest.mark.parametrize("bucketSize", [4])
-def test_block_bucketize_sparse_features_cpu(input_size, mutil_hots, bucketSize):
+@pytest.mark.parametrize("bucket_size", [4])
+def test_block_bucketize_sparse_features_cpu(input_size, mutil_hots, bucket_size):
     for _ in range(TEST_NUM):
         jt_dict = {}
         for ind, mutil_hot in enumerate(mutil_hots):
@@ -309,7 +320,7 @@ def test_block_bucketize_sparse_features_cpu(input_size, mutil_hots, bucketSize)
             bucketize_pos=False,
             sequence=True,
             block_sizes=block_size,
-            bucket_size=bucketSize,
+            bucket_size=bucket_size,
             weights=kjt.weights_or_none(),
             batch_size_per_feature=None,
             max_B=-1,
@@ -321,7 +332,7 @@ def test_block_bucketize_sparse_features_cpu(input_size, mutil_hots, bucketSize)
             lengths,
             values,
             len(mutil_hots),
-            bucketSize,
+            bucket_size,
         )
         inverse_result = torch.index_select(
             bucketized_indices, dim=0, index=unbucketize_permute
@@ -331,37 +342,73 @@ def test_block_bucketize_sparse_features_cpu(input_size, mutil_hots, bucketSize)
 
 @pytest.mark.parametrize("input_size", [1000])
 @pytest.mark.parametrize("mutil_hots", [[1, 2, 3, 4]])
-@pytest.mark.parametrize("bucketSize", [0])
-def test_block_bucketize_sparse_features_cpu(input_size, mutil_hots, bucketSize):
-    for _ in range(TEST_NUM):
-        jt_dict = {}
-        for ind, mutil_hot in enumerate(mutil_hots):
-            v = torch.randint(0, input_size, (input_size * mutil_hot,))
-            jt_dict[f"feat{ind}"] = JaggedTensor(
-                values=v, lengths=torch.ones(input_size, dtype=torch.int64) * mutil_hot
-            )
-        kjt = KeyedJaggedTensor.from_jt_dict(jt_dict)
+@pytest.mark.parametrize("bucket_size", [0])
+def test_block_bucketize_sparse_features_cpu_invalid_bucketSize(input_size, mutil_hots, bucket_size):
+    jt_dict = {}
+    for ind, mutil_hot in enumerate(mutil_hots):
+        v = torch.randint(0, input_size, (input_size * mutil_hot,))
+        jt_dict[f"feat{ind}"] = JaggedTensor(
+            values=v, lengths=torch.ones(input_size, dtype=torch.int64) * mutil_hot
+        )
+    kjt = KeyedJaggedTensor.from_jt_dict(jt_dict)
 
-        lengths = kjt.lengths().view(-1)
-        values = kjt.values()
-        with pytest.raises(RuntimeError):
-            block_size = torch.Tensor([100 for _ in range(len(mutil_hots))]).long()
-            (
-                bucketized_lengths,
-                bucketized_indices,
-                bucketized_weights,
-                pos,
-                unbucketize_permute,
-                _,
-            ) = block_bucketize_sparse_features_cpu(
-                lengths,
-                values,
-                bucketize_pos=False,
-                sequence=True,
-                block_sizes=block_size,
-                bucket_size=bucketSize,
-                weights=kjt.weights_or_none(),
-                batch_size_per_feature=None,
-                max_B=-1,
-                block_bucketize_pos=None,
-            )
+    lengths = kjt.lengths().view(-1)
+    values = kjt.values()
+    with pytest.raises(RuntimeError):
+        block_size = torch.Tensor([100 for _ in range(len(mutil_hots))]).long()
+        (
+            bucketized_lengths,
+            bucketized_indices,
+            bucketized_weights,
+            pos,
+            unbucketize_permute,
+            _,
+        ) = block_bucketize_sparse_features_cpu(
+            lengths,
+            values,
+            bucketize_pos=False,
+            sequence=True,
+            block_sizes=block_size,
+            bucket_size=bucket_size,
+            weights=kjt.weights_or_none(),
+            batch_size_per_feature=None,
+            max_B=-1,
+            block_bucketize_pos=None,
+        )
+
+
+@pytest.mark.parametrize("input_size", [1000])
+@pytest.mark.parametrize("mutil_hots", [[1, 2, 3, 4]])
+@pytest.mark.parametrize("bucket_size", [4])
+def test_block_bucketize_sparse_features_cpu_invalid_blockSize(input_size, mutil_hots, bucket_size):
+    jt_dict = {}
+    for ind, mutil_hot in enumerate(mutil_hots):
+        v = torch.randint(0, input_size, (input_size * mutil_hot,))
+        jt_dict[f"feat{ind}"] = JaggedTensor(
+            values=v, lengths=torch.ones(input_size, dtype=torch.int64) * mutil_hot
+        )
+    kjt = KeyedJaggedTensor.from_jt_dict(jt_dict)
+
+    lengths = kjt.lengths().view(-1)
+    values = kjt.values()
+    with pytest.raises(RuntimeError):
+        block_size = None
+        (
+            bucketized_lengths,
+            bucketized_indices,
+            bucketized_weights,
+            pos,
+            unbucketize_permute,
+            _,
+        ) = block_bucketize_sparse_features_cpu(
+            lengths,
+            values,
+            bucketize_pos=False,
+            sequence=True,
+            block_sizes=block_size,
+            bucket_size=bucket_size,
+            weights=kjt.weights_or_none(),
+            batch_size_per_feature=None,
+            max_B=-1,
+            block_bucketize_pos=None,
+        )

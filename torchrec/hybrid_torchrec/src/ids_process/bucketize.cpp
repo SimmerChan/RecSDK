@@ -17,6 +17,21 @@
 
 namespace hybrid {
 
+template <typename OffsetT, typename IndexT>
+class BucketDataPtr {
+    bool CheckNullptr() {
+        if (offsetData == nullptr || indicesData == nullptr || lengthsData == nullptr) {
+            return false;
+        }
+        return true;
+    }
+
+private:
+    OffsetT* offsetData;
+    OffsetT* lengthsData;
+    IndexT* indicesData;
+};
+
 // 计算前缀和，preSum数组长度应为length+1
 template <typename T>
 void PrefixSum(const int length, const T* array, T* preSum)
@@ -27,7 +42,7 @@ void PrefixSum(const int length, const T* array, T* preSum)
     }
 }
 template <bool Sequence, typename OffsetT, typename IndexT, bool DoUnique>
-void ComputeNewLengths(const OffsetT* offsetsData, const IndexT* indicesData, OffsetT* newLengthsData,
+void ComputeNewLengths(const BucketDataPtr &originData, const BucketDataPtr &bucketResult,
                        int32_t numFeatures, int32_t batchSize, int64_t bucketSize, int64_t lengthsSize)
 {
     for (const auto featureIdx : c10::irange(numFeatures)) {
@@ -39,40 +54,40 @@ void ComputeNewLengths(const OffsetT* offsetsData, const IndexT* indicesData, Of
             for (const auto i : c10::irange(start, end)) {
                 const IndexT idx = indicesData[i];
                 const IndexT bucket = idx % blockSize;
-                newLengthsData[bucket * lengthsSize + linearIndex]++;
+                bucketResult.lengthsData[bucket * lengthsSize + linearIndex]++;
             }
         }
     }
 }
 
 template <bool Sequence, typename OffsetT, typename IndexT, bool DoUnique>
-void FillNewIndices(const OffsetT* offsetsData, const IndexT* indicesData, OffsetT* newOffsetsData,
-                    IndexT* newIndicesData, IndexT* unbucketizePermuteData, int32_t numFeatures, int32_t batchSize,
+void FillNewIndices(const BucketDataPtr &originData, const BucketDataPtr &bucketResult,
+                    IndexT* unbucketizePermuteData, int32_t numFeatures, int32_t batchSize,
                     int64_t bucketSize, int64_t lengthsSize)
 {
     for (const auto featureIdx : c10::irange(numFeatures)) {
         const auto blockSize = bucketSize;
         for (const auto batchIdx : c10::irange(batchSize)) {
             const auto linearIndex = featureIdx * batchSize + batchIdx;
-            const OffsetT start = offsetsData[linearIndex];
-            const OffsetT end = offsetsData[linearIndex + 1];
+            const OffsetT start = originData.offsetsData[linearIndex];
+            const OffsetT end = originData.offsetsData[linearIndex + 1];
             for (const auto i : c10::irange(start, end)) {
                 const IndexT idx = indicesData[i];
                 const IndexT bucket = idx % blockSize;
-                const IndexT pos = newOffsetsData[bucket * lengthsSize + linearIndex];
-                newIndicesData[pos] = idx;
+                const IndexT pos = bucketResult.offsetsData[bucket * lengthsSize + linearIndex];
+                bucketResult.indicesData[pos] = idx;
                 if constexpr (Sequence) {
                     unbucketizePermuteData[i] = pos;
                 }
-                newOffsetsData[bucket * lengthsSize + linearIndex]++;
+                bucketResult.offsetsData[bucket * lengthsSize + linearIndex]++;
             }
         }
     }
 }
 
 template <typename OffsetT, typename IndexT>
-void Deduplicate(OffsetT* newLengthsData, const OffsetT* newOffsetsData, const OffsetT* offsetsData,
-                 const IndexT* indicesData, IndexT* newIndicesData, IndexT* unbucketizePermuteData, int32_t numFeatures,
+void Deduplicate(const BucketDataPtr &originData, const BucketDataPtr &bucketResult,
+                 IndexT* unbucketizePermuteData, int32_t numFeatures,
                  int32_t batchSize, int64_t bucketSize)
 {
     int32_t uniqueOffset = 0;
@@ -84,17 +99,17 @@ void Deduplicate(OffsetT* newLengthsData, const OffsetT* newOffsetsData, const O
         for (const auto batchIdx : c10::irange(batchSize)) {
             const auto linearIndex = featureBucketIdx * batchSize + batchIdx;
             const OffsetT start = lastOffset;
-            const OffsetT end = newOffsetsData[linearIndex];
+            const OffsetT end = bucketResult.offsetsData[linearIndex];
             lastOffset = end;
             for (const auto i : c10::irange(start, end)) {
-                const IndexT idx = newIndicesData[i];
+                const IndexT idx = bucketResult.indicesData[i];
                 auto it = uniqueMap.find(idx);
                 if (it == uniqueMap.end()) {
                     uniqueMap.emplace(idx, uniqueOffset);
-                    newIndicesData[uniqueOffset] = idx;
+                    bucketResult.indicesData[uniqueOffset] = idx;
                     uniqueOffset++;
                 } else {
-                    newLengthsData[linearIndex]--;
+                    bucketResult.lengthsData[linearIndex]--;
                 }
             }
         }
@@ -104,10 +119,10 @@ void Deduplicate(OffsetT* newLengthsData, const OffsetT* newOffsetsData, const O
         const auto blockSize = bucketSize;
         for (const auto batchIdx : c10::irange(batchSize)) {
             const auto linearIndex = featureIdx * batchSize + batchIdx;
-            const OffsetT rowStart = offsetsData[linearIndex];
-            const OffsetT rowEnd = offsetsData[linearIndex + 1];
+            const OffsetT rowStart = originData.offsetsData[linearIndex];
+            const OffsetT rowEnd = originData.offsetsData[linearIndex + 1];
             for (const auto i : c10::irange(rowStart, rowEnd)) {
-                const IndexT idx = indicesData[i];
+                const IndexT idx = originData.indicesData[i];
                 const IndexT bucket = idx % blockSize;
                 const auto hashMapIndex = bucket * numFeatures + featureIdx;
                 // 为了性能考虑不做边界检查，因为一定在其中
@@ -141,9 +156,8 @@ void BlockBucketizeSparseFeaturesCpuKernel(const at::Tensor& lengths, const at::
     const auto lengthsSize = lengths.numel();
     const auto newLengthsSize = lengthsSize * bucketSize;
     const int32_t numFeatures = blockSizes.numel();
-    if (numFeatures == 0) {
-        return;
-    }
+    TORCH_CHECK(numFeatures > 0, "numFeatures must be greater than 0");
+
     const int32_t batchSize = lengthsSize / numFeatures;
 
     // 预分配偏移量数组
@@ -154,6 +168,8 @@ void BlockBucketizeSparseFeaturesCpuKernel(const at::Tensor& lengths, const at::
     OffsetT* lengthsData = lengths.data_ptr<OffsetT>();
     OffsetT* offsetsData = offsets.data_ptr<OffsetT>();
     const IndexT* indicesData = indices.data_ptr<IndexT>();
+    BucketDataPtr originData(offsetsData, lengthsData, indicesData);
+    TORCH_CHECK(originData.CheckNullptr(), "offset, length and indice can not be None.");
 
     // 计算原始偏移量
     PrefixSum(lengthsSize, lengthsData, offsetsData);
@@ -165,35 +181,36 @@ void BlockBucketizeSparseFeaturesCpuKernel(const at::Tensor& lengths, const at::
     OffsetT* newLengthsData = newLengths.data_ptr<OffsetT>();
     OffsetT* newOffsetsData = newOffsets.data_ptr<OffsetT>();
     IndexT* newIndicesData = newIndices.data_ptr<IndexT>();
-
+    BucketDataPtr bucketResult(newOffsetsData, newLengthsData, newIndicesData);
+    TORCH_CHECK(bucketResult.CheckNullptr(), "bucket result offset, length and indice can not be None.");
     // 可选参数处理
     IndexT* unbucketizePermuteData = nullptr;
     if constexpr (Sequence) {
         unbucketizePermuteData = unbucketizePermute.value().data_ptr<IndexT>();
+        TORCH_CHECK(unbucketizePermuteData != nullptr, "unbucketizePermute can not be None,when sequence is true.");
     }
 
     // 第一阶段: 计算新长度
-    ComputeNewLengths<Sequence, OffsetT, IndexT, DoUnique>(offsetsData, indicesData, newLengthsData, numFeatures,
-                                                           batchSize, bucketSize, lengthsSize);
+    ComputeNewLengths<Sequence, OffsetT, IndexT, DoUnique>(originData,
+        bucketResult, numFeatures, batchSize, bucketSize, lengthsSize);
 
     // 计算新偏移量
-    PrefixSum(newLengthsSize, newLengthsData, newOffsetsData);
+    PrefixSum(bucketResult);
 
     // 第二阶段: 填充新索引
-    FillNewIndices<Sequence, OffsetT, IndexT, DoUnique>(offsetsData, indicesData, newOffsetsData, newIndicesData,
+    FillNewIndices<Sequence, OffsetT, IndexT, DoUnique>(originData, bucketResult,
                                                         unbucketizePermuteData, numFeatures, batchSize, bucketSize,
                                                         lengthsSize);
 
     // 去重逻辑 (需要时启用)
     if constexpr (DoUnique) {
-        Deduplicate<OffsetT, IndexT>(newLengthsData, newOffsetsData, offsetsData, indicesData, newIndicesData,
-                                     unbucketizePermuteData, numFeatures, batchSize, bucketSize);
+        Deduplicate<OffsetT, IndexT>(originData, bucketResult, unbucketizePermuteData,
+                                     numFeatures, batchSize, bucketSize);
     }
 }
 
 // 对外接口函数
-std::tuple<at::Tensor, at::Tensor, std::optional<at::Tensor>, std::optional<at::Tensor>, std::optional<at::Tensor>,
-           std::optional<at::Tensor>>
+std::tuple<at::Tensor, at::Tensor, std::optional<at::Tensor>, std::optional<at::Tensor>, std::optional<at::Tensor>, std::optional<at::Tensor>>
 BlockBucketizeSparseFeaturesCpu(const at::Tensor& lengths, const at::Tensor& indices, const bool bucketizePos,
                                 const bool sequence, const at::Tensor& blockSizes, const int64_t bucketSize,
                                 const std::optional<at::Tensor>& totalNumBlocks,

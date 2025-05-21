@@ -18,7 +18,8 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor> IdsMapper::UniqueAndLookup(const 
 {
     TORCH_CHECK(globalIds.device() == torch::kCPU, "globalIds must be on CPU but on ", globalIds.device());
     TORCH_CHECK(globalIds.scalar_type() == at::kLong,
-    "globalIds must be int64_t tensor expected but got a tensor with dtype: ", globalIds.scalar_type());
+        "globalIds must be int64_t tensor expected but got a tensor with dtype: ",
+        globalIds.scalar_type());
     at::ThreadLocalStateGuard tlsGrad(state);
     return FindOrInsertHighPrecison(globalIds);
 }
