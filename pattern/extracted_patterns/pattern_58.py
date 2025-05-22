@@ -19,6 +19,7 @@ import torch
 
 from utils.logger import default_logger
 
+
 class PatternModel(torch.nn.Module):
     def __init__(self):
         super(PatternModel, self).__init__()
@@ -36,6 +37,7 @@ class PatternModel(torch.nn.Module):
         # Step 5: 输出shape 为 (1)
         final_result = torch.sqrt(square_sum)
         return final_result
+
 
 def main():
     # 示例输入

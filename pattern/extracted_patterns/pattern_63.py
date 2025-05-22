@@ -19,6 +19,7 @@ import torch
 
 from utils.logger import default_logger
 
+
 class PatternModel(torch.nn.Module):
     def __init__(self):
         super(PatternModel, self).__init__()
@@ -42,6 +43,7 @@ class PatternModel(torch.nn.Module):
         cat_tensors = torch.randn([3072, 10, 16])
         final_result = torch.cat([mul_result, cat_tensors], dim=-1)
         return final_result
+
 
 def main():
     # 示例输入

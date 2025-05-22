@@ -19,6 +19,7 @@ import torch
 
 from utils.logger import default_logger
 
+
 class PatternModel(torch.nn.Module):
     def __init__(self):
         super(PatternModel, self).__init__()
@@ -38,9 +39,10 @@ class PatternModel(torch.nn.Module):
         final_result = torch.mul(sub_result, mul_tensor)
         return final_result
 
+
 def main():
     # 示例输入
-    input_tensor= torch.randn([30720, 64]) > 0.5
+    input_tensor = torch.randn([30720, 64]) > 0.5
     model = PatternModel()
 
     output_tensor = model(input_tensor)

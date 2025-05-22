@@ -19,6 +19,7 @@ import torch
 
 from utils.logger import default_logger
 
+
 class PatternModel(torch.nn.Module):
     def __init__(self):
         super(PatternModel, self).__init__()
@@ -29,6 +30,7 @@ class PatternModel(torch.nn.Module):
         # Step 2: 输出shape 为 (32)
         final_result = torch.sum(mul_result, dim=0)
         return final_result
+
 
 def main():
     # 示例输入
