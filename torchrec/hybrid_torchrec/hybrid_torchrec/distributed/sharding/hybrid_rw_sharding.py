@@ -72,8 +72,8 @@ class InputDistThreadPoolExecutorSingleton:
         cls._instance = super(InputDistThreadPoolExecutorSingleton, cls).__new__(
             cls, *args, **kwargs
         )
-        max_threads = DEFAULT_POST_INPUT_THREADS        
-        if "INPUT_DIST_THREADS" in os.environ["INPUT_DIST_THREADS"]:
+        max_threads = DEFAULT_POST_INPUT_THREADS
+        if "INPUT_DIST_THREADS" in os.environ:
             try:
                 max_threads = int(os.environ["INPUT_DIST_THREADS"])
             except ValueError as e:
