@@ -24,13 +24,9 @@ class PatternModel(torch.nn.Module):
     def __init__(self):
         super(PatternModel, self).__init__()
 
-    def forward(self, input_tensor_or_1, input_tensor_or_2):
+    def forward(self, input_tensor_or_1, input_tensor_or_2, select_tensor_1, select_tensor_2):
         # Step 1: 输出shape 为 (8192)
         or_result = torch.logical_or(input_tensor_or_1, input_tensor_or_2)
-
-        select_tensor_1 = torch.randn([8192])
-        select_tensor_2 = torch.randn([8192])
-
         select_result = torch.where(or_result, select_tensor_1, select_tensor_2)
         # Step 2: 输出shape 为 (1)
         square_sum = torch.sum(torch.square(select_result))
@@ -43,9 +39,11 @@ def main():
     # 示例输入
     input_tensor_or_1 = torch.randn([8192]) > 0.5
     input_tensor_or_2 = torch.randn([8192]) > 0.5
+    select_tensor_1 = torch.randn([8192])
+    select_tensor_2 = torch.randn([8192])
     model = PatternModel()
 
-    output_tensor = model(input_tensor_or_1, input_tensor_or_2)
+    output_tensor = model(input_tensor_or_1, input_tensor_or_2, select_tensor_1, select_tensor_2)
 
     # 打印输出形状
     default_logger.info("Output shape: %s", output_tensor.shape)

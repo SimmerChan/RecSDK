@@ -24,11 +24,11 @@ class PatternModel(torch.nn.Module):
     def __init__(self):
         super(PatternModel, self).__init__()
 
-    def forward(self, input_tensor_list):
+    def forward(self, input_tensor_list, value):
         # Step 1: 输出shape 为 (3072, 10, 16)
         result = torch.stack(input_tensor_list).sum(dim=0)
         # Step 1: 输出shape 为 (3072, 10, 48)
-        value = torch.randn(3072, 10, 48)
+
         # Step 1: 输出shape 为 (3072, 10, 64)
         final_result = torch.cat([result, value], dim=-1)
         return final_result
@@ -38,9 +38,11 @@ def main():
     # 示例输入
     input_tensor_list = [torch.randn(3072, 10, 16) for _ in range(6)]
 
+    value = torch.randn(3072, 10, 48)
+
     model = PatternModel()
 
-    output_tensor = model(input_tensor_list)
+    output_tensor = model(input_tensor_list, value)
 
     # 打印输出形状
     default_logger.info("Output shape: %s", output_tensor.shape)
