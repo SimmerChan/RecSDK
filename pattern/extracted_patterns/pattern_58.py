@@ -41,14 +41,14 @@ def main():
     # 示例输入
     input_tensor_mul = [torch.randn(64, 64) for _ in range(2)]
 
-    input_tensor_select = [torch.randn(64)]
+    input_tensor_select = torch.randn(64)
 
     model = PatternModel()
 
     output_tensor = model(input_tensor_mul, input_tensor_select)
 
     # 打印输出形状
-    default_logger.info("Output shape: %s", output_tensor.shape)  # 应该输出: torch.Size([128, 192, 256])
+    default_logger.info("Output shape: %s", output_tensor.shape)
 
 if __name__ == "__main__":
     main()

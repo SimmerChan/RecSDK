@@ -27,7 +27,7 @@ class PatternModel(torch.nn.Module):
         # Step 1: 输出shape 为 (3072,10,48)
         mul_result = torch.mul(input_tensor_mul1, input_tensor_mul2)
         # Step 2: 输出shape 为 (3072,10,16)
-        addn_result = torch.stack(input_tensor_addn).sum(dim=1)
+        addn_result = torch.stack(input_tensor_addn).sum(dim=0)
         # Step 3: 输出shape 为 (3072,10,64)
         final_result = torch.cat([mul_result, addn_result], dim=-1)
         return final_result
@@ -44,7 +44,7 @@ def main():
     output_tensor = model(input_tensor_mul1, input_tensor_mul2, input_tensor_addn)
 
     # 打印输出形状
-    default_logger.info("Output shape: %s", output_tensor.shape)  # 应该输出: torch.Size([128, 192, 256])
+    default_logger.info("Output shape: %s", output_tensor.shape)
 
 if __name__ == "__main__":
     main()

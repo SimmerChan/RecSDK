@@ -26,14 +26,14 @@ class PatternModel(torch.nn.Module):
     def forward(self, input_tensor):
         # Step 1: 输出shape 为 (30720, 64)
         cast_result = input_tensor.type(torch.int32)
-        # Step 2: 输出shape 为 (64)
+        # Step 2: 输出shape 为 (30720)
         sum_result = torch.sum(cast_result, dim=1)
         sum_result = sum_result.type(torch.int64)
 
         sub_tensor = torch.randn([30720]) > 0.5
         sub_result = torch.sub(sum_result, sub_tensor)
         sub_result = sub_result.type(torch.float32)
-        # Step 2: 输出shape 为 (64)
+        # Step 2: 输出shape 为 (30720)
         mul_tensor = torch.randn([30720])
         final_result = torch.mul(sub_result, mul_tensor)
         return final_result
@@ -46,7 +46,7 @@ def main():
     output_tensor = model(input_tensor)
 
     # 打印输出形状
-    default_logger.info("Output shape: %s", output_tensor.shape)  # 应该输出: torch.Size([128, 192, 256])
+    default_logger.info("Output shape: %s", output_tensor.shape)
 
 if __name__ == "__main__":
     main()

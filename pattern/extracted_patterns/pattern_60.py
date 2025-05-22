@@ -29,7 +29,7 @@ class PatternModel(torch.nn.Module):
         # Step 2: 输出shape 为 (1,1)
         sqrt_result = torch.sqrt(sum_result)
         # Step 3: 输出shape 为 ()
-        final_result = torch.reshape(sqrt_result, (-1))
+        final_result = torch.reshape(sqrt_result, (-1,))
         return final_result
 
 def main():
@@ -41,7 +41,7 @@ def main():
     output_tensor = model(input_tensor)
 
     # 打印输出形状
-    default_logger.info("Output shape: %s", output_tensor.shape)  # 应该输出: torch.Size([128, 192, 256])
+    default_logger.info("Output shape: %s", output_tensor.shape)
 
 if __name__ == "__main__":
     main()

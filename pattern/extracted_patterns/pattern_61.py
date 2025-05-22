@@ -39,7 +39,7 @@ def main():
     output_tensor = model(input_tensor_mul1, input_tensor_mul2)
 
     # 打印输出形状
-    default_logger.info("Output shape: %s", output_tensor.shape)  # 应该输出: torch.Size([128, 192, 256])
+    default_logger.info("Output shape: %s", output_tensor.shape)
 
 if __name__ == "__main__":
     main()

@@ -26,13 +26,13 @@ class PatternModel(torch.nn.Module):
     def forward(self, input_tensors_1, input_tensors_2, input_tensors_3):
         # Step 1: 输出shape 为 (3072,10,16)
         slice_results_1 = [t[:, :, -16:] for t in input_tensors_1]
-        addn_result_1 = torch.stack(slice_results_1).sum(dim=1)
+        addn_result_1 = torch.stack(slice_results_1).sum(dim=0)
 
         slice_results_2 = [t[:, :, -16:] for t in input_tensors_2]
-        addn_result_2 = torch.stack(slice_results_2).sum(dim=1)
+        addn_result_2 = torch.stack(slice_results_2).sum(dim=0)
 
         slice_results_3 = [t[:, :, -16:] for t in input_tensors_3]
-        addn_result_3 = torch.stack(slice_results_3).sum(dim=1)
+        addn_result_3 = torch.stack(slice_results_3).sum(dim=0)
         # Step 2: 输出shape 为 (3072,10,48)
         cat_result = torch.cat([addn_result_1, addn_result_2, addn_result_3], dim=-1)
         # Step 3: 输出shape 为 (3072,10,48)
@@ -53,7 +53,7 @@ def main():
     output_tensor = model(input_tensors_1, input_tensors_2, input_tensors_3)
 
     # 打印输出形状
-    default_logger.info("Output shape: %s", output_tensor.shape)  # 应该输出: torch.Size([128, 192, 256])
+    default_logger.info("Output shape: %s", output_tensor.shape)
 
 if __name__ == "__main__":
     main()
