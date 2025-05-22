@@ -18,23 +18,24 @@ See the License for the specific language governing permissions and
 
 #include <cstdint>
 #include <cstddef>
+#include "device_interface.h"
 
 namespace tensorflow {
 namespace npu_xla {
 
-class AclAdaptor {
+class AclAdaptor : public DeviceInterface {
 public:
     static AclAdaptor &GetInstance(int32_t deviceId);
 
-    ~AclAdaptor();
+    ~AclAdaptor() override;
 
-    void *Allocate(size_t size);
+    void *Allocate(size_t size) override;
 
-    void Deallocate(void *ptr);
+    void Deallocate(void *ptr) override;
 
-    bool MemcpyHToD(void *dst, size_t dstSize, const void *src, size_t srcSize);
+    bool MemcpyHToD(void *dst, size_t dstSize, const void *src, size_t srcSize) override;
 
-    bool MemcpyDToH(void *dst, size_t dstSize, const void *src, size_t srcSize);
+    bool MemcpyDToH(void *dst, size_t dstSize, const void *src, size_t srcSize) override;
 
 private:
     AclAdaptor();

@@ -19,10 +19,26 @@ cc_proto_library(
 )
 
 cc_library(
+    name = "device_interface",
+    hdrs = ["adaptor/device_interface.h"],
+)
+
+cc_library(
+    name = "device_adaptor",
+    srcs = ["adaptor/device_adaptor.cpp"],
+    hdrs = ["adaptor/device_adaptor.h"],
+    deps = [
+        ":device_interface",
+        ":acl_adaptor",
+    ],
+)
+
+cc_library(
     name = "acl_adaptor",
     srcs = ["adaptor/acl_adaptor.cpp"],
     hdrs = ["adaptor/acl_adaptor.h"],
     deps = [
+        ":device_interface",
         ":common_hdrs",
         "@acl_base//:acl_deps",
         "@com_google_absl//absl/numeric:int128",
@@ -62,6 +78,7 @@ cc_library(
         ],
     ),
     deps = [
+            ":device_adaptor",
             "acl_adaptor",
             ":common_hdrs",
             "@local_config_tf//:tf_header_lib",
@@ -99,6 +116,7 @@ cc_library(
         ],
     ),
     deps = [
+            ":device_adaptor",
             "acl_adaptor",
             "common_hdrs",
             "@acl_base//:acl_deps",
