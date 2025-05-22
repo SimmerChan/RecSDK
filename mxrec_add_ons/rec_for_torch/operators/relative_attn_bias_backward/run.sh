@@ -16,7 +16,7 @@ fi
 
 # 利用msopgen生成可编译文件
 rm -rf ./relative_attn_bias_backward
-python3 /usr/local/Ascend/ascend-toolkit/latest/python/site-packages/bin/msopgen gen -i relative_attn_bias_backward.json -f tf -c ${ai_core} -lan cpp -out ./relative_attn_bias_backward -m 0 -op RelativeAttnBias
+python3 /usr/local/Ascend/ascend-toolkit/latest/python/site-packages/bin/msopgen gen -i relative_attn_bias_backward.json -f tf -c ${ai_core} -lan cpp -out ./relative_attn_bias_backward -m 0 -op RelativeAttnBiasBackward
 rm -rf relative_attn_bias_backward/op_kernel/*.h
 rm -rf relative_attn_bias_backward/op_kernel/*.cpp
 rm -rf relative_attn_bias_backward/host/*.h

@@ -18,12 +18,12 @@ public:
     __aicore__ inline void InitTensor(Args args)
     {
         tsGradGT.SetGlobalBuffer((__gm__ FloatType*)args.rabTimeGrad, numLayer * bs * s * s);
-        inQueBucketTimestamps.SetGlobalBuffer((__gm__ int32_t*)args.bucketTimestamps, numLayer * bs * s * s);
-        outQueTswGradOut.SetGlobalBuffer((__gm__ FloatType*)args.timestampsWeightsGrad, numLayer * bs * s * s);
+        bucketTimestampsGT.SetGlobalBuffer((__gm__ int32_t*)args.bucketTimestamps, numLayer * bs * s * s);
+        tswGradOutGT.SetGlobalBuffer((__gm__ FloatType*)args.timestampsWeightsGrad, numLayer * bs * s * s);
 
-        pipe.InitBuffer(inQueTsGrad, 1, CeilUp(stride * sizeof(FloatType), DATA_ALIGN_BYTES));
-        pipe.InitBuffer(inQueBucketTimestamps, 1, CeilUp(stride * sizeof(int32_t), DATA_ALIGN_BYTES));
-        pipe.InitBuffer(outQueTswGradOut, 1, CeilUp(numBuckets * numLayer * sizeof(FloatType), DATA_ALIGN_BYTES));
+        pipe.InitBuffer(inQueTsGrad, 1, AlignTo32(stride * sizeof(FloatType)));
+        pipe.InitBuffer(inQueBucketTimestamps, 1, AlignTo32(stride * sizeof(int32_t)));
+        pipe.InitBuffer(outQueTswGradOut, 1, AlignTo32(numBuckets * numLayer * sizeof(FloatType)));
     }
 
     __aicore__ inline void InitTiling()
@@ -56,15 +56,15 @@ public:
 
     __aicore__ inline void InitTswGrad()
     {
-        LocalTensor<FloatType> gradOut = tswGradOutGT.AllocTensor<FloatType>();
-        Duplicate(gradOut, (FloatType) 0, CeilUp(numLayer * numBuckets * sizeof(FloatType)) / sizeof(FloatType));
-        tswGradOutGT.EnQue(gradOut);
+        LocalTensor<FloatType> gradOut = outQueTswGradOut.AllocTensor<FloatType>();
+        Duplicate(gradOut, (FloatType) 0, AlignTo32(numLayer * numBuckets * sizeof(FloatType)) / sizeof(FloatType));
+        outQueTswGradOut.EnQue(gradOut);
     }
 
     __aicore__ inline void DataCopyInIndex(uint32_t offset, uint32_t cnt)
     {
         LocalTensor<int32_t> bucketTimestamps = inQueBucketTimestamps.AllocTensor<int32_t>();
-        DataCopy(bucketTimestamps, bucketTimestampsGT[offset + startGT], cnt + DATA_ALIGN_BYTES);
+        DataCopy(bucketTimestamps, bucketTimestampsGT[offset + startGT], cnt + DATA_ALIGN_BYTES / sizeof(int32_t));
         inQueBucketTimestamps.EnQue(bucketTimestamps);
     }
 
@@ -95,11 +95,11 @@ public:
     __aicore__ inline void DataCopyOut(LocalTensor<FloatType> gradOut)
     {
         // 同步计算结果
-        tswGradOutGT.EnQue(gradOut);
-        gradOut = tswGradOutGT.DeQue<FloatType>;
+        outQueTswGradOut.EnQue(gradOut);
+        gradOut = outQueTswGradOut.DeQue<FloatType>;
 
         SetAtomicAdd<float>();
-        DataCopy(outQueTswGradOut, gradOut, CeilUp(numLayer * numBuckets * sizeof(FloatType)) / sizeof(FloatType));
+        DataCopy(tswGradOutGT, gradOut, AlignTo32(numLayer * numBuckets * sizeof(FloatType)) / sizeof(FloatType));
         SetAtomicNone();
     }
 
@@ -119,12 +119,12 @@ public:
             for (uint8_t n = 0; n < numLayer; ++n) {
                 DataCopyInGrad(n, offset, cnt);
                 LocalTensor<FloatType> grad = tsGradGT.DeQue<FloatType>();
-                ScatterAdd(gradOut, grad, index, n, cnt)
+                ScatterAdd(gradOut, grad, index, n, cnt);
             }
             inQueBucketTimestamps.FreeTensor(index);
         }
         DataCopyOut(gradOut);
-        tswGradOutGT.FreeTensor(gradOut);
+        outQueTswGradOut.FreeTensor(gradOut);
     }
 
 private:

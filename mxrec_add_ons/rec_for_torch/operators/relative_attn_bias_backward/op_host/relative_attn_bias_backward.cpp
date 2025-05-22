@@ -36,12 +36,8 @@ constexpr int DIM4 = 4;
 constexpr int DIM5 = 5;
 
 namespace optiling {
-static ge::graphStatus TimeTilingFunc(gert::TilingContext* context)
+static ge::graphStatus TimeTilingFunc(RelativeAttnBiasBackwardTilingData& tilingData, gert::TilingContext* context)
 {
-    auto ascendPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
-    size_t coreNum = ascendPlatform.GetCoreNumAiv();
-
-    RelativeAttnBiasTilingData tilingData;
     // 获取、校验必要shape数据
     auto gradShape = context->GetInputShape(TIMESTAMPS_WEIGHTS_GRAD_INDEX)->GetStorageShape();  // grad(n, b, 2s, 2s)
     int numBuckets = *context->GetAttrs()->GetInt(NUM_BUCKET_INDEX);
@@ -102,7 +98,8 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     OPS_CHECK(coreNum == 0,
               OPS_LOG_E("Tiling Debug", "Core num is 0."),
               return ge::GRAPH_FAILED);
-    auto ret = TimeTilingFunc(context);
+    RelativeAttnBiasBackwardTilingData tilingData;
+    auto ret = TimeTilingFunc(tilingData, context);
 
     context->SetBlockDim(coreNum);
     auto rowTilingData = context->GetRawTilingData();
