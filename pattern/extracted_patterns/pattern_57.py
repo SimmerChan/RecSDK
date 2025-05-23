@@ -27,9 +27,7 @@ class PatternModel(torch.nn.Module):
     def forward(self, input_tensor_list, value):
         # Step 1: 输出shape 为 (3072, 10, 16)
         result = torch.stack(input_tensor_list).sum(dim=0)
-        # Step 1: 输出shape 为 (3072, 10, 48)
-
-        # Step 1: 输出shape 为 (3072, 10, 64)
+        # Step 2: 输出shape 为 (3072, 10, 64)
         final_result = torch.cat([result, value], dim=-1)
         return final_result
 
