@@ -17,23 +17,18 @@ constexpr int32_t DATA_ALIGN_BYTES = 32;
 constexpr uint8_t NUM_BUFFER = 2;
 
 // input index
-constexpr int TIMESTAMPS_WEIGHTS_GRAD_INDEX = 0;
+constexpr int INPUT_GRAD_INDEX = 0;
 constexpr int BUCKET_TIMESTAMPS_INDEX = 1;
 // output index
-constexpr int RAB_POSITION_INDEX = 0;
-constexpr int RAB_TIME_INDEX = 1;
+constexpr int TIMESTAMPS_WEIGHTS_GRAD_INDEX = 0;
 // attr index
 constexpr int NUM_BUCKET_INDEX = 0;
 // output dim
-constexpr int RAB_POS_OUT_DIM = 3;
-constexpr int RAB_TIME_OUT_DIM = 6;
-constexpr int DIM_PLACE_HOLDER = 1;
+constexpr int TSW_GRAD_OUT_DIM = 2;
 constexpr int DIM0 = 0;
 constexpr int DIM1 = 1;
 constexpr int DIM2 = 2;
 constexpr int DIM3 = 3;
-constexpr int DIM4 = 4;
-constexpr int DIM5 = 5;
 
 namespace optiling {
 static ge::graphStatus TimeTilingFunc(RelativeAttnBiasBackwardTilingData& tilingData, gert::TilingContext* context)
@@ -77,9 +72,14 @@ static ge::graphStatus TimeTilingFunc(RelativeAttnBiasBackwardTilingData& tiling
               OPS_LOG_E("Tiling Debug", "Invalid data type."),
               return ge::GRAPH_FAILED);
     // 去除tswGrad所需ub
-    ub = ub - numBuckets * numLayer * floatSize;
+    ub = ub - numBuckets * numLayer * sizeof(float);
     // 计算单次处理的block大小
-    int stride = ub / (intSize + floatSize);
+    int stride;
+    if (floatType == ge::DataType::DT_FLOAT16) {
+        stride = ub / (intSize + floatSize + sizeof(float));  // 申请额外内存做cast
+    } else {
+        stride = ub / (intSize + sizeof(float));
+    }
     tilingData.set_floatType(floatType);
     tilingData.set_intType(intType);
     tilingData.set_timeStride(stride);
@@ -110,6 +110,22 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
 }
 }  // namespace optiling
 
+namespace ge {
+static ge::graphStatus InferShape(gert::InferShapeContext* context)
+{
+    gert::Shape* tswGradOutShape = context->GetOutputShape(TIMESTAMPS_WEIGHTS_GRAD_INDEX);
+    const gert::Shape* tsGradShape = context->GetInputShape(INPUT_GRAD_INDEX);  // (n, b, 2s, 2s)
+    int n = tsGradShape.GetDim(DIM0);
+    int numBuckets = *context->GetAttrs()->GetInt(NUM_BUCKET_INDEX);
+
+    rabPosOutShape->SetDimNum(TSW_GRAD_OUT_DIM);
+    rabPosOutShape->SetDim(DIM0, n);
+    rabPosOutShape->SetDim(DIM1, numBuckets);
+    return GRAPH_SUCCESS;
+}
+}  // namespace ge
+
+
 namespace ops {
 class RelativeAttnBiasBackward : public OpDef {
 public:
@@ -131,6 +147,8 @@ public:
             .Format({ge::FORMAT_ND, ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND});
         this->Attr("num_buckets").Int();
+
+        this->SetInferShape(ge::InferShape);
 
         OpAICoreConfig aicore_config;
         aicore_config.DynamicCompileStaticFlag(true)

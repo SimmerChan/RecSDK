@@ -7,6 +7,7 @@
 
 #ifndef MXREC_RELATIVE_ATTN_BIAS_BACKWARD_H
 #define MXREC_RELATIVE_ATTN_BIAS_BACKWARD_H
+#include <type_traits>
 #include "rab_common.h"
 #include "kernel_operator.h"
 
@@ -18,12 +19,15 @@ public:
     __aicore__ inline void InitTensor(Args args)
     {
         tsGradGT.SetGlobalBuffer((__gm__ FloatType*)args.rabTimeGrad, numLayer * bs * s * s);
-        bucketTimestampsGT.SetGlobalBuffer((__gm__ int32_t*)args.bucketTimestamps, numLayer * bs * s * s);
+        bucketTimestampsGT.SetGlobalBuffer((__gm__ int32_t*)args.bucketTimestamps, bs * s * s);
         tswGradOutGT.SetGlobalBuffer((__gm__ FloatType*)args.timestampsWeightsGrad, numLayer * bs * s * s);
 
-        pipe.InitBuffer(inQueTsGrad, 1, AlignTo32(stride * sizeof(FloatType)));
+        pipe.InitBuffer(inQueTsGrad, 1, AlignTo32(stride * sizeof(float)));
         pipe.InitBuffer(inQueBucketTimestamps, 1, AlignTo32(stride * sizeof(int32_t)));
-        pipe.InitBuffer(outQueTswGradOut, 1, AlignTo32(numBuckets * numLayer * sizeof(FloatType)));
+        pipe.InitBuffer(outQueTswGradOut, 1, AlignTo32(numBuckets * numLayer * sizeof(float)));
+        if (std::is_same<FloatType, half>::value) {
+            pipe.InitBuffer(tmpQue, 1, AlignTo32(stride * sizeof(FloatType)));
+        }
     }
 
     __aicore__ inline void InitTiling()
@@ -56,51 +60,77 @@ public:
 
     __aicore__ inline void InitTswGrad()
     {
-        LocalTensor<FloatType> gradOut = outQueTswGradOut.AllocTensor<FloatType>();
-        Duplicate(gradOut, (FloatType) 0, AlignTo32(numLayer * numBuckets * sizeof(FloatType)) / sizeof(FloatType));
+        LocalTensor<float> gradOut = outQueTswGradOut.AllocTensor<float>();
+        Duplicate(gradOut, (float)0, AlignTo32(numLayer * numBuckets * sizeof(float)) / sizeof(float));
         outQueTswGradOut.EnQue(gradOut);
     }
 
     __aicore__ inline void DataCopyInIndex(uint32_t offset, uint32_t cnt)
     {
         LocalTensor<int32_t> bucketTimestamps = inQueBucketTimestamps.AllocTensor<int32_t>();
-        DataCopy(bucketTimestamps, bucketTimestampsGT[offset + startGT], cnt + DATA_ALIGN_BYTES / sizeof(int32_t));
+        DataCopy(bucketTimestamps, bucketTimestampsGT[offset], AlignTo32(cnt * sizeof(int32_t)) / sizeof(int32_t));
         inQueBucketTimestamps.EnQue(bucketTimestamps);
     }
 
-    __aicore__ inline void DataCopyInGrad(uint8_t layer, uint32_t offset, uint32_t cnt)
+    __aicore__ inline void DataCopyInGrad(uint32_t layer, uint32_t offset, uint32_t cnt)
     {
-        LocalTensor<FloatType> grad = inQueTsGrad.AllocTensor<FloatType>();
-        DataCopy(grad, tsGradGT[offset + layer * bs * s * s], cnt + DATA_ALIGN_BYTES)
-        inQueTsGrad.EnQue(grad);
-    }
+        if (std::is_same<FloatType, half>::value) {
+            // 数据拷入
+            LocalTensor<FloatType> gradFP16 = tmpQue.AllocTensor<FloatType>();
+            DataCopy(grad, tsGradGT[offset + layer * bs * s * s],
+                     AlignTo32(cnt * sizeof(FloatType)) / sizeof(FloatType));
+            tmpQue.EnQue(gradFP16);
+            gradFP16 = tmpQue.DeQue<FloatType>();
+            // 数据转换
+            LocalTensor<float> gradFP32 = inQueTsGrad.AllocTensor<float>();
+            Cast(gradFP32, gradFP16, cnt);
 
-    __aicore__ inline void ScatterAdd(LocalTensor<FloatType> dst,
-                                      LocalTensor<FloatType> src,
-                                      LocalTensor<int32_t> index,
-                                      uint8_t layer,
-                                      uint32_t cnt)
-    {
-        __ubuf__ FloatType* dstAddr = reinterpret_cast<__ubuf__ FloatType*>(dst.GetPhyAddr());
-        __ubuf__ FloatType* srcAddr = reinterpret_cast<__ubuf__ FloatType*>(src.GetPhyAddr());
-        __ubuf__ int32_t* indexAddr = reinterpret_cast<__ubuf__ int32_t*>(index.GetPhyAddr());
-        uint32_t layerOffset = layer * numBuckets;
-        for (int i = 0; i < cnt; ++i) {
-            const auto ind = indexAddr[i];
-            const auto value = src[i];
-            dst[layerOffset + ind] += value;
+            inQueTsGrad.EnQue(gradFP32);
+            tmpQue.FreeTensor(gradFP16);
+        } else {
+            // 数据拷入
+            LocalTensor<FloatType> gradFP32 = inQueTsGrad.AllocTensor<FloatType>();
+            DataCopy(gradFP32, tsGradGT[offset + layer * bs * s * s],
+                     AlignTo32(cnt * sizeof(FloatType)) / sizeof(FloatType));
+            inQueTsGrad.EnQue(gradFP32);
         }
     }
 
-    __aicore__ inline void DataCopyOut(LocalTensor<FloatType> gradOut)
+    __aicore__ inline void ScatterAdd(LocalTensor<float>& dst, LocalTensor<float>& src, LocalTensor<int32_t>& index,
+                                      uint32_t layer, uint32_t cnt)
+    {
+        uint32_t layerOffset = layer * numBuckets;
+        __ubuf__ float* dstAddr = reinterpret_cast<__ubuf__ float*>(dst[layerOffset].GetPhyAddr());
+        __ubuf__ float* srcAddr = reinterpret_cast<__ubuf__ float*>(src.GetPhyAddr());
+        __ubuf__ int32_t* indexAddr = reinterpret_cast<__ubuf__ int32_t*>(index.GetPhyAddr());
+        for (int i = 0; i < cnt; ++i) {
+            const auto ind = indexAddr[i];
+            const auto value = srcAddr[i];
+            dstAddr[ind] += value;
+        }
+    }
+
+    __aicore__ inline void DataCopyOut(LocalTensor<float>& gradOut)
     {
         // 同步计算结果
+        uint32_t alignCnt = AlignTo32(numLayer * numBuckets * sizeof(FloatType)) / sizeof(FloatType);
         outQueTswGradOut.EnQue(gradOut);
-        gradOut = outQueTswGradOut.DeQue<FloatType>;
+        if (std::is_same<FloatType, half>::value) {
+            gradOut = outQueTswGradOut.DeQue<float>();
+            LocalTensor<FloatType> gradOutFP16 = gradOut.template ReinterpretCast<FloatType>();
+            Cast(gradOutFP16, gradOut, RoundMode::CAST_NONE, numLayer * numBuckets);
+            outQueTswGradOut.EnQue(gradOutFP16);
+            gradOutFP16 = outQueTswGradOut.DeQue<FloatType>();
 
-        SetAtomicAdd<float>();
-        DataCopy(tswGradOutGT, gradOut, AlignTo32(numLayer * numBuckets * sizeof(FloatType)) / sizeof(FloatType));
-        SetAtomicNone();
+            SetAtomicAdd<FloatType>();
+            DataCopy(tswGradOutGT, gradOutFP16, alignCnt);
+            SetAtomicNone();
+        } else if (std::is_same<FloatType, float>::value) {
+            LocalTensor<FloatType> gradOutFP32 = outQueTswGradOut.DeQue<FloatType>();
+            SetAtomicAdd<FloatType>();
+            DataCopy(tswGradOutGT, gradOutFP32, alignCnt);
+            SetAtomicNone();
+        }
     }
 
     __aicore__ inline void Compute(Args args)
@@ -109,19 +139,25 @@ public:
         InitTswGrad();
 
         uint32_t offset = 0;
-        LocalTensor<FloatType> gradOut = tswGradOutGT.DeQue<FloatType>();
+        LocalTensor<float> gradOut = tswGradOutGT.DeQue<float>();
         while (offset < processLen) {
             uint32_t remain = processLen - offset;
             uint32_t cnt = remain > stride ? stride : remain;
 
-            DataCopyInIndex(offset, cnt);
+            DataCopyInIndex(startGT + offset, cnt);
             LocalTensor<int32_t> index = inQueBucketTimestamps.DeQue<int32_t>();
-            for (uint8_t n = 0; n < numLayer; ++n) {
-                DataCopyInGrad(n, offset, cnt);
-                LocalTensor<FloatType> grad = tsGradGT.DeQue<FloatType>();
+            for (uint32_t n = 0; n < numLayer; ++n) {
+                DataCopyInGrad(n, startGT + offset, cnt);
+                pipe_barrier(PIPE_ALL);
+
+                LocalTensor<float> grad = inQueTsGrad.DeQue<float>();
                 ScatterAdd(gradOut, grad, index, n, cnt);
+                pipe_barrier(PIPE_ALL);
+
+                inQueTsGrad.FreeTensor(grad);
             }
             inQueBucketTimestamps.FreeTensor(index);
+            offset += cnt;
         }
         DataCopyOut(gradOut);
         outQueTswGradOut.FreeTensor(gradOut);
@@ -133,9 +169,11 @@ private:
     GlobalTensor<FloatType> tswGradOutGT;
 
     TPipe pipe;
+    TQue<TPosition::VECIN, 1> tmpQue;
     TQue<TPosition::VECIN, 1> inQueTsGrad;
     TQue<TPosition::VECIN, 1> inQueBucketTimestamps;
     TQue<TPosition::VECOUT, 1> outQueTswGradOut;
+
 private:
     // shape
     uint32_t s;
