@@ -54,7 +54,6 @@ def create_data_loader(data_loader_input_params: DataLoaderInput) -> Tuple[
     data_loader = torch.utils.data.DataLoader(
         dataset,
         batch_size=batch_size,
-        # shuffle=True, cannot use with sampler
         num_workers=num_workers,
         sampler=sampler,
         prefetch_factor=prefetch_factor,
