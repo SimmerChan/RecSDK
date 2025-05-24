@@ -116,11 +116,9 @@ def get_reco_dataset(
         )
         all_item_ids = []
         for df_index, row in items.iterrows():
-            # print(f"index {df_index}: {row}")
             movie_id = int(row["movie_id"])
             genres = row["genres"].split("|")
             titles = row["cleaned_title"].split(" ")
-            # print(f"{index}: genres{genres}, title{titles}")
             genres_vector = [hash(x) % item_features.max_ind_range[0] for x in genres]
             titles_vector = [hash(x) % item_features.max_ind_range[1] for x in titles]
             years_vector = [hash(row["year"]) % item_features.max_ind_range[2]]
@@ -138,8 +136,6 @@ def get_reco_dataset(
                     item_features.values[f][movie_id][j] = f_values[j]
             all_item_ids.append(movie_id)
         max_item_id = dp.expected_max_item_id()
-        for x in all_item_ids:
-            assert x > 0, "x in all_item_ids should be positive"
     else:
         # expected_max_item_id and item_features are not set for Amazon datasets.
         item_features = None

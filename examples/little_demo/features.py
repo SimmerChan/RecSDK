@@ -45,12 +45,12 @@ def movielens_seq_features_from_row(
     target_ratings = row["target_ratings"].to(device).unsqueeze(1)
     target_timestamps = row["target_timestamps"].to(device).unsqueeze(1)
     if max_output_length > 0:
-        B = historical_lengths.size(0)
+        batch_size = historical_lengths.size(0)
         historical_ids = torch.cat(
             [
                 historical_ids,
                 torch.zeros(
-                    (B, max_output_length), dtype=historical_ids.dtype, device=device
+                    (batch_size, max_output_length), dtype=historical_ids.dtype, device=device
                 ),
             ],
             dim=1,

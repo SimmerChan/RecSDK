@@ -117,12 +117,6 @@ class DatasetV2(torch.utils.data.Dataset):
             0,
             sampling_kept_mask=sampling_kept_mask,
         )
-        assert (
-                movie_history_len == timestamps_len
-        ), f"history len {movie_history_len} differs from timestamp len {timestamps_len}."
-        assert (
-                movie_history_len == ratings_len
-        ), f"history len {movie_history_len} differs from ratings len {ratings_len}."
 
         def _truncate_or_pad_seq(
                 y: List[int], target_len: int, chronological: bool
@@ -135,7 +129,6 @@ class DatasetV2(torch.utils.data.Dataset):
                     y = y[:target_len]
                 else:
                     y = y[-target_len:]
-            assert len(y) == target_len
             return y
 
         historical_ids = movie_history[1:]

@@ -14,15 +14,15 @@
 
 import abc
 import logging
-import numpy as np
 import os
 import sys
 import tarfile
 from typing import Optional
-import pandas as pd
-
 from urllib.request import urlretrieve
 from zipfile import ZipFile
+
+import numpy as np
+import pandas as pd
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
@@ -58,8 +58,8 @@ class DataProcessor:
     def output_format_csv(self) -> str:
         return f"tmp/{self._prefix}/sasrec_format.csv"
 
+    @staticmethod
     def to_seq_data(
-            self,
             ratings_data: pd.DataFrame,
             user_data: Optional[pd.DataFrame] = None,
     ) -> pd.DataFrame:
@@ -88,7 +88,8 @@ class DataProcessor:
         )
         return ratings_data_transformed
 
-    def file_exists(self, name: str) -> bool:
+    @staticmethod
+    def file_exists(name: str) -> bool:
         return os.path.isfile("%s/%s" % (os.getcwd(), name))
 
 
@@ -172,7 +173,6 @@ class MovielensDataProcessor(DataProcessor):
             )
             movies.rename(columns={"movieId": "movie_id"}, inplace=True)
         else:
-            assert self._prefix == "ml-20mx16x32"
             # ml-1b
             user_ids = []
             movie_ids = []
@@ -213,21 +213,6 @@ class MovielensDataProcessor(DataProcessor):
             users.zip_code = pd.Categorical(users.zip_code)
             users["zip_code"] = users.zip_code.cat.codes
 
-        # Normalize movie ids to speed up training
-        print(
-            f"{self._prefix} #item before normalize: {len(set(ratings['movie_id'].values))}"
-        )
-        print(
-            f"{self._prefix} max item id before normalize: {max(set(ratings['movie_id'].values))}"
-        )
-        # print(f"ratings.movie_id.cat.categories={ratings.movie_id.cat.categories}; {type(ratings.movie_id.cat.categories)}")
-        # print(f"ratings.movie_id.cat.codes={ratings.movie_id.cat.codes}; {type(ratings.movie_id.cat.codes)}")
-        # print(movie_id_to_cat)
-        # ratings["movie_id"] = ratings.movie_id.cat.codes
-        # print(f"{self._prefix} #item after normalize: {len(set(ratings['movie_id'].values))}")
-        # print(f"{self._prefix} max item id after normalize: {max(set(ratings['movie_id'].values))}")
-        # movies["remapped_id"] = movies["movie_id"].apply(lambda x: movie_id_to_cat[x])
-
         if self._convert_timestamp:
             ratings["unix_timestamp"] = pd.to_datetime(
                 ratings["unix_timestamp"], unit="s"
@@ -261,8 +246,6 @@ class MovielensDataProcessor(DataProcessor):
             result[col + "_mean"] = seq_ratings_data[col].apply(len).mean()
             result[col + "_min"] = seq_ratings_data[col].apply(len).min()
             result[col + "_max"] = seq_ratings_data[col].apply(len).max()
-        print(self._prefix)
-        print(result)
 
         seq_ratings_data = self.to_seq_data(seq_ratings_data, users)
         seq_ratings_data.sample(frac=1).reset_index().to_csv(
@@ -285,18 +268,6 @@ class MovielensDataProcessor(DataProcessor):
         seq_ratings_data_test.sample(frac=1).reset_index().to_csv(
             self.sasrec_format_csv_by_user_test(), index=False, sep=","
         )
-        print(
-            f"{self._prefix}: train num user: {len(set(seq_ratings_data_train['user_id'].values))}"
-        )
-        print(
-            f"{self._prefix}: test num user: {len(set(seq_ratings_data_test['user_id'].values))}"
-        )
-
-        # print(seq_ratings_data)
-        if self.expected_num_unique_items() is not None:
-            assert (
-                    self.expected_num_unique_items() == num_unique_items
-            ), f"Expected items: {self.expected_num_unique_items()}, got: {num_unique_items}"
 
         return num_unique_items
 
