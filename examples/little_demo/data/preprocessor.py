@@ -347,8 +347,6 @@ class AmazonDataProcessor(DataProcessor):
             result[col + "_mean"] = seq_ratings_data[col].apply(len).mean()
             result[col + "_min"] = seq_ratings_data[col].apply(len).min()
             result[col + "_max"] = seq_ratings_data[col].apply(len).max()
-        print(self._prefix)
-        print(result)
 
         if not os.path.exists(f"tmp/{self._prefix}"):
             os.makedirs(f"tmp/{self._prefix}")
