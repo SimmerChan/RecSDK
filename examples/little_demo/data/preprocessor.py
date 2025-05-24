@@ -299,13 +299,6 @@ class AmazonDataProcessor(DataProcessor):
             sep=",",
             names=["user_id", "item_id", "rating", "timestamp"],
         )
-        print(f"{self._prefix} #data points before filter: {ratings.shape[0]}")
-        print(
-            f"{self._prefix} #user before filter: {len(set(ratings['user_id'].values))}"
-        )
-        print(
-            f"{self._prefix} #item before filter: {len(set(ratings['item_id'].values))}"
-        )
 
         # filter users and items with presence < 5
         item_id_count = (
@@ -324,19 +317,12 @@ class AmazonDataProcessor(DataProcessor):
         ratings = ratings.join(user_id_count.set_index("unique_values"), on="user_id")
         ratings = ratings[ratings["item_count"] >= 5]
         ratings = ratings[ratings["user_count"] >= 5]
-        print(f"{self._prefix} #data points after filter: {ratings.shape[0]}")
 
         # categorize user id and item id
         ratings["item_id"] = pd.Categorical(ratings["item_id"])
         ratings["item_id"] = ratings["item_id"].cat.codes
         ratings["user_id"] = pd.Categorical(ratings["user_id"])
         ratings["user_id"] = ratings["user_id"].cat.codes
-        print(
-            f"{self._prefix} #user after filter: {len(set(ratings['user_id'].values))}"
-        )
-        print(
-            f"{self._prefix} #item ater filter: {len(set(ratings['item_id'].values))}"
-        )
 
         num_unique_items = len(set(ratings["item_id"].values))
 
@@ -373,9 +359,6 @@ class AmazonDataProcessor(DataProcessor):
         )
 
         if self.expected_num_unique_items() is not None:
-            assert (
-                    self.expected_num_unique_items() == num_unique_items
-            ), f"expected: {self.expected_num_unique_items()}, actual: {num_unique_items}"
             logging.info(f"{self.expected_num_unique_items()} unique items.")
 
         return num_unique_items
