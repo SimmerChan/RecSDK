@@ -41,7 +41,6 @@ class DatasetV2(torch.utils.data.Dataset):
         self.ratings_frame = pd.read_csv(
             ratings_file,
             delimiter=",",
-            # iterator=True,
         )
         self._padding_length: int = padding_length
         self._ignore_last_n: int = ignore_last_n
