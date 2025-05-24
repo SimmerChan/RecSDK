@@ -18,6 +18,7 @@ import logging
 import os
 import random
 import sys
+from dataclasses import dataclass
 
 import torch
 import torch.distributed as dist
@@ -40,21 +41,35 @@ def cleanup():
     dist.destroy_process_group()
 
 
-def train_fn(
-        dataset_name: str = "ml-1m",
-        max_sequence_length: int = 200,
-        positional_sampling_ratio: float = 1.0,
-        local_batch_size: int = 128,
-        temperature: float = 0.05,
-        num_epochs: int = 1,
-        learning_rate: float = 1e-3,
-        weight_decay: float = 1e-3,
-        save_ckpt_every_n: int = 10,
-        embedding_module_type: str = "local",
-        item_embedding_dim: int = 240,
-        gr_output_length: int = 10,
-        random_seed: int = 42,
-) -> None:
+@dataclass
+class TrainInput:
+    dataset_name: str = "ml-1m"
+    max_sequence_length: int = 200
+    positional_sampling_ratio: float = 1.0
+    local_batch_size: int = 128
+    num_epochs: int = 1
+    learning_rate: float = 1e-3
+    weight_decay: float = 1e-3
+    save_ckpt_every_n: int = 10
+    embedding_module_type: str = "local"
+    item_embedding_dim: int = 240
+    gr_output_length: int = 10
+    random_seed: int = 42
+
+
+def train_fn(train_input_params: TrainInput) -> None:
+    dataset_name = train_input_params.dataset_name
+    max_sequence_length = train_input_params.max_sequence_length
+    positional_sampling_ratio = train_input_params.positional_sampling_ratio
+    local_batch_size = train_input_params.local_batch_size
+    num_epochs = train_input_params.num_epochs
+    learning_rate = train_input_params.learning_rate
+    weight_decay = train_input_params.weight_decay
+    save_ckpt_every_n = train_input_params.save_ckpt_every_n
+    embedding_module_type = train_input_params.embedding_module_type
+    item_embedding_dim = train_input_params.item_embedding_dim
+    gr_output_length = train_input_params.gr_output_length
+    random_seed = train_input_params.random_seed
     # to enable more deterministic results.
     random.seed(random_seed)
     world_size = dist.get_world_size()
@@ -176,4 +191,5 @@ if __name__ == "__main__":
         device = torch.device(f'npu:{dist.get_rank()}')
     else:
         device = "cpu"
-    train_fn()
+    train_fn(TrainInput())
+    cleanup()
