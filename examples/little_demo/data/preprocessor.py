@@ -196,8 +196,6 @@ class MovielensDataProcessor(DataProcessor):
             # ML-1M and ML-20M only
             movies["year"] = movies["title"].apply(lambda x: x[-5:-1])
             movies["cleaned_title"] = movies["title"].apply(lambda x: x[:-7])
-            # movies.year = pd.Categorical(movies.year)
-            # movies["year"] = movies.year.cat.codes
 
         if users is not None:
             ## Users (ml-1m only)
