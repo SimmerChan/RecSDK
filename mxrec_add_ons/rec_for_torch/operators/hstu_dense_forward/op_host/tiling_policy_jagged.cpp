@@ -10,9 +10,9 @@
 #include "tiling_policy_factory.h"
 #include "tiling_policy_jagged.h"
 
-#define JAGGED_TASK_ASSIAGN_DEBUG 0
+constexpr bool JaggedTaskAssignDebug = false;
 
-#if JAGGED_TASK_ASSIAGN_DEBUG
+#if JaggedTaskAssignDebug
 #include <chrono>
 #endif
 
@@ -35,7 +35,7 @@ namespace {
         BlockTaskAssign(uint32_t *seqOffsets,
                         uint32_t coreNum, uint32_t blockLen, uint32_t batchSize, uint32_t headNum)
         {
-#if JAGGED_TASK_ASSIAGN_DEBUG
+#if JaggedTaskAssignDebug
             printf("BlockTaskAssign coreNum:%d blockLen:%d batchSize:%d headNum:%d\n",
                 coreNum, blockLen, batchSize, headNum);
             printf("BlockTaskAssign seqOffsets:");
@@ -102,7 +102,7 @@ namespace {
 
             int64_t eachCoreTaskNumLimit = (totalTaskNumber + this->coreNum - 1) / this->coreNum;
 
-#if JAGGED_TASK_ASSIAGN_DEBUG
+#if JaggedTaskAssignDebug
             int64_t total_block_number = 0;
             total_block_number = std::accumulate(blockNumber.begin(),
                                                  blockNumber.end(), total_block_number, [](int64_t val, int64_t x) {
@@ -135,7 +135,7 @@ namespace {
                 workTasks[i] = blockTask;
             }
 
-#if JAGGED_TASK_ASSIAGN_DEBUG
+#if JaggedTaskAssignDebug
             printf("processTaskNum :%d processBlockNum:%d\n", processTaskNum, processBlockNum);
             assert(processTaskNum == totalTaskNumber);
             assert(processBlockNum == total_block_number);
@@ -177,7 +177,7 @@ namespace {
 
             int64_t eachCoreTaskNumLimit = (totalTaskNumber + this->coreNum - 1) / this->coreNum;
 
-#if JAGGED_TASK_ASSIAGN_DEBUG
+#if JaggedTaskAssignDebug
             int64_t total_block_number = 0;
             total_block_number = std::accumulate(blockNumber.begin(),
                                                  blockNumber.end(), total_block_number, [](int64_t val, int64_t x) {
@@ -212,7 +212,7 @@ namespace {
                 workTasks[i] = blockTask;
             }
 
-#if JAGGED_TASK_ASSIAGN_DEBUG
+#if JaggedTaskAssignDebug
             printf("processTaskNum :%d processBlockNum:%d\n", processTaskNum, processBlockNum);
             assert(processTaskNum == totalTaskNumber);
             assert(processBlockNum == total_block_number);
@@ -302,7 +302,7 @@ bool TilingPolicyJagged::TilingCore(gert::TilingContext* context, optiling::Hstu
         return false;
     }
 
-#if JAGGED_TASK_ASSIAGN_DEBUG
+#if JaggedTaskAssignDebug
     auto start = std::chrono::high_resolution_clock::now();
 #endif
 
@@ -319,7 +319,7 @@ bool TilingPolicyJagged::TilingCore(gert::TilingContext* context, optiling::Hstu
 
     CallBlockAssign(seqOffsets, coreNum, workTasks, workLoads, tiling);
 
-#if JAGGED_TASK_ASSIAGN_DEBUG
+#if JaggedTaskAssignDebug
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double, std::micro> elapsed = end - start;
     std::cout << "BlockTaskAssign Elapsed time: " << elapsed.count() << " us\n";

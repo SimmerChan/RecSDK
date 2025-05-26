@@ -19,7 +19,6 @@ See the License for the specific language governing permissions and
 #include "hstu_dense_backward_kernel_common.h"
 
 namespace HstuDenseBackward {
-constexpr int32_t TWO = 2;
 
 struct BlockInfo {
     int64_t taskId;

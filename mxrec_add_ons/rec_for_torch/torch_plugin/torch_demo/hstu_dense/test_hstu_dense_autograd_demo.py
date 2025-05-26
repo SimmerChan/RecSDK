@@ -79,7 +79,8 @@ def jagged_data_gen(batch_size, max_seq_len, num_heads, attention_dim, mask_type
 
 
 class TestHstuAutogradNormal:
-    def golden_op_exec(self, q, k, v, bias, mask, batch_size, max_seq_len, num_heads, attention_dim, enable_bias, \
+    @staticmethod
+    def golden_op_exec(q, k, v, bias, mask, batch_size, max_seq_len, num_heads, attention_dim, enable_bias, \
                        mask_type, silu_scale, data_type):
         q = torch.nn.Parameter(torch.Tensor(q).reshape(batch_size, max_seq_len, num_heads, \
                                                        attention_dim).to(torch.float32), requires_grad=True)
@@ -118,7 +119,8 @@ class TestHstuAutogradNormal:
         return attn_output.cpu().to(data_type).to(torch.float32).reshape(-1), q_grad.to(torch.float32), \
             k_grad.to(torch.float32), v_grad.to(torch.float32), bias_grad
 
-    def custom_op_exec(self, q, k, v, bias, mask, batch_size, max_seq_len, num_heads, attention_dim, enable_bias, \
+    @staticmethod
+    def custom_op_exec(q, k, v, bias, mask, batch_size, max_seq_len, num_heads, attention_dim, enable_bias, \
                        mask_type, silu_scale, data_type):
         q = torch.nn.Parameter(torch.Tensor(q).reshape(batch_size, max_seq_len, num_heads, attention_dim), \
                                requires_grad=True).to(f"npu:{device_id}")
@@ -176,8 +178,8 @@ class TestHstuAutogradNormal:
         if enable_bias:
             assert torch.allclose(bias_grad.to(torch.float32), bias_grad_op.to(torch.float32), 1e-4, 1e-4) == True
         else:
-            assert bias_grad == None
-            assert bias_grad_op == None
+            assert bias_grad is None
+            assert bias_grad_op is None
 
     @pytest.mark.parametrize("batch_size", [2, 16])
     @pytest.mark.parametrize("max_seq_len", [256])
@@ -204,7 +206,8 @@ class TestHstuAutogradNormal:
 
 
 class TestHstuAutogradJagged:
-    def jagged_to_dense(self, jagged_tensor, seq_lens, max_seq_len, head_nums, atten_dim):
+    @staticmethod
+    def jagged_to_dense(jagged_tensor, seq_lens, max_seq_len, head_nums, atten_dim):
         need_pad_seq = []
         offset = 0
         for batch_id, seq_len in enumerate(seq_lens):
@@ -217,7 +220,8 @@ class TestHstuAutogradJagged:
         dense_tensor = torch.nn.utils.rnn.pad_sequence(need_pad_seq, batch_first=True)
         return dense_tensor
 
-    def dense_to_jagged(self, q, dense_tensor, seq_lens):
+    @staticmethod
+    def dense_to_jagged(q, dense_tensor, seq_lens):
         tensor = torch.zeros_like(q).cpu()
 
         offset = 0
@@ -227,7 +231,8 @@ class TestHstuAutogradJagged:
 
         return tensor
 
-    def compare_jagged_bias(self, bias_grad, bias_grad_golden, seq_offset, loss):
+    @staticmethod
+    def compare_jagged_bias(bias_grad, bias_grad_golden, seq_offset, loss):
         seq_lens = torch.zeros(bias_grad.shape[0], dtype=torch.int64)
         for i in range(seq_lens.shape[0]):
             seq_lens[i] = seq_offset[i + 1] - seq_offset[i]
@@ -287,7 +292,8 @@ class TestHstuAutogradJagged:
         return attn_output.cpu().to(data_type).to(torch.float32).reshape(-1), q_grad.to(torch.float32), \
             k_grad.to(torch.float32), v_grad.to(torch.float32), bias_grad
 
-    def custom_op_exec(self, q, k, v, seq_offset, bias, mask, total_seqs, max_seq_len, num_heads, attention_dim, \
+    @staticmethod
+    def custom_op_exec(q, k, v, seq_offset, bias, mask, total_seqs, max_seq_len, num_heads, attention_dim, \
                        enable_bias, mask_type, silu_scale, data_type):
         q = torch.nn.Parameter(torch.Tensor(q).reshape(total_seqs, num_heads, attention_dim), \
                                requires_grad=True).to(f"npu:{device_id}").to(data_type)
@@ -350,7 +356,7 @@ class TestHstuAutogradJagged:
             bias_grad_res = self.compare_jagged_bias(bias_grad.to(torch.float32), bias_grad_op.to(torch.float32),
                                                      seq_offset, loss)
         else:
-            bias_grad_res = bias_grad == None and bias_grad_op == None
+            bias_grad_res = bias_grad is None and bias_grad_op is None
 
         return output_res and q_grad_res and k_grad_res and v_grad_res and bias_grad_res
 

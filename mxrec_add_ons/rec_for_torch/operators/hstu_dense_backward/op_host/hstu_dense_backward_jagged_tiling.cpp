@@ -86,8 +86,9 @@ public:
         PreInit(workTasks, workLoads, blockNumber);
 
         int64_t totalTaskNumber = 0;
+        constexpr int two = 2;
         totalTaskNumber = std::accumulate(blockNumber.begin(), blockNumber.end(), totalTaskNumber,
-                                          [](int64_t val, int64_t x) { return val + x * (x + 1) / 2; });
+                                          [](int64_t val, int64_t x) { return val + x * (x + 1) / two; });
 
         int64_t eachCoreTaskNumLimit = (totalTaskNumber + this->coreNum - 1) / this->coreNum;
 

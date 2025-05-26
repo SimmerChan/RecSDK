@@ -1,7 +1,6 @@
-from onnx import TensorProto
-from onnx.helper import make_tensor, make_tensor_value_info, make_attribute, make_model, make_node, make_graph
-from onnx.checker import check_model
 import onnx
+from onnx import TensorProto
+from onnx.helper import make_tensor_value_info, make_attribute, make_model, make_node, make_graph
 
 CASUAL = 1
 BATCH_SIZE = 1
@@ -18,7 +17,8 @@ v = make_tensor_value_info("v", TensorProto.FLOAT16, [BATCH_SIZE, MAX_SEQ_LEN, N
 attn_bias = make_tensor_value_info("attn_bias", TensorProto.FLOAT16, [BATCH_SIZE, NUM_HEADS, MAX_SEQ_LEN, MAX_SEQ_LEN])
 mask = make_tensor_value_info("mask", TensorProto.FLOAT16, [BATCH_SIZE, 1, MAX_SEQ_LEN, MAX_SEQ_LEN])
 
-attn_output = make_tensor_value_info("attn_output", TensorProto.FLOAT16, [BATCH_SIZE, MAX_SEQ_LEN, NUM_HEADS, ATTENTION_DIM])
+attn_output = make_tensor_value_info("attn_output", TensorProto.FLOAT16,
+                                     [BATCH_SIZE, MAX_SEQ_LEN, NUM_HEADS, ATTENTION_DIM])
 
 node = make_node("HstuDenseForward", ["q", "k", "v", "mask", "attn_bias"], ["attn_output"])
 node.attribute.append(make_attribute("siluScale", SILUSCALE))

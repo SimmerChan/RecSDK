@@ -184,7 +184,8 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> hstu_dense_normal_bac
     const double siluScale,
     c10::optional<at::IntArrayRef> seqOffset)
 {
-    TORCH_CHECK(grad.dim() == 4, "The grad should be 4D in normal layout");
+    constexpr int dim = 4;
+    TORCH_CHECK(grad.dim() == dim, "The grad should be 4D in normal layout");
 
     auto acAttnBias = attnBias.value_or(at::Tensor());
     auto acMask = mask.value_or(at::Tensor());

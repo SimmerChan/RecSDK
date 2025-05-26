@@ -114,7 +114,7 @@ static ge::graphStatus TilingCommonFunc(gert::TilingContext *context, HstuDenseB
 } // namespace optiling
 
 namespace optiling {
-ge::graphStatus TilingFunc(gert::TilingContext *context) 
+ge::graphStatus TilingFunc(gert::TilingContext *context)
 {
     const gert::RuntimeAttrs *attrs = context->GetAttrs();
     OPS_LOGD_IF_NULL(attrs, return ge::GRAPH_FAILED);

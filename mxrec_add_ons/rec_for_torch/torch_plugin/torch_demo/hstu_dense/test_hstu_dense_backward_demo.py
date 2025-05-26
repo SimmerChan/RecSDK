@@ -76,7 +76,8 @@ torch.npu.set_device(device_id)
 
 
 class TestHstuJaggedDemo:
-    def jagged_to_dense(self, jagged_tensor, seq_lens, max_seq_len, head_num, head_dim):
+    @staticmethod
+    def jagged_to_dense(jagged_tensor, seq_lens, max_seq_len, head_num, head_dim):
         batch_size = len(seq_lens)
         dense_tensor = torch.zeros(batch_size, max_seq_len, head_num, head_dim, dtype=jagged_tensor.dtype)
 
@@ -87,7 +88,8 @@ class TestHstuJaggedDemo:
 
         return dense_tensor
 
-    def dense_to_jagged(self, jagged_tensor, dense_tensor, seq_lens):
+    @staticmethod
+    def dense_to_jagged(jagged_tensor, dense_tensor, seq_lens):
         tensor = torch.zeros_like(jagged_tensor)
 
         offset = 0
@@ -97,7 +99,8 @@ class TestHstuJaggedDemo:
 
         return tensor
 
-    def compare_jagged_bias(self, bias_grad, bias_grad_golden, seq_offset, loss):
+    @staticmethod
+    def compare_jagged_bias(bias_grad, bias_grad_golden, seq_offset, loss):
         seq_lens = torch.zeros(bias_grad.shape[0], dtype=torch.int64)
         for i in range(seq_lens.shape[0]):
             seq_lens[i] = seq_offset[i + 1] - seq_offset[i]
@@ -177,7 +180,8 @@ class TestHstuJaggedDemo:
 
         return q_grad, k_grad, v_grad, bias_grad
 
-    def custom_op_exec(self, grad, q, k, v, bias, mask, seq_offset, mask_type, max_seq_len, silu_scale, enable_bias,
+    @staticmethod
+    def custom_op_exec(grad, q, k, v, bias, mask, seq_offset, mask_type, max_seq_len, silu_scale, enable_bias,
                        data_type):
         grad_npu = grad.to(f"npu:{device_id}")
         q_npu = q.to(f"npu:{device_id}")
@@ -261,7 +265,8 @@ class TestHstuJaggedDemo:
 
 
 class TestHstuNormalDemo:
-    def golden_op_exec(self, grad, q, k, v, bias, mask, mask_type, max_seq_len, silu_scale, enable_bias, data_type):
+    @staticmethod
+    def golden_op_exec(grad, q, k, v, bias, mask, mask_type, max_seq_len, silu_scale, enable_bias, data_type):
         batch_size, seq_len, head_num, head_dim = grad.shape
 
         qk = torch.matmul(q.permute(0, 2, 1, 3), k.permute(0, 2, 3, 1))
@@ -301,7 +306,8 @@ class TestHstuNormalDemo:
         torch.npu.synchronize()
         return q_grad.cpu(), k_grad.cpu(), v_grad.cpu(), attn_bias_grad.cpu()
 
-    def custom_op_exec(self, grad, q, k, v, bias, mask, mask_type, max_seq_len, silu_scale, enable_bias, data_type):
+    @staticmethod
+    def custom_op_exec(grad, q, k, v, bias, mask, mask_type, max_seq_len, silu_scale, enable_bias, data_type):
         if enable_bias:
             q_grad, k_grad, v_grad, attn_bias_grad = torch.ops.mxrec.hstu_dense_backward(
                 grad, q, k, v, mask, bias, "normal", mask_type, max_seq_len, silu_scale)

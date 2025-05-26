@@ -347,8 +347,8 @@ public:
         DoJaggedQKMatmul(taskId);
         DoJaggedGVMatmul(taskId);
         if (taskId > 1) {
-            DoJaggedVGradMatmul(taskId - 2);
-            DoJaggedKGradMatmul(taskId - 2);
+            DoJaggedVGradMatmul(taskId - TWO);
+            DoJaggedKGradMatmul(taskId - TWO);
         }
         if (taskId > 0) {
             VecScoreJagged(taskId - 1);
@@ -363,10 +363,10 @@ public:
             this->vGradMatmul.End();
             this->kGradMatmul.WaitIterateAll();
             this->kGradMatmul.End();
-            if (computeTaskInfo[(taskId - 2) % COMPUTE_PIPE_NUM].accumId !=
+            if (computeTaskInfo[(taskId - TWO) % COMPUTE_PIPE_NUM].accumId !=
                 computeTaskInfo[(taskId - 1) % COMPUTE_PIPE_NUM].accumId) {
-                DoTransJagged(taskId - 2, this->vGradAccumTemp, this->vGrad);
-                DoTransJagged(taskId - 2, this->kGradAccumTemp, this->kGrad);
+                DoTransJagged(taskId - TWO, this->vGradAccumTemp, this->vGrad);
+                DoTransJagged(taskId - TWO, this->kGradAccumTemp, this->kGrad);
             }
         }
     }
@@ -374,17 +374,17 @@ public:
     __aicore__ inline void FirstJaggedStageEnding(int64_t taskId)
     {
         if (taskId > 1) {
-            DoJaggedVGradMatmul(taskId - 2);
-            DoJaggedKGradMatmul(taskId - 2);
+            DoJaggedVGradMatmul(taskId - TWO);
+            DoJaggedKGradMatmul(taskId - TWO);
             VecScoreJagged(taskId - 1);
             this->vGradMatmul.WaitIterateAll();
             this->vGradMatmul.End();
             this->kGradMatmul.WaitIterateAll();
             this->kGradMatmul.End();
-            if (computeTaskInfo[(taskId - 2) % COMPUTE_PIPE_NUM].accumId !=
+            if (computeTaskInfo[(taskId - TWO) % COMPUTE_PIPE_NUM].accumId !=
                 computeTaskInfo[(taskId - 1) % COMPUTE_PIPE_NUM].accumId) {
-                DoTransJagged(taskId - 2, this->vGradAccumTemp, this->vGrad);
-                DoTransJagged(taskId - 2, this->kGradAccumTemp, this->kGrad);
+                DoTransJagged(taskId - TWO, this->vGradAccumTemp, this->vGrad);
+                DoTransJagged(taskId - TWO, this->kGradAccumTemp, this->kGrad);
             }
 
             DoJaggedVGradMatmul(taskId - 1);

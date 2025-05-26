@@ -20,6 +20,7 @@ constexpr int VCORE_NUM_IN_ONE_AIC = 2;
 
 constexpr int MID_USE_TIMES = 2;
 constexpr int USE_BUFFER_NUM = 2;
+constexpr int TWO = 2;
 
 enum class MaskType { MASK_TRIL = 0, MASK_TRIU = 1, MASK_NONE = 2, MASK_CUSTOM = 3 };
 
