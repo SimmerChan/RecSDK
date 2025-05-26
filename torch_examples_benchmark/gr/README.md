@@ -73,8 +73,8 @@ torch.ops.load_library(/path/to/libfbgemm_npu_api.so) # 根据实际路径
 
 ```bash
 git clone https://github.com/meta-recsys/generative-recommenders.git
-cd generative-recommenders & git checkout bb389f9539b054e7268528efcd35457a6ad52439
-cp ../gr_npu.patch ./ & git apply gr_npu.patch
+cd generative-recommenders && git checkout bb389f9539b054e7268528efcd35457a6ad52439
+cp ../gr_npu.patch ./ && git apply gr_npu.patch
 ```
 
 ## 数据集准备

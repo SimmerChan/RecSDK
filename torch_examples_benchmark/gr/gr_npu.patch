@@ -638,10 +638,19 @@ index 31861e7..64f46c3 100644
      batch_id = 0
      epoch = 0
 diff --git a/main.py b/main.py
-index 78b44a1..6524de8 100644
+index 78b44a1..781b4cb 100644
 --- a/main.py
 +++ b/main.py
-@@ -31,6 +31,7 @@ import gin
+@@ -23,6 +23,8 @@ import os
+ 
+ from typing import List, Optional
+ 
++from torch_examples_benchmark.dlrm.dlrm_main import handler
++
+ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"  # Hide excessive tensorflow debug messages
+ import sys
+ 
+@@ -31,10 +33,14 @@ import gin
  
  import torch
  import torch.multiprocessing as mp
@@ -649,7 +658,14 @@ index 78b44a1..6524de8 100644
  
  from absl import app, flags
  from generative_recommenders.trainer.train import train_fn
-@@ -66,9 +67,8 @@ def mp_train_fn(
+ 
++
++for handler in logging.root.handlers[:]:
++    logging.root.removeHandler(handler)
+ logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+ 
+ 
+@@ -66,9 +72,8 @@ def mp_train_fn(
  
  
  def _main(argv) -> None:  # pyre-ignore [2]
