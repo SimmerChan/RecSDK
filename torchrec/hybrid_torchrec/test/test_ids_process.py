@@ -55,9 +55,9 @@ def test_ids2indices_sequential(input_size, high_precison):
         verify_unique(indices, unique, unique_inverse)
 
 
-@pytest.mark.parametrize("input_size", [10000])
+@pytest.mark.parametrize("input_size", [1000000])
 @pytest.mark.parametrize("pin_memory", [False, True])
-@pytest.mark.parametrize("num_mapper", [3])
+@pytest.mark.parametrize("num_mapper", [1])
 def test_ids2indices_out(input_size, pin_memory, num_mapper):
     """Test ids2indices with sequential numbers"""
     logging.info("Testing sequential ids mapping")
@@ -73,7 +73,7 @@ def test_ids2indices_out(input_size, pin_memory, num_mapper):
 
         ids = torch.concat(input_ids)
         hash_indices = torch.empty_like(ids, pin_memory=pin_memory)
-        offsets = torch.LongTensor([0, input_size, input_size * 2, input_size * 3])
+        offsets = torch.LongTensor([0, input_size, input_size * 2, input_size * 3, input_size * 4])
         unique = torch.empty_like(ids, pin_memory=pin_memory)
         unique_inverse = torch.empty_like(ids, pin_memory=pin_memory)
         unique_offset = torch.LongTensor([0 for _ in range(num_mapper + 1)])
