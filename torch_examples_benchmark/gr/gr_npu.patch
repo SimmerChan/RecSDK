@@ -479,10 +479,26 @@ index 7f6f3e8..3b6fd55 100644
      def debug_str(self) -> str:
          return f"posi_d{self._dropout_rate}"
 diff --git a/generative_recommenders/rails/similarities/mol/similarity_fn.py b/generative_recommenders/rails/similarities/mol/similarity_fn.py
-index b8542dc..69a7b3a 100644
+index b8542dc..18876fa 100644
 --- a/generative_recommenders/rails/similarities/mol/similarity_fn.py
 +++ b/generative_recommenders/rails/similarities/mol/similarity_fn.py
-@@ -328,7 +328,7 @@ class MoLSimilarity(SimilarityModule):
+@@ -29,7 +29,6 @@ from generative_recommenders.rails.similarities.module import SimilarityModule
+ from generative_recommenders.rails.similarities.mol.embeddings_fn import MoLEmbeddingsFn
+ 
+ 
+-@torch.compile(dynamic=True)
+ def _softmax_dropout_combiner_fn(
+     x: torch.Tensor,
+     y: torch.Tensor,
+@@ -47,7 +46,6 @@ def _softmax_dropout_combiner_fn(
+     return x, (x * y).sum(-1)
+ 
+ 
+-@torch.compile
+ def _load_balancing_mi_loss_fn(
+     gating_prs: torch.Tensor,
+     eps: float,
+@@ -328,7 +326,7 @@ class MoLSimilarity(SimilarityModule):
              (B, X) x float, Dict[str, Tensor] representing auxiliary losses.
          """
          with torch.autocast(
@@ -492,7 +508,7 @@ index b8542dc..69a7b3a 100644
              B = query_embeddings.size(0)
              B_prime = item_embeddings.shape[0]  # 1 or B
 diff --git a/generative_recommenders/trainer/train.py b/generative_recommenders/trainer/train.py
-index 31861e7..c7a0c2c 100644
+index 31861e7..64f46c3 100644
 --- a/generative_recommenders/trainer/train.py
 +++ b/generative_recommenders/trainer/train.py
 @@ -27,6 +27,8 @@ import gin
@@ -504,12 +520,11 @@ index 31861e7..c7a0c2c 100644
  
  from generative_recommenders.data.eval import (
      _avg,
-@@ -66,6 +68,20 @@ from generative_recommenders.modeling.similarity_utils import get_similarity_fun
+@@ -66,6 +68,19 @@ from generative_recommenders.modeling.similarity_utils import get_similarity_fun
  from generative_recommenders.trainer.data_loader import create_data_loader
  from torch.nn.parallel import DistributedDataParallel as DDP
  from torch.utils.tensorboard import SummaryWriter
 +from torch.utils.data import Dataset
-+from msprobe.pytorch import seed_all
 +
 +
 +class RepeatDataset(Dataset):
@@ -525,7 +540,7 @@ index 31861e7..c7a0c2c 100644
  
  
  def setup(rank: int, world_size: int, master_port: int) -> None:
-@@ -73,7 +89,7 @@ def setup(rank: int, world_size: int, master_port: int) -> None:
+@@ -73,7 +88,7 @@ def setup(rank: int, world_size: int, master_port: int) -> None:
      os.environ["MASTER_PORT"] = str(master_port)
  
      # initialize the process group
@@ -534,7 +549,7 @@ index 31861e7..c7a0c2c 100644
  
  
  def cleanup() -> None:
-@@ -131,11 +147,19 @@ def train_fn(
+@@ -131,11 +146,18 @@ def train_fn(
      l2_norm_eps: float = 1e-6,
      enable_tf32: bool = False,
      random_seed: int = 42,
@@ -546,7 +561,6 @@ index 31861e7..c7a0c2c 100644
 -    torch.backends.cudnn.allow_tf32 = enable_tf32
 +    if precision_mode:
 +        shuffle = False
-+        seed_all(mode=True, rm_dropout=True, seed=random_seed)
 +    else:
 +        shuffle = True
 +        random.seed(random_seed)
@@ -557,7 +571,7 @@ index 31861e7..c7a0c2c 100644
      logging.info(f"cuda.matmul.allow_tf32: {enable_tf32}")
      logging.info(f"cudnn.allow_tf32: {enable_tf32}")
      logging.info(f"Training model on rank {rank}.")
-@@ -148,12 +172,13 @@ def train_fn(
+@@ -148,12 +170,13 @@ def train_fn(
          positional_sampling_ratio=positional_sampling_ratio,
      )
  
@@ -573,7 +587,7 @@ index 31861e7..c7a0c2c 100644
          drop_last=world_size > 1,
      )
      eval_data_sampler, eval_data_loader = create_data_loader(
-@@ -161,7 +186,7 @@ def train_fn(
+@@ -161,7 +184,7 @@ def train_fn(
          batch_size=eval_batch_size,
          world_size=world_size,
          rank=rank,
@@ -582,7 +596,7 @@ index 31861e7..c7a0c2c 100644
          drop_last=world_size > 1,
      )
  
-@@ -170,6 +195,7 @@ def train_fn(
+@@ -170,6 +193,7 @@ def train_fn(
          embedding_module: EmbeddingModule = LocalEmbeddingModule(
              num_items=dataset.max_item_id,
              item_embedding_dim=item_embedding_dim,
@@ -590,7 +604,7 @@ index 31861e7..c7a0c2c 100644
          )
      else:
          raise ValueError(f"Unknown embedding_module_type {embedding_module_type}")
-@@ -199,6 +225,7 @@ def train_fn(
+@@ -199,6 +223,7 @@ def train_fn(
          max_sequence_len=dataset.max_sequence_length + gr_output_length + 1,
          embedding_dim=item_embedding_dim,
          dropout_rate=dropout_rate,
@@ -598,7 +612,7 @@ index 31861e7..c7a0c2c 100644
      )
  
      model = get_sequential_encoder(
-@@ -210,6 +237,7 @@ def train_fn(
+@@ -210,6 +235,7 @@ def train_fn(
          input_preproc_module=input_preproc_module,
          output_postproc_module=output_postproc_module,
          verbose=True,
@@ -606,7 +620,7 @@ index 31861e7..c7a0c2c 100644
      )
      model_debug_str = model.debug_str()
  
-@@ -261,6 +289,7 @@ def train_fn(
+@@ -261,6 +287,7 @@ def train_fn(
      device = rank
      if main_module_bf16:
          model = model.to(torch.bfloat16)
@@ -614,7 +628,7 @@ index 31861e7..c7a0c2c 100644
      model = model.to(device)
      ar_loss = ar_loss.to(device)
      negatives_sampler = negatives_sampler.to(device)
-@@ -297,7 +326,7 @@ def train_fn(
+@@ -297,7 +324,7 @@ def train_fn(
          logging.info(f"Rank {rank}: disabling summary writer")
  
      last_training_time = time.time()
