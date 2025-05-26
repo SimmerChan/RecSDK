@@ -35,18 +35,17 @@ struct BlockInfo {
     int64_t colLine;
 };
 
-template <typename qType> class HstuDenseBackwardKernel {
+template <typename qType>
+class HstuDenseBackwardKernel {
 public:
     __aicore__ inline HstuDenseBackwardKernel() {}
 
-    __aicore__ inline void Compute(Args &args) 
+    __aicore__ inline void Compute(Args &args)
     {
         GET_TILING_DATA(tilingData, args.tiling);
-        REGIST_MATMUL_OBJ(&pipe, GetSysWorkSpacePtr(), 
-                          qkMatmul, &tilingData.qkMatmul,
-                          qGradMatmul, &tilingData.qGradMatmul, 
-                          kGradMatmul, &tilingData.kGradMatmul, 
-                          vGradMatmul, &tilingData.vGradMatmul);
+        REGIST_MATMUL_OBJ(&pipe, GetSysWorkSpacePtr(), qkMatmul, &tilingData.qkMatmul, qGradMatmul,
+                          &tilingData.qGradMatmul, kGradMatmul, &tilingData.kGradMatmul, vGradMatmul,
+                          &tilingData.vGradMatmul);
         uint64_t tilingPtr = reinterpret_cast<uint64_t>(args.tiling);
         qkMatmul.SetUserDefInfo(tilingPtr);
         qGradMatmul.SetUserDefInfo(tilingPtr);
@@ -58,7 +57,7 @@ public:
         ComputeSecond();
     }
 
-    __aicore__ inline void Init(Args &args) 
+    __aicore__ inline void Init(Args &args)
     {
         GET_TILING_DATA(tilingData, args.tiling);
 
@@ -97,7 +96,7 @@ public:
         if (IfMask(maskType, MaskType::MASK_CUSTOM)) {
             mask.SetGlobalBuffer(reinterpret_cast<__gm__ qType *>(args.mask), totalElementOfAttnBias);
         }
-        
+
         qGrad.SetGlobalBuffer(reinterpret_cast<__gm__ qType *>(args.qGrad), totalElementOfQ);
         kGrad.SetGlobalBuffer(reinterpret_cast<__gm__ qType *>(args.kGrad), totalElementOfQ);
         vGrad.SetGlobalBuffer(reinterpret_cast<__gm__ qType *>(args.vGrad), totalElementOfQ);
@@ -111,35 +110,30 @@ public:
         int64_t maskTempSpace = blockHeight * blockHeight;
 
         int64_t totalTempSpaceForOneVec =
-            MID_USE_TIMES *
-                ((vGradAccumTempSpace + kGradAccumTempSpace) * sizeof(float) +
-                 (qkMatmulTempSpace + gvMatmulTempSpace + scoreTempSpace) * sizeof(qType)) +
+            MID_USE_TIMES * ((vGradAccumTempSpace + kGradAccumTempSpace) * sizeof(float) +
+                             (qkMatmulTempSpace + gvMatmulTempSpace + scoreTempSpace) * sizeof(qType)) +
             maskTempSpace * sizeof(qType);
 
         curAICWorkspace = reinterpret_cast<__gm__ uint8_t *>(workspace) + GetBlockIdx() * totalTempSpaceForOneVec;
 
-        qkTemp.SetGlobalBuffer(
-            reinterpret_cast<__gm__ qType *>(curAICWorkspace), qkMatmulTempSpace * MID_USE_TIMES);
+        qkTemp.SetGlobalBuffer(reinterpret_cast<__gm__ qType *>(curAICWorkspace), qkMatmulTempSpace * MID_USE_TIMES);
         curAICWorkspace += qkMatmulTempSpace * sizeof(qType) * MID_USE_TIMES;
 
-        gvTemp.SetGlobalBuffer(
-            reinterpret_cast<__gm__ qType *>(curAICWorkspace), gvMatmulTempSpace * MID_USE_TIMES);
+        gvTemp.SetGlobalBuffer(reinterpret_cast<__gm__ qType *>(curAICWorkspace), gvMatmulTempSpace * MID_USE_TIMES);
         curAICWorkspace += gvMatmulTempSpace * sizeof(qType) * MID_USE_TIMES;
 
-        scoreTemp.SetGlobalBuffer(
-            reinterpret_cast<__gm__ qType *>(curAICWorkspace), scoreTempSpace * MID_USE_TIMES);
+        scoreTemp.SetGlobalBuffer(reinterpret_cast<__gm__ qType *>(curAICWorkspace), scoreTempSpace * MID_USE_TIMES);
         curAICWorkspace += scoreTempSpace * sizeof(qType) * MID_USE_TIMES;
 
-        vGradAccumTemp.SetGlobalBuffer(
-            reinterpret_cast<__gm__ float *>(curAICWorkspace), vGradAccumTempSpace * MID_USE_TIMES);
+        vGradAccumTemp.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(curAICWorkspace),
+                                       vGradAccumTempSpace * MID_USE_TIMES);
         curAICWorkspace += vGradAccumTempSpace * sizeof(float) * MID_USE_TIMES;
 
-        kGradAccumTemp.SetGlobalBuffer(
-            reinterpret_cast<__gm__ float *>(curAICWorkspace), kGradAccumTempSpace * MID_USE_TIMES);
+        kGradAccumTemp.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(curAICWorkspace),
+                                       kGradAccumTempSpace * MID_USE_TIMES);
         curAICWorkspace += kGradAccumTempSpace * sizeof(float) * MID_USE_TIMES;
 
-        maskTemp.SetGlobalBuffer(
-            reinterpret_cast<__gm__ qType *>(curAICWorkspace), maskTempSpace);
+        maskTemp.SetGlobalBuffer(reinterpret_cast<__gm__ qType *>(curAICWorkspace), maskTempSpace);
 
         vecOnceDataNum = DATA_ALIGN_BYTES / sizeof(float) * blockHeight;
         pipe.InitBuffer(queueVecScoreQK, USE_BUFFER_NUM, vecOnceDataNum * sizeof(float));
@@ -187,7 +181,7 @@ public:
         }
     }
 
-    __aicore__ inline void DoQKMatmul(int64_t taskId) 
+    __aicore__ inline void DoQKMatmul(int64_t taskId)
     {
         int64_t curTaskId = taskId % COMPUTE_PIPE_NUM;
         int64_t midResultIdx = taskId % MID_USE_TIMES;
@@ -197,7 +191,7 @@ public:
         DoQKMatmulImpl(taskInfo[curTaskId].qkLeftOffset, taskInfo[curTaskId].qkRightOffset, outOffset);
     }
 
-    __aicore__ inline void DoQKMatmulImpl(int64_t left, int64_t right, int64_t out) 
+    __aicore__ inline void DoQKMatmulImpl(int64_t left, int64_t right, int64_t out)
     {
         qkMatmul.SetTensorA(q[left]);
         qkMatmul.SetTensorB(k[right], true);
@@ -205,7 +199,7 @@ public:
         qkMatmul.template IterateAll<false>(qkTemp[out], 0, false, true);
     }
 
-    __aicore__ inline void DoGVMatmul(int64_t taskId) 
+    __aicore__ inline void DoGVMatmul(int64_t taskId)
     {
         int64_t curTaskId = taskId % COMPUTE_PIPE_NUM;
         int64_t midResultIdx = taskId % MID_USE_TIMES;
@@ -223,7 +217,7 @@ public:
         qkMatmul.template IterateAll<false>(gvTemp[out], 0, false, true);
     }
 
-    __aicore__ inline void DoQGradMatmul(int64_t taskId) 
+    __aicore__ inline void DoQGradMatmul(int64_t taskId)
     {
         int64_t curTaskId = taskId % COMPUTE_PIPE_NUM;
         int64_t midAccumIdx = taskInfo[curTaskId].accumId % MID_USE_TIMES;
@@ -232,12 +226,10 @@ public:
         bool isNew = taskInfo[curTaskId].colId == 0;
 
         qGradMatmul.SetTail(taskInfo[curTaskId].rowLine, headDim, taskInfo[curTaskId].colLine);
-        DoQGradMatmulImpl(taskInfo[curTaskId].kGradLeftOffset,
-                          taskInfo[curTaskId].vGradRightOffset,
-                          outOffset, isNew);
+        DoQGradMatmulImpl(taskInfo[curTaskId].kGradLeftOffset, taskInfo[curTaskId].vGradRightOffset, outOffset, isNew);
     }
 
-    __aicore__ inline void DoQGradMatmulImpl(int64_t left, int64_t right, int64_t out, bool isNew) 
+    __aicore__ inline void DoQGradMatmulImpl(int64_t left, int64_t right, int64_t out, bool isNew)
     {
         qGradMatmul.SetTensorA(attnBiasGrad[left]);
         qGradMatmul.SetTensorB(k[right]);
@@ -248,7 +240,7 @@ public:
         }
     }
 
-    __aicore__ inline void DoKGradMatmul(int64_t taskId) 
+    __aicore__ inline void DoKGradMatmul(int64_t taskId)
     {
         int64_t curTaskId = taskId % COMPUTE_PIPE_NUM;
         int64_t midAccumIdx = taskInfo[curTaskId].accumId % MID_USE_TIMES;
@@ -262,12 +254,10 @@ public:
         }
 
         kGradMatmul.SetTail(taskInfo[curTaskId].colLine, headDim, taskInfo[curTaskId].rowLine);
-        DoKGradMatmulImpl(taskInfo[curTaskId].kGradLeftOffset,
-                          taskInfo[curTaskId].vGradRightOffset,
-                          outOffset, isNew);
+        DoKGradMatmulImpl(taskInfo[curTaskId].kGradLeftOffset, taskInfo[curTaskId].vGradRightOffset, outOffset, isNew);
     }
 
-    __aicore__ inline void DoKGradMatmulImpl(int64_t left, int64_t right, int64_t out, bool isNew) 
+    __aicore__ inline void DoKGradMatmulImpl(int64_t left, int64_t right, int64_t out, bool isNew)
     {
         kGradMatmul.SetTensorA(attnBiasGrad[left], true);
         kGradMatmul.SetTensorB(q[right]);
@@ -278,7 +268,7 @@ public:
         }
     }
 
-    __aicore__ inline void DoVGradMatmul(int64_t taskId) 
+    __aicore__ inline void DoVGradMatmul(int64_t taskId)
     {
         int64_t curTaskId = taskId % COMPUTE_PIPE_NUM;
         int64_t midResultIdx = taskId % MID_USE_TIMES;
@@ -295,12 +285,10 @@ public:
         }
 
         vGradMatmul.SetTail(taskInfo[curTaskId].colLine, headDim, taskInfo[curTaskId].rowLine);
-        DoVGradMatmulImpl(scoreTempOffset,
-                          taskInfo[curTaskId].vGradRightOffset,
-                          outOffset, isNew);
+        DoVGradMatmulImpl(scoreTempOffset, taskInfo[curTaskId].vGradRightOffset, outOffset, isNew);
     }
 
-    __aicore__ inline void DoVGradMatmulImpl(int64_t left, int64_t right, int64_t out, bool isNew) 
+    __aicore__ inline void DoVGradMatmulImpl(int64_t left, int64_t right, int64_t out, bool isNew)
     {
         vGradMatmul.SetTensorA(scoreTemp[left], true);
         vGradMatmul.SetTensorB(grad[right]);
@@ -311,7 +299,7 @@ public:
         }
     }
 
-    __aicore__ inline void CreateMask() 
+    __aicore__ inline void CreateMask()
     {
         if (IfMask(maskType, MaskType::MASK_TRIL)) {
             // create lower triangular
@@ -354,17 +342,16 @@ public:
         }
     }
 
-    __aicore__ inline void CastQType2Float(LocalTensor<float> dstTensor,
-                                           LocalTensor<qType> srcTensor,
-                                           LocalTensor<qType> midTensor,
-                                           int64_t len) 
+    __aicore__ inline void CastQType2Float(LocalTensor<float> dstTensor, LocalTensor<qType> srcTensor,
+                                           LocalTensor<qType> midTensor, int64_t len)
     {
         DataCopy<qType>(midTensor, srcTensor, len);
         Cast(dstTensor, midTensor, RoundMode::CAST_NONE, len);
     }
 
-    __aicore__ inline void CastInputData(LocalTensor<float>& inputQK, LocalTensor<float>& inputGV,
-        LocalTensor<float>& inputMask, LocalTensor<float>& inputBias, int64_t thisLen, bool useMask)
+    __aicore__ inline void CastInputData(LocalTensor<float> &inputQK, LocalTensor<float> &inputGV,
+                                         LocalTensor<float> &inputMask, LocalTensor<float> &inputBias, int64_t thisLen,
+                                         bool useMask)
     {
         LocalTensor<qType> outputMidTemp = queueOutputTemp.AllocTensor<qType>();
         if (!std::is_same<qType, float>::value) {
@@ -385,9 +372,9 @@ public:
         auto inputQK = queueVecScoreQK.DeQue<float>();
         auto inputGV = queueVecScoreGV.DeQue<float>();
         LocalTensor<float> inputMask = useMask ? queueVecScoreMask.DeQue<float>() :
-            queueVecScoreMask.AllocTensor<float>();
+                                                 queueVecScoreMask.AllocTensor<float>();
         LocalTensor<float> inputBias = enableBias ? queueVecScoreBias.DeQue<float>() :
-            queueVecScoreBias.AllocTensor<float>();
+                                                    queueVecScoreBias.AllocTensor<float>();
 
         CastInputData(inputQK, inputGV, inputMask, inputBias, thisLen, useMask);
 
@@ -460,13 +447,12 @@ public:
                                          taskInfo[curTaskId].headId * biasGradSeqLen * biasGradSeqLen +
                                          taskInfo[curTaskId].colId * blockHeight * biasGradSeqLen +
                                          taskInfo[curTaskId].rowId * blockHeight;
-        
+
         int64_t maskOffset = 0;
         if (IfMask(maskType, MaskType::MASK_CUSTOM)) {
             maskOffset = taskInfo[curTaskId].batchId * headNum * maxSeqLen * maxSeqLen +
                          taskInfo[curTaskId].headId * maxSeqLen * maxSeqLen +
-                         taskInfo[curTaskId].rowId * blockHeight * maxSeqLen +
-                         taskInfo[curTaskId].colId * blockHeight;
+                         taskInfo[curTaskId].rowId * blockHeight * maxSeqLen + taskInfo[curTaskId].colId * blockHeight;
         }
 
         bool useMask = false;
@@ -476,12 +462,12 @@ public:
             useMask = true;
         }
 
-        VecScoreImpl(taskId, attnBiasOffset, attnBiasDiagonalOffset, maskOffset,
-                     taskInfo[curTaskId].rowLine, taskInfo[curTaskId].colLine, useMask);
+        VecScoreImpl(taskId, attnBiasOffset, attnBiasDiagonalOffset, maskOffset, taskInfo[curTaskId].rowLine,
+                     taskInfo[curTaskId].colLine, useMask);
     }
 
-    __aicore__ inline void CopyInPadding(LocalTensor<qType> dstTensor, GlobalTensor<qType> srcTensor,
-                                         int64_t rowNum, int64_t colNum, int64_t seqLen)
+    __aicore__ inline void CopyInPadding(LocalTensor<qType> dstTensor, GlobalTensor<qType> srcTensor, int64_t rowNum,
+                                         int64_t colNum, int64_t seqLen)
     {
         uint16_t blockCount = rowNum;
         uint32_t blockLen = colNum * sizeof(qType);
@@ -494,8 +480,8 @@ public:
         DataCopyPad(dstTensor, srcTensor, copyParams, padParams);
     }
 
-    __aicore__ inline void CopyOutPadding(GlobalTensor<qType> dstTensor, LocalTensor<qType> srcTensor,
-                                          int64_t rowNum, int64_t colNum, int64_t seqLen)
+    __aicore__ inline void CopyOutPadding(GlobalTensor<qType> dstTensor, LocalTensor<qType> srcTensor, int64_t rowNum,
+                                          int64_t colNum, int64_t seqLen)
     {
         uint16_t blockCount = rowNum;
         uint32_t blockLen = colNum * sizeof(qType);
@@ -507,7 +493,7 @@ public:
     }
 
     __aicore__ inline void ValidVecScore(int64_t thisLen, int64_t validRowNum, int64_t totalColNum, int64_t qkOffset,
-        int64_t curMaskOffset, int64_t curAttnBiasOffset, bool useMask)
+                                         int64_t curMaskOffset, int64_t curAttnBiasOffset, bool useMask)
     {
         int64_t gvOffset = qkOffset;
         int64_t scoreTempOffset = qkOffset;
@@ -525,14 +511,14 @@ public:
             }
             if (IfMask(maskType, MaskType::MASK_CUSTOM)) {
                 CopyInPadding(inputMask.template ReinterpretCast<qType>(), mask[curMaskOffset], validRowNum,
-                    totalColNum, maxSeqLen);
+                              totalColNum, maxSeqLen);
             }
             queueVecScoreMask.EnQue(inputMask);
         }
         if (enableBias) {
             LocalTensor<float> inputBias = queueVecScoreBias.AllocTensor<float>();
-            CopyInPadding(inputBias.template ReinterpretCast<qType>(),
-                attnBias[curAttnBiasOffset], validRowNum, totalColNum, biasGradSeqLen);
+            CopyInPadding(inputBias.template ReinterpretCast<qType>(), attnBias[curAttnBiasOffset], validRowNum,
+                          totalColNum, biasGradSeqLen);
             queueVecScoreBias.EnQue(inputBias);
         }
 
@@ -580,7 +566,7 @@ public:
             if (validRowNum > 0) {
                 ValidVecScore(thisLen, validRowNum, totalColNum, qkOffset, curMaskOffset, curAttnBiasOffset, useMask);
             }
-            
+
             if (enableBias && IfMask(maskType, MaskType::MASK_TRIL) && !useMask) {
                 LocalTensor<qType> outputTempTensor = queueOutputTemp.AllocTensor<qType>();
                 Duplicate<qType>(outputTempTensor, 0, thisLen);
@@ -589,7 +575,7 @@ public:
                 int64_t curAttnBiasDiagonalOffset = attnBiasDiagonalOffset + startRowNum * biasGradSeqLen;
                 outputTempTensor = queueOutputTemp.DeQue<qType>();
                 CopyOutPadding(attnBiasGrad[curAttnBiasDiagonalOffset], outputTempTensor, thisRowNum, totalRowNum,
-                    biasGradSeqLen);
+                               biasGradSeqLen);
                 queueOutputTemp.FreeTensor(outputTempTensor);
             }
 
@@ -619,11 +605,8 @@ public:
         DoTransImpl(from, to, fromOffset, toOffset, total);
     }
 
-    __aicore__ inline void DoTransImpl(GlobalTensor<float> from,
-                                       GlobalTensor<qType> to,
-                                       int64_t fromOffset,
-                                       int64_t toOffset,
-                                       int64_t total = 0)
+    __aicore__ inline void DoTransImpl(GlobalTensor<float> from, GlobalTensor<qType> to, int64_t fromOffset,
+                                       int64_t toOffset, int64_t total = 0)
     {
         int64_t remain = total;
         int64_t thisLen = vecOnceDataNum;
@@ -661,7 +644,7 @@ public:
         }
     }
 
-    __aicore__ inline void FirstStagePipeline(int64_t taskId) 
+    __aicore__ inline void FirstStagePipeline(int64_t taskId)
     {
         DoQKMatmul(taskId);
         DoGVMatmul(taskId);
@@ -690,7 +673,7 @@ public:
         }
     }
 
-    __aicore__ inline void FirstStageEnding(int64_t taskId) 
+    __aicore__ inline void FirstStageEnding(int64_t taskId)
     {
         if (taskId > 1) {
             DoVGradMatmul(taskId - 2);
@@ -730,7 +713,7 @@ public:
         }
     }
 
-    __aicore__ inline void ComputeFirst() 
+    __aicore__ inline void ComputeFirst()
     {
         int64_t taskId = 0;
         int64_t accumId = 0;
@@ -769,7 +752,7 @@ public:
         FirstStageEnding(taskId);
     }
 
-    __aicore__ inline void SecondStagePipeline(int64_t taskId) 
+    __aicore__ inline void SecondStagePipeline(int64_t taskId)
     {
         DoQGradMatmul(taskId);
         if (taskId > 0) {
@@ -781,7 +764,7 @@ public:
         qGradMatmul.End();
     }
 
-    __aicore__ inline void ComputeSecond() 
+    __aicore__ inline void ComputeSecond()
     {
         SyncAll();
 
@@ -881,42 +864,38 @@ public:
     GlobalTensor<qType> qkTemp;
     GlobalTensor<qType> gvTemp;
     GlobalTensor<qType> scoreTemp;
-    GlobalTensor<float> kGradAccumTemp; // qGrad share temp space with kGrad
+    GlobalTensor<float> kGradAccumTemp;  // qGrad share temp space with kGrad
     GlobalTensor<float> vGradAccumTemp;
     GlobalTensor<qType> maskTemp;
 
     // Matmul
-    matmul::Matmul<
-        matmul::MatmulType<TPosition::GM, CubeFormat::ND, qType, false>,
-        matmul::MatmulType<TPosition::GM, CubeFormat::ND, qType, true>,
-        matmul::MatmulType<TPosition::GM, CubeFormat::ND, qType, false>,
-        matmul::MatmulType<TPosition::GM, CubeFormat::ND, qType>, CFG_NORM,
-        matmul::MatmulCallBackFunc<nullptr, CopyQKA1<qType>, CopyQKB1<qType>>>
+    matmul::Matmul<matmul::MatmulType<TPosition::GM, CubeFormat::ND, qType, false>,
+                   matmul::MatmulType<TPosition::GM, CubeFormat::ND, qType, true>,
+                   matmul::MatmulType<TPosition::GM, CubeFormat::ND, qType, false>,
+                   matmul::MatmulType<TPosition::GM, CubeFormat::ND, qType>, CFG_NORM,
+                   matmul::MatmulCallBackFunc<nullptr, CopyQKA1<qType>, CopyQKB1<qType>>>
         qkMatmul;
 
-    matmul::Matmul<
-        matmul::MatmulType<TPosition::GM, CubeFormat::ND, qType, false>,
-        matmul::MatmulType<TPosition::GM, CubeFormat::ND, qType, false>,
-        matmul::MatmulType<TPosition::GM, CubeFormat::ND, float, false>,
-        matmul::MatmulType<TPosition::GM, CubeFormat::ND, qType>, CFG_NORM,
-        matmul::MatmulCallBackFunc<nullptr, CopyQGradA1<qType>, CopyVGradB1<qType>>>
+    matmul::Matmul<matmul::MatmulType<TPosition::GM, CubeFormat::ND, qType, false>,
+                   matmul::MatmulType<TPosition::GM, CubeFormat::ND, qType, false>,
+                   matmul::MatmulType<TPosition::GM, CubeFormat::ND, float, false>,
+                   matmul::MatmulType<TPosition::GM, CubeFormat::ND, qType>, CFG_NORM,
+                   matmul::MatmulCallBackFunc<nullptr, CopyQGradA1<qType>, CopyVGradB1<qType>>>
         qGradMatmul;
 
-    matmul::Matmul<
-        matmul::MatmulType<TPosition::GM, CubeFormat::ND, qType, true>,
-        matmul::MatmulType<TPosition::GM, CubeFormat::ND, qType, false>,
-        matmul::MatmulType<TPosition::GM, CubeFormat::ND, float, false>,
-        matmul::MatmulType<TPosition::GM, CubeFormat::ND, qType>, CFG_NORM,
-        matmul::MatmulCallBackFunc<nullptr, CopyKGradA1<qType>, CopyVGradB1<qType>>>
+    matmul::Matmul<matmul::MatmulType<TPosition::GM, CubeFormat::ND, qType, true>,
+                   matmul::MatmulType<TPosition::GM, CubeFormat::ND, qType, false>,
+                   matmul::MatmulType<TPosition::GM, CubeFormat::ND, float, false>,
+                   matmul::MatmulType<TPosition::GM, CubeFormat::ND, qType>, CFG_NORM,
+                   matmul::MatmulCallBackFunc<nullptr, CopyKGradA1<qType>, CopyVGradB1<qType>>>
         kGradMatmul;
 
-    matmul::Matmul<
-        matmul::MatmulType<TPosition::GM, CubeFormat::ND, qType, true>,
-        matmul::MatmulType<TPosition::GM, CubeFormat::ND, qType, false>,
-        matmul::MatmulType<TPosition::GM, CubeFormat::ND, float, false>,
-        matmul::MatmulType<TPosition::GM, CubeFormat::ND, qType>, CFG_NORM,
-        matmul::MatmulCallBackFunc<nullptr, nullptr, CopyVGradB1<qType>>>
+    matmul::Matmul<matmul::MatmulType<TPosition::GM, CubeFormat::ND, qType, true>,
+                   matmul::MatmulType<TPosition::GM, CubeFormat::ND, qType, false>,
+                   matmul::MatmulType<TPosition::GM, CubeFormat::ND, float, false>,
+                   matmul::MatmulType<TPosition::GM, CubeFormat::ND, qType>, CFG_NORM,
+                   matmul::MatmulCallBackFunc<nullptr, nullptr, CopyVGradB1<qType>>>
         vGradMatmul;
 };
-} // namespace HstuDenseBackward
+}  // namespace HstuDenseBackward
 #endif
