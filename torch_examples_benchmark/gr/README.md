@@ -73,9 +73,8 @@ torch.ops.load_library(/path/to/libfbgemm_npu_api.so) # 根据实际路径
 
 ```bash
 git clone https://github.com/meta-recsys/generative-recommenders.git
-cd generative-recommenders
-git checkout bb389f9539b054e7268528efcd35457a6ad52439
-git apply gr_npu.patch
+cd generative-recommenders & git checkout bb389f9539b054e7268528efcd35457a6ad52439
+cp ../gr_npu.patch ./ & git apply gr_npu.patch
 ```
 
 ## 数据集准备
@@ -98,7 +97,7 @@ export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
 python3 main.py --gin_config_file=configs/ml-1m/hstu-sampled-softmax-n128-large-final.gin --master_port=12345 | tee temp.log
 ```
 
-执行命令：
+拷贝run.sh与main.py同级目录，执行命令：
 `bash run.sh`
 
 ### 整网精度参考
