@@ -100,20 +100,20 @@ python3 main.py --gin_config_file=configs/ml-1m/hstu-sampled-softmax-n128-large-
 拷贝run.sh与main.py同级目录，执行命令：
 `bash run.sh`
 
-### 整网精度参考
+### 整网精度
 MovieLens-1M (ML-1M):
 
-| Method   | HR@10 | NDCG@10 | HR@50    | NDCG@50 | HR@200  | NDCG@200 |
-|-------|--------|--------|----------|--------|--------|-----------|
-|HSTU-large| 0.3294 | 0.1893 | 0.5935   | 0.2481   | 0.7839 | 0.2771    |
-参考：https://github.com/facebookresearch/generative-recommenders 
+| Method   | NDCG@10 | NDCG@50 | HR@10  | HR@50  | MRR    |
+|-------|---------|---------|--------|--------|--------|
+|HSTU-large| 0.1531  | 0.2142  | 0.2772 | 0.5531 | 0.1312 |
+
+开源精度参考：https://github.com/facebookresearch/generative-recommenders 
+
 
 ### 性能参考
-
 | Steps | NPU适配 | HSTU算子加速 |
 |-------|-------|----------|
-| 100   | 32.36 | 17.83    | 
-| 200   | 66.25 | 36.83    |
+| 100   | 68.59 | 16.96    | 
 
-
+说明：以上表示每100步耗时，单位：秒。
 ## FAQ
