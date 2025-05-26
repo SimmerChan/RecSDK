@@ -1,0 +1,239 @@
+#include <cstdint>
+#include "register/op_def_registry.h"
+#include "tiling_policy.h"
+
+namespace HstuDenseForward {
+
+ShapeRange::ShapeRange(int64_t lbound, int64_t ubound, int64_t mutiple, const char *name)
+{
+    this->lbound = lbound;
+    this->ubound = ubound;
+    this->mutiple = mutiple;
+    this->name = name;
+}
+
+bool ShapeRange::Check(int64_t val) const
+{
+    OPS_LOGD_IF((val < lbound || val > ubound || val % mutiple != 0),
+        printf("%s must meet range[%lld %lld] and mutiple of [%lld]. but get value %lld\n",
+            name, lbound, ubound, mutiple, val),
+        return false);
+    return true;
+}
+
+ge::graphStatus TilingPolicy::InferShape(gert::InferShapeContext* context)
+{
+    const gert::Shape* queryShape = context->GetInputShape(INDEX_T::INDEX_0);
+    OPS_LOGD_IF_NULL(queryShape, return ge::GRAPH_FAILED);
+
+    gert::Shape* attenOutputShape = context->GetOutputShape(INDEX_T::INDEX_0);
+    OPS_LOGD_IF_NULL(attenOutputShape, return ge::GRAPH_FAILED);
+    *attenOutputShape = *queryShape;
+
+    return ge::GRAPH_SUCCESS;
+}
+
+ge::graphStatus TilingPolicy::InferDtype(gert::InferDataTypeContext* context)
+{
+    context->SetOutputDataType(0, context->GetInputDataType(0));
+    context->SetOutputDataType(1, context->GetInputDataType(0));
+
+    return ge::GRAPH_SUCCESS;
+}
+
+ge::graphStatus TilingPolicy::TilingProcess(gert::TilingContext *context)
+{
+    OPS_LOGD_IF_NULL(context, return ge::GRAPH_FAILED);
+
+    optiling::HstuDenseForwardTilingData tiling;
+
+    // step0: check platform is support
+    OPS_LOGD_IF(!CheckIsSupport(context), printf("CheckIsSupport is failed.\n"), return ge::GRAPH_FAILED);
+
+    // step1: get attribute
+    OPS_LOGD_IF(!TilingAttribute(context, tiling), printf("TilingAttribute is failed.\n"), return ge::GRAPH_FAILED);
+
+    // step2: get key shape form input
+    OPS_LOGD_IF(!TilingShape(context, tiling), printf("TilingShape is failed.\n"), return ge::GRAPH_FAILED);
+
+    // step3: tiling core
+    OPS_LOGD_IF(!TilingCore(context, tiling), printf("TilingCore is failed.\n"), return ge::GRAPH_FAILED);
+
+    // step4: hight level api tiling
+    OPS_LOGD_IF(!TilingHeighLevelApi(context, tiling), printf("TilingHeight is failed.\n"), return ge::GRAPH_FAILED);
+
+    // step5: set tiling key
+    OPS_LOGD_IF(!TilingKeySet(context, tiling), printf("TilingKeySet is failed.\n"), return ge::GRAPH_FAILED);
+
+    // step6: tiling save to buffer
+    OPS_LOGD_IF(!TilingSaveToBuffer(context, tiling), printf("TilingSaveToBuffer is failed.\n"), \
+        return ge::GRAPH_FAILED);
+
+    return ge::GRAPH_SUCCESS;
+}
+
+bool TilingPolicy::TilingSaveToBuffer(gert::TilingContext* context, optiling::HstuDenseForwardTilingData &tiling)
+{
+    tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
+    context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
+    return true;
+}
+
+bool TilingPolicy::CheckIsSupport(gert::TilingContext* context)
+{
+    return true;
+}
+
+bool TilingPolicy::TilingShape(gert::TilingContext* context, optiling::HstuDenseForwardTilingData &tiling)
+{
+    // base unrealized
+    return false;
+}
+
+bool TilingPolicy::GeneralShapeCheck(int64_t batchSize, int64_t seqLen, int64_t headNum, int64_t dim)
+{
+    static const ShapeRange SEQ_RANGE(1, 20480, 1, "seq size");
+    static const ShapeRange BATCH_RANGE(1, MAX_BATCH_SIZE, 1, "batch size");
+    static const ShapeRange DIM_RANGE(16, 512, 16, "dim size");
+    static const ShapeRange HEAD_RANGE(2, 8, 2, "head num");
+
+    if (!SEQ_RANGE.Check(seqLen)) {
+        return false;
+    }
+
+    if (!BATCH_RANGE.Check(batchSize)) {
+        return false;
+    }
+
+    if (!HEAD_RANGE.Check(headNum)) {
+        return false;
+    }
+
+    if (!DIM_RANGE.Check(dim)) {
+        return false;
+    }
+
+    return true;
+}
+
+bool TilingPolicy::TilingAttribute(gert::TilingContext* context, optiling::HstuDenseForwardTilingData &tiling)
+{
+    const gert::RuntimeAttrs* attrs = context->GetAttrs();
+    OPS_LOGD_IF_NULL(attrs, return false);
+
+    const uint32_t *maskType = attrs->GetAttrPointer<uint32_t>(INDEX_T::INDEX_0);
+    OPS_LOGD_IF_NULL(maskType, return false);
+
+    const uint32_t *maxSeqLen = attrs->GetAttrPointer<uint32_t>(INDEX_T::INDEX_1);
+    OPS_LOGD_IF_NULL(maxSeqLen, return false);
+
+    const float *siluScale = attrs->GetAttrPointer<float>(INDEX_T::INDEX_2);
+    OPS_LOGD_IF_NULL(siluScale, return false);
+
+    auto biasTensor = context->GetOptionalInputTensor(INDEX_T::INDEX_4);
+    if (biasTensor == nullptr) {
+        tiling.set_enableBias(0);
+    } else {
+        tiling.set_enableBias(1);
+    }
+
+    tiling.set_maskType(*maskType);
+    tiling.set_siluScale(*siluScale);
+    tiling.set_maxSeqLen(*maxSeqLen);
+    return true;
+}
+
+bool TilingPolicy::TilingHeighLevelApi(gert::TilingContext* context, optiling::HstuDenseForwardTilingData &tiling)
+{
+    int64_t dim = tiling.get_dim();
+
+    matmul_tiling::DataType dataType;
+    ge::DataType qTypeGe = context->GetInputTensor(0)->GetDataType();
+    if (qTypeGe == ge::DataType::DT_FLOAT) {
+        dataType = matmul_tiling::DataType::DT_FLOAT;
+    } else if (qTypeGe == ge::DataType::DT_FLOAT16) {
+        dataType = matmul_tiling::DataType::DT_FLOAT16;
+    } else {
+        dataType = matmul_tiling::DataType::DT_BFLOAT16;
+    }
+
+    auto ascendPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
+    size_t* currentWorkspace = context->GetWorkspaceSizes(1);
+    size_t systemWorkspacesSize = ascendPlatform.GetLibApiWorkSpaceSize();
+    size_t coreNum = ascendPlatform.GetCoreNumAic();
+
+    int64_t oneBlockMidElem = BLOCK_HEIGHT * BLOCK_HEIGHT * COMPUTE_PIPE_NUM;
+    int64_t oneCoreMidElem = coreNum * VCORE_NUM_IN_ONE_AIC * oneBlockMidElem;
+
+    int64_t oneBlockMidTransElem = BLOCK_HEIGHT * dim * TRANS_PIPE_NUM;
+    int64_t oneCoreTransMidElem = coreNum * VCORE_NUM_IN_ONE_AIC * oneBlockMidTransElem;
+
+    int64_t workspaceSize = (oneCoreMidElem + oneCoreTransMidElem) * sizeof(float);
+    currentWorkspace[0] = workspaceSize + systemWorkspacesSize;
+
+    // apply qk
+    matmul_tiling::MatmulApiTiling qkMatmul(ascendPlatform);
+    qkMatmul.SetAType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, dataType);
+    qkMatmul.SetBType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, dataType);
+    qkMatmul.SetCType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, dataType);
+    qkMatmul.SetBiasType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, dataType);
+
+    tiling.set_blockHeight(BLOCK_HEIGHT);
+
+    qkMatmul.SetOrgShape(BLOCK_HEIGHT, BLOCK_HEIGHT, dim);
+    qkMatmul.SetShape(BLOCK_HEIGHT, BLOCK_HEIGHT, dim);
+    qkMatmul.SetBias(false);
+    qkMatmul.SetBufferSpace(-1, -1, -1);
+
+    matmul_tiling::MatmulApiTiling svMatmul(ascendPlatform);
+    svMatmul.SetAType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, dataType);
+    svMatmul.SetBType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, dataType);
+    svMatmul.SetCType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, matmul_tiling::DataType::DT_FLOAT);
+    svMatmul.SetBiasType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, dataType);
+
+    svMatmul.SetOrgShape(BLOCK_HEIGHT, dim, BLOCK_HEIGHT);
+    svMatmul.SetShape(BLOCK_HEIGHT, dim, BLOCK_HEIGHT);
+    svMatmul.SetBias(false);
+    svMatmul.SetBufferSpace(-1, -1, -1);
+
+    if (qkMatmul.GetTiling(tiling.qkMatmul) == -1 || svMatmul.GetTiling(tiling.svMatmul) == -1) {
+        return false;
+    }
+
+    tiling.set_qkBaseM(tiling.qkMatmul.get_baseM());
+    tiling.set_qkBaseN(tiling.qkMatmul.get_baseN());
+
+    tiling.set_svBaseM(tiling.svMatmul.get_baseM());
+    tiling.set_svBaseN(tiling.svMatmul.get_baseN());
+
+    return true;
+}
+
+bool TilingPolicy::TilingCore(gert::TilingContext* context, optiling::HstuDenseForwardTilingData &tiling)
+{
+    auto ascendPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
+    size_t coreNum = ascendPlatform.GetCoreNumAic();
+    context->SetBlockDim(coreNum);
+    return true;
+}
+
+bool TilingPolicy::TilingKeySet(gert::TilingContext* context, optiling::HstuDenseForwardTilingData &tiling)
+{
+    // base unrealized
+    return false;
+}
+
+void TilingPolicy::DumpTiling(optiling::HstuDenseForwardTilingData &tiling)
+{
+    printf("batchSize = %ld\n", tiling.get_batchSize());
+    printf("seqLen = %ld\n", tiling.get_seqLen());
+    printf("headNum = %ld\n", tiling.get_headNum());
+    printf("dim = %ld\n", tiling.get_dim());
+
+    printf("enableBias = %d\n", tiling.get_enableBias());
+    printf("maskType = %d\n", tiling.get_maskType());
+    printf("maxSeqLen = %d\n", tiling.get_maxSeqLen());
+    printf("siluScale = %f\n", tiling.get_siluScale());
+}
+
+}
