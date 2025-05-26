@@ -13,22 +13,15 @@ See the License for the specific language governing permissions and
         limitations under the License.
 ==============================================================================*/
 
-#ifndef DEVICE_ADAPTOR_H
-#define DEVICE_ADAPTOR_H
-
 #include "device_interface.h"
-#include <cstdint>
+#include "acl_adaptor.h"
 
 namespace tensorflow {
 namespace npu_xla {
 
-
-class DeviceAdaptor {
-public:
-    static DeviceInterface& GetDevice(int32_t deviceId);
-};
+DeviceInterface& DeviceInterface::Create(int32_t deviceId) {
+    return AclAdaptor::GetInstance(deviceId);
+}
 
 } // namespace npu_xla
 } // namespace tensorflow
-
-#endif // DEVICE_ADAPTOR_H

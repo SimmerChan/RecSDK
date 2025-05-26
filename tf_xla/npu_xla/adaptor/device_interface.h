@@ -33,6 +33,8 @@ public:
     virtual bool MemcpyHToD(void* dst, size_t dstSize, const void* src, size_t srcSize) = 0;
 
     virtual bool MemcpyDToH(void* dst, size_t dstSize, const void* src, size_t srcSize) = 0;
+
+    static DeviceInterface& Create(int32_t deviceId);
 };
 
 } // namespace npu_xla

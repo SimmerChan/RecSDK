@@ -24,12 +24,19 @@ cc_library(
 )
 
 cc_library(
-    name = "device_adaptor",
-    srcs = ["adaptor/device_adaptor.cpp"],
-    hdrs = ["adaptor/device_adaptor.h"],
+    name = "device_interface_imp",
+    srcs = ["adaptor/device_interface.cpp"],
+    deps = [
+        ":acl_adaptor",
+    ]
+)
+
+cc_library(
+    name = "device_interface_mock",
+    hdrs = ["adaptor/device_interface_mock.h"],
     deps = [
         ":device_interface",
-        ":acl_adaptor",
+        "@com_google_googletest//:gtest",
     ],
 )
 
@@ -78,8 +85,7 @@ cc_library(
         ],
     ),
     deps = [
-            ":device_adaptor",
-            "acl_adaptor",
+            ":acl_adaptor",
             ":common_hdrs",
             "@local_config_tf//:tf_header_lib",
             "@local_config_tf//:libtensorflow_framework",
@@ -116,9 +122,8 @@ cc_library(
         ],
     ),
     deps = [
-            ":device_adaptor",
-            "acl_adaptor",
-            "common_hdrs",
+            ":device_interface_imp",
+            ":common_hdrs",
             "@acl_base//:acl_deps",
             "@local_config_tf//:tf_header_lib",
             "@local_config_tf//:libtensorflow_framework",
@@ -150,5 +155,20 @@ tf_cc_shared_object(
     ],
     linkopts = [
         "-z defs",
+    ],
+)
+
+cc_test(
+    name = "pluggable_npu_device_test",
+    srcs = ["npu_device/pluggable_npu_device_test.cpp"],
+    copts = ["-DGOOGLE_TEST"],
+    deps = [
+        ":device_interface_mock",
+        ":device_interface_imp",
+        ":npu_device",
+        ":common_hdrs",
+        "@local_config_tf//:tf_header_lib",
+        "@local_config_tf//:libtensorflow_framework",
+        "@com_google_googletest//:gtest_main",
     ],
 )

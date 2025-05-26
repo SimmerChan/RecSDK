@@ -13,13 +13,27 @@ See the License for the specific language governing permissions and
         limitations under the License.
 ==============================================================================*/
 
-#include "device_adaptor.h"
-#include "acl_adaptor.h"
-#include <cstdlib>
+#ifndef DEVICE_INTERFACE_MOCK_H
+#define DEVICE_INTERFACE_MOCK_H
 
-using namespace tensorflow::npu_xla;
+#include <gmock/gmock.h>
+#include "device_interface.h"
 
-// 用于扩展，可在此检查环境变量，返回对应实例
-DeviceInterface& DeviceAdaptor::GetDevice(int32_t deviceId) {
-    return AclAdaptor::GetInstance(deviceId);
-}
+namespace tensorflow {
+namespace npu_xla {
+
+class DeviceInterfaceMock : public DeviceInterface {
+public:
+    MOCK_METHOD(void*, Allocate, (size_t), (override));
+
+    MOCK_METHOD(void, Deallocate, (void*), (override));
+
+    MOCK_METHOD(bool, MemcpyHToD, (void*, size_t, const void*, size_t), (override));
+    
+    MOCK_METHOD(bool, MemcpyDToH, (void*, size_t, const void*, size_t), (override));
+};
+
+}  // namespace npu_xla
+}  // namespace tensorflow
+
+#endif // DEVICE_INTERFACE_MOCK_H
