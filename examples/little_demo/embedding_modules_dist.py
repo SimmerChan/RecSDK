@@ -22,10 +22,7 @@ import torch
 import torch.distributed as dist
 
 from initialization import truncated_normal
-from .embedding_function_dist import (
-    DistributedEmbeddingFunctionInput,
-    DistributedEmbeddingFunction,
-)
+from .embedding_function_dist import DistributedEmbeddingFunction
 
 
 class EmbeddingModule(torch.nn.Module):
@@ -78,10 +75,9 @@ class LocalEmbeddingModule(EmbeddingModule):
         self.reset_params()
 
     def forward(self, input_ids: torch.Tensor) -> torch.Tensor:
-        embedding_input_params = DistributedEmbeddingFunctionInput(
+        return DistributedEmbeddingFunction.apply(
             input_ids, self._item_emb.weight, self.shard_start, self.shard_end
         )
-        return DistributedEmbeddingFunction.apply(embedding_input_params)
 
     def debug_str(self) -> str:
         return f"local_emb_d{self._item_embedding_dim}"

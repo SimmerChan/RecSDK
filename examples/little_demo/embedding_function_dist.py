@@ -19,23 +19,6 @@ import torch
 import torch.distributed as dist
 
 
-@dataclass
-class DistributedEmbeddingFunctionInput:
-    """Input container for distributed embedding function.
-
-    Attributes:
-        input_ids: Tensor of input IDs to look up in the embedding table
-        local_embedding: Local shard of the embedding table
-        shard_start: Starting index of the local shard in the global embedding table
-        shard_end: Ending index of the local shard in the global embedding table
-    """
-
-    input_ids: torch.Tensor
-    local_embedding: torch.Tensor
-    shard_start: int
-    shard_end: int
-
-
 class DistributedEmbeddingFunction(torch.autograd.Function):
     """Custom autograd function for distributed embedding lookup.
 
@@ -44,12 +27,15 @@ class DistributedEmbeddingFunction(torch.autograd.Function):
     """
 
     @staticmethod
-    def forward(ctx, embedding_input: DistributedEmbeddingFunctionInput):
+    def forward(ctx, expected_lookup_ids, local_embedding, shard_start, shard_end):
         """Forward pass for distributed embedding lookup.
 
         Args:
             ctx: Context object to save information for backward pass
-            embedding_input: Container with input IDs, local embedding shard, and shard boundaries
+            expected_lookup_ids: Tensor containing input IDs
+            local_embedding: Tensor containing local embedding weights
+            shard_start: Starting index of the local embedding shard
+            shard_end: Ending index of the local embedding shard
 
         Returns:
             Tensor containing embedding vectors for the input IDs
@@ -64,14 +50,11 @@ class DistributedEmbeddingFunction(torch.autograd.Function):
             device = "cpu"
 
         # Extract input parameters
-        expected_lookup_ids = embedding_input.input_ids
-        local_embedding = embedding_input.local_embedding
-        shard_start = embedding_input.shard_start
-        shard_end = embedding_input.shard_end
         embedding_dim = local_embedding.size(-1)
 
         # Save information for backward pass
         ctx.embedding_weight_shape = local_embedding.shape
+        ctx.embedding_dim = embedding_dim
 
         # Special case: single process (no distribution needed)
         if world_size == 1:
@@ -162,8 +145,7 @@ class DistributedEmbeddingFunction(torch.autograd.Function):
             expected_lookup_unique_ids_dist_counts
         )
         ctx.real_lookup_ids_dist_counts = real_lookup_ids_dist_counts
-        ctx.embedding_dim = embedding_dim
-        return expected_lookup_res
+        return expected_lookup_res.reshape(*expected_lookup_ids.shape, -1)
 
     @staticmethod
     def backward(ctx, grad_output):
@@ -209,6 +191,8 @@ class DistributedEmbeddingFunction(torch.autograd.Function):
         expected_lookup_embedding_grad = torch.zeros(
             len(expected_lookup_unique_ids),
             embedding_dim,
+            device=grad_output.device,
+            dtype=grad_output.dtype,
         )
         expected_lookup_embedding_grad.index_add_(
             0, expected_lookup_inverse_indices.flatten(), flat_grad_output
@@ -223,6 +207,8 @@ class DistributedEmbeddingFunction(torch.autograd.Function):
         # Step 2: Prepare buffer for receiving gradients from other ranks
         real_lookup_embedding_grad = torch.zeros(
             sum(real_lookup_ids_dist_counts) * embedding_dim,
+            device=grad_output.device,
+            dtype=grad_output.dtype,
         )
 
         # Step 3: Exchange gradients with all ranks (reverse of forward pass)
