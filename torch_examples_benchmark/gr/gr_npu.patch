@@ -660,3 +660,11 @@ index 78b44a1..6524de8 100644
      mp.spawn(
          mp_train_fn,
          args=(world_size, FLAGS.master_port, FLAGS.gin_config_file),
+diff --git a/prefetch_shape.py b/prefetch_shape.py
+new file mode 100644
+index 0000000..c71a4d9
+--- /dev/null
++++ b/prefetch_shape.py
+@@ -0,0 +1 @@
++args = {"offset": 0}
+\ No newline at end of file
