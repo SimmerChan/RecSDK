@@ -388,7 +388,7 @@ HstuDenseForwardJaggedKernel<qType>::PreInit(const HstuDenseForwardTilingData *_
 }
 
 #ifndef INVOKE_HSTU_JAGGED_OP_IMPL
-#define INVOKE_HSTU_JAGGED_OP_IMPL(...)       \
+#define INVOKE_HSTU_JAGGED_OP_IMPL(args, ...)       \
     do {                                      \
         TPipe tPipe;                 \
         HstuDenseForward::HstuDenseForwardJaggedKernel<__VA_ARGS__> op;  \

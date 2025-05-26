@@ -24,11 +24,11 @@ extern "C" __global__ __aicore__ void hstu_dense_forward(GM_ADDR q, GM_ADDR k, G
     } else if (TILING_KEY_IS(2)) {
         INVOKE_HSTU_NORMAL_OP_IMPL(float);
     } else if (TILING_KEY_IS(3)) {
-        INVOKE_HSTU_JAGGED_OP_IMPL(half);
+        INVOKE_HSTU_JAGGED_OP_IMPL(args, half);
     } else if (TILING_KEY_IS(4)) {
-        INVOKE_HSTU_JAGGED_OP_IMPL(bfloat16_t);
+        INVOKE_HSTU_JAGGED_OP_IMPL(args, bfloat16_t);
     } else if (TILING_KEY_IS(5)) {
-        INVOKE_HSTU_JAGGED_OP_IMPL(float);
+        INVOKE_HSTU_JAGGED_OP_IMPL(args, float);
     }
 #endif
 }

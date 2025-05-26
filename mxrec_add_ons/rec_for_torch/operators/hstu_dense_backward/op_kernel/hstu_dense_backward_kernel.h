@@ -19,6 +19,7 @@ See the License for the specific language governing permissions and
 #include "hstu_dense_backward_kernel_common.h"
 
 namespace HstuDenseBackward {
+constexpr int32_t TWO = 2;
 
 struct BlockInfo {
     int64_t taskId;
@@ -649,8 +650,8 @@ public:
         DoQKMatmul(taskId);
         DoGVMatmul(taskId);
         if (taskId > 1) {
-            DoVGradMatmul(taskId - 2);
-            DoKGradMatmul(taskId - 2);
+            DoVGradMatmul(taskId - TWO);
+            DoKGradMatmul(taskId - TWO);
         }
         if (taskId > 0) {
             VecScore(taskId - 1);
@@ -665,10 +666,10 @@ public:
             vGradMatmul.End();
             kGradMatmul.WaitIterateAll();
             kGradMatmul.End();
-            if (taskInfo[(taskId - 2) % COMPUTE_PIPE_NUM].accumId !=
+            if (taskInfo[(taskId - TWO) % COMPUTE_PIPE_NUM].accumId !=
                 taskInfo[(taskId - 1) % COMPUTE_PIPE_NUM].accumId) {
-                DoTrans(taskId - 2, vGradAccumTemp, vGrad);
-                DoTrans(taskId - 2, kGradAccumTemp, kGrad);
+                DoTrans(taskId - TWO, vGradAccumTemp, vGrad);
+                DoTrans(taskId - TWO, kGradAccumTemp, kGrad);
             }
         }
     }
@@ -676,17 +677,17 @@ public:
     __aicore__ inline void FirstStageEnding(int64_t taskId)
     {
         if (taskId > 1) {
-            DoVGradMatmul(taskId - 2);
-            DoKGradMatmul(taskId - 2);
+            DoVGradMatmul(taskId - TWO);
+            DoKGradMatmul(taskId - TWO);
             VecScore(taskId - 1);
             vGradMatmul.WaitIterateAll();
             vGradMatmul.End();
             kGradMatmul.WaitIterateAll();
             kGradMatmul.End();
-            if (taskInfo[(taskId - 2) % COMPUTE_PIPE_NUM].accumId !=
+            if (taskInfo[(taskId - TWO) % COMPUTE_PIPE_NUM].accumId !=
                 taskInfo[(taskId - 1) % COMPUTE_PIPE_NUM].accumId) {
-                DoTrans(taskId - 2, vGradAccumTemp, vGrad);
-                DoTrans(taskId - 2, kGradAccumTemp, kGrad);
+                DoTrans(taskId - TWO, vGradAccumTemp, vGrad);
+                DoTrans(taskId - TWO, kGradAccumTemp, kGrad);
             }
 
             DoVGradMatmul(taskId - 1);
@@ -720,7 +721,7 @@ public:
 
         int64_t totalAivNum = GetBlockNum() * VCORE_NUM_IN_ONE_AIC;
         int64_t startId = GetBlockIdx();
-        int64_t nextCol = totalAivNum * 2 - GetBlockIdx() * 2 - 1;
+        int64_t nextCol = totalAivNum * TWO - GetBlockIdx() * TWO - 1;
 
         for (int64_t gColId = startId; gColId < totalColBlockNum;) {
             int64_t batchId = gColId / (headNum * colBlockNum);
@@ -746,7 +747,7 @@ public:
             }
             accumId++;
             gColId += nextCol;
-            nextCol = totalAivNum * 2 - nextCol;
+            nextCol = totalAivNum * TWO - nextCol;
         }
 
         FirstStageEnding(taskId);
@@ -773,7 +774,7 @@ public:
 
         int64_t totalAivNum = GetBlockNum() * VCORE_NUM_IN_ONE_AIC;
         int64_t startId = GetBlockIdx();
-        int64_t nextRow = totalAivNum * 2 - GetBlockIdx() * 2 - 1;
+        int64_t nextRow = totalAivNum * TWO - GetBlockIdx() * TWO - 1;
 
         for (int64_t gRowId = startId; gRowId < totalRowBlockNum;) {
             int64_t batchId = gRowId / (headNum * rowBlockNum);
@@ -800,7 +801,7 @@ public:
 
             accumId++;
             gRowId += nextRow;
-            nextRow = totalAivNum * 2 - nextRow;
+            nextRow = totalAivNum * TWO - nextRow;
         }
 
         if (taskId > 0) {
