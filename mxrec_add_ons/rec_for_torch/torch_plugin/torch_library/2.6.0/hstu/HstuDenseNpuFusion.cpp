@@ -253,7 +253,8 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> hstu_dense_jagged_bac
     const double siluScale,
     c10::optional<at::IntArrayRef> seqOffset)
 {
-    TORCH_CHECK(grad.dim() == 3, "The grad should be 3D in jagged layout");
+    constexpr int dim = 3;
+    TORCH_CHECK(grad.dim() == dim, "The grad should be 3D in jagged layout");
 
     auto acSeqOffset = seqOffset.value_or(at::IntArrayRef{});
     TORCH_CHECK(acSeqOffset.size() >= CONST_2, "acSeqOffset params error should have at least two element.");

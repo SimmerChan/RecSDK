@@ -271,7 +271,7 @@ private:
 
 
 #ifndef INVOKE_HSTU_NORMAL_OP_IMPL
-#define INVOKE_HSTU_NORMAL_OP_IMPL(...)    \
+#define INVOKE_HSTU_NORMAL_OP_IMPL(args, ...)    \
     do {                                   \
         TPipe tPipe;                        \
         HstuDenseForward::HstuDenseForwardKernel<__VA_ARGS__> op;  \
