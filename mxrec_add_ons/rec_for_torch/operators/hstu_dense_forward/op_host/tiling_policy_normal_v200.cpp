@@ -8,24 +8,24 @@ namespace HstuDenseForward {
 REGISTER_POLICY(LAYOUT_TYPE::NORMALV200, std::make_shared<TilingPolicyNormalv200>());
 bool TilingPolicyNormalv200::GeneralShapeCheck(int64_t batchSize, int64_t seqLen, int64_t headNum, int64_t dim)
 {
-    static const ShapeRange SEQ_RANGE(128, 4096, BLOCK_HEIGHT, "seq size");
-    static const ShapeRange BATCH_RANGE(1, MAX_BATCH_SIZE, 1, "batch size");
-    static const ShapeRange DIM_RANGE(16, 128, 16, "dim size");
-    static const ShapeRange HEAD_RANGE(1, 8, 1, "head num");
+    static const ShapeRange seqRange(128, 4096, BLOCK_HEIGHT, "seq size");
+    static const ShapeRange batchRange(1, MAX_BATCH_SIZE, 1, "batch size");
+    static const ShapeRange dimRange(16, 128, 16, "dim size");
+    static const ShapeRange headRange(1, 8, 1, "head num");
 
-    if (!SEQ_RANGE.Check(seqLen)) {
+    if (!seqRange.Check(seqLen)) {
         return false;
     }
 
-    if (!BATCH_RANGE.Check(batchSize)) {
+    if (!batchRange.Check(batchSize)) {
         return false;
     }
 
-    if (!HEAD_RANGE.Check(headNum)) {
+    if (!headRange.Check(headNum)) {
         return false;
     }
 
-    if (!DIM_RANGE.Check(dim)) {
+    if (!dimRange.Check(dim)) {
         return false;
     }
 

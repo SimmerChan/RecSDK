@@ -3,29 +3,29 @@ from onnx.helper import make_tensor, make_tensor_value_info, make_attribute, mak
 from onnx.checker import check_model
 import onnx
 
-casual = 1
-batch_size = 1
-max_seq_len = 768
-num_heads = 4
-attention_dim = 32
-siluScale = 1 / max_seq_len
-maskType = 3
-layout = "normal"
+CASUAL = 1
+BATCH_SIZE = 1
+MAX_SEQ_LEN = 768
+NUM_HEADS = 4
+ATTENTION_DIM = 32
+SILUSCALE = 1 / MAX_SEQ_LEN
+MASKTYPE = 3
+LAYOUT = "normal"
 
-q = make_tensor_value_info("q", TensorProto.FLOAT16, [batch_size, max_seq_len, num_heads, attention_dim])
-k = make_tensor_value_info("k", TensorProto.FLOAT16, [batch_size, max_seq_len, num_heads, attention_dim])
-v = make_tensor_value_info("v", TensorProto.FLOAT16, [batch_size, max_seq_len, num_heads, attention_dim])
-attn_bias = make_tensor_value_info("attn_bias", TensorProto.FLOAT16, [batch_size, num_heads, max_seq_len, max_seq_len])
-mask = make_tensor_value_info("mask", TensorProto.FLOAT16, [batch_size, 1, max_seq_len, max_seq_len])
+q = make_tensor_value_info("q", TensorProto.FLOAT16, [BATCH_SIZE, MAX_SEQ_LEN, NUM_HEADS, ATTENTION_DIM])
+k = make_tensor_value_info("k", TensorProto.FLOAT16, [BATCH_SIZE, MAX_SEQ_LEN, NUM_HEADS, ATTENTION_DIM])
+v = make_tensor_value_info("v", TensorProto.FLOAT16, [BATCH_SIZE, MAX_SEQ_LEN, NUM_HEADS, ATTENTION_DIM])
+attn_bias = make_tensor_value_info("attn_bias", TensorProto.FLOAT16, [BATCH_SIZE, NUM_HEADS, MAX_SEQ_LEN, MAX_SEQ_LEN])
+mask = make_tensor_value_info("mask", TensorProto.FLOAT16, [BATCH_SIZE, 1, MAX_SEQ_LEN, MAX_SEQ_LEN])
 
-attn_output = make_tensor_value_info("attn_output", TensorProto.FLOAT16, [batch_size, max_seq_len, num_heads, attention_dim])
+attn_output = make_tensor_value_info("attn_output", TensorProto.FLOAT16, [BATCH_SIZE, MAX_SEQ_LEN, NUM_HEADS, ATTENTION_DIM])
 
 node = make_node("HstuDenseForward", ["q", "k", "v", "mask", "attn_bias"], ["attn_output"])
-node.attribute.append(make_attribute("siluScale", siluScale))
-node.attribute.append(make_attribute("maxSeqLen", max_seq_len))
-node.attribute.append(make_attribute("maskType", maskType))
-node.attribute.append(make_attribute("casual", casual))
-node.attribute.append(make_attribute("layout", layout))
+node.attribute.append(make_attribute("siluScale", SILUSCALE))
+node.attribute.append(make_attribute("maxSeqLen", MAX_SEQ_LEN))
+node.attribute.append(make_attribute("maskType", MASKTYPE))
+node.attribute.append(make_attribute("casual", CASUAL))
+node.attribute.append(make_attribute("layout", LAYOUT))
 
 graph = make_graph([node], "hstu", [q, k, v, mask, attn_bias], [attn_output])
 
@@ -34,5 +34,3 @@ model_def = make_model(graph, producer_name="hstu-onnx")
 model_def.opset_import[0].version = 11
 
 onnx.save(model_def, "hstu.onnx")
-
-print('The model is:\n{}'.format(model_def))

@@ -172,7 +172,7 @@ static ge::graphStatus InferDtype(gert::InferDataTypeContext *context)
 namespace ops {
 class HstuDenseBackward : public OpDef {
 public:
-    explicit HstuDenseBackward(const char *name) : OpDef(name) 
+    explicit HstuDenseBackward(const char *name) : OpDef(name)
     {
         this->Input("grad")
             .ParamType(REQUIRED)
