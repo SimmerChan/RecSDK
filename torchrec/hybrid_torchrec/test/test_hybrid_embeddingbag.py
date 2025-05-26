@@ -45,7 +45,6 @@ LOOP_TIMES = 8
 BATCH_NUM = 32
 WORLD_SIZE = 2
 
-torch.ops.load_library("/home/zengxiong/20250401_torchrec/depend/torch2.6.0/mindxsdk-mxrec-add-ons-poc/torch_library/2.5.1/common/build/libfbgemm_npu_api.so")
 
 def generate_base_config(
     embedding_dims, num_embeddings, pool_type
@@ -232,7 +231,7 @@ class TestModel:
 @pytest.mark.parametrize("embedding_dims", [[32, 64, 128]])
 @pytest.mark.parametrize("num_embeddings", [[400, 4000, 400]])
 @pytest.mark.parametrize("pool_type", [torchrec.PoolingType.MEAN])
-@pytest.mark.parametrize("sharding_type", ["row_wise"])
+@pytest.mark.parametrize("sharding_type", ["table_wise", "row_wise"])
 @pytest.mark.parametrize("lockup_len", [1024])
 @pytest.mark.parametrize("device", ["npu"])
 def test_hstu_dens_normal(

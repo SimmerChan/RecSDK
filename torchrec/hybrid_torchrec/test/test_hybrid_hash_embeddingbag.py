@@ -5,8 +5,6 @@
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
-import sys
-sys.path.append("/home/zengxiong/20250401_torchrec/RecSDK/torchrec/hybrid_torchrec/hybrid_torchrec")
 import logging
 import os
 import sysconfig
@@ -51,7 +49,7 @@ OPTIMIZER_PARAM = {
     Adam: dict(lr=0.02),
     Adagrad: dict(lr=0.02, eps=1.0e-8),
 }
-torch.ops.load_library("/home/zengxiong/20250401_torchrec/depend/torch2.6.0/mindxsdk-mxrec-add-ons-poc/torch_library/2.5.1/common/build/libfbgemm_npu_api.so")
+
 
 def generate_hash_config(
     embedding_dims, num_embeddings, pool_type
@@ -239,7 +237,7 @@ class TestModel:
 @pytest.mark.parametrize("sharding_type", ["table_wise", "row_wise"])
 @pytest.mark.parametrize("lockup_len", [1024])
 @pytest.mark.parametrize("device", ["npu"])
-@pytest.mark.parametrize("optim", [Adam])
+@pytest.mark.parametrize("optim", [Adagrad])
 def test_hstu_dens_normal(
     table_num,
     embedding_dims,

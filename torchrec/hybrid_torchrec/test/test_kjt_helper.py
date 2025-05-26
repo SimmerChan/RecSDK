@@ -5,8 +5,7 @@
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
-import sys
-sys.path.append("/home/zengxiong/20250401_torchrec/RecSDK/torchrec/hybrid_torchrec/hybrid_torchrec")
+
 import pytest
 import torch
 
@@ -19,45 +18,37 @@ TEST_NUM = 100
 IDS_RANGE_TIMES = 10
 
 
-@pytest.mark.parametrize("table_num", [1])
-@pytest.mark.parametrize("feature_names", [[1]])
-@pytest.mark.parametrize("input_size", [10])
+@pytest.mark.parametrize("table_num", [3])
+@pytest.mark.parametrize("feature_names", [[2, 3, 4]])
+@pytest.mark.parametrize("input_size", [1000])
 def test_unique_split(table_num, feature_names, input_size):
     """Test ids2indices with sequential numbers"""
     keys = [f"feat{str(i)}" for i in range(sum(feature_names))]
-    print("keys:", keys)
     total_values = []
     length = [input_size for i in range(sum(feature_names))]
-    print("length:", length)
+
     for table_id in range(table_num):
         for _ in range(feature_names[table_id]):
             value = torch.randint(0, input_size, (input_size,))
             total_values.append(value)
-    print("total_values: ",total_values)
     kjt = KeyedJaggedTensor(
         keys=keys,
         values=torch.cat(total_values).reshape(-1),
         lengths=torch.Tensor(length).long(),
     )
-    print("kjt:", kjt)
     kjt_list = kjt.split(feature_names)
-    print("kjt_list", kjt_list)
-    print("kjt.keys():", kjt.keys())
     unique_indices = []
     unique_inverse = []
     unique_offset = []
     start = 0
     for kjt in kjt_list:
         unique_indice, inverse = torch.unique(kjt.values(), return_inverse=True)
-        print("unique_indice:",unique_indice)
-        print("inverse:", inverse)
         unique_indices.append(unique_indice)
         unique_inverse.append(inverse)
         unique_offset.extend([start] * len(kjt.keys()))
         start += unique_indice.shape[0]
 
     unique_offset.append(start)
-    print("unique_offset:", unique_offset)
     kjt_helper = KeyedJaggedTensorWithLookHelper(
         keys=keys,
         values=torch.concat(total_values),
@@ -67,19 +58,13 @@ def test_unique_split(table_num, feature_names, input_size):
         unique_offset=torch.Tensor(unique_offset).long(),
         unique_inverse=torch.concat(unique_inverse),
     )
-    print("kjt_helper:", kjt_helper)
+
     kjt_helper_list = kjt_helper.split(feature_names)
-    print("kjt_helper_list:", list(kjt_helper_list))
     for kjt in kjt_helper_list:
         kjt: KeyedJaggedTensorWithLookHelper
         unique_results = []
         gloden = kjt.values()
-        print("kjt.unique_offset:", kjt.unique_offset)
         for ind, unique_offset in enumerate(kjt.unique_offset):
-            print("ind: ", ind)
-            print("unique_offset: ", unique_offset)
-            print("kjt.offsets():", kjt.offsets())
-            print("kjt.unique_inverse:",kjt.unique_inverse)
             unique = kjt.unique_indices[unique_offset:]
             unique_inverse = kjt.unique_inverse[
                              kjt.offsets()[ind]: kjt.offsets()[ind + 1]
