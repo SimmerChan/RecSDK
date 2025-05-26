@@ -77,13 +77,13 @@ public:
         if (std::is_same<FloatType, half>::value) {
             // 数据拷入
             LocalTensor<FloatType> gradFP16 = tmpQue.AllocTensor<FloatType>();
-            DataCopy(grad, tsGradGT[offset + layer * bs * s * s],
+            DataCopy(gradFP16, tsGradGT[offset + layer * bs * s * s],
                      AlignTo32(cnt * sizeof(FloatType)) / sizeof(FloatType));
             tmpQue.EnQue(gradFP16);
             gradFP16 = tmpQue.DeQue<FloatType>();
             // 数据转换
             LocalTensor<float> gradFP32 = inQueTsGrad.AllocTensor<float>();
-            Cast(gradFP32, gradFP16, cnt);
+            Cast(gradFP32, gradFP16, RoundMode::CAST_NONE, cnt);
 
             inQueTsGrad.EnQue(gradFP32);
             tmpQue.FreeTensor(gradFP16);
@@ -118,7 +118,7 @@ public:
         if (std::is_same<FloatType, half>::value) {
             gradOut = outQueTswGradOut.DeQue<float>();
             LocalTensor<FloatType> gradOutFP16 = gradOut.template ReinterpretCast<FloatType>();
-            Cast(gradOutFP16, gradOut, RoundMode::CAST_NONE, numLayer * numBuckets);
+            Cast(gradOutFP16, gradOut, RoundMode::CAST_TRUNC, numLayer * numBuckets);
             outQueTswGradOut.EnQue(gradOutFP16);
             gradOutFP16 = outQueTswGradOut.DeQue<FloatType>();
 
@@ -139,7 +139,7 @@ public:
         InitTswGrad();
 
         uint32_t offset = 0;
-        LocalTensor<float> gradOut = tswGradOutGT.DeQue<float>();
+        LocalTensor<float> gradOut = outQueTswGradOut.DeQue<float>();
         while (offset < processLen) {
             uint32_t remain = processLen - offset;
             uint32_t cnt = remain > stride ? stride : remain;
