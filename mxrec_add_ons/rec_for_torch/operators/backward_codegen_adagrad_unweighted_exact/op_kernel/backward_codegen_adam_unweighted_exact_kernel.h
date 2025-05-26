@@ -17,7 +17,6 @@ See the License for the specific language governing permissions and
 #define BACKWARD_CODEGEN_ADAM_UNWEIGHTED_EXACT_KERNEL_KERNEL_FUN_H
 
 #include <cstdint>
-#include <cmath>
 
 #include "kernel_operator.h"
 #include "backward_codegen_unweighted_exact_kernel.h"
