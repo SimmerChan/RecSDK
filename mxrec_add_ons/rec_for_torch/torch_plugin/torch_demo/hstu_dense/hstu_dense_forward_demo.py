@@ -15,27 +15,24 @@
 # limitations under the License.
 # ==============================================================================
 
-import os
-import shutil
-import unittest
+import subprocess
 import sysconfig
 
+import numpy as np
 import pytest
 import torch
-import numpy as np
 import torch.nn.functional as F
-import torch_npu
-import subprocess
 
 torch.npu.config.allow_internal_format = False
 
 torch.ops.load_library(f"{sysconfig.get_path('purelib')}/libfbgemm_npu_api.so")
 
-device_id:int = 0
-mask_tril:int = 0
-mask_triu:int = 1
-mask_none:int = 2
-mask_custom:int = 3
+device_id: int = 0
+mask_tril: int = 0
+mask_triu: int = 1
+mask_none: int = 2
+mask_custom: int = 3
+
 
 def get_chip():
     result = subprocess.run(['npu-smi', 'info'], capture_output=True, text=True)
@@ -44,18 +41,20 @@ def get_chip():
             return True
     return False
 
+
 def skip_seq_len(seq_len):
     block_len = 128
-    if (get_chip() and seq_len % block_len) :
+    if (get_chip() and seq_len % block_len):
         return True
     return False
+
 
 def jagged_data_gen(batch_size, max_seq_len, num_heads, attention_dim, dataType, maskType):
     seq_lens = np.random.randint(1, max_seq_len + 1, (batch_size))
 
-    seq_offset = torch.concat((torch.zeros((1, ), dtype=torch.int64), \
-        torch.cumsum(torch.from_numpy(seq_lens), axis=0))).to(torch.int64).numpy()
-    
+    seq_offset = torch.concat((torch.zeros((1,), dtype=torch.int64), \
+                               torch.cumsum(torch.from_numpy(seq_lens), axis=0))).to(torch.int64).numpy()
+
     max_seq_len = np.max(seq_lens)
     total_seqs = np.sum(seq_lens)
 
@@ -81,7 +80,7 @@ def jagged_data_gen(batch_size, max_seq_len, num_heads, attention_dim, dataType,
 
 
 def generate_tensor(batch_size, max_seq_len, num_heads, attention_dim, dataType, maskType):
-    total_num = batch_size*max_seq_len*num_heads*attention_dim
+    total_num = batch_size * max_seq_len * num_heads * attention_dim
 
     q = torch.rand(total_num).reshape(batch_size, max_seq_len, num_heads, attention_dim)
     k = torch.rand(total_num).reshape(batch_size, max_seq_len, num_heads, attention_dim)
@@ -95,9 +94,13 @@ def generate_tensor(batch_size, max_seq_len, num_heads, attention_dim, dataType,
         invalid_attn_mask = 1 - torch.triu(torch.ones(batch_size, num_heads, max_seq_len, max_seq_len), diagonal=1)
     else:
         invalid_attn_mask = torch.randint(0, 2, size=(batch_size, num_heads, max_seq_len, max_seq_len))
-    return q.to(dataType).to(f"npu:{device_id}"), k.to(dataType).to(f"npu:{device_id}"), v.to(dataType).to(f"npu:{device_id}"), rel_attn_bias.to(dataType).to(f"npu:{device_id}"), invalid_attn_mask.to(dataType).to(f"npu:{device_id}")
+    return q.to(dataType).to(f"npu:{device_id}"), k.to(dataType).to(f"npu:{device_id}"), v.to(dataType).to(
+        f"npu:{device_id}"), rel_attn_bias.to(dataType).to(f"npu:{device_id}"), invalid_attn_mask.to(dataType).to(
+        f"npu:{device_id}")
+
 
 torch.npu.set_device(device_id)
+
 
 class TestHstuJaggedDemo:
     def jagged_to_dense(self, jagged_tensor, seq_lens, head_nums, atten_dim):
@@ -107,28 +110,26 @@ class TestHstuJaggedDemo:
             src_tensor = jagged_tensor[offset: offset + seq_len, :, :].reshape(seq_len, head_nums, atten_dim)
             need_pad_seq.append(src_tensor)
             offset = offset + seq_len
-        
+
         dense_tensor = torch.nn.utils.rnn.pad_sequence(need_pad_seq, batch_first=True)
         return dense_tensor
-    
 
     def dense_to_jagged(self, q, dense_tensor, seq_lens):
         tensor = torch.zeros_like(q).cpu()
 
         offset = 0
         for batch_id, seq_len in enumerate(seq_lens):
-            tensor[offset : offset + seq_len, :, :] = dense_tensor[batch_id, 0: seq_len, :, :]
+            tensor[offset: offset + seq_len, :, :] = dense_tensor[batch_id, 0: seq_len, :, :]
             offset = offset + seq_len
 
         return tensor
-    
 
     def gloden_op_exec(self, q, k, v, seq_offset, bias, mask, max_seq_len, enableBias, maskType, siluScale, dataType):
         head_nums = q.shape[1]
         head_dim = q.shape[2]
         batch_size = bias.shape[0]
 
-        seq_lens = np.zeros((batch_size, )).astype(np.int64)
+        seq_lens = np.zeros((batch_size,)).astype(np.int64)
         for batch_id in range(batch_size):
             seq_lens[batch_id] = seq_offset[batch_id + 1] - seq_offset[batch_id]
 
@@ -164,7 +165,7 @@ class TestHstuJaggedDemo:
 
         torch.npu.synchronize()
         return atten_output.to(dataType).reshape(-1)
-    
+
     def custom_op_exec(self, q, k, v, seq_offset, bias, mask, max_seq_len, enableBias, maskType, siluScale, dataType):
         q_npu = q.to(f"npu:{device_id}").to(dataType)
         k_npu = k.to(f"npu:{device_id}").to(dataType)
@@ -182,12 +183,15 @@ class TestHstuJaggedDemo:
             )
         torch.npu.synchronize()
         return output.cpu().to(dataType).reshape(-1)
-    
-    def execute(self, batch_size, max_seq_len, head_num, head_dim, enableBias, maskType, siluScale, dataType):
-        q, k, v, seq_offset, bias, mask, max_seq_len = jagged_data_gen(batch_size, max_seq_len, head_num, head_dim, dataType, maskType)
 
-        output = self.custom_op_exec(q, k, v, seq_offset, bias, mask, max_seq_len, enableBias, maskType, siluScale, dataType)
-        gloden = self.gloden_op_exec(q, k, v, seq_offset, bias, mask, max_seq_len, enableBias, maskType, siluScale, dataType)
+    def execute(self, batch_size, max_seq_len, head_num, head_dim, enableBias, maskType, siluScale, dataType):
+        q, k, v, seq_offset, bias, mask, max_seq_len = jagged_data_gen(batch_size, max_seq_len, head_num, head_dim,
+                                                                       dataType, maskType)
+
+        output = self.custom_op_exec(q, k, v, seq_offset, bias, mask, max_seq_len, enableBias, maskType, siluScale,
+                                     dataType)
+        gloden = self.gloden_op_exec(q, k, v, seq_offset, bias, mask, max_seq_len, enableBias, maskType, siluScale,
+                                     dataType)
 
         if dataType == torch.bfloat16:
             res = torch.allclose(output, gloden, 1e-2, 1e-2)
@@ -203,10 +207,11 @@ class TestHstuJaggedDemo:
     @pytest.mark.parametrize("head_dim", [16, 128])
     @pytest.mark.parametrize("enableBias", [True, False])
     @pytest.mark.parametrize("maskType", [mask_tril, mask_none, mask_custom])
-    @pytest.mark.parametrize("siluScale", [0, 1/1024])
+    @pytest.mark.parametrize("siluScale", [0, 1 / 1024])
     @pytest.mark.parametrize("dataType", [torch.float32, torch.float16, torch.bfloat16])
     @pytest.mark.skipif(get_chip(), reason="This test case is Skipped for Ascend310P.")
-    def test_hstu_dens_forward(self, batch_size, head_num, max_seq_len, head_dim, enableBias, maskType, siluScale, dataType):
+    def test_hstu_dens_forward(self, batch_size, head_num, max_seq_len, head_dim, enableBias, maskType, siluScale,
+                               dataType):
         self.execute(batch_size, max_seq_len, head_num, head_dim, enableBias, maskType, siluScale, dataType)
 
     @pytest.mark.parametrize("head_num", [2])
@@ -214,7 +219,7 @@ class TestHstuJaggedDemo:
     @pytest.mark.parametrize("head_dim", [256])
     @pytest.mark.parametrize("enableBias", [True, False])
     @pytest.mark.parametrize("maskType", [mask_tril, mask_none, mask_custom])
-    @pytest.mark.parametrize("siluScale", [0, 1/1024])
+    @pytest.mark.parametrize("siluScale", [0, 1 / 1024])
     @pytest.mark.parametrize("dataType", [torch.float32, torch.float16, torch.bfloat16])
     @pytest.mark.skipif(get_chip(), reason="This test case is Skipped for Ascend310P.")
     def test_hstu_dens_forward_128bs(self, head_num, max_seq_len, head_dim, enableBias, maskType, siluScale, dataType):
@@ -225,7 +230,7 @@ class TestHstuJaggedDemo:
     @pytest.mark.parametrize("head_dim", [256])
     @pytest.mark.parametrize("enableBias", [True, False])
     @pytest.mark.parametrize("maskType", [mask_tril, mask_none, mask_custom])
-    @pytest.mark.parametrize("siluScale", [0, 1/1024])
+    @pytest.mark.parametrize("siluScale", [0, 1 / 1024])
     @pytest.mark.parametrize("dataType", [torch.float32, torch.float16, torch.bfloat16])
     @pytest.mark.skipif(get_chip(), reason="This test case is Skipped for Ascend310P.")
     def test_hstu_dens_forward_2048bs(self, head_num, max_seq_len, head_dim, enableBias, maskType, siluScale, dataType):
@@ -261,7 +266,7 @@ class TestHstuNormalDemo:
         atten_output = atten_output.permute(0, 2, 1, 3)
         torch.npu.synchronize()
         return atten_output.cpu().to(dataType).reshape(-1)
-    
+
     def custom_op_exec(self, q, k, v, bias, mask, maskType, max_seq_len, siluScale, enableBias, dataType):
         if enableBias == True:
             output = torch.ops.mxrec.hstu_dense(
@@ -274,7 +279,7 @@ class TestHstuNormalDemo:
 
         torch.npu.synchronize()
         return output.cpu().to(dataType).reshape(-1)
-    
+
     def execute(self, batch_size, max_seq_len, head_num, head_dim, enableBias, maskType, siluScale, dataType):
         q, k, v, bias, mask = generate_tensor(batch_size, max_seq_len, head_num, head_dim, dataType, maskType)
 
@@ -294,18 +299,24 @@ class TestHstuNormalDemo:
         assert res == True
 
     max_seq_len = [1, 15, 31, 256, 768, 1023, 4095]
-    paramFalse = pytest.param(False, marks=pytest.mark.skipif(get_chip(), reason="This test case is Skipped for Ascend310P."))
-    paramFp32 = pytest.param(torch.float32, marks=pytest.mark.skipif(get_chip(), reason="This test case is Skipped for Ascend310P."))
-    parambF16 = pytest.param(torch.bfloat16, marks=pytest.mark.skipif(get_chip(), reason="This test case is Skipped for Ascend310P."))
+    paramFalse = pytest.param(False,
+                              marks=pytest.mark.skipif(get_chip(), reason="This test case is Skipped for Ascend310P."))
+    paramFp32 = pytest.param(torch.float32,
+                             marks=pytest.mark.skipif(get_chip(), reason="This test case is Skipped for Ascend310P."))
+    parambF16 = pytest.param(torch.bfloat16,
+                             marks=pytest.mark.skipif(get_chip(), reason="This test case is Skipped for Ascend310P."))
     paramsSeqlen = [pytest.param(i, marks=pytest.mark.skipif(skip_seq_len(i),
-                    reason="This test case is Skipped for Ascend310P.")) for i in max_seq_len]
+                                                             reason="This test case is Skipped for Ascend310P.")) for i
+                    in max_seq_len]
+
     @pytest.mark.parametrize("batch_size", [1, 16])
     @pytest.mark.parametrize("head_num", [2, 4])
     @pytest.mark.parametrize("max_seq_len", paramsSeqlen)
     @pytest.mark.parametrize("head_dim", [32, 64])
     @pytest.mark.parametrize("enableBias", [True, paramFalse])
     @pytest.mark.parametrize("maskType", [mask_tril, mask_none, mask_custom])
-    @pytest.mark.parametrize("siluScale", [1/256])
+    @pytest.mark.parametrize("siluScale", [1 / 256])
     @pytest.mark.parametrize("dataType", [torch.float16, paramFp32, parambF16])
-    def test_hstu_dens_normal(self, batch_size, head_num, max_seq_len, head_dim, enableBias, maskType, siluScale, dataType):
+    def test_hstu_dens_normal(self, batch_size, head_num, max_seq_len, head_dim, enableBias, maskType, siluScale,
+                              dataType):
         self.execute(batch_size, max_seq_len, head_num, head_dim, enableBias, maskType, siluScale, dataType)
