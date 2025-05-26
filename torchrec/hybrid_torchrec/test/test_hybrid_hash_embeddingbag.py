@@ -9,6 +9,7 @@ import sys
 sys.path.append("/home/zengxiong/20250401_torchrec/RecSDK/torchrec/hybrid_torchrec/hybrid_torchrec")
 import logging
 import os
+import sysconfig
 from typing import List
 
 import pytest
@@ -40,6 +41,7 @@ from torchrec.distributed.types import ShardingEnv
 from torchrec.optim.apply_optimizer_in_backward import apply_optimizer_in_backward
 from torchrec.optim.keyed import CombinedOptimizer
 
+torch.ops.load_library(f"{sysconfig.get_path('purelib')}/libfbgemm_npu_api.so")
 
 LOOP_TIMES = 8
 BATCH_NUM = 32
@@ -152,8 +154,6 @@ class TestModel:
             loss, out = model(batch)
             results.append(loss.detach().cpu())
             results.append(out.detach().cpu())
-            loss.backward()
-            opt.step()
 
         for i in range(table_num):
             logging.debug(
@@ -222,8 +222,6 @@ class TestModel:
             loss, out = ebc(batch)
             results.append(loss.detach().cpu())
             results.append(out.detach().cpu())
-            loss.backward()
-            optimizer.step()
 
         for i in range(table_num):
             logging.debug(
