@@ -23,7 +23,6 @@ struct JaggedTaskInfo {
 };
 
 template <typename qType> class HstuDenseBackwardJaggedKernel : public HstuDenseBackwardKernel<qType> {
-
 public:
     __aicore__ inline HstuDenseBackwardJaggedKernel() {}
 
