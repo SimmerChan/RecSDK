@@ -107,7 +107,7 @@ bool TilingPolicyNormalv200::TilingKeySet(gert::TilingContext* context, optiling
     if (qTypeGe == ge::DataType::DT_FLOAT16) {
         context->SetTilingKey(FLOAT16_TILING_KEY);
     } else {
-        printf("invalid datatype, only support fp16.\n");
+        OPS_LOG_D("invalid datatype, only support fp16.\n");
         return false;
     }
 
