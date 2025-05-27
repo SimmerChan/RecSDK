@@ -31,6 +31,7 @@ at::Tensor SubMulConcat(const at::Tensor& lhs, const at::Tensor& rhs)
     const at::OptionalDeviceGuard guard(device_of(lhs));
     auto output = at::empty({lhs.size(0), lhs.size(1), NUM_CONCAT * lhs.size(DIM_LAST)}, lhs.options());
     EXEC_NPU_CMD(aclnnSubMulConcat, lhs, rhs, DIM_LAST, output);
+    return output;
 }
 }  // namespace acl_ops
 
