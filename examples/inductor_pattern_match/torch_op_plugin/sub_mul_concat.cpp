@@ -13,6 +13,7 @@ See the License for the specific language governing permissions and
         limitations under the License.
 ==============================================================================*/
 
+#include <cstdint>
 #include "torch/csrc/autograd/custom_function.h"
 #include "torch/library.h"
 
@@ -29,7 +30,7 @@ at::Tensor SubMulConcat(const at::Tensor& lhs, const at::Tensor& rhs)
 {
     const at::OptionalDeviceGuard guard(device_of(lhs));
     auto output = at::empty({lhs.size(0), lhs.size(1), NUM_CONCAT * lhs.size(DIM_LAST)}, lhs.options());
-    EXEC_NPU_CMD(aclnnSubMulConcat, lhs, rhs, DIM_LAST, output);
+    EXEC_NPU_CMD(aclnnSubMulConcat, lhs, rhs, static_cast<int64_t>(DIM_LAST), output);
 }
 }  // namespace acl_ops
 
