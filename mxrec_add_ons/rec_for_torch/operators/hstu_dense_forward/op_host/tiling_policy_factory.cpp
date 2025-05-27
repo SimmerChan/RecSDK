@@ -30,7 +30,7 @@ std::shared_ptr<TilingPolicy> TilingPolicyFactory::CreatePolicy(const char *layO
     if (layout < LAYOUT_TYPE::INVALID && layout >= LAYOUT_TYPE::NORMAL) {
         return m_policyMap[static_cast<int>(layout)];
     } else {
-        OPS_LOGD("the input Layout should be normal/jagged, but got %s.", layOutCStr);
+        OPS_LOG_D("the input Layout should be normal/jagged, but got %s.", layOutCStr);
         // TilingPolicy wiil tiling failed inside
         return std::make_shared<TilingPolicy>();
     }

@@ -14,20 +14,19 @@ ShapeRange::ShapeRange(int64_t lbound, int64_t ubound, int64_t mutiple, const ch
 
 bool ShapeRange::Check(int64_t val) const
 {
-    OPS_LOGD_IF((val < lbound || val > ubound || val % mutiple != 0),
-        printf("%s must meet range[%lld %lld] and mutiple of [%lld]. but get value %lld\n",
-            name, lbound, ubound, mutiple, val),
-        return false);
+    OPS_LOG_D_IF((val < lbound || val > ubound || val % mutiple != 0), return false,
+                 "%s must meet range[%lld %lld] and mutiple of [%lld]. but get value %lld\n",
+                  name, lbound, ubound, mutiple, val);
     return true;
 }
 
 ge::graphStatus TilingPolicy::InferShape(gert::InferShapeContext* context)
 {
     const gert::Shape* queryShape = context->GetInputShape(INDEX_T::INDEX_0);
-    OPS_LOGD_IF_NULL(queryShape, return ge::GRAPH_FAILED);
+    OPS_LOG_IF_NULL(queryShape, return ge::GRAPH_FAILED);
 
     gert::Shape* attenOutputShape = context->GetOutputShape(INDEX_T::INDEX_0);
-    OPS_LOGD_IF_NULL(attenOutputShape, return ge::GRAPH_FAILED);
+    OPS_LOG_IF_NULL(attenOutputShape, return ge::GRAPH_FAILED);
     *attenOutputShape = *queryShape;
 
     return ge::GRAPH_SUCCESS;
@@ -43,31 +42,30 @@ ge::graphStatus TilingPolicy::InferDtype(gert::InferDataTypeContext* context)
 
 ge::graphStatus TilingPolicy::TilingProcess(gert::TilingContext *context)
 {
-    OPS_LOGD_IF_NULL(context, return ge::GRAPH_FAILED);
+    OPS_LOG_IF_NULL(context, return ge::GRAPH_FAILED);
 
     optiling::HstuDenseForwardTilingData tiling;
 
     // step0: check platform is support
-    OPS_LOGD_IF(!CheckIsSupport(context), printf("CheckIsSupport is failed.\n"), return ge::GRAPH_FAILED);
+    OPS_LOG_D_IF(!CheckIsSupport(context), return ge::GRAPH_FAILED, "CheckIsSupport is failed.\n");
 
     // step1: get attribute
-    OPS_LOGD_IF(!TilingAttribute(context, tiling), printf("TilingAttribute is failed.\n"), return ge::GRAPH_FAILED);
+    OPS_LOG_D_IF(!TilingAttribute(context, tiling), return ge::GRAPH_FAILED, "TilingAttribute is failed.\n");
 
     // step2: get key shape form input
-    OPS_LOGD_IF(!TilingShape(context, tiling), printf("TilingShape is failed.\n"), return ge::GRAPH_FAILED);
+    OPS_LOG_D_IF(!TilingShape(context, tiling), return ge::GRAPH_FAILED, "TilingShape is failed.\n");
 
     // step3: tiling core
-    OPS_LOGD_IF(!TilingCore(context, tiling), printf("TilingCore is failed.\n"), return ge::GRAPH_FAILED);
+    OPS_LOG_D_IF(!TilingCore(context, tiling), return ge::GRAPH_FAILED, "TilingCore is failed.\n");
 
     // step4: hight level api tiling
-    OPS_LOGD_IF(!TilingHeighLevelApi(context, tiling), printf("TilingHeight is failed.\n"), return ge::GRAPH_FAILED);
+    OPS_LOG_D_IF(!TilingHeighLevelApi(context, tiling), return ge::GRAPH_FAILED, "TilingHeight is failed.\n");
 
     // step5: set tiling key
-    OPS_LOGD_IF(!TilingKeySet(context, tiling), printf("TilingKeySet is failed.\n"), return ge::GRAPH_FAILED);
+    OPS_LOG_D_IF(!TilingKeySet(context, tiling), return ge::GRAPH_FAILED, "TilingKeySet is failed.\n");
 
     // step6: tiling save to buffer
-    OPS_LOGD_IF(!TilingSaveToBuffer(context, tiling), printf("TilingSaveToBuffer is failed.\n"), \
-        return ge::GRAPH_FAILED);
+    OPS_LOG_D_IF(!TilingSaveToBuffer(context, tiling), return ge::GRAPH_FAILED, "TilingSaveToBuffer is failed.\n");
 
     return ge::GRAPH_SUCCESS;
 }
@@ -119,16 +117,16 @@ bool TilingPolicy::GeneralShapeCheck(int64_t batchSize, int64_t seqLen, int64_t 
 bool TilingPolicy::TilingAttribute(gert::TilingContext* context, optiling::HstuDenseForwardTilingData &tiling)
 {
     const gert::RuntimeAttrs* attrs = context->GetAttrs();
-    OPS_LOGD_IF_NULL(attrs, return false);
+    OPS_LOG_IF_NULL(attrs, return false);
 
     const uint32_t *maskType = attrs->GetAttrPointer<uint32_t>(INDEX_T::INDEX_0);
-    OPS_LOGD_IF_NULL(maskType, return false);
+    OPS_LOG_IF_NULL(maskType, return false);
 
     const uint32_t *maxSeqLen = attrs->GetAttrPointer<uint32_t>(INDEX_T::INDEX_1);
-    OPS_LOGD_IF_NULL(maxSeqLen, return false);
+    OPS_LOG_IF_NULL(maxSeqLen, return false);
 
     const float *siluScale = attrs->GetAttrPointer<float>(INDEX_T::INDEX_2);
-    OPS_LOGD_IF_NULL(siluScale, return false);
+    OPS_LOG_IF_NULL(siluScale, return false);
 
     auto biasTensor = context->GetOptionalInputTensor(INDEX_T::INDEX_4);
     if (biasTensor == nullptr) {
@@ -225,15 +223,15 @@ bool TilingPolicy::TilingKeySet(gert::TilingContext* context, optiling::HstuDens
 
 void TilingPolicy::DumpTiling(optiling::HstuDenseForwardTilingData &tiling)
 {
-    printf("batchSize = %ld\n", tiling.get_batchSize());
-    printf("seqLen = %ld\n", tiling.get_seqLen());
-    printf("headNum = %ld\n", tiling.get_headNum());
-    printf("dim = %ld\n", tiling.get_dim());
+    OPS_LOG_D("batchSize = %ld\n", tiling.get_batchSize());
+    OPS_LOG_D("seqLen = %ld\n", tiling.get_seqLen());
+    OPS_LOG_D("headNum = %ld\n", tiling.get_headNum());
+    OPS_LOG_D("dim = %ld\n", tiling.get_dim());
 
-    printf("enableBias = %d\n", tiling.get_enableBias());
-    printf("maskType = %d\n", tiling.get_maskType());
-    printf("maxSeqLen = %d\n", tiling.get_maxSeqLen());
-    printf("siluScale = %f\n", tiling.get_siluScale());
+    OPS_LOG_D("enableBias = %d\n", tiling.get_enableBias());
+    OPS_LOG_D("maskType = %d\n", tiling.get_maskType());
+    OPS_LOG_D("maxSeqLen = %d\n", tiling.get_maxSeqLen());
+    OPS_LOG_D("siluScale = %f\n", tiling.get_siluScale());
 }
 
 }

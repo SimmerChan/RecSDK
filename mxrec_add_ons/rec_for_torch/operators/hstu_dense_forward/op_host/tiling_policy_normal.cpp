@@ -21,7 +21,7 @@ bool TilingPolicyNormal::TilingShape(gert::TilingContext* context, optiling::Hst
     int64_t dim = qShape.GetDim(3);
     tiling.set_dim(dim);
 
-    OPS_LOGD_IF(!GeneralShapeCheck(batchSize, seqLen, headNum, dim), printf("Shape Check failed"), return false);
+    OPS_LOG_D_IF(!GeneralShapeCheck(batchSize, seqLen, headNum, dim), return false, "Shape Check failed");
     return true;
 }
 
@@ -35,7 +35,7 @@ bool TilingPolicyNormal::TilingKeySet(gert::TilingContext* context, optiling::Hs
     } else if (qTypeGe == ge::DataType::DT_BF16) {
         context->SetTilingKey(BF16_TILING_KEY);
     } else {
-        printf("invalid datatype, only support fp32, fp16, bf16.\n");
+        OPS_LOG_D("invalid datatype, only support fp32, fp16, bf16.\n");
         return false;
     }
 

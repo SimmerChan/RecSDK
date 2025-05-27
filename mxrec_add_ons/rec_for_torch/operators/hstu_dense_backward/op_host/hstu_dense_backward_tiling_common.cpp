@@ -16,10 +16,9 @@ ShapeRange::ShapeRange(int64_t lbound, int64_t ubound, int64_t mutiple, const ch
 
 bool ShapeRange::Check(int64_t val) const
 {
-    OPS_LOGD_IF((val < lbound || val > ubound || val % mutiple != 0),
-        printf("%s must meet range[%lld %lld] and mutiple of [%lld]. but get value %lld\n",
-            name, lbound, ubound, mutiple, val),
-        return false);
+    OPS_LOG_D_IF((val < lbound || val > ubound || val % mutiple != 0), return false,
+                 "%s must meet range[%lld %lld] and mutiple of [%lld]. but get value %lld\n",
+                 name, lbound, ubound, mutiple, val);
     return true;
 }
 
@@ -40,7 +39,7 @@ ge::graphStatus GetInputLayout(const gert::RuntimeAttrs *attrs, InputLayout &lay
     } else if (inputLayoutStr == "jagged") {
         layout = InputLayout::JAGGED;
     } else {
-        OPS_LOGD("the input layout should be normal/jagged, but get %s.\n", inputLayoutStr.c_str());
+        OPS_LOG_D("the input layout should be normal/jagged, but get %s.\n", inputLayoutStr.c_str());
         return ge::GRAPH_FAILED;
     }
 

@@ -36,13 +36,13 @@ namespace {
                         uint32_t coreNum, uint32_t blockLen, uint32_t batchSize, uint32_t headNum)
         {
 #if JAGGED_TASK_ASSIGN_DEBUG
-            printf("BlockTaskAssign coreNum:%d blockLen:%d batchSize:%d headNum:%d\n",
+            OPS_LOG_D("BlockTaskAssign coreNum:%d blockLen:%d batchSize:%d headNum:%d\n",
                 coreNum, blockLen, batchSize, headNum);
-            printf("BlockTaskAssign seqOffsets:");
+            OPS_LOG_D("BlockTaskAssign seqOffsets:");
             for (auto i = 0; i <= batchSize; i++) {
-                printf("%d ", seqOffsets[i]);
+                OPS_LOG_D("%d ", seqOffsets[i]);
             }
-            printf("\n");
+            OPS_LOG_D("\n");
 #endif
             this->seqOffsets = seqOffsets;
             this->coreNum = coreNum;
@@ -108,7 +108,7 @@ namespace {
                                                  blockNumber.end(), total_block_number, [](int64_t val, int64_t x) {
                         return val + x;
                     });
-            printf("eachCoreTaskNumLimit :%d totalTaskNumber:%d total_block_number:%d\n",
+            OPS_LOG_D("eachCoreTaskNumLimit :%d totalTaskNumber:%d total_block_number:%d\n",
                 eachCoreTaskNumLimit, totalTaskNumber, total_block_number);
 #endif
 
@@ -136,7 +136,7 @@ namespace {
             }
 
 #if JAGGED_TASK_ASSIGN_DEBUG
-            printf("processTaskNum :%d processBlockNum:%d\n", processTaskNum, processBlockNum);
+            OPS_LOG_D("processTaskNum :%d processBlockNum:%d\n", processTaskNum, processBlockNum);
             assert(processTaskNum == totalTaskNumber);
             assert(processBlockNum == total_block_number);
 #endif
@@ -183,7 +183,7 @@ namespace {
                                                  blockNumber.end(), total_block_number, [](int64_t val, int64_t x) {
                         return val + x;
                     });
-            printf("eachCoreTaskNumLimit :%d totalTaskNumber:%d total_block_number:%d\n",
+            OPS_LOG_D("eachCoreTaskNumLimit :%d totalTaskNumber:%d total_block_number:%d\n",
                 eachCoreTaskNumLimit, totalTaskNumber, total_block_number);
 #endif
 
@@ -213,7 +213,7 @@ namespace {
             }
 
 #if JAGGED_TASK_ASSIGN_DEBUG
-            printf("processTaskNum :%d processBlockNum:%d\n", processTaskNum, processBlockNum);
+            OPS_LOG_D("processTaskNum :%d processBlockNum:%d\n", processTaskNum, processBlockNum);
             assert(processTaskNum == totalTaskNumber);
             assert(processBlockNum == total_block_number);
 #endif
@@ -250,8 +250,7 @@ bool TilingPolicyJagged::TilingShape(gert::TilingContext* context, optiling::Hst
 
     int64_t seqOffsetLens = seqOffset->GetSize();
     batchSize = seqOffsetLens - 1;
-    OPS_LOGD_IF(batchSize > MAX_BATCH_SIZE,
-        printf("batch size is over limit %d", MAX_BATCH_SIZE), return false);
+    OPS_LOG_D_IF(batchSize > MAX_BATCH_SIZE, return false, "batch size is over limit %d", MAX_BATCH_SIZE);
 
     auto queryShape = context->GetInputShape(INDEX_T::INDEX_0)->GetStorageShape();
     headNum = queryShape.GetDim(INDEX_T::INDEX_1);
@@ -263,8 +262,7 @@ bool TilingPolicyJagged::TilingShape(gert::TilingContext* context, optiling::Hst
     tiling.set_dim(headDIM);
     tiling.set_seqLen(seqLens);
 
-    OPS_LOGD_IF(!GeneralShapeCheck(batchSize, seqLens, headNum, headDIM),
-        printf("Jagged Shape Check failed"), return false);
+    OPS_LOG_D_IF(!GeneralShapeCheck(batchSize, seqLens, headNum, headDIM), return false, "Jagged Shape Check failed");
     return true;
 }
 
@@ -298,7 +296,7 @@ bool TilingPolicyJagged::TilingCore(gert::TilingContext* context, optiling::Hstu
     auto *seqOffsetData = const_cast<int64_t *>(reinterpret_cast<const int64_t *>(seqOffset->GetData()));
     int seq_offset_lens = seqOffset->GetSize();
     if (seq_offset_lens > (MAX_BATCH_SIZE + 1)) {
-        printf("seq_offset_lens exceed limit %d \n", MAX_BATCH_SIZE + 1);
+        OPS_LOG_D("seq_offset_lens exceed limit %d \n", MAX_BATCH_SIZE + 1);
         return false;
     }
 
@@ -322,10 +320,10 @@ bool TilingPolicyJagged::TilingCore(gert::TilingContext* context, optiling::Hstu
 #if JAGGED_TASK_ASSIGN_DEBUG
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double, std::micro> elapsed = end - start;
-    std::cout << "BlockTaskAssign Elapsed time: " << elapsed.count() << " us\n";
+    OPS_LOG_D("BlockTaskAssign Elapsed time: %lu us\n", elapsed.count());
 
     for (auto i = 0; i < coreNum; i++) {
-        printf("aicore :%d startBlockId:%d endBlockId:%d totalTaskNumber:%d\n",
+        OPS_LOG_D("aicore :%d startBlockId:%d endBlockId:%d totalTaskNumber:%d\n",
             i, workTasks[i].startBlockId, workTasks[i].endBlockId, workLoads[i]);
     }
 #endif
@@ -358,7 +356,7 @@ bool TilingPolicyJagged::TilingKeySet(gert::TilingContext* context, optiling::Hs
     } else if (qTypeGe == ge::DataType::DT_BF16) {
         context->SetTilingKey(JAGGED_BF16_TILING_KEY);
     } else {
-        printf("invalid datatype, only support fp32, fp16, bf16");
+        OPS_LOG_D("invalid datatype, only support fp32, fp16, bf16");
         return false;
     }
 
@@ -373,15 +371,15 @@ void TilingPolicyJagged::DumpTiling(optiling::HstuDenseForwardTilingData &tiling
     uint32_t *startBlockId = tiling.get_eachCoreStartBlockId();
     uint32_t *endBlockId = tiling.get_eachCoreEndBlockId();
 
-    printf("seq offset:");
+    OPS_LOG_D("seq offset:");
     for (auto i = 0; i < (tiling.get_batchSize() + 1); i++) {
-        printf("%d ", seqOffset[i]);
+        OPS_LOG_D("%d ", seqOffset[i]);
     }
-    printf("\n");
+    OPS_LOG_D("\n");
 
-    printf("core block range:\n");
+    OPS_LOG_D("core block range:\n");
     for (auto i = 0; i < MAX_AIV_NUM; i++) {
-        printf("core_id:%d startBlockId:%d endBlockId:%d\n", i, startBlockId[i], endBlockId[i]);
+        OPS_LOG_D("core_id:%d startBlockId:%d endBlockId:%d\n", i, startBlockId[i], endBlockId[i]);
     }
 }
 

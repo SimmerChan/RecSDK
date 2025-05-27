@@ -25,9 +25,8 @@ ge::graphStatus GetNormalBasicShapeInfo(gert::TilingContext *context, HstuDenseB
     int32_t maxSeqLen = tiling.get_maxSeqLen();
     auto gradShape = context->GetInputShape(INDEX_T::INDEX_0)->GetStorageShape();
     auto attnBiasGradShape = context->GetOutputShape(INDEX_T::INDEX_3)->GetStorageShape();
-    OPS_LOGD_IF(gradShape.GetDimNum() != GRAD_DIM_NUM,
-                printf("hstu normal backward only support input with dim %d\n", GRAD_DIM_NUM),
-                return ge::GRAPH_FAILED);
+    OPS_LOG_D_IF(gradShape.GetDimNum() != GRAD_DIM_NUM, return ge::GRAPH_FAILED,
+                 "hstu normal backward only support input with dim %d\n");
 
     int64_t batchSize = gradShape.GetDim(INDEX_T::INDEX_0);
     int64_t seqLen = gradShape.GetDim(INDEX_T::INDEX_1);
@@ -35,9 +34,7 @@ ge::graphStatus GetNormalBasicShapeInfo(gert::TilingContext *context, HstuDenseB
     int64_t headDim = gradShape.GetDim(INDEX_T::INDEX_3);
     int32_t biasGradSeqLen = attnBiasGradShape.GetDim(INDEX_T::INDEX_2);
 
-    OPS_LOGD_IF(biasGradSeqLen < maxSeqLen,
-                printf("attnBiasGrad get seqLen less than maxSeqLen\n"),
-                return ge::GRAPH_FAILED);
+    OPS_LOG_D_IF(biasGradSeqLen < maxSeqLen, return ge::GRAPH_FAILED, "attnBiasGrad get seqLen less than maxSeqLen\n");
 
     tiling.set_batchSize(batchSize);
     tiling.set_seqLen(seqLen);
@@ -45,8 +42,8 @@ ge::graphStatus GetNormalBasicShapeInfo(gert::TilingContext *context, HstuDenseB
     tiling.set_headDim(headDim);
     tiling.set_biasGradSeqLen(biasGradSeqLen);
 
-    OPS_LOGD_IF(!BasicShapeCheck(batchSize, seqLen, headNum, headDim),
-        printf("normal shape check failed\n"), return ge::GRAPH_FAILED);
+    OPS_LOG_D_IF(!BasicShapeCheck(batchSize, seqLen, headNum, headDim), return ge::GRAPH_FAILED,
+                 "normal shape check failed\n");
 
     return ge::GRAPH_SUCCESS;
 }
@@ -68,36 +65,31 @@ ge::graphStatus CheckMaskTypeAndBias(gert::TilingContext *context,
         tiling.set_enableBias(1);
 
         auto attnBiasShape = context->GetInputShape(INDEX_T::INDEX_5)->GetStorageShape();
-        OPS_LOGD_IF(!IsSameShape(attnBiasShape, attnBiasGradShape, BIAS_DIM_NUM),
-                    printf("attnBias shape not equal with attnBiasGrad\n"),
-                    return ge::GRAPH_FAILED);
+        OPS_LOG_D_IF(!IsSameShape(attnBiasShape, attnBiasGradShape, BIAS_DIM_NUM), return ge::GRAPH_FAILED,
+                     "attnBias shape not equal with attnBiasGrad\n");
     }
 
     if (IfMask(maskType, MaskType::MASK_CUSTOM)) {
         auto mask = context->GetOptionalInputTensor(INDEX_T::INDEX_4);
-        OPS_LOGD_IF(mask == nullptr,
-                    printf("mask can't be none when maskType is MASK_CUSTOM\n"),
-                    return ge::GRAPH_FAILED);
+        OPS_LOG_IF_NULL(mask, return ge::GRAPH_FAILED);
 
         auto maskShape = context->GetInputShape(INDEX_T::INDEX_4)->GetStorageShape();
-        OPS_LOGD_IF(maskShape.GetDimNum() != MASK_DIM_NUM,
-                    printf("mask dim num is not %d\n", MASK_DIM_NUM),
-                    return ge::GRAPH_FAILED);
+        OPS_LOG_D_IF(maskShape.GetDimNum() != MASK_DIM_NUM, return ge::GRAPH_FAILED,
+            "mask dim num is not %d\n", MASK_DIM_NUM);
 
-        OPS_LOGD_IF(maskShape.GetDim(INDEX_T::INDEX_0) != batchSize ||
-                    maskShape.GetDim(INDEX_T::INDEX_1) != headNum ||
-                    maskShape.GetDim(INDEX_T::INDEX_2) != maxSeqLen ||
-                    maskShape.GetDim(INDEX_T::INDEX_3) != maxSeqLen,
-                    printf("mask shape must be {batchSize, headNum, seqLen, seqLen}\n"),
-                    return ge::GRAPH_FAILED);
+        OPS_LOG_D_IF(maskShape.GetDim(INDEX_T::INDEX_0) != batchSize ||
+                     maskShape.GetDim(INDEX_T::INDEX_1) != headNum ||
+                     maskShape.GetDim(INDEX_T::INDEX_2) != maxSeqLen ||
+                     maskShape.GetDim(INDEX_T::INDEX_3) != maxSeqLen,
+                     return ge::GRAPH_FAILED, "mask shape must be {batchSize, headNum, seqLen, seqLen}\n");
     } else if (IfMask(maskType, MaskType::MASK_TRIL) ||
                IfMask(maskType, MaskType::MASK_NONE)) {
         // do nothing
     } else if (IfMask(maskType, MaskType::MASK_TRIU)) {
-        printf("maskType:MASK_TRIU is not support yet\n");
+        OPS_LOG_D("maskType:MASK_TRIU is not support yet\n");
         return ge::GRAPH_FAILED;
     } else {
-        printf("supported maskType list is [MASK_TRIL, MASK_NONE, MASK_CUSTOM]\n");
+        OPS_LOG_D("supported maskType list is [MASK_TRIL, MASK_NONE, MASK_CUSTOM]\n");
         return ge::GRAPH_FAILED;
     }
 
@@ -121,7 +113,7 @@ ge::graphStatus InitNormalTilingKey(gert::TilingContext *context, HstuDenseBackw
         context->SetTilingKey(BF16_TILING_KEY);
         tiling.set_blockHeight(BLOCK_256);
     } else {
-        printf("invalid datatype, only support float/fp16/bf16");
+        OPS_LOG_D("invalid datatype, only support float/fp16/bf16");
         return ge::GRAPH_FAILED;
     }
     tiling.set_dataTypeLength(dataTypeLength);
@@ -133,18 +125,17 @@ ge::graphStatus TilingNormalFunc(gert::TilingContext *context,
                                  const gert::RuntimeAttrs *attrs,
                                  HstuDenseBackwardTilingData &tiling)
 {
-    OPS_LOGD_IF(GetNormalAttrsInfo(attrs, tiling) == ge::GRAPH_FAILED,
-                printf("NormalTiling GetNormalAttrsInfo failed\n"), return ge::GRAPH_FAILED);
+    OPS_LOG_D_IF(GetNormalAttrsInfo(attrs, tiling) == ge::GRAPH_FAILED, return ge::GRAPH_FAILED,
+                 "NormalTiling GetNormalAttrsInfo failed\n");
 
-    OPS_LOGD_IF(GetNormalBasicShapeInfo(context, tiling) == ge::GRAPH_FAILED,
-                printf("NormalTiling GetNormalBasicShapeInfo failed\n"), return ge::GRAPH_FAILED);
+    OPS_LOG_D_IF(GetNormalBasicShapeInfo(context, tiling) == ge::GRAPH_FAILED, return ge::GRAPH_FAILED,
+                 "NormalTiling GetNormalBasicShapeInfo failed\n");
 
-    OPS_LOGD_IF(CheckMaskTypeAndBias(context, tiling) == ge::GRAPH_FAILED,
-                printf("NormalTiling CheckMaskTypeAndBias failed\n"), return ge::GRAPH_FAILED);
+    OPS_LOG_D_IF(CheckMaskTypeAndBias(context, tiling) == ge::GRAPH_FAILED, return ge::GRAPH_FAILED,
+                 "NormalTiling CheckMaskTypeAndBias failed\n");
 
-    OPS_LOGD_IF(InitNormalTilingKey(context, tiling) == ge::GRAPH_FAILED,
-                printf("NormalTiling InitNormalTilingKey failed\n"), return ge::GRAPH_FAILED);
-
+    OPS_LOG_D_IF(InitNormalTilingKey(context, tiling) == ge::GRAPH_FAILED, return ge::GRAPH_FAILED,
+                 "NormalTiling InitNormalTilingKey failed\n");
     return ge::GRAPH_SUCCESS;
 }
 

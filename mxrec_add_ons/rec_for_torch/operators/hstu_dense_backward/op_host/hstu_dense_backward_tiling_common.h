@@ -6,6 +6,7 @@
 
 #include "register/tilingdata_base.h"
 #include "tiling/tiling_api.h"
+#include "../../../common/ops_log.h"
 
 constexpr int MAX_BATCH_SIZE = 2048;
 constexpr int MAX_SEQ_LENS = 20480;
@@ -45,33 +46,6 @@ constexpr int INDEX_3 = 3;
 constexpr int INDEX_4 = 4;
 constexpr int INDEX_5 = 5;
 } // namespace INDEX_T
-
-#ifndef OPS_LOGD_IF_NULL
-#define OPS_LOGD_IF_NULL(PTR, EXPR)                                            \
-    if (__builtin_expect((PTR) == nullptr, 0)) {                               \
-        printf("%s is nullptr\n", #PTR);                                       \
-        EXPR;                                                                  \
-    }
-#endif
-
-#ifndef OPS_LOGD
-#define OPS_LOGD(FMT, ...)                                                     \
-    do {                                                                       \
-        printf(FMT, ##__VA_ARGS__);                                            \
-    } while (0);
-#endif
-
-#ifndef OPS_LOGD_IF
-#define OPS_LOGD_IF(COND, LOG_FUNC, EXPR)                                      \
-    static_assert(std::is_same<bool, std::decay<decltype(COND)>::type>::value, \
-                  "condition should be bool");                                 \
-    do {                                                                       \
-        if (__builtin_expect((COND), 0)) {                                     \
-            LOG_FUNC;                                                          \
-            EXPR;                                                              \
-        }                                                                      \
-    } while (0);
-#endif
 
 struct ShapeRange {
 public:

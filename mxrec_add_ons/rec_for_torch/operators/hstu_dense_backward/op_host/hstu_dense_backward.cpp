@@ -21,7 +21,7 @@ static ge::graphStatus TilingCommonFunc(gert::TilingContext *context, HstuDenseB
     } else if (gradType == ge::DataType::DT_BF16) {
         dataType = matmul_tiling::DataType::DT_BFLOAT16;
     } else {
-        printf("invalid datatype, only support float/fp16/bf16\n");
+        OPS_OOG_D("invalid datatype, only support float/fp16/bf16\n");
         return ge::GRAPH_FAILED;
     }
 
@@ -120,9 +120,7 @@ ge::graphStatus TilingFunc(gert::TilingContext *context)
     OPS_LOGD_IF_NULL(attrs, return ge::GRAPH_FAILED);
 
     InputLayout layout;
-    OPS_LOGD_IF(GetInputLayout(attrs, layout) == ge::GRAPH_FAILED,
-                printf("GetInputLayout failed\n"),
-                return ge::GRAPH_FAILED);
+    OPS_LOG_D_IF(GetInputLayout(attrs, layout) == ge::GRAPH_FAILED, return ge::GRAPH_FAILED, "GetInputLayout failed\n");
 
     HstuDenseBackwardTilingData tiling;
 
@@ -143,9 +141,7 @@ static ge::graphStatus InferShape(gert::InferShapeContext *context)
     OPS_LOGD_IF_NULL(attrs, return ge::GRAPH_FAILED);
 
     InputLayout layout;
-    OPS_LOGD_IF(GetInputLayout(attrs, layout) == ge::GRAPH_FAILED,
-                printf("GetInputLayout failed\n"),
-                return ge::GRAPH_FAILED);
+    OPS_LOG_D_IF(GetInputLayout(attrs, layout) == ge::GRAPH_FAILED, return ge::GRAPH_FAILED, "GetInputLayout failed\n");
     ge::graphStatus result = ge::GRAPH_SUCCESS;
     if (layout == InputLayout::JAGGED) {
         result = optiling::JaggedInferShape(context);
