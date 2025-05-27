@@ -19,7 +19,8 @@ See the License for the specific language governing permissions and
 namespace tensorflow {
 namespace npu_xla {
 
-DeviceInterface& DeviceInterface::Create(int32_t deviceId) {
+DeviceInterface& DeviceInterface::Create(int32_t deviceId)
+{
     return AclAdaptor::GetInstance(deviceId);
 }
 
