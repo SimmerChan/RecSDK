@@ -171,10 +171,10 @@ ge::graphStatus GetJaggedBasicShapeInfo(gert::TilingContext *context, HstuDenseB
     auto gradShape = context->GetInputShape(INDEX_T::INDEX_0)->GetStorageShape();
     auto attnBiasGradShape = context->GetOutputShape(INDEX_T::INDEX_3)->GetStorageShape();
 
-    OPS_LOGD_IF(gradShape.GetDimNum() != JAGGED_GRAD_DIM_NUM,
+    OPS_CHECK(gradShape.GetDimNum() != JAGGED_GRAD_DIM_NUM,
                 printf("hstu jagged backward only support input with dim %d\n", JAGGED_GRAD_DIM_NUM),
                 return ge::GRAPH_FAILED);
-    OPS_LOGD_IF(attnBiasGradShape.GetDim(INDEX_T::INDEX_2) < maxSeqLen,
+    OPS_CHECK(attnBiasGradShape.GetDim(INDEX_T::INDEX_2) < maxSeqLen,
                 printf("attnBiasGrad get seqLen less than maxSeqLen\n"),
                 return ge::GRAPH_FAILED);
 
@@ -189,7 +189,7 @@ ge::graphStatus GetJaggedBasicShapeInfo(gert::TilingContext *context, HstuDenseB
     tiling.set_biasGradSeqLen(biasGradSeqLen);
 
     int64_t batchSize = tiling.get_batchSize();
-    OPS_LOGD_IF(!BasicShapeCheck(batchSize, maxSeqLen, headNum, headDim),
+    OPS_CHECK(!BasicShapeCheck(batchSize, maxSeqLen, headNum, headDim),
         printf("jagged shape check failed\n"), return ge::GRAPH_FAILED);
 
     return ge::GRAPH_SUCCESS;
@@ -268,19 +268,19 @@ ge::graphStatus TilingJaggedFunc(gert::TilingContext *context,
                                  const gert::RuntimeAttrs *attrs,
                                  HstuDenseBackwardTilingData &tiling)
 {
-    OPS_LOGD_IF(GetJaggedAttrsInfo(attrs, tiling) == ge::GRAPH_FAILED,
+    OPS_CHECK(GetJaggedAttrsInfo(attrs, tiling) == ge::GRAPH_FAILED,
                 printf("JaggedTiling GetJaggedAttrsInfo failed\n"), return ge::GRAPH_FAILED);
     
-    OPS_LOGD_IF(GetJaggedBasicShapeInfo(context, tiling) == ge::GRAPH_FAILED,
+    OPS_CHECK(GetJaggedBasicShapeInfo(context, tiling) == ge::GRAPH_FAILED,
                 printf("JaggedTiling GetJaggedBasicShapeInfo failed\n"), return ge::GRAPH_FAILED);
     
-    OPS_LOGD_IF(CheckMaskTypeAndBias(context, tiling) == ge::GRAPH_FAILED,
+    OPS_CHECK(CheckMaskTypeAndBias(context, tiling) == ge::GRAPH_FAILED,
                 printf("JaggedTiling CheckMaskTypeAndBias failed\n"), return ge::GRAPH_FAILED);
 
-    OPS_LOGD_IF(InitJaggedTilingKey(context, tiling) == ge::GRAPH_FAILED,
+    OPS_CHECK(InitJaggedTilingKey(context, tiling) == ge::GRAPH_FAILED,
                 printf("JaggedTiling InitJaggedTilingKey failed\n"), return ge::GRAPH_FAILED);
 
-    OPS_LOGD_IF(TilingCore(context, tiling) == ge::GRAPH_FAILED,
+    OPS_CHECK(TilingCore(context, tiling) == ge::GRAPH_FAILED,
                 printf("JaggedTiling TilingCore failed\n"), return ge::GRAPH_FAILED);
 
     return ge::GRAPH_SUCCESS;

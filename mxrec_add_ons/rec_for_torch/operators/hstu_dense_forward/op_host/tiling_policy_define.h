@@ -1,6 +1,8 @@
 #ifndef TILING_POLICY_DEFINE_H
 #define TILING_POLICY_DEFINE_H
 
+#include "../../../common/ops_log.h"
+
 namespace HstuDenseForward {
 
 #include <cstdio>
@@ -9,28 +11,8 @@ namespace HstuDenseForward {
 #include "tiling/tiling_api.h"
 
 #ifndef OPS_LOGD_IF_NULL
-#define OPS_LOGD_IF_NULL(PTR, EXPR)                                     \
-    if (__builtin_expect((PTR) == nullptr, 0)) {                        \
-        printf("%s is nullptr!", #PTR);                                 \
-        EXPR;                                                           \
-    }
+#define OPS_LOGD_IF_NULL(PTR, EXPR)  OPS_LOG_E_IF_NULL(#PTR, PTR, EXPR)
 #endif
-
-#ifndef OPS_LOGD
-#define OPS_LOGD(FMT, ...)                                              \
-    do {                                                                \
-        printf(FMT, ##__VA_ARGS__);                                     \
-    } while (0)
-#endif
-
-#define OPS_LOGD_IF(COND, LOG_FUNC, EXPR)                               \
-    static_assert(std::is_same<bool, std::decay<decltype(COND)>::type>::value, "condition should be bool"); \
-    do {                                                                \
-        if (__builtin_expect((COND), 0)) {                              \
-            LOG_FUNC;                                                   \
-            EXPR;                                                       \
-        }                                                               \
-    } while (0)
 
 namespace INDEX_T {
     constexpr int INDEX_0 = 0;

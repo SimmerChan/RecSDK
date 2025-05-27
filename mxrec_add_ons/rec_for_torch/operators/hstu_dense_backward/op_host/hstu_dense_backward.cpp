@@ -120,7 +120,7 @@ ge::graphStatus TilingFunc(gert::TilingContext *context)
     OPS_LOGD_IF_NULL(attrs, return ge::GRAPH_FAILED);
 
     InputLayout layout;
-    OPS_LOGD_IF(GetInputLayout(attrs, layout) == ge::GRAPH_FAILED,
+    OPS_CHECK(GetInputLayout(attrs, layout) == ge::GRAPH_FAILED,
                 printf("GetInputLayout failed\n"),
                 return ge::GRAPH_FAILED);
 
@@ -143,7 +143,7 @@ static ge::graphStatus InferShape(gert::InferShapeContext *context)
     OPS_LOGD_IF_NULL(attrs, return ge::GRAPH_FAILED);
 
     InputLayout layout;
-    OPS_LOGD_IF(GetInputLayout(attrs, layout) == ge::GRAPH_FAILED,
+    OPS_CHECK(GetInputLayout(attrs, layout) == ge::GRAPH_FAILED,
                 printf("GetInputLayout failed\n"),
                 return ge::GRAPH_FAILED);
     ge::graphStatus result = ge::GRAPH_SUCCESS;

@@ -14,7 +14,7 @@ ShapeRange::ShapeRange(int64_t lbound, int64_t ubound, int64_t mutiple, const ch
 
 bool ShapeRange::Check(int64_t val) const
 {
-    OPS_LOGD_IF((val < lbound || val > ubound || val % mutiple != 0),
+    OPS_CHECK((val < lbound || val > ubound || val % mutiple != 0),
         printf("%s must meet range[%lld %lld] and mutiple of [%lld]. but get value %lld\n",
             name, lbound, ubound, mutiple, val),
         return false);
@@ -48,25 +48,25 @@ ge::graphStatus TilingPolicy::TilingProcess(gert::TilingContext *context)
     optiling::HstuDenseForwardTilingData tiling;
 
     // step0: check platform is support
-    OPS_LOGD_IF(!CheckIsSupport(context), printf("CheckIsSupport is failed.\n"), return ge::GRAPH_FAILED);
+    OPS_CHECK(!CheckIsSupport(context), printf("CheckIsSupport is failed.\n"), return ge::GRAPH_FAILED);
 
     // step1: get attribute
-    OPS_LOGD_IF(!TilingAttribute(context, tiling), printf("TilingAttribute is failed.\n"), return ge::GRAPH_FAILED);
+    OPS_CHECK(!TilingAttribute(context, tiling), printf("TilingAttribute is failed.\n"), return ge::GRAPH_FAILED);
 
     // step2: get key shape form input
-    OPS_LOGD_IF(!TilingShape(context, tiling), printf("TilingShape is failed.\n"), return ge::GRAPH_FAILED);
+    OPS_CHECK(!TilingShape(context, tiling), printf("TilingShape is failed.\n"), return ge::GRAPH_FAILED);
 
     // step3: tiling core
-    OPS_LOGD_IF(!TilingCore(context, tiling), printf("TilingCore is failed.\n"), return ge::GRAPH_FAILED);
+    OPS_CHECK(!TilingCore(context, tiling), printf("TilingCore is failed.\n"), return ge::GRAPH_FAILED);
 
     // step4: hight level api tiling
-    OPS_LOGD_IF(!TilingHeighLevelApi(context, tiling), printf("TilingHeight is failed.\n"), return ge::GRAPH_FAILED);
+    OPS_CHECK(!TilingHeighLevelApi(context, tiling), printf("TilingHeight is failed.\n"), return ge::GRAPH_FAILED);
 
     // step5: set tiling key
-    OPS_LOGD_IF(!TilingKeySet(context, tiling), printf("TilingKeySet is failed.\n"), return ge::GRAPH_FAILED);
+    OPS_CHECK(!TilingKeySet(context, tiling), printf("TilingKeySet is failed.\n"), return ge::GRAPH_FAILED);
 
     // step6: tiling save to buffer
-    OPS_LOGD_IF(!TilingSaveToBuffer(context, tiling), printf("TilingSaveToBuffer is failed.\n"), \
+    OPS_CHECK(!TilingSaveToBuffer(context, tiling), printf("TilingSaveToBuffer is failed.\n"), \
         return ge::GRAPH_FAILED);
 
     return ge::GRAPH_SUCCESS;

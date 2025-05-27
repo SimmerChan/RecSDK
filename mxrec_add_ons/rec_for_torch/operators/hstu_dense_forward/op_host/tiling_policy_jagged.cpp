@@ -250,7 +250,7 @@ bool TilingPolicyJagged::TilingShape(gert::TilingContext* context, optiling::Hst
 
     int64_t seqOffsetLens = seqOffset->GetSize();
     batchSize = seqOffsetLens - 1;
-    OPS_LOGD_IF(batchSize > MAX_BATCH_SIZE,
+    OPS_CHECK(batchSize > MAX_BATCH_SIZE,
         printf("batch size is over limit %d", MAX_BATCH_SIZE), return false);
 
     auto queryShape = context->GetInputShape(INDEX_T::INDEX_0)->GetStorageShape();
@@ -263,7 +263,7 @@ bool TilingPolicyJagged::TilingShape(gert::TilingContext* context, optiling::Hst
     tiling.set_dim(headDIM);
     tiling.set_seqLen(seqLens);
 
-    OPS_LOGD_IF(!GeneralShapeCheck(batchSize, seqLens, headNum, headDIM),
+    OPS_CHECK(!GeneralShapeCheck(batchSize, seqLens, headNum, headDIM),
         printf("Jagged Shape Check failed"), return false);
     return true;
 }

@@ -21,7 +21,7 @@ bool TilingPolicyNormal::TilingShape(gert::TilingContext* context, optiling::Hst
     int64_t dim = qShape.GetDim(3);
     tiling.set_dim(dim);
 
-    OPS_LOGD_IF(!GeneralShapeCheck(batchSize, seqLen, headNum, dim), printf("Shape Check failed"), return false);
+    OPS_CHECK(!GeneralShapeCheck(batchSize, seqLen, headNum, dim), printf("Shape Check failed"), return false);
     return true;
 }
 
