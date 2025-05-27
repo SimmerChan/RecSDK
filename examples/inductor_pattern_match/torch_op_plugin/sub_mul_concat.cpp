@@ -21,7 +21,7 @@ See the License for the specific language governing permissions and
 
 namespace acl_ops {
 static constexpr int NUM_CONCAT = 4;
-static constexpr int DIM_LAST = 2;
+static constexpr int64_t DIM_LAST = 2;
 
 /// This operator will concat four tensors: lhs, rhs, lhs - rhs, lhs * rhs, along the last dim.
 /// Constraints:
@@ -30,7 +30,7 @@ at::Tensor SubMulConcat(const at::Tensor& lhs, const at::Tensor& rhs)
 {
     const at::OptionalDeviceGuard guard(device_of(lhs));
     auto output = at::empty({lhs.size(0), lhs.size(1), NUM_CONCAT * lhs.size(DIM_LAST)}, lhs.options());
-    EXEC_NPU_CMD(aclnnSubMulConcat, lhs, rhs, 2, output);
+    EXEC_NPU_CMD(aclnnSubMulConcat, lhs, rhs, DIM_LAST, output);
 }
 }  // namespace acl_ops
 
