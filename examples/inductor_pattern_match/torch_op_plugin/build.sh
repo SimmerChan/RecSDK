@@ -14,8 +14,6 @@
 # limitations under the License.
 # ==============================================================================
 
-set -e
-
 if [ -n "$ASCEND_INSTALL_PATH" ]; then
     _ASCEND_INSTALL_PATH=$ASCEND_INSTALL_PATH
 elif [ -n "$ASCEND_HOME_PATH" ]; then
@@ -28,6 +26,8 @@ else
     fi
 fi
 source $_ASCEND_INSTALL_PATH/bin/setenv.bash
+
+set -e
 
 current_dir=$(dirname $(readlink -f $0))
 rm -rf $current_dir/build
