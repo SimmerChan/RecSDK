@@ -30,7 +30,8 @@ namespace npu_xla {
 DeviceInterfaceMock* mock_adaptor = nullptr;
 
 // 替换 DeviceInterface::Create 方法
-DeviceInterface& DeviceInterface::Create(int32_t deviceId) {
+DeviceInterface& DeviceInterface::Create(int32_t deviceId)
+{
     return *mock_adaptor;
 }
 
@@ -39,8 +40,53 @@ DeviceInterface& DeviceInterface::Create(int32_t deviceId) {
 
 #endif  // GOOGLE_TEST
 
-TEST(CFunctionTest, SE_InitPlugin_Allocate_ReturnsMock) {
+void TestFunction(tensorflow::npu_xla::DeviceInterfaceMock& mock,
+                  SP_Device& device,
+                  SP_DeviceMemoryBase& mem,
+                  SP_StreamExecutor& se,
+                  TF_Status* status)
+{
+    // 测试 Allocate
+    char dummy;
+    void* fake_ptr = &dummy;
+    EXPECT_CALL(mock, Allocate(1024)).WillOnce(Return(fake_ptr));
 
+    se.allocate(&device, 1024, 0, &mem);
+
+    EXPECT_EQ(mem.opaque, fake_ptr);
+    EXPECT_EQ(mem.size, 1024);
+
+    // 测试 SyncMemcpyDToH (成功)
+    char dummyDst;
+    void* hostDst = &dummyDst;
+
+    EXPECT_CALL(mock, MemcpyDToH(hostDst, 1024, fake_ptr, 1024))
+        .WillOnce(Return(true));
+
+    se.sync_memcpy_dtoh(&device, hostDst, &mem, 1024, status);
+    EXPECT_EQ(TF_GetCode(status), TF_OK);
+
+    // 测试 SyncMemcpyHToD (失败)
+    char dummySrc;
+    void* hostSrc = &dummySrc;
+
+    EXPECT_CALL(mock, MemcpyHToD(fake_ptr, 1024, hostSrc, 1024))
+        .WillOnce(Return(false));
+
+    se.sync_memcpy_htod(&device, &mem, hostSrc, 1024, status);
+    EXPECT_EQ(TF_GetCode(status), TF_INTERNAL);
+    EXPECT_STREQ(TF_Message(status), "MemcpyHToD failed");
+
+    // 测试 Deallocate
+    EXPECT_CALL(mock, Deallocate(fake_ptr)).Times(1);
+
+    se.deallocate(&device, &mem);
+
+    EXPECT_EQ(mem.opaque, nullptr);
+    EXPECT_EQ(mem.size, 0);
+}
+
+TEST(CFunctionTest, SE_InitPlugin_Allocate_ReturnsMock) {
     // 创建 mock 实例
     tensorflow::npu_xla::DeviceInterfaceMock mock;
     tensorflow::npu_xla::mock_adaptor = &mock;
@@ -78,57 +124,12 @@ TEST(CFunctionTest, SE_InitPlugin_Allocate_ReturnsMock) {
     SP_StreamExecutor se{};
     create_params.struct_size = sizeof(SE_CreateStreamExecutorParams);
     create_params.ext = nullptr;
-    create_params.stream_executor = &se;
+    create_params.stream_executor = &se; 
 
     // 调用 create_stream_executor
     platform_fns.create_stream_executor(&platform, &create_params, status);
     EXPECT_EQ(TF_GetCode(status), TF_OK);
     ASSERT_NE(&se, nullptr);
 
-    // -------------------------------
-    // 测试 Allocate
-    // -------------------------------
-    char dummy;
-    void* fakePtr = &dummy;
-    EXPECT_CALL(mock, Allocate(1024)).WillOnce(Return(fakePtr));
-
-    se.allocate(&device, 1024, 0, &mem);
-
-    EXPECT_EQ(mem.opaque, fakePtr);
-    EXPECT_EQ(mem.size, 1024);
-
-    // -------------------------------
-    // 测试 SyncMemcpyDToH (成功)
-    // -------------------------------
-    char dummyDst;
-    void* hostDst = &dummyDst;
-
-    EXPECT_CALL(mock, MemcpyDToH(hostDst, 1024, fakePtr, 1024))
-        .WillOnce(Return(true));
-
-    se.sync_memcpy_dtoh(&device, hostDst, &mem, 1024, status);
-    EXPECT_EQ(TF_GetCode(status), TF_OK);
-
-    // -------------------------------
-    // 测试 SyncMemcpyHToD (失败)
-    // -------------------------------
-    char dummySrc;
-    void* hostSrc = &dummySrc;
-
-    EXPECT_CALL(mock, MemcpyHToD(fakePtr, 1024, hostSrc, 1024))
-        .WillOnce(Return(false));
-
-    se.sync_memcpy_htod(&device, &mem, hostSrc, 1024, status);
-    EXPECT_EQ(TF_GetCode(status), TF_INTERNAL);
-    EXPECT_STREQ(TF_Message(status), "MemcpyHToD failed");
-
-    // -------------------------------
-    // 测试 Deallocate
-    // -------------------------------
-    EXPECT_CALL(mock, Deallocate(fakePtr)).Times(1);
-
-    se.deallocate(&device, &mem);
-
-    EXPECT_EQ(mem.opaque, nullptr);
-    EXPECT_EQ(mem.size, 0);
+    TestFunction(mock, device, mem, se, status);
 }
