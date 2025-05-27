@@ -34,7 +34,7 @@ constexpr int BLOCK_256 = 256;
 
 constexpr int VCORE_NUM_IN_ONE_AIC = 2;
 
-enum class InputLayout { Normal = 0, Jagged = 1 };
+enum class InputLayout { NORMAL = 0, JAGGED = 1 };
 enum class MaskType { MASK_TRIL = 0, MASK_TRIU = 1, MASK_NONE = 2, MASK_CUSTOM = 3 };
 
 namespace INDEX_T {

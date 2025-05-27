@@ -36,9 +36,9 @@ ge::graphStatus GetInputLayout(const gert::RuntimeAttrs *attrs, InputLayout &lay
     }
 
     if (inputLayoutStr == "normal") {
-        layout = InputLayout::Normal;
+        layout = InputLayout::NORMAL;
     } else if (inputLayoutStr == "jagged") {
-        layout = InputLayout::Jagged;
+        layout = InputLayout::JAGGED;
     } else {
         OPS_LOGD("the input layout should be normal/jagged, but get %s.\n", inputLayoutStr.c_str());
         return ge::GRAPH_FAILED;
