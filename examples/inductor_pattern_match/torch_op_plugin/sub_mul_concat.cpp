@@ -13,6 +13,9 @@ See the License for the specific language governing permissions and
         limitations under the License.
 ==============================================================================*/
 
+#include "torch/csrc/autograd/custom_function.h"
+#include "torch/library.h"
+
 #include "torch_npu_helper.h"
 
 namespace acl_ops {
