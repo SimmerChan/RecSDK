@@ -16,8 +16,6 @@ See the License for the specific language governing permissions and
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 #include "tensorflow/c/experimental/stream_executor/stream_executor.h"
-
-#include "pluggable_npu_device.h"
 #include "adaptor/device_interface_mock.h"
 
 using ::testing::_;

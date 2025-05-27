@@ -164,11 +164,7 @@ cc_test(
     copts = ["-DGOOGLE_TEST"],
     deps = [
         ":device_interface_mock",
-        ":device_interface_imp",
         ":npu_device",
-        ":common_hdrs",
-        "@local_config_tf//:tf_header_lib",
-        "@local_config_tf//:libtensorflow_framework",
         "@com_google_googletest//:gtest_main",
     ],
 )

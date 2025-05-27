@@ -20,7 +20,6 @@ See the License for the specific language governing permissions and
 
 #include "common_hdrs/types.h"
 #include "adaptor/device_interface.h"
-#include "pluggable_npu_device.h"
 
 /** Copy from stream_excutor_test_util.h **/
 /** ------------------------------------ **/
