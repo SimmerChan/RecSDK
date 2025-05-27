@@ -27,6 +27,7 @@ constexpr uint32_t CONST_4 = 4;
 constexpr uint32_t CONST_3 = 3;
 constexpr uint32_t CONST_2 = 2;
 
+namespace hstu{
 bool MaskCheck(int64_t maskType, uint32_t maskIsDefine)
 {
     if (maskType < MASK_TYPE_TRIL || maskType > MASK_TYPE_CUSTOM) {
@@ -444,8 +445,9 @@ at::Tensor hstu_dense_forward_impl_autograd(const at::Tensor& q,
 {
     return HstuDenseNpuFusion::apply(q, k, v, mask, attnBias, maskType, maxSeqLen, siluScale, layout, seqOffset);
 }
+}
 
 TORCH_LIBRARY_IMPL(mxrec, PrivateUse1, m)
 {
-    m.impl("hstu_dense", &hstu_dense_forward_impl_autograd);
+    m.impl("hstu_dense", &hstu::hstu_dense_forward_impl_autograd);
 }
