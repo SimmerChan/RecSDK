@@ -46,39 +46,41 @@ void TestFunction(tensorflow::npu_xla::DeviceInterfaceMock& mock,
                   SP_StreamExecutor& se,
                   TF_Status* status)
 {
+    const size_t TEST_SIZE = 1024;
+
     // 测试 Allocate
     char dummy;
-    void* fake_ptr = &dummy;
-    EXPECT_CALL(mock, Allocate(1024)).WillOnce(Return(fake_ptr));
+    void* fakePtr = &dummy;
+    EXPECT_CALL(mock, Allocate(TEST_SIZE)).WillOnce(Return(fakePtr));
 
-    se.allocate(&device, 1024, 0, &mem);
+    se.allocate(&device, TEST_SIZE, 0, &mem);
 
-    EXPECT_EQ(mem.opaque, fake_ptr);
-    EXPECT_EQ(mem.size, 1024);
+    EXPECT_EQ(mem.opaque, fakePtr);
+    EXPECT_EQ(mem.size, TEST_SIZE);
 
     // 测试 SyncMemcpyDToH (成功)
     char dummyDst;
     void* hostDst = &dummyDst;
 
-    EXPECT_CALL(mock, MemcpyDToH(hostDst, 1024, fake_ptr, 1024))
+    EXPECT_CALL(mock, MemcpyDToH(hostDst, TEST_SIZE, fakePtr, TEST_SIZE))
         .WillOnce(Return(true));
 
-    se.sync_memcpy_dtoh(&device, hostDst, &mem, 1024, status);
+    se.sync_memcpy_dtoh(&device, hostDst, &mem, TEST_SIZE, status);
     EXPECT_EQ(TF_GetCode(status), TF_OK);
 
     // 测试 SyncMemcpyHToD (失败)
     char dummySrc;
     void* hostSrc = &dummySrc;
 
-    EXPECT_CALL(mock, MemcpyHToD(fake_ptr, 1024, hostSrc, 1024))
+    EXPECT_CALL(mock, MemcpyHToD(fakePtr, TEST_SIZE, hostSrc, TEST_SIZE))
         .WillOnce(Return(false));
 
-    se.sync_memcpy_htod(&device, &mem, hostSrc, 1024, status);
+    se.sync_memcpy_htod(&device, &mem, hostSrc, TEST_SIZE, status);
     EXPECT_EQ(TF_GetCode(status), TF_INTERNAL);
     EXPECT_STREQ(TF_Message(status), "MemcpyHToD failed");
 
     // 测试 Deallocate
-    EXPECT_CALL(mock, Deallocate(fake_ptr)).Times(1);
+    EXPECT_CALL(mock, Deallocate(fakePtr)).Times(1);
 
     se.deallocate(&device, &mem);
 
@@ -124,7 +126,7 @@ TEST(CFunctionTest, SE_InitPlugin_Allocate_ReturnsMock) {
     SP_StreamExecutor se{};
     create_params.struct_size = sizeof(SE_CreateStreamExecutorParams);
     create_params.ext = nullptr;
-    create_params.stream_executor = &se; 
+    create_params.stream_executor = &se;
 
     // 调用 create_stream_executor
     platform_fns.create_stream_executor(&platform, &create_params, status);
