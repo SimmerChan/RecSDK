@@ -20,7 +20,7 @@ See the License for the specific language governing permissions and
 #include "torch_npu_helper.h"
 
 namespace acl_ops {
-static constexpr int NUM_CONCAT = 4;
+static constexpr int64_t NUM_CONCAT = 4;
 static constexpr int64_t DIM_LAST = 2;
 
 /// This operator will concat four tensors: lhs, rhs, lhs - rhs, lhs * rhs, along the last dim.
