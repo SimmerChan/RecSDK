@@ -23,22 +23,22 @@ bool ShapeRange::Check(int64_t val) const
     return true;
 }
 
-ge::graphStatus GetInputLayout(const gert::RuntimeAttrs *attrs, InputLayOut &layout)
+ge::graphStatus GetInputLayout(const gert::RuntimeAttrs *attrs, InputLayout &layout)
 {
     OPS_LOGD_IF_NULL(attrs, return ge::GRAPH_FAILED);
 
-    const char *InputLayOut = attrs->GetAttrPointer<char>(INDEX_T::INDEX_0);
-    OPS_LOGD_IF_NULL(InputLayOut, return ge::GRAPH_FAILED);
+    const char *inputLayout = attrs->GetAttrPointer<char>(INDEX_T::INDEX_0);
+    OPS_LOGD_IF_NULL(inputLayout, return ge::GRAPH_FAILED);
 
-    std::string inputLayoutStr = std::string(InputLayOut);
+    std::string inputLayoutStr = std::string(inputLayout);
     for (auto &c : inputLayoutStr) {
         c = tolower(c);
     }
 
     if (inputLayoutStr == "normal") {
-        layout = InputLayOut::NORMAL;
+        layout = InputLayout::NORMAL;
     } else if (inputLayoutStr == "jagged") {
-        layout = InputLayOut::JAGGED;
+        layout = InputLayout::JAGGED;
     } else {
         OPS_LOGD("the input layout should be normal/jagged, but get %s.\n", inputLayoutStr.c_str());
         return ge::GRAPH_FAILED;

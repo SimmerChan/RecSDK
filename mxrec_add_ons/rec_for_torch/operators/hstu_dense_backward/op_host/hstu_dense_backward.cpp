@@ -119,14 +119,14 @@ ge::graphStatus TilingFunc(gert::TilingContext *context)
     const gert::RuntimeAttrs *attrs = context->GetAttrs();
     OPS_LOGD_IF_NULL(attrs, return ge::GRAPH_FAILED);
 
-    InputLayOut layout;
+    InputLayout layout;
     OPS_LOGD_IF(GetInputLayout(attrs, layout) == ge::GRAPH_FAILED,
                 printf("GetInputLayout failed\n"),
                 return ge::GRAPH_FAILED);
 
     HstuDenseBackwardTilingData tiling;
 
-    if (layout == InputLayOut::JAGGED) {
+    if (layout == InputLayout::JAGGED) {
         TilingJaggedFunc(context, attrs, tiling);
     } else {
         TilingNormalFunc(context, attrs, tiling);
@@ -142,12 +142,12 @@ static ge::graphStatus InferShape(gert::InferShapeContext *context)
     const gert::RuntimeAttrs *attrs = context->GetAttrs();
     OPS_LOGD_IF_NULL(attrs, return ge::GRAPH_FAILED);
 
-    InputLayOut layout;
+    InputLayout layout;
     OPS_LOGD_IF(GetInputLayout(attrs, layout) == ge::GRAPH_FAILED,
                 printf("GetInputLayout failed\n"),
                 return ge::GRAPH_FAILED);
     ge::graphStatus result = ge::GRAPH_SUCCESS;
-    if (layout == InputLayOut::JAGGED) {
+    if (layout == InputLayout::JAGGED) {
         result = optiling::JaggedInferShape(context);
     } else {
         result = optiling::NormalInferShape(context);
