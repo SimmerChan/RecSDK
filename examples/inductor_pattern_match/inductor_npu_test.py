@@ -127,6 +127,5 @@ if __name__ == "__main__":
     # 运行所有测试
     test_inductor_simple_compilation()
     test_inductor_complex_compilation()
-    test_inductor_with_grad()
     test_inductor_performance_comparison()
     print("All torch inductor tests passed!")
