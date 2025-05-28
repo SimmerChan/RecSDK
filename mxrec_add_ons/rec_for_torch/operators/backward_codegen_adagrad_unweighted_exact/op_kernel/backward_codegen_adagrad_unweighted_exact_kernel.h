@@ -35,7 +35,6 @@ public:
         __gm__ int32_t* dOffsetsPtr = (__gm__ int32_t*)dOffsets;
         __gm__ int64_t* weightsOffsetsPtr = (__gm__ int64_t*)weightsOffsets;
         __gm__ int64_t* offsetsPtr = (__gm__ int64_t*)offsets;
-        __gm__ float* x = (__gm__ float*)momentum1DevOut;
 
         int64_t allLen = totalHashSize;
         int64_t totalTableSizeSplit = allLen % GetBlockNum();
