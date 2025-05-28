@@ -127,12 +127,12 @@ static ge::graphStatus InferShape(gert::InferShapeContext* context)
 {
     gert::Shape* tswGradOutShape = context->GetOutputShape(TIMESTAMPS_WEIGHTS_GRAD_INDEX);
     const gert::Shape* tsGradShape = context->GetInputShape(INPUT_GRAD_INDEX);  // (n, b, 2s, 2s)
-    int n = tsGradShape.GetDim(DIM0);
+    int n = tsGradShape->GetDim(DIM0);
     int numBuckets = *context->GetAttrs()->GetInt(NUM_BUCKET_INDEX);
 
-    rabPosOutShape->SetDimNum(TSW_GRAD_OUT_DIM);
-    rabPosOutShape->SetDim(DIM0, n);
-    rabPosOutShape->SetDim(DIM1, numBuckets);
+    tswGradOutShape->SetDimNum(TSW_GRAD_OUT_DIM);
+    tswGradOutShape->SetDim(DIM0, n);
+    tswGradOutShape->SetDim(DIM1, numBuckets);
     return GRAPH_SUCCESS;
 }
 }  // namespace ge

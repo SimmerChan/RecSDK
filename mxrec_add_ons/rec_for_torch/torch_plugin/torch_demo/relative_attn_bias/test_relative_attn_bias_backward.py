@@ -15,7 +15,6 @@
 # limitations under the License.
 # ==============================================================================
 
-import math
 import sysconfig
 
 import pytest
@@ -43,9 +42,9 @@ def rab_backward_golden(rab_time_grad: torch.Tensor, bucket_timestamps: torch.Te
     tsw_grad = torch.zeros(num_layers, NUM_BUCKETS, dtype=torch.float32).to(rab_time_grad.device)
 
     bucket_timestamps_expand = (bucket_timestamps.reshape(b, s // 2, 1, s // 2, 1)
-                                                 .repeat(1, 1, 2, 1, 2)
-                                                 .reshape(b, s, s)
-                                                    .to(torch.int64))
+                                .repeat(1, 1, 2, 1, 2)
+                                .reshape(b, s, s)
+                                .to(torch.int64))
     for n, grad in enumerate(rab_time_grad.to(torch.float32)):
         tsw_grad[n], _ = torch.ops.mxrec.index_select_for_rank1_backward(grad.view(-1),
                                                                          tsw_grad[n],
@@ -78,7 +77,7 @@ def rab_backward(num_layers: int, batchsize: int, s: int, dtype: torch.dtype):
 @pytest.mark.parametrize("train_len", [500, 1000, 2000, 4000])
 @pytest.mark.parametrize("candidate_len", [600])
 @pytest.mark.parametrize("bs", [1, 2, 4])
-@pytest.mark.parametrize("dtype", [torch.float32])
+@pytest.mark.parametrize("dtype", [torch.float16, torch.float32])
 def test_rab_eval(num_layers, train_len, candidate_len, bs, dtype):
     s = 2 * train_len + candidate_len
     rab_backward(num_layers, bs, s, dtype)
@@ -87,8 +86,7 @@ def test_rab_eval(num_layers, train_len, candidate_len, bs, dtype):
 @pytest.mark.parametrize("num_layers", [1, 8])
 @pytest.mark.parametrize("train_len,bs", [(500, 128), (1000, 32), (1000, 64), (4000, 8)])
 @pytest.mark.parametrize("candidate_len", [0])
-@pytest.mark.parametrize("dtype", [torch.float32])
+@pytest.mark.parametrize("dtype", [torch.float16, torch.float32])
 def test_rab_train(num_layers, train_len, candidate_len, bs, dtype):
     s = 2 * train_len + candidate_len
     rab_backward(num_layers, bs, s, dtype)
-

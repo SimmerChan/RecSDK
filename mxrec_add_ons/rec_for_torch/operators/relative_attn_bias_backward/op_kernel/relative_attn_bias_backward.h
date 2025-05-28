@@ -119,9 +119,9 @@ public:
         // 同步计算结果
         uint32_t alignTswTableSize = AlignTo32(tswTableSize * sizeof(FloatType)) / sizeof(FloatType);
         outQueTswGradOut.EnQue(gradOut);
-        LocalTensor<FloatType> gradOutFP32 = outQueTswGradOut.DeQue<FloatType>();
 
         if (std::is_same<FloatType, half>::value) {
+            LocalTensor<float> gradOutFP32 = outQueTswGradOut.DeQue<float>();
             LocalTensor<FloatType> gradOutFP16 = tmpQue.AllocTensor<FloatType>();
             Cast(gradOutFP16, gradOutFP32, RoundMode::CAST_ROUND, tswTableSize);
             tmpQue.EnQue(gradOutFP16);
@@ -133,6 +133,7 @@ public:
 
             tmpQue.FreeTensor(gradOutFP16);
         } else if (std::is_same<FloatType, float>::value) {
+            LocalTensor<FloatType> gradOutFP32 = outQueTswGradOut.DeQue<FloatType>();
             SetAtomicAdd<FloatType>();
             DataCopy(tswGradOutGT, gradOutFP32, alignTswTableSize);
             SetAtomicNone();
