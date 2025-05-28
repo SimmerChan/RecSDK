@@ -15,6 +15,7 @@
 # limitations under the License.
 # ==============================================================================
 
+import pytest
 import numpy as np
 import torch
 
@@ -29,13 +30,10 @@ def torch_op(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
     return torch.cat((x, y, x - y, x * y), dim=2)
 
 
+@pytest.mark.level0
 def test_fused_op():
     x = torch.randn((128, 10, 64), device="npu")
     y = torch.randn((128, 10, 64), device="npu")
     out = fused_op(x, y)
     gt = torch_op(x, y)
-    print(f"All close: {torch.allclose(out, gt)}")
-
-
-if __name__ == "__main__":
-    test_fused_op()
+    assert torch.allclose(out, gt)
