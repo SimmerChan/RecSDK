@@ -19,10 +19,10 @@ extern "C" __global__ __aicore__ void relative_attn_bias_backward(GM_ADDR rabTim
     Args args{
         rabTimeGrad, bucketTimestamps, timestampsWeightsGrad, workspace, tiling
     };
-    if (tilingData.floatType == TYPE_FP32) {
+    if (tilingData.gradDataType == TYPE_FP32) {
         RelativeAttnBiasBackward<float> kernel;
         kernel.Compute(args);
-    } else if (tilingData.floatType == TYPE_FP16) {
+    } else if (tilingData.gradDataType == TYPE_FP16) {
         RelativeAttnBiasBackward<half> kernel;
         kernel.Compute(args);
     }

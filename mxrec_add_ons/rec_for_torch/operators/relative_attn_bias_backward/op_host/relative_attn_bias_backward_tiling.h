@@ -19,8 +19,8 @@ TILING_DATA_FIELD_DEF(float, bucketDivisor);
 TILING_DATA_FIELD_DEF(int64_t, numBuckets);
 TILING_DATA_FIELD_DEF(int64_t, numLayer);
 
-TILING_DATA_FIELD_DEF(int, floatType);
-TILING_DATA_FIELD_DEF(int, intType);
+TILING_DATA_FIELD_DEF(int, gradDataType);
+TILING_DATA_FIELD_DEF(int, indexDataType);
 
 END_TILING_DATA_DEF;
 REGISTER_TILING_DATA_CLASS(RelativeAttnBiasBackward, RelativeAttnBiasBackwardTilingData)

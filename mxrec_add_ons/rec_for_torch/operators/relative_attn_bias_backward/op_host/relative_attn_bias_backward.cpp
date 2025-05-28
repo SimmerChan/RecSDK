@@ -95,8 +95,8 @@ static ge::graphStatus TimeTilingFunc(RelativeAttnBiasBackwardTilingData& tiling
     } else {
         stride = ub / (indexSize + sizeof(float));
     }
-    tilingData.set_floatType(gradDataType);
-    tilingData.set_intType(indexDataType);
+    tilingData.set_gradDataType(gradDataType);
+    tilingData.set_indexDataType(indexDataType);
     tilingData.set_timeStride(stride);
     return ge::GRAPH_SUCCESS;
 }
