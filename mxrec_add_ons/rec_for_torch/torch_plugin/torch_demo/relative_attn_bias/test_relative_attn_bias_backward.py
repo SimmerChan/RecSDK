@@ -66,10 +66,7 @@ def rab_backward(num_layers: int, batchsize: int, s: int, dtype: torch.dtype):
 
     golden_result = rab_backward_golden(grad, bucket_timestamps, dtype).to("cpu")
     op_result = rab_backward_op(grad, bucket_timestamps).to("cpu")
-    loss = 1e-5
-    if dtype == torch.float16:
-        op_result = op_result.to(torch.float32)
-        loss = 1e-3
+    loss = 1e-5 if dtype == torch.float32 else 1e-3
     assert torch.allclose(op_result, golden_result, rtol=loss, atol=loss)
 
 
