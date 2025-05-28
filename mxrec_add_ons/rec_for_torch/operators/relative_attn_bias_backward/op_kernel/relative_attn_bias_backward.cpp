@@ -5,9 +5,9 @@
 *
 */
 
+#include "kernel_operator.h"
 #include "rab_common.h"
 #include "relative_attn_bias_backward.h"
-#include "kernel_operator.h"
 
 extern "C" __global__ __aicore__ void relative_attn_bias_backward(GM_ADDR rabTimeGrad,
                                                                   GM_ADDR bucketTimestamps,
