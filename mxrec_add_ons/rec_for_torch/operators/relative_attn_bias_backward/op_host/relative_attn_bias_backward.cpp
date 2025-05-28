@@ -25,6 +25,9 @@ constexpr int TIMESTAMPS_WEIGHTS_GRAD_INDEX = 0;
 constexpr int NUM_BUCKET_INDEX = 0;
 // output dim
 constexpr int TSW_GRAD_OUT_DIM = 2;
+constexpr int RAB_TIME_GRAD_DIM = 4;
+constexpr int BUCKET_TIMESTAMPS_DIM = 3;
+
 constexpr int DIM0 = 0;
 constexpr int DIM1 = 1;
 constexpr int DIM2 = 2;
@@ -47,10 +50,10 @@ static ge::graphStatus TimeTilingFunc(RelativeAttnBiasBackwardTilingData& tiling
     int indexS1 = indexShape.GetDim(DIM1);
     int indexS2 = indexShape.GetDim(DIM2);
 
-    OPS_CHECK(gradShape.GetDimNum() != 4,
+    OPS_CHECK(gradShape.GetDimNum() != RAB_TIME_GRAD_DIM,
               OPS_LOG_E("Tiling Debug", "Grad shape is invalid."),
               return ge::GRAPH_FAILED);
-    OPS_CHECK(indexShape.GetDimNum() != 3,
+    OPS_CHECK(indexShape.GetDimNum() != BUCKET_TIMESTAMPS_DIM,
               OPS_LOG_E("Tiling Debug", "bucket_timestamps shape is invalid."),
               return ge::GRAPH_FAILED);
     OPS_CHECK(numBuckets <= 0,
@@ -112,6 +115,9 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
               return ge::GRAPH_FAILED);
     RelativeAttnBiasBackwardTilingData tilingData;
     auto ret = TimeTilingFunc(tilingData, context);
+    if (ret != ge::GRAPH_SUCCESS) {
+        return ret;
+    }
 
     context->SetBlockDim(coreNum);
     auto rowTilingData = context->GetRawTilingData();
