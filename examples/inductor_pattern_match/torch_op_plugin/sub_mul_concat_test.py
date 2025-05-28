@@ -18,6 +18,7 @@
 import pytest
 import numpy as np
 import torch
+from typing import Tuple
 
 torch.ops.load_library("./build/libsub_mul_concat.so")
 
@@ -30,10 +31,10 @@ def torch_op(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
     return torch.cat((x, y, x - y, x * y), dim=2)
 
 
-@pytest.mark.level0
-def test_fused_op():
-    x = torch.randn((128, 10, 64), device="npu")
-    y = torch.randn((128, 10, 64), device="npu")
+@pytest.mark.parametrize("shape", [(128, 10, 64), (128, 64, 10)])
+def test_fused_op(shape: Tuple[int, int, int]):
+    x = torch.randn(shape, device="npu")
+    y = torch.randn(shape, device="npu")
     out = fused_op(x, y)
     gt = torch_op(x, y)
     assert torch.allclose(out, gt)
