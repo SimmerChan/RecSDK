@@ -79,24 +79,24 @@ static ge::graphStatus TimeTilingFunc(RelativeAttnBiasBackwardTilingData& tiling
     ascendPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ub);
     ub = ub - RESERVER_UB_SIZE;
     // 获取数据类型
-    auto floatType = context->GetInputTensor(TIMESTAMPS_WEIGHTS_GRAD_INDEX)->GetDataType();
-    auto intType = context->GetInputTensor(BUCKET_TIMESTAMPS_INDEX)->GetDataType();
-    int floatSize = ge::GetSizeByDataType(floatType);
-    int intSize = ge::GetSizeByDataType(intType);
-    OPS_CHECK(floatSize == 0 || intSize == 0,
+    auto gradDataType = context->GetInputTensor(TIMESTAMPS_WEIGHTS_GRAD_INDEX)->GetDataType();
+    auto indexDataType = context->GetInputTensor(BUCKET_TIMESTAMPS_INDEX)->GetDataType();
+    int gradSize = ge::GetSizeByDataType(gradDataType);
+    int indexSize = ge::GetSizeByDataType(indexDataType);
+    OPS_CHECK(gradSize == 0 || indexSize == 0,
               OPS_LOG_E("Tiling Debug", "Invalid data type."),
               return ge::GRAPH_FAILED);
     // 去除tswGrad所需ub
     ub = ub - numBuckets * numLayer * sizeof(float);
     // 计算单次处理的block大小
     int stride;
-    if (floatType == ge::DataType::DT_FLOAT16) {
-        stride = ub / (intSize + floatSize + sizeof(float));  // 申请额外内存做cast
+    if (gradDataType == ge::DataType::DT_FLOAT16) {
+        stride = ub / (indexSize + gradSize + sizeof(float));  // 申请额外内存做cast
     } else {
-        stride = ub / (intSize + sizeof(float));
+        stride = ub / (indexSize + sizeof(float));
     }
-    tilingData.set_floatType(floatType);
-    tilingData.set_intType(intType);
+    tilingData.set_floatType(gradDataType);
+    tilingData.set_intType(indexDataType);
     tilingData.set_timeStride(stride);
     return ge::GRAPH_SUCCESS;
 }

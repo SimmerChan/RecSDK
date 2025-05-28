@@ -7,20 +7,20 @@
         "name": "rab_time_grad",
         "param_type": "required",
         "format": [
-          "ND"
+          "ND", "ND"
         ],
         "type": [
-          "float"
+          "fp32", "fp16"
         ]
       },
       {
         "name": "bucket_timestamps",
         "param_type": "required",
         "format": [
-          "ND"
+          "ND", "ND"
         ],
         "type": [
-          "int32"
+          "int32", "int32"
         ]
       }
     ],
@@ -29,10 +29,10 @@
         "name": "timestamps_weights_grad",
         "param_type": "required",
         "format": [
-          "ND"
+          "ND", "ND"
         ],
         "type": [
-          "float"
+          "fp32", "fp16"
         ]
       }
     ],
