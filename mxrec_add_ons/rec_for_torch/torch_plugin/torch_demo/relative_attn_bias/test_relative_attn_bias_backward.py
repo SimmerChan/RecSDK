@@ -37,7 +37,7 @@ def create_bucket_timestamps(batchsize: int, s: int):
     return result
 
 
-def rab_backward_golden(rab_time_grad: torch.Tensor, bucket_timestamps: torch.Tensor, dtype: torch.dtype):
+def rab_backward_golden(rab_time_grad: torch.Tensor, bucket_timestamps: torch.Tensor):
     num_layers, b, s, _ = rab_time_grad.shape
     tsw_grad = torch.zeros(num_layers, NUM_BUCKETS, dtype=torch.float32).to(rab_time_grad.device)
 
@@ -49,7 +49,7 @@ def rab_backward_golden(rab_time_grad: torch.Tensor, bucket_timestamps: torch.Te
         tsw_grad[n], _ = torch.ops.mxrec.index_select_for_rank1_backward(grad.view(-1),
                                                                          tsw_grad[n],
                                                                          bucket_timestamps_expand.view(-1))
-    return tsw_grad.to(dtype)
+    return tsw_grad
 
 
 def rab_backward_op(rab_time_grad: torch.Tensor, bucket_timestamps: torch.Tensor):
@@ -64,8 +64,8 @@ def rab_backward(num_layers: int, batchsize: int, s: int, dtype: torch.dtype):
     bucket_timestamps = create_bucket_timestamps(batchsize, s // 2).to(torch.int32).to(DEVICE)
     torch_npu.npu.synchronize()
 
-    golden_result = rab_backward_golden(grad, bucket_timestamps, dtype).to("cpu")
-    op_result = rab_backward_op(grad, bucket_timestamps).to("cpu")
+    golden_result = rab_backward_golden(grad, bucket_timestamps).to("cpu")
+    op_result = rab_backward_op(grad, bucket_timestamps).to(torch.float32).to("cpu")
     loss = 1e-5 if dtype == torch.float32 else 1e-3
     assert torch.allclose(op_result, golden_result, rtol=loss, atol=loss)
 
