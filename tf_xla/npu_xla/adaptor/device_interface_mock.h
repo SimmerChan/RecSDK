@@ -13,36 +13,27 @@ See the License for the specific language governing permissions and
         limitations under the License.
 ==============================================================================*/
 
-#ifndef ACL_ADAPTOR_H
-#define ACL_ADAPTOR_H
+#ifndef DEVICE_INTERFACE_MOCK_H
+#define DEVICE_INTERFACE_MOCK_H
 
-#include <cstdint>
-#include <cstddef>
+#include <gmock/gmock.h>
 #include "device_interface.h"
 
 namespace tensorflow {
 namespace npu_xla {
 
-class AclAdaptor : public DeviceInterface {
+class DeviceInterfaceMock : public DeviceInterface {
 public:
-    static AclAdaptor &GetInstance(int32_t deviceId);
+    MOCK_METHOD(void*, Allocate, (size_t), (override));
 
-    ~AclAdaptor() override;
+    MOCK_METHOD(void, Deallocate, (void*), (override));
 
-    void *Allocate(size_t size) override;
-
-    void Deallocate(void *ptr) override;
-
-    bool MemcpyHToD(void *dst, size_t dstSize, const void *src, size_t srcSize) override;
-
-    bool MemcpyDToH(void *dst, size_t dstSize, const void *src, size_t srcSize) override;
-
-private:
-    AclAdaptor();
-    void SetDevice(int32_t deviceID);
+    MOCK_METHOD(bool, MemcpyHToD, (void*, size_t, const void*, size_t), (override));
+    
+    MOCK_METHOD(bool, MemcpyDToH, (void*, size_t, const void*, size_t), (override));
 };
 
-} // namespace npu_xla
-} // namespace tensorflow
+}  // namespace npu_xla
+}  // namespace tensorflow
 
-#endif // ACL_ADAPTOR_H
+#endif // DEVICE_INTERFACE_MOCK_H

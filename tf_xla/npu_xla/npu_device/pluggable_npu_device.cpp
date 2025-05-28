@@ -14,11 +14,12 @@ See the License for the specific language governing permissions and
 ==============================================================================*/
 
 #include <cstdlib>
-#include "adaptor/acl_adaptor.h"
-#include "common_hdrs/types.h"
 #include "tensorflow/c/experimental/stream_executor/stream_executor.h"
 #include "tsl/platform/logging.h"
 #include "tensorflow/core/platform/stacktrace.h"
+
+#include "common_hdrs/types.h"
+#include "adaptor/device_interface.h"
 
 /** Copy from stream_excutor_test_util.h **/
 /** ------------------------------------ **/
@@ -82,7 +83,7 @@ void DestroyDeviceFns(const SP_Platform* platform, SP_DeviceFns* device_fns)
 void Allocate(const SP_Device* const device, uint64_t size, int64_t memorySpace, SP_DeviceMemoryBase* const mem)
 {
     VLOG(VLOG_LEVEL_2) << "Pluggable NPU Allocate";
-    AclAdaptor& adaptor = AclAdaptor::GetInstance(device->ordinal);
+    DeviceInterface& adaptor = DeviceInterface::Create(device->ordinal);
     mem->opaque = adaptor.Allocate(size);
     mem->size = mem->opaque != nullptr ? size : 0;
     mem->payload = 0;
@@ -92,7 +93,7 @@ void Allocate(const SP_Device* const device, uint64_t size, int64_t memorySpace,
 void Deallocate(const SP_Device* const device, SP_DeviceMemoryBase* const mem)
 {
     VLOG(VLOG_LEVEL_2) << "Pluggable NPU Deallocate";
-    AclAdaptor& adaptor = AclAdaptor::GetInstance(device->ordinal);
+    DeviceInterface& adaptor = DeviceInterface::Create(device->ordinal);
     adaptor.Deallocate(mem->opaque);
     VLOG(VLOG_LEVEL_2) << "Pluggable NPU Deallocate opaque " << mem->opaque;
     mem->opaque = nullptr;
@@ -210,24 +211,26 @@ void SyncMemcpyDToH(const SP_Device* const device, void* hostDst, const SP_Devic
                     uint64_t size, TF_Status* const status)
 {
     VLOG(VLOG_LEVEL_2) << "Pluggable NPU SyncMemcpyDToH";
-    AclAdaptor& adaptor = AclAdaptor::GetInstance(device->ordinal);
+    DeviceInterface& adaptor = DeviceInterface::Create(device->ordinal);
     auto success = adaptor.MemcpyDToH(hostDst, size, device_src->opaque, device_src->size);
     if (!success) {
         TF_SetStatus(status, TF_INTERNAL, "MemcpyDToH failed");
+    } else {
+        TF_SetStatus(status, TF_OK, "");
     }
-    TF_SetStatus(status, TF_OK, "");
 }
 
 void SyncMemcpyHToD(const SP_Device* const device, SP_DeviceMemoryBase* const device_dst, const void* hostSrc,
                     uint64_t size, TF_Status* const status)
 {
     VLOG(VLOG_LEVEL_2) << "Pluggable NPU SyncMemcpyHToD";
-    AclAdaptor& adaptor = AclAdaptor::GetInstance(device->ordinal);
+    DeviceInterface& adaptor = DeviceInterface::Create(device->ordinal);
     auto success = adaptor.MemcpyHToD(device_dst->opaque, device_dst->size, hostSrc, size);
     if (!success) {
         TF_SetStatus(status, TF_INTERNAL, "MemcpyHToD failed");
+    } else {
+        TF_SetStatus(status, TF_OK, "");
     }
-    TF_SetStatus(status, TF_OK, "");
 }
 
 void MemcpyDToH(const SP_Device* const device, SP_Stream stream, void* hostDst,

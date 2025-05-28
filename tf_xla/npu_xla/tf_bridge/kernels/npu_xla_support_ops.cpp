@@ -387,3 +387,4 @@ REGISTER_DUMMY_OP(ONE_HOT, "OneHot");
 REGISTER_DUMMY_OP(POW, "Pow");
 REGISTER_DUMMY_OP(TANH, "Tanh");
 REGISTER_DUMMY_OP(PAD, "Pad");
+}  // namespace tensorflow
