@@ -20,7 +20,7 @@ public:
     {
         tsGradGT.SetGlobalBuffer((__gm__ FloatType*)args.rabTimeGrad, numLayer * bs * s * s);
         bucketTimestampsGT.SetGlobalBuffer((__gm__ int32_t*)args.bucketTimestamps, bs * s * s);
-        tswGradOutGT.SetGlobalBuffer((__gm__ FloatType*)args.timestampsWeightsGrad, numLayer * bs * s * s);
+        tswGradOutGT.SetGlobalBuffer((__gm__ FloatType*)args.timestampsWeightsGrad, tswTableSize);
 
         pipe.InitBuffer(inQueTsGrad, 1, AlignTo32(stride * sizeof(float)));
         pipe.InitBuffer(inQueBucketTimestamps, 1, AlignTo32(stride * sizeof(int32_t)));
@@ -53,6 +53,7 @@ public:
         stride = tilingData.timeStride;
         numBuckets = tilingData.numBuckets;
         numLayer = tilingData.numLayer;
+        tswTableSize = numLayer * numBuckets;
 
         InitTensor(args);
         InitTiling();
@@ -96,8 +97,11 @@ public:
         }
     }
 
-    __aicore__ inline void ScatterAdd(LocalTensor<float>& dst, LocalTensor<float>& src, LocalTensor<int32_t>& index,
-                                      uint32_t layer, uint32_t cnt)
+    __aicore__ inline void ScatterAdd(LocalTensor<float>& dst,
+                                      LocalTensor<float>& src,
+                                      LocalTensor<int32_t>& index,
+                                      uint32_t layer,
+                                      uint32_t cnt)
     {
         uint32_t layerOffset = layer * numBuckets;
         __ubuf__ float* dstAddr = reinterpret_cast<__ubuf__ float*>(dst[layerOffset].GetPhyAddr());
@@ -113,22 +117,24 @@ public:
     __aicore__ inline void DataCopyOut(LocalTensor<float>& gradOut)
     {
         // 同步计算结果
-        uint32_t alignCnt = AlignTo32(numLayer * numBuckets * sizeof(FloatType)) / sizeof(FloatType);
+        uint32_t alignTswTableSize = AlignTo32(tswTableSize * sizeof(FloatType)) / sizeof(FloatType);
         outQueTswGradOut.EnQue(gradOut);
+        LocalTensor<FloatType> gradOutFP32 = outQueTswGradOut.DeQue<FloatType>();
+
         if (std::is_same<FloatType, half>::value) {
-            gradOut = outQueTswGradOut.DeQue<float>();
-            LocalTensor<FloatType> gradOutFP16 = gradOut.template ReinterpretCast<FloatType>();
-            Cast(gradOutFP16, gradOut, RoundMode::CAST_TRUNC, numLayer * numBuckets);
-            outQueTswGradOut.EnQue(gradOutFP16);
-            gradOutFP16 = outQueTswGradOut.DeQue<FloatType>();
+            LocalTensor<FloatType> gradOutFP16 = tmpQue.AllocTensor<FloatType>();
+            Cast(gradOutFP16, gradOutFP32, RoundMode::CAST_ROUND, tswTableSize);
+            tmpQue.EnQue(gradOutFP16);
+            gradOutFP16 = tmpQue.DeQue<FloatType>();
 
             SetAtomicAdd<FloatType>();
-            DataCopy(tswGradOutGT, gradOutFP16, alignCnt);
+            DataCopy(tswGradOutGT, gradOutFP16, alignTswTableSize);
             SetAtomicNone();
+
+            tmpQue.FreeTensor(gradOutFP16);
         } else if (std::is_same<FloatType, float>::value) {
-            LocalTensor<FloatType> gradOutFP32 = outQueTswGradOut.DeQue<FloatType>();
             SetAtomicAdd<FloatType>();
-            DataCopy(tswGradOutGT, gradOutFP32, alignCnt);
+            DataCopy(tswGradOutGT, gradOutFP32, alignTswTableSize);
             SetAtomicNone();
         }
     }
@@ -181,6 +187,7 @@ private:
     uint32_t stride;
     uint32_t numBuckets;
     uint32_t numLayer;
+    uint32_t tswTableSize;
     // tiling
     uint32_t processLen;
     uint32_t startGT;

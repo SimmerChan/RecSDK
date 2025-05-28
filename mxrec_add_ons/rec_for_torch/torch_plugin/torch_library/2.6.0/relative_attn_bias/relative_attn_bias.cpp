@@ -51,8 +51,9 @@ Tensor relative_attn_bias_backward_impl_npu(const Tensor& rabTimeGrad, const Ten
 
     auto rabTimeGradConti = rabTimeGrad.contiguous();
     auto bucketTimestampsConti = bucketTimestamps.contiguous();  // (n, b, s, s)
-    bucketTimestampsConti =
-        bucketTimestampsConti.reshape({batchsize, s, 1, s, 1}).repeat({1, 1, 2, 1, 2}).reshape({batchsize, sx2, sx2});
+    bucketTimestampsConti = bucketTimestampsConti.view({batchsize, s, 1, s, 1})
+                                                 .repeat({1, 1, 2, 1, 2})
+                                                 .reshape({batchsize, sx2, sx2});
 
     at::Tensor rabTimeGradOut = at::zeros({numLayers, numBuckets}, rabTimeGrad.options());
     EXEC_NPU_CMD(aclnnRelativeAttnBiasBackward, rabTimeGradConti, bucketTimestampsConti, numBuckets, rabTimeGradOut);

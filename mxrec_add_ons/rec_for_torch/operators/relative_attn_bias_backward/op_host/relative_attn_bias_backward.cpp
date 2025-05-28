@@ -35,22 +35,34 @@ static ge::graphStatus TimeTilingFunc(RelativeAttnBiasBackwardTilingData& tiling
 {
     // 获取、校验必要shape数据
     auto gradShape = context->GetInputShape(TIMESTAMPS_WEIGHTS_GRAD_INDEX)->GetStorageShape();  // grad(n, b, 2s, 2s)
+    auto indexShape = context->GetInputShape(BUCKET_TIMESTAMPS_INDEX)->GetStorageShape();  // grad(b, 2s, 2s)
+
     int numBuckets = *context->GetAttrs()->GetInt(NUM_BUCKET_INDEX);
     int numLayer = gradShape.GetDim(DIM0);
     int batchsize = gradShape.GetDim(DIM1);
     int s = gradShape.GetDim(DIM2);
     int s2 = gradShape.GetDim(DIM3);
 
+    int indexBatchsize = indexShape.GetDim(DIM0);
+    int indexS1 = indexShape.GetDim(DIM1);
+    int indexS2 = indexShape.GetDim(DIM2);
+
+    OPS_CHECK(gradShape.GetDimNum() != 4,
+              OPS_LOG_E("Tiling Debug", "Grad shape is invalid."),
+              return ge::GRAPH_FAILED);
+    OPS_CHECK(indexShape.GetDimNum() != 3,
+              OPS_LOG_E("Tiling Debug", "bucket_timestamps shape is invalid."),
+              return ge::GRAPH_FAILED);
     OPS_CHECK(numBuckets <= 0,
               OPS_LOG_E("Tiling Debug", "NumBuckets is invalid."),
               return ge::GRAPH_FAILED);
     OPS_CHECK(numLayer <= 0,
               OPS_LOG_E("Tiling Debug", "Numlayer is invalid."),
               return ge::GRAPH_FAILED);
-    OPS_CHECK(batchsize <= 0,
+    OPS_CHECK(batchsize <= 0 || batchsize != indexBatchsize,
               OPS_LOG_E("Tiling Debug", "Batchsize is invalid."),
               return ge::GRAPH_FAILED);
-    OPS_CHECK(s <= 0 || s != s2,
+    OPS_CHECK(s <= 0 || s != s2 || s != indexS1 || s != indexS2,
               OPS_LOG_E("Tiling Debug", "Sequence len is invalid."),
               return ge::GRAPH_FAILED);
 

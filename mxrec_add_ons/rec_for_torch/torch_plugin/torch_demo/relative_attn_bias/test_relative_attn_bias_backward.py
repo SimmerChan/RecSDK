@@ -44,7 +44,8 @@ def rab_backward_golden(rab_time_grad: torch.Tensor, bucket_timestamps: torch.Te
 
     bucket_timestamps_expand = (bucket_timestamps.reshape(b, s // 2, 1, s // 2, 1)
                                                  .repeat(1, 1, 2, 1, 2)
-                                                 .reshape(b, s, s))
+                                                 .reshape(b, s, s)
+                                                    .to(torch.int64))
     for n, grad in enumerate(rab_time_grad.to(torch.float32)):
         tsw_grad[n], _ = torch.ops.mxrec.index_select_for_rank1_backward(grad.view(-1),
                                                                          tsw_grad[n],
@@ -64,9 +65,13 @@ def rab_backward(num_layers: int, batchsize: int, s: int, dtype: torch.dtype):
     bucket_timestamps = create_bucket_timestamps(batchsize, s // 2).to(torch.int32).to(DEVICE)
     torch_npu.npu.synchronize()
 
-    golden_result = rab_backward_golden(grad, bucket_timestamps, dtype)
-    op_result = rab_backward_op(grad, bucket_timestamps)
-    assert torch.allclose(op_result, golden_result, rtol=1e-5, atol=1e-5)
+    golden_result = rab_backward_golden(grad, bucket_timestamps, dtype).to("cpu")
+    op_result = rab_backward_op(grad, bucket_timestamps).to("cpu")
+    loss = 1e-5
+    if dtype == torch.float16:
+        op_result = op_result.to(torch.float32)
+        loss = 1e-3
+    assert torch.allclose(op_result, golden_result, rtol=loss, atol=loss)
 
 
 @pytest.mark.parametrize("num_layers", [1, 8])
