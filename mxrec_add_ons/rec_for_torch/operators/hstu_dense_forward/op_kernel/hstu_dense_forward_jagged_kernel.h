@@ -387,25 +387,4 @@ HstuDenseForwardJaggedKernel<qType>::PreInit(const HstuDenseForwardTilingData *_
 
 }
 
-#ifndef INVOKE_HSTU_JAGGED_OP_IMPL
-#define INVOKE_HSTU_JAGGED_OP_IMPL(args, ...)       \
-    do {                                      \
-        TPipe tPipe;                 \
-        HstuDenseForward::HstuDenseForwardJaggedKernel<__VA_ARGS__> op;  \
-        GET_TILING_DATA(tilingData, args.tiling);         \
-        const HstuDenseForwardTilingData *__restrict tilingDataPtr = &tilingData;   \
-        REGIST_MATMUL_OBJ(&tPipe,                   \
-                          GetSysWorkSpacePtr(),    \
-                          op.qkMatmul,             \
-                          &tilingDataPtr->qkMatmul, \
-                          op.svMatmul,              \
-                          &tilingDataPtr->svMatmul); \
-        uint64_t tilingPtr = reinterpret_cast<uint64_t>(args.tiling);  \
-        op.qkMatmul.SetUserDefInfo(tilingPtr);    \
-        op.svMatmul.SetUserDefInfo(tilingPtr);    \
-        op.Init(args, tilingDataPtr, &tPipe);     \
-        op.Compute(tilingDataPtr);                \
-    } while (0)
-#endif
-
 #endif

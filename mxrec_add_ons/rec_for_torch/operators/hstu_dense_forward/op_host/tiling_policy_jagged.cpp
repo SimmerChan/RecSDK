@@ -240,18 +240,18 @@ bool TilingPolicyJagged::TilingShape(gert::TilingContext* context, optiling::Hst
     int64_t seqLens;
 
     const gert::RuntimeAttrs* attrs = context->GetAttrs();
-    OPS_LOGD_IF_NULL(attrs, return false);
+    OPS_CHECK_PTR_NULL(attrs, return false);
 
     const auto seqOffset = attrs->GetAttrPointer<gert::ContinuousVector>(INDEX_T::INDEX_4);
-    OPS_LOGD_IF_NULL(seqOffset, return false);
+    OPS_CHECK_PTR_NULL(seqOffset, return false);
 
     auto *seqOffsetData = const_cast<int64_t *>(reinterpret_cast<const int64_t *>(seqOffset->GetData()));
-    OPS_LOGD_IF_NULL(seqOffsetData, return false);
+    OPS_CHECK_PTR_NULL(seqOffsetData, return false);
 
     int64_t seqOffsetLens = seqOffset->GetSize();
     batchSize = seqOffsetLens - 1;
     OPS_CHECK(batchSize > MAX_BATCH_SIZE,
-        OPS_LOG_D("batch size is over limit %d", MAX_BATCH_SIZE), return false);
+        OPS_LOG_E("", "batch size is over limit %d", MAX_BATCH_SIZE), return false);
 
     auto queryShape = context->GetInputShape(INDEX_T::INDEX_0)->GetStorageShape();
     headNum = queryShape.GetDim(INDEX_T::INDEX_1);
@@ -264,7 +264,7 @@ bool TilingPolicyJagged::TilingShape(gert::TilingContext* context, optiling::Hst
     tiling.set_seqLen(seqLens);
 
     OPS_CHECK(!GeneralShapeCheck(batchSize, seqLens, headNum, headDIM),
-        OPS_LOG_D("Jagged Shape Check failed"), return false);
+        OPS_LOG_E("", "Jagged Shape Check failed"), return false);
     return true;
 }
 
@@ -290,15 +290,15 @@ static void CallBlockAssign(
 bool TilingPolicyJagged::TilingCore(gert::TilingContext* context, optiling::HstuDenseForwardTilingData &tiling)
 {
     const gert::RuntimeAttrs* attrs = context->GetAttrs();
-    OPS_LOGD_IF_NULL(attrs, return false);
+    OPS_CHECK_PTR_NULL(attrs, return false);
 
     const auto seqOffset = attrs->GetAttrPointer<gert::ContinuousVector>(INDEX_T::INDEX_4);
-    OPS_LOGD_IF_NULL(seqOffset, return false);
+    OPS_CHECK_PTR_NULL(seqOffset, return false);
 
     auto *seqOffsetData = const_cast<int64_t *>(reinterpret_cast<const int64_t *>(seqOffset->GetData()));
     int seq_offset_lens = seqOffset->GetSize();
     if (seq_offset_lens > (MAX_BATCH_SIZE + 1)) {
-        OPS_LOG_D("seq_offset_lens exceed limit %d \n", MAX_BATCH_SIZE + 1);
+        OPS_LOG_E("", "seq_offset_lens exceed limit %d \n", MAX_BATCH_SIZE + 1);
         return false;
     }
 
@@ -325,7 +325,7 @@ bool TilingPolicyJagged::TilingCore(gert::TilingContext* context, optiling::Hstu
     std::cout << "BlockTaskAssign Elapsed time: " << elapsed.count() << " us\n";
 
     for (auto i = 0; i < coreNum; i++) {
-        OPS_LOG_D("aicore :%d startBlockId:%d endBlockId:%d totalTaskNumber:%d\n",
+        OPS_LOG_E("", "aicore :%d startBlockId:%d endBlockId:%d totalTaskNumber:%d\n",
             i, workTasks[i].startBlockId, workTasks[i].endBlockId, workLoads[i]);
     }
 #endif
@@ -358,7 +358,7 @@ bool TilingPolicyJagged::TilingKeySet(gert::TilingContext* context, optiling::Hs
     } else if (qTypeGe == ge::DataType::DT_BF16) {
         context->SetTilingKey(JAGGED_BF16_TILING_KEY);
     } else {
-        OPS_LOG_D("invalid datatype, only support fp32, fp16, bf16");
+        OPS_LOG_E("", "invalid datatype, only support fp32, fp16, bf16");
         return false;
     }
 
@@ -381,7 +381,7 @@ void TilingPolicyJagged::DumpTiling(optiling::HstuDenseForwardTilingData &tiling
 
     OPS_LOG_D("core block range:\n");
     for (auto i = 0; i < MAX_AIV_NUM; i++) {
-        OPS_LOG_D("core_id:%d startBlockId:%d endBlockId:%d\n", i, startBlockId[i], endBlockId[i]);
+        OPS_LOG_E("", "core_id:%d startBlockId:%d endBlockId:%d\n", i, startBlockId[i], endBlockId[i]);
     }
 }
 

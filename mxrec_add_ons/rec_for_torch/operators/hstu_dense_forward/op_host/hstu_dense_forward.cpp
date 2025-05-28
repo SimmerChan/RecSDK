@@ -9,10 +9,10 @@ template<typename T>
 const char *GetLayoutHelpFunc(T* context)
 {
     const gert::RuntimeAttrs* attrs = context->GetAttrs();
-    OPS_LOGD_IF_NULL(attrs, nullptr);
+    OPS_CHECK_PTR_NULL(attrs, nullptr);
 
     const char *layout = attrs->GetAttrPointer<char>(INDEX_T::INDEX_3);
-    OPS_LOGD_IF_NULL(layout, nullptr);
+    OPS_CHECK_PTR_NULL(layout, nullptr);
 
     return layout;
 }
@@ -21,10 +21,10 @@ namespace optiling {
 
 static ge::graphStatus TilingFunc(gert::TilingContext* context)
 {
-    OPS_LOGD_IF_NULL(context, return ge::GRAPH_FAILED);
+    OPS_CHECK_PTR_NULL(context, return ge::GRAPH_FAILED);
 
     auto layout = GetLayoutHelpFunc<gert::TilingContext>(context);
-    OPS_LOGD_IF_NULL(layout, return ge::GRAPH_FAILED);
+    OPS_CHECK_PTR_NULL(layout, return ge::GRAPH_FAILED);
 
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
     auto socVersion = ascendcPlatform.GetSocVersion();
@@ -33,7 +33,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     }
 
     auto tilingPolicy = TilingPolicyFactory::CreatePolicy(layout);
-    OPS_LOGD_IF_NULL(tilingPolicy, return ge::GRAPH_FAILED);
+    OPS_CHECK_PTR_NULL(tilingPolicy, return ge::GRAPH_FAILED);
 
     return tilingPolicy->TilingProcess(context);
 }
@@ -43,26 +43,26 @@ namespace ge {
 
 static ge::graphStatus InferShape(gert::InferShapeContext* context)
 {
-    OPS_LOGD_IF_NULL(context, return ge::GRAPH_FAILED);
+    OPS_CHECK_PTR_NULL(context, return ge::GRAPH_FAILED);
     
     auto layout = GetLayoutHelpFunc<gert::InferShapeContext>(context);
-    OPS_LOGD_IF_NULL(layout, return ge::GRAPH_FAILED);
+    OPS_CHECK_PTR_NULL(layout, return ge::GRAPH_FAILED);
 
     auto tilingPolicy = TilingPolicyFactory::CreatePolicy(layout);
-    OPS_LOGD_IF_NULL(tilingPolicy, return ge::GRAPH_FAILED);
+    OPS_CHECK_PTR_NULL(tilingPolicy, return ge::GRAPH_FAILED);
 
     return tilingPolicy->InferShape(context);
 }
 
 static ge::graphStatus InferDtype(gert::InferDataTypeContext* context)
 {
-    OPS_LOGD_IF_NULL(context, return ge::GRAPH_FAILED);
+    OPS_CHECK_PTR_NULL(context, return ge::GRAPH_FAILED);
     
     auto layout = GetLayoutHelpFunc<gert::InferDataTypeContext>(context);
-    OPS_LOGD_IF_NULL(layout, return ge::GRAPH_FAILED);
+    OPS_CHECK_PTR_NULL(layout, return ge::GRAPH_FAILED);
 
     auto tilingPolicy = TilingPolicyFactory::CreatePolicy(layout);
-    OPS_LOGD_IF_NULL(tilingPolicy, return ge::GRAPH_FAILED);
+    OPS_CHECK_PTR_NULL(tilingPolicy, return ge::GRAPH_FAILED);
 
     return tilingPolicy->InferDtype(context);
 }

@@ -10,10 +10,6 @@ namespace HstuDenseForward {
 #include "register/tilingdata_base.h"
 #include "tiling/tiling_api.h"
 
-#ifndef OPS_LOGD_IF_NULL
-#define OPS_LOGD_IF_NULL(PTR, EXPR)  OPS_LOG_E_IF_NULL(#PTR, PTR, EXPR)
-#endif
-
 namespace INDEX_T {
     constexpr int INDEX_0 = 0;
     constexpr int INDEX_1 = 1;

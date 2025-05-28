@@ -445,9 +445,9 @@ at::Tensor hstu_dense_forward_impl_autograd(const at::Tensor& q,
 {
     return HstuDenseNpuFusion::apply(q, k, v, mask, attnBias, maskType, maxSeqLen, siluScale, layout, seqOffset);
 }
-}
 
 TORCH_LIBRARY_IMPL(mxrec, PrivateUse1, m)
 {
-    m.impl("hstu_dense", &hstu::hstu_dense_forward_impl_autograd);
+    m.impl("hstu_dense", &hstu_dense_forward_impl_autograd);
+}
 }

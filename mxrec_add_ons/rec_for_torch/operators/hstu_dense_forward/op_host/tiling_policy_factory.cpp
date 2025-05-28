@@ -24,7 +24,7 @@ TilingPolicyFactory &TilingPolicyFactory::GetInstance()
 
 std::shared_ptr<TilingPolicy> TilingPolicyFactory::CreatePolicy(const char *layOutCStr)
 {
-    OPS_LOGD_IF_NULL(layOutCStr, return nullptr);
+    OPS_CHECK_PTR_NULL(layOutCStr, return nullptr);
 
     auto layout = TilingPolicyFactory::ParseLayout(layOutCStr);
     if (layout < LAYOUT_TYPE::INVALID && layout >= LAYOUT_TYPE::NORMAL) {

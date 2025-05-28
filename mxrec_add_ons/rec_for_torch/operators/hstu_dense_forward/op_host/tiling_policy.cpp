@@ -15,25 +15,25 @@ ShapeRange::ShapeRange(int64_t lbound, int64_t ubound, int64_t mutiple, const ch
 bool ShapeRange::Check(int64_t val) const
 {
     OPS_CHECK((val < lbound || val > ubound || val % mutiple != 0),
-        OPS_LOG_D("%s must meet range[%lld %lld] and mutiple of [%lld]. but get value %lld\n",
-            name, lbound, ubound, mutiple, val),
-        return false);
+              OPS_LOG_E("%s must meet range[%lld %lld] and mutiple of [%lld]. but get value %lld\n", name, lbound,
+                        ubound, mutiple, val),
+              return false);
     return true;
 }
 
-ge::graphStatus TilingPolicy::InferShape(gert::InferShapeContext* context)
+ge::graphStatus TilingPolicy::InferShape(gert::InferShapeContext *context)
 {
-    const gert::Shape* queryShape = context->GetInputShape(INDEX_T::INDEX_0);
-    OPS_LOGD_IF_NULL(queryShape, return ge::GRAPH_FAILED);
+    const gert::Shape *queryShape = context->GetInputShape(INDEX_T::INDEX_0);
+    OPS_CHECK_PTR_NULL(queryShape, return ge::GRAPH_FAILED);
 
-    gert::Shape* attenOutputShape = context->GetOutputShape(INDEX_T::INDEX_0);
-    OPS_LOGD_IF_NULL(attenOutputShape, return ge::GRAPH_FAILED);
+    gert::Shape *attenOutputShape = context->GetOutputShape(INDEX_T::INDEX_0);
+    OPS_CHECK_PTR_NULL(attenOutputShape, return ge::GRAPH_FAILED);
     *attenOutputShape = *queryShape;
 
     return ge::GRAPH_SUCCESS;
 }
 
-ge::graphStatus TilingPolicy::InferDtype(gert::InferDataTypeContext* context)
+ge::graphStatus TilingPolicy::InferDtype(gert::InferDataTypeContext *context)
 {
     context->SetOutputDataType(0, context->GetInputDataType(0));
     context->SetOutputDataType(1, context->GetInputDataType(0));
@@ -43,48 +43,50 @@ ge::graphStatus TilingPolicy::InferDtype(gert::InferDataTypeContext* context)
 
 ge::graphStatus TilingPolicy::TilingProcess(gert::TilingContext *context)
 {
-    OPS_LOGD_IF_NULL(context, return ge::GRAPH_FAILED);
+    OPS_CHECK_PTR_NULL(context, return ge::GRAPH_FAILED);
 
     optiling::HstuDenseForwardTilingData tiling;
 
     // step0: check platform is support
-    OPS_CHECK(!CheckIsSupport(context), OPS_LOG_D("CheckIsSupport is failed.\n"), return ge::GRAPH_FAILED);
+    OPS_CHECK(!CheckIsSupport(context), OPS_LOG_E("", "CheckIsSupport is failed."), return ge::GRAPH_FAILED);
 
     // step1: get attribute
-    OPS_CHECK(!TilingAttribute(context, tiling), OPS_LOG_D("TilingAttribute is failed.\n"), return ge::GRAPH_FAILED);
+    OPS_CHECK(!TilingAttribute(context, tiling), OPS_LOG_E("", "TilingAttribute is failed.\n"),
+              return ge::GRAPH_FAILED);
 
     // step2: get key shape form input
-    OPS_CHECK(!TilingShape(context, tiling), OPS_LOG_D("TilingShape is failed.\n"), return ge::GRAPH_FAILED);
+    OPS_CHECK(!TilingShape(context, tiling), OPS_LOG_E("", "TilingShape is failed.\n"), return ge::GRAPH_FAILED);
 
     // step3: tiling core
-    OPS_CHECK(!TilingCore(context, tiling), OPS_LOG_D("TilingCore is failed.\n"), return ge::GRAPH_FAILED);
+    OPS_CHECK(!TilingCore(context, tiling), OPS_LOG_E("", "TilingCore is failed.\n"), return ge::GRAPH_FAILED);
 
     // step4: hight level api tiling
-    OPS_CHECK(!TilingHeighLevelApi(context, tiling), OPS_LOG_D("TilingHeight is failed.\n"), return ge::GRAPH_FAILED);
+    OPS_CHECK(!TilingHeighLevelApi(context, tiling), OPS_LOG_E("", "TilingHeight is failed.\n"),
+              return ge::GRAPH_FAILED);
 
     // step5: set tiling key
-    OPS_CHECK(!TilingKeySet(context, tiling), OPS_LOG_D("TilingKeySet is failed.\n"), return ge::GRAPH_FAILED);
+    OPS_CHECK(!TilingKeySet(context, tiling), OPS_LOG_E("", "TilingKeySet is failed.\n"), return ge::GRAPH_FAILED);
 
     // step6: tiling save to buffer
-    OPS_CHECK(!TilingSaveToBuffer(context, tiling), OPS_LOG_D("TilingSaveToBuffer is failed.\n"), \
-        return ge::GRAPH_FAILED);
+    OPS_CHECK(!TilingSaveToBuffer(context, tiling), OPS_LOG_E("", "TilingSaveToBuffer is failed.\n"),
+              return ge::GRAPH_FAILED);
 
     return ge::GRAPH_SUCCESS;
 }
 
-bool TilingPolicy::TilingSaveToBuffer(gert::TilingContext* context, optiling::HstuDenseForwardTilingData &tiling)
+bool TilingPolicy::TilingSaveToBuffer(gert::TilingContext *context, optiling::HstuDenseForwardTilingData &tiling)
 {
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
     return true;
 }
 
-bool TilingPolicy::CheckIsSupport(gert::TilingContext* context)
+bool TilingPolicy::CheckIsSupport(gert::TilingContext *context)
 {
     return true;
 }
 
-bool TilingPolicy::TilingShape(gert::TilingContext* context, optiling::HstuDenseForwardTilingData &tiling)
+bool TilingPolicy::TilingShape(gert::TilingContext *context, optiling::HstuDenseForwardTilingData &tiling)
 {
     // base unrealized
     return false;
@@ -116,19 +118,19 @@ bool TilingPolicy::GeneralShapeCheck(int64_t batchSize, int64_t seqLen, int64_t 
     return true;
 }
 
-bool TilingPolicy::TilingAttribute(gert::TilingContext* context, optiling::HstuDenseForwardTilingData &tiling)
+bool TilingPolicy::TilingAttribute(gert::TilingContext *context, optiling::HstuDenseForwardTilingData &tiling)
 {
-    const gert::RuntimeAttrs* attrs = context->GetAttrs();
-    OPS_LOGD_IF_NULL(attrs, return false);
+    const gert::RuntimeAttrs *attrs = context->GetAttrs();
+    OPS_CHECK_PTR_NULL(attrs, return false);
 
     const uint32_t *maskType = attrs->GetAttrPointer<uint32_t>(INDEX_T::INDEX_0);
-    OPS_LOGD_IF_NULL(maskType, return false);
+    OPS_CHECK_PTR_NULL(maskType, return false);
 
     const uint32_t *maxSeqLen = attrs->GetAttrPointer<uint32_t>(INDEX_T::INDEX_1);
-    OPS_LOGD_IF_NULL(maxSeqLen, return false);
+    OPS_CHECK_PTR_NULL(maxSeqLen, return false);
 
     const float *siluScale = attrs->GetAttrPointer<float>(INDEX_T::INDEX_2);
-    OPS_LOGD_IF_NULL(siluScale, return false);
+    OPS_CHECK_PTR_NULL(siluScale, return false);
 
     auto biasTensor = context->GetOptionalInputTensor(INDEX_T::INDEX_4);
     if (biasTensor == nullptr) {
@@ -143,7 +145,7 @@ bool TilingPolicy::TilingAttribute(gert::TilingContext* context, optiling::HstuD
     return true;
 }
 
-bool TilingPolicy::TilingHeighLevelApi(gert::TilingContext* context, optiling::HstuDenseForwardTilingData &tiling)
+bool TilingPolicy::TilingHeighLevelApi(gert::TilingContext *context, optiling::HstuDenseForwardTilingData &tiling)
 {
     int64_t dim = tiling.get_dim();
 
@@ -158,7 +160,7 @@ bool TilingPolicy::TilingHeighLevelApi(gert::TilingContext* context, optiling::H
     }
 
     auto ascendPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
-    size_t* currentWorkspace = context->GetWorkspaceSizes(1);
+    size_t *currentWorkspace = context->GetWorkspaceSizes(1);
     size_t systemWorkspacesSize = ascendPlatform.GetLibApiWorkSpaceSize();
     size_t coreNum = ascendPlatform.GetCoreNumAic();
 
@@ -209,7 +211,7 @@ bool TilingPolicy::TilingHeighLevelApi(gert::TilingContext* context, optiling::H
     return true;
 }
 
-bool TilingPolicy::TilingCore(gert::TilingContext* context, optiling::HstuDenseForwardTilingData &tiling)
+bool TilingPolicy::TilingCore(gert::TilingContext *context, optiling::HstuDenseForwardTilingData &tiling)
 {
     auto ascendPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
     size_t coreNum = ascendPlatform.GetCoreNumAic();
@@ -217,7 +219,7 @@ bool TilingPolicy::TilingCore(gert::TilingContext* context, optiling::HstuDenseF
     return true;
 }
 
-bool TilingPolicy::TilingKeySet(gert::TilingContext* context, optiling::HstuDenseForwardTilingData &tiling)
+bool TilingPolicy::TilingKeySet(gert::TilingContext *context, optiling::HstuDenseForwardTilingData &tiling)
 {
     // base unrealized
     return false;
