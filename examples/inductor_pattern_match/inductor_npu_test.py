@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import torch
+import torch_npu._inductor
 
 device = "npu" if torch.npu.is_available() else "cpu"
 
