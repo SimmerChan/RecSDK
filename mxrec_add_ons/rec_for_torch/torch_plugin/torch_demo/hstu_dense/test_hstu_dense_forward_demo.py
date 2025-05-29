@@ -126,6 +126,7 @@ class TestHstuJaggedDemo:
 
         return tensor
 
+
     def gloden_op_exec(self, q, k, v, seq_offset, bias, mask, max_seq_len, enable_bias, mask_type, silu_scale,
                        data_type):
         head_nums = q.shape[1]
@@ -177,13 +178,6 @@ class TestHstuJaggedDemo:
         bias_npu = bias.to(f"npu:{device_id}").to(data_type)
         mask_npu = mask.to(f"npu:{device_id}").to(data_type)
 
-        output = self.hstu_dense(bias_npu, enable_bias, k_npu, mask_npu, mask_type, max_seq_len, q_npu, seq_offset,
-                                 silu_scale, v_npu)
-        return output.cpu().to(data_type).reshape(-1)
-
-    @staticmethod
-    def hstu_dense(bias_npu, enable_bias, k_npu, mask_npu, mask_type, max_seq_len, q_npu, seq_offset, silu_scale,
-                   v_npu):
         if enable_bias:
             output = torch.ops.mxrec.hstu_dense(
                 q_npu, k_npu, v_npu, mask_npu, bias_npu, mask_type, max_seq_len, silu_scale, "jagged", seq_offset
@@ -193,7 +187,8 @@ class TestHstuJaggedDemo:
                 q_npu, k_npu, v_npu, mask_npu, None, mask_type, max_seq_len, silu_scale, "jagged", seq_offset
             )
         torch.npu.synchronize()
-        return output
+        return output.cpu().to(data_type).reshape(-1)
+
 
     def execute(self, batch_size, max_seq_len, head_num, head_dim, enable_bias, mask_type, silu_scale, data_type):
         q, k, v, seq_offset, bias, mask, max_seq_len = jagged_data_gen(batch_size, max_seq_len, head_num, head_dim,
