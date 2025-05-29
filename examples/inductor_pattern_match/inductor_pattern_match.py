@@ -78,4 +78,4 @@ def test_pattern_matcher(shape: Tuple[int, int, int]):
         test_pattern_matcher_fn, backend="inductor", fullgraph=True
     )(x, y)
     assert torch.allclose(res, compiled_res, rtol=1e-5, atol=1e-5)
-    assert count == 1
+    assert count == 2
