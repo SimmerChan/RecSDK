@@ -26,7 +26,7 @@ constexpr int DATA_TYPE_FLOAT32 = 0;
 constexpr int DATA_TYPE_INT64 = 1;
 
 constexpr int RESERVER_UB_SIZE = 20 * 1024;
-constexpr int UB_ALIGN = 32;
+constexpr uint64_t UB_ALIGN = 32;
 constexpr int NUM_QUEUE = 32;
 // input index
 constexpr int GRAD_OUTPUT_INDEX = 0;
@@ -137,6 +137,11 @@ static ge::graphStatus ShapeTilingFunc(gert::TilingContext* context,
     auto uniqueId = context->GetOptionalInputTensor(UNIQUE_ID_INDEX);
     if (optimType == SGD) {
         context->SetTilingKey(NORMAL_SGD);
+    } else if (optimType == ADAM) {
+        ret = NormalAdamTilingFunc(context, tilingData);
+        context->SetTilingKey(NORMAL_ADAM);
+    } else if (optimType == ADAGRAD) {
+        context->SetTilingKey(NORMAL_ADAGRAD);
     } else {
         OPS_LOG_E("Tiling Debug", "OptimType shape is not supported.");
         return ge::GRAPH_FAILED;
