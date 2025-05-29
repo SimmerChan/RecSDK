@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 #define HSTU_DENSE_FORWARD_JAGGED_KERNEL_FUN_H
 
 
-#include "hstu_dense_kernel_patten_bsnd.h"
+#include "hstu_dense_forward_kernel_patten_bsnd.h"
 
 using namespace AscendC;
 
@@ -386,5 +386,26 @@ HstuDenseForwardJaggedKernel<qType>::PreInit(const HstuDenseForwardTilingData *_
 }
 
 }
+
+#ifndef INVOKE_HSTU_JAGGED_OP_IMPL
+#define INVOKE_HSTU_JAGGED_OP_IMPL(...)       \
+    do {                                      \
+        TPipe tPipe;                 \
+        HstuDenseForward::HstuDenseForwardJaggedKernel<__VA_ARGS__> op;  \
+        GET_TILING_DATA(tilingData, args.tiling);         \
+        const HstuDenseForwardTilingData *__restrict tilingDataPtr = &tilingData;   \
+        REGIST_MATMUL_OBJ(&tPipe,                   \
+                          GetSysWorkSpacePtr(),    \
+                          op.qkMatmul,             \
+                          &tilingDataPtr->qkMatmul, \
+                          op.svMatmul,              \
+                          &tilingDataPtr->svMatmul); \
+        uint64_t tilingPtr = reinterpret_cast<uint64_t>(args.tiling);  \
+        op.qkMatmul.SetUserDefInfo(tilingPtr);    \
+        op.svMatmul.SetUserDefInfo(tilingPtr);    \
+        op.Init(args, tilingDataPtr, &tPipe);     \
+        op.Compute(tilingDataPtr);                \
+    } while (0)
+#endif
 
 #endif

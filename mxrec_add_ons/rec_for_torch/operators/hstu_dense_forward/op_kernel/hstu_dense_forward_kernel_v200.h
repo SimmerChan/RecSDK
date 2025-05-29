@@ -15,7 +15,7 @@ See the License for the specific language governing permissions and
 
 #ifndef HSTU_DENSE_FORWARD_KERNEL_V200_FUN_H
 #define HSTU_DENSE_FORWARD_KERNEL_V200_FUN_H
-#include "hstu_dense_forward_normal_kernel.h"
+#include "hstu_dense_forward_kernel.h"
 
 namespace HstuDenseForward {
 
@@ -123,7 +123,7 @@ private:
 
 
 #ifndef INVOKE_HSTU_NORMAL_V200_OP_IMPL
-#define INVOKE_HSTU_NORMAL_V200_OP_IMPL(args, ...)    \
+#define INVOKE_HSTU_NORMAL_V200_OP_IMPL(...)    \
     do {                                   \
         TPipe tPipe;                        \
         HstuDenseForward::HstuDenseForwardKernelv200<__VA_ARGS__> op;  \

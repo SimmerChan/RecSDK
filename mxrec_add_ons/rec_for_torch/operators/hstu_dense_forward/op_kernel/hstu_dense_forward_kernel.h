@@ -16,9 +16,9 @@ See the License for the specific language governing permissions and
 #ifndef HSTU_DENSE_FORWARD_KERNEL_FUN_H
 #define HSTU_DENSE_FORWARD_KERNEL_FUN_H
 #ifdef SUPPORT_V200
-    #include "hstu_dense_kernel_patten_bsnd_v200.h"
+    #include "hstu_dense_forward_kernel_patten_bsnd_v200.h"
 #else
-    #include "hstu_dense_kernel_patten_bsnd.h"
+    #include "hstu_dense_forward_kernel_patten_bsnd.h"
 #endif
 namespace HstuDenseForward {
 
@@ -268,5 +268,27 @@ private:
 };
 
 }
+
+
+#ifndef INVOKE_HSTU_NORMAL_OP_IMPL
+#define INVOKE_HSTU_NORMAL_OP_IMPL(...)    \
+    do {                                   \
+        TPipe tPipe;                        \
+        HstuDenseForward::HstuDenseForwardKernel<__VA_ARGS__> op;  \
+        GET_TILING_DATA(tilingData, args.tiling);  \
+        const HstuDenseForwardTilingData *__restrict tilingDataPtr = &tilingData; \
+        REGIST_MATMUL_OBJ(&tPipe,             \
+                          GetSysWorkSpacePtr(),  \
+                          op.qkMatmul,         \
+                          &tilingDataPtr->qkMatmul, \
+                          op.svMatmul,           \
+                          &tilingDataPtr->svMatmul); \
+        uint64_t tilingPtr = reinterpret_cast<uint64_t>(args.tiling); \
+        op.qkMatmul.SetUserDefInfo(tilingPtr);  \
+        op.svMatmul.SetUserDefInfo(tilingPtr);  \
+        op.Init(args, tilingDataPtr, &tPipe);  \
+        op.Compute(tilingDataPtr);   \
+    } while (0)
+#endif
 
 #endif

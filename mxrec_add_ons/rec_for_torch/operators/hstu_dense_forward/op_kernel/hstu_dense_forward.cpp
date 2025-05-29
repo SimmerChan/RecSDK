@@ -15,67 +15,36 @@ See the License for the specific language governing permissions and
 
 
 #ifdef SUPPORT_V200
-#include "hstu_dense_forward_normal_kernel_v200.h"
-
-template <typename T>
-__aicore__ inline void InvokeHstuOpImpl(const HstuDenseForward::Args &args)
-{
-    TPipe tPipe;
-    T op;
-    GET_TILING_DATA(tilingData, args.tiling);
-    const HstuDenseForwardTilingData *__restrict tilingDataPtr = &tilingData;
-    REGIST_MATMUL_OBJ(&tPipe, GetSysWorkSpacePtr(), op.qkMatmul, &tilingDataPtr->qkMatmul, op.svMatmul,
-                      &tilingDataPtr->svMatmul);
-    op.Init(args, tilingDataPtr, &tPipe);
-    op.Compute(tilingDataPtr);
-}
-
+    #include "hstu_dense_forward_normal_kernel_v200.h"
 #else
-#include "hstu_dense_forward_jagged_kernel.h"
-#include "hstu_dense_forward_normal_kernel.h"
-
-template <typename T>
-__aicore__ inline void InvokeHstuOpImpl(const HstuDenseForward::Args &args)
-{
-    TPipe tPipe;
-    T op;
-    GET_TILING_DATA(tilingData, args.tiling);
-    const HstuDenseForwardTilingData *__restrict tilingDataPtr = &tilingData;
-    REGIST_MATMUL_OBJ(&tPipe, GetSysWorkSpacePtr(), op.qkMatmul, &tilingDataPtr->qkMatmul, op.svMatmul,
-                      &tilingDataPtr->svMatmul);
-    uint64_t tilingPtr = reinterpret_cast<uint64_t>(args.tiling);
-    op.qkMatmul.SetUserDefInfo(tilingPtr);
-    op.svMatmul.SetUserDefInfo(tilingPtr);
-    op.Init(args, tilingDataPtr, &tPipe);
-    op.Compute(tilingDataPtr);
-}
-
+    #include "hstu_dense_forward_jagged_kernel.h"
+    #include "hstu_dense_forward_kernel.h"
 #endif
 
 #include "kernel_operator.h"
 
-extern "C" __global__ __aicore__ void hstu_dense_forward(GM_ADDR q, GM_ADDR k, GM_ADDR v, GM_ADDR mask,
-                                                         GM_ADDR attnBias, GM_ADDR attnOutput, GM_ADDR workspace,
-                                                         GM_ADDR tiling)
+extern "C" __global__ __aicore__ void hstu_dense_forward(GM_ADDR q, GM_ADDR k, GM_ADDR v,
+                                                         GM_ADDR mask, GM_ADDR attnBias,
+                                                         GM_ADDR attnOutput, GM_ADDR workspace, GM_ADDR tiling)
 {
     HstuDenseForward::Args args{q, k, v, attnBias, mask, attnOutput, workspace, tiling};
 #ifdef SUPPORT_V200
     if (TILING_KEY_IS(0)) {
-        InvokeHstuOpImpl<HstuDenseForward::HstuDenseForwardKernelv200<half>>(args);
+        INVOKE_HSTU_NORMAL_V200_OP_IMPL(half);
     }
 #else
     if (TILING_KEY_IS(0)) {
-        InvokeHstuOpImpl<HstuDenseForward::HstuDenseForwardKernel<half>>(args);
+        INVOKE_HSTU_NORMAL_OP_IMPL(half);
     } else if (TILING_KEY_IS(1)) {
-        InvokeHstuOpImpl<HstuDenseForward::HstuDenseForwardKernel<bfloat16_t>>(args);
+        INVOKE_HSTU_NORMAL_OP_IMPL(bfloat16_t);
     } else if (TILING_KEY_IS(2)) {
-        InvokeHstuOpImpl<HstuDenseForward::HstuDenseForwardKernel<float>>(args);
+        INVOKE_HSTU_NORMAL_OP_IMPL(float);
     } else if (TILING_KEY_IS(3)) {
-        InvokeHstuOpImpl<HstuDenseForward::HstuDenseForwardJaggedKernel<half>>(args);
+        INVOKE_HSTU_JAGGED_OP_IMPL(half);
     } else if (TILING_KEY_IS(4)) {
-        InvokeHstuOpImpl<HstuDenseForward::HstuDenseForwardJaggedKernel<bfloat16_t>>(args);
+        INVOKE_HSTU_JAGGED_OP_IMPL(bfloat16_t);
     } else if (TILING_KEY_IS(5)) {
-        InvokeHstuOpImpl<HstuDenseForward::HstuDenseForwardJaggedKernel<float>>(args);
+        INVOKE_HSTU_JAGGED_OP_IMPL(float);
     }
 #endif
 }
