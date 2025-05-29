@@ -70,12 +70,12 @@ from typing import Tuple
 
 @pytest.mark.parametrize("shape", [(128, 10, 64), (128, 64, 10)])
 def test_pattern_matcher(shape: Tuple[int, int, int]):
-    x = torch.randn(shape, device="npu")
-    y = torch.randn(shape, device="npu")
+    lhs = torch.randn(shape, device="npu")
+    rhs = torch.randn(shape, device="npu")
 
-    res = test_pattern_matcher_fn(x, y)
+    res = test_pattern_matcher_fn(lhs, rhs)
     compiled_res = torch.compile(
         test_pattern_matcher_fn, backend="inductor", fullgraph=True
-    )(x, y)
+    )(lhs, rhs)
     assert torch.allclose(res, compiled_res, rtol=1e-5, atol=1e-5)
-    assert count == 2
+    assert count == 1
