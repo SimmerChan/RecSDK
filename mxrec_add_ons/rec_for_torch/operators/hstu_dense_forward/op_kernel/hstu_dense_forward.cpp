@@ -15,7 +15,7 @@ See the License for the specific language governing permissions and
 
 
 #ifdef SUPPORT_V200
-    #include "hstu_dense_forward_normal_kernel_v200.h"
+    #include "hstu_dense_forward_kernel_v200.h"
 #else
     #include "hstu_dense_forward_jagged_kernel.h"
     #include "hstu_dense_forward_kernel.h"

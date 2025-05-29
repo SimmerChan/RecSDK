@@ -76,7 +76,7 @@ sed -i "${line}s/True/False/g" CMakePresets.json
 if [ "$ai_core" = "ai_core-Ascend310P3" ]; then
   sed -i "1i #define SUPPORT_V200" ./op_host/hstu_dense_forward_tiling.h
   sed -i "1i #define SUPPORT_V200" ./op_host/tiling_policy_define.h
-  sed -i "1i #define SUPPORT_V200" ./op_kernel/hstu_dense_forward_normal_kernel.h
+  sed -i "1i #define SUPPORT_V200" ./op_kernel/hstu_dense_forward_kernel.h
   sed -i "1i #define SUPPORT_V200" ./op_kernel/hstu_dense_forward.cpp
 fi
 
