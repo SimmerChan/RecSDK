@@ -18,6 +18,7 @@ import torch
 import torch_npu._inductor
 
 device = "npu" if torch.npu.is_available() else "cpu"
+os.environ["TORCHINDUCTOR_COMPILE_THREADS"] = "1"
 
 
 def simple_model(x, y):
