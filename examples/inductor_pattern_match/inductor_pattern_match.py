@@ -57,7 +57,7 @@ def custom_pass(graph: torch.fx.graph):
 inductor_config.post_grad_custom_post_pass = custom_pass
 
 
-def test_pattern_matcher(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+def test_pattern_matcher_fn(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
     sub = x - y
     mul = x * y
     cat = torch.cat((x, y, sub, mul), dim=2)
@@ -73,7 +73,7 @@ def test_pattern_matcher(shape: Tuple[int, int, int]):
     x = torch.randn(shape, device="npu")
     y = torch.randn(shape, device="npu")
 
-    res = test_pattern_matcher(x, y)
+    res = test_pattern_matcher_fn(x, y)
     compiled_res = torch.compile(
         test_pattern_matcher, backend="inductor", fullgraph=True
     )(x, y)
