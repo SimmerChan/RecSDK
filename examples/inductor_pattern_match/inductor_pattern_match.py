@@ -65,6 +65,7 @@ def test_pattern_matcher(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
 
 
 import pytest
+from typing import Tuple
 
 
 @pytest.mark.parametrize("shape", [(128, 10, 64), (128, 64, 10)])
