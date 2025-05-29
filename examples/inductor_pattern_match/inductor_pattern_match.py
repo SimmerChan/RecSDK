@@ -36,36 +36,6 @@ def pattern_sub_mul_concat(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
     return torch.cat((x, y, x - y, x * y), dim=2)
 
 
-def check_tensor_constraints(match) -> bool:
-    """检查输入张量是否满足约束条件：维度相同且必须为三维"""
-    # 获取匹配的节点参数
-    args = match.args
-    if len(args) != 2:
-        return False
-
-    x_node, y_node = args[0], args[1]
-
-    # 检查是否有形状信息
-    if not hasattr(x_node, "meta") or not hasattr(y_node, "meta"):
-        return False
-
-    x_shape = x_node.meta.get("tensor_meta")
-    y_shape = y_node.meta.get("tensor_meta")
-
-    if x_shape is None or y_shape is None:
-        return False
-
-    # 检查是否为三维张量
-    if len(x_shape.shape) != 3 or len(y_shape.shape) != 3:
-        return False
-
-    # 检查形状是否相同
-    if x_shape.shape != y_shape.shape:
-        return False
-
-    return True
-
-
 patterns = PatternMatcherPass()
 inputs = (torch.randn(10, 10, 10), torch.randn(10, 10, 10))
 register_replacement(
@@ -74,7 +44,6 @@ register_replacement(
     inputs,
     fwd_only,
     patterns,
-    # extra_check=check_tensor_constraints,
 )
 
 count = 0
@@ -95,9 +64,13 @@ def test_pattern_matcher(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
     return cat
 
 
-if __name__ == "__main__":
-    x = torch.randn((128, 10, 32), device="npu")
-    y = torch.randn((128, 10, 32), device="npu")
+import pytest
+
+
+@pytest.mark.parametrize("shape", [(128, 10, 64), (128, 64, 10)])
+def test_pattern_matcher(shape: Tuple[int, int, int]):
+    x = torch.randn(shape, device="npu")
+    y = torch.randn(shape, device="npu")
 
     res = test_pattern_matcher(x, y)
     compiled_res = torch.compile(
