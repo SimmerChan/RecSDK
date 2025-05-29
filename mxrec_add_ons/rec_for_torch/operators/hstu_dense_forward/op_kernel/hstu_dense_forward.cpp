@@ -18,7 +18,7 @@ See the License for the specific language governing permissions and
 #include "hstu_dense_forward_normal_kernel_v200.h"
 
 template <typename T>
-__aicore__ void InvokeHstuOpImpl(const HstuDenseForward::Args &args)
+__aicore__ inline void InvokeHstuOpImpl(const HstuDenseForward::Args &args)
 {
     TPipe tPipe;
     T op;
@@ -35,7 +35,7 @@ __aicore__ void InvokeHstuOpImpl(const HstuDenseForward::Args &args)
 #include "hstu_dense_forward_normal_kernel.h"
 
 template <typename T>
-__aicore__ void InvokeHstuOpImpl(const HstuDenseForward::Args &args)
+__aicore__ inline void InvokeHstuOpImpl(const HstuDenseForward::Args &args)
 {
     TPipe tPipe;
     T op;

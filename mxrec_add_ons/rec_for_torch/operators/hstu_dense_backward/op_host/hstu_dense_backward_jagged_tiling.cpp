@@ -148,21 +148,21 @@ namespace optiling {
 ge::graphStatus GetJaggedAttrsInfo(const gert::RuntimeAttrs *attrs, HstuDenseBackwardTilingData &tiling)
 {
     const int32_t *maskType = attrs->GetAttrPointer<int32_t>(INDEX_T::INDEX_1);
-    OPS_LOGD_IF_NULL(maskType, return ge::GRAPH_FAILED);
+    OPS_CHECK_PTR_NULL(maskType, return ge::GRAPH_FAILED);
 
     const int32_t *maxSeqLen = attrs->GetAttrPointer<int32_t>(INDEX_T::INDEX_2);
-    OPS_LOGD_IF_NULL(maxSeqLen, return ge::GRAPH_FAILED);
+    OPS_CHECK_PTR_NULL(maxSeqLen, return ge::GRAPH_FAILED);
 
     const float *siluScale = attrs->GetAttrPointer<float>(INDEX_T::INDEX_3);
-    OPS_LOGD_IF_NULL(siluScale, return ge::GRAPH_FAILED);
+    OPS_CHECK_PTR_NULL(siluScale, return ge::GRAPH_FAILED);
 
     const auto seqOffset = attrs->GetAttrPointer<gert::ContinuousVector>(INDEX_T::INDEX_4);
-    OPS_LOGD_IF_NULL(seqOffset, return ge::GRAPH_FAILED);
+    OPS_CHECK_PTR_NULL(seqOffset, return ge::GRAPH_FAILED);
 
     auto *seqOffsetData = const_cast<int64_t *>(reinterpret_cast<const int64_t *>(seqOffset->GetData()));
     int seqOffsetLens = seqOffset->GetSize();
     if (seqOffsetLens > (MAX_BATCH_SIZE + 1)) {
-        OPS_LOG_D("seqOffsetLens exceed limit %d\n", MAX_BATCH_SIZE + 1);
+        OPS_LOG_E("", "seqOffsetLens exceed limit %d\n", MAX_BATCH_SIZE + 1);
         return ge::GRAPH_FAILED;
     }
 
@@ -188,10 +188,10 @@ ge::graphStatus GetJaggedBasicShapeInfo(gert::TilingContext *context, HstuDenseB
     auto attnBiasGradShape = context->GetOutputShape(INDEX_T::INDEX_3)->GetStorageShape();
 
     OPS_CHECK(gradShape.GetDimNum() != JAGGED_GRAD_DIM_NUM,
-                OPS_LOG_D("hstu jagged backward only support input with dim %d\n", JAGGED_GRAD_DIM_NUM),
+                OPS_LOG_E("", "hstu jagged backward only support input with dim %d\n", JAGGED_GRAD_DIM_NUM),
                 return ge::GRAPH_FAILED);
     OPS_CHECK(attnBiasGradShape.GetDim(INDEX_T::INDEX_2) < maxSeqLen,
-                OPS_LOG_D("attnBiasGrad get seqLen less than maxSeqLen\n"),
+                OPS_LOG_E("", "attnBiasGrad get seqLen less than maxSeqLen\n"),
                 return ge::GRAPH_FAILED);
 
     int64_t seqLen = gradShape.GetDim(INDEX_T::INDEX_0);
@@ -206,7 +206,7 @@ ge::graphStatus GetJaggedBasicShapeInfo(gert::TilingContext *context, HstuDenseB
 
     int64_t batchSize = tiling.get_batchSize();
     OPS_CHECK(!BasicShapeCheck(batchSize, maxSeqLen, headNum, headDim),
-        OPS_LOG_D("jagged shape check failed\n"), return ge::GRAPH_FAILED);
+        OPS_LOG_E("", "jagged shape check failed\n"), return ge::GRAPH_FAILED);
 
     return ge::GRAPH_SUCCESS;
 }
@@ -228,7 +228,7 @@ ge::graphStatus InitJaggedTilingKey(gert::TilingContext *context, HstuDenseBackw
         context->SetTilingKey(JAGGED_BF16_TILING_KEY);
         tiling.set_blockHeight(BLOCK_256);
     } else {
-        OPS_LOG_D("invalid datatype, only support float/fp16/bf16");
+        OPS_LOG_E("", "invalid datatype, only support float/fp16/bf16");
         return ge::GRAPH_FAILED;
     }
     tiling.set_dataTypeLength(dataTypeLength);
@@ -285,38 +285,38 @@ ge::graphStatus TilingJaggedFunc(gert::TilingContext *context,
                                  HstuDenseBackwardTilingData &tiling)
 {
     OPS_CHECK(GetJaggedAttrsInfo(attrs, tiling) == ge::GRAPH_FAILED,
-                OPS_LOG_D("JaggedTiling GetJaggedAttrsInfo failed\n"), return ge::GRAPH_FAILED);
+                OPS_LOG_E("", "JaggedTiling GetJaggedAttrsInfo failed\n"), return ge::GRAPH_FAILED);
     
     OPS_CHECK(GetJaggedBasicShapeInfo(context, tiling) == ge::GRAPH_FAILED,
-                OPS_LOG_D("JaggedTiling GetJaggedBasicShapeInfo failed\n"), return ge::GRAPH_FAILED);
+                OPS_LOG_E("", "JaggedTiling GetJaggedBasicShapeInfo failed\n"), return ge::GRAPH_FAILED);
     
     OPS_CHECK(CheckMaskTypeAndBias(context, tiling) == ge::GRAPH_FAILED,
-                OPS_LOG_D("JaggedTiling CheckMaskTypeAndBias failed\n"), return ge::GRAPH_FAILED);
+                OPS_LOG_E("", "JaggedTiling CheckMaskTypeAndBias failed\n"), return ge::GRAPH_FAILED);
 
     OPS_CHECK(InitJaggedTilingKey(context, tiling) == ge::GRAPH_FAILED,
-                OPS_LOG_D("JaggedTiling InitJaggedTilingKey failed\n"), return ge::GRAPH_FAILED);
+                OPS_LOG_E("", "JaggedTiling InitJaggedTilingKey failed\n"), return ge::GRAPH_FAILED);
 
     OPS_CHECK(TilingCore(context, tiling) == ge::GRAPH_FAILED,
-                OPS_LOG_D("JaggedTiling TilingCore failed\n"), return ge::GRAPH_FAILED);
+                OPS_LOG_E("", "JaggedTiling TilingCore failed\n"), return ge::GRAPH_FAILED);
 
     return ge::GRAPH_SUCCESS;
 }
 ge::graphStatus JaggedInferShape(gert::InferShapeContext *context)
 {
     const gert::Shape *qShape = context->GetInputShape(INDEX_T::INDEX_1);
-    OPS_LOGD_IF_NULL(qShape, return ge::GRAPH_FAILED);
+    OPS_CHECK_PTR_NULL(qShape, return ge::GRAPH_FAILED);
 
     // q_grad、k_grad、v_grad的shape与q一致
     gert::Shape *qGradShape = context->GetOutputShape(INDEX_T::INDEX_0);
-    OPS_LOGD_IF_NULL(qGradShape, return ge::GRAPH_FAILED);
+    OPS_CHECK_PTR_NULL(qGradShape, return ge::GRAPH_FAILED);
     qGradShape->SetDimNum(qShape->GetDimNum());
 
     gert::Shape *kGradShape = context->GetOutputShape(INDEX_T::INDEX_1);
-    OPS_LOGD_IF_NULL(kGradShape, return ge::GRAPH_FAILED);
+    OPS_CHECK_PTR_NULL(kGradShape, return ge::GRAPH_FAILED);
     kGradShape->SetDimNum(qShape->GetDimNum());
 
     gert::Shape *vGradShape = context->GetOutputShape(INDEX_T::INDEX_2);
-    OPS_LOGD_IF_NULL(vGradShape, return ge::GRAPH_FAILED);
+    OPS_CHECK_PTR_NULL(vGradShape, return ge::GRAPH_FAILED);
     vGradShape->SetDimNum(qShape->GetDimNum());
 
     for (size_t i = 0; i < qShape->GetDimNum(); i++) {
@@ -326,24 +326,24 @@ ge::graphStatus JaggedInferShape(gert::InferShapeContext *context)
     }
 
     const gert::RuntimeAttrs *attrs = context->GetAttrs();
-    OPS_LOGD_IF_NULL(attrs, return ge::GRAPH_FAILED);
+    OPS_CHECK_PTR_NULL(attrs, return ge::GRAPH_FAILED);
     const int32_t *maxSeqLen = attrs->GetAttrPointer<int32_t>(INDEX_T::INDEX_2);
-    OPS_LOGD_IF_NULL(maxSeqLen, return ge::GRAPH_FAILED);
+    OPS_CHECK_PTR_NULL(maxSeqLen, return ge::GRAPH_FAILED);
 
     const auto seqOffset = attrs->GetAttrPointer<gert::ContinuousVector>(INDEX_T::INDEX_4);
-    OPS_LOGD_IF_NULL(seqOffset, return ge::GRAPH_FAILED);
+    OPS_CHECK_PTR_NULL(seqOffset, return ge::GRAPH_FAILED);
 
     auto *seqOffsetData = const_cast<int64_t *>(reinterpret_cast<const int64_t *>(seqOffset->GetData()));
     int seqOffsetLens = seqOffset->GetSize();
     if (seqOffsetLens > MAX_BATCH_SIZE + 1) {
-        OPS_LOG_D("seqOffsetLens exceed limit %d\n", MAX_BATCH_SIZE + 1);
+        OPS_LOG_E("", "seqOffsetLens exceed limit %d\n", MAX_BATCH_SIZE + 1);
         return ge::GRAPH_FAILED;
     }
 
     int batchSize = seqOffsetLens - 1;
 
     gert::Shape *attnBiasGradShape = context->GetOutputShape(INDEX_T::INDEX_3);
-    OPS_LOGD_IF_NULL(attnBiasGradShape, return ge::GRAPH_FAILED);
+    OPS_CHECK_PTR_NULL(attnBiasGradShape, return ge::GRAPH_FAILED);
     attnBiasGradShape->SetDimNum(BIAS_DIM_NUM);
     attnBiasGradShape->SetDim(INDEX_T::INDEX_0, batchSize);
     attnBiasGradShape->SetDim(INDEX_T::INDEX_1, qShape->GetDim(1));
