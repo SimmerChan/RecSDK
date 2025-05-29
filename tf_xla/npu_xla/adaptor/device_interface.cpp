@@ -13,36 +13,16 @@ See the License for the specific language governing permissions and
         limitations under the License.
 ==============================================================================*/
 
-#ifndef ACL_ADAPTOR_H
-#define ACL_ADAPTOR_H
-
-#include <cstdint>
-#include <cstddef>
 #include "device_interface.h"
+#include "acl_adaptor.h"
 
 namespace tensorflow {
 namespace npu_xla {
 
-class AclAdaptor : public DeviceInterface {
-public:
-    static AclAdaptor &GetInstance(int32_t deviceId);
-
-    ~AclAdaptor() override;
-
-    void *Allocate(size_t size) override;
-
-    void Deallocate(void *ptr) override;
-
-    bool MemcpyHToD(void *dst, size_t dstSize, const void *src, size_t srcSize) override;
-
-    bool MemcpyDToH(void *dst, size_t dstSize, const void *src, size_t srcSize) override;
-
-private:
-    AclAdaptor();
-    void SetDevice(int32_t deviceID);
-};
+DeviceInterface& DeviceInterface::Create(int32_t deviceId)
+{
+    return AclAdaptor::GetInstance(deviceId);
+}
 
 } // namespace npu_xla
 } // namespace tensorflow
-
-#endif // ACL_ADAPTOR_H

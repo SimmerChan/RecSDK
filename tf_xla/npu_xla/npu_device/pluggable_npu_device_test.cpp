@@ -1,0 +1,137 @@
+/* Copyright 2025. Huawei Technologies Co.,Ltd. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+        limitations under the License.
+==============================================================================*/
+
+#include <gtest/gtest.h>
+#include <gmock/gmock.h>
+#include "tensorflow/c/experimental/stream_executor/stream_executor.h"
+#include "adaptor/device_interface_mock.h"
+
+using ::testing::_;
+using ::testing::Return;
+
+#ifdef GOOGLE_TEST
+
+namespace tensorflow {
+namespace npu_xla {
+
+// 全局 mock 指针定义
+DeviceInterfaceMock* mock_adaptor = nullptr;
+
+// 替换 DeviceInterface::Create 方法
+DeviceInterface& DeviceInterface::Create(int32_t deviceId)
+{
+    return *mock_adaptor;
+}
+
+}  // namespace npu_xla
+}  // namespace tensorflow
+
+#endif  // GOOGLE_TEST
+
+void TestFunction(tensorflow::npu_xla::DeviceInterfaceMock& mock,
+                  SP_Device& device,
+                  SP_DeviceMemoryBase& mem,
+                  SP_StreamExecutor& se,
+                  TF_Status* status)
+{
+    const size_t TEST_SIZE = 1024;
+
+    // 测试 Allocate
+    char dummy;
+    void* fakePtr = &dummy;
+    EXPECT_CALL(mock, Allocate(TEST_SIZE)).WillOnce(Return(fakePtr));
+
+    se.allocate(&device, TEST_SIZE, 0, &mem);
+
+    EXPECT_EQ(mem.opaque, fakePtr);
+    EXPECT_EQ(mem.size, TEST_SIZE);
+
+    // 测试 SyncMemcpyDToH (成功)
+    char dummyDst;
+    void* hostDst = &dummyDst;
+
+    EXPECT_CALL(mock, MemcpyDToH(hostDst, TEST_SIZE, fakePtr, TEST_SIZE))
+        .WillOnce(Return(true));
+
+    se.sync_memcpy_dtoh(&device, hostDst, &mem, TEST_SIZE, status);
+    EXPECT_EQ(TF_GetCode(status), TF_OK);
+
+    // 测试 SyncMemcpyHToD (失败)
+    char dummySrc;
+    void* hostSrc = &dummySrc;
+
+    EXPECT_CALL(mock, MemcpyHToD(fakePtr, TEST_SIZE, hostSrc, TEST_SIZE))
+        .WillOnce(Return(false));
+
+    se.sync_memcpy_htod(&device, &mem, hostSrc, TEST_SIZE, status);
+    EXPECT_EQ(TF_GetCode(status), TF_INTERNAL);
+    EXPECT_STREQ(TF_Message(status), "MemcpyHToD failed");
+
+    // 测试 Deallocate
+    EXPECT_CALL(mock, Deallocate(fakePtr)).Times(1);
+
+    se.deallocate(&device, &mem);
+
+    EXPECT_EQ(mem.opaque, nullptr);
+    EXPECT_EQ(mem.size, 0);
+}
+
+TEST(CFunctionTest, SE_InitPlugin_Allocate_ReturnsMock) {
+    // 创建 mock 实例
+    tensorflow::npu_xla::DeviceInterfaceMock mock;
+    tensorflow::npu_xla::mock_adaptor = &mock;
+
+    // 构造 SP_Device
+    SP_Device device{};
+    device.struct_size = sizeof(SP_Device);
+    device.ordinal = 0;  // deviceId
+
+    // 构造 SP_DeviceMemoryBase
+    SP_DeviceMemoryBase mem{};
+    mem.struct_size = SP_DEVICE_MEMORY_BASE_STRUCT_SIZE;
+    mem.size = 0;
+
+    // 构造 SE_PlatformRegistrationParams
+    SE_PlatformRegistrationParams params{};
+    SP_Platform platform{};
+    SP_PlatformFns platform_fns{};
+    params.struct_size = sizeof(SE_PlatformRegistrationParams);
+    params.ext = nullptr;
+    params.major_version = 2;
+    params.minor_version = 18;
+    params.patch_version = 0;
+    params.platform = &platform;
+    params.platform_fns = &platform_fns;
+
+    TF_Status* status = TF_NewStatus();
+
+    // 调用 NPU 插件入口函数
+    SE_InitPlugin(&params, status);
+    EXPECT_EQ(TF_GetCode(status), TF_OK);
+
+    // 构造 SE_CreateStreamExecutorParams
+    SE_CreateStreamExecutorParams create_params{};
+    SP_StreamExecutor se{};
+    create_params.struct_size = sizeof(SE_CreateStreamExecutorParams);
+    create_params.ext = nullptr;
+    create_params.stream_executor = &se;
+
+    // 调用 create_stream_executor
+    platform_fns.create_stream_executor(&platform, &create_params, status);
+    EXPECT_EQ(TF_GetCode(status), TF_OK);
+    ASSERT_NE(&se, nullptr);
+
+    TestFunction(mock, device, mem, se, status);
+}
