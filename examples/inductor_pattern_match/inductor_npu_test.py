@@ -16,6 +16,7 @@
 
 import torch
 import torch_npu._inductor
+import os
 
 device = "npu" if torch.npu.is_available() else "cpu"
 os.environ["TORCHINDUCTOR_COMPILE_THREADS"] = "1"
