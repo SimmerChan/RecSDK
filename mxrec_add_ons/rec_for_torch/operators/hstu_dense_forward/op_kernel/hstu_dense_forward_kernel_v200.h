@@ -121,22 +121,4 @@ private:
 
 }
 
-
-#ifndef INVOKE_HSTU_NORMAL_V200_OP_IMPL
-#define INVOKE_HSTU_NORMAL_V200_OP_IMPL(...)    \
-    do {                                   \
-        TPipe tPipe;                        \
-        HstuDenseForward::HstuDenseForwardKernelv200<__VA_ARGS__> op;  \
-        GET_TILING_DATA(tilingData, args.tiling);  \
-        const HstuDenseForwardTilingData *__restrict tilingDataPtr = &tilingData; \
-        REGIST_MATMUL_OBJ(&tPipe,             \
-                          GetSysWorkSpacePtr(),  \
-                          op.qkMatmul,         \
-                          &tilingDataPtr->qkMatmul, \
-                          op.svMatmul,           \
-                          &tilingDataPtr->svMatmul); \
-        op.Init(args, tilingDataPtr, &tPipe);  \
-        op.Compute(tilingDataPtr);   \
-    } while (0)
-#endif
 #endif
