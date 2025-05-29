@@ -48,8 +48,10 @@ TORCH_LIBRARY_IMPL(acl_ops, PrivateUse1, m)
 TORCH_LIBRARY_IMPL(acl_ops, Meta, m)
 {
     m.impl("sub_mul_concat", [](const at::Tensor& lhs, const at::Tensor& rhs) -> at::Tensor {
-        TORCH_CHECK(lhs.size() == rhs.size(), "lhs and rhs must have same size");
         TORCH_CHECK(lhs.dim() == 3, "lhs must be 3 dims");
+        TORCH_CHECK(lhs.size(0) == rhs.size(0), "lhs and rhs must have same size");
+        TORCH_CHECK(lhs.size(1) == rhs.size(1), "lhs and rhs must have same size");
+        TORCH_CHECK(lhs.size(2) == rhs.size(2), "lhs and rhs must have same size");
 
         auto outSize = lhs.sizes().vec();
         outSize[2] *= 4;
