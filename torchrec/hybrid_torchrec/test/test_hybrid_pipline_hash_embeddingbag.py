@@ -6,19 +6,21 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 import os
-import pytz
 import torch
 from typing import List
+import pytest
+import logging
+from dataset import RandomRecDataset, Batch
+from model import Model
+from util import setup_logging
 import torch_npu
 import torch.multiprocessing as mp
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
 from torch.optim import Adam, Adagrad
+
 import torchrec
-import pytest
-import logging
-import random
 from torchrec import EmbeddingBagConfig, EmbeddingBagCollection
 import torchrec.distributed
 from torchrec.optim.apply_optimizer_in_backward import apply_optimizer_in_backward
@@ -35,9 +37,7 @@ from hybrid_torchrec.distributed.sharding_plan import get_default_hybrid_sharder
 from hybrid_torchrec.distributed.hybrid_train_pipeline import (
     HybridTrainPipelineSparseDist,
 )
-from dataset import RandomRecDataset, Batch
-from model import Model
-from util import setup_logging
+
 
 OPTIMIZER_PARAM = {
     Adam: dict(lr=0.02),
@@ -57,15 +57,15 @@ def execute(
     num_embeddings,
     pool_type,
     sharding_type,
-    lockup_len,
+    lookup_len,
     device,
     optim,
 ):
     setup_logging(rank)
     logging.info("this test %s", os.path.basename(__file__))
     # , batch_num, lookup_lens, num_embeddings, table_num
-    dataset_gloden = RandomRecDataset(BATCH_NUM, lockup_len, num_embeddings, table_num)
-    dataset = RandomRecDataset(BATCH_NUM, lockup_len, num_embeddings, table_num)
+    dataset_gloden = RandomRecDataset(BATCH_NUM, lookup_len, num_embeddings, table_num)
+    dataset = RandomRecDataset(BATCH_NUM, lookup_len, num_embeddings, table_num)
     dataset_loader_gloden = DataLoader(
         dataset_gloden,
         batch_size=None,
@@ -234,16 +234,16 @@ class TestModel:
 @pytest.mark.parametrize("num_embeddings", [[400, 4000, 400]])
 @pytest.mark.parametrize("pool_type", [torchrec.PoolingType.MEAN])
 @pytest.mark.parametrize("sharding_type", ["table_wise", "row_wise"])
-@pytest.mark.parametrize("lockup_len", [1024])
+@pytest.mark.parametrize("lookup_len", [1024])
 @pytest.mark.parametrize("device", ["cpu", "npu"])
 @pytest.mark.parametrize("optim", [Adam, Adagrad])
-def test_hstu_dens_normal(
+def test_hybrid_pipeline_hash_embedding_bag(
     table_num,
     embedding_dims,
     num_embeddings,
     pool_type,
     sharding_type,
-    lockup_len,
+    lookup_len,
     device,
     optim,
 ):
@@ -258,7 +258,7 @@ def test_hstu_dens_normal(
             num_embeddings,
             pool_type,
             sharding_type,
-            lockup_len,
+            lookup_len,
             device,
             optim,
         ),

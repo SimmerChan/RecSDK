@@ -152,6 +152,8 @@ class TestModel:
             loss, out = model(batch)
             results.append(loss.detach().cpu())
             results.append(out.detach().cpu())
+            loss.backward()
+            opt.step()
 
         for i in range(table_num):
             logging.debug(
@@ -220,6 +222,8 @@ class TestModel:
             loss, out = ebc(batch)
             results.append(loss.detach().cpu())
             results.append(out.detach().cpu())
+            loss.backward()
+            optimizer.step()
 
         for i in range(table_num):
             logging.debug(

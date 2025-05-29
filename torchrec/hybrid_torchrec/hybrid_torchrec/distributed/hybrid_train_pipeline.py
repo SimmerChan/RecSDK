@@ -40,12 +40,14 @@ from torchrec.distributed.train_pipeline.utils import (
     KJTListSplitsAwaitable,
     KJTSplitsAllToAllMeta,
 )
-from torchrec.distributed.train_pipeline.train_pipelines import TrainPipelineSparseDist
 from hybrid_torchrec.distributed.sharding.hybrid_rw_sharding import (
     HashRwSparseFeaturesDistAwaitable,
     InputDistThreadPoolExecutorSingleton,
 )
 import torch_npu
+from torchrec.distributed.train_pipeline.train_pipelines import TrainPipelineSparseDist
+
+
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -58,7 +60,7 @@ SECOND_BATCH = 1
 THIRD_BATCH = 2
 
 
-class TASK_TYPE(Enum):
+class TaskType(Enum):
     SPLIT = 0
     FIRST_ALL2ALL = 1
     SENCOND_ALL2ALL = 2
@@ -66,11 +68,11 @@ class TASK_TYPE(Enum):
     COPY2NPU = 4
 
 
-FIRST_CONTEXT_TASK_POS = TASK_TYPE.COPY2NPU.value - TASK_TYPE.COPY2NPU.value
-SECOND_CONTEXT_TASK_POS = TASK_TYPE.COPY2NPU.value - TASK_TYPE.POST_INPUT.value
-THIRD_CONTEXT_TASK_POS = TASK_TYPE.COPY2NPU.value - TASK_TYPE.SENCOND_ALL2ALL.value
-FOURTH_CONTEXT_TASK_POS = TASK_TYPE.COPY2NPU.value - TASK_TYPE.FIRST_ALL2ALL.value
-FIFTH_CONTEXT_TASK_POS = TASK_TYPE.COPY2NPU.value - TASK_TYPE.SPLIT.value
+FIRST_CONTEXT_TASK_POS = TaskType.COPY2NPU.value - TaskType.COPY2NPU.value
+SECOND_CONTEXT_TASK_POS = TaskType.COPY2NPU.value - TaskType.POST_INPUT.value
+THIRD_CONTEXT_TASK_POS = TaskType.COPY2NPU.value - TaskType.SENCOND_ALL2ALL.value
+FOURTH_CONTEXT_TASK_POS = TaskType.COPY2NPU.value - TaskType.FIRST_ALL2ALL.value
+FIFTH_CONTEXT_TASK_POS = TaskType.COPY2NPU.value - TaskType.SPLIT.value
 
 
 class AwaitableApapter(Awaitable):
@@ -121,7 +123,7 @@ def _fuse_input_dist_splits(context: HybridTrainPipelineContext) -> None:
     if context.batch is None:
         return
     names_per_pg = defaultdict(list)
-    for name, request in context.awaitables[TASK_TYPE.SPLIT.value].items():
+    for name, request in context.awaitables[TaskType.SPLIT.value].items():
         pg = None
         if isinstance(request, KJTListSplitsAwaitable):
             for awaitable in request.awaitables:
@@ -134,20 +136,20 @@ def _fuse_input_dist_splits(context: HybridTrainPipelineContext) -> None:
 
     for pg, names in names_per_pg.items():
         for ind, awaitable in enumerate(
-            context.awaitables[TASK_TYPE.SPLIT.value][name].awaitables
+            context.awaitables[TaskType.SPLIT.value][name].awaitables
         ):
             if isinstance(awaitable, HashRwSparseFeaturesDistAwaitable):
-                context.awaitables[TASK_TYPE.SPLIT.value][name].awaitables[ind] = (
-                    context.awaitables[TASK_TYPE.SPLIT.value][name]
+                context.awaitables[TaskType.SPLIT.value][name].awaitables[ind] = (
+                    context.awaitables[TaskType.SPLIT.value][name]
                     .awaitables[ind]
                     .wait()
                 )
 
-        context.awaitables[TASK_TYPE.FIRST_ALL2ALL.value]["".join(names)] = (
+        context.awaitables[TaskType.FIRST_ALL2ALL.value]["".join(names)] = (
             names,
             FusedKJTListSplitsAwaitable(
                 requests=[
-                    context.awaitables[TASK_TYPE.SPLIT.value][name] for name in names
+                    context.awaitables[TaskType.SPLIT.value][name] for name in names
                 ],
                 contexts=[(context.module_contexts[name]) for name in names],
                 pg=pg,
@@ -161,8 +163,8 @@ def _start_data_dist(
     context: HybridTrainPipelineContext,
 ) -> None:
 
-    context.awaitables = [None for _ in range(len(TASK_TYPE))]
-    for taks_type in TASK_TYPE:
+    context.awaitables = [None for _ in range(len(TaskType))]
+    for taks_type in TaskType:
         context.awaitables[taks_type.value] = {}
 
     for module in pipelined_modules:
@@ -173,7 +175,7 @@ def _start_data_dist(
         module_ctx = module.create_context()
 
         context.module_contexts[forward.name] = module_ctx
-        context.awaitables[TASK_TYPE.SPLIT.value][forward.name] = module.input_dist(
+        context.awaitables[TaskType.SPLIT.value][forward.name] = module.input_dist(
             module_ctx, *args, **kwargs
         )
 
@@ -181,9 +183,9 @@ def _start_data_dist(
 class HybridPipelinedForward(PipelinedForward):
     def __call__(self, *input, **kwargs) -> Awaitable:
         self._context: HybridTrainPipelineContext
-        if self._name not in self._context.awaitables[TASK_TYPE.COPY2NPU.value]:
-            raise ValueError(f"{self._name} is not in TASK_TYPE.COPY2NPU.value")
-        data = self._context.awaitables[TASK_TYPE.COPY2NPU.value][self._name]
+        if self._name not in self._context.awaitables[TaskType.COPY2NPU.value]:
+            raise ValueError(f"{self._name} is not in TaskType.COPY2NPU.value")
+        data = self._context.awaitables[TaskType.COPY2NPU.value][self._name]
 
         if self._stream is not None:
             torch_npu.npu.current_stream().wait_stream(self._stream)
@@ -262,6 +264,8 @@ class HybridTrainPipelineSparseDist(TrainPipelineSparseDist[In, Out]):
         self._current_line_id = 0
         self._batch_forward = None
         self._pipe_n_batch = pipe_n_batch
+        if pipe_n_batch <= 0 or pipe_n_batch > 100:
+            raise ValueError("pipe_n_batch must be in range in [1, 100].")        
         torch.set_num_threads(1)
 
     def enque_context(self, line_id, context: HybridTrainPipelineContext):
@@ -422,11 +426,11 @@ class HybridTrainPipelineSparseDist(TrainPipelineSparseDist[In, Out]):
             return
         cur_stream = torch_npu.npu.current_stream()
         if not isinstance(batch, (torch.Tensor, Multistreamable)):
-
             raise ValueError(f"{type(batch)} must implement Multistreamable interface")
+
         batch.record_stream(cur_stream)
-        for forward_name in context.awaitables[TASK_TYPE.COPY2NPU.value].keys():
-            context.awaitables[TASK_TYPE.COPY2NPU.value][forward_name].record_stream(
+        for forward_name in context.awaitables[TaskType.COPY2NPU.value].keys():
+            context.awaitables[TaskType.COPY2NPU.value][forward_name].record_stream(
                 cur_stream
             )
 
@@ -435,17 +439,17 @@ class HybridTrainPipelineSparseDist(TrainPipelineSparseDist[In, Out]):
             return
         with record_function("## _post_input_dist ##"):
             for name, module in zip(
-                context.awaitables[TASK_TYPE.SENCOND_ALL2ALL.value].keys(),
+                context.awaitables[TaskType.SENCOND_ALL2ALL.value].keys(),
                 self._pipelined_modules,
             ):
-                awaitable = context.awaitables[TASK_TYPE.SENCOND_ALL2ALL.value][name]
+                awaitable = context.awaitables[TaskType.SENCOND_ALL2ALL.value][name]
                 kjt_list = awaitable.wait()
 
                 if hasattr(module, "post_input_dist"):
                     post_waitable = module.post_input_dist(
                         context.module_contexts[name], kjt_list
                     )
-                    context.awaitables[TASK_TYPE.POST_INPUT.value][name] = post_waitable
+                    context.awaitables[TaskType.POST_INPUT.value][name] = post_waitable
                 else:
                     raise RuntimeError(
                         "HybridTrainPipelineSparseDist can't be used for module with no post_input method"
@@ -467,11 +471,11 @@ class HybridTrainPipelineSparseDist(TrainPipelineSparseDist[In, Out]):
             preproc_mod.set_context(context)
         with record_function("## _copy_to_npu ##"):
             with torch_npu.npu.stream(self._memcpy_stream):
-                for name in context.awaitables[TASK_TYPE.POST_INPUT.value].keys():
-                    kjt_list = context.awaitables[TASK_TYPE.POST_INPUT.value][
+                for name in context.awaitables[TaskType.POST_INPUT.value].keys():
+                    kjt_list = context.awaitables[TaskType.POST_INPUT.value][
                         name
                     ].wait()
-                    context.awaitables[TASK_TYPE.COPY2NPU.value][name] = (
+                    context.awaitables[TaskType.COPY2NPU.value][name] = (
                         kjt_list_to_device(kjt_list, self._device, non_blocking=True)
                     )
                 if batch is not None:
@@ -532,9 +536,9 @@ class HybridTrainPipelineSparseDist(TrainPipelineSparseDist[In, Out]):
             return
         with record_function("## wait_sparse_data_dist ##"):
             for names, awaitable in context.awaitables[
-                TASK_TYPE.FIRST_ALL2ALL.value
+                TaskType.FIRST_ALL2ALL.value
             ].values():
                 for name, request in zip(names, awaitable.wait()):
-                    context.awaitables[TASK_TYPE.SENCOND_ALL2ALL.value][name] = (
+                    context.awaitables[TaskType.SENCOND_ALL2ALL.value][name] = (
                         AwaitableApapter(request)
                     )
