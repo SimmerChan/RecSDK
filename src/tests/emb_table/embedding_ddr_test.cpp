@@ -162,7 +162,7 @@ TEST_F(EmbeddingDDRTest, TestLoadShouldThrowOckErrorWhenEmbCacheNoData)
     RenameFilePath(fileKeyPath.str(), newFileKeyPath.str());
 
     stringstream fileEmbeddingPath;
-    fileEmbeddingPath << savePathTwo.str() << "/" << tableName << "/embedding" << "/" << "slice_" << rankInfo_.rankId << ".data";
+    fileEmbeddingPath << savePathTwo.str() << "/" << tableName << "/embedding/slice_" << rankInfo_.rankId << ".data";
     stringstream newFileEmbeddingPath;
     newFileEmbeddingPath << savePathTwo.str() << "/" << tableName << "/embedding" << "/" << "slice.data";
     RenameFilePath(fileEmbeddingPath.str(), newFileEmbeddingPath.str());
@@ -179,7 +179,7 @@ TEST_F(EmbeddingDDRTest, TestSaveKeyShouldCreateFileWhenNoError)
     const string tableName = "test1";
     shared_ptr<EmbeddingDDR> table = std::make_shared<EmbeddingDDR>(embInfo_, rankInfo_, 0);
     const size_t keySize = 5;
-    vector<emb_cache_key_t> testKeys = {4,8,12,16,20};
+    vector<emb_cache_key_t> testKeys = {4, 8, 12, 16, 20};
 
     table->SetFileSystemPtr(savePath.str());
     table->SaveKey(savePath.str(), testKeys);
@@ -194,7 +194,8 @@ TEST_F(EmbeddingDDRTest, TestSaveEmbeddingShouldCreateFileWhenNoError)
     const string tableName = "test1";
     shared_ptr<EmbeddingDDR> table = std::make_shared<EmbeddingDDR>(embInfo_, rankInfo_, 0);
     const size_t keySize = 5;
-    table->embSize_ = 10;
+    const size_t embSize = 10;
+    table->embSize_ = embSize;
     vector<vector<float>> testEmbeddings(keySize, vector<float>(table->embSize_));
     for (size_t i = 0; i < keySize; ++i) {
         for (size_t j = 0; j < table->embSize_; ++j) {
@@ -207,7 +208,7 @@ TEST_F(EmbeddingDDRTest, TestSaveEmbeddingShouldCreateFileWhenNoError)
 
     stringstream saveEmbeddingPath;
     saveEmbeddingPath << savePath.str() << "/" << tableName << "/embedding";
-    EXPECT_EQ(access(saveEmbeddingPath.str().c_str(), F_OK) , 0);
+    EXPECT_EQ(access(saveEmbeddingPath.str().c_str(), F_OK), 0);
 }
 
 TEST_F(EmbeddingDDRTest, TestSaveOptimizerSlotShouldCreateFileWhenNoError)
@@ -220,7 +221,8 @@ TEST_F(EmbeddingDDRTest, TestSaveOptimizerSlotShouldCreateFileWhenNoError)
     table->SetOptimizerInfo(info);
 
     const size_t keySize = 5;
-    table->embSize_ = 10;
+    const size_t embSize = 10;
+    table->embSize_ = embSize;
     const size_t doubleEmbDim = 20;
     vector<vector<float>> optimizerSlots(keySize, vector<float>(doubleEmbDim));
     for (size_t i = 0; i < keySize; ++i) {
@@ -307,7 +309,8 @@ TEST_F(EmbeddingDDRTest, TestLoadEmbeddingShouldEmbeddingSizeEqualSaveKeySizeWhe
     RenameFilePath(filePath.str(), newFilePath.str());
 
     const size_t keySize = 5;
-    table->embSize_ = 10;
+    const size_t embSize = 10;
+    table->embSize_ = embSize;
     table->hostLoadOffset = {0, 1, 2, 3, 4};
     vector<vector<float>> embeddings;
     table->SetFileSystemPtr(savePath.str());
@@ -332,18 +335,21 @@ TEST_F(EmbeddingDDRTest, TestLoadOptimizerSlotShouldOptimizerSlotsSizeEqualSavek
     table->SetOptimizerInfo(info);
 
     stringstream filePath1;
-    filePath1 << savePath.str() << "/test1/" << info.optimName + "_" + info.optimParams[0] << "/" << "slice_" << rankInfo_.rankId << ".data";
+    filePath1 << savePath.str() << "/test1/" << info.optimName + "_" + info.optimParams[0]
+              << "/" << "slice_" << rankInfo_.rankId << ".data";
     stringstream newFilePath1;
     newFilePath1 << savePath.str() << "/test1/" << info.optimName + "_" + info.optimParams[0] << "/" << "slice.data";
     stringstream filePath2;
-    filePath2 << savePath.str() << "/test1/" << info.optimName + "_" + info.optimParams[1] << "/" << "slice_" << rankInfo_.rankId << ".data";
+    filePath2 << savePath.str() << "/test1/" << info.optimName + "_" + info.optimParams[1]
+              << "/" << "slice_" << rankInfo_.rankId << ".data";
     stringstream newFilePath2;
     newFilePath2 << savePath.str() << "/test1/" << info.optimName + "_" + info.optimParams[1] << "/" << "slice.data";
     RenameFilePath(filePath1.str(), newFilePath1.str());
     RenameFilePath(filePath2.str(), newFilePath2.str());
 
     const size_t keySize = 5;
-    table->embSize_ = 10;
+    const size_t embSize = 10;
+    table->embSize_ = embSize;
     table->hostLoadOffset = {0, 1, 2, 3, 4};
     vector<vector<float>> optimizerSlots;
     table->SetFileSystemPtr(savePath.str());

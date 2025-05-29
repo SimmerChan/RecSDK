@@ -214,7 +214,7 @@ TEST_F(EmbeddingMgmtTest, TestSaveAndLoadWhenSingleTable)
     }
 }
 
-TEST_F(EmbeddingMgmtTest, TestSaveAndLoadWhenMultiTable)
+TEST_F(EmbeddingMgmtTest, TestSaveWhenMultiTable)
 {
     const string tableName = "test1";
     ThresholdValue thvalue(tableName, 0, 0, 0, false);
@@ -256,24 +256,37 @@ TEST_F(EmbeddingMgmtTest, TestSaveAndLoadWhenMultiTable)
     EmbeddingMgmt::Instance()->Save(savePathTwo.str(), 1, true, keyInfoMap);
     stringstream saveKeyPathTwo;
     saveKeyPathTwo << savePathTwo.str() << "/" << tableName << "/key";
-    EXPECT_EQ(access(saveKeyPathTwo.str().c_str(), F_OK), 0);
+    OffsetMapT allDeviceOffsets = EmbeddingMgmt::Instance()->GetDeviceOffsets();
 
+    EXPECT_EQ(allDeviceOffsets[tableName].size(), testNum);
+    EXPECT_EQ(access(saveKeyPathTwo.str().c_str(), F_OK), 0);
+}
+
+TEST_F(EmbeddingMgmtTest, TestLoadWhenMultiTable)
+{
+    const string tableName = "test1";
+    constexpr int testNum = 100;
+
+    ThresholdValue thvalue(tableName, 0, 0, 0, false);
+    vector<EmbInfo> embInfos = {embInfo_};
+    vector<ThresholdValue> thresholds = {thvalue};
+    EmbeddingMgmt::Instance()->Init(rankInfo_, embInfos, 0);
+
+    stringstream savePathTwo;
+    savePathTwo << "test_dir/MultiTable" << rankInfo_.rankId;
+    stringstream saveKeyPathTwo;
+    saveKeyPathTwo << savePathTwo.str() << "/" << tableName << "/key";
     stringstream fileKeyPathTwo;
     fileKeyPathTwo << saveKeyPathTwo.str() << "/slice_" << rankInfo_.rankId << ".data";
     stringstream newfileKeyPathTwo;
     newfileKeyPathTwo << saveKeyPathTwo.str() << "/slice.data";
     RenameFilePath(fileKeyPathTwo.str(), newfileKeyPathTwo.str());
 
-    if (rankInfo_.rankId == 0) {
-        map<string, unordered_set<emb_cache_key_t>> trainKeySetOne;
-        vector<string> warmStartTablesOne;
-        EmbeddingMgmt::Instance()->Load(savePathTwo.str(), trainKeySetOne, warmStartTablesOne);
-
-        map<EmbNameT, size_t> maxOffsetMap = EmbeddingMgmt::Instance()->GetMaxOffset();
-        OffsetMapT allDeviceOffsets = EmbeddingMgmt::Instance()->GetDeviceOffsets();
-        EXPECT_EQ(allDeviceOffsets[tableName].size(), testNum);
-        EXPECT_EQ(maxOffsetMap[tableName], testNum);
-    }
+    map<string, unordered_set<emb_cache_key_t>> trainKeySetOne;
+    vector<string> warmStartTablesOne;
+    EmbeddingMgmt::Instance()->Load(savePathTwo.str(), trainKeySetOne, warmStartTablesOne);
+    map<EmbNameT, size_t> maxOffsetMap = EmbeddingMgmt::Instance()->GetMaxOffset();
+    EXPECT_EQ(maxOffsetMap[tableName], testNum / rankInfo_.rankSize);
 }
 
 TEST_F(EmbeddingMgmtTest, TestKey2OffsetForDpWhenUseEvalChannel)

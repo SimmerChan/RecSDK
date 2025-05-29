@@ -235,7 +235,8 @@ namespace MxRec {
         return file.is_open();
     }
 
-    void RenameFilePath(const string& filePath, const string& newFilePath) {
+    void RenameFilePath(const string& filePath, const string& newFilePath)
+    {
         if (access(filePath.c_str(), F_OK) != 0) {
             auto error = Error(ModuleName::M_UTILS, ErrorType::INVALID_ARGUMENT,
                                StringFormat("File does not exist:%s.", filePath.c_str()));
