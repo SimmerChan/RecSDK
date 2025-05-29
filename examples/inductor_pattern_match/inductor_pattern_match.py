@@ -100,6 +100,8 @@ if __name__ == "__main__":
     y = torch.randn((128, 10, 32), device="npu")
 
     res = test_pattern_matcher(x, y)
-    compiled_res = torch.compile(test_pattern_matcher, backend="inductor")(x, y)
+    compiled_res = torch.compile(
+        test_pattern_matcher, backend="inductor", fullgraph=True
+    )(x, y)
     assert torch.allclose(res, compiled_res, rtol=1e-5, atol=1e-5)
     assert count == 1
