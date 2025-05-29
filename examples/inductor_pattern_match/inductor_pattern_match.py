@@ -21,6 +21,7 @@ from torch._inductor.pattern_matcher import (
     register_replacement,
 )
 import torch._inductor.config as inductor_config
+import torch_npu._inductor
 
 
 torch.ops.load_library("./torch_op_plugin/build/libsub_mul_concat.so")
@@ -84,7 +85,7 @@ def custom_pass(graph: torch.fx.graph):
     count = patterns.apply(graph)
 
 
-inductor_config.post_grad_custom_post_pass = custom_pass
+inductor_config.post_grad_custom_pre_pass = custom_pass
 
 
 def test_pattern_matcher(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
