@@ -22,6 +22,7 @@ os.environ["TORCHINDUCTOR_COMPILE_THREADS"] = "1"
 
 import torch_npu._inductor
 
+
 def simple_model(x, y):
     """简单的模型函数，包含基本的张量操作"""
     z = x + y
