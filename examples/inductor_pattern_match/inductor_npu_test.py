@@ -15,12 +15,12 @@
 # limitations under the License.
 
 import torch
-import torch_npu._inductor
 import os
 
 device = "npu" if torch.npu.is_available() else "cpu"
 os.environ["TORCHINDUCTOR_COMPILE_THREADS"] = "1"
 
+import torch_npu._inductor
 
 def simple_model(x, y):
     """简单的模型函数，包含基本的张量操作"""
