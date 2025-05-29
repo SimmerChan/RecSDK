@@ -21,6 +21,11 @@ from typing import (
 )
 import torch
 from torch.autograd.profiler import record_function
+import torch_npu
+from hybrid_torchrec.distributed.sharding.hybrid_rw_sharding import (
+    HashRwSparseFeaturesDistAwaitable,
+    InputDistThreadPoolExecutorSingleton,
+)
 from torchrec.distributed.embedding_types import KJTList
 from torchrec.distributed.types import Awaitable
 from torchrec.distributed.embedding_sharding import KJTListAwaitable
@@ -40,17 +45,9 @@ from torchrec.distributed.train_pipeline.utils import (
     KJTListSplitsAwaitable,
     KJTSplitsAllToAllMeta,
 )
-from hybrid_torchrec.distributed.sharding.hybrid_rw_sharding import (
-    HashRwSparseFeaturesDistAwaitable,
-    InputDistThreadPoolExecutorSingleton,
-)
-import torch_npu
 from torchrec.distributed.train_pipeline.train_pipelines import TrainPipelineSparseDist
 
-
-
 logger: logging.Logger = logging.getLogger(__name__)
-
 
 In = TypeVar("In", bound=Pipelineable)
 Out = TypeVar("Out")
@@ -96,19 +93,12 @@ class HybridTrainPipelineContext:
     Context information for a `TrainPipelineSparseDist` instance.
 
     Attributes:
-        input_dist_splits_requests (Dict[str, Awaitable[Any]]): Stores input dist
+        batch (In): Stores input dist
             requests in the splits awaitable stage, which occurs after starting the
             input dist.
-        input_dist_tensors_requests (Dict[str, Awaitable[Any]]): Stores input dist
-            requests in the tensors awaitable stage, which occurs after calling `wait()`
-            on the splits awaitable.
+        awaitables (List): List of fused splits input dist awaitable.
         module_contexts (Dict[str, Multistreamable]): Stores module contexts from the
             input dist for the current batch.
-        module_contexts_next_batch (Dict[str, Multistreamable]): Stores module contexts
-            from the input dist for the next batch.
-        fused_splits_awaitables (List[Tuple[List[str], FusedKJTListSplitsAwaitable]]):
-            List of fused splits input dist awaitable and the corresponding module names
-            of each awaitable.
     """
 
     batch: In = None
@@ -227,10 +217,6 @@ class HybridTrainPipelineSparseDist(TrainPipelineSparseDist[In, Out]):
     forward and backward. This helps hide the all2all latency while preserving the
     training forward / backward ordering.
 
-    stage 3: forward, backward - uses default CUDA stream
-    stage 2: ShardedModule.input_dist() - uses data_dist CUDA stream
-    stage 1: device transfer - uses memcpy CUDA stream
-
     `ShardedModule.input_dist()` is only done for top-level modules in the call graph.
     To be considered a top-level module, a module can only depend on 'getattr' calls on
     input.
@@ -246,6 +232,8 @@ class HybridTrainPipelineSparseDist(TrainPipelineSparseDist[In, Out]):
         execute_all_batches (bool): executes remaining batches in pipeline after
             exhausting dataloader iterator.
         apply_jit (bool): apply torch.jit.script to non-pipelined (unsharded) modules.
+        return_loss (bool): return loss or not.
+        pipe_n_batch (int): pipe_n_batch pipelines to progress.  
     """
 
     def __init__(
@@ -259,15 +247,28 @@ class HybridTrainPipelineSparseDist(TrainPipelineSparseDist[In, Out]):
         pipe_n_batch: int = 6,
     ) -> None:
         super().__init__(model, optimizer, device, execute_all_batches, apply_jit)
+        self.param_check(model, optimizer, device, pipe_n_batch)
         self._return_loss = return_loss
         self._contexts = [[] for _ in range(pipe_n_batch)]
         self._current_line_id = 0
         self._batch_forward = None
         self._pipe_n_batch = pipe_n_batch
-        if pipe_n_batch <= 0 or pipe_n_batch > 100:
-            raise ValueError("pipe_n_batch must be in range in [1, 100].")        
         torch.set_num_threads(1)
 
+    def param_check(
+        self,
+        model: torch.nn.Module,
+        device: torch.device,
+        pipe_n_batch,
+    ) :
+        if pipe_n_batch <= 0 or pipe_n_batch > 12:
+            raise ValueError("pipe_n_batch must be in range in [1, 12].")
+        if not isinstance(model, torch.nn.Module):
+            raise TypeError(f"model expected to be an instance of torch.nn.Module, \
+                            but got {type(model)} instead.")
+        if not isinstance(device, torch.device) and device.type not in ["cpu", "npu"]:
+            raise ValueError(f"Unsupported device type: {device.type}.")
+    
     def enque_context(self, line_id, context: HybridTrainPipelineContext):
         self._contexts[line_id].append(context)
 
@@ -275,6 +276,9 @@ class HybridTrainPipelineSparseDist(TrainPipelineSparseDist[In, Out]):
         self._fill_pipeline(dataloader_iter)
 
         if self._model.training:
+            if not isinstance(self._optimizer, torch.optim.Optimizer):
+                raise TypeError(f"self._optimizer expected to be an instance of torch.optim.Optimizer, \
+                                but got {type(self._optimizer)} instead.")
             with record_function("## zero_grad ##"):
                 self._optimizer.zero_grad()
 
