@@ -36,7 +36,6 @@ public:
     {
         Base::InitBase(gradient, indices, inputVar, learningRate, outputVar, tilingData);
         this->InitUbBuffer(tilingData.ubFreeSize);
-        this->neLr = T1(-1) * Base::lr;
     }
 
     __aicore__ inline void Process()
@@ -87,7 +86,7 @@ private:
         Base::outputUb = Base::outputQue.template AllocTensor<T1>();
 
         Base::gradUb = Base::gradQue.template DeQue<T1>();
-        AscendC::Muls<T1>(Base::outputUb, Base::gradUb, this->neLr, ComputeLength);
+        AscendC::Muls<T1>(Base::outputUb, Base::gradUb, Base::neLr, ComputeLength);
         Base::gradQue.template FreeTensor<T1>(Base::gradUb);
 
         Base::outputQue.EnQue(Base::outputUb);
@@ -177,16 +176,21 @@ private:
 
         varUb = varQue.template DeQue<T1>();
         AscendC::Muls<T1>(Base::outputUb, varUb, this->weightDecay, ComputeLength);
+        varQue.template FreeTensor<T1>(varUb);
 
         Base::gradUb = Base::gradQue.template DeQue<T1>();
         AscendC::Add<T1>(Base::outputUb, Base::gradUb, Base::outputUb, ComputeLength);
         Base::gradQue.template FreeTensor<T1>(Base::gradUb);
 
-        AscendC::Muls<T1>(Base::outputUb, Base::outputUb, this->lr, ComputeLength);
-        AscendC::Sub<T1>(Base::outputUb, varUb, Base::outputUb, ComputeLength);
-        varQue.template FreeTensor<T1>(varUb);
-
+        AscendC::Muls<T1>(Base::outputUb, Base::outputUb, Base::neLr, ComputeLength);
         Base::outputQue.EnQue(Base::outputUb);
+    }
+
+    __aicore__ inline void ScatterVarByIndices(int64_t cnt)
+    {
+        AscendC::SetAtomicAdd<T1>();
+        Base::ScatterVarByIndices(cnt);
+        AscendC::SetAtomicNone();
     }
 
     AscendC::GlobalTensor<T1> inputVarGm;
