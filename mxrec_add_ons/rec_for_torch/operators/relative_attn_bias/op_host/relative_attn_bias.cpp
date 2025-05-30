@@ -1,9 +1,9 @@
 /**
-* @file relative_attn_bias.cpp
-*
-* Copyright (C) 2025. Huawei Technologies Co., Ltd. All rights reserved.
-*
-*/
+ * @file relative_attn_bias.cpp
+ *
+ * Copyright (C) 2025. Huawei Technologies Co., Ltd. All rights reserved.
+ *
+ */
 
 #include <cmath>
 #include "relative_attn_bias_tiling.h"
@@ -17,6 +17,7 @@ constexpr int32_t DATA_ALIGN_BYTES = 32;
 constexpr uint8_t NUM_BUFFER = 2;
 
 // input index
+constexpr int REL_POS_BIAS_INDEX = 0;
 constexpr int IDENTITY_INDEX = 1;
 constexpr int TIMESTAMPS_INDEX = 2;
 constexpr int TIMESTAMPS_WEIGHTS_INDEX = 3;
@@ -42,51 +43,31 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
 {
     OPS_LOG_E_IF_NULL("context", context, return ge::GRAPH_FAILED);
     OPS_LOG_E_IF_NULL("identityShape", context->GetInputShape(IDENTITY_INDEX), return ge::GRAPH_FAILED);
+    OPS_LOG_E_IF_NULL("relPosBiasShape", context->GetInputShape(REL_POS_BIAS_INDEX), return ge::GRAPH_FAILED);
     OPS_LOG_E_IF_NULL("timestampShape", context->GetInputShape(TIMESTAMPS_INDEX), return ge::GRAPH_FAILED);
     OPS_LOG_E_IF_NULL("tswShape", context->GetInputShape(TIMESTAMPS_WEIGHTS_INDEX), return ge::GRAPH_FAILED);
     OPS_LOG_E_IF_NULL("attrs", context->GetAttrs(), return ge::GRAPH_FAILED);
 
     auto ascendPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
     size_t coreNum = ascendPlatform.GetCoreNumAiv();
-    OPS_CHECK(coreNum == 0,
-              OPS_LOG_E("Tiling Debug", "Core num is 0."),
-              return ge::GRAPH_FAILED);
+    OPS_CHECK(coreNum == 0, OPS_LOG_E("Tiling Debug", "Core num is 0."), return ge::GRAPH_FAILED);
 
     RelativeAttnBiasTilingData tilingData;
 
     auto timeShape = context->GetInputShape(TIMESTAMPS_INDEX)->GetStorageShape();  // timestamps(b, s)
     // 获取batchsize
-    int bs = timeShape.GetDim(0);
-    OPS_CHECK(bs <= 0,
-              OPS_LOG_E("Tiling Debug", "Batchsize is invalid."),
-              return ge::GRAPH_FAILED);
+    int bs = timeShape.GetDim(DIM0);
+    OPS_CHECK(bs <= 0, OPS_LOG_E("Tiling Debug", "Batchsize is invalid."), return ge::GRAPH_FAILED);
     tilingData.set_bs(bs);
     // 获取序列长度大小
-    int s = timeShape.GetDim(1);
-    OPS_CHECK(s > 4300,
-              OPS_LOG_E("Tiling Debug", "Input table larger than (4300, 4300)."),
-              return ge::GRAPH_FAILED);
+    int s = timeShape.GetDim(DIM1);
+    OPS_CHECK(s > 4300, OPS_LOG_E("Tiling Debug", "Input table larger than (4300, 4300)."), return ge::GRAPH_FAILED);
     tilingData.set_s(s);
-
-    const gert::RuntimeAttrs* attrs = context->GetAttrs();
-    const auto pastValidLensPtr = attrs->GetAttrPointer<gert::ContinuousVector>(PAST_VALID_LENS_INDEX);
-    OPS_LOG_E_IF_NULL("past_valid_len", pastValidLensPtr, return ge::GRAPH_FAILED);
-    int bsValid = pastValidLensPtr->GetSize();
-    OPS_CHECK(bsValid != bs,
-              OPS_LOG_E("Tiling Debug", "mismatch batchsize of past_valid_len and timestamps."),
-              return ge::GRAPH_FAILED);
-
-    auto *pastValidLensData = const_cast<int64_t *>(reinterpret_cast<const int64_t *>(pastValidLensPtr->GetData()));
-    uint32_t pastValidLens[MAX_BATCH_SIZE];
-    for (auto i = 0; i < bs; ++i) {
-        pastValidLens[i] = pastValidLensData[i];
-    }
-    tilingData.set_pastValidLens(pastValidLens);
 
     // 获取ts_w(num_layer, num_buckets+1)
     auto tswShape = context->GetInputShape(TIMESTAMPS_WEIGHTS_INDEX)->GetStorageShape();
-    int numLayer = tswShape.GetDim(0);
-    int numBuckets = tswShape.GetDim(1);
+    int numLayer = tswShape.GetDim(DIM0);
+    int numBuckets = tswShape.GetDim(DIM1);
     tilingData.set_numBuckets(numBuckets);
     tilingData.set_numLayer(numLayer);
 
@@ -94,6 +75,37 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     float clampMax = exp((numBuckets - 1) * divs);
     tilingData.set_bucketDivisor(divs);
     tilingData.set_clampMax(clampMax);
+
+    // rel_pos_bias
+    auto biasShape = context->GetInputShape(REL_POS_BIAS_INDEX)->GetStorageShape();  // (2s, 2s)
+    auto identityShape = context->GetInputShape(IDENTITY_INDEX)->GetStorageShape();  // (2s, 2s)
+
+    int biasSeqLen = biasShape.GetDim(DIM0);
+    int biasSeqLen2 = biasShape.GetDim(DIM1);
+    int idSeqLen = identityShape.GetDim(DIM0);
+    int idSeqLen2 = identityShape.GetDim(DIM1);
+
+    OPS_CHECK(biasShape.GetDimNum() != REL_POS_BIAS_DIM, OPS_LOG_E("Tiling Debug", "Invalid rel_pos_bias shape."),
+              return ge::GRAPH_FAILED);
+    OPS_CHECK(identityShape.GetDimNum() != IDENTITY_DIM, OPS_LOG_E("Tiling Debug", "Invalid identity shape."),
+              return ge::GRAPH_FAILED);
+    OPS_CHECK(biasSeqLen != biasSeqLen2 || biasSeqLen != idSeqLen || biasSeqLen != idSeqLen2,
+              OPS_LOG_E("Tiling Debug", "Mismatch sequence len of rel_pos_bias and identity."),
+              return ge::GRAPH_FAILED);
+
+    const gert::RuntimeAttrs* attrs = context->GetAttrs();
+    const auto pastValidLensPtr = attrs->GetAttrPointer<gert::ContinuousVector>(PAST_VALID_LENS_INDEX);
+    OPS_LOG_E_IF_NULL("past_valid_len", pastValidLensPtr, return ge::GRAPH_FAILED);
+    int bsValid = pastValidLensPtr->GetSize();
+    OPS_CHECK(bsValid != bs, OPS_LOG_E("Tiling Debug", "mismatch batchsize of past_valid_len and timestamps."),
+              return ge::GRAPH_FAILED);
+
+    auto* pastValidLensData = const_cast<int64_t*>(reinterpret_cast<const int64_t*>(pastValidLensPtr->GetData()));
+    uint32_t pastValidLens[MAX_BATCH_SIZE];
+    for (auto i = 0; i < bs; ++i) {
+        pastValidLens[i] = pastValidLensData[i];
+    }
+    tilingData.set_pastValidLens(pastValidLens);
 
     // 获取ub
     uint64_t ub;
@@ -106,9 +118,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     int intSize = ge::GetSizeByDataType(intType);
     tilingData.set_floatType(floatType);
     tilingData.set_intType(intType);
-    OPS_CHECK(floatSize == 0,
-              OPS_LOG_E("Tiling Debug", "Invalid data type."),
-              return ge::GRAPH_FAILED);
+    OPS_CHECK(floatSize == 0, OPS_LOG_E("Tiling Debug", "Invalid data type."), return ge::GRAPH_FAILED);
 
     // 计算一次处理的窗口大小(stride)
     int stride = ub / (NUM_BUFFER * 3 * floatSize);
@@ -215,9 +225,9 @@ public:
 
         OpAICoreConfig aicore_config;
         aicore_config.DynamicCompileStaticFlag(true)
-                .ExtendCfgInfo("jitCompile.flag", "static_false,dynamic_false")
-                .ExtendCfgInfo("coreType.value", "AiCore")
-                .ExtendCfgInfo("prebuildPattern.value", "Opaque");
+            .ExtendCfgInfo("jitCompile.flag", "static_false,dynamic_false")
+            .ExtendCfgInfo("coreType.value", "AiCore")
+            .ExtendCfgInfo("prebuildPattern.value", "Opaque");
 
         this->AICore().SetTiling(optiling::TilingFunc);
         this->AICore().AddConfig("ascend910", aicore_config);
