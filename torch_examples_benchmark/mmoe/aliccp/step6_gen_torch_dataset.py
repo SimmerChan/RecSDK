@@ -1,3 +1,21 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# Copyright 2025. Huawei Technologies Co.,Ltd. All rights reserved.
+#
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+
 import math
 import os
 import glob
@@ -18,6 +36,7 @@ parser.add_argument("--padding", type=bool, default=False, help="generate padded
 args = parser.parse_args()
 args.length = math.inf if args.length == -1 else args.length
 
+CHUNK_SIZE = 400  # 读取偏移M,400*1024*1024。
 
 class TorchDataSet(Dataset):
     def __init__(self) -> None:
@@ -62,7 +81,7 @@ def gen_torch_dataset(chunk_data):
     with os.fdopen(os.open(input_file_path, flags, modes), "rb") as fi:
         fi.seek(chunk_start)
         chunk = fi.read(chunk_size)
-        if chunk[-1] != 10:
+        if chunk[-1] != ord('\n'):
             raise ValueError(
                 f"ends not with \\n, but ascii code {chunk[-1]} {chunk_start}, {chunk_size}, "
                 f"{input_file_path}, {output_file_path}, {task_index}")
@@ -122,6 +141,6 @@ for file in file_list:
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
     output_path = os.path.join(output_folder, os.path.basename(file) + ".pth")
-    tasks += chunkify_file(file, output_path, 400)
+    tasks += chunkify_file(file, output_path, CHUNK_SIZE)
 with Pool(processes=args.proc) as pool:
     result = list(pool.imap(gen_torch_dataset_chunk, tasks))

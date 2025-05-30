@@ -24,13 +24,13 @@
 └── run.sh
 
 ```
-3.进入cliccp目录执行如下命令：
+3.进入aliccp目录执行如下命令：
 ```commandline
 bash run.sh 
 ```
 执行完成后预处理后的数据集会生成到指定目录，本用例默认生成在aliccp_out目录。
 ## 训练
-执行训练脚本，传入模型所需参数，参考命令如下：
+1.执行训练脚本，传入模型所需参数，参考命令如下：
 ```commandline
 python3 mmoe.py --data_dir .alicpp/aliccp_out/   # 根据实际情况传入参数
 ```

@@ -1,5 +1,20 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+# Copyright 2025. Huawei Technologies Co.,Ltd. All rights reserved.
+#
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
 
 import os
 import stat
@@ -231,13 +246,6 @@ class TorchMmoeModel(nn.Module):
         Returns:
             torch.Tensor: The concatenated and reshaped embedding tensor.
         """
-        emb_weights = {}
-        # for key, vocab_len in spec["vocab_length"].items():
-        #     weight_martix = torch.empty((vocab_len + 1, self.params.embedding_size), dtype=torch.float32)
-        #     std_dev = (2 / 512) ** 0.5
-        #     nn.init.normal_(weight_martix, mean=0.0, std=std_dev)
-        #     emb_weights[key] = nn.Parameter(weight_martix, requires_grad=True)
-
         embeddings = {}
         for key in ["101", "121", "122", "124", "125", "126",
                     "127", "128", "129", "205", "206", "207",
@@ -402,7 +410,7 @@ def clip_grad(grad):
     return torch.clamp(grad, -1, 1)
 
 
-def train(model: TorchMmoeModel, dataloader, val_dataloader, args, patience=5):
+def train(model: TorchMmoeModel, dataloader, val_dataloader, args, device, patience=5):
     model.train()
     optimizer = model.build_optimizer()
     epochs = args.epoch_num
@@ -413,15 +421,14 @@ def train(model: TorchMmoeModel, dataloader, val_dataloader, args, patience=5):
         total_loss = 0.0
         now_index = 0
         for input_sample, target_sample in dataloader:
+            input_sample = {k: v.to(device) for k, v in input_sample.items()}
+            target_sample = {k: v.to(device) for k, v in target_sample.items()}
             optimizer.zero_grad()
             task_outputs = model.forward(input_sample)
             predictions = model.build_predictions(task_outputs)
             loss = model.build_loss(target_sample, predictions["ctr"], predictions["ctcvr"])
             loss.backward()
             nn.utils.clip_grad.clip_grad_value_(model.parameters(), 1.0)
-            # for param in model.parameters():
-            #     if param.grad is not None:
-            #         param.grad = clip_grad(param.grad)
             optimizer.step()
             total_loss += loss.item()
             logging.info("Epoch %s - Batch %s - Loss %s", epoch, now_index, loss.item())
@@ -435,6 +442,9 @@ def train(model: TorchMmoeModel, dataloader, val_dataloader, args, patience=5):
         val_loss = 0.0
         with torch.no_grad():
             for eval_input_sample, eval_target_sample in val_dataloader:
+                eval_input_sample = {k: v.to(device) for k, v in eval_input_sample.items()}
+                eval_target_sample =  {k: v.to(device) for k, v in eval_target_sample.items()}
+
                 task_outputs = model.forward(eval_input_sample)
                 predictions = model.build_predictions(task_outputs)
                 loss = model.build_loss(eval_target_sample, predictions["ctr"], predictions["ctcvr"])
@@ -453,11 +463,14 @@ def train(model: TorchMmoeModel, dataloader, val_dataloader, args, patience=5):
                 break
 
 
-def evaluate(model: TorchMmoeModel, test_dataloader):
+def evaluate(model: TorchMmoeModel, test_dataloader, device):
     model.eval()
     total_loss = 0.0
     with torch.no_grad():
         for input_sample, target_sample in test_dataloader:
+            input_sample = {k: v.to(device) for k, v in input_sample.items()}
+            target_sample = {k: v.to(device) for k, v in target_sample.items()}
+
             task_outputs = model.forward(input_sample)
             predictions = model.build_predictions(task_outputs)
             loss = model.build_loss(target_sample, predictions["ctr"], predictions["ctcvr"])
@@ -533,11 +546,16 @@ def main(args):
                                num_workers=10)
 
     model = TorchMmoeModel(args)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device_type = 'npu'
+    if not torch.npu.is_available() and torch.cuda.is_available():
+        device_type = "cuda"
+    elif not (torch.npu.is_available() or torch.cuda.is_available()):
+        device_type = "cpu"
+    device = torch.device(device_type)
     model.to(device)
     if args.task_type == "train":
         logger.info("start train and evaluate")
-        train(model, train_dataloader, va_dataloader, args)
+        train(model, train_dataloader, va_dataloader, args, device)
         torch.save(model.load_state_dict, "mmoe.pth")
         logger.info("early stopped, start evaluating....")
         te_dataset = TorchDataSet(te_files)
@@ -547,7 +565,7 @@ def main(args):
                                    collate_fn=collate_fn,
                                    prefetch_factor=100,
                                    num_workers=10)
-        evaluate(model, te_dataloader)
+        evaluate(model, te_dataloader, device)
     else:
         raise ValueError("Unsupported task type: {}".format(args.task_type))
 

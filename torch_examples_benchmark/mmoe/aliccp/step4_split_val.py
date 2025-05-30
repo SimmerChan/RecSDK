@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # Copyright 2025. Huawei Technologies Co.,Ltd. All rights reserved.
-# Copyright 2021. Sensetime Yongqiang Yao; Tianzi Xiao.
 #
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,6 +20,7 @@ import os
 import stat
 import argparse
 import math
+
 import numpy as np
 
 parser = argparse.ArgumentParser(description='Parse arguments')
