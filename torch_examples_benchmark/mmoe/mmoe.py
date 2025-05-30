@@ -40,11 +40,11 @@ class HDF5Dataset(Dataset):
             self.target_sample = {}
             y = np.array(f["y"])
             z = np.array(f["z"])
-            fields = [key for key in f.keys() if key not in ["y","z"]]
+            fields = [key for key in f.keys() if key not in ["y", "z"]]
             self.target_sample.update({"y": torch.tensor(y, dtype=torch.float32)})
             self.target_sample.update({"z": torch.tensor(z, dtype=torch.float32)})
             for multi_field in fields:
-                self.input_sample.update({multi_field:torch.tensor(np.array(f[multi_field]), dtype=torch.int64)})
+                self.input_sample.update({multi_field: torch.tensor(np.array(f[multi_field]), dtype=torch.int64)})
         self._length = len(y)
 
     def __len__(self):
@@ -68,7 +68,7 @@ def define_flags():
     parser.add_argument('--batch_size', type=int, default=4096, help="Batch size for training")
     parser.add_argument('--learning_rate', type=float, default=0.001, help="Learning rate")
     parser.add_argument('--optimizer', type=str, default="Adam", choices=["Adam", "Adagrad", "GD", "Momentum"], help="Optimizer type")
-    parser.add_argument('--expert_layers', type=str, default="512,256", help="expert layers")
+    parser.add_argument('--expert_layers', type=str, default="512,256", help="Expert layers")
     parser.add_argument('--tower_layers', type=str, default="128,64", help="tower layers")
     parser.add_argument('--ctr_task_wgt', type=float, default=0.5, help="loss weight of ctr task")
     parser.add_argument('--data_dir', type=str, default="../data/alicpp/", help="Data directory")
@@ -77,11 +77,11 @@ def define_flags():
     parser.add_argument('--servable_model_dir', type=str, default=f"../model/serving/{MODEL_NAME}/",
                         help="Export servable model for pytorch Serving")
     parser.add_argument('--task_type', type=str, default="train", choices=["train", "eval", "predict"], help="Task type")
-    parser.add_argument('--clear_existing_model', action="store_ture", help="Clear existing code or not")
+    parser.add_argument('--clear_existing_model', action="store_true", help="Clear existing model or not")
     parser.add_argument('--max_seq_len', type=int, default=50, help="Max length of sequence")
-    parser.add_argument('--task_num', type=int, default=2, help="Taskl number")
+    parser.add_argument('--task_num', type=int, default=2, help="Task number")
     parser.add_argument('--experts_num', type=int, default=8, help="Number of experts")
-    parser.add_argument('--log_level', type=str, default="DEBUG", choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], help="log level")
+    parser.add_argument('--log_level', type=str, default="DEBUG", choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"], help="Log level")
     parser.add_argument('--epoch_num', type=int, default=10, help="Number of epochs")
     parser.add_argument('--batch_num', type=int, default=100, help="Number of batchs")
     return parser.parse_args()
@@ -133,17 +133,16 @@ class TorchMmoeModel(nn.Module):
 
     def build_embedding_layers(self):
         embeddings=nn.ModuleDict()
-        # emb_weights = {}
         for key, vocab_len in spec["vocab_length"].items():
-            weight_martix = torch.empty((vocab_len + 1, self.params.embedding_size), dtype=torch.float32)
+            weight_matrix = torch.empty((vocab_len + 1, self.params.embedding_size), dtype=torch.float32)
             std_dev = (2 / 512) ** 0.5
-            nn.init.normal_(weight_martix, mean=0.0, std=std_dev)
-            emb_weights = nn.Parameter(weight_martix, requires_grad=True)
+            nn.init.normal_(weight_matrix, mean=0.0, std=std_dev)
+            emb_weights = nn.Parameter(weight_matrix, requires_grad=True)
             embeddings[key] = nn.Embedding.from_pretrained(emb_weights)
         return  embeddings
 
 
-    def build_experts(self) -> torch.Tensor:
+    def build_experts(self):
 
         experts = nn.ModuleList()
         expert_units = list(map(int, self.params.expert_layers.strip().split(',')))
@@ -161,7 +160,7 @@ class TorchMmoeModel(nn.Module):
         return experts
 
 
-    def build_gate_networks(self) -> list:
+    def build_gate_networks(self):
         gates = nn.ModuleList()
         input_dim = self.params.embedding_size * 23
 
@@ -173,7 +172,7 @@ class TorchMmoeModel(nn.Module):
             gates.append(gate)
         return gates
 
-    def build_task_output_layers(self) -> list:
+    def build_task_output_layers(self):
         task_output_layers = nn.ModuleList()
         expert_units = list(map(int, self.params.expert_layers.strip().split(',')))
         input_dim = self.params.experts_num * expert_units[-1]
@@ -188,6 +187,25 @@ class TorchMmoeModel(nn.Module):
             task_output_layers.append(nn.Sequential(*tower))
         return task_output_layers
 
+
+    def embedding_lookup_sparse_fake(self, key, ids: torch.Tensor, combiner: str=None,
+                                     name: str=None) -> torch.Tensor:
+        dense_mask = torch.unsqueeze(torch.where(ids >= 0, torch.ones_like(ids, dtype=torch.float32), torch.zeros_like(ids)),
+                                     dim=-1
+                                     )
+
+        # Replace invalid IDs (-1) with zeros
+        ids = torch.where(ids == -1, torch.zeros_like(ids), ids)
+        embedding_layer = self.embedding_layers[key]
+        embedding_output = embedding_layer(ids)
+        embedding = embedding_output * dense_mask
+        summed_embedding = torch.sum(embedding, axis=1)
+        if combiner == "sum":
+            return summed_embedding
+        elif combiner == "mean":
+            return summed_embedding / torch.sum(dense_mask, axis=1)
+        else:
+            raise ValueError("combiner only supoort 'sum', 'mean'")
 
     def get_embedding(self, features: dict, spec: dict) -> torch.Tensor:
         """
@@ -244,10 +262,10 @@ class TorchMmoeModel(nn.Module):
         tower_units = list(map(int, self.params.tower_layers.strip().split(',')))
         y_tower = tower_input
         for tower_i, _ in enumerate(tower_units):
-            tower_liner = nn.Linear(in_features=y_tower.shape[-1], out_features=tower_units[tower_i])
-            tower_liner_out = tower_liner(y_tower)
+            tower_linear = nn.Linear(in_features=y_tower.shape[-1], out_features=tower_units[tower_i])
+            tower_linear_out = tower_linear(y_tower)
             relu = nn.ReLU()
-            y_tower = relu(tower_liner_out)
+            y_tower = relu(tower_linear_out)
         return y_tower
 
 
@@ -270,8 +288,8 @@ class TorchMmoeModel(nn.Module):
 
 
         y_cvr = self.build_tower(task_outputs[1], name='cvr')
-        y_cvr_linear = nn.Linear(in_features=y_cvr.shape[-1], out_features=1)
-        y_cvr = y_cvr_linear(y_cvr)
+        y_ctr_linear = nn.Linear(in_features=y_ctr.shape[-1], out_features=1)
+        y_cvr = y_ctr_linear(y_ctr)
 
         y_cvr = torch.reshape(y_cvr, [-1, ])
         y_cvr_prediction = torch.sigmoid(y_cvr)
@@ -317,7 +335,7 @@ class TorchMmoeModel(nn.Module):
         return ctr_task_wgt * ctr_loss + (1 - ctr_task_wgt) * ctcvr_loss
 
 
-    def build_optimizer(self) -> torch.Operation:
+    def build_optimizer(self):
         """
         Build the optimizer for training.
 
@@ -332,50 +350,32 @@ class TorchMmoeModel(nn.Module):
         """
         if self.params.optimizer == "Adam":
             optimizer = optim.Adam(
-                params=self.params(),
+                params=self.parameters(),
                 lr=self.params.learning_rate,
                 betas=[0.9, 0.99], eps=1e-8
             )
         elif self.params.optimizer == "Adagrad":
             optimizer = optim.Adagrad(
-                params=self.params(),
+                params=self.parameters(),
                 lr=self.params.learning_rate,
                 initial_accumulator_value=1e-6
             )
         elif self.params.optimizer == "Momentum":
             optimizer = optim.SGD(
-                params=self.params(),
+                params=self.parameters(),
                 lr=self.params.learning_rate,
                 momentum=0.95
             )
         elif self.params.optimizer == "SGD":
             optimizer = optim.SGD(
-                params=self.params(),
+                params=self.parameters(),
                 lr=self.params.learning_rate,
             )
         else:
             raise ValueError("Unsupported optimizer type: {}".format(args.optimizer))
         return optimizer
 
-    def embedding_lookup_sparse_fake(self, params: torch.Tensor, ids: torch.Tensor, combiner: str=None,
-                                     name: str=None) -> torch.Tensor:
-        dense_mask = torch.unsqueeze(torch.where(ids >= 0, torch.ones_like(ids, dtype=torch.float32), torch.zeros_like(ids)),
-                                     dim=-1
-                                     )
 
-        # Replace invalid IDs (-1) with zeros
-
-        ids = torch.where(ids == -1, torch.zeros_like(ids), ids)
-        embedding_layer = nn.Embedding.from_pretrained(params)
-        embedding_output = embedding_layer(ids)
-        embedding = embedding_output * dense_mask
-        summed_embedding = torch.sum(embedding, axis=1)
-        if combiner == "sum":
-            return summed_embedding
-        elif combiner == "mean":
-            return summed_embedding / torch.sum(dense_mask, axis=1)
-        else:
-            raise ValueError("combiner only supoort 'sum', 'mean'")
 
 
 def clip_grad(grad):
@@ -387,7 +387,7 @@ def train(model: TorchMmoeModel, dataloader, val_dataloader, args, epochs=10, pa
     model.train()
     optimizer = model.build_optimizer()
     # 早停相关变量
-    best_val_loss = float("inf")
+    best_val_loss = float('inf')
     counter = 0
     for epoch in range(epochs):
         total_loss = 0.0
@@ -396,19 +396,19 @@ def train(model: TorchMmoeModel, dataloader, val_dataloader, args, epochs=10, pa
             optimizer.zero_grad()
             task_outputs = model.forward(input_sample)
             predictions = model.build_predictions(task_outputs)
-            loss = model.build_loss(target_sample, predictions['ctr'], predictions["ctcvr"])
+            loss = model.build_loss(target_sample, predictions["ctr"], predictions["ctcvr"])
             loss.backward()
-            nn.utils.clip_grad.clip_gard_value_(model.parameters(), 1.0)
+            nn.utils.clip_grad.clip_grad_value_(model.parameters(), 1.0)
             # for param in model.parameters():
             #     if param.grad is not None:
             #         param.grad = clip_grad(param.grad)
             optimizer.step()
             total_loss += loss.item()
-            print(f"Epoch {epoch} - Batch {now_index} - loss {loss.item()}")
+            print(f"Epoch {epoch} - Batch {now_index} - Loss {loss.item()}")
             now_index += 1
             if args.batch_num & now_index == args.batch_num:
                 break
-        print(f"Epoch {epoch} - Loss: {loss.item()} - Total Loss: {total_loss}")
+        print(f"Epoch {epoch} - Loss: {loss.item()} - Total avg Loss: {total_loss/ len(dataloader)}")
 
         model.eval()
         val_loss = 0.0
@@ -416,9 +416,9 @@ def train(model: TorchMmoeModel, dataloader, val_dataloader, args, epochs=10, pa
             for eval_input_sample, eval_target_sample in val_dataloader:
                 task_outputs = model.forward(eval_input_sample)
                 predictions = model.build_predictions(task_outputs)
-                loss = model.build_loss(eval_target_sample, predictions['ctr'], predictions["crctr"])
+                loss = model.build_loss(eval_target_sample, predictions["ctr"], predictions["ctcvr"])
                 val_loss += loss.item()
-                print(f"Eval Batch loss {loss.item()}")
+                print(f"Eval Batch Loss {loss.item()}")
         avg_val_loss = val_loss / len(val_dataloader)
         print(f"Eval Avg Loss {avg_val_loss}")
 
@@ -428,7 +428,7 @@ def train(model: TorchMmoeModel, dataloader, val_dataloader, args, epochs=10, pa
         else:
             counter += 1
             if counter > patience:
-                print(f"Early stop at epoch{epoch}")
+                print(f"Early stop at epoch {epoch}")
                 break
 
 def eval(model: TorchMmoeModel, test_dataloader):
@@ -438,19 +438,19 @@ def eval(model: TorchMmoeModel, test_dataloader):
         for input_sample, target_sample in test_dataloader:
             task_outputs = model.forward(input_sample)
             predictions = model.build_predictions(task_outputs)
-            loss = model.build_loss(target_sample, predictions['ctr'], predictions["ctcvr"])
+            loss = model.build_loss(target_sample, predictions["ctr"], predictions["ctcvr"])
             total_loss += loss.item()
             y_true = target_sample['y'].cpu().numpy()
             y_pred = predictions['ctr'].cpu().numpy()
             auc = roc_auc_score(y_true, y_pred)
-            print(f"Eval AUC: {auc:4f}")
+            print(f"Eval AUC: {auc:.4f}")
 
 
     avg_test_loss = total_loss / len(test_dataloader)
     print(f"Test Loss: {avg_test_loss:.4f}")
     return avg_test_loss
 
-def collat_fn(batch):
+def collate_fn(batch):
     input_dicts = [item[0] for item in batch]
     target_dicts = [item[1] for item in batch]
     input_tensors = {}
@@ -461,7 +461,7 @@ def collat_fn(batch):
             continue
 
         if tensors[0].dim() == 0:
-            tensors = [t.unsquence(0) for t in tensors]
+            tensors = [t.unsqueeze(0) for t in tensors]
         input_tensors[key] = pad_sequence(tensors, batch_first=True)
     target_tensors = {}
     for key in target_dicts[0].keys():
@@ -478,7 +478,7 @@ def main(args):
     train_order = json_file_load("train_order", "./order.json")
 
     tr_files = [
-        "%strain/data_train.csv.pth.%s" % (args.data_dir, index)
+        "%strain/data_train.csv.hd5.%s" % (args.data_dir, index)
         for index in train_order["reading_order"]
     ]
     va_files = glob.glob("%sval/data_val.csv.hd5.*" % args.data_dir)
@@ -496,9 +496,9 @@ def main(args):
     # ------ for NPU  ------
 
     train_dataset = TorchDataSet(tr_files)
-    train_dataloader = DataLoader(dataset=train_dataset, batch_size=args.batch_size, shuffle=True, collat_fn=collat_fn, prefetch_factor=100, num_workers=10)
+    train_dataloader = DataLoader(dataset=train_dataset, batch_size=args.batch_size, shuffle=True, collate_fn=collate_fn, prefetch_factor=100, num_workers=10)
     va_dataset = TorchDataSet(va_files)
-    va_dataloader = DataLoader(dataset=va_dataset, batch_size=args.batch_size, shuffle=True, collat_fn=collat_fn, prefetch_factor=100, num_workers=10)
+    va_dataloader = DataLoader(dataset=va_dataset, batch_size=args.batch_size, shuffle=True, collate_fn=collate_fn, prefetch_factor=100, num_workers=10)
 
 
 
@@ -511,7 +511,7 @@ def main(args):
         torch.save(model.load_state_dict, "mmoe.pth")
         logger.info("early stopped, start evaluating....")
         te_dataset = TorchDataSet(te_files)
-        te_dataloader = DataLoader(dataset=te_dataset, batch_size=args.batch_size, shuffle=True, collat_fn=collat_fn, prefetch_factor=100, num_workers=10)
+        te_dataloader = DataLoader(dataset=te_dataset, batch_size=args.batch_size, shuffle=True, collate_fn=collate_fn, prefetch_factor=100, num_workers=10)
         eval(model, te_dataloader)
     else:
         raise ValueError("Unsupported task type: {}".format(args.task_type))

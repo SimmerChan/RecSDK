@@ -5,7 +5,6 @@ import stat
 import json
 import argparse
 from multiprocessing import Pool
-from random import sample
 
 import numpy as np
 import torch
@@ -59,7 +58,6 @@ def gen_torch_dataset(chunk_data):
 
     flags = os.O_RDONLY
     modes = stat.S_IWUSR | stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH
-    tfrecord_out = tf.io.TFRecordWriter(out_file)
     with os.fdopen(os.open(input_file_path, flags, modes), "rb") as fi:
         fi.seek(chunk_start)
         chunk = fi.read(chunk_size)
@@ -84,7 +82,6 @@ def gen_torch_dataset(chunk_data):
             "z": torch.tensor([z], dtype=torch.float32)
         }
 
-        one_hot_value_list = []
         for index, field in enumerate(fields):
             field_value_string = field_values[index]
             if field not in multi_hot_fields:
@@ -103,11 +100,11 @@ def gen_torch_dataset(chunk_data):
                     feature.update({field: torch.tensor(field_value, dtype=torch.int64)})
 
         samples.append(feature)
-        with h5py.File(out_file, 'w') as hf:
-            hf.create_dataset('y', data=torch.stack([s['y'] for s in samples]).numpy())
-            hf.create_dataset('z', data=torch.stack([s['z'] for s in samples]).numpy())
-            for field in fields:
-                hf.create_dataset(field, data=torch.stack([s[field] for s in samples]).numpy())
+    with h5py.File(out_file, 'w') as hf:
+        hf.create_dataset('y', data=torch.stack([s['y'] for s in samples]).numpy())
+        hf.create_dataset('z', data=torch.stack([s['z'] for s in samples]).numpy())
+        for field in fields:
+            hf.create_dataset(field, data=torch.stack([s[field] for s in samples]).numpy())
 
 
 def gen_torch_dataset_chunk(chunk_data):
