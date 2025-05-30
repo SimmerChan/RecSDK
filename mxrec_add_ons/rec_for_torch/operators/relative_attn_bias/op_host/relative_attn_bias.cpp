@@ -27,7 +27,11 @@ constexpr int RAB_TIME_INDEX = 1;
 // attr index
 constexpr int PAST_VALID_LENS_INDEX = 0;
 constexpr int BUCKET_DIV_INDEX = 1;
-// output dim
+// input/output dim
+constexpr int TS_DIM = 2;
+constexpr int TSW_DIM = 2;
+constexpr int REL_POS_BIAS_DIM = 2;
+constexpr int IDENTITY_DIM = 2;
 constexpr int RAB_POS_OUT_DIM = 3;
 constexpr int RAB_TIME_OUT_DIM = 6;
 constexpr int DIM_PLACE_HOLDER = 1;
@@ -55,6 +59,8 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     RelativeAttnBiasTilingData tilingData;
 
     auto timeShape = context->GetInputShape(TIMESTAMPS_INDEX)->GetStorageShape();  // timestamps(b, s)
+    OPS_CHECK(timeShape.GetDimNum() != TS_DIM, OPS_LOG_E("Tiling Debug", "Invalid timestamps shape."),
+              return ge::GRAPH_FAILED);
     // 获取batchsize
     int bs = timeShape.GetDim(DIM0);
     OPS_CHECK(bs <= 0, OPS_LOG_E("Tiling Debug", "Batchsize is invalid."), return ge::GRAPH_FAILED);
@@ -66,6 +72,8 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
 
     // 获取ts_w(num_layer, num_buckets+1)
     auto tswShape = context->GetInputShape(TIMESTAMPS_WEIGHTS_INDEX)->GetStorageShape();
+    OPS_CHECK(tswShape.GetDimNum() != TSW_DIM, OPS_LOG_E("Tiling Debug", "Invalid timestamps shape."),
+              return ge::GRAPH_FAILED);
     int numLayer = tswShape.GetDim(DIM0);
     int numBuckets = tswShape.GetDim(DIM1);
     tilingData.set_numBuckets(numBuckets);
