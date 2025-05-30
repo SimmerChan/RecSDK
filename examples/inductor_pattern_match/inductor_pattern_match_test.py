@@ -28,7 +28,6 @@ torch.ops.load_library("./torch_op_plugin/build/libsub_mul_concat.so")
 
 
 def fused_sub_mul_concat(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-    print("fused_sub_mul_concat")
     return torch.ops.acl_ops.sub_mul_concat(x, y)
 
 
@@ -64,8 +63,8 @@ def pattern_matcher_fn(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
     return cat
 
 
-import pytest
 from typing import Tuple
+import pytest
 
 
 @pytest.mark.parametrize("shape", [(128, 10, 64), (128, 64, 10)])

@@ -15,10 +15,10 @@
 # limitations under the License.
 # ==============================================================================
 
+from typing import Tuple
 import pytest
 import numpy as np
 import torch
-from typing import Tuple
 
 torch.ops.load_library("./build/libsub_mul_concat.so")
 

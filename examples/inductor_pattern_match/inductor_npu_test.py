@@ -14,8 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import torch
 import os
+import torch
+import logging
+
+# 配置logging
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
 
 device = "npu" if torch.npu.is_available() else "cpu"
 os.environ["TORCHINDUCTOR_COMPILE_THREADS"] = "1"
@@ -61,7 +68,6 @@ def test_inductor_simple_compilation():
 
     # 验证结果一致性
     assert torch.allclose(actual, expected, rtol=1e-5, atol=1e-5)
-    print("Simple model compilation test passed!")
 
 
 def test_inductor_complex_compilation():
@@ -83,7 +89,6 @@ def test_inductor_complex_compilation():
 
     # 验证结果一致性
     assert torch.allclose(actual, expected, rtol=1e-4, atol=1e-4)
-    print("Complex model compilation test passed!")
 
 
 def test_inductor_performance_comparison():
@@ -121,9 +126,9 @@ def test_inductor_performance_comparison():
     # 验证结果一致性
     assert torch.allclose(result_original, result_compiled, rtol=1e-5, atol=1e-5)
 
-    print(f"Original model time: {original_time:.4f}s")
-    print(f"Compiled model time: {compiled_time:.4f}s")
-    print(f"Speedup: {original_time / compiled_time:.2f}x")
+    logger.info(f"Original model time: {original_time:.4f}s")
+    logger.info(f"Compiled model time: {compiled_time:.4f}s")
+    logger.info(f"Speedup: {original_time / compiled_time:.2f}x")
 
 
 if __name__ == "__main__":
@@ -131,4 +136,3 @@ if __name__ == "__main__":
     test_inductor_simple_compilation()
     test_inductor_complex_compilation()
     test_inductor_performance_comparison()
-    print("All torch inductor tests passed!")

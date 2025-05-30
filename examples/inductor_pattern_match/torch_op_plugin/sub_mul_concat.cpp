@@ -24,8 +24,7 @@ static constexpr int64_t NUM_CONCAT = 4;
 static constexpr int64_t DIM_LAST = 2;
 
 /// This operator will concat four tensors: lhs, rhs, lhs - rhs, lhs * rhs, along the last dim.
-/// Constraints:
-/// 1. dims of lhs and rhs must be 3.
+/// Constraints: 1. dims of lhs and rhs must be 3.
 at::Tensor SubMulConcat(const at::Tensor& lhs, const at::Tensor& rhs)
 {
     const at::OptionalDeviceGuard guard(device_of(lhs));
