@@ -260,7 +260,7 @@ class HybridTrainPipelineSparseDist(TrainPipelineSparseDist[In, Out]):
         model: torch.nn.Module,
         device: torch.device,
         pipe_n_batch,
-    ) :
+    ):
         if pipe_n_batch <= 0 or pipe_n_batch > 12:
             raise ValueError("pipe_n_batch must be in range in [1, 12].")
         if not isinstance(model, torch.nn.Module):

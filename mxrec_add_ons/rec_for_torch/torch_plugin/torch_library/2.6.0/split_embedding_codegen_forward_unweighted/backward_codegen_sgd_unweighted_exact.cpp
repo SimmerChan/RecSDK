@@ -302,7 +302,6 @@ at::Tensor split_embedding_backward_codegen_sgd_unweighted_exact_npu(const Tenso
 
     const at::OptionalDeviceGuard guard(device_of(dev_weights));
     auto output = at::empty({dev_weights.size(0)}, dev_weights.options());
-    auto output = at::empty({totalEmbed}, dev_weights.options());
 
     int optim_type = static_cast<int>(OptimizerType::SGD);
     const auto _unused = at::Tensor();
