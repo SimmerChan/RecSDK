@@ -18,6 +18,7 @@ parser.add_argument("--padding", type=bool, default=False, help="generate padded
 args = parser.parse_args()
 args.length = math.inf if args.length == -1 else args.length
 
+
 class TorchDataSet(Dataset):
     def __init__(self) -> None:
         super().__init__()
