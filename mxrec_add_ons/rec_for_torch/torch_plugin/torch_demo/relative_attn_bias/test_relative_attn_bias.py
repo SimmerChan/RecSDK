@@ -161,37 +161,23 @@ def rab_pos_golden(rel_pos_bias: torch.Tensor, identity: torch.Tensor, past_vali
 
 
 @torch.no_grad()
-def rab(num_layers, train_len, candidate_len, bs, dtype):
+def rab_time(num_layers, train_len, candidate_len, bs, dtype):
     torch_npu.npu.set_device(DEVICE)
 
-    layer_num = random.randint(0, num_layers - 1)
-    pos_w = create_pos_w(train_len, num_layers).to(dtype)
     past_valid_lens = create_past_valid_lens(bs, train_len).to(torch.int32)
     timestamps = create_timestamps(train_len, candidate_len, past_valid_lens).to(torch.int32)
     timestamps_weights = create_timestamps_weights(num_layers).to(dtype)
-    rel_pos_bias_list, identity_list = init_rel_pos_bias(pos_w=pos_w,
-                                                         train_len=train_len,
-                                                         candidate_len=candidate_len,
-                                                         num_layers=num_layers)
-    rel_pos_bias_list, identity_list = rel_pos_bias_list.to(dtype), identity_list.to(dtype)
 
-    rel_pos_bias_list = rel_pos_bias_list.to(DEVICE)
-    identity_list = identity_list.to(DEVICE)
     timestamps = timestamps.to(DEVICE)
     timestamps_weights = timestamps_weights.to(DEVICE)
-    past_valid_lens = past_valid_lens.to(DEVICE)
     torch_npu.npu.synchronize()
 
-    rab_pos_out, rab_time_out = rab_npu(rel_pos_bias=rel_pos_bias_list[layer_num, ...],
-                                        identity=identity_list[layer_num, ...],
-                                        timestamps=timestamps,
-                                        timestamps_weights=timestamps_weights,
-                                        past_valid_lens=past_valid_lens)
-    torch_npu.npu.synchronize()
-
+    rab_time_out = torch.ops.mxrec.relative_attn_bias_time(timestamps_weights=timestamps_weights,
+                                                           timestamps=timestamps)
     rab_time_out_golden = rab_time_golden(ts_w=timestamps_weights.transpose(0, 1),
                                           timestamps=timestamps)
     torch_npu.npu.synchronize()
+
     assert torch.allclose(rab_time_out_golden, rab_time_out)
 
 
@@ -201,7 +187,7 @@ def rab(num_layers, train_len, candidate_len, bs, dtype):
 @pytest.mark.parametrize("bs", [1, 2, 4])
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32])
 def test_rab_eval(num_layers, train_len, candidate_len, bs, dtype):
-    rab(num_layers, train_len, candidate_len, bs, dtype)
+    rab_time(num_layers, train_len, candidate_len, bs, dtype)
 
 
 @pytest.mark.parametrize("num_layers", [1, 8])
@@ -209,4 +195,4 @@ def test_rab_eval(num_layers, train_len, candidate_len, bs, dtype):
 @pytest.mark.parametrize("candidate_len", [0])
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32])
 def test_rab_train(num_layers, train_len, candidate_len, bs, dtype):
-    rab(num_layers, train_len, candidate_len, bs, dtype)
+    rab_time(num_layers, train_len, candidate_len, bs, dtype)

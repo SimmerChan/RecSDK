@@ -88,6 +88,7 @@ static ge::graphStatus PosTilingFunc(TilingData& tilingData, gert::TilingContext
     // 计算一次处理的窗口大小(stride)
     int stride = ub / (NUM_BUFFER * 3 * identitySize);
     tilingData.set_stride(stride);
+    return ge::GRAPH_SUCCESS;
 }
 
 static ge::graphStatus TilingFunc(gert::TilingContext* context)
