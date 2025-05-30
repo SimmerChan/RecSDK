@@ -6,16 +6,33 @@
 
 ## 数据集准备
 1. 准备alicpp数据集
-2. 对于[Ali-CPP](https://tianchi.aliyun.com/dataset/408)数据集，我们提供完整的预处理流程[参考](https://gitee.com/ascend/RecSDK/blob/develop/examples/rec_model_zoo/behaviour_and_multi_task/data/aliccp/README.md)，进入cliccp目录执行如下命令：
+2. 对于[Ali-CPP](https://tianchi.aliyun.com/dataset/408)数据集，我们提供完整的预处理流程[参考](https://gitee.com/ascend/RecSDK/blob/develop/examples/rec_model_zoo/behaviour_and_multi_task/data/aliccp/README.md)，
+下载数据集至alicpp目录,如：
 ```commandline
-cd ./aliccp
+.
+├── common_features_test.csv
+├── common_features_train.csv
+├── sample_skeleton_test.csv
+├── sample_skeleton_train.csv
+├── step1_count_vocabs.py
+├── step2_remove_low_ids.py
+├── step3_map_ids.py
+├── step4_split_val.py
+├── step5_merge_table.py
+├── step6_gen_torch_dataset.py
+├── step7_gen_spec.py
+└── run.sh
+
+```
+3.进入cliccp目录执行如下命令：
+```commandline
 bash run.sh 
 ```
-执行完成后数据集会生成到指定目录，本用例默认生成在aliccp_out目录。
+执行完成后预处理后的数据集会生成到指定目录，本用例默认生成在aliccp_out目录。
 ## 训练
 执行训练脚本，传入模型所需参数，参考命令如下：
 ```commandline
-python3 mmoe.py --data_dir ./aliccp_out/   # 根据实际情况传入参数
+python3 mmoe.py --data_dir .alicpp/aliccp_out/   # 根据实际情况传入参数
 ```
 2.参数说明
 ```commandline

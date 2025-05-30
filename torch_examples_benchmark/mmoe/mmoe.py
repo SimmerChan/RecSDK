@@ -199,8 +199,8 @@ class TorchMmoeModel(nn.Module):
 
     def embedding_lookup_sparse_fake(self, key,
                                      ids: torch.Tensor,
-                                     combiner: str=None,
-                                     name: str=None) -> torch.Tensor:
+                                     combiner: str = None,
+                                     name: str = None) -> torch.Tensor:
         dense_mask = torch.unsqueeze(torch.where(ids >= 0,
                                                  torch.ones_like(ids, dtype=torch.float32),
                                                  torch.zeros_like(ids)
@@ -429,7 +429,7 @@ def train(model: TorchMmoeModel, dataloader, val_dataloader, args, patience=5):
             now_index += 1
             if args.batch_num & now_index == args.batch_num:
                 break
-        logging.info("Epoch %s - Loss %s - Total avg Loss %s", epoch, loss.item(), total_loss/ len(dataloader))
+        logging.info("Epoch %s - Loss %s - Total avg Loss %s", epoch, loss.item(), total_loss/len(dataloader))
 
         model.eval()
         val_loss = 0.0
@@ -439,9 +439,9 @@ def train(model: TorchMmoeModel, dataloader, val_dataloader, args, patience=5):
                 predictions = model.build_predictions(task_outputs)
                 loss = model.build_loss(eval_target_sample, predictions["ctr"], predictions["ctcvr"])
                 val_loss += loss.item()
-                logging.info("Eval Batch Loss %s",loss.item())
+                logging.info("Eval Batch Loss %s", loss.item())
         avg_val_loss = val_loss / len(val_dataloader)
-        logging.info("Eval Avg Loss %s",avg_val_loss)
+        logging.info("Eval Avg Loss %s", avg_val_loss)
 
         if avg_val_loss < best_val_loss:
             best_val_loss = avg_val_loss
@@ -453,7 +453,7 @@ def train(model: TorchMmoeModel, dataloader, val_dataloader, args, patience=5):
                 break
 
 
-def eval(model: TorchMmoeModel, test_dataloader):
+def evaluate(model: TorchMmoeModel, test_dataloader):
     model.eval()
     total_loss = 0.0
     with torch.no_grad():
@@ -470,7 +470,6 @@ def eval(model: TorchMmoeModel, test_dataloader):
     avg_test_loss = total_loss / len(test_dataloader)
     logging.info("Test Loss:  %s.4f", avg_test_loss)
     return avg_test_loss
-
 
 def collate_fn(batch):
     input_dicts = [item[0] for item in batch]
@@ -545,8 +544,9 @@ def main(args):
                                    batch_size=args.batch_size,
                                    shuffle=True,
                                    collate_fn=collate_fn,
-                                   prefetch_factor=100, num_workers=10)
-        eval(model, te_dataloader)
+                                   prefetch_factor=100,
+                                   num_workers=10)
+        evaluate(model, te_dataloader)
     else:
         raise ValueError("Unsupported task type: {}".format(args.task_type))
 
