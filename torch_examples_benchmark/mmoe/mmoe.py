@@ -537,7 +537,7 @@ def main(args):
     model.to(device)
     if args.task_type == "train":
         logger.info("start train and evaluate")
-        train(model, train_dataloader, va_dataloader, args, epochs=args.epoch_num)
+        train(model, train_dataloader, va_dataloader, args)
         torch.save(model.load_state_dict, "mmoe.pth")
         logger.info("early stopped, start evaluating....")
         te_dataset = TorchDataSet(te_files)
