@@ -429,7 +429,7 @@ def train(model: TorchMmoeModel, dataloader, val_dataloader, args, patience=5):
             now_index += 1
             if args.batch_num & now_index == args.batch_num:
                 break
-        logging.info("Epoch %s - Loss %s - Total avg Loss %s", epoch, loss.item(), total_loss/len(dataloader))
+        logging.info("Epoch %s - Loss %s - Total avg Loss %s", epoch, loss.item(), total_loss / len(dataloader))
 
         model.eval()
         val_loss = 0.0
@@ -470,6 +470,7 @@ def evaluate(model: TorchMmoeModel, test_dataloader):
     avg_test_loss = total_loss / len(test_dataloader)
     logging.info("Test Loss:  %s.4f", avg_test_loss)
     return avg_test_loss
+
 
 def collate_fn(batch):
     input_dicts = [item[0] for item in batch]
