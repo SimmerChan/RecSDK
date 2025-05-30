@@ -41,6 +41,21 @@ std::tuple<Tensor, Tensor> relative_attn_bias_impl_npu(const Tensor& relPosBias,
     return {rabPosOut, rabTimeOut};
 }
 
+Tensor relative_attn_bias_pos_impl_npu(const Tensor& relPosBias, const Tensor& identity,
+                                       const at::IntArrayRef pastValidLens)
+{
+    auto relPosBiasConti = relPosBias.contiguous();
+    auto identityConti = identity.contiguous();
+
+    const int bs = pastValidLens.size();
+    const int sx2 = relPosBias.size(0);  // relPosBias(2s, 2s)
+
+    at::Tensor rabPosOut = at::zeros({bs, sx2, sx2}, relPosBiasConti.options());
+
+    EXEC_NPU_CMD(aclnnRelativeAttnBiasPos, relPosBiasConti, identityConti, pastValidLens, rabPosOut);
+    return rabPosOut;
+}
+
 Tensor relative_attn_bias_backward_impl_npu(const Tensor& rabTimeGrad, const Tensor& bucketTimestamps,
                                             const int64_t numBuckets)
 {
@@ -69,6 +84,10 @@ TORCH_LIBRARY_FRAGMENT(mxrec, m)
           "                   int[] past_valid_lens,"
           "                   float bucket_divisor"
           "                   ) -> (Tensor, Tensor)");
+    m.def("relative_attn_bias_pos(Tensor rel_pos_bias, "
+          "                       Tensor identity, "
+          "                       int[] past_valid_lens"
+          "                       ) -> Tensor");
     m.def("relative_attn_bias_backward(Tensor rab_time_grad, "
           "                            Tensor bucket_timestamps, "
           "                            int num_buckets"
@@ -78,11 +97,13 @@ TORCH_LIBRARY_FRAGMENT(mxrec, m)
 TORCH_LIBRARY_IMPL(mxrec, PrivateUse1, m)
 {
     m.impl("relative_attn_bias", &relative_attn_bias_impl_npu);
+    m.impl("relative_attn_bias_pos", &relative_attn_bias_pos_impl_npu);
     m.impl("relative_attn_bias_backward", &relative_attn_bias_backward_impl_npu);
 }
 
 TORCH_LIBRARY_IMPL(fbgemm, PrivateUse1, m)
 {
     m.impl("relative_attn_bias", &relative_attn_bias_impl_npu);
+    m.impl("relative_attn_bias_pos", &relative_attn_bias_pos_impl_npu);
     m.impl("relative_attn_bias_backward", &relative_attn_bias_backward_impl_npu);
 }

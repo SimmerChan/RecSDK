@@ -161,6 +161,32 @@ def rab_pos_golden(rel_pos_bias: torch.Tensor, identity: torch.Tensor, past_vali
 
 
 @torch.no_grad()
+def rab_pos(num_layers, train_len, candidate_len, bs, dtype):
+    torch_npu.npu.set_device(DEVICE)
+    pos_w = create_pos_w(train_len, num_layers).to(dtype)
+    past_valid_lens = create_past_valid_lens(bs, train_len).to(torch.int32)
+    rel_pos_bias_list, identity_list = init_rel_pos_bias(pos_w=pos_w,
+                                                         train_len=train_len,
+                                                         candidate_len=candidate_len,
+                                                         num_layers=num_layers)
+    rel_pos_bias_list, identity_list = rel_pos_bias_list.to(dtype), identity_list.to(dtype)
+
+    rel_pos_bias_list = rel_pos_bias_list.to(DEVICE)
+    identity_list = identity_list.to(DEVICE)
+    past_valid_lens = past_valid_lens.to(DEVICE)
+    torch_npu.npu.synchronize()
+
+    for rel_pos_bias, identity in zip(rel_pos_bias_list, identity_list):
+        op_result = torch.ops.mxrec.relative_attn_bias_pos(rel_pos_bias=rel_pos_bias,
+                                                           identity=identity,
+                                                           past_valid_lens=past_valid_lens.tolist()).to('cpu')
+        golden_result = rab_pos_golden(rel_pos_bias=rel_pos_bias.to('cpu'),
+                                       identity=identity.to('cpu'),
+                                       past_valid_lens=past_valid_lens.to('cpu'))
+        assert torch.allclose(op_result, golden_result)
+
+
+@torch.no_grad()
 def rab(num_layers, train_len, candidate_len, bs, dtype):
     torch_npu.npu.set_device(DEVICE)
 
@@ -208,3 +234,12 @@ def rab(num_layers, train_len, candidate_len, bs, dtype):
 @pytest.mark.parametrize("dtype", [torch.float16, torch.float32])
 def test_rab_eval(num_layers, train_len, candidate_len, bs, dtype):
     rab(num_layers, train_len, candidate_len, bs, dtype)
+
+
+@pytest.mark.parametrize("num_layers", [8])
+@pytest.mark.parametrize("train_len", [500, 1000, 2000, 4000])
+@pytest.mark.parametrize("candidate_len", [600])
+@pytest.mark.parametrize("bs", [1, 2, 4])
+@pytest.mark.parametrize("dtype", [torch.float16, torch.float32])
+def test_rab_pos_eval(num_layers, train_len, candidate_len, bs, dtype):
+    rab_pos(num_layers, train_len, candidate_len, bs, dtype)
