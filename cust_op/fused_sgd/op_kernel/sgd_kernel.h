@@ -91,9 +91,6 @@ private:
 
         Base::outputQue.EnQue(Base::outputUb);
     }
-
-    // 负学习率 优化标量运算
-    T1 neLr{ 0.0f };
 };
 
 // 特化版本2 针对带weight decay场景的SGD
