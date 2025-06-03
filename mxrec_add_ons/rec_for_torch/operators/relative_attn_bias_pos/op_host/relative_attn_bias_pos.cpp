@@ -77,17 +77,17 @@ static ge::graphStatus PosTilingFunc(TilingData& tilingData, gert::TilingContext
     auto identityType = context->GetInputTensor(IDENTITY_INDEX)->GetDataType();
     auto biasType = context->GetInputTensor(REL_POS_BIAS_INDEX)->GetDataType();
 
-    int identitySize = ge::GetSizeByDataType(biasType);
+    int biasDataSize = ge::GetSizeByDataType(biasType);
     OPS_CHECK(identityType != biasType,
               OPS_LOG_E("Tiling Debug", "Mismatch data type of identity and rel_pos_bias."),
               return ge::GRAPH_FAILED);
-    OPS_CHECK(identitySize == 0,
+    OPS_CHECK(biasDataSize < 1,
               OPS_LOG_E("Tiling Debug", "Invalid data type."),
               return ge::GRAPH_FAILED);
-    tilingData.set_dataType(identityType);
+    tilingData.set_dataType(biasType);
 
     // 计算一次处理的窗口大小(stride)
-    int stride = ub / (NUM_BUFFER * 3 * identitySize);
+    int stride = ub / (NUM_BUFFER * 3 * biasDataSize);
     tilingData.set_stride(stride);
     return ge::GRAPH_SUCCESS;
 }
