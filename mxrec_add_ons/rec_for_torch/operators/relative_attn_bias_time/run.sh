@@ -43,9 +43,7 @@ sed -i 's:"/usr/local/Ascend/latest":"/usr/local/Ascend/ascend-toolkit/latest":g
 sed -i 's:"customize":"relative_attn_bias_time":g' CMakePresets.json
 
 if [ "$ai_core" = "ai_core-Ascend310P3" ]; then
-    sed -i "1i #define SUPPORT_V200" ./op_kernel/relative_attn_bias_time_kernel.h
-    sed -i "1i #define SUPPORT_V200" ./op_kernel/relative_attn_bias_time_time.h
-    sed -i "1i #define SUPPORT_V200" ./op_kernel/relative_attn_bias_time_pos.h
+    sed -i "1i #define SUPPORT_V200" ./op_kernel/relative_attn_bias_time.h
 fi
 
 line=`awk '/ENABLE_SOURCE_PACKAGE/{print NR}' CMakePresets.json`
