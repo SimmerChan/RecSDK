@@ -143,7 +143,7 @@ class TorchMmoeModel(nn.Module):
 
         self.tower_names = ['ctr', 'cvr']
         self.towers = nn.ModuleDict()
-        self.task_output_layers = nn.ModuleDict()
+        self.towers_output_layers = nn.ModuleDict()
         tower_units = list(map(int, self.params.tower_layers.strip().split(',')))
         input_dim = self.params.experts_num * list(map(int, self.params.expert_layers.strip().split(',')))[-1]
         for name in self.tower_names:
@@ -317,8 +317,8 @@ class TorchMmoeModel(nn.Module):
         tower_outputs = {}
         for i, name in enumerate(self.tower_names):
             y = self.towers[name](task_outputs[i])
-            y = self.task_output_layers[name](y)
-            y = torch.reshape(y, [-1,])
+            y = self.towers_output_layers[name](y)
+            y = torch.reshape(y, [-1, ])
             preds[name] = torch.sigmoid(y)
             tower_outputs[name] = y
 
