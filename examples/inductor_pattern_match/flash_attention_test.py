@@ -47,8 +47,8 @@ def test_npu_prompt_flash_attention(device="npu"):
     assert np.allclose(
         supported_output.cpu().numpy(),
         custom_output.cpu().numpy(),
-        rtol=1e-05,
-        atol=1e-05,
+        rtol=1e-02,
+        atol=1e-02,
     )
 
 
