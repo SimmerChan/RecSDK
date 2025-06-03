@@ -57,6 +57,8 @@ SECOND_BATCH = 1
 THIRD_BATCH = 2
 
 MAX_PIPE_N_BATCH = 12
+
+
 class TaskType(Enum):
     SPLIT = 0
     FIRST_ALL2ALL = 1
@@ -268,6 +270,8 @@ class HybridTrainPipelineSparseDist(TrainPipelineSparseDist[In, Out]):
                             but got {type(model)} instead.")
         if not isinstance(device, torch.device) and device.type not in ["cpu", "npu"]:
             raise ValueError(f"Unsupported device type: {device.type}.")
+        if model.device != device:
+            raise ValueError(f"model.device={model.device} should be equal to device={device}.")
     
     def enque_context(self, line_id, context: HybridTrainPipelineContext):
         self._contexts[line_id].append(context)
