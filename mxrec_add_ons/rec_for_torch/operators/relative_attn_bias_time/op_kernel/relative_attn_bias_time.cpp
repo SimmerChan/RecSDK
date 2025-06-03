@@ -19,10 +19,10 @@ extern "C" __global__ __aicore__ void relative_attn_bias_time(GM_ADDR timestamps
     Args args{
         timestamps, timestampsWeights, rabTimeOut, workspace, tiling
     };
-    if (tilingData.tswType == TYPE_FP32) {
+    if (tilingData.tswType == DataType::FP32) {
         RelativeAttnBiasTime<float> kernel;
         kernel.Compute(args);
-    } else if (tilingData.tswType == TYPE_FP16) {
+    } else if (tilingData.tswType == DataType::FP16) {
         RelativeAttnBiasTime<half> kernel;
         kernel.Compute(args);
     }

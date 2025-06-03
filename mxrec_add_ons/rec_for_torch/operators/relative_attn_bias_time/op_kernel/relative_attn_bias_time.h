@@ -70,6 +70,8 @@ public:
     {
         LocalTensor<int32_t> ts = queTimestamps.AllocTensor<int32_t>();
         DataCopy(ts, timestampsGT[offset], Ceil(cnt));
+        queTimestamps.EnQue(ts);
+        ts = queTimestamps.DeQue<int32_t>();
         for (int i = 0; i < cnt; ++i) {
             int seqSubValue = ts.GetValue(i);
             int seqId = (offset + i) / s;

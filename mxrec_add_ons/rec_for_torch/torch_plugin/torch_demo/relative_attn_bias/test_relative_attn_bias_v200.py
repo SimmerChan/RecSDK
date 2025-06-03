@@ -30,15 +30,15 @@ NUM_BUCKETS = 128
 BUCKET_DIVISOR = 0.301
 
 
-def create_pos_w(train_len: int, num_layers: int):
+def create_pos_w(train_len: int, num_layers: int) -> torch.Tensor:
     return torch.range(0, 2 * train_len).unsqueeze(1).repeat(1, num_layers)
 
 
-def create_past_valid_lens(bs: int, past_len: int):
+def create_past_valid_lens(bs: int, past_len: int) -> torch.Tensor:
     return torch.randint(0, past_len, (bs,))
 
 
-def create_timestamps(train_len: int, candidate_len: int, past_valid_lens: torch.Tensor):
+def create_timestamps(train_len: int, candidate_len: int, past_valid_lens: torch.Tensor) -> torch.Tensor:
     bs = past_valid_lens.size(0)
     timestamps = torch.zeros(bs, train_len + candidate_len // 2)
     for i, valid_len in enumerate(past_valid_lens):
@@ -51,7 +51,7 @@ def create_timestamps(train_len: int, candidate_len: int, past_valid_lens: torch
     return timestamps
 
 
-def create_timestamps_weights(num_layers: int):
+def create_timestamps_weights(num_layers: int) -> torch.Tensor:
     """
     :param num_layers:
     :return: timestamps_weights(num_layers, NUM_BUCKETS + 1)
@@ -59,7 +59,10 @@ def create_timestamps_weights(num_layers: int):
     return torch.range(0, NUM_BUCKETS).repeat(num_layers).reshape(num_layers, NUM_BUCKETS + 1)
 
 
-def init_rel_pos_bias(pos_w: torch.Tensor, train_len: int, candidate_len: int, num_layers: int):
+def init_rel_pos_bias(pos_w: torch.Tensor,
+                      train_len: int,
+                      candidate_len: int,
+                      num_layers: int) -> (torch.Tensor, torch.Tensor):
     rel_pos_bias_list, identity_list = [], []
 
     max_len = train_len + candidate_len // 2
@@ -86,32 +89,7 @@ def init_rel_pos_bias(pos_w: torch.Tensor, train_len: int, candidate_len: int, n
     return torch.stack(rel_pos_bias_list), torch.stack(identity_list)
 
 
-def rab_npu(rel_pos_bias: torch.Tensor,
-            identity: torch.Tensor,
-            timestamps: torch.Tensor,
-            timestamps_weights: torch.Tensor,
-            past_valid_lens: torch.Tensor):
-    """
-    past_len = 1 ~ 4000
-    candidate_len = 256 ~ 600
-    bs = 1 ~ 10
-
-    :param rel_pos_bias: [past_len * 2 + candidate_len][past_len * 2 + candidate_len]
-    :param identity: [past_len * 2 + candidate_len][past_len * 2 + candidate_len]
-    :param past_valid_lens: [bs]
-    :return: [bs][1][past_len * 2 + candidate_len + 2][past_len * 2 + candidate_len + 2]
-    """
-
-    rab_pos, rab_time = torch.ops.mxrec.relative_attn_bias(rel_pos_bias,
-                                                           identity,
-                                                           timestamps,
-                                                           timestamps_weights,
-                                                           past_valid_lens.tolist(),
-                                                           BUCKET_DIVISOR)
-    return rab_pos, rab_time
-
-
-def rab_time_golden(ts_w: torch.Tensor, timestamps: torch.Tensor):
+def rab_time_golden(ts_w: torch.Tensor, timestamps: torch.Tensor) -> torch.Tensor:
     """
     num_buckets = 128
     num_layers = 1 - 20
@@ -139,7 +117,7 @@ def rab_time_golden(ts_w: torch.Tensor, timestamps: torch.Tensor):
     return rab_time
 
 
-def rab_pos_golden(rel_pos_bias: torch.Tensor, identity: torch.Tensor, past_valid_lens: torch.Tensor):
+def rab_pos_golden(rel_pos_bias: torch.Tensor, identity: torch.Tensor, past_valid_lens: torch.Tensor) -> torch.Tensor:
     """
     past_len = 1 ~ 4000
     candidate_len = 256 ~ 600

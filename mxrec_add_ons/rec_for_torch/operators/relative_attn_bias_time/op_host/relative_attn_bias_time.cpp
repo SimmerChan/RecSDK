@@ -6,10 +6,12 @@
 */
 
 #include <cmath>
+
 #include "relative_attn_bias_time_tiling.h"
 #include "register/op_def_registry.h"
 #include "tiling/tiling_api.h"
 #include "tiling/platform/platform_ascendc.h"
+
 #include "../../../common/ops_log.h"
 
 constexpr int32_t RESERVER_UB_SIZE = (20 * 1024);
@@ -133,6 +135,8 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
 namespace ge {
 static ge::graphStatus InferShape(gert::InferShapeContext* context)
 {
+    OPS_LOG_E_IF_NULL("timestampShape", context->GetInputShape(TIMESTAMPS_INDEX), return ge::GRAPH_FAILED);
+    OPS_LOG_E_IF_NULL("tswShape", context->GetInputShape(TIMESTAMPS_WEIGHTS_INDEX), return ge::GRAPH_FAILED);
     const gert::Shape* tsShape = context->GetInputShape(TIMESTAMPS_INDEX);
     const gert::Shape* tswShape = context->GetInputShape(TIMESTAMPS_WEIGHTS_INDEX);
     gert::Shape* rabTimeOutShape = context->GetOutputShape(RAB_TIME_INDEX);
