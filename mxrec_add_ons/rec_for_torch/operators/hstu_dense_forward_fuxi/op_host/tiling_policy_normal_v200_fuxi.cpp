@@ -205,9 +205,7 @@ bool TilingPolicyNormalv200Fuxi::TilingKeySet(gert::TilingContext* context,
     optiling::HstuDenseForwardFuxiTilingData &tiling)
 {
     ge::DataType qTypeGe = context->GetInputTensor(0)->GetDataType();
-    if (qTypeGe == ge::DataType::DT_FLOAT16) {
-        context->SetTilingKey(FLOAT16_TILING_KEY);
-    } else {
+    if (qTypeGe != ge::DataType::DT_FLOAT16) {
         OPS_LOG_E(context, "invalid datatype, only support fp16.\n");
         return false;
     }
