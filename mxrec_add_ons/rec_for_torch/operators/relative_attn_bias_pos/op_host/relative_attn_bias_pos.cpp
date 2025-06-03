@@ -1,12 +1,12 @@
 /**
-* @file relative_attn_bias.cpp
+* @file relative_attn_bias_pos.cpp
 *
 * Copyright (C) 2025. Huawei Technologies Co., Ltd. All rights reserved.
 *
 */
 
 #include <cmath>
-#include "relative_attn_bias_tiling.h"
+#include "relative_attn_bias_pos_tiling.h"
 #include "register/op_def_registry.h"
 #include "tiling/tiling_api.h"
 #include "tiling/platform/platform_ascendc.h"
@@ -144,9 +144,9 @@ static ge::graphStatus InferShape(gert::InferShapeContext* context)
 }  // namespace ge
 
 namespace ops {
-class RelativeAttnBias : public OpDef {
+class RelativeAttnBiasPos : public OpDef {
 public:
-    explicit RelativeAttnBias(const char* name) : OpDef(name)
+    explicit RelativeAttnBiasPos(const char* name) : OpDef(name)
     {
         this->Input("rel_pos_bias")
             .ParamType(REQUIRED)
@@ -181,6 +181,6 @@ public:
     }
 };
 
-OP_ADD(RelativeAttnBias);
+OP_ADD(RelativeAttnBiasPos);
 
 }  // namespace ops

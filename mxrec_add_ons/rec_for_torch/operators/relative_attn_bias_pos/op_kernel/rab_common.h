@@ -12,8 +12,6 @@
 constexpr int DATA_ALIGN_BYTES = 32;
 constexpr int MAX_BATCH_SIZE = 512;
 constexpr int NUM_BUFFER = 2;
-constexpr int MAX_SEQ_CNT = 128;
-constexpr int GATHER_PROCESS_WINDOW = 4096;
 
 constexpr int8_t TYPE_FP32 = 0;
 constexpr int8_t TYPE_FP16 = 1;

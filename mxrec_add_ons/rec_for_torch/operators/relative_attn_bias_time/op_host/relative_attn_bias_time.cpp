@@ -1,12 +1,12 @@
 /**
-* @file relative_attn_bias.cpp
+* @file relative_attn_bias_time.cpp
 *
 * Copyright (C) 2025. Huawei Technologies Co., Ltd. All rights reserved.
 *
 */
 
 #include <cmath>
-#include "relative_attn_bias_tiling.h"
+#include "relative_attn_bias_time_tiling.h"
 #include "register/op_def_registry.h"
 #include "tiling/tiling_api.h"
 #include "tiling/platform/platform_ascendc.h"
@@ -37,14 +37,14 @@ constexpr int DIM5 = 5;
 constexpr int MAX_S = 4300;
 
 namespace optiling {
-static ge::graphStatus TimeTilingFunc(TilingData& tilingData, gert::TilingContext* context)
+static ge::graphStatus TimeTilingFunc(RelativeAttnBiasTimeTilingData& tilingData, gert::TilingContext* context)
 {
     auto tsShape = context->GetInputShape(TIMESTAMPS_INDEX)->GetStorageShape();  // (b, s)
     auto tswShape = context->GetInputShape(TIMESTAMPS_WEIGHTS_INDEX)->GetStorageShape();  // (num_layer, num_buckets)
 
     int batchsize = tsShape.GetDim(DIM0);  // (b, s)
     int s = tsShape.GetDim(DIM1);  // (b, s)
-    int numLayers = tswShape.GetDim(DIM0);  // (num_layer, num_buckets)
+    int numLayer = tswShape.GetDim(DIM0);  // (num_layer, num_buckets)
     int numBuckets = tswShape.GetDim(DIM1);  // (num_layer, num_buckets)
     float divs = *context->GetAttrs()->GetFloat(BUCKET_DIV_INDEX);
     float clampMax = exp((numBuckets - 1) * divs);
@@ -58,11 +58,11 @@ static ge::graphStatus TimeTilingFunc(TilingData& tilingData, gert::TilingContex
     OPS_CHECK(s > MAX_S,
               OPS_LOG_E("Tiling Debug", "Len of timestamps sequence larger than limit."),
               return ge::GRAPH_FAILED);
-    OPS_CHECK(bs <= 0,
+    OPS_CHECK(batchsize <= 0,
               OPS_LOG_E("Tiling Debug", "Invalid batchsize of timestamps."),
               return ge::GRAPH_FAILED);
 
-    tilingData.set_bs(bs);
+    tilingData.set_bs(batchsize);
     tilingData.set_s(s);
     tilingData.set_numLayer(numLayer);
     tilingData.set_numBuckets(numBuckets);
@@ -72,6 +72,7 @@ static ge::graphStatus TimeTilingFunc(TilingData& tilingData, gert::TilingContex
     // 计算stride、buff
     // 获取ub
     uint64_t ub;
+    auto ascendPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
     ascendPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ub);
     ub = ub - RESERVER_UB_SIZE;
     // 获取数据类型
@@ -84,7 +85,7 @@ static ge::graphStatus TimeTilingFunc(TilingData& tilingData, gert::TilingContex
     // 计算不含buff的stride长度
     ub -= numBuckets * numLayer * tswSize + numLayer * DATA_ALIGN_BYTES;  // 减去tsw预留ub
     uint32_t alignSeqLen = (s * tswSize + DATA_ALIGN_BYTES - 1) / DATA_ALIGN_BYTES * DATA_ALIGN_BYTES / tswSize;
-    stride = ub / (sizeof(float) + tsSize) / alignSeqLen;
+    uint32_t stride = ub / (sizeof(float) + tsSize) / alignSeqLen;
 
     // 计算clamp buff所需空间
     std::vector<int64_t> shape_vec = {stride * alignSeqLen};
@@ -113,7 +114,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
               OPS_LOG_E("Tiling Debug", "Core num is 0."),
               return ge::GRAPH_FAILED);
 
-    RelativeAttnBiasTilingData tilingData;
+    RelativeAttnBiasTimeTilingData tilingData;
     auto ret = TimeTilingFunc(tilingData, context);
     if (ret != ge::GRAPH_SUCCESS) {
         return ret;
@@ -151,9 +152,9 @@ static ge::graphStatus InferShape(gert::InferShapeContext* context)
 }  // namespace ge
 
 namespace ops {
-class RelativeAttnBias : public OpDef {
+class RelativeAttnBiasTime : public OpDef {
 public:
-    explicit RelativeAttnBias(const char* name) : OpDef(name)
+    explicit RelativeAttnBiasTime(const char* name) : OpDef(name)
     {
         this->Input("timestamps")
             .ParamType(REQUIRED)
@@ -188,6 +189,6 @@ public:
     }
 };
 
-OP_ADD(RelativeAttnBias);
+OP_ADD(RelativeAttnBiasTime);
 
 }  // namespace ops

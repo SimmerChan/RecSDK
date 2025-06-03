@@ -1,6 +1,6 @@
 [
   {
-    "op": "RelativeAttnBias",
+    "op": "RelativeAttnBiasPos",
     "language": "cpp",
     "input_desc": [
       {

@@ -28,7 +28,7 @@ public:
         GET_TILING_DATA(tilingData, args.tiling);
         s = tilingData.s;
         bs = tilingData.bs;
-        stride = tilingData.timeStride;
+        stride = tilingData.stride;
         alignSeqLen = Ceil(s * sizeof(FloatType)) / sizeof(FloatType);
 
         int totalLen = bs * s;

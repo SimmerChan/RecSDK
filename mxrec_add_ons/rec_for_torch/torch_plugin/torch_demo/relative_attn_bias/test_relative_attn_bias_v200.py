@@ -199,7 +199,8 @@ def rab_time(num_layers, train_len, candidate_len, bs, dtype):
     torch_npu.npu.synchronize()
 
     rab_time_out = torch.ops.mxrec.relative_attn_bias_time(timestamps_weights=timestamps_weights,
-                                                           timestamps=timestamps).to("cpu")
+                                                           timestamps=timestamps,
+                                                           bucket_divisor=BUCKET_DIVISOR).to("cpu")
     rab_time_out_golden = rab_time_golden(ts_w=timestamps_weights.transpose(0, 1).to("cpu"),
                                           timestamps=timestamps.to("cpu"))
     torch_npu.npu.synchronize()

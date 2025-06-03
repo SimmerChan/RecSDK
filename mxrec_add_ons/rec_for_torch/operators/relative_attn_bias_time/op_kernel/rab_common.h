@@ -10,8 +10,6 @@
 
 #include "kernel_operator.h"
 constexpr int DATA_ALIGN_BYTES = 32;
-constexpr int MAX_BATCH_SIZE = 512;
-constexpr int NUM_BUFFER = 2;
 constexpr int MAX_SEQ_CNT = 128;
 constexpr int GATHER_PROCESS_WINDOW = 4096;
 
@@ -23,14 +21,10 @@ constexpr int8_t TYPE_INT64 = 9;
 using namespace AscendC;
 
 struct Args {
-    // pos_bias
-    GM_ADDR positionBias;
-    GM_ADDR identity;
     // ts_bias
     GM_ADDR timestamps;
     GM_ADDR timestampsWeights;
     // out
-    GM_ADDR rabPosOut;
     GM_ADDR rabTimeOut;
 
     GM_ADDR workspace;

@@ -111,7 +111,7 @@ def rab_npu(rel_pos_bias: torch.Tensor,
     return rab_pos, rab_time
 
 
-def rab_time_golden(ts_w: torch.Tensor, timestamps: torch.Tensor):
+def rab_time_golden(ts_w: torch.Tensor, timestamps: torch.Tensor, bucketization_divisor: float):
     """
     num_buckets = 128
     num_layers = 1 - 20
@@ -131,7 +131,7 @@ def rab_time_golden(ts_w: torch.Tensor, timestamps: torch.Tensor):
     diff_timestamps = timestamps.reshape(bs, infer_len, 1) - timestamps.reshape(bs, 1, infer_len)
 
     clamp_max = torch.exp(torch.tensor(NUM_BUCKETS * BUCKET_DIVISOR))
-    diff_timestamps = torch.log(torch.abs(diff_timestamps).clamp(1, clamp_max)) / BUCKET_DIVISOR
+    diff_timestamps = torch.log(torch.abs(diff_timestamps).clamp(1, clamp_max)) / bucketization_divisor
 
     bucket_timestamps = diff_timestamps.long().view(-1)
     rab_time = torch.index_select(ts_w, dim=0, index=bucket_timestamps)
@@ -173,9 +173,11 @@ def rab_time(num_layers, train_len, candidate_len, bs, dtype):
     torch_npu.npu.synchronize()
 
     rab_time_out = torch.ops.mxrec.relative_attn_bias_time(timestamps_weights=timestamps_weights,
-                                                           timestamps=timestamps)
+                                                           timestamps=timestamps,
+                                                           bucket_divisor=BUCKET_DIVISOR)
     rab_time_out_golden = rab_time_golden(ts_w=timestamps_weights.transpose(0, 1),
-                                          timestamps=timestamps)
+                                          timestamps=timestamps,
+                                          bucketization_divisor=BUCKET_DIVISOR)
     torch_npu.npu.synchronize()
 
     assert torch.allclose(rab_time_out_golden, rab_time_out)
