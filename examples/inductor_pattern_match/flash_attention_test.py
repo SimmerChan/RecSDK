@@ -54,11 +54,17 @@ def test_npu_prompt_flash_attention(device="npu"):
         batch_size, seq_len_kv, num_heads, head_dim, dtype=torch.float16, device=device
     )
 
-    supported_output = supported_op_exec(query, key, value, head_dim, num_heads)
-    custom_output = custom_op_exec(query, key, value, head_dim, num_heads)
+    supported_output = (
+        supported_op_exec(query, key, value, head_dim, num_heads).cpu().numpy()
+    )
+    custom_output = custom_op_exec(query, key, value, head_dim, num_heads).cpu().numpy()
+    print("supported_output shape: \n", supported_output.shape)
+    print("supported_output: \n", supported_output)
+    print("custom_output shape: \n", custom_output.shape)
+    print("custom_output: \n", custom_output)
     assert np.allclose(
-        supported_output.cpu().numpy(),
-        custom_output.cpu().numpy(),
+        supported_output,
+        custom_output,
         rtol=1e-02,
         atol=1e-02,
     )
