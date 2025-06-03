@@ -41,7 +41,7 @@ template <typename T>
 __aicore__ inline void run_op(HstuDenseForwardFuxi::Args& args)
 {
     TPipe tPipe;
-    HstuDenseForward::HstuDenseForwardJaggedKernelFuxi<T> op;
+    HstuDenseForwardFuxi::HstuDenseForwardJaggedKernelFuxi<T> op;
     GET_TILING_DATA(tilingData, args.tiling);
     const HstuDenseForwardFuxiTilingData *__restrict tilingDataPtr = &tilingData;
     REGIST_MATMUL_OBJ(&tPipe, GetSysWorkSpacePtr(),

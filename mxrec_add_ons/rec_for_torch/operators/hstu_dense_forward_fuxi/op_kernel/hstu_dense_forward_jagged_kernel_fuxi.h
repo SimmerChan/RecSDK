@@ -109,7 +109,7 @@ __aicore__ inline void HstuDenseForwardJaggedKernelFuxi<qType>::ComputeTvMatmul(
 {
     uint8_t isAtomic = (computeTaskInfo[taskId].kSeqId == 0) ? 0 : 1;
 
-    this->DoSvMatmulImpl(computeTaskInfo[taskId].kvOffset, taskId, computeTaskInfo[taskId].transTaskId, isAtomic,
+    this->DoTvMatmulImpl(computeTaskInfo[taskId].kvOffset, taskId, computeTaskInfo[taskId].transTaskId, isAtomic,
                          computeTaskInfo[taskId].computeASeqLen, this->headDim, computeTaskInfo[taskId].computeBSeqLen);
 }
 
@@ -118,7 +118,7 @@ __aicore__ inline void HstuDenseForwardJaggedKernelFuxi<qType>::ComputePvMatmul(
 {
     uint8_t isAtomic = (computeTaskInfo[taskId].kSeqId == 0) ? 0 : 1;
 
-    this->DoSvMatmulImpl(computeTaskInfo[taskId].kvOffset, taskId, computeTaskInfo[taskId].transTaskId, isAtomic,
+    this->DoPvMatmulImpl(computeTaskInfo[taskId].kvOffset, taskId, computeTaskInfo[taskId].transTaskId, isAtomic,
                          computeTaskInfo[taskId].computeASeqLen, this->headDim, computeTaskInfo[taskId].computeBSeqLen);
 }
 
@@ -153,7 +153,7 @@ __aicore__ inline void HstuDenseForwardJaggedKernelFuxi<qType>::ComputeBiasMask(
         computeTaskInfo[taskId].qSeqId * this->maxSeqLen * this->blockHeight + \
         computeTaskInfo[taskId].kSeqId * this->blockHeight;
 
-    int64_t timestampOffset = computeTaskInfo[taskId].batchId * this->headNum * this->maxSeqLen * this->maxSeqLen + \
+    int64_t timestampOffset = computeTaskInfo[taskId].batchId * this->maxSeqLen * this->maxSeqLen + \
         computeTaskInfo[taskId].qSeqId * this->maxSeqLen * this->blockHeight + \
         computeTaskInfo[taskId].kSeqId * this->blockHeight;
 
@@ -250,8 +250,8 @@ __aicore__ inline void HstuDenseForwardJaggedKernelFuxi<qType>::ComputeAllBlock(
             if (taskId > 1) {
                 this->ComputeSvMatmul(prePreTaskId);
                 if (this->enableBias) {
-                    this->ComputeTvMatmul(currentTaskId);
-                    this->ComputePvMatmul(currentTaskId);
+                    this->ComputeTvMatmul(prePreTaskId);
+                    this->ComputePvMatmul(prePreTaskId);
                 }
             }
 
@@ -259,7 +259,7 @@ __aicore__ inline void HstuDenseForwardJaggedKernelFuxi<qType>::ComputeAllBlock(
             if (taskId > 0) {
                 this->ComputeVecScore(preTaskId);
                 if (this->enableBias) {
-                    this->ComputeBiasMask(currentTaskId);
+                    this->ComputeBiasMask(preTaskId);
                 }
             }
 

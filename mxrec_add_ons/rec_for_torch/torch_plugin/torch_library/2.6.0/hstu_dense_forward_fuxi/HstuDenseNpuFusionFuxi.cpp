@@ -128,11 +128,11 @@ at::Tensor hstu_dense_jagged_forward_impl_npu(
     TORCH_CHECK(MaskCheck(maskType, maskNpu.defined()), "maskType check failed");
 
     bool useRab = (timestampBias.has_value() && positionBias.has_value());
-    uint32_t outDim1 = useRab ? (CONST_3 * denseQ.size(1) * denseQ.size(2)) : (denseQ.size(1) * denseQ.size(2))
+    uint32_t outDim1 = useRab ? (CONST_3 * denseQ.size(1) * denseQ.size(2)) : (denseQ.size(1) * denseQ.size(2));
     auto attnOutput = at::empty({denseQ.size(0), outDim1}, q.options());
 
     const char *layout = "jagged";
-    EXEC_NPU_CMD(aclnnHstuDenseForward,
+    EXEC_NPU_CMD(aclnnHstuDenseForwardFuxi,
         denseQ,
         denseK,
         denseV,

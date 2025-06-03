@@ -104,7 +104,7 @@ class TestHstuJaggedFuxi:
             v, seq_lens, max_seq_len, head_nums, head_dim).to(data_type).to(f"npu:{device_id}")
         mask = mask.reshape(batch_size, head_nums, max_seq_len, max_seq_len).to(data_type).to(f"npu:{device_id}")
         ts_bias = ts_bias.reshape(batch_size, max_seq_len, max_seq_len).to(data_type).to(f"npu:{device_id}")
-        pos_bias = pos_bias.reshape(batch_size, max_seq_len, max_seq_len).to(data_type).to(f"npu:{device_id}")
+        pos_bias = pos_bias.reshape(1, max_seq_len, max_seq_len).to(data_type).to(f"npu:{device_id}")
 
         q_dens = q_dens.permute(0, 2, 1, 3)
         k_dens = k_dens.permute(0, 2, 3, 1)
@@ -166,12 +166,12 @@ class TestHstuJaggedFuxi:
         mask_npu = mask.to(f"npu:{device_id}").to(data_type)
 
         if enable_bias == True:
-            output = torch.ops.mxrec.hstu_dense(
+            output = torch.ops.mxrec.hstu_fuxi(
                 q_npu, k_npu, v_npu, ts_bias_npu, pos_bias_npu, mask_npu, mask_type, max_seq_len, silu_scale, \
                     "jagged", seq_offset
             )
         else:
-            output = torch.ops.mxrec.hstu_dense(
+            output = torch.ops.mxrec.hstu_fuxi(
                 q_npu, k_npu, v_npu, None, None, mask_npu, mask_type, max_seq_len, silu_scale, "jagged", seq_offset
             )
         torch.npu.synchronize()

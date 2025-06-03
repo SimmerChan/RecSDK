@@ -21,11 +21,8 @@ See the License for the specific language governing permissions and
 #include <cstdint>
 #include <type_traits>
 
-#include "hstu_dense_kernel_patten_bsnd_v200_fuxi.h"
 #include "kernel_operator.h"
 #include "lib/matmul_intf.h"
-
-#include "hstu_dense_causal_mask.h"
 
 using namespace AscendC;
 
@@ -580,7 +577,7 @@ public:
         svMatmul.template IterateAll<false>(svResultGt[outOffset], isAtomicAdd, false, true);
     }
 
-    __aicore__ inline void DoSvMatmulImpl(int64_t vOffset, uint32_t taskId, uint32_t transTaskId, uint8_t isAtomicAdd,
+    __aicore__ inline void DoTvMatmulImpl(int64_t vOffset, uint32_t taskId, uint32_t transTaskId, uint8_t isAtomicAdd,
         uint32_t m, uint32_t n, uint32_t k)
     {
         int64_t midResultIdx = taskId % COMPUTE_PIPE_NUM;
@@ -595,7 +592,7 @@ public:
         tvMatmul.template IterateAll<false>(tvResultGt[outOffset], isAtomicAdd, false, true);
     }
 
-    __aicore__ inline void DoSvMatmulImpl(int64_t vOffset, uint32_t taskId, uint32_t transTaskId, uint8_t isAtomicAdd,
+    __aicore__ inline void DoPvMatmulImpl(int64_t vOffset, uint32_t taskId, uint32_t transTaskId, uint8_t isAtomicAdd,
         uint32_t m, uint32_t n, uint32_t k)
     {
         int64_t midResultIdx = taskId % COMPUTE_PIPE_NUM;

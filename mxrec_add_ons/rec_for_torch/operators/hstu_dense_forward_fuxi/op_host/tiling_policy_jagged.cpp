@@ -279,10 +279,10 @@ static void CallBlockAssign(
 bool TilingPolicyJagged::TilingCore(gert::TilingContext* context, optiling::HstuDenseForwardFuxiTilingData &tiling)
 {
     const gert::RuntimeAttrs* attrs = context->GetAttrs();
-    OPS_LOG_E_IF_NULL(attrs, return false);
+    OPS_LOG_E_IF_NULL("attrs", attrs, return false);
 
     const auto seqOffset = attrs->GetAttrPointer<gert::ContinuousVector>(INDEX_T::INDEX_4);
-    OPS_LOG_E_IF_NULL(seqOffset, return false);
+    OPS_LOG_E_IF_NULL("seqOffset", seqOffset, return false);
 
     auto *seqOffsetData = const_cast<int64_t *>(reinterpret_cast<const int64_t *>(seqOffset->GetData()));
     int seq_offset_lens = seqOffset->GetSize();
@@ -332,10 +332,9 @@ bool TilingPolicyJagged::TilingMatmul(gert::TilingContext* context,
 
     // apply qk
     matmul_tiling::MatmulApiTiling qkMatmul(ascendPlatform);
-    qkMatmul.SetAType(matmul_tiling::TPosition::VECOUT, matmul_tiling::CubeFormat::ND, dataType);
-    qkMatmul.SetBType(matmul_tiling::TPosition::VECOUT, matmul_tiling::CubeFormat::ND, dataType);
-    qkMatmul.SetCType(matmul_tiling::TPosition::VECCALC, matmul_tiling::CubeFormat::ND,
-                      matmul_tiling::DataType::DT_FLOAT);
+    qkMatmul.SetAType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, dataType);
+    qkMatmul.SetBType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, dataType);
+    qkMatmul.SetCType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, dataType);
     qkMatmul.SetBiasType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, dataType);
 
     qkMatmul.SetOrgShape(BLOCK_HEIGHT, BLOCK_HEIGHT, dim);
@@ -345,8 +344,8 @@ bool TilingPolicyJagged::TilingMatmul(gert::TilingContext* context,
 
     // sv
     matmul_tiling::MatmulApiTiling svMatmul(ascendPlatform);
-    svMatmul.SetAType(matmul_tiling::TPosition::VECOUT, matmul_tiling::CubeFormat::ND, dataType);
-    svMatmul.SetBType(matmul_tiling::TPosition::VECOUT, matmul_tiling::CubeFormat::ND, dataType);
+    svMatmul.SetAType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, dataType);
+    svMatmul.SetBType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, dataType);
     svMatmul.SetCType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, matmul_tiling::DataType::DT_FLOAT);
     svMatmul.SetBiasType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, dataType);
 
@@ -357,8 +356,8 @@ bool TilingPolicyJagged::TilingMatmul(gert::TilingContext* context,
 
     // tv
     matmul_tiling::MatmulApiTiling tvMatmul(ascendPlatform);
-    tvMatmul.SetAType(matmul_tiling::TPosition::VECOUT, matmul_tiling::CubeFormat::ND, dataType);
-    tvMatmul.SetBType(matmul_tiling::TPosition::VECOUT, matmul_tiling::CubeFormat::ND, dataType);
+    tvMatmul.SetAType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, dataType);
+    tvMatmul.SetBType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, dataType);
     tvMatmul.SetCType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, matmul_tiling::DataType::DT_FLOAT);
     tvMatmul.SetBiasType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, dataType);
 
@@ -368,8 +367,8 @@ bool TilingPolicyJagged::TilingMatmul(gert::TilingContext* context,
     tvMatmul.SetBufferSpace(-1, -1, -1);
 
     matmul_tiling::MatmulApiTiling pvMatmul(ascendPlatform);
-    pvMatmul.SetAType(matmul_tiling::TPosition::VECOUT, matmul_tiling::CubeFormat::ND, dataType);
-    pvMatmul.SetBType(matmul_tiling::TPosition::VECOUT, matmul_tiling::CubeFormat::ND, dataType);
+    pvMatmul.SetAType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, dataType);
+    pvMatmul.SetBType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, dataType);
     pvMatmul.SetCType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, matmul_tiling::DataType::DT_FLOAT);
     pvMatmul.SetBiasType(matmul_tiling::TPosition::GM, matmul_tiling::CubeFormat::ND, dataType);
 
@@ -387,7 +386,8 @@ bool TilingPolicyJagged::TilingMatmul(gert::TilingContext* context,
     return true;
 }
 
-bool TilingPolicyJagged::TilingHeighLevelApi(gert::TilingContext* context, optiling::HstuDenseForwardFuxiTilingData &tiling)
+bool TilingPolicyJagged::TilingHeighLevelApi(gert::TilingContext* context,
+    optiling::HstuDenseForwardFuxiTilingData &tiling)
 {
     int64_t dim = tiling.get_dim();
 
