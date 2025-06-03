@@ -112,9 +112,9 @@ def rab_time_golden(ts_w: torch.Tensor, timestamps: torch.Tensor) -> torch.Tenso
     diff_timestamps = torch.log(torch.abs(diff_timestamps).clamp(1, clamp_max)) / BUCKET_DIVISOR
 
     bucket_timestamps = diff_timestamps.long().view(-1)
-    rab_time = torch.index_select(ts_w, dim=0, index=bucket_timestamps)
-    rab_time = rab_time.t().view(num_layers, bs, infer_len, infer_len)
-    return rab_time
+    result = torch.index_select(ts_w, dim=0, index=bucket_timestamps)
+    result = result.t().view(num_layers, bs, infer_len, infer_len)
+    return result
 
 
 def rab_pos_golden(rel_pos_bias: torch.Tensor, identity: torch.Tensor, past_valid_lens: torch.Tensor) -> torch.Tensor:

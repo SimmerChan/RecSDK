@@ -13,7 +13,7 @@ constexpr int DATA_ALIGN_BYTES = 32;
 constexpr int MAX_SEQ_CNT = 128;
 constexpr int GATHER_PROCESS_WINDOW = 4096;
 
-enum class DataType : int8_t {
+enum class DataType {
     FP32 = 0,
     FP16 = 1,
     INT32 = 3,

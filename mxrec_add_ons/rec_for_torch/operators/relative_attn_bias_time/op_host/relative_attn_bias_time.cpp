@@ -82,6 +82,12 @@ static ge::graphStatus TimeTilingFunc(RelativeAttnBiasTimeTilingData& tilingData
     auto tsType = context->GetInputTensor(TIMESTAMPS_INDEX)->GetDataType();
     int tswSize = ge::GetSizeByDataType(tswType);
     int tsSize = ge::GetSizeByDataType(tsType);
+    OPS_CHECK(tswSize == 0,
+              OPS_LOG_E("Tiling Debug", "Invalid data type of timestamps_weights."),
+              return ge::GRAPH_FAILED);
+    OPS_CHECK(tsSize == 0,
+              OPS_LOG_E("Tiling Debug", "Invalid data type of timestamps."),
+              return ge::GRAPH_FAILED);
     tilingData.set_tswType(tswType);
     tilingData.set_tsType(tsType);
     // 计算不含buff的stride长度
