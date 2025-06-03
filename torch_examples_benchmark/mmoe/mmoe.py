@@ -47,6 +47,9 @@ else:
 random.seed(2024)
 
 MODEL_NAME = "MMOE"
+PATIENCE = 5 # 早停参数，连续5轮训练loss都不减小，即停止训练。
+EMBEDDING_FEATURE_NUM = 23 # sparse feature class num
+STD_DEV = (2 / 512) ** 0.5 # 初始化权重标准差
 
 
 class HDF5Dataset(Dataset):
@@ -138,6 +141,21 @@ class TorchMmoeModel(nn.Module):
         self.gates = self.build_gate_networks()
         self.task_output_layers = self.build_task_output_layers()
 
+        self.tower_names = ['ctr', 'cvr']
+        self.towers = nn.ModuleDict()
+        self.task_output_layers = nn.ModuleDict()
+        tower_units = list(map(int, self.params.tower_layers.strip().split(',')))
+        input_dim = self.params.experts_num * list(map(int, self.params.expert_layers.strip().split(',')))[-1]
+        for name in self.tower_names:
+            tower_layers = []
+            in_dim = input_dim
+            for out_dim in tower_units:
+                tower_layers.append(nn.Linear(in_dim, out_dim))
+                tower_layers.append(nn.ReLU())
+                in_dim = out_dim
+            self.towers[name] = nn.Sequential(*tower_layers)
+            self.towers_output_layers[name] = nn.Linear(in_dim, 1)
+
     def forward(self, features: dict):
         # Build the embedding layer
         x_deep = self.get_embedding(features, spec)
@@ -154,23 +172,20 @@ class TorchMmoeModel(nn.Module):
             task_outputs.append(torch.reshape(task_out, shape=[-1, task_out_shape[1] * task_out_shape[2]]))
         return task_outputs
 
-
     def build_embedding_layers(self):
         embeddings = nn.ModuleDict()
         for key, vocab_len in spec["vocab_length"].items():
             weight_matrix = torch.empty((vocab_len + 1, self.params.embedding_size), dtype=torch.float32)
-            std_dev = (2 / 512) ** 0.5
-            nn.init.normal_(weight_matrix, mean=0.0, std=std_dev)
+            nn.init.normal_(weight_matrix, mean=0.0, std=STD_DEV)
             emb_weights = nn.Parameter(weight_matrix, requires_grad=True)
             embeddings[key] = nn.Embedding.from_pretrained(emb_weights)
         return embeddings
-
 
     def build_experts(self):
 
         experts = nn.ModuleList()
         expert_units = list(map(int, self.params.expert_layers.strip().split(',')))
-        input_dim = self.params.embedding_size * 23
+        input_dim = self.params.embedding_size * EMBEDDING_FEATURE_NUM
 
         for _ in range(self.params.experts_num):
             expert_layers = []
@@ -183,10 +198,9 @@ class TorchMmoeModel(nn.Module):
             experts.append(nn.Sequential(*expert_layers))
         return experts
 
-
     def build_gate_networks(self):
         gates = nn.ModuleList()
-        input_dim = self.params.embedding_size * 23
+        input_dim = self.params.embedding_size * EMBEDDING_FEATURE_NUM
 
         for _ in range(self.params.task_num):
             gate = nn.Sequential(
@@ -210,7 +224,6 @@ class TorchMmoeModel(nn.Module):
                 in_features = out_features
             task_output_layers.append(nn.Sequential(*tower))
         return task_output_layers
-
 
     def embedding_lookup_sparse_fake(self, key,
                                      ids: torch.Tensor,
@@ -265,9 +278,7 @@ class TorchMmoeModel(nn.Module):
             dim=2,
         )
 
-        # sparse feature class num
-        embedding_feature_num = 23
-        return torch.reshape(embedding, [-1, embedding_feature_num * self.params.embedding_size])
+        return torch.reshape(embedding, [-1, EMBEDDING_FEATURE_NUM * self.params.embedding_size])
 
 
 
@@ -302,30 +313,20 @@ class TorchMmoeModel(nn.Module):
         Returns:
             dict: A dictionary containing the predictions for ctr, cvr, and ctcvr.
         """
-        y_ctr = self.build_tower(task_outputs[0], name='ctr')
-        y_ctr_linear = nn.Linear(in_features=y_ctr.shape[-1], out_features=1)
-        y_ctr = y_ctr_linear(y_ctr)
+        preds = {}
+        tower_outputs = {}
+        for i, name in enumerate(self.tower_names):
+            y = self.towers[name](task_outputs[i])
+            y = self.task_output_layers[name](y)
+            y = torch.reshape(y, [-1,])
+            preds[name] = torch.sigmoid(y)
+            tower_outputs[name] = y
 
-        y_ctr = torch.reshape(y_ctr, [-1, ])
-        y_ctr_prediction = torch.sigmoid(y_ctr)
-
-
-        y_cvr = self.build_tower(task_outputs[1], name='cvr')
-        y_ctr_linear = nn.Linear(in_features=y_ctr.shape[-1], out_features=1)
-        y_cvr = y_ctr_linear(y_ctr)
-
-        y_cvr = torch.reshape(y_cvr, [-1, ])
-        y_cvr_prediction = torch.sigmoid(y_cvr)
-
-        y_ctcvr_prediction = y_ctr_prediction * y_cvr_prediction
-
-        predictions = {
-            "ctr": y_ctr_prediction,
-            "cvr": y_cvr_prediction,
-            "ctcvr": y_ctcvr_prediction
-        }
-        return predictions
-
+        ctr_pred = preds.get('ctr')
+        cvr_pred = preds.get('cvr')
+        if ctr_pred is not None and cvr_pred is not None:
+            preds['ctcvr'] = ctr_pred * cvr_pred
+        return preds
 
     def build_loss(self,
                    labels: dict,
@@ -410,7 +411,7 @@ def clip_grad(grad):
     return torch.clamp(grad, -1, 1)
 
 
-def train(model: TorchMmoeModel, dataloader, val_dataloader, args, device, patience=5):
+def train(model: TorchMmoeModel, dataloader, val_dataloader, args, device):
     model.train()
     optimizer = model.build_optimizer()
     epochs = args.epoch_num
@@ -443,7 +444,7 @@ def train(model: TorchMmoeModel, dataloader, val_dataloader, args, device, patie
         with torch.no_grad():
             for eval_input_sample, eval_target_sample in val_dataloader:
                 eval_input_sample = {k: v.to(device) for k, v in eval_input_sample.items()}
-                eval_target_sample =  {k: v.to(device) for k, v in eval_target_sample.items()}
+                eval_target_sample = {k: v.to(device) for k, v in eval_target_sample.items()}
 
                 task_outputs = model.forward(eval_input_sample)
                 predictions = model.build_predictions(task_outputs)
@@ -458,7 +459,7 @@ def train(model: TorchMmoeModel, dataloader, val_dataloader, args, device, patie
             counter = 0
         else:
             counter += 1
-            if counter > patience:
+            if counter > PATIENCE:
                 logging.info("Early stop at epoch %s", epoch)
                 break
 

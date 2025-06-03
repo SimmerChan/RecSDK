@@ -37,6 +37,7 @@ fields = [
 
 READ_LINE_SIZE = 10000000000  # readlines
 
+
 def merge_data(common_file_name: str, skeleton_file_name: str, out_file_name: str):
     fields_ = [
         "101", "109_14", "110_14", "127_14", "150_14", "121", "122", "124", "125", "126", "127", "128", "129",

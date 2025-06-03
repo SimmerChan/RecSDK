@@ -55,14 +55,10 @@ def parse_data(file_name, index_dict_in=None):
                 for fstr in feat_strs.split("\x01"):
                     field, feat_val = fstr.split("\x02")
                     feat, val = feat_val.split("\x03")
-                    if field_dict[field] >= args.length:
+                    if field_dict.get(field, 0) >= args.length:
                         continue
-                    else:
-                        field_dict[field] += 1
-                    if field not in index_dict_in:
-                        index_dict_in[field] = dict()
-                    if feat not in index_dict_in[field]:
-                        index_dict_in[field][feat] = 0
+                    field_dict[field] = field_dict.get(field, 0) + 1
+                    index_dict_in.setdefault(field, {}).setdefault(feat, 0)
                     index_dict_in[field][feat] += shown_nums
 
             # sample_id|y|z|common_feature_index|feat_num|feat_list
@@ -81,15 +77,11 @@ def parse_data(file_name, index_dict_in=None):
                 for fstr in feat_strs.split("\x01"):
                     field, feat_val = fstr.split("\x02")
                     feat, val = feat_val.split("\x03")
-                    if field_dict[field] >= args.length:
+                    if field_dict.get(field, 0) >= args.length:
                         continue
-                    else:
-                        field_dict[field] += 1
-                    if field not in index_dict_local:
-                        index_dict_local[field] = dict()
-                    if feat not in index_dict_local[field]:
-                        index_dict_local[field][feat] = 0
-                    index_dict_local[field][feat] += 1
+                    field_dict[field] = field_dict.get(field, 0) + 1
+                    index_dict_local = index_dict_local.setdefault(field, {})
+                    index_dict_local[field] = index_dict_local.get(feat, 0) + 1
     return index_dict_local
 
 

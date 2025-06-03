@@ -38,6 +38,7 @@ args.length = math.inf if args.length == -1 else args.length
 
 CHUNK_SIZE = 400  # 读取偏移M,400*1024*1024。
 
+
 class TorchDataSet(Dataset):
     def __init__(self) -> None:
         super().__init__()
