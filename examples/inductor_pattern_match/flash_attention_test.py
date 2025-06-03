@@ -87,17 +87,17 @@ def perf_flash_attention():
     )
     import time
 
-    times = 1000
+    times = 10000
     start = time.time()
     for _ in range(times):
         custom_op_exec(query, key, value, head_dim, num_heads)
     end = time.time()
-    print("fused op time cost: ", end - start)
+    print(f"{times}x fused op time cost: {end - start}s")
     start = time.time()
     for _ in range(times):
         supported_op_exec(query, key, value, head_dim, num_heads)
     end = time.time()
-    print("supported op time cost: ", end - start)
+    print(f"{times}x supported op time cost: {end - start}s")
 
 
 if __name__ == "__main__":
