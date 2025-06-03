@@ -70,5 +70,36 @@ def test_npu_prompt_flash_attention(device="npu"):
     )
 
 
+def perf_flash_attention():
+    head_dim = 128
+    num_heads = 32
+    batch_size = 10
+    seq_len_q = 1
+    seq_len_kv = 2048
+    query = torch.randn(
+        batch_size, seq_len_q, num_heads, head_dim, dtype=torch.float16, device="npu"
+    )
+    key = torch.randn(
+        batch_size, seq_len_kv, num_heads, head_dim, dtype=torch.float16, device="npu"
+    )
+    value = torch.randn(
+        batch_size, seq_len_kv, num_heads, head_dim, dtype=torch.float16, device="npu"
+    )
+    import time
+
+    times = 1000
+    start = time.time()
+    for _ in range(times):
+        custom_op_exec(query, key, value, head_dim, num_heads)
+    end = time.time()
+    print("fused op time cost: ", end - start)
+    start = time.time()
+    for _ in range(times):
+        supported_op_exec(query, key, value, head_dim, num_heads)
+    end = time.time()
+    print("supported op time cost: ", end - start)
+
+
 if __name__ == "__main__":
     test_npu_prompt_flash_attention()
+    perf_flash_attention()
