@@ -70,13 +70,14 @@ static ge::graphStatus PosTilingFunc(TilingData& tilingData, gert::TilingContext
 
     // 获取ub
     uint64_t ub;
+    auto ascendPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
     ascendPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ub);
     ub = ub - RESERVER_UB_SIZE;
     // 获取数据类型
     auto identityType = context->GetInputTensor(IDENTITY_INDEX)->GetDataType();
     auto biasType = context->GetInputTensor(REL_POS_BIAS_INDEX)->GetDataType();
 
-    int identitySize = ge::GetSizeByDataType(identityType);
+    int identitySize = ge::GetSizeByDataType(biasType);
     OPS_CHECK(identityType != biasType,
               OPS_LOG_E("Tiling Debug", "Mismatch data type of identity and rel_pos_bias."),
               return ge::GRAPH_FAILED);

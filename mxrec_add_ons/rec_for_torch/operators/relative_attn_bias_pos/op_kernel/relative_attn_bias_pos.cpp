@@ -19,10 +19,10 @@ extern "C" __global__ __aicore__ void relative_attn_bias_pos(GM_ADDR positionBia
     Args args{
         positionBias, identity, rabPosOut, workspace, tiling
     };
-    if (tilingData.dataType == TYPE_FP32) {
+    if (tilingData.biasType == TYPE_FP32) {
         RelativeAttnBiasPos<float> kernel;
         kernel.Compute(args);
-    } else if (tilingData.floatType == TYPE_FP16) {
+    } else if (tilingData.biasType == TYPE_FP16) {
         RelativeAttnBiasPos<half> kernel;
         kernel.Compute(args);
     }
