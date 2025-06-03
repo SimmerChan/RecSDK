@@ -59,9 +59,9 @@ def test_npu_prompt_flash_attention(device="npu"):
     )
     custom_output = custom_op_exec(query, key, value, head_dim, num_heads).cpu().numpy()
     print("supported_output shape: \n", supported_output.shape)
-    print("supported_output: \n", supported_output)
+    print("supported_output: \n", supported_output.reshape(-1)[0])
     print("custom_output shape: \n", custom_output.shape)
-    print("custom_output: \n", custom_output)
+    print("custom_output: \n", custom_output.reshape(-1)[0])
     assert np.allclose(
         supported_output,
         custom_output,
