@@ -15,7 +15,6 @@
 # limitations under the License.
 # ==============================================================================
 
-import random
 import sysconfig
 
 import pytest
@@ -178,11 +177,11 @@ def rab_pos(num_layers, train_len, candidate_len, bs, dtype):
 
     for rel_pos_bias, identity in zip(rel_pos_bias_list, identity_list):
         rab_pos_out = torch.ops.mxrec.relative_attn_bias_pos(rel_pos_bias=rel_pos_bias,
-                                                           identity=identity,
-                                                           past_valid_lens=past_valid_lens.tolist())
+                                                             identity=identity,
+                                                             past_valid_lens=past_valid_lens.tolist())
         rab_pos_out_golden = rab_pos_golden(rel_pos_bias=rel_pos_bias,
-                                       identity=identity,
-                                       past_valid_lens=past_valid_lens)
+                                            identity=identity,
+                                            past_valid_lens=past_valid_lens)
         assert torch.allclose(rab_pos_out_golden, rab_pos_out)
 
 
