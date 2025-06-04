@@ -14,6 +14,7 @@
 
 constexpr int32_t RESERVER_UB_SIZE = (20 * 1024);
 constexpr uint8_t NUM_BUFFER = 2;
+constexpr int SEQ_EXPAND = 2;  // rab_pos中序列长度为原本输入的两倍
 
 // input index
 constexpr int REL_POS_BIAS_INDEX = 0;
@@ -31,7 +32,7 @@ constexpr int DIM1 = 1;
 constexpr int DIM2 = 2;
 
 namespace optiling {
-static ge::graphStatus PosTilingFunc(TilingData& tilingData, gert::TilingContext* context)
+static ge::graphStatus PosTilingFunc(RelativeAttnBiasPosTilingData& tilingData, gert::TilingContext* context)
 {
     // 设置past_valid_len
     const gert::RuntimeAttrs* attrs = context->GetAttrs();
@@ -66,7 +67,7 @@ static ge::graphStatus PosTilingFunc(TilingData& tilingData, gert::TilingContext
     OPS_CHECK(biasSeqLen != biasSeqLen2 || biasSeqLen != idSeqLen || biasSeqLen != idSeqLen2,
               OPS_LOG_E("Tiling Debug", "Mismatch sequence len of rel_pos_bias and identity."),
               return ge::GRAPH_FAILED);
-    tilingData.set_s(biasSeqLen / 2);
+    tilingData.set_s(biasSeqLen / SEQ_EXPAND);
 
     // 获取ub
     uint64_t ub;
@@ -110,7 +111,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
               return ge::GRAPH_FAILED);
     context->SetBlockDim(coreNum);
 
-    TilingData tilingData;
+    RelativeAttnBiasPosTilingData tilingData;
     auto ret = PosTilingFunc(tilingData, context);
     if (ret != ge::GRAPH_SUCCESS) {
         return ret;
@@ -127,6 +128,12 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
 namespace ge {
 static ge::graphStatus InferShape(gert::InferShapeContext* context)
 {
+    OPS_LOG_E_IF_NULL("context", context, return ge::GRAPH_FAILED);
+    OPS_LOG_E_IF_NULL("relPosBiasShape", context->GetInputShape(REL_POS_BIAS_INDEX), return ge::GRAPH_FAILED);
+    OPS_LOG_E_IF_NULL("identityShape", context->GetInputShape(IDENTITY_INDEX), return ge::GRAPH_FAILED);
+    OPS_LOG_E_IF_NULL("rabPosOutShape", context->GetOutputShape(RAB_POSITION_INDEX), return ge::GRAPH_FAILED);
+    OPS_LOG_E_IF_NULL("attrs", context->GetAttrs(), return ge::GRAPH_FAILED);
+
     gert::Shape* rabPosOutShape = context->GetOutputShape(RAB_POSITION_INDEX);
 
     const gert::RuntimeAttrs* attrs = context->GetAttrs();

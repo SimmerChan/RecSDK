@@ -13,12 +13,12 @@ constexpr int DATA_ALIGN_BYTES = 32;
 constexpr int MAX_BATCH_SIZE = 512;
 constexpr int NUM_BUFFER = 2;
 
-constexpr int8_t TYPE_FP32 = 0;
-constexpr int8_t TYPE_FP16 = 1;
-constexpr int8_t TYPE_INT32 = 3;
-constexpr int8_t TYPE_INT64 = 9;
-
-using namespace AscendC;
+enum class DataType {
+    FP32 = 0,
+    FP16 = 1,
+    INT32 = 3,
+    INT64 = 9
+};
 
 struct Args {
     // pos_bias

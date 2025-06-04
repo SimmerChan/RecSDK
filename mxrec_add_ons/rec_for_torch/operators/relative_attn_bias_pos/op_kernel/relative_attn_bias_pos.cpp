@@ -5,9 +5,9 @@
 *
 */
 
+#include "kernel_operator.h"
 #include "rab_common.h"
 #include "relative_attn_bias_pos.h"
-#include "kernel_operator.h"
 
 extern "C" __global__ __aicore__ void relative_attn_bias_pos(GM_ADDR positionBias,
                                                              GM_ADDR identity,
@@ -19,10 +19,10 @@ extern "C" __global__ __aicore__ void relative_attn_bias_pos(GM_ADDR positionBia
     Args args{
         positionBias, identity, rabPosOut, workspace, tiling
     };
-    if (tilingData.dataType == TYPE_FP32) {
+    if (tilingData.dataType == static_cast<int>(DataType::FP32)) {
         RelativeAttnBiasPos<float> kernel;
         kernel.Compute(args);
-    } else if (tilingData.dataType == TYPE_FP16) {
+    } else if (tilingData.dataType == static_cast<int>(DataType::FP16)) {
         RelativeAttnBiasPos<half> kernel;
         kernel.Compute(args);
     }
