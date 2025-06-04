@@ -24,7 +24,7 @@
 
   - 进入到样例目录,执行如下命令。
     ```bash
-    cd mindxsdk-mxrec-add-ons/torch_plugin/load_library/2.6.0/common/
+    cd mindxsdk-mxrec-add-ons/torch_plugin/torch_library/2.6.0/common/
     bash build_ops.sh
     ```
   - 执行命令后会在common目录下生成libfbgemm_npu_api.so文件，并同时在python默认的site-packages路径下存放编译好的libfbgemm_npu_api.so方便使用。
