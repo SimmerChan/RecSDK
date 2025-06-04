@@ -50,22 +50,22 @@ def pattern_add_layer_norm(
     """原始的Add + LayerNorm模式"""
     # Add操作
     added = x1 + x2
-    # LayerNorm操作 - 使用weight的shape作为normalized_shape
+    # LayerNorm操作 - 使用位置参数确保匹配
     return F.layer_norm(added, normalized_shape, weight, bias, eps)
 
 
 # 创建模式匹配器
 patterns = PatternMatcherPass()
 
-# 示例输入用于模式匹配 - 简化参数列表
+# 示例输入用于模式匹配 - 确保eps值一致
 batch_size, seq_len, hidden_dim = 2, 128, 768
 inputs_basic = (
     torch.randn(batch_size, seq_len, hidden_dim),  # x1
     torch.randn(batch_size, seq_len, hidden_dim),  # x2
-    (768,),
+    (768,),  # normalized_shape
     torch.randn(hidden_dim),  # weight
     torch.randn(hidden_dim),  # bias
-    1e-6,
+    1e-5,  # eps - 修改为与测试用例一致
 )
 
 # 注册基本的Add + LayerNorm模式
@@ -99,8 +99,8 @@ def test_add_layernorm_pattern():
     ) -> torch.Tensor:
         # Add操作
         added = x1 + x2
-        # LayerNorm操作
-        return F.layer_norm(added, (768,), weight=weight, bias=bias, eps=1e-5)
+        # LayerNorm操作 - 使用位置参数确保与pattern匹配
+        return F.layer_norm(added, (768,), weight, bias, 1e-5)
 
     # 创建测试数据
     x1 = torch.randn(2, 128, 768, device="npu", dtype=torch.float16)
