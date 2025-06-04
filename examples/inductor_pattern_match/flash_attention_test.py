@@ -73,11 +73,11 @@ def test_npu_prompt_flash_attention(device="npu"):
 
 
 def perf_flash_attention():
-    head_dim = 128
-    num_heads = 32
+    head_dim = 24
+    num_heads = 4
     batch_size = 10
     seq_len_q = 1
-    seq_len_kv = 2048
+    seq_len_kv = 15
     query = torch.randn(
         batch_size, seq_len_q, num_heads, head_dim, dtype=torch.float16, device="npu"
     )
