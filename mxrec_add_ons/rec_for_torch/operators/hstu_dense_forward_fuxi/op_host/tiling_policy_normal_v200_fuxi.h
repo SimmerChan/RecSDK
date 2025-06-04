@@ -27,7 +27,6 @@ private:
     ge::graphStatus InferShape(gert::InferShapeContext* context) override;
     bool TilingShape(gert::TilingContext* context, optiling::HstuDenseForwardFuxiTilingData &tiling) override;
     bool TilingHeighLevelApi(gert::TilingContext* context, optiling::HstuDenseForwardFuxiTilingData &tiling) override;
-    bool TilingKeySet(gert::TilingContext* context, optiling::HstuDenseForwardFuxiTilingData &tiling) override;
 
     bool TilingMatmul(gert::TilingContext* context, optiling::HstuDenseForwardFuxiTilingData &tiling,
         matmul_tiling::DataType dataType);

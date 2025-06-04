@@ -98,7 +98,7 @@ HstuDenseForwardJaggedKernelFuxi<qType>::Compute(const HstuDenseForwardFuxiTilin
 template <typename qType>
 __aicore__ inline void HstuDenseForwardJaggedKernelFuxi<qType>::ComputeSvMatmul(uint32_t taskId)
 {
-    uint8_t isAtomic = (computeTaskInfo[taskId].kSeqId == 0) ? 0 : 1;
+    uint8_t isAtomic = (computeTaskInfo[taskId].kSeqId != 0);
 
     this->DoSvMatmulImpl(computeTaskInfo[taskId].kvOffset, taskId, computeTaskInfo[taskId].transTaskId, isAtomic,
                          computeTaskInfo[taskId].computeASeqLen, this->headDim, computeTaskInfo[taskId].computeBSeqLen);
@@ -107,7 +107,7 @@ __aicore__ inline void HstuDenseForwardJaggedKernelFuxi<qType>::ComputeSvMatmul(
 template <typename qType>
 __aicore__ inline void HstuDenseForwardJaggedKernelFuxi<qType>::ComputeTvMatmul(uint32_t taskId)
 {
-    uint8_t isAtomic = (computeTaskInfo[taskId].kSeqId == 0) ? 0 : 1;
+    uint8_t isAtomic = (computeTaskInfo[taskId].kSeqId != 0);
 
     this->DoTvMatmulImpl(computeTaskInfo[taskId].kvOffset, taskId, computeTaskInfo[taskId].transTaskId, isAtomic,
                          computeTaskInfo[taskId].computeASeqLen, this->headDim, computeTaskInfo[taskId].computeBSeqLen);
@@ -116,7 +116,7 @@ __aicore__ inline void HstuDenseForwardJaggedKernelFuxi<qType>::ComputeTvMatmul(
 template <typename qType>
 __aicore__ inline void HstuDenseForwardJaggedKernelFuxi<qType>::ComputePvMatmul(uint32_t taskId)
 {
-    uint8_t isAtomic = (computeTaskInfo[taskId].kSeqId == 0) ? 0 : 1;
+    uint8_t isAtomic = (computeTaskInfo[taskId].kSeqId != 0);
 
     this->DoPvMatmulImpl(computeTaskInfo[taskId].kvOffset, taskId, computeTaskInfo[taskId].transTaskId, isAtomic,
                          computeTaskInfo[taskId].computeASeqLen, this->headDim, computeTaskInfo[taskId].computeBSeqLen);
@@ -148,17 +148,13 @@ __aicore__ inline void HstuDenseForwardJaggedKernelFuxi<qType>::ComputeVecScore(
 template <typename qType>
 __aicore__ inline void HstuDenseForwardJaggedKernelFuxi<qType>::ComputeBiasMask(uint32_t taskId)
 {
-    int64_t maskOffset = computeTaskInfo[taskId].batchId * this->headNum * this->maxSeqLen * this->maxSeqLen + \
-        computeTaskInfo[taskId].headId * this->maxSeqLen * this->maxSeqLen + \
-        computeTaskInfo[taskId].qSeqId * this->maxSeqLen * this->blockHeight + \
-        computeTaskInfo[taskId].kSeqId * this->blockHeight;
-
-    int64_t timestampOffset = computeTaskInfo[taskId].batchId * this->maxSeqLen * this->maxSeqLen + \
-        computeTaskInfo[taskId].qSeqId * this->maxSeqLen * this->blockHeight + \
-        computeTaskInfo[taskId].kSeqId * this->blockHeight;
 
     int64_t positionOffset = computeTaskInfo[taskId].qSeqId * this->maxSeqLen * this->blockHeight + \
         computeTaskInfo[taskId].kSeqId * this->blockHeight;
+
+    int64_t timestampOffset = positionOffset + computeTaskInfo[taskId].batchId * this->maxSeqLen * this->maxSeqLen;
+    
+    int64_t maskOffset = timestampOffset + computeTaskInfo[taskId].headId * this->maxSeqLen * this->maxSeqLen;
 
     this->BiasMaskImpl(taskId, timestampOffset, positionOffset, maskOffset,
         computeTaskInfo[taskId].causalMask, computeTaskInfo[taskId].computeASeqLen,

@@ -224,10 +224,4 @@ bool TilingPolicy::TilingCore(gert::TilingContext* context, optiling::HstuDenseF
     return true;
 }
 
-bool TilingPolicy::TilingKeySet(gert::TilingContext* context, optiling::HstuDenseForwardFuxiTilingData &tiling)
-{
-    // base unrealized
-    return false;
-}
-
 }

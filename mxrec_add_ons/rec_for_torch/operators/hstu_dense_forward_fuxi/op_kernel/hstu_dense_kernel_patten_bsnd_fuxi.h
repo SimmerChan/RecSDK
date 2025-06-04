@@ -649,7 +649,9 @@ public:
             int64_t kThisOffset = inOffset + (total - remain);
             int64_t thisLineOffset = (total - remain) / headDim;
 
-            int64_t svOutOffset = outStartOffset + thisLineOffset * headNum * headDim;
+            int64_t thisLineOffsetLen = enableBias ? (OUTPUT_DIM2_TIMES3 * thisLineOffset * headNum * headDim) :
+                (thisLineOffset * headNum * headDim);
+            int64_t svOutOffset = outStartOffset + thisLineOffsetLen;
             DoTransImpl(svResultGt, kThisOffset, thisLen, svOutOffset);
 
             if (enableBias) {

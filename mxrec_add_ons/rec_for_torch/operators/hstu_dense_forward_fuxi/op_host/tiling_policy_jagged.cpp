@@ -287,7 +287,7 @@ bool TilingPolicyJagged::TilingCore(gert::TilingContext* context, optiling::Hstu
     auto *seqOffsetData = const_cast<int64_t *>(reinterpret_cast<const int64_t *>(seqOffset->GetData()));
     int seq_offset_lens = seqOffset->GetSize();
     if (seq_offset_lens > (MAX_BATCH_SIZE + 1)) {
-        printf("seq_offset_lens exceed limit %d \n", MAX_BATCH_SIZE + 1);
+        OPS_LOG_E(context, "seq_offset_lens exceed limit %d\n", MAX_BATCH_SIZE + 1);
         return false;
     }
 
@@ -429,11 +429,6 @@ bool TilingPolicyJagged::TilingHeighLevelApi(gert::TilingContext* context,
     tiling.set_pvBaseM(tiling.pvMatmul.get_baseM());
     tiling.set_pvBaseN(tiling.pvMatmul.get_baseN());
 
-    return true;
-}
-
-bool TilingPolicyJagged::TilingKeySet(gert::TilingContext* context, optiling::HstuDenseForwardFuxiTilingData &tiling)
-{
     return true;
 }
 

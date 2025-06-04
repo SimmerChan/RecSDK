@@ -34,6 +34,7 @@ mask_custom: int = 3
 
 torch.npu.set_device(device_id)
 
+
 def jagged_data_gen(batch_size, max_seq_len, num_heads, attention_dim, mask_type):
     seq_lens = np.random.randint(1, max_seq_len + 1, (batch_size))
 
@@ -61,6 +62,7 @@ def jagged_data_gen(batch_size, max_seq_len, num_heads, attention_dim, mask_type
 
     return q, k, v, seq_offset, ts_bias, pos_bias, mask
 
+
 class TestHstuJaggedFuxi:
     def jagged_to_dense(self, jagged_tensor, seq_lens, max_seq_len, head_nums, atten_dim):
         need_pad_seq = []
@@ -81,7 +83,7 @@ class TestHstuJaggedFuxi:
 
         offset = 0
         for batch_id, seq_len in enumerate(seq_lens):
-            tensor[offset : offset + seq_len, :, :] = dense_tensor[batch_id, 0: seq_len, :, :]
+            tensor[offset : offset + seq_len, :, :] = dense_tensor[batch_id, 0 : seq_len, :, :]
             offset = offset + seq_len
 
         return tensor

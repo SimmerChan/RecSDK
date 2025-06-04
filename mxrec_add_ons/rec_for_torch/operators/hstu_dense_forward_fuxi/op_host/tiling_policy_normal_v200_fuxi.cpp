@@ -74,6 +74,12 @@ ge::graphStatus TilingPolicyNormalv200Fuxi::InferShape(gert::InferShapeContext* 
 bool TilingPolicyNormalv200Fuxi::TilingShape(gert::TilingContext* context,
     optiling::HstuDenseForwardFuxiTilingData &tiling)
 {
+    ge::DataType qTypeGe = context->GetInputTensor(INDEX_T::INDEX_0)->GetDataType();
+    if (qTypeGe != ge::DataType::DT_FLOAT16) {
+        OPS_LOG_E(context, "invalid datatype, only support fp16.\n");
+        return false;
+    }
+
     auto qShape = context->GetInputShape(INDEX_T::INDEX_0)->GetStorageShape();
 
     int64_t batchSize = qShape.GetDim(INDEX_T::INDEX_0);
@@ -197,18 +203,6 @@ bool TilingPolicyNormalv200Fuxi::TilingHeighLevelApi(gert::TilingContext* contex
 
     tiling.set_pvBaseM(tiling.pvMatmul.get_baseM());
     tiling.set_pvBaseN(tiling.pvMatmul.get_baseN());
-
-    return true;
-}
-
-bool TilingPolicyNormalv200Fuxi::TilingKeySet(gert::TilingContext* context,
-    optiling::HstuDenseForwardFuxiTilingData &tiling)
-{
-    ge::DataType qTypeGe = context->GetInputTensor(0)->GetDataType();
-    if (qTypeGe != ge::DataType::DT_FLOAT16) {
-        OPS_LOG_E(context, "invalid datatype, only support fp16.\n");
-        return false;
-    }
 
     return true;
 }

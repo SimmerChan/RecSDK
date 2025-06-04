@@ -53,8 +53,6 @@ private:
 
     virtual bool TilingHeighLevelApi(gert::TilingContext* context, optiling::HstuDenseForwardFuxiTilingData &tiling);
 
-    virtual bool TilingKeySet(gert::TilingContext* context, optiling::HstuDenseForwardFuxiTilingData &tiling);
-
     virtual bool TilingSaveToBuffer(gert::TilingContext* context, optiling::HstuDenseForwardFuxiTilingData &tiling);
 };
 
