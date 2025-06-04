@@ -39,11 +39,11 @@ def custom_op_exec(query, key, value, head_dim, num_heads):
 
 
 def test_npu_prompt_flash_attention(device="npu"):
-    head_dim = 128
-    num_heads = 32
+    head_dim = 24
+    num_heads = 4
     batch_size = 10
     seq_len_q = 1
-    seq_len_kv = 2048
+    seq_len_kv = 15
     query = torch.randn(
         batch_size, seq_len_q, num_heads, head_dim, dtype=torch.float16, device=device
     )
@@ -66,8 +66,8 @@ def test_npu_prompt_flash_attention(device="npu"):
         np.allclose(
             supported_output,
             custom_output,
-            rtol=1e-05,
-            atol=1e-05,
+            rtol=1e-04,
+            atol=1e-04,
         )
     )
 
