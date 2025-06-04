@@ -201,7 +201,8 @@ bool TilingPolicyNormalv200Fuxi::TilingHeighLevelApi(gert::TilingContext* contex
     return true;
 }
 
-bool TilingPolicyNormalv200Fuxi::TilingKeySet(gert::TilingContext* context, optiling::HstuDenseForwardFuxiTilingData &tiling)
+bool TilingPolicyNormalv200Fuxi::TilingKeySet(gert::TilingContext* context,
+    optiling::HstuDenseForwardFuxiTilingData &tiling)
 {
     ge::DataType qTypeGe = context->GetInputTensor(0)->GetDataType();
     if (qTypeGe == ge::DataType::DT_FLOAT16) {
