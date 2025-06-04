@@ -49,6 +49,7 @@ public:
         timestampsGT.SetGlobalBuffer((__gm__ int32_t*)args.timestamps, bs * s);
         timestampsWeightsGT.SetGlobalBuffer((__gm__ FloatType*)args.timestampsWeights, numBuckets * numLayer);
         rabTimeBiasOutGT.SetGlobalBuffer((__gm__ FloatType*)args.rabTimeOut, numLayer * bs * s * s);
+        bucketTimestampsOutGT.SetGlobalBuffer((__gm__ int32_t*)args.bucketTimestampsOut, bs * s * s);
 
         pipe.InitBuffer(queTimestamps, 1, stride * alignSeqLen * sizeof(int32_t));
         pipe.InitBuffer(queTimestampsFloat, 1, stride * alignSeqLen * sizeof(float));
@@ -176,6 +177,28 @@ public:
         queTimestampsFloat.FreeTensor(rabTime);
     }
 
+    __aicore__ inline void DataCopyOutIndex(LocalTensor<int32_t>& index, uint32_t rowOffset, uint32_t rowCnt)
+    {
+#ifdef SUPPORT_V200
+        return ;
+#endif
+        uint32_t ptr = rowOffset * s;
+        for (int i = 0; i < rowCnt; ++i) {
+            uint32_t ptrUb = i * alignSeqLen;
+
+            // 对齐部分拷出
+            if (alignLen > 0) {
+                DataCopy(bucketTimestampsOutGT[ptr + i * s], index[ptrUb], s);
+            }
+            // 非对齐拷出
+            if (unalignLen == 0) {
+                continue;
+            }
+            const DataCopyExtParams dataCopyExtParams{1, unalignLen, 0, 0, 0};
+            DataCopyPad(bucketTimestampsOutGT[ptr + i * s + alignCnt], index[ptrUb + alignCnt], dataCopyExtParams);
+        }
+    }
+
     __aicore__ inline void DataCopyInTsw()
     {
         LocalTensor<FloatType> tsw = queTimestampsWeights.AllocTensor<FloatType>();
@@ -209,6 +232,7 @@ public:
             ComputeBucketTimestamps(params, rowCnt);
 
             LocalTensor<uint32_t> tsInt = queTimestamps.DeQue<uint32_t>();
+            DataCopyOutIndex(tsInt, rowOffset, rowCnt);
             for (int n = 0; n < numLayer; ++n) {
                 IndexSelect(tsw, tsInt, n, rowCnt);
                 pipe_barrier(PIPE_ALL);
@@ -247,6 +271,7 @@ private:
     GlobalTensor<int32_t> timestampsGT;
     GlobalTensor<FloatType> timestampsWeightsGT;
     GlobalTensor<FloatType> rabTimeBiasOutGT;
+    GlobalTensor<int32_t> bucketTimestampsOutGT;
 
     TPipe pipe;
     TQue<TPosition::VECIN, 1> queTimestamps;
