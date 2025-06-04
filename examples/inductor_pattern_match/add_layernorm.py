@@ -31,8 +31,8 @@ def fused_add_layer_norm(
     x1: torch.Tensor,
     x2: torch.Tensor,
     normalized_shape: Tuple[int, ...],
-    weight: Optional[torch.Tensor] = None,
-    bias: Optional[torch.Tensor] = None,
+    weight: torch.Tensor,
+    bias: torch.Tensor,
     eps: float = 1e-5,
 ) -> torch.Tensor:
     """使用torch_npu.npu_add_layer_norm融合算子"""
@@ -43,8 +43,8 @@ def pattern_add_layer_norm(
     x1: torch.Tensor,
     x2: torch.Tensor,
     normalized_shape: Tuple[int, ...],
-    weight: Optional[torch.Tensor] = None,
-    bias: Optional[torch.Tensor] = None,
+    weight: torch.Tensor,
+    bias: torch.Tensor,
     eps: float = 1e-5,
 ) -> torch.Tensor:
     """原始的Add + LayerNorm模式"""
