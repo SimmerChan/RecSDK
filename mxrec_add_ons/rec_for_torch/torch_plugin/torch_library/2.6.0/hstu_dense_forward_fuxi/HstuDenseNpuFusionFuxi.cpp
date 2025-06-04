@@ -53,7 +53,8 @@ at::Tensor hstu_dense_normal_forward_impl_npu(
     const c10::optional<at::Tensor>& mask,
     const int64_t maskType,
     const int64_t maxSeqLen,
-    const double siluScale)
+    const double siluScale,
+    c10::optional<at::IntArrayRef> seqOffset)
 {
     TORCH_CHECK(q.dim() == CONST_4, "The q should be 4D in normal layout");
 
@@ -92,6 +93,7 @@ at::Tensor hstu_dense_normal_forward_impl_npu(
         maxSeqLen,
         realSiluScale,
         layout,
+        seqOffset,
         attnOutput);
 
     return attnOutput;
@@ -169,7 +171,7 @@ at::Tensor hstu_dense_forward_impl_npu(
 
     if (layout == "normal") {
         return hstu_dense_normal_forward_impl_npu(q, k, v, timestampBias, positionBias, mask, maskType, maxSeqLen,
-            siluScale);
+            siluScale, seqOffset);
     } else {
         return hstu_dense_jagged_forward_impl_npu(q, k, v, timestampBias, positionBias, mask, maskType, maxSeqLen,
             siluScale, seqOffset);
