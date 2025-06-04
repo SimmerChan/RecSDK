@@ -2,6 +2,10 @@ cmake_minimum_required(VERSION 3.10)
 
 project(fbgemm_npu_api)
 
+find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
+
+include_directories(${Python3_INCLUDE_DIRS})
+
 execute_process(
   COMMAND python3 -c "import site; print(site.getsitepackages()[0])"
   OUTPUT_VARIABLE python_site_packages_path
