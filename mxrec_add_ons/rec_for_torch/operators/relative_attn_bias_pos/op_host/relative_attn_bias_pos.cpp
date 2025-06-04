@@ -88,7 +88,7 @@ static ge::graphStatus PosTilingFunc(RelativeAttnBiasPosTilingData& tilingData, 
     tilingData.set_dataType(biasType);
 
     // 计算一次处理的窗口大小(stride)
-    int stride = ub / (NUM_BUFFER * 3 * biasDataSize);
+    int stride = ub / (NUM_BUFFER * 3 * biasDataSize);  // 需要3份ub暂存计算结果
     tilingData.set_stride(stride);
     return ge::GRAPH_SUCCESS;
 }
