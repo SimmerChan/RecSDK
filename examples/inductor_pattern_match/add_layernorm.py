@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Sequence
 import torch
 import torch.nn.functional as F
 from torch._inductor.pattern_matcher import (
@@ -30,6 +30,7 @@ import torch_npu._inductor
 def fused_add_layer_norm(
     x1: torch.Tensor,
     x2: torch.Tensor,
+    normalized_shape: Sequence[int],
     weight: torch.Tensor,
     bias: torch.Tensor,
     eps: float,
@@ -41,6 +42,7 @@ def fused_add_layer_norm(
 def pattern_add_layer_norm(
     x1: torch.Tensor,
     x2: torch.Tensor,
+    normalized_shape: Sequence[int],
     weight: torch.Tensor,
     bias: torch.Tensor,
     eps: float,
@@ -49,7 +51,6 @@ def pattern_add_layer_norm(
     # Add操作
     added = x1 + x2
     # LayerNorm操作 - 使用weight的shape作为normalized_shape
-    normalized_shape = weight.shape
     return F.layer_norm(added, normalized_shape, weight, bias, eps)
 
 
@@ -61,6 +62,7 @@ batch_size, seq_len, hidden_dim = 2, 128, 768
 inputs_basic = (
     torch.randn(batch_size, seq_len, hidden_dim),  # x1
     torch.randn(batch_size, seq_len, hidden_dim),  # x2
+    (768,),
     torch.randn(hidden_dim),  # weight
     torch.randn(hidden_dim),  # bias
     1e-6,
