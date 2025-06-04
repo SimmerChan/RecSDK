@@ -30,10 +30,9 @@ import torch_npu._inductor
 def fused_add_layer_norm(
     x1: torch.Tensor,
     x2: torch.Tensor,
-    normalized_shape: Tuple[int, ...],
     weight: torch.Tensor,
     bias: torch.Tensor,
-    eps: float = 1e-5,
+    eps: float,
 ) -> torch.Tensor:
     """使用torch_npu.npu_add_layer_norm融合算子"""
     return torch_npu.npu_add_layer_norm(x1, x2, weight, bias, eps)[0]
@@ -42,30 +41,29 @@ def fused_add_layer_norm(
 def pattern_add_layer_norm(
     x1: torch.Tensor,
     x2: torch.Tensor,
-    normalized_shape: Tuple[int, ...],
     weight: torch.Tensor,
     bias: torch.Tensor,
-    eps: float = 1e-5,
+    eps: float,
 ) -> torch.Tensor:
     """原始的Add + LayerNorm模式"""
     # Add操作
     added = x1 + x2
-    # LayerNorm操作
+    # LayerNorm操作 - 使用weight的shape作为normalized_shape
+    normalized_shape = weight.shape
     return F.layer_norm(added, normalized_shape, weight, bias, eps)
 
 
 # 创建模式匹配器
 patterns = PatternMatcherPass()
 
-# 示例输入用于模式匹配
+# 示例输入用于模式匹配 - 简化参数列表
 batch_size, seq_len, hidden_dim = 2, 128, 768
 inputs_basic = (
-    torch.randn(batch_size, seq_len, hidden_dim),
-    torch.randn(batch_size, seq_len, hidden_dim),
-    (hidden_dim,),  # normalized_shape
+    torch.randn(batch_size, seq_len, hidden_dim),  # x1
+    torch.randn(batch_size, seq_len, hidden_dim),  # x2
     torch.randn(hidden_dim),  # weight
     torch.randn(hidden_dim),  # bias
-    1e-6,  # eps
+    1e-6,
 )
 
 # 注册基本的Add + LayerNorm模式
@@ -87,7 +85,7 @@ def custom_add_layernorm_pass(graph: torch.fx.graph):
     return count
 
 
-# 设置在pre_grad阶段执行，确保在inductor生成triton算子之前进行模式匹配
+# 设置在post_grad阶段执行
 inductor_config.post_grad_custom_post_pass = custom_add_layernorm_pass
 
 
@@ -109,13 +107,13 @@ def test_add_layernorm_pattern():
     bias = torch.randn(768, device="npu", dtype=torch.float16)
 
     # 原始输出
-    expected = model_with_add_layernorm(x1, x2)
+    expected = model_with_add_layernorm(x1, x2, weight, bias)
 
     # 编译后的输出
     compiled_model = torch.compile(
         model_with_add_layernorm, backend="inductor", fullgraph=True
     )
-    actual = compiled_model(x1, x2)
+    actual = compiled_model(x1, x2, weight, bias)
 
     # 验证结果一致性
     assert torch.allclose(actual, expected, rtol=1e-4, atol=1e-4)
