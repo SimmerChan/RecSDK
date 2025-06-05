@@ -35,6 +35,7 @@ except ImportError:
 device = "cuda" if torch.cuda.is_available() else "cpu"
 if npu_env:
     device = "npu"
+print(f"device: {device}")
 
 
 def pattern_add_layer_norm_decomposed(
