@@ -64,7 +64,8 @@ def jagged_data_gen(batch_size, max_seq_len, num_heads, attention_dim, mask_type
 
 
 class TestHstuJaggedFuxi:
-    def jagged_to_dense(self, jagged_tensor, seq_lens, max_seq_len, head_nums, atten_dim):
+    @staticmethod
+    def jagged_to_dense(jagged_tensor, seq_lens, max_seq_len, head_nums, atten_dim):
         need_pad_seq = []
         offset = 0
         for seq_len in seq_lens:
@@ -77,8 +78,8 @@ class TestHstuJaggedFuxi:
         dense_tensor = torch.nn.utils.rnn.pad_sequence(need_pad_seq, batch_first=True)
         return dense_tensor
     
-
-    def dense_to_jagged(self, q, dense_tensor, seq_lens):
+    @staticmethod
+    def dense_to_jagged(q, dense_tensor, seq_lens):
         tensor = torch.zeros_like(q).cpu()
 
         offset = 0
@@ -158,7 +159,8 @@ class TestHstuJaggedFuxi:
 
         return atten_output.to(data_type).reshape(-1)
     
-    def custom_op_exec(self, q, k, v, seq_offset, ts_bias, pos_bias, mask, mask_type, max_seq_len, silu_scale, \
+    @staticmethod
+    def custom_op_exec(q, k, v, seq_offset, ts_bias, pos_bias, mask, mask_type, max_seq_len, silu_scale, \
         enable_bias, data_type):
         q_npu = q.to(f"npu:{device_id}").to(data_type)
         k_npu = k.to(f"npu:{device_id}").to(data_type)
