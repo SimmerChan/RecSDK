@@ -148,7 +148,6 @@ __aicore__ inline void HstuDenseForwardJaggedKernelFuxi<qType>::ComputeVecScore(
 template <typename qType>
 __aicore__ inline void HstuDenseForwardJaggedKernelFuxi<qType>::ComputeBiasMask(uint32_t taskId)
 {
-
     int64_t positionOffset = computeTaskInfo[taskId].qSeqId * this->maxSeqLen * this->blockHeight + \
         computeTaskInfo[taskId].kSeqId * this->blockHeight;
 
