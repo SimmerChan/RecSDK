@@ -176,7 +176,6 @@ at::Tensor hstu_dense_forward_impl_npu(
         return hstu_dense_jagged_forward_impl_npu(q, k, v, timestampBias, positionBias, mask, maskType, maxSeqLen,
             siluScale, seqOffset);
     }
-    
 }
 
 TORCH_LIBRARY_FRAGMENT(mxrec, m)

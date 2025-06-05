@@ -83,7 +83,7 @@ class TestHstuJaggedFuxi:
 
         offset = 0
         for batch_id, seq_len in enumerate(seq_lens):
-            tensor[offset : offset + seq_len, :, :] = dense_tensor[batch_id, 0 : seq_len, :, :]
+            tensor[offset: offset + seq_len, :, :] = dense_tensor[batch_id, 0:seq_len, :, :]
             offset = offset + seq_len
 
         return tensor
