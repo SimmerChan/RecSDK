@@ -20,6 +20,7 @@ import torch.nn.functional as F
 import torch.fx as fx
 import numpy as np
 from typing import List, Tuple
+import operator
 
 try:
     import torch_npu
@@ -36,7 +37,6 @@ def create_fused_add_layernorm(weight, bias, eps):
     """创建特定权重和偏置的融合函数"""
 
     def fused_op(x1, x2):
-        print("fused_add_layernorm called!")
         if npu_env:
             return torch_npu.npu_add_layer_norm(x1, x2, weight, bias, eps)[0]
         else:
