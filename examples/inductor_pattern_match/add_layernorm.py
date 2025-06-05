@@ -23,8 +23,12 @@ from torch._inductor.pattern_matcher import (
     register_replacement,
 )
 import torch._inductor.config as inductor_config
-# import torch_npu
-# import torch_npu._inductor
+try:
+    import torch_npu
+    import torch_npu._inductor
+    npu_env = True
+except ImportError:
+    npu_env = False
 
 
 def pattern_add_layer_norm_decomposed(
@@ -97,7 +101,7 @@ def custom_add_layernorm_pass(graph: torch.fx.graph):
 
 
 # 还原注册时机到post_grad阶段
-inductor_config.post_grad_custom_post_pass = custom_add_layernorm_pass
+inductor_config.post_grad_custom_pre_pass = custom_add_layernorm_pass
 
 
 def test_add_layernorm_pattern():
@@ -115,6 +119,8 @@ def test_add_layernorm_pattern():
         return F.layer_norm(added, weight.shape, weight, bias, 1e-5)
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
+    if npu_env:
+        device = "npu"
     # 创建测试数据
     x1 = torch.randn(2, 128, 768, device=device, dtype=torch.float16)
     x2 = torch.randn(2, 128, 768, device=device, dtype=torch.float16)
