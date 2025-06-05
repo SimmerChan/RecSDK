@@ -133,7 +133,7 @@ class AddLayerNorm(torch.nn.Module):
 def test_add_layernorm_pattern():
     """测试Add + LayerNorm模式匹配"""
 
-    model = AddLayerNorm().to(device)
+    model = AddLayerNorm().to(device, dtype=torch.float16)
     compiled_model = torch.compile(model, backend="inductor")
 
     # 创建测试数据
