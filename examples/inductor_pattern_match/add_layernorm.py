@@ -88,7 +88,18 @@ count = 0
 def custom_add_layernorm_pass(graph: torch.fx.graph):
     """自定义的Add + LayerNorm融合pass"""
     global count
+    
+    print("\n=== Before Pattern Matching ===")
+    print(f"Graph nodes: {len(list(graph.nodes))}")
+    for i, node in enumerate(graph.nodes):
+        print(f"Node {i}: {node.op} - {node.target} - args: {node.args} - kwargs: {node.kwargs}")
+    
     count = patterns.apply(graph)
+    
+    print(f"\n=== After Pattern Matching ===")
+    print(f"Patterns matched: {count}")
+    print(f"Graph nodes: {len(list(graph.nodes))}")
+    
     return count
 
 
