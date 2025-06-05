@@ -48,9 +48,9 @@ class AddLayerNormBenchmark:
         x2 = torch.randn(
             batch_size, seq_len, hidden_dim, dtype=dtype, device=self.device
         )
-        weight = torch.randn(hidden_dim, dtype=dtype, device=self.device)
-        bias = torch.randn(hidden_dim, dtype=dtype, device=self.device)
-        eps = 1e-5
+        weight = torch.ones(hidden_dim, dtype=dtype, device=self.device)
+        bias = torch.zeros(hidden_dim, dtype=dtype, device=self.device)
+        eps = 1e-6
         return x1, x2, weight, bias, eps
 
     def torch_add_layernorm(
