@@ -61,7 +61,7 @@ def pattern_add_layer_norm_decomposed(
     rstd = torch.rsqrt(var_eps)
 
     # Node 11: 减去均值
-    centered = added - mean
+    centered = added_f32 - mean
 
     # Node 12: 乘以rstd
     normalized = centered * rstd
