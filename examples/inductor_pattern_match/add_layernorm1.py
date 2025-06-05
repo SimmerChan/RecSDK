@@ -70,7 +70,6 @@ def apply_add_layernorm_fusion_direct(model):
                             and add_node.target == operator.add
                         ):
                             match_count += 1
-                            print(f"Replacing Add + LayerNorm pattern #{match_count}")
 
                             # 获取add操作的输入
                             x1, x2 = add_node.args
