@@ -104,7 +104,9 @@ def custom_add_layernorm_pass(graph: torch.fx.graph):
 
 
 # 设置在post_grad阶段执行
-inductor_config.post_grad_custom_post_pass = custom_add_layernorm_pass
+# 修改注册时机
+# inductor_config.post_grad_custom_post_pass = custom_add_layernorm_pass  # 删除这行
+inductor_config.pre_grad_custom_pass = custom_add_layernorm_pass  # 添加这行
 
 
 def test_add_layernorm_pattern():
