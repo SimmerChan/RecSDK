@@ -22,6 +22,7 @@ from typing import List, Tuple
 
 try:
     import torch_npu
+    import torch_npu._inductor
 except ImportError:
     torch_npu = None
     print("Warning: torch_npu not available, will skip NPU tests")
