@@ -19,6 +19,9 @@ bash run.sh
 cp ./build/*.so ${cur_path}/hybrid_torchrec/modules/
 cd -
 
+# compile fbgemm_gpu.so
+bash build_fbgemm_npu_so.sh
+
 package_name="Ascend-mindxsdk-hybrid-torchrec-"${VERSION}"-linux-"${ARCH}".tar.gz"
 if [ -f "${package_name}" ]; then
   rm "${package_name}"
