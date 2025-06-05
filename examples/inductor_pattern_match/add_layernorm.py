@@ -37,38 +37,42 @@ def pattern_add_layer_norm_decomposed(
     """精确匹配分解后的Add + LayerNorm模式"""
     # 1. Add操作
     add_result = torch.ops.aten.add.Tensor(x1, x2)
-    
+
     # 2. 类型转换到float32
-    convert_to_f32 = torch.ops.prims.convert_element_type.default(add_result, torch.float32)
-    
+    convert_to_f32 = torch.ops.prims.convert_element_type.default(
+        add_result, torch.float32
+    )
+
     # 3. 计算方差和均值
-    var_mean_result = torch.ops.aten.var_mean.correction(convert_to_f32, [2], correction=0, keepdim=True)
-    
+    var_mean_result = torch.ops.aten.var_mean.correction(
+        convert_to_f32, [2], correction=0, keepdim=True
+    )
+
     # 4. 提取方差和均值
     var = var_mean_result[0]
     mean = var_mean_result[1]
-    
+
     # 5. 减去均值
     sub_result = torch.ops.aten.sub.Tensor(convert_to_f32, mean)
-    
+
     # 6. 添加eps
     add_eps = torch.ops.aten.add.Tensor(var, eps)
-    
+
     # 7. 计算倒数平方根
     rsqrt_result = torch.ops.aten.rsqrt.default(add_eps)
-    
+
     # 8. 标准化
     mul_result = torch.ops.aten.mul.Tensor(sub_result, rsqrt_result)
-    
+
     # 9. 乘以权重
     mul_weight = torch.ops.aten.mul.Tensor(mul_result, weight)
-    
+
     # 10. 添加偏置
     add_bias = torch.ops.aten.add.Tensor(mul_weight, bias)
-    
+
     # 11. 转换回float16
     convert_back = torch.ops.prims.convert_element_type.default(add_bias, torch.float16)
-    
+
     return convert_back
 
 
@@ -85,7 +89,8 @@ def fused_add_layer_norm_decomposed(
 
     # 临时实现
     added = x1 + x2
-    return F.layer_norm(added, weight.shape, weight, bias, eps)
+    # return F.layer_norm(added, weight.shape, weight, bias, eps)
+    return added
 
 
 # 创建模式匹配器
