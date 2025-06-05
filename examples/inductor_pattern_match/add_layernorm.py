@@ -121,6 +121,16 @@ def test_add_layernorm_pattern():
 
     # 原始输出
     expected = model_with_add_layernorm(x1, x2, (768,), weight, bias, 1e-5)
+    
+    import torch.fx as fx
+    # 符号化追踪模型
+    traced = fx.symbolic_trace(model_with_add_layernorm)
+
+    # 打印图结构
+    print(traced.graph)
+
+    # 打印生成的代码
+    print(traced.code)
 
     # 编译后的输出
     compiled_model = torch.compile(
