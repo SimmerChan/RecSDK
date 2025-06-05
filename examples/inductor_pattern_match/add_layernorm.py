@@ -32,7 +32,7 @@ def pattern_add_layer_norm_decomposed(
     x2: torch.Tensor,
     weight: torch.Tensor,
     bias: torch.Tensor,
-    eps: float = 1e-5,
+    eps: float,
 ) -> torch.Tensor:
     """精确匹配分解后的Add + LayerNorm模式"""
     # 1. Add操作
@@ -81,7 +81,7 @@ def fused_add_layer_norm_decomposed(
     x2: torch.Tensor,
     weight: torch.Tensor,
     bias: torch.Tensor,
-    eps: float = 1e-5,
+    eps: float,
 ) -> torch.Tensor:
     """融合的Add + LayerNorm实现"""
     print("fused_add_layer_norm_decomposed called!")
