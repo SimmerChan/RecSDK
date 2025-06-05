@@ -319,6 +319,11 @@ def main():
     benchmark.run_comparison(
         batch_sizes=[16, 32], seq_lens=[1024, 2048], hidden_dims=[2048, 4096]
     )
+    
+    print("\n=== 真实尺寸测试 ===")
+    benchmark.run_comparison(
+        batch_sizes=[11], seq_lens=[256], hidden_dims=[768]
+    )
 
 
 if __name__ == "__main__":
