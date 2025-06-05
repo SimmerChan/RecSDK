@@ -124,10 +124,10 @@ def test_add_layernorm_pattern():
     x2 = torch.randn(2, 128, 768, device=device, dtype=torch.float16)
     weight = torch.randn(768, device=device, dtype=torch.float16)
     bias = torch.randn(768, device=device, dtype=torch.float16)
-    esp = 1e-5
+    eps = 1e-5
 
     # 原始输出
-    expected = model_with_add_layernorm(x1, x2, weight, bias, esp)
+    expected = model_with_add_layernorm(x1, x2, weight, bias, eps)
 
     import torch.fx as fx
 
