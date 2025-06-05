@@ -107,11 +107,12 @@ def test_add_layernorm_pattern():
         # LayerNorm操作 - 使用位置参数确保与pattern匹配
         return F.layer_norm(added, (768,), weight, bias, 1e-5)
 
+    device = "cuda" if torch.cuda.is_available() else "cpu"
     # 创建测试数据
-    x1 = torch.randn(2, 128, 768, device="npu", dtype=torch.float16)
-    x2 = torch.randn(2, 128, 768, device="npu", dtype=torch.float16)
-    weight = torch.randn(768, device="npu", dtype=torch.float16)
-    bias = torch.randn(768, device="npu", dtype=torch.float16)
+    x1 = torch.randn(2, 128, 768, device=device, dtype=torch.float16)
+    x2 = torch.randn(2, 128, 768, device=device, dtype=torch.float16)
+    weight = torch.randn(768, device=device, dtype=torch.float16)
+    bias = torch.randn(768, device=device, dtype=torch.float16)
 
     # 原始输出
     expected = model_with_add_layernorm(x1, x2, weight, bias)
