@@ -23,9 +23,11 @@ from torch._inductor.pattern_matcher import (
     register_replacement,
 )
 import torch._inductor.config as inductor_config
+
 try:
     import torch_npu
     import torch_npu._inductor
+
     npu_env = True
 except ImportError:
     npu_env = False
@@ -142,9 +144,7 @@ def test_add_layernorm_pattern():
     print(traced.code)
 
     # 编译后的输出
-    compiled_model = torch.compile(
-        model_with_add_layernorm, backend="inductor", fullgraph=True
-    )
+    compiled_model = torch.compile(model_with_add_layernorm, backend="inductor")
     actual = compiled_model(x1, x2, weight, bias)
 
     # 验证结果一致性
