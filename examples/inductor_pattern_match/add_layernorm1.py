@@ -89,7 +89,7 @@ def apply_add_layernorm_fusion_direct(model):
                             node.replace_all_uses_with(fused_node)
 
                             # 标记要删除的节点
-                            nodes_to_remove.extend([add_node, node])
+                            nodes_to_remove.extend([node, add_node])
             except AttributeError:
                 continue
 
