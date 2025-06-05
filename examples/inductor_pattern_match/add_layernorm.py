@@ -32,6 +32,10 @@ try:
 except ImportError:
     npu_env = False
 
+device = "cuda" if torch.cuda.is_available() else "cpu"
+if npu_env:
+    device = "npu"
+
 
 def pattern_add_layer_norm_decomposed(
     x1: torch.Tensor,
@@ -64,10 +68,14 @@ patterns = PatternMatcherPass()
 # 示例输入用于模式匹配
 batch_size, seq_len, hidden_dim = 2, 128, 768
 inputs_decomposed = (
-    torch.randn(batch_size, seq_len, hidden_dim, dtype=torch.float16),  # x1
-    torch.randn(batch_size, seq_len, hidden_dim, dtype=torch.float16),  # x2
-    torch.randn(hidden_dim, dtype=torch.float16),  # weight
-    torch.randn(hidden_dim, dtype=torch.float16),  # bias
+    torch.randn(
+        batch_size, seq_len, hidden_dim, dtype=torch.float16, device=device
+    ),  # x1
+    torch.randn(
+        batch_size, seq_len, hidden_dim, dtype=torch.float16, device=device
+    ),  # x2
+    torch.randn(hidden_dim, dtype=torch.float16, device=device),  # weight
+    torch.randn(hidden_dim, dtype=torch.float16, device=device),  # bias
 )
 
 # 注册分解后的模式
@@ -120,9 +128,6 @@ def test_add_layernorm_pattern():
         # LayerNorm操作
         return F.layer_norm(added, weight.shape, weight, bias, 1e-5)
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    if npu_env:
-        device = "npu"
     # 创建测试数据
     x1 = torch.randn(2, 128, 768, device=device, dtype=torch.float16)
     x2 = torch.randn(2, 128, 768, device=device, dtype=torch.float16)
