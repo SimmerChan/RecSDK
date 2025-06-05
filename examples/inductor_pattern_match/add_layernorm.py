@@ -32,7 +32,7 @@ def pattern_add_layer_norm_decomposed(
     x2: torch.Tensor,
     weight: torch.Tensor,
     bias: torch.Tensor,
-    eps: float,
+    eps: float=1e-5,
 ) -> torch.Tensor:
     added = x1 + x2
     return F.layer_norm(added, weight.shape, weight, bias, eps)
@@ -43,7 +43,7 @@ def fused_add_layer_norm_decomposed(
     x2: torch.Tensor,
     weight: torch.Tensor,
     bias: torch.Tensor,
-    eps: float,
+    eps: float=1e-5,
 ) -> torch.Tensor:
     """融合的Add + LayerNorm实现"""
     print("fused_add_layer_norm_decomposed called!")
