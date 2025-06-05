@@ -27,67 +27,70 @@ import torch._inductor.config as inductor_config
 # import torch_npu._inductor
 
 
-# 在文件顶部添加导入
-from operator import add
-from torch.nn.functional import layer_norm
-import torch.fx
-
-# 包装函数以确保正确追踪
-torch.fx.wrap('add')
-torch.fx.wrap('layer_norm')
-
-
-def pattern_add_layer_norm(
+def pattern_add_layer_norm_aten(
     x1: torch.Tensor,
     x2: torch.Tensor,
-    normalized_shape: Sequence[int],
     weight: torch.Tensor,
     bias: torch.Tensor,
     eps: float,
 ) -> torch.Tensor:
-    """原始的Add + LayerNorm模式 - 精确匹配图结构"""
-    # 使用operator.add而不是+操作符
-    added = add(x1, x2)
-    # 直接调用layer_norm函数，使用位置参数
-    return layer_norm(added, normalized_shape, weight, bias, eps)
+    """使用分解后的aten操作的Add + LayerNorm模式"""
+    # Add操作
+    added = torch.ops.aten.add.Tensor(x1, x2)
+    
+    # LayerNorm的分解操作
+    # 1. 计算均值
+    mean = torch.ops.aten.mean.dim(added, [-1], True)
+    
+    # 2. 计算方差
+    centered = torch.ops.aten.sub.Tensor(added, mean)
+    var = torch.ops.aten.mean.dim(torch.ops.aten.pow.Tensor_Scalar(centered, 2), [-1], True)
+    
+    # 3. 标准化
+    std = torch.ops.aten.sqrt.default(torch.ops.aten.add.Tensor(var, eps))
+    normalized = torch.ops.aten.div.Tensor(centered, std)
+    
+    # 4. 应用权重和偏置
+    scaled = torch.ops.aten.mul.Tensor(normalized, weight)
+    result = torch.ops.aten.add.Tensor(scaled, bias)
+    
+    return result
 
 
-def fused_add_layer_norm(
+def fused_add_layer_norm_aten(
     x1: torch.Tensor,
     x2: torch.Tensor,
-    normalized_shape: Sequence[int],
     weight: torch.Tensor,
     bias: torch.Tensor,
     eps: float,
 ) -> torch.Tensor:
-    """融合的Add + LayerNorm实现"""
-    print("fused_add_layer_norm called!")
+    """融合的Add + LayerNorm实现 - 使用aten操作"""
+    print("fused_add_layer_norm_aten called!")
     # return torch_npu.npu_add_layer_norm(x1, x2, weight, bias, eps)[0]
 
-    # 临时实现
-    added = add(x1, x2)
-    return layer_norm(added, normalized_shape, weight, bias, eps)
+    # 临时实现 - 使用高级API
+    added = x1 + x2
+    return F.layer_norm(added, weight.shape, weight, bias, eps)
 
 
 # 创建模式匹配器
 patterns = PatternMatcherPass()
 
-# 示例输入用于模式匹配 - 确保eps值一致
+# 示例输入用于模式匹配
 batch_size, seq_len, hidden_dim = 2, 128, 768
-inputs_basic = (
+inputs_aten = (
     torch.randn(batch_size, seq_len, hidden_dim),  # x1
     torch.randn(batch_size, seq_len, hidden_dim),  # x2
-    (768,),  # normalized_shape
     torch.randn(hidden_dim),  # weight
     torch.randn(hidden_dim),  # bias
-    1e-5,  # eps - 修改为与测试用例一致
+    1e-5,  # eps
 )
 
-# 注册基本的Add + LayerNorm模式
+# 注册分解后的aten操作模式
 register_replacement(
-    pattern_add_layer_norm,
-    fused_add_layer_norm,
-    inputs_basic,
+    pattern_add_layer_norm_aten,
+    fused_add_layer_norm_aten,
+    inputs_aten,
     fwd_only,
     patterns,
 )
@@ -115,10 +118,8 @@ def custom_add_layernorm_pass(graph: torch.fx.graph):
     return count
 
 
-# 设置在post_grad阶段执行
-# 修改注册时机
-# inductor_config.post_grad_custom_post_pass = custom_add_layernorm_pass  # 删除这行
-inductor_config.pre_grad_custom_pass = custom_add_layernorm_pass  # 添加这行
+# 还原注册时机到post_grad阶段
+inductor_config.post_grad_custom_post_pass = custom_add_layernorm_pass
 
 
 def test_add_layernorm_pattern():
@@ -134,7 +135,7 @@ def test_add_layernorm_pattern():
     ) -> torch.Tensor:
         # Add操作
         added = x1 + x2
-        # LayerNorm操作 - 使用位置参数确保与pattern匹配
+        # LayerNorm操作
         return F.layer_norm(added, normalized_shape, weight, bias, eps)
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
