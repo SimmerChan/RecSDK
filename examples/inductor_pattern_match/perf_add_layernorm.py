@@ -96,6 +96,41 @@ class AddLayerNormBenchmark:
 
         return self._compiled_fn(x1, x2, weight, bias, eps)
 
+    def benchmark_function(
+        self, func, inputs: Tuple, warmup_runs: int = 10, benchmark_runs: int = 100
+    ) -> Tuple[float, float]:
+        """基准测试函数
+
+        Returns:
+            Tuple[float, float]: (平均时间(ms), 标准差(ms))
+        """
+        # 预热
+        for _ in range(warmup_runs):
+            with torch.no_grad():
+                _ = func(*inputs)
+
+        if self.device.startswith("npu"):
+            torch.npu.synchronize()
+        elif self.device.startswith("cuda"):
+            torch.cuda.synchronize()
+
+        # 基准测试
+        times = []
+        for _ in range(benchmark_runs):
+            start_time = time.perf_counter()
+            with torch.no_grad():
+                result = func(*inputs)
+
+            if self.device.startswith("npu"):
+                torch.npu.synchronize()
+            elif self.device.startswith("cuda"):
+                torch.cuda.synchronize()
+
+            end_time = time.perf_counter()
+            times.append((end_time - start_time) * 1000)  # 转换为毫秒
+
+        return np.mean(times), np.std(times)
+
     def run_comparison(
         self,
         batch_sizes: List[int] = [1, 4, 8, 16],
