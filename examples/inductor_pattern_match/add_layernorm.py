@@ -45,7 +45,7 @@ def pattern_add_layer_norm_decomposed(
     bias: torch.Tensor,
 ) -> torch.Tensor:
     added = x1 + x2
-    return F.layer_norm(added, weight.shape, weight, bias, 1e-5)
+    return F.layer_norm(added, weight.shape, weight, bias, 1e-6)
 
 
 def fused_add_layer_norm_decomposed(
@@ -57,11 +57,11 @@ def fused_add_layer_norm_decomposed(
     """融合的Add + LayerNorm实现"""
     print("fused_add_layer_norm_decomposed called!")
     if npu_env:
-        return torch_npu.npu_add_layer_norm(x1, x2, weight, bias, 1e-5)[0]
+        return torch_npu.npu_add_layer_norm(x1, x2, weight, bias, 1e-6)[0]
 
     # 临时实现
     added = x1 + x2
-    return F.layer_norm(added, weight.shape, weight, bias, 1e-5)
+    return F.layer_norm(added, weight.shape, weight, bias, 1e-6)
 
 
 # 创建模式匹配器
