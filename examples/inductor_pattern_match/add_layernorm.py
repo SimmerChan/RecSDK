@@ -23,8 +23,8 @@ from torch._inductor.pattern_matcher import (
     register_replacement,
 )
 import torch._inductor.config as inductor_config
-import torch_npu
-import torch_npu._inductor
+# import torch_npu
+# import torch_npu._inductor
 
 
 def fused_add_layer_norm(
@@ -36,7 +36,12 @@ def fused_add_layer_norm(
     eps: float,
 ) -> torch.Tensor:
     """使用torch_npu.npu_add_layer_norm融合算子"""
-    return torch_npu.npu_add_layer_norm(x1, x2, weight, bias, eps)[0]
+    # return torch_npu.npu_add_layer_norm(x1, x2, weight, bias, eps)[0]
+    print("fused_add_layer_norm")
+    # Add操作
+    added = x1 + x2
+    # LayerNorm操作 - 使用位置参数确保匹配
+    return F.layer_norm(added, normalized_shape, weight, bias, eps)
 
 
 def pattern_add_layer_norm(
