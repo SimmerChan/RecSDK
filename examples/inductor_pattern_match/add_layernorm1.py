@@ -152,7 +152,7 @@ class AddLayerNormPerformanceBenchmark:
         return apply_add_layernorm_fusion_direct(model)
 
     def benchmark_model(
-        self, model, inputs: Tuple, warmup_runs: int = 10, benchmark_runs: int = 100
+        self, model, inputs: Tuple, warmup_runs: int = 10, benchmark_runs: int = 10000
     ) -> Tuple[float, float]:
         """基准测试模型
 
