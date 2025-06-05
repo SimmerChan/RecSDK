@@ -77,40 +77,24 @@ class AddLayerNormBenchmark:
             raise RuntimeError("torch_npu is not available")
         return torch_npu.npu_add_layer_norm(x1, x2, weight, bias, eps)[0]
 
-    def benchmark_function(
-        self, func, inputs: Tuple, warmup_runs: int = 10, benchmark_runs: int = 100
-    ) -> Tuple[float, float]:
-        """基准测试函数
+    def torch_add_layernorm_compiled(
+        self,
+        x1: torch.Tensor,
+        x2: torch.Tensor,
+        weight: torch.Tensor,
+        bias: torch.Tensor,
+        eps: float,
+    ) -> torch.Tensor:
+        """Inductor 编译的 Add + LayerNorm 实现"""
+        if not hasattr(self, "_compiled_fn"):
+            # 创建并编译函数
+            def _add_layernorm(x1, x2, weight, bias, eps):
+                added = x1 + x2
+                return F.layer_norm(added, weight.shape, weight, bias, eps)
 
-        Returns:
-            Tuple[float, float]: (平均时间(ms), 标准差(ms))
-        """
-        # 预热
-        for _ in range(warmup_runs):
-            with torch.no_grad():
-                _ = func(*inputs)
+            self._compiled_fn = torch.compile(_add_layernorm, backend="inductor")
 
-        if self.device.startswith("npu"):
-            torch.npu.synchronize()
-        elif self.device.startswith("cuda"):
-            torch.cuda.synchronize()
-
-        # 基准测试
-        times = []
-        for _ in range(benchmark_runs):
-            start_time = time.perf_counter()
-            with torch.no_grad():
-                result = func(*inputs)
-
-            if self.device.startswith("npu"):
-                torch.npu.synchronize()
-            elif self.device.startswith("cuda"):
-                torch.cuda.synchronize()
-
-            end_time = time.perf_counter()
-            times.append((end_time - start_time) * 1000)  # 转换为毫秒
-
-        return np.mean(times), np.std(times)
+        return self._compiled_fn(x1, x2, weight, bias, eps)
 
     def run_comparison(
         self,
@@ -121,9 +105,9 @@ class AddLayerNormBenchmark:
         """运行性能对比测试"""
         print(f"\n=== Add + LayerNorm 性能对比测试 (Device: {self.device}) ===")
         print(
-            f"{'Shape':<20} {'PyTorch (ms)':<15} {'NPU Fused (ms)':<15} {'Speedup':<10} {'Status':<10}"
+            f"{'Shape':<20} {'PyTorch (ms)':<15} {'Inductor (ms)':<15} {'NPU Fused (ms)':<15} {'Inductor Speedup':<15} {'NPU Speedup':<12} {'Status':<10}"
         )
-        print("-" * 80)
+        print("-" * 120)
 
         for batch_size in batch_sizes:
             for seq_len in seq_lens:
@@ -137,10 +121,28 @@ class AddLayerNormBenchmark:
                         )
                         inputs = (x1, x2, weight, bias, eps)
 
-                        # 测试 PyTorch 实现
+                        # 测试 PyTorch 原生实现
                         torch_time, torch_std = self.benchmark_function(
                             self.torch_add_layernorm, inputs
                         )
+                        torch_time_str = f"{torch_time:.3f}±{torch_std:.3f}"
+
+                        # 测试 Inductor 编译实现
+                        try:
+                            inductor_time, inductor_std = self.benchmark_function(
+                                self.torch_add_layernorm_compiled, inputs
+                            )
+                            inductor_speedup = torch_time / inductor_time
+                            inductor_time_str = (
+                                f"{inductor_time:.3f}±{inductor_std:.3f}"
+                            )
+                            inductor_speedup_str = f"{inductor_speedup:.2f}x"
+                            inductor_status = "✓"
+                        except Exception as e:
+                            inductor_time_str = "Error"
+                            inductor_speedup_str = "N/A"
+                            inductor_status = "✗"
+                            print(f"Inductor error for {shape_str}: {e}")
 
                         # 测试 NPU 融合实现
                         if torch_npu is not None and self.device.startswith("npu"):
@@ -148,23 +150,30 @@ class AddLayerNormBenchmark:
                                 npu_time, npu_std = self.benchmark_function(
                                     self.torch_npu_add_layernorm, inputs
                                 )
-                                speedup = torch_time / npu_time
-                                status = "✓"
+                                npu_speedup = torch_time / npu_time
                                 npu_time_str = f"{npu_time:.3f}±{npu_std:.3f}"
-                                speedup_str = f"{speedup:.2f}x"
+                                npu_speedup_str = f"{npu_speedup:.2f}x"
+                                npu_status = "✓"
                             except Exception as e:
                                 npu_time_str = "Error"
-                                speedup_str = "N/A"
-                                status = "✗"
+                                npu_speedup_str = "N/A"
+                                npu_status = "✗"
                                 print(f"NPU error for {shape_str}: {e}")
                         else:
                             npu_time_str = "N/A"
-                            speedup_str = "N/A"
-                            status = "Skip"
+                            npu_speedup_str = "N/A"
+                            npu_status = "Skip"
 
-                        torch_time_str = f"{torch_time:.3f}±{torch_std:.3f}"
+                        # 综合状态
+                        overall_status = (
+                            "✓"
+                            if inductor_status == "✓" and (npu_status in ["✓", "Skip"])
+                            else "✗"
+                        )
+
                         print(
-                            f"{shape_str:<20} {torch_time_str:<15} {npu_time_str:<15} {speedup_str:<10} {status:<10}"
+                            f"{shape_str:<20} {torch_time_str:<15} {inductor_time_str:<15} {npu_time_str:<15} "
+                            f"{inductor_speedup_str:<15} {npu_speedup_str:<12} {overall_status:<10}"
                         )
 
                     except Exception as e:
@@ -180,40 +189,70 @@ class AddLayerNormBenchmark:
             batch_size, seq_len, hidden_dim
         )
 
-        # PyTorch 结果
+        # PyTorch 原生结果
         torch_result = self.torch_add_layernorm(x1, x2, weight, bias, eps)
 
+        # Inductor 编译结果
+        try:
+            inductor_result = self.torch_add_layernorm_compiled(
+                x1, x2, weight, bias, eps
+            )
+
+            # 计算 Inductor 与 PyTorch 的差异
+            inductor_max_diff = torch.max(
+                torch.abs(torch_result - inductor_result)
+            ).item()
+            inductor_mean_diff = torch.mean(
+                torch.abs(torch_result - inductor_result)
+            ).item()
+
+            print(f"\n--- Inductor vs PyTorch ---")
+            print(f"最大绝对误差: {inductor_max_diff:.6f}")
+            print(f"平均绝对误差: {inductor_mean_diff:.6f}")
+
+            tolerance = 1e-5
+            if inductor_max_diff < tolerance:
+                print(f"✓ Inductor 正确性测试通过 (tolerance: {tolerance})")
+            else:
+                print(
+                    f"✗ Inductor 正确性测试失败 (max_diff: {inductor_max_diff} > tolerance: {tolerance})"
+                )
+
+        except Exception as e:
+            print(f"✗ Inductor 测试失败: {e}")
+
+        # NPU 融合结果
         if torch_npu is not None and self.device.startswith("npu"):
             try:
-                # NPU 结果
                 npu_result = self.torch_npu_add_layernorm(x1, x2, weight, bias, eps)
 
-                # 计算差异
-                max_diff = torch.max(torch.abs(torch_result - npu_result)).item()
-                mean_diff = torch.mean(torch.abs(torch_result - npu_result)).item()
+                # 计算 NPU 与 PyTorch 的差异
+                npu_max_diff = torch.max(torch.abs(torch_result - npu_result)).item()
+                npu_mean_diff = torch.mean(torch.abs(torch_result - npu_result)).item()
 
-                print(f"最大绝对误差: {max_diff:.6f}")
-                print(f"平均绝对误差: {mean_diff:.6f}")
+                print(f"\n--- NPU vs PyTorch ---")
+                print(f"最大绝对误差: {npu_max_diff:.6f}")
+                print(f"平均绝对误差: {npu_mean_diff:.6f}")
 
                 # 相对误差
-                rel_error = torch.mean(
+                npu_rel_error = torch.mean(
                     torch.abs((torch_result - npu_result) / (torch_result + 1e-8))
                 ).item()
-                print(f"平均相对误差: {rel_error:.6f}")
+                print(f"平均相对误差: {npu_rel_error:.6f}")
 
                 # 判断是否通过
                 tolerance = 1e-3
-                if max_diff < tolerance:
-                    print(f"✓ 正确性测试通过 (tolerance: {tolerance})")
+                if npu_max_diff < tolerance:
+                    print(f"✓ NPU 正确性测试通过 (tolerance: {tolerance})")
                 else:
                     print(
-                        f"✗ 正确性测试失败 (max_diff: {max_diff} > tolerance: {tolerance})"
+                        f"✗ NPU 正确性测试失败 (max_diff: {npu_max_diff} > tolerance: {tolerance})"
                     )
 
             except Exception as e:
                 print(f"✗ NPU 测试失败: {e}")
         else:
-            print("Skip: NPU 不可用")
+            print("\nSkip: NPU 不可用")
 
 
 def main():
