@@ -55,11 +55,12 @@ def fused_add_layer_norm_decomposed(
 ) -> torch.Tensor:
     """融合的Add + LayerNorm实现"""
     print("fused_add_layer_norm_decomposed called!")
-    return torch_npu.npu_add_layer_norm(x1, x2, weight, bias, 1e-5)[0]
+    if npu_env:
+        return torch_npu.npu_add_layer_norm(x1, x2, weight, bias, 1e-5)[0]
 
     # 临时实现
-    # added = x1 + x2
-    # return F.layer_norm(added, weight.shape, weight, bias, 1e-5)
+    added = x1 + x2
+    return F.layer_norm(added, weight.shape, weight, bias, 1e-5)
 
 
 # 创建模式匹配器
@@ -125,8 +126,9 @@ def test_add_layernorm_pattern():
     ) -> torch.Tensor:
         # Add操作
         added = x1 + x2
+        eps = 1e-5
         # LayerNorm操作
-        return F.layer_norm(added, weight.shape, weight, bias, 1e-5)
+        return F.layer_norm(added, weight.shape, weight, bias, eps)
 
     # 创建测试数据
     x1 = torch.randn(2, 128, 768, device=device, dtype=torch.float16)
