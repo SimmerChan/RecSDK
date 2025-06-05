@@ -89,8 +89,7 @@ def fused_add_layer_norm_decomposed(
 
     # 临时实现
     added = x1 + x2
-    # return F.layer_norm(added, weight.shape, weight, bias, eps)
-    return added
+    return F.layer_norm(added, weight.shape, weight, bias, eps)
 
 
 # 创建模式匹配器
