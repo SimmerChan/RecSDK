@@ -108,12 +108,11 @@ def test_add_layernorm_pattern():
         x2: torch.Tensor,
         weight: torch.Tensor,
         bias: torch.Tensor,
-        eps: float,
     ) -> torch.Tensor:
         # Add操作
         added = x1 + x2
         # LayerNorm操作
-        return F.layer_norm(added, weight.shape, weight, bias, eps)
+        return F.layer_norm(added, weight.shape, weight, bias, 1e-5)
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     # 创建测试数据
@@ -121,10 +120,9 @@ def test_add_layernorm_pattern():
     x2 = torch.randn(2, 128, 768, device=device, dtype=torch.float16)
     weight = torch.randn(768, device=device, dtype=torch.float16)
     bias = torch.randn(768, device=device, dtype=torch.float16)
-    eps = 1e-5
 
     # 原始输出
-    expected = model_with_add_layernorm(x1, x2, weight, bias, eps)
+    expected = model_with_add_layernorm(x1, x2, weight, bias)
 
     import torch.fx as fx
 
