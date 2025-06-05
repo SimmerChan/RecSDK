@@ -27,21 +27,9 @@ import torch._inductor.config as inductor_config
 # import torch_npu._inductor
 
 
-def fused_add_layer_norm(
-    x1: torch.Tensor,
-    x2: torch.Tensor,
-    normalized_shape: Sequence[int],
-    weight: torch.Tensor,
-    bias: torch.Tensor,
-    eps: float,
-) -> torch.Tensor:
-    """使用torch_npu.npu_add_layer_norm融合算子"""
-    # return torch_npu.npu_add_layer_norm(x1, x2, weight, bias, eps)[0]
-    print("fused_add_layer_norm")
-    # Add操作
-    added = x1 + x2
-    # LayerNorm操作 - 使用位置参数确保匹配
-    return F.layer_norm(added, normalized_shape, weight, bias, eps)
+# 在文件顶部添加导入
+from operator import add
+from torch.nn.functional import layer_norm
 
 
 def pattern_add_layer_norm(
@@ -52,11 +40,28 @@ def pattern_add_layer_norm(
     bias: torch.Tensor,
     eps: float,
 ) -> torch.Tensor:
-    """原始的Add + LayerNorm模式"""
-    # Add操作
-    added = x1 + x2
-    # LayerNorm操作 - 使用位置参数确保匹配
-    return F.layer_norm(added, normalized_shape, weight, bias, eps)
+    """原始的Add + LayerNorm模式 - 精确匹配图结构"""
+    # 使用operator.add而不是+操作符
+    added = add(x1, x2)
+    # 直接调用layer_norm函数，使用位置参数
+    return layer_norm(added, normalized_shape, weight, bias, eps)
+
+
+def fused_add_layer_norm(
+    x1: torch.Tensor,
+    x2: torch.Tensor,
+    normalized_shape: Sequence[int],
+    weight: torch.Tensor,
+    bias: torch.Tensor,
+    eps: float,
+) -> torch.Tensor:
+    """融合的Add + LayerNorm实现"""
+    print("fused_add_layer_norm called!")
+    # return torch_npu.npu_add_layer_norm(x1, x2, weight, bias, eps)[0]
+
+    # 临时实现
+    added = add(x1, x2)
+    return layer_norm(added, normalized_shape, weight, bias, eps)
 
 
 # 创建模式匹配器
@@ -88,18 +93,20 @@ count = 0
 def custom_add_layernorm_pass(graph: torch.fx.graph):
     """自定义的Add + LayerNorm融合pass"""
     global count
-    
+
     print("\n=== Before Pattern Matching ===")
     print(f"Graph nodes: {len(list(graph.nodes))}")
     for i, node in enumerate(graph.nodes):
-        print(f"Node {i}: {node.op} - {node.target} - args: {node.args} - kwargs: {node.kwargs}")
-    
+        print(
+            f"Node {i}: {node.op} - {node.target} - args: {node.args} - kwargs: {node.kwargs}"
+        )
+
     count = patterns.apply(graph)
-    
+
     print(f"\n=== After Pattern Matching ===")
     print(f"Patterns matched: {count}")
     print(f"Graph nodes: {len(list(graph.nodes))}")
-    
+
     return count
 
 
@@ -134,8 +141,9 @@ def test_add_layernorm_pattern():
 
     # 原始输出
     expected = model_with_add_layernorm(x1, x2, (768,), weight, bias, 1e-5)
-    
+
     import torch.fx as fx
+
     # 符号化追踪模型
     traced = fx.symbolic_trace(model_with_add_layernorm)
 
