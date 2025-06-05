@@ -67,7 +67,7 @@ def fused_add_layer_norm_decomposed(
 patterns = PatternMatcherPass()
 
 # 示例输入用于模式匹配
-batch_size, seq_len, hidden_dim = 2, 128, 768
+batch_size, seq_len, hidden_dim = 11, 256, 768
 inputs_decomposed = (
     torch.randn(
         batch_size, seq_len, hidden_dim, dtype=torch.float16, device=device
@@ -131,8 +131,8 @@ def test_add_layernorm_pattern():
         return F.layer_norm(added, weight.shape, weight, bias, eps)
 
     # 创建测试数据
-    x1 = torch.randn(2, 128, 768, device=device, dtype=torch.float16)
-    x2 = torch.randn(2, 128, 768, device=device, dtype=torch.float16)
+    x1 = torch.randn(11, 256, 768, device=device, dtype=torch.float16)
+    x2 = torch.randn(11, 256, 768, device=device, dtype=torch.float16)
     weight = torch.randn(768, device=device, dtype=torch.float16)
     bias = torch.randn(768, device=device, dtype=torch.float16)
 
