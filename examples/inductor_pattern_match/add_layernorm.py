@@ -116,34 +116,37 @@ def custom_add_layernorm_pass(graph: torch.fx.graph):
 inductor_config.post_grad_custom_pre_pass = custom_add_layernorm_pass
 
 
+class AddLayerNorm(torch.nn.Module):
+    """Add + LayerNorm模块"""
+
+    def __init__(self):
+        super().__init__()
+        self.norm1 = torch.nn.LayerNorm(768, eps=1e-6)
+
+    def forward(self, x1: torch.Tensor, x2: torch.Tensor) -> torch.Tensor:
+        # Add操作
+        added = x1 + x2
+        # LayerNorm操作
+        return self.norm1(added)
+
+
 def test_add_layernorm_pattern():
     """测试Add + LayerNorm模式匹配"""
 
-    def model_with_add_layernorm(
-        x1: torch.Tensor,
-        x2: torch.Tensor,
-        weight: torch.Tensor,
-        bias: torch.Tensor,
-    ) -> torch.Tensor:
-        # Add操作
-        added = x1 + x2
-        eps = 1e-5
-        # LayerNorm操作
-        return F.layer_norm(added, weight.shape, weight, bias, eps)
+    model = AddLayerNorm().to(device)
+    compiled_model = torch.compile(model, backend="inductor")
 
     # 创建测试数据
     x1 = torch.randn(11, 256, 768, device=device, dtype=torch.float16)
     x2 = torch.randn(11, 256, 768, device=device, dtype=torch.float16)
-    weight = torch.randn(768, device=device, dtype=torch.float16)
-    bias = torch.randn(768, device=device, dtype=torch.float16)
 
     # 原始输出
-    expected = model_with_add_layernorm(x1, x2, weight, bias)
+    expected = model(x1, x2)
 
     import torch.fx as fx
 
     # 符号化追踪模型
-    traced = fx.symbolic_trace(model_with_add_layernorm)
+    traced = fx.symbolic_trace(model)
 
     # 打印图结构
     print(traced.graph)
@@ -152,8 +155,7 @@ def test_add_layernorm_pattern():
     print(traced.code)
 
     # 编译后的输出
-    compiled_model = torch.compile(model_with_add_layernorm, backend="inductor")
-    actual = compiled_model(x1, x2, weight, bias)
+    actual = compiled_model(x1, x2)
 
     # 验证结果一致性
     print(torch.allclose(actual, expected))
