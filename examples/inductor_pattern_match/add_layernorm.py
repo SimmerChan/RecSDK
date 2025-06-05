@@ -144,7 +144,7 @@ def test_add_layernorm_pattern():
     actual = compiled_model(x1, x2, weight, bias, 1e-5)
 
     # 验证结果一致性
-    print(torch.allclose(actual, expected, rtol=1e-4, atol=1e-4))
+    print(torch.allclose(actual, expected))
     print(f"Add + LayerNorm pattern matched {count} times")
 
     return actual
