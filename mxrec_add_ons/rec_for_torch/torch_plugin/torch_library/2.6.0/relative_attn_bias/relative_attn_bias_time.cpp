@@ -12,11 +12,11 @@
 #include "../common/pytorch_npu_helper.hpp"
 using torch::autograd::AutogradContext;
 using torch::autograd::Function;
+using tensor_list = std::vector<at::Tensor>;
 using namespace at;
 using namespace std;
 
-Tensor relative_attn_bias_time_forward(const Tensor& timestamps,
-                                       const Tensor& timestampsWeights,
+Tensor relative_attn_bias_time_forward(const Tensor& timestamps, const Tensor& timestampsWeights,
                                        const double bucketDivisor)
 {
     auto timestampsConti = timestamps.contiguous();
@@ -28,15 +28,14 @@ Tensor relative_attn_bias_time_forward(const Tensor& timestamps,
 
     at::Tensor rabTimeOut = at::zeros({numLayers, bs, s, 1, s, 1}, timestampsWeightsConti.options());
     at::Tensor bucketTsOut = at::zeros({bs, s, s}, timestampsConti.options());
-    EXEC_NPU_CMD(aclnnRelativeAttnBiasTime, timestampsConti, timestampsWeightsConti, bucketDivisor,
-                 rabTimeOut, bucketTsOut);
+    EXEC_NPU_CMD(aclnnRelativeAttnBiasTime, timestampsConti, timestampsWeightsConti, bucketDivisor, rabTimeOut,
+                 bucketTsOut);
     rabTimeOut = rabTimeOut.repeat({1, 1, 1, 2, 1, 2}).reshape({numLayers, bs, sx2, sx2});
     return rabTimeOut;
 }
 
-Tensor relative_attn_bias_time_backward(const Tensor& rabTimeGrad,
-                                   const Tensor& bucketTimestamps,
-                                   const int64_t numBuckets)
+Tensor relative_attn_bias_time_backward(const Tensor& rabTimeGrad, const Tensor& bucketTimestamps,
+                                        const int64_t numBuckets)
 {
     const int numLayers = rabTimeGrad.size(0);  // rabTimeGrad(n, b, 2s, 2s)
     const int batchsize = rabTimeGrad.size(1);  // rabTimeGrad(n, b, 2s, 2s)
@@ -55,23 +54,21 @@ Tensor relative_attn_bias_time_backward(const Tensor& rabTimeGrad,
 
 class RelativeAttnBiasTime : public torch::autograd::Function<RelativeAttnBiasTime> {
 public:
-    static at::Tensor forward(AutogradContext* ctx,
-                              const Tensor& timestamps,
-                              const Tensor& timestampsWeights,
+    static at::Tensor forward(AutogradContext* ctx, const Tensor& timestamps, const Tensor& timestampsWeights,
                               const double bucketDivisor)
     {
         auto timestampsConti = timestamps.contiguous();
         auto timestampsWeightsConti = timestampsWeights.contiguous();
-        const int numLayers = timestampsWeights.size(0);  // (numLayers, numBuckets)
+        const int numLayers = timestampsWeights.size(0);   // (numLayers, numBuckets)
         const int numBuckets = timestampsWeights.size(1);  // (numLayers, numBuckets)
-        const int bs = timestampsConti.size(0);  // (bs, s)
-        const int s = timestampsConti.size(1);  // (bs, s)
+        const int bs = timestampsConti.size(0);            // (bs, s)
+        const int s = timestampsConti.size(1);             // (bs, s)
         const int sx2 = s * 2;
 
         at::Tensor rabTimeOut = at::zeros({numLayers, bs, s, 1, s, 1}, timestampsWeightsConti.options());
         at::Tensor bucketTsOut = at::zeros({bs, s, s}, timestampsConti.options());
-        EXEC_NPU_CMD(aclnnRelativeAttnBiasTime, timestampsConti, timestampsWeightsConti, bucketDivisor,
-                     rabTimeOut, bucketTsOut);
+        EXEC_NPU_CMD(aclnnRelativeAttnBiasTime, timestampsConti, timestampsWeightsConti, bucketDivisor, rabTimeOut,
+                     bucketTsOut);
         rabTimeOut = rabTimeOut.repeat({1, 1, 1, 2, 1, 2}).reshape({numLayers, bs, sx2, sx2});
         // 保存中间结果供反向使用
         ctx->save_for_backward({bucketTsOut});
@@ -84,8 +81,8 @@ public:
         auto gradOutput = gradOutputs[1];  // 与输入顺序ts、tsw对应，仅计算tsw梯度
 
         auto saved = ctx->get_saved_variables();
-        auto bucketTimestamps = saved[0];;
-        auto numBuckets = ctx->saved_data["numBuckets"].toInt();;
+        auto bucketTimestamps = saved[0];
+        auto numBuckets = ctx->saved_data["numBuckets"].toInt();
 
         return relative_attn_bias_time_backward(gradOutput, bucketTimestamps, numBuckets);
     }

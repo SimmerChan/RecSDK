@@ -177,11 +177,12 @@ public:
         queTimestampsFloat.FreeTensor(rabTime);
     }
 
-    __aicore__ inline void DataCopyOutIndex(LocalTensor<int32_t>& index, uint32_t rowOffset, uint32_t rowCnt)
+    __aicore__ inline void DataCopyOutIndex(LocalTensor<uint32_t>& index, uint32_t rowOffset, uint32_t rowCnt)
     {
 #ifdef SUPPORT_V200
         return ;
 #endif
+        LocalTensor<int32_t> index = tsInt.template ReinterpretCast<int32_t>();
         uint32_t ptr = rowOffset * s;
         for (int i = 0; i < rowCnt; ++i) {
             uint32_t ptrUb = i * alignSeqLen;
