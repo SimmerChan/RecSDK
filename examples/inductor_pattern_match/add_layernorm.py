@@ -44,8 +44,36 @@ def pattern_add_layer_norm_decomposed(
     weight: torch.Tensor,
     bias: torch.Tensor,
 ) -> torch.Tensor:
+    # 匹配实际的分解序列
+    # Node 4: add操作
     added = x1 + x2
-    return F.layer_norm(added, weight.shape, weight, bias, 1e-6)
+
+    # Node 5: 类型转换为float32
+    added_f32 = added.to(torch.float32)
+
+    # Node 6: var_mean操作
+    var, mean = torch.var_mean(added_f32, dim=[2], correction=0, keepdim=True)
+
+    # Node 9: 添加eps
+    var_eps = var + 1e-06
+
+    # Node 10: rsqrt操作
+    rstd = torch.rsqrt(var_eps)
+
+    # Node 11: 减去均值
+    centered = added - mean
+
+    # Node 12: 乘以rstd
+    normalized = centered * rstd
+
+    # Node 13: 乘以weight
+    scaled = normalized * weight
+
+    # Node 14: 加上bias
+    result = scaled + bias
+
+    # Node 15: 转换回float16
+    return result.to(torch.float16)
 
 
 def fused_add_layer_norm_decomposed(
