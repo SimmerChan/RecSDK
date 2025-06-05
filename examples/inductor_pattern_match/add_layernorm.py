@@ -32,10 +32,9 @@ def pattern_add_layer_norm_decomposed(
     x2: torch.Tensor,
     weight: torch.Tensor,
     bias: torch.Tensor,
-    eps: float=1e-5,
 ) -> torch.Tensor:
     added = x1 + x2
-    return F.layer_norm(added, weight.shape, weight, bias, eps)
+    return F.layer_norm(added, weight.shape, weight, bias, 1e-5)
 
 
 def fused_add_layer_norm_decomposed(
@@ -43,7 +42,6 @@ def fused_add_layer_norm_decomposed(
     x2: torch.Tensor,
     weight: torch.Tensor,
     bias: torch.Tensor,
-    eps: float=1e-5,
 ) -> torch.Tensor:
     """融合的Add + LayerNorm实现"""
     print("fused_add_layer_norm_decomposed called!")
@@ -51,7 +49,7 @@ def fused_add_layer_norm_decomposed(
 
     # 临时实现
     added = x1 + x2
-    return F.layer_norm(added, weight.shape, weight, bias, eps)
+    return F.layer_norm(added, weight.shape, weight, bias, 1e-5)
 
 
 # 创建模式匹配器
@@ -64,7 +62,6 @@ inputs_decomposed = (
     torch.randn(batch_size, seq_len, hidden_dim, dtype=torch.float16),  # x2
     torch.randn(hidden_dim, dtype=torch.float16),  # weight
     torch.randn(hidden_dim, dtype=torch.float16),  # bias
-    1e-5,  # eps
 )
 
 # 注册分解后的模式
