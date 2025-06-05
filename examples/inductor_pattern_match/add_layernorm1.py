@@ -101,7 +101,6 @@ def apply_add_layernorm_fusion_direct(model):
     graph.lint()
     traced.recompile()
 
-    print(f"Total patterns replaced: {match_count}")
     return traced
 
 
