@@ -164,11 +164,11 @@ def apply_add_layernorm_fusion_direct(model):
                             # 获取add操作的输入
                             x1, x2 = add_node.args
 
-                            # 获取LayerNorm参数 - 通过 getattr 访问
+                            # 获取LayerNorm参数
                             eps = module.eps
 
-                            # 在add节点之后插入融合操作
-                            with graph.inserting_after(add_node):
+                            # 在LayerNorm节点之前插入getattr和融合操作
+                            with graph.inserting_before(node):
                                 # 创建 getattr 节点来获取权重和偏置
                                 weight_node = graph.call_function(
                                     getattr, args=(traced, f"{node.target}.weight")
