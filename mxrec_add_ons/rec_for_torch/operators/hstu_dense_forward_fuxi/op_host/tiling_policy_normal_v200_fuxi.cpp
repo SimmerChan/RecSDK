@@ -16,6 +16,7 @@ See the License for the specific language governing permissions and
 #include <cstdint>
 
 #include "register/op_def_registry.h"
+#include "tiling_policy_define.h"
 #include "tiling_policy_factory.h"
 #include "tiling_policy_normal_v200_fuxi.h"
 
@@ -201,17 +202,14 @@ bool TilingPolicyNormalv200Fuxi::TilingHeighLevelApi(gert::TilingContext* contex
     return true;
 }
 
-bool TilingPolicyNormalv200Fuxi::TilingKeySet(gert::TilingContext* context,
-    optiling::HstuDenseForwardFuxiTilingData &tiling)
+bool TilingKeySet(gert::TilingContext* context, optiling::HstuDenseForwardFuxiTilingData &tiling)
 {
-    ge::DataType qTypeGe = context->GetInputTensor(0)->GetDataType();
+    ge::DataType qTypeGe = context->GetInputTensor(INDEX_T::INDEX_0)->GetDataType();
     if (qTypeGe == ge::DataType::DT_FLOAT16) {
         context->SetTilingKey(FLOAT16_TILING_KEY);
     } else {
         OPS_LOG_E(context, "invalid datatype, only support fp16.\n");
         return false;
     }
-
-    return true;
 }
 }
