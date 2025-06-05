@@ -120,13 +120,13 @@ def test_add_layernorm_pattern():
     bias = torch.randn(768, device=device, dtype=torch.float16)
 
     # 原始输出
-    expected = model_with_add_layernorm(x1, x2, (768,), weight, bias, 1e-6)
+    expected = model_with_add_layernorm(x1, x2, (768,), weight, bias, 1e-5)
 
     # 编译后的输出
     compiled_model = torch.compile(
         model_with_add_layernorm, backend="inductor", fullgraph=True
     )
-    actual = compiled_model(x1, x2, (768,), weight, bias, 1e-6)
+    actual = compiled_model(x1, x2, (768,), weight, bias, 1e-5)
 
     # 验证结果一致性
     print(torch.allclose(actual, expected, rtol=1e-4, atol=1e-4))
