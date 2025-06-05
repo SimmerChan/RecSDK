@@ -27,48 +27,63 @@ import torch._inductor.config as inductor_config
 # import torch_npu._inductor
 
 
-def pattern_add_layer_norm_aten(
+def pattern_add_layer_norm_decomposed(
     x1: torch.Tensor,
     x2: torch.Tensor,
     weight: torch.Tensor,
     bias: torch.Tensor,
-    eps: float,
+    eps: float = 1e-5,
 ) -> torch.Tensor:
-    """使用分解后的aten操作的Add + LayerNorm模式"""
-    # Add操作
-    added = torch.ops.aten.add.Tensor(x1, x2)
+    """精确匹配分解后的Add + LayerNorm模式"""
+    # 1. Add操作
+    add_result = torch.ops.aten.add.Tensor(x1, x2)
     
-    # LayerNorm的分解操作
-    # 1. 计算均值
-    mean = torch.ops.aten.mean.dim(added, [-1], True)
+    # 2. 类型转换到float32
+    convert_to_f32 = torch.ops.prims.convert_element_type.default(add_result, torch.float32)
     
-    # 2. 计算方差
-    centered = torch.ops.aten.sub.Tensor(added, mean)
-    var = torch.ops.aten.mean.dim(torch.ops.aten.pow.Tensor_Scalar(centered, 2), [-1], True)
+    # 3. 计算方差和均值
+    var_mean_result = torch.ops.aten.var_mean.correction(convert_to_f32, [2], correction=0, keepdim=True)
     
-    # 3. 标准化
-    std = torch.ops.aten.sqrt.default(torch.ops.aten.add.Tensor(var, eps))
-    normalized = torch.ops.aten.div.Tensor(centered, std)
+    # 4. 提取方差和均值
+    var = var_mean_result[0]
+    mean = var_mean_result[1]
     
-    # 4. 应用权重和偏置
-    scaled = torch.ops.aten.mul.Tensor(normalized, weight)
-    result = torch.ops.aten.add.Tensor(scaled, bias)
+    # 5. 减去均值
+    sub_result = torch.ops.aten.sub.Tensor(convert_to_f32, mean)
     
-    return result
+    # 6. 添加eps
+    add_eps = torch.ops.aten.add.Tensor(var, eps)
+    
+    # 7. 计算倒数平方根
+    rsqrt_result = torch.ops.aten.rsqrt.default(add_eps)
+    
+    # 8. 标准化
+    mul_result = torch.ops.aten.mul.Tensor(sub_result, rsqrt_result)
+    
+    # 9. 乘以权重
+    mul_weight = torch.ops.aten.mul.Tensor(mul_result, weight)
+    
+    # 10. 添加偏置
+    add_bias = torch.ops.aten.add.Tensor(mul_weight, bias)
+    
+    # 11. 转换回float16
+    convert_back = torch.ops.prims.convert_element_type.default(add_bias, torch.float16)
+    
+    return convert_back
 
 
-def fused_add_layer_norm_aten(
+def fused_add_layer_norm_decomposed(
     x1: torch.Tensor,
     x2: torch.Tensor,
     weight: torch.Tensor,
     bias: torch.Tensor,
-    eps: float,
+    eps: float = 1e-5,
 ) -> torch.Tensor:
-    """融合的Add + LayerNorm实现 - 使用aten操作"""
-    print("fused_add_layer_norm_aten called!")
+    """融合的Add + LayerNorm实现"""
+    print("fused_add_layer_norm_decomposed called!")
     # return torch_npu.npu_add_layer_norm(x1, x2, weight, bias, eps)[0]
 
-    # 临时实现 - 使用高级API
+    # 临时实现
     added = x1 + x2
     return F.layer_norm(added, weight.shape, weight, bias, eps)
 
@@ -78,19 +93,19 @@ patterns = PatternMatcherPass()
 
 # 示例输入用于模式匹配
 batch_size, seq_len, hidden_dim = 2, 128, 768
-inputs_aten = (
-    torch.randn(batch_size, seq_len, hidden_dim),  # x1
-    torch.randn(batch_size, seq_len, hidden_dim),  # x2
-    torch.randn(hidden_dim),  # weight
-    torch.randn(hidden_dim),  # bias
+inputs_decomposed = (
+    torch.randn(batch_size, seq_len, hidden_dim, dtype=torch.float16),  # x1
+    torch.randn(batch_size, seq_len, hidden_dim, dtype=torch.float16),  # x2
+    torch.randn(hidden_dim, dtype=torch.float16),  # weight
+    torch.randn(hidden_dim, dtype=torch.float16),  # bias
     1e-5,  # eps
 )
 
-# 注册分解后的aten操作模式
+# 注册分解后的模式
 register_replacement(
-    pattern_add_layer_norm_aten,
-    fused_add_layer_norm_aten,
-    inputs_aten,
+    pattern_add_layer_norm_decomposed,
+    fused_add_layer_norm_decomposed,
+    inputs_decomposed,
     fwd_only,
     patterns,
 )
