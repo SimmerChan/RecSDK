@@ -100,12 +100,17 @@ def test_add_layernorm_pattern():
     """测试Add + LayerNorm模式匹配"""
 
     def model_with_add_layernorm(
-        x1: torch.Tensor, x2: torch.Tensor, weight: torch.Tensor, bias: torch.Tensor
+        x1: torch.Tensor,
+        x2: torch.Tensor,
+        normalized_shape: Sequence[int],
+        weight: torch.Tensor,
+        bias: torch.Tensor,
+        eps: float,
     ) -> torch.Tensor:
         # Add操作
         added = x1 + x2
         # LayerNorm操作 - 使用位置参数确保与pattern匹配
-        return F.layer_norm(added, (768,), weight, bias, 1e-5)
+        return F.layer_norm(added, normalized_shape, weight, bias, eps)
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     # 创建测试数据
@@ -115,13 +120,13 @@ def test_add_layernorm_pattern():
     bias = torch.randn(768, device=device, dtype=torch.float16)
 
     # 原始输出
-    expected = model_with_add_layernorm(x1, x2, weight, bias)
+    expected = model_with_add_layernorm(x1, x2, (768,), weight, bias, 1e-6)
 
     # 编译后的输出
     compiled_model = torch.compile(
         model_with_add_layernorm, backend="inductor", fullgraph=True
     )
-    actual = compiled_model(x1, x2, weight, bias)
+    actual = compiled_model(x1, x2, (768,), weight, bias, 1e-6)
 
     # 验证结果一致性
     print(torch.allclose(actual, expected, rtol=1e-4, atol=1e-4))
