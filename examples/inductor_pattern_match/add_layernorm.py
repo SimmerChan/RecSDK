@@ -30,6 +30,11 @@ import torch._inductor.config as inductor_config
 # 在文件顶部添加导入
 from operator import add
 from torch.nn.functional import layer_norm
+import torch.fx
+
+# 包装函数以确保正确追踪
+torch.fx.wrap('add')
+torch.fx.wrap('layer_norm')
 
 
 def pattern_add_layer_norm(
