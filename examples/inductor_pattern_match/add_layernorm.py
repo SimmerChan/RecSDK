@@ -49,11 +49,11 @@ def fused_add_layer_norm_decomposed(
 ) -> torch.Tensor:
     """融合的Add + LayerNorm实现"""
     print("fused_add_layer_norm_decomposed called!")
-    # return torch_npu.npu_add_layer_norm(x1, x2, weight, bias, eps)[0]
+    return torch_npu.npu_add_layer_norm(x1, x2, weight, bias, 1e-5)[0]
 
     # 临时实现
-    added = x1 + x2
-    return F.layer_norm(added, weight.shape, weight, bias, 1e-5)
+    # added = x1 + x2
+    # return F.layer_norm(added, weight.shape, weight, bias, 1e-5)
 
 
 # 创建模式匹配器
