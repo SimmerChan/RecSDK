@@ -32,18 +32,6 @@ if npu_env:
 print(f"device: {device}")
 
 
-# 定义融合操作函数
-def fused_add_layernorm(x1, x2, weight, bias, eps=1e-6):
-    """融合的Add + LayerNorm实现"""
-    print("fused_add_layernorm called!")
-    if npu_env:
-        return torch_npu.npu_add_layer_norm(x1, x2, weight, bias, eps)[0]
-    else:
-        # CPU/CUDA fallback
-        added = x1 + x2
-        return F.layer_norm(added, weight.shape, weight, bias, eps)
-
-
 def create_fused_add_layernorm(weight, bias, eps):
     """创建特定权重和偏置的融合函数"""
 
@@ -56,97 +44,6 @@ def create_fused_add_layernorm(weight, bias, eps):
             return F.layer_norm(added, weight.shape, weight, bias, eps)
 
     return fused_op
-
-
-# 自定义FX图变换器
-class AddLayerNormTransformer(fx.Transformer):
-    """自定义的Add + LayerNorm融合变换器"""
-
-    def __init__(self, module):
-        super().__init__(module)
-        self.match_count = 0
-        self.replaced_nodes = set()
-
-    def call_module(self, target, args, kwargs):
-        # 检查是否是LayerNorm模块
-        try:
-            module = self.module.get_submodule(target)
-        except AttributeError:
-            return super().call_module(target, args, kwargs)
-
-        if isinstance(module, torch.nn.LayerNorm):
-            # 检查输入是否来自add操作
-            if len(args) == 1 and isinstance(args[0], fx.Node):
-                add_node = args[0]
-                if (
-                    add_node.op == "call_function"
-                    and add_node.target == operator.add
-                    and add_node not in self.replaced_nodes
-                ):
-                    # 找到了Add + LayerNorm模式
-                    self.match_count += 1
-                    print(f"Found Add + LayerNorm pattern #{self.match_count}")
-
-                    # 获取add操作的输入
-                    x1, x2 = add_node.args
-
-                    # 获取LayerNorm参数
-                    weight = module.weight
-                    bias = module.bias
-                    eps = module.eps
-
-                    # 标记节点已被替换
-                    self.replaced_nodes.add(add_node)
-                    self.replaced_nodes.add(self.node)
-
-                    # 创建融合操作调用
-                    return self.call_function(
-                        fused_add_layernorm, (x1, x2, weight, bias, eps), {}
-                    )
-
-        # 默认处理
-        return super().call_module(target, args, kwargs)
-
-
-# 使用subgraph_rewriter的方式
-def apply_add_layernorm_fusion_with_rewriter(model):
-    """使用subgraph_rewriter应用Add + LayerNorm融合"""
-    from torch.fx.subgraph_rewriter import replace_pattern
-
-    # 定义模式
-    def pattern(x1, x2, norm_weight, norm_bias, eps):
-        add_result = x1 + x2
-        return F.layer_norm(add_result, norm_weight.shape, norm_weight, norm_bias, eps)
-
-    # 定义替换
-    def replacement(x1, x2, norm_weight, norm_bias, eps):
-        return fused_add_layernorm(x1, x2, norm_weight, norm_bias, eps)
-
-    # 首先将LayerNorm模块转换为functional形式
-    traced = fx.symbolic_trace(model)
-
-    # 手动转换LayerNorm模块调用为functional调用
-    class LayerNormToFunctional(fx.Transformer):
-        def call_module(self, target, args, kwargs):
-            module = self.module.get_submodule(target)
-            if isinstance(module, torch.nn.LayerNorm):
-                input_tensor = args[0]
-                return F.layer_norm(
-                    input_tensor,
-                    module.weight.shape,
-                    module.weight,
-                    module.bias,
-                    module.eps,
-                )
-            return super().call_module(target, args, kwargs)
-
-    # 转换为functional形式
-    functional_model = LayerNormToFunctional(traced).transform()
-
-    # 应用模式替换
-    replaced_model = replace_pattern(functional_model, pattern, replacement)
-
-    return replaced_model
 
 
 # 直接的图遍历和替换方法
@@ -243,25 +140,8 @@ def test_fx_transformation():
     print("\n原始代码:")
     print(traced_original.code)
 
-    # 方法1: 使用Transformer
-    print("\n=== 方法1: 使用Transformer ===")
-    transformer = AddLayerNormTransformer(traced_original)
-    transformed_model = transformer.transform()
-
-    print("变换后图结构:")
-    print(transformed_model.graph)
-    print("\n变换后代码:")
-    print(transformed_model.code)
-
-    with torch.no_grad():
-        result1 = transformed_model(x1, x2)
-    print(
-        f"Transformer方法结果匹配: {torch.allclose(result1, expected, rtol=1e-3, atol=1e-3)}"
-    )
-    print(f"匹配到的模式数量: {transformer.match_count}")
-
     # 方法2: 直接图操作
-    print("\n=== 方法2: 直接图操作 ===")
+    print("\n=== 直接图操作 ===")
     direct_model = apply_add_layernorm_fusion_direct(model)
 
     print("直接操作后图结构:")
@@ -274,8 +154,6 @@ def test_fx_transformation():
     print(
         f"直接操作方法结果匹配: {torch.allclose(result2, expected, rtol=1e-3, atol=1e-3)}"
     )
-
-    return result1, result2
 
 
 if __name__ == "__main__":
