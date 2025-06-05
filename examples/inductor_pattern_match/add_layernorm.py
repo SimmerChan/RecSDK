@@ -139,7 +139,7 @@ def test_add_layernorm_pattern():
     compiled_model = torch.compile(
         model_with_add_layernorm, backend="inductor", fullgraph=True
     )
-    actual = compiled_model(x1, x2, weight, bias, 1e-5)
+    actual = compiled_model(x1, x2, weight, bias)
 
     # 验证结果一致性
     print(torch.allclose(actual, expected))
