@@ -1,0 +1,35 @@
+import numpy as np
+from scipy.stats import pareto
+from concurrent.futures import ProcessPoolExecutor
+
+# 帕累托参数
+shape_param = 5    # 帕累托分布的形状参数 alpha（必须大于0）,越小尾越大
+scale_param = 1.0  # 帕累托分布的尺度参数 x_m（通常设置为一个较小的正数，例如1.0）
+
+length = 195841983
+
+def generate(i):
+    # labels生成
+    day_0_labels = np.random.randint(0,2, size=(length,1)).astype(np.int32)
+    # denses生成
+    day_0_dense = np.random.uniform(0,10,size=(length,13)).astype(np.float32)
+    # sparse生成
+    max_num_lst = [40000000,39060,17295,7424,20265,3,7122,1543,63,40000000,3067956,405282,10,2209,11938,155,4,976,14,40000000,40000000,40000000,590152,12973,108,36]
+
+    day_0_sparse = np.empty((length, 26), dtype=np.int32)
+
+    for index, max_num in enumerate(max_num_lst):
+        if max_num >= 40000000:
+            random_pareto_floats = pareto.rvs(shape_param, scale=scale_param, size=length)
+            random_pareto_ints = np.clip(np.round((max_num - 1) * (random_pareto_floats / (random_pareto_floats.max() )) ), 0, max_num).astype(np.int32)
+            day_0_sparse[:, index] = random_pareto_ints
+        else:
+            day_0_sparse[:, index] = np.random.randint(0, max_num, size=length)
+
+    np.save(f"day_{i}_labels.npy", day_0_labels)
+    np.save(f"day_{i}_dense.npy", day_0_dense)
+    np.save(f"day_{i}_sparse.npy", day_0_sparse)
+
+a = ProcessPoolExecutor(24)
+for i in range(24):
+    a.submit(generate, i)
