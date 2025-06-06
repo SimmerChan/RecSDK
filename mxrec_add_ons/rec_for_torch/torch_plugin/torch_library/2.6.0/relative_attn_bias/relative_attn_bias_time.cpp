@@ -12,6 +12,7 @@
 #include "../common/pytorch_npu_helper.hpp"
 using torch::autograd::AutogradContext;
 using torch::autograd::Function;
+using torch::autograd::Variable;
 using tensor_list = std::vector<at::Tensor>;
 using namespace at;
 using namespace std;
@@ -76,17 +77,23 @@ public:
         return rabTimeOut;
     }
 
-    static at::Tensor backward(AutogradContext* ctx, tensor_list gradOutputs)
+    static tensor_list backward(AutogradContext* ctx, tensor_list gradOutputs)
     {
-        auto gradOutput = gradOutputs[1];  // 与输入顺序ts、tsw对应，仅计算tsw梯度
+        auto gradOutput = gradOutputs[0];
 
         auto saved = ctx->get_saved_variables();
         auto bucketTimestamps = saved[0];
         auto numBuckets = ctx->saved_data["numBuckets"].toInt();
-
-        return relative_attn_bias_time_backward(gradOutput, bucketTimestamps, numBuckets);
+        at::Tensor tswGrad = relative_attn_bias_time_backward(gradOutput, bucketTimestamps, numBuckets);
+        return {Variable(), tswGrad, Variable()};
     }
 };
+
+Tensor relative_attn_bias_time(const Tensor& timestamps, const Tensor& timestampsWeights,
+                               const double bucketDivisor)
+{
+    return RelativeAttnBiasTime::apply(timestamps, timestampsWeights, bucketDivisor);
+}
 
 TORCH_LIBRARY_FRAGMENT(mxrec, m)
 {
@@ -94,10 +101,6 @@ TORCH_LIBRARY_FRAGMENT(mxrec, m)
           "                        Tensor timestamps_weights, "
           "                        float bucket_divisor"
           "                        ) -> Tensor");
-    m.def("relative_attn_bias_time_forward(Tensor timestamps, "
-          "                                Tensor timestamps_weights, "
-          "                                float bucket_divisor"
-          "                                ) -> Tensor");
     m.def("relative_attn_bias_time_backward(Tensor rab_time_grad, "
           "                                 Tensor bucket_timestamps, "
           "                                 int num_buckets"
@@ -106,7 +109,11 @@ TORCH_LIBRARY_FRAGMENT(mxrec, m)
 
 TORCH_LIBRARY_IMPL(mxrec, PrivateUse1, m)
 {
-    m.impl("relative_attn_bias_time", &relative_attn_bias_time);
-    m.impl("relative_attn_bias_time_forward", &relative_attn_bias_time_forward);
+    m.impl("relative_attn_bias_time", &relative_attn_bias_time_forward);
     m.impl("relative_attn_bias_time_backward", &relative_attn_bias_time_backward);
+}
+
+TORCH_LIBRARY_IMPL(mxrec, AutogradPrivateUse1, m)
+{
+    m.impl("relative_attn_bias_time", &relative_attn_bias_time);
 }
