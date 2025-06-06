@@ -15,7 +15,7 @@
 # ==============================================================================
 from dataset import Batch
 from torchrec import  PoolingType
-from hybrid_torchrec import HashEmbeddingBagCollection, HashEmbeddingBagConfig, PoolingType
+from hybrid_torchrec import HashEmbeddingBagCollection, HashEmbeddingBagConfig
 import torch
 
 

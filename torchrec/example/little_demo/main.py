@@ -57,7 +57,7 @@ def get_distribute_env():
 
 def invoke_main():
     rank, world_size = get_distribute_env()
-    device = torch.device(f"npu:{rank}")
+    device = torch.device(f"npu")
     dist.init_process_group(backend="hccl")
     host_gp = dist.new_group(backend="gloo")
     host_env = ShardingEnv(world_size=world_size, rank=rank, pg=host_gp)
@@ -87,7 +87,7 @@ def invoke_main():
     # Shard
     hybrid_sharder = get_default_hybrid_sharders(host_env=host_env)
     constrans = {
-        table_name: ParameterConstraints(sharding_types=["table_wise"])
+        table_name: ParameterConstraints(sharding_types=["table_wise"], compute_kernels=["fused"])
         for table_name in TABLE_NAMES
     }
 
@@ -97,10 +97,10 @@ def invoke_main():
     )
 
     
-    plan = planner.collective_plan(test_model, [hybrid_sharder], dist.GroupMember.WORLD)
+    plan = planner.collective_plan(test_model, hybrid_sharder, dist.GroupMember.WORLD)
     logging.info(plan)
     ddp_model = DistributedModelParallel(
-        test_model, device=torch.device("npu"), plan=plan, sharders=[hybrid_sharder]
+        test_model, device=torch.device("npu"), plan=plan, sharders=hybrid_sharder
     )
 
     # Optimizer filer

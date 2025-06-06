@@ -24,11 +24,11 @@ python3 generate_data.py
 ```shell
 git clone -b main https://github.com/facebookresearch/dlrm.git
 cd dlrm && git checkout b631a99 
-cp -f dvnc2_torchrec.patch ./
-git apply dvnc2_torchrec.patch
+cp -f ../dcnv2_recsdk_torch.patch ./
+git apply dcnv2_recsdk_torch.patch
 ```
 
-运行如下脚本启动训练任务。`$insert_your_path_here`为数据集路径。
+在dlrm/torchrec_dlrm下运行如下脚本启动训练任务。`$insert_your_path_here`为数据集路径。
 
 ```shell
 export ASCEND_RT_VISIBLE_DEVICES=0,1,2,3,4,5,6,7  # 指定哪些Device对当前进程可见
@@ -36,7 +36,7 @@ export PREPROCESSED_DATASET=$insert_your_path_here
 export TOTAL_TRAINING_SAMPLES=4195197692 ;
 export GLOBAL_BATCH_SIZE=16384;
 export WORLD_SIZE=8;
-torchx run -s local_cwd dist.ddp -j 1x8 --script dlrm_main.py -- \
+torchx run -s local_cwd dist.ddp -j 1x${WORLD_SIZE} --script dlrm_main.py -- \
     --embedding_dim 128 \
     --dense_arch_layer_sizes 512,256,128 \
     --over_arch_layer_sizes 1024,1024,512,256,1 \
