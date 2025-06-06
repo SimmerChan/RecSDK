@@ -40,7 +40,6 @@ docker run \
 --name ${container_name} \
 --net=host \
 --shm-size="300g" \
---privileged \
 -v /etc/localtime:/etc/localtime \
 -e ASCEND_VISIBLE_DEVICES=0-7 \
 -v /etc/ascend_install.info:/etc/ascend_install.info \

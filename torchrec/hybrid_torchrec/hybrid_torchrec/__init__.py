@@ -7,8 +7,8 @@
 # LICENSE file in the root directory of this source tree.
 
 import os
-import torch
 import sysconfig
+import torch
 from hybrid_torchrec.modules.hash_embeddingbag import HashEmbeddingBagCollection, HashEmbeddingBagConfig, \
     HybridHashTable
 

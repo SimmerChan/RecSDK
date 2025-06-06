@@ -87,7 +87,9 @@ def invoke_main():
     # Shard
     hybrid_sharder = get_default_hybrid_sharders(host_env=host_env)
     constrans = {
-        table_name: ParameterConstraints(sharding_types=["table_wise"], compute_kernels=["fused"])
+        table_name: ParameterConstraints(
+            sharding_types=["table_wise"], compute_kernels=["fused"]
+        )
         for table_name in TABLE_NAMES
     }
 
@@ -96,7 +98,6 @@ def invoke_main():
         constraints=constrans,
     )
 
-    
     plan = planner.collective_plan(test_model, hybrid_sharder, dist.GroupMember.WORLD)
     logging.info(plan)
     ddp_model = DistributedModelParallel(
@@ -106,7 +107,7 @@ def invoke_main():
     # Optimizer filer
     dense_optimizer = KeyedOptimizerWrapper(
         dict(in_backward_optimizer_filter(ddp_model.named_parameters())),
-        lambda params: torch.optim.Adagrad(params, lr=0.1)
+        lambda params: torch.optim.Adagrad(params, lr=0.1),
     )
     optimizer = CombinedOptimizer([ddp_model.fused_optimizer, dense_optimizer])
 

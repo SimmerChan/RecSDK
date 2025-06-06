@@ -66,7 +66,6 @@ tar zxvf Ascend-mindxsdk-mxrec-add-ons-linux-*.tar.gz
 cd mindxsdk-mxrec-add-ons
 bash mxrec_opp_asynchronous_complete_cumsum.run
 bash mxrec_opp_backward_codegen_adagrad_unweighted_exact.run
-bash mxrec_opp_bounds_check_indices.run
 bash mxrec_opp_permute2d_sparse_data.run
 bash mxrec_opp_split_embedding_codegen_forward_unweighted.run
 ```
