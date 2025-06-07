@@ -114,7 +114,8 @@ def define_flags():
                         choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
                         help="Log level")
     parser.add_argument('--epoch_num', type=int, default=10, help="Number of epochs")
-    parser.add_argument('--batch_num', type=int, default=100, help="Number of batchs")
+    parser.add_argument('--train_batch_num', type=int, default=2000, help="Number of train batchs")
+    parser.add_argument('--eval_batch_num', type=int, default=20, help="Number of eval batchs")
     return parser.parse_args()
 
 
@@ -434,12 +435,17 @@ def train(model: TorchMmoeModel, dataloader, val_dataloader, args, device):
             logging.info("Epoch %s - Batch %s - Loss %s", epoch, now_index, loss.item())
 
             now_index += 1
-            if args.batch_num & now_index == args.batch_num:
+            if args.train_batch_num & now_index == args.train_batch_num:
                 break
-        logging.info("Epoch %s - Loss %s - Total avg Loss %s", epoch, loss.item(), total_loss / len(dataloader))
+        if args.train_batch_num:
+            re_train_nums = min(args.train_batch_num, len(dataloader))
+        else:
+            re_train_nums = len(dataloader)
+        logging.info("Epoch %s - Loss %s - Total avg Loss %s", epoch, loss.item(), total_loss / re_train_nums)
 
         model.eval()
         val_loss = 0.0
+        val_index = 0
         with torch.no_grad():
             for eval_input_sample, eval_target_sample in val_dataloader:
                 eval_input_sample = {k: v.to(device) for k, v in eval_input_sample.items()}
@@ -454,7 +460,17 @@ def train(model: TorchMmoeModel, dataloader, val_dataloader, args, device):
                 ctr_auc = roc_auc_score(y_true, predictions["ctr"].detach().cpu().numpy())
                 ctcvr_auc = roc_auc_score(z_true, predictions["ctcvr"].detach().cpu().numpy())
                 logging.info("Eval Batch Loss %s - Ctr Auc %s - Ctcvr Auc %s", loss.item(), ctr_auc, ctcvr_auc)
-        avg_val_loss = val_loss / len(val_dataloader)
+
+                val_index += 1
+                if args.eval_batch_num & val_index == args.eval_batch_num:
+                    break
+
+        if args.eval_batch_num:
+            re_eval_nums = min(args.eval_batch_num, len(val_dataloader))
+        else:
+            re_eval_nums = len(val_dataloader)
+
+        avg_val_loss = val_loss / re_eval_nums
         logging.info("Eval Avg Loss %s", avg_val_loss)
 
         if best_auc < ctcvr_auc:
