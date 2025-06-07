@@ -98,11 +98,11 @@ def define_flags():
     parser.add_argument('--expert_layers', type=str, default="512,256", help="Expert layers")
     parser.add_argument('--tower_layers', type=str, default="128,64", help="tower layers")
     parser.add_argument('--ctr_task_wgt', type=float, default=0.5, help="loss weight of ctr task")
-    parser.add_argument('--data_dir', type=str, default="../data/alicpp/", help="Data directory")
+    parser.add_argument('--data_dir', type=str, default="alicpp/aliccp_out", help="Data directory")
     parser.add_argument('--dt_dir', type=str, default="", help="Data dt partition")
-    parser.add_argument('--model_dir', type=str, default=f"../checkpoint/aliccp/{MODEL_NAME}/",
+    parser.add_argument('--model_dir', type=str, default=f"./",
                         help="Model checkpoint directory")
-    parser.add_argument('--servable_model_dir', type=str, default=f"../model/serving/{MODEL_NAME}/",
+    parser.add_argument('--servable_model_dir', type=str, default=f"./",
                         help="Export servable model for pytorch Serving")
     parser.add_argument('--task_type', type=str, default="train", choices=["train", "eval", "predict"],
                         help="Task type")
