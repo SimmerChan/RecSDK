@@ -578,8 +578,7 @@ if __name__ == "__main__":
     logger.addHandler(console_hand)
     # Define the timezone for China Standard Time
     china_tz = pytz.timezone('Asia/Shanghai')
-    logfile_na = MODEL_NAME + "_" + datetime.now(china_tz).strftime("%Y_%m_%d_%H_%M_%S") + ".log"
-    logfile_path = os.path.join("../logs/aliccp/", logfile_na)
+    logfile_path = MODEL_NAME + "_" + datetime.now(china_tz).strftime("%Y_%m_%d_%H_%M_%S") + ".log"
     fh = logging.FileHandler(logfile_path)
     fh.setLevel(log_level)
     fh.setFormatter(formatter)
