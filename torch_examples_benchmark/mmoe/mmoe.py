@@ -200,7 +200,7 @@ class TorchMmoeModel(nn.Module):
                 expert_layers.append(nn.Linear(in_features, out_features))
                 expert_layers.append(nn.BatchNorm1d(out_features))
                 expert_layers.append(nn.ReLU())
-                expert_layers.append(nn.Dropout(p=0.2))
+                expert_layers.append(nn.Dropout(0.2))
                 in_features = out_features
             experts.append(nn.Sequential(*expert_layers))
         return experts
@@ -354,8 +354,8 @@ class TorchMmoeModel(nn.Module):
         y = labels['y'].view(-1)
         z = labels['z'].view(-1)
 
-        bce_loss = nn.BCEWithlogitsLoss(pos_weight=torch.tensor([ctr_weight], dtype=torch.float32, device=y.device))
-        ctcvr_bce_loss = nn.BCEWithlogitsLoss(pos_weight=torch.tensor([ctcvr_weight], dtype=torch.float32, device=z.device))
+        bce_loss = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([ctr_weight], dtype=torch.float32, device=y.device))
+        ctcvr_bce_loss = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([ctcvr_weight], dtype=torch.float32, device=z.device))
 
         ctr_loss = bce_loss(y_ctr_logit, y)
         ctcvr_loss = ctcvr_bce_loss(y_ctcvr_logit, z)
@@ -453,12 +453,12 @@ def train(model: TorchMmoeModel, dataloader, val_dataloader, args, device):
                 z_true = eval_target_sample["z"].cpu().numpy()
                 ctr_auc = roc_auc_score(y_true, predictions["ctr"].detach().cpu().numpy())
                 ctcvr_auc = roc_auc_score(z_true, predictions["ctcvr"].detach().cpu().numpy())
-                logging.info("Eval Batch Loss %s - Ctr Auc %s -Ctcvr Auc %s", loss.item(), ctr_auc, ctcvr_auc)
+                logging.info("Eval Batch Loss %s - Ctr Auc %s - Ctcvr Auc %s", loss.item(), ctr_auc, ctcvr_auc)
         avg_val_loss = val_loss / len(val_dataloader)
         logging.info("Eval Avg Loss %s", avg_val_loss)
 
         if best_auc < ctcvr_auc:
-            ctcvr_auc = ctcvr_auc
+            best_auc = ctcvr_auc
             counter = 0
         else:
             counter += 1
@@ -487,15 +487,15 @@ def evaluate(model: TorchMmoeModel, test_dataloader, device):
             total_loss += loss.item()
             # CTR
             all_ctr_labels.append(target_sample["y"].detach().cpu().numpy())
-            all_ctr_preds.append(predictions["ctr"].detach().cpu.numpy())
+            all_ctr_preds.append(predictions["ctr"].detach().cpu().numpy())
             # CTCVR
             all_ctcvr_labels.append(target_sample["z"].detach().cpu().numpy())
-            all_ctcvr_preds.append(predictions["ctcvr"].detach().cpu.numpy())
+            all_ctcvr_preds.append(predictions["ctcvr"].detach().cpu().numpy())
             # CVR 只保留点击的
             mask = (target_sample["y"].squeeze(-1) > 0)
             if mask.sum() > 0:
                 all_cvr_labels.append(target_sample["z"][mask].detach().cpu().numpy())
-                all_cvr_preds.append(predictions["cvr"][mask].detach().cpu.numpy())
+                all_cvr_preds.append(predictions["cvr"][mask].detach().cpu().numpy())
 
     avg_test_loss = total_loss / len(test_dataloader)
     logging.info("Test Loss:  %s.4f", avg_test_loss)
@@ -512,11 +512,11 @@ def evaluate(model: TorchMmoeModel, test_dataloader, device):
 
     auc_ctr = roc_auc_score(all_ctr_labels, all_ctr_preds)
     auc_ctcvr = roc_auc_score(all_ctcvr_labels, all_ctcvr_preds)
-    auc_cvr = roc_auc_score(all_cvr_labels, all_cvr_preds)
+    auc_cvr = roc_auc_score(all_cvr_labels, all_cvr_preds) if len(all_cvr_labels) > 0 else float("nan")
 
-    logging.info("AUC CTR:  %s.4f", auc_ctr)
-    logging.info("AUC CVR:  %s.4f", auc_cvr)
-    logging.info("AUC CTCVR:  %s.4f", auc_ctcvr)
+    logging.info("AUC CTR: %s.4f", auc_ctr)
+    logging.info("AUC CVR: %s.4f", auc_cvr)
+    logging.info("AUC CTCVR: %s.4f", auc_ctcvr)
 
     return avg_test_loss
 
