@@ -242,7 +242,7 @@ public:
 #ifndef SUPPORT_V200
             DataCopyOutIndex(bucketTimestamps, rowOffset, rowCnt);
 #endif
-            Muls(bucketTimestamps, bucketTimestamps, (int32_t)sizeof(FloatType), cnt);  // 计算gather时的偏移量单位为bytes
+            Muls(bucketTimestamps, bucketTimestamps, (int32_t)sizeof(FloatType), rowCnt * alignSeqLen);  // 计算gather时的偏移量单位为bytes
             queTimestamps.EnQue(bucketTimestamps);
             bucketTimestamps = queTimestamps.DeQue<int32_t>();
             LocalTensor<uint32_t> index = bucketTimestamps.template ReinterpretCast<uint32_t>();
