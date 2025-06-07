@@ -87,7 +87,7 @@ def create_timestamps_weights(num_layers: int):
 
 
 def create_rab_time_grad(num_layers: int, batchsize: int, s: int):
-    return torch.randn(num_layers, batchsize, s, s) * 1e-4
+    return torch.randn(num_layers, batchsize, s, s) * 1e-5
 
 
 def create_bucket_timestamps(batchsize: int, s: int):

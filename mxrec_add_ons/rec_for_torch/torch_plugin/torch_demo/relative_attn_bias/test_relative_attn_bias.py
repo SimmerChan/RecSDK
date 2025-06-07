@@ -66,14 +66,16 @@ def rab_time(num_layers, train_len, candidate_len, bs, dtype):
     result_op, index_op = torch.ops.mxrec.relative_attn_bias_time_with_index(timestamps_weights=timestamps_weights,
                                                                              timestamps=timestamps,
                                                                              bucket_divisor=BUCKET_DIVISOR)
+    result_op, index_op = result_op.to('cpu'), index_op.to('cpu')
 
     result_golden, index_golden = rab_time_golden(timestamps_weights=timestamps_weights.transpose(0, 1),
                                                   timestamps=timestamps,
                                                   bucket_divisor=BUCKET_DIVISOR)
+    result_golden, index_golden = result_golden.to('cpu'), index_golden.to('cpu')
     torch_npu.npu.synchronize()
 
     _, s, _ = index_op.shape
-    index_op_repeat = index_op.view(bs, s, 1, s, 1).repeat(1, 1, 2, 1, 2).reshape(index_golden.shape)
+    index_op_repeat = index_op.view(bs, s, 1, s, 1).repeat(1, 1, 2, 1, 2).reshape(index_golden.shape).to(torch.int64)
     assert torch.allclose(result_golden, result_op)
     assert torch.allclose(index_golden, index_op_repeat)
 
@@ -88,7 +90,7 @@ def rab_time_backward(num_layers, train_len, candidate_len, bs, dtype):
     torch_npu.npu.synchronize()
 
     golden_result = rab_time_backward_golden(grad, bucket_timestamps).to("cpu")
-    op_result = (torch.ops.mxrec.relative_attn_bias_backward(grad, bucket_timestamps, NUM_BUCKETS)
+    op_result = (torch.ops.mxrec.relative_attn_bias_time_backward(grad, bucket_timestamps, NUM_BUCKETS)
                  .to(torch.float32).to("cpu"))
     loss = 1e-5 if dtype == torch.float32 else 1e-3
     assert torch.allclose(op_result, golden_result, rtol=loss, atol=loss)

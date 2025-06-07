@@ -288,7 +288,7 @@ private:
     GlobalTensor<int32_t> bucketTimestampsOutGT;
 
     TPipe pipe;
-    TQueBind<TPosition::VECIN, TPosition::VECOUT, 1> queTimestamps;
+    TQue<TPosition::VECIN, 1> queTimestamps;
     TQue<TPosition::VECOUT, 1> queTimestampsFloat;
     TQue<TPosition::VECIN, 1> queTimestampsWeights;
     TQue<TPosition::VECCALC, 1> tmpQue;
