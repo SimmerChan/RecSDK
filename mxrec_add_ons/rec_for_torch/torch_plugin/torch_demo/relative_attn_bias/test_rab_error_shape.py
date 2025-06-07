@@ -17,7 +17,7 @@ def test_rab_time(ts_dim, tsw_dim, seq_len, dtype):
     torch_npu.npu.set_device(DEVICE)
 
     timestamps = torch.empty(seq_len, dtype=torch.int32, device=DEVICE)  # (b, s)
-    timestamps_weights = torch.empty(NUM_BUCKETS, dtype=torch.int32, device=DEVICE)  # (layer, bucket)
+    timestamps_weights = torch.empty(NUM_BUCKETS, dtype=dtype, device=DEVICE)  # (layer, bucket)
 
     while timestamps.dim() != ts_dim:
         timestamps = timestamps.unsqueeze(0)
