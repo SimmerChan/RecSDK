@@ -595,9 +595,9 @@ def evaluate(model: TorchMmoeModel, te_files, device):
     auc_ctcvr = roc_auc_score(all_ctcvr_labels, all_ctcvr_preds)
     auc_cvr = roc_auc_score(all_cvr_labels, all_cvr_preds) if len(all_cvr_labels) > 0 else float("nan")
 
-    logging.info("AUC CTR: %s.4f", auc_ctr)
-    logging.info("AUC CVR: %s.4f", auc_cvr)
-    logging.info("AUC CTCVR: %s.4f", auc_ctcvr)
+    logging.info("AUC CTR: %.4f", auc_ctr)
+    logging.info("AUC CVR: %.4f", auc_cvr)
+    logging.info("AUC CTCVR: %.4f", auc_ctcvr)
 
     return avg_test_loss
 
