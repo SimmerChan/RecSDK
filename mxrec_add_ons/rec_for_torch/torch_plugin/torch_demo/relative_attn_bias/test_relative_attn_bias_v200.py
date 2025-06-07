@@ -18,9 +18,11 @@ import pytest
 import torch
 import torch_npu
 
-from utils import *
+from utils import (create_pos_w, create_past_valid_lens, init_rel_pos_bias, create_timestamps,
+                   create_timestamps_weights, BUCKET_DIVISOR, rab_pos_golden, rab_time_golden)
 
 DEVICE = "npu:7"
+
 
 @torch.no_grad()
 def rab_pos(num_layers, train_len, candidate_len, bs, dtype):

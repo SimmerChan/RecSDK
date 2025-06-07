@@ -19,7 +19,9 @@ import pytest
 import torch
 import torch_npu
 
-from utils import *
+from utils import (create_pos_w, create_past_valid_lens, init_rel_pos_bias, create_timestamps, create_rab_time_grad,
+                   create_bucket_timestamps, create_timestamps_weights, NUM_BUCKETS, BUCKET_DIVISOR,
+                   rab_pos_golden, rab_time_golden, rab_time_backward_golden)
 
 DEVICE = "npu:7"
 

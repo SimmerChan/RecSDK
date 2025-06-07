@@ -18,9 +18,8 @@ using torch::autograd::Function;
 using namespace at;
 using namespace std;
 
-Tensor relative_attn_bias_pos_forward(const Tensor& relPosBias,
-                                       const Tensor& identity,
-                                       const at::IntArrayRef pastValidLens)
+Tensor relative_attn_bias_pos_forward(const Tensor& relPosBias, const Tensor& identity,
+                                      const at::IntArrayRef pastValidLens)
 {
     auto relPosBiasConti = relPosBias.contiguous();
     auto identityConti = identity.contiguous();
