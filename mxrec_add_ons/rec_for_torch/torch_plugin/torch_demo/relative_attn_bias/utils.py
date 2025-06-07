@@ -98,7 +98,7 @@ def create_bucket_timestamps(batchsize: int, s: int):
 
 def rab_time_golden(timestamps_weights: torch.Tensor,
                     timestamps: torch.Tensor,
-                    bucket_divisor: float) -> torch.Tensor:
+                    bucket_divisor: float) -> (torch.Tensor, torch.Tensor):
     """
     rab time 正向仿真
     num_buckets = 128
@@ -126,7 +126,7 @@ def rab_time_golden(timestamps_weights: torch.Tensor,
     rab_time_out = torch.index_select(timestamps_weights, dim=0, index=bucket_timestamps)
     rab_time_out = rab_time_out.t().view(num_layers, bs, infer_len, infer_len)
 
-    return rab_time_out
+    return rab_time_out, bucket_timestamps
 
 
 def rab_time_backward_golden(rab_time_grad: torch.Tensor, bucket_timestamps: torch.Tensor):
@@ -142,34 +142,6 @@ def rab_time_backward_golden(rab_time_grad: torch.Tensor, bucket_timestamps: tor
                                                                          tsw_grad[n],
                                                                          bucket_timestamps_expand.view(-1))
     return tsw_grad
-
-
-def rab_time_e2e_golden(timestamps_weights: torch.Tensor,
-                        timestamps: torch.Tensor,
-                        bucket_divisor: float) -> (torch.Tensor, torch.Tensor):
-    tsw = torch.nn.Parameter(timestamps_weights)
-    result = rab_time_golden(tsw, timestamps, bucket_divisor)
-
-    loss = torch.mean(result)
-    loss.backward()
-
-    grad = tsw.grad.clone()
-    return result, grad
-
-
-def rab_time_e2e_op(timestamps_weights: torch.Tensor,
-                        timestamps: torch.Tensor,
-                        bucket_divisor: float) -> (torch.Tensor, torch.Tensor):
-    tsw = torch.nn.Parameter(timestamps_weights)
-    result = torch.ops.mxrec.relative_attn_bias_time(timestamps_weights=tsw,
-                                                     timestamps=timestamps,
-                                                     bucket_divisor=bucket_divisor)
-
-    loss = torch.mean(result)
-    loss.backward()
-
-    grad = tsw.grad.clone()
-    return result, grad
 
 
 def rab_pos_golden(rel_pos_bias: torch.Tensor, identity: torch.Tensor, past_valid_lens: torch.Tensor) -> torch.Tensor:
@@ -194,12 +166,4 @@ def rab_pos_golden(rel_pos_bias: torch.Tensor, identity: torch.Tensor, past_vali
 
 
 def rab_pos_backward_golden():
-    pass
-
-
-def rab_pos_e2e_golden():
-    pass
-
-
-def rab_pos_e2e_op():
     pass

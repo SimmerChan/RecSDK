@@ -17,8 +17,10 @@ using tensor_list = std::vector<at::Tensor>;
 using namespace at;
 using namespace std;
 
-Tensor relative_attn_bias_time_forward(const Tensor& timestamps, const Tensor& timestampsWeights,
-                                       const double bucketDivisor)
+namespace {
+std::tuple<at::Tensor, at::Tensor> relative_attn_bias_time_impl(const Tensor& timestamps,
+                                                                const Tensor& timestampsWeights,
+                                                                const double bucketDivisor)
 {
     auto timestampsConti = timestamps.contiguous();
     auto timestampsWeightsConti = timestampsWeights.contiguous();
@@ -32,11 +34,11 @@ Tensor relative_attn_bias_time_forward(const Tensor& timestamps, const Tensor& t
     EXEC_NPU_CMD(aclnnRelativeAttnBiasTime, timestampsConti, timestampsWeightsConti, bucketDivisor, rabTimeOut,
                  bucketTsOut);
     rabTimeOut = rabTimeOut.repeat({1, 1, 1, 2, 1, 2}).reshape({numLayers, bs, sx2, sx2});
-    return rabTimeOut;
+    return {rabTimeOut, bucketTsOut};
 }
 
-Tensor relative_attn_bias_time_backward(const Tensor& rabTimeGrad, const Tensor& bucketTimestamps,
-                                        const int64_t numBuckets)
+Tensor relative_attn_bias_time_backward_impl(const Tensor& rabTimeGrad, const Tensor& bucketTimestamps,
+                                             const int64_t numBuckets)
 {
     const int numLayers = rabTimeGrad.size(0);  // rabTimeGrad(n, b, 2s, 2s)
     const int batchsize = rabTimeGrad.size(1);  // rabTimeGrad(n, b, 2s, 2s)
@@ -52,28 +54,32 @@ Tensor relative_attn_bias_time_backward(const Tensor& rabTimeGrad, const Tensor&
     EXEC_NPU_CMD(aclnnRelativeAttnBiasBackward, rabTimeGradConti, bucketTimestampsConti, numBuckets, rabTimeGradOut);
     return rabTimeGradOut;
 }
+}  // namespace
+
+Tensor relative_attn_bias_time_forward(const Tensor& timestamps, const Tensor& timestampsWeights,
+                                       const double bucketDivisor)
+{
+    auto [rabTimeOut, _] = relative_attn_bias_time_impl(timestamps, timestampsWeights, bucketDivisor);
+    return rabTimeOut;
+}
+
+tensor_list relative_attn_bias_time_forward_with_index(const Tensor& timestamps, const Tensor& timestampsWeights,
+                                                       const double bucketDivisor)
+{
+    auto [rabTimeOut, bucketTsOut] = relative_attn_bias_time_impl(timestamps, timestampsWeights, bucketDivisor);
+    return {rabTimeOut, bucketTsOut};
+}
 
 class RelativeAttnBiasTime : public torch::autograd::Function<RelativeAttnBiasTime> {
 public:
     static at::Tensor forward(AutogradContext* ctx, const Tensor& timestamps, const Tensor& timestampsWeights,
                               const double bucketDivisor)
     {
-        auto timestampsConti = timestamps.contiguous();
-        auto timestampsWeightsConti = timestampsWeights.contiguous();
-        const int numLayers = timestampsWeights.size(0);   // (numLayers, numBuckets)
-        const int numBuckets = timestampsWeights.size(1);  // (numLayers, numBuckets)
-        const int bs = timestampsConti.size(0);            // (bs, s)
-        const int s = timestampsConti.size(1);             // (bs, s)
-        const int sx2 = s * 2;
+        auto [rabTimeOut, bucketTsOut] = relative_attn_bias_time_impl(timestamps, timestampsWeights, bucketDivisor);
 
-        at::Tensor rabTimeOut = at::zeros({numLayers, bs, s, 1, s, 1}, timestampsWeightsConti.options());
-        at::Tensor bucketTsOut = at::zeros({bs, s, s}, timestampsConti.options());
-        EXEC_NPU_CMD(aclnnRelativeAttnBiasTime, timestampsConti, timestampsWeightsConti, bucketDivisor, rabTimeOut,
-                     bucketTsOut);
-        rabTimeOut = rabTimeOut.repeat({1, 1, 1, 2, 1, 2}).reshape({numLayers, bs, sx2, sx2});
         // 保存中间结果供反向使用
         ctx->save_for_backward({bucketTsOut});
-        ctx->saved_data["numBuckets"] = numBuckets;
+        ctx->saved_data["numBuckets"] = timestampsWeights.size(1);
         return rabTimeOut;
     }
 
@@ -84,13 +90,12 @@ public:
         auto saved = ctx->get_saved_variables();
         auto bucketTimestamps = saved[0];
         auto numBuckets = ctx->saved_data["numBuckets"].toInt();
-        at::Tensor tswGrad = relative_attn_bias_time_backward(gradOutput, bucketTimestamps, numBuckets);
+        at::Tensor tswGrad = relative_attn_bias_time_backward_impl(gradOutput, bucketTimestamps, numBuckets);
         return {Variable(), tswGrad, Variable()};
     }
 };
 
-Tensor relative_attn_bias_time(const Tensor& timestamps, const Tensor& timestampsWeights,
-                               const double bucketDivisor)
+Tensor relative_attn_bias_time(const Tensor& timestamps, const Tensor& timestampsWeights, const double bucketDivisor)
 {
     return RelativeAttnBiasTime::apply(timestamps, timestampsWeights, bucketDivisor);
 }
@@ -105,12 +110,17 @@ TORCH_LIBRARY_FRAGMENT(mxrec, m)
           "                                 Tensor bucket_timestamps, "
           "                                 int num_buckets"
           "                                 ) -> Tensor");
+    m.def("relative_attn_bias_time_with_index(Tensor timestamps, "
+          "                                   Tensor timestamps_weights, "
+          "                                   float bucket_divisor"
+          "                                   ) -> Tensor[]");
 }
 
 TORCH_LIBRARY_IMPL(mxrec, PrivateUse1, m)
 {
     m.impl("relative_attn_bias_time", &relative_attn_bias_time_forward);
-    m.impl("relative_attn_bias_time_backward", &relative_attn_bias_time_backward);
+    m.impl("relative_attn_bias_time_backward", &relative_attn_bias_time_backward_impl);
+    m.impl("relative_attn_bias_time_with_index", &relative_attn_bias_time_forward_with_index);
 }
 
 TORCH_LIBRARY_IMPL(mxrec, AutogradPrivateUse1, m)

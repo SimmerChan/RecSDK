@@ -155,23 +155,22 @@ public:
                 DataCopy(rabTimeBiasOutGT[ptr + i * s], rabTime[ptrUb], s);
             }
             // 非对齐拷出
-            if (unalignLen == 0) {
-                continue;
-            }
+            if (unalignLen > 0) {
 #ifdef SUPPORT_V200
-            uint64_t mask0 = (1ul << (DATA_ALIGN_BYTES / sizeof(FloatType))) - (1ul << unalignCnt);
-            uint64_t mask[2] = {mask0, 0};
-            Duplicate(rabTime[ptrUb + alignCnt], (FloatType)0, mask, 1, 1, 1);
-            queTimestampsFloat.EnQue(rabTime);
-            rabTime = queTimestampsFloat.DeQue<FloatType>();
-            SetAtomicAdd<FloatType>();
-            DataCopy(rabTimeBiasOutGT[ptr + i * s + alignCnt], rabTime[ptrUb + alignCnt],
-                     Ceil(unalignLen) / sizeof(FloatType));
-            SetAtomicNone();
+                uint64_t mask0 = (1ul << (DATA_ALIGN_BYTES / sizeof(FloatType))) - (1ul << unalignCnt);
+                uint64_t mask[2] = {mask0, 0};
+                Duplicate(rabTime[ptrUb + alignCnt], (FloatType)0, mask, 1, 1, 1);
+                queTimestampsFloat.EnQue(rabTime);
+                rabTime = queTimestampsFloat.DeQue<FloatType>();
+                SetAtomicAdd<FloatType>();
+                DataCopy(rabTimeBiasOutGT[ptr + i * s + alignCnt], rabTime[ptrUb + alignCnt],
+                         Ceil(unalignLen) / sizeof(FloatType));
+                SetAtomicNone();
 #else
-            const DataCopyExtParams dataCopyExtParams{1, unalignLen, 0, 0, 0};
-            DataCopyPad(rabTimeBiasOutGT[ptr + i * s + alignCnt], rabTime[ptrUb + alignCnt], dataCopyExtParams);
+                const DataCopyExtParams dataCopyExtParams{1, unalignLen, 0, 0, 0};
+                DataCopyPad(rabTimeBiasOutGT[ptr + i * s + alignCnt], rabTime[ptrUb + alignCnt], dataCopyExtParams);
 #endif
+            }
         }
         queTimestampsFloat.FreeTensor(rabTime);
     }
@@ -185,6 +184,8 @@ public:
 
         uint32_t ptr = rowOffset * s;
         uint32_t ptrUb = 0;
+
+        pipe_barrier(PIPE_ALL);
         for (int i = 0; i < rowCnt; ++i) {
             // 对齐部分拷出
             if (alignLen32 > 0) {
@@ -193,11 +194,16 @@ public:
             // 非对齐拷出
             if (unalignLen32 > 0) {
                 const DataCopyExtParams dataCopyExtParams{1, unalignLen32, 0, 0, 0};
-                DataCopyPad(bucketTimestampsOutGT[ptr + alignCnt32], bucketTimestamps[ptrUb + alignCnt32], dataCopyExtParams);
+                DataCopyPad(bucketTimestampsOutGT[ptr + alignCnt32],
+                            bucketTimestamps[ptrUb + alignCnt32], dataCopyExtParams);
             }
             ptr += s;
             ptrUb += alignSeqLen;
         }
+
+        TEventID eventId = GetTPipePtr()->FetchEventID(HardEvent::MTE3_V);
+        SetFlag<HardEvent::MTE3_V>(eventId);
+        WaitFlag<HardEvent::MTE3_V>(eventId);
     }
 
     __aicore__ inline void DataCopyInTsw()
@@ -282,7 +288,7 @@ private:
     GlobalTensor<int32_t> bucketTimestampsOutGT;
 
     TPipe pipe;
-    TQue<TPosition::VECIN, 1> queTimestamps;
+    TQueBind<TPosition::VECIN, TPosition::VECOUT, 1> queTimestamps;
     TQue<TPosition::VECOUT, 1> queTimestampsFloat;
     TQue<TPosition::VECIN, 1> queTimestampsWeights;
     TQue<TPosition::VECCALC, 1> tmpQue;

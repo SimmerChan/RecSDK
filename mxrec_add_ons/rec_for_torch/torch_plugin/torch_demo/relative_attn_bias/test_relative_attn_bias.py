@@ -50,6 +50,7 @@ def rab_pos(num_layers, train_len, candidate_len, bs, dtype):
         assert torch.allclose(rab_pos_out_golden, rab_pos_out)
 
 
+@torch.no_grad()
 def rab_time(num_layers, train_len, candidate_len, bs, dtype):
     torch_npu.npu.set_device(DEVICE)
 
@@ -61,16 +62,36 @@ def rab_time(num_layers, train_len, candidate_len, bs, dtype):
     timestamps_weights = timestamps_weights.to(DEVICE)
     torch_npu.npu.synchronize()
 
-    result_op, grad_op = rab_time_e2e_op(timestamps_weights=timestamps_weights,
-                                         timestamps=timestamps,
-                                         bucket_divisor=BUCKET_DIVISOR)
-    result_golden, grad_golden = rab_time_e2e_golden(timestamps_weights=timestamps_weights.transpose(0, 1),
-                                                     timestamps=timestamps,
-                                                     bucket_divisor=BUCKET_DIVISOR)
+    # 正常使用时为：result_op = torch.ops.mxrec.relative_attn_bias_time(...)
+    result_op, index_op = torch.ops.mxrec.relative_attn_bias_time_with_index(timestamps_weights=timestamps_weights,
+                                                                             timestamps=timestamps,
+                                                                             bucket_divisor=BUCKET_DIVISOR)
+
+    result_golden, index_golden = rab_time_golden(timestamps_weights=timestamps_weights.transpose(0, 1),
+                                                  timestamps=timestamps,
+                                                  bucket_divisor=BUCKET_DIVISOR)
     torch_npu.npu.synchronize()
 
+    _, s, _ = index_op.shape
+    index_op_repeat = index_op.view(bs, s, 1, s, 1).repeat(1, 1, 2, 1, 2).reshape(index_golden.shape)
     assert torch.allclose(result_golden, result_op)
-    assert torch.allclose(grad_golden, grad_op)
+    assert torch.allclose(index_golden, index_op_repeat)
+
+
+@torch.no_grad()
+def rab_time_backward(num_layers, train_len, candidate_len, bs, dtype):
+    torch_npu.npu.set_device(DEVICE)
+    s = 2 * train_len + candidate_len
+
+    grad = create_rab_time_grad(num_layers, bs, s).to(dtype).to(DEVICE)
+    bucket_timestamps = create_bucket_timestamps(bs, s // 2).to(torch.int32).to(DEVICE)
+    torch_npu.npu.synchronize()
+
+    golden_result = rab_time_backward_golden(grad, bucket_timestamps).to("cpu")
+    op_result = (torch.ops.mxrec.relative_attn_bias_backward(grad, bucket_timestamps, NUM_BUCKETS)
+                 .to(torch.float32).to("cpu"))
+    loss = 1e-5 if dtype == torch.float32 else 1e-3
+    assert torch.allclose(op_result, golden_result, rtol=loss, atol=loss)
 
 
 @pytest.mark.parametrize("num_layers", [1, 8])
@@ -90,3 +111,20 @@ def test_rab_eval(num_layers, train_len, candidate_len, bs, dtype):
 def test_rab_train(num_layers, train_len, candidate_len, bs, dtype):
     rab_time(num_layers, train_len, candidate_len, bs, dtype)
     rab_pos(num_layers, train_len, candidate_len, bs, dtype)
+
+
+@pytest.mark.parametrize("num_layers", [1, 8])
+@pytest.mark.parametrize("train_len", [500, 1000, 2000, 4000])
+@pytest.mark.parametrize("candidate_len", [600])
+@pytest.mark.parametrize("bs", [1, 2, 4])
+@pytest.mark.parametrize("dtype", [torch.float16, torch.float32])
+def test_rab_eval_backward(num_layers, train_len, candidate_len, bs, dtype):
+    rab_time_backward(num_layers, train_len, candidate_len, bs, dtype)
+
+
+@pytest.mark.parametrize("num_layers", [1, 8])
+@pytest.mark.parametrize("train_len,bs", [(500, 128), (1000, 32), (1000, 64), (4000, 8)])
+@pytest.mark.parametrize("candidate_len", [0])
+@pytest.mark.parametrize("dtype", [torch.float16, torch.float32])
+def test_rab_train_backward(num_layers, train_len, candidate_len, bs, dtype):
+    rab_time_backward(num_layers, train_len, candidate_len, bs, dtype)
