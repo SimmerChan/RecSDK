@@ -254,7 +254,7 @@ public:
                 uint32_t ptr = (n * bs * s + rowOffset) * s;
                 DataCopyOut(ptr, rowCnt);
             }
-            queTimestamps.FreeTensor(tsInt);
+            queTimestamps.FreeTensor(index);
         }
         queTimestampsWeights.FreeTensor(tsw);
     }
