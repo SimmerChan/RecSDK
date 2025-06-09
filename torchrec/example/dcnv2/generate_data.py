@@ -74,5 +74,5 @@ def generate_data(day):
 
 
 thrad_pool = ProcessPoolExecutor(DAYS)
-for day in range(DAYS):
-    thrad_pool.submit(generate_data, day)
+for a_day in range(DAYS):
+    thrad_pool.submit(generate_data, a_day)
