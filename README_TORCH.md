@@ -25,7 +25,7 @@
 
 \- CMake 3.20.6
 
-### Ascend-mindxsdk-torchrec1.1.0-npu-linux-*.tar.gz 
+### Ascend-mindxsdk-torchrec-1.1.0-npu-linux-*.tar.gz 
 
 参考 RecSDK/torchrec/README.md
 
@@ -38,7 +38,7 @@ tar zxvf Ascend-mindxsdk-torchrec1.1.0-npu-linux-*.tar.gz
 pip3 install torchrec-1.1.0+npu-py3-none-linux_*.whl
 ```
 
-### Ascend-mindxsdk-hybrid-torchrec1.1.0-linux-*.tar.gz
+### Ascend-mindxsdk-hybrid-torchrec-1.1.0-linux-*.tar.gz
 
 参考 RecSDK/torchrec/hybrid_torchrec/README.md
 
