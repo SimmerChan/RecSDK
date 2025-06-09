@@ -66,7 +66,7 @@ extern "C" __global__ __aicore__ void backward_codegen_adagrad_unweighted_exact(
         BackwardCodegenAdagradUnweightedExact::BackwardCodegenAdagradUnweightedExactKernelUnique<DTYPE_DEV_WEIGHTS> kernel;
         kernel.Compute(args);
     } else if (TILING_KEY_IS(4)) {
-        BackwardCodegenAdagradUnweightedExact::BackwardCodegenAdamUnweightedExactKernelUnique<DTYPE_DEV_WEIGHTS> kernel;
+        BackwardCodegenAdamUnweightedExact::BackwardCodegenAdamUnweightedExactKernelUnique<DTYPE_DEV_WEIGHTS> kernel;
         kernel.Compute(args);
     }
 }

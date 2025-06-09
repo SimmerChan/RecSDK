@@ -153,6 +153,7 @@ public:
 
     __aicore__ inline void Compute(Args args)
     {
+        this->Init(args);
         this->ClearGT(this->workspaceGT, this->totalHashSize);
         this->ClearGrad();
         pipe_barrier(PIPE_ALL);

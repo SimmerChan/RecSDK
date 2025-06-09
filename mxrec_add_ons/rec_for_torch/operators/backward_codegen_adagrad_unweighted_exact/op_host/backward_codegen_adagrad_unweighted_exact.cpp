@@ -15,7 +15,6 @@ See the License for the specific language governing permissions and
 
 #include <cmath>
 #include <cstdint>
-#include <vector>
 
 #include "backward_codegen_adagrad_unweighted_exact_tiling.h"
 #include "register/op_def_registry.h"
@@ -55,6 +54,7 @@ constexpr int LEARNING_RATE_INDEX = 12;
 constexpr int BETA1_INDEX = 13;
 constexpr int BETA2_INDEX = 14;
 constexpr int ITER_INDEX = 15;
+constexpr int IS_DYNAMIC_INDEX = 16;
 
 // tilling key index
 constexpr int NORMAL_ADAGRAD = 1;
@@ -83,6 +83,24 @@ static ge::graphStatus UniqueTilingFunc(gert::TilingContext* context,
     return ge::GRAPH_SUCCESS;
 }
 
+static void UniqueAdamTilingFunc(gert::TilingContext* context,
+                                 BackwardCodegenAdagradUnweightedExactTilingData& tilingData)
+{
+    float beta1 = *context->GetAttrs()->GetFloat(BETA1_INDEX);
+    float beta2 = *context->GetAttrs()->GetFloat(BETA2_INDEX);
+    int64_t iter = *context->GetAttrs()->GetInt(ITER_INDEX);
+
+    float _beta1 = (1 - pow(beta1, iter));
+    float _beta2 = (1 - pow(beta2, iter));
+    float _beta_sqrt = sqrt(_beta2);
+    tilingData.set_beta1(beta1);
+    tilingData.set_beta2(beta2);
+    tilingData.set_beta1pow(_beta1);
+    tilingData.set_beta2pow(_beta2);
+    tilingData.set_iter(iter);
+    tilingData.set_beta2sqrt(_beta_sqrt);
+
+}                    
 static ge::graphStatus NormalAdamTilingFunc(gert::TilingContext* context,
                                             BackwardCodegenAdagradUnweightedExactTilingData& tilingData)
 {
@@ -254,7 +272,7 @@ public:
             .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND});
         this->Input("dev_weights")
             .ParamType(REQUIRED)
-            .DataType({ge::DT_FLOAT, ge::DT_INT32})
+            .DataType({ge::DT_FLOAT, ge::DT_INT64})
             .Format({ge::FORMAT_ND, ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND});
         this->Input("uvm_weights")
@@ -279,7 +297,7 @@ public:
             .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND});
         this->Input("D_offsets")
             .ParamType(REQUIRED)
-            .DataType({ge::DT_INT32, ge::DT_INT64})
+            .DataType({ge::DT_INT32, ge::DT_INT32})
             .Format({ge::FORMAT_ND, ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND});
         this->Input("hash_size_cumsum")
@@ -309,7 +327,7 @@ public:
             .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND});
         this->Input("momentum1_uvm")
             .ParamType(OPTIONAL)
-            .DataType({ge::DT_FLOAT, ge::DT_FLOAT})
+            .DataType({ge::DT_FLOAT, ge::DT_INT64})
             .Format({ge::FORMAT_ND, ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND});
         this->Input("momentum1_placements")
@@ -319,7 +337,7 @@ public:
             .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND});
         this->Input("momentum1_offsets")
             .ParamType(OPTIONAL)
-            .DataType({ge::DT_INT64, ge::DT_FLOAT})
+            .DataType({ge::DT_INT64, ge::DT_INT64})
             .Format({ge::FORMAT_ND, ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND});
         this->Input("momentum2_dev")

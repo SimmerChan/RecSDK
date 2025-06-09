@@ -55,7 +55,7 @@ public:
 
         int64_t tableIndex = 0;
         for (int64_t i = this->weightsOffsetsDim0; i >= 0; i--) {
-            if (thisTableOffset >= this->hashSizeCumSumGT.GetValue(i)) {
+            if (thisTableOffset >= this->hashSizeCumsumGT.GetValue(i)) {
                 tableIndex = i;
                 break;
             }
@@ -76,7 +76,7 @@ public:
             while (thisLen < indicesNumOneBlock && remain > 0) {
                 int64_t thisIndForTotalTable = thisTableOffset + total - remain;
                 remain = remain - 1;
-                if (thisIndForTotalTable >= this->hashSizeCumSumGT.GetValue(tableIndex + 1)) {
+                if (thisIndForTotalTable >= this->DT_INT64.GetValue(tableIndex + 1)) {
                     tableIndex = tableIndex + 1;
                 }
 
@@ -84,7 +84,7 @@ public:
                     continue;
                 }
 
-                int64_t thisIndForThisTable = thisIndForTotalTable - this->hashSizeCumSumGT.GetValue(tableIndex);
+                int64_t thisIndForThisTable = thisIndForTotalTable - this->DT_INT64.GetValue(tableIndex);
                 int64_t embedDim = *(dOffsetsPtr + tableIndex + 1) - *(dOffsetsPtr + tableIndex);
                 int64_t thisWeightOffset = *(weightsOffsetsPtr + tableIndex);
                 int64_t thisOutOffset = thisWeightOffset + thisIndForThisTable * embedDim;
@@ -113,7 +113,7 @@ public:
                 int64_t thisMomentIndex = i * this->maxD * numOfOut + outIndex1;
                 Mul<float>(outLt[thisGradIndex], newInputLt[thisGradIndex], newInputLt[thisGradIndex],
                            theArgs.embedDim);
-                Add<float>(outLt[thisGradIndex], inputLt[thisMomentIndex], outLt[thisGradIndex], theArgs.embedDim);
+                Add<float>(outLt[thisGradIndex], newInputLt[thisMomentIndex], outLt[thisGradIndex], theArgs.embedDim);
 
                 Sqrt<float>(outLt[thisGradIndex], outLt[thisGradIndex], theArgs.embedDim);
                 Adds<float>(outLt[thisGradIndex], outLt[thisGradIndex], this->eps, theArgs.embedDim);

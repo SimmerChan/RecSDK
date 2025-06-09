@@ -75,9 +75,9 @@ struct UpdateArgs {
     int64_t thisOutOffset;
 };
 
-__aicore__ inline int64_t GetOffset(GM_ADDR offsetAddr, int64_t index, int64_t datType)
+__aicore__ inline int64_t GetOffset(GM_ADDR offsetAddr, int64_t index, int64_t dataType)
 {
-    if (datType == DATA_TYPE_INT64) {
+    if (dataType == DATA_TYPE_INT64) {
         __gm__ int64_t* offsetPtr = (__gm__ int64_t*)offsetAddr;
         return *(offsetPtr + index);
     } else {
@@ -116,7 +116,7 @@ template <typename wType>
 class BackwardCodegenUnweightedExactKernel {
 public:
     __aicore__ inline BackwardCodegenUnweightedExactKernel(){}
-    __aicore__ inline Init(Args args)
+    __aicore__ inline void Init(Args args)
     {
         GET_TILING_DATA(tilingData, args.tiling);
         // ADDR

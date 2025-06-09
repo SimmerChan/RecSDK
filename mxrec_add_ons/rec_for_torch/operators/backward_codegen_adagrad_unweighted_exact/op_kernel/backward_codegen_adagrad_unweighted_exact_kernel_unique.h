@@ -68,7 +68,7 @@ public:
             remain -= thisLen;
             LocalTensor<float> inputLt = this->queIn.template AllocTensor<float>();
             LocalTensor<float> outputLt = this->queOut.template AllocTensor<float>();
-            LocalTensor<int64_t> indicesLt = queIndices.AllocTensor<int64_t>();
+            LocalTensor<int64_t> indicesLt = this->queIndices.template AllocTensor<int64_t>();
             
             // copyIn
             CpGm2Local(indicesLt, this->uniqueIdGT[offsetLen], thisLen);
@@ -89,10 +89,10 @@ public:
             }
             this->queIn.template EnQue(inputLt);
             this->queOut.template EnQue(outputLt);
-            queIndices.EnQue(indicesLt);
+            this->queIndices.template EnQue(indicesLt);
             inputLt = this->queIn.template DeQue<float>();
             outputLt = this->queOut.template DeQue<float>();
-            indicesLt = queIndices.DeQue<int64_t>();
+            indicesLt = this->queIndices.template DeQue<int64_t>();
             ComputeAda(inputLt, outputLt, thisLen);
             this->queOut.template EnQue(outputLt);
             LocalTensor<float> newOutLt = this->queOut.template DeQue<float>();
@@ -109,7 +109,7 @@ public:
             thisLen = remain;
             this->queIn.template FreeTensor(inputLt);
             this->queOut.template FreeTensor(newOutLt);
-            queIndices.FreeTensor(indicesLt);
+            this->queIndices.template FreeTensor(indicesLt);
         }
     }
     __aicore__ inline void Compute(Args args)

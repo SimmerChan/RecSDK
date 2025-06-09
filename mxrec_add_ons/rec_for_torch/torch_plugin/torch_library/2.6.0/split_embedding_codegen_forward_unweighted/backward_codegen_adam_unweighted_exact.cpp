@@ -290,7 +290,8 @@ public:
             Variable(),       // learning_rate
             Variable(),       // beta1
             Variable(),       // beta2
-            Variable()        // iter
+            Variable(),       // iter
+            Variable(),       // is_dynamic
         };
     }
 };

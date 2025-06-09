@@ -108,7 +108,7 @@ public:
             return {embedding_codegen_forward_op.call(
                 flatten_dev_weights, uvm_weights, lxu_cache_weights, weights_placements, weights_offsets, D_offsets,
                 total_D, max_D, indices, offsets, pooling_mode, lxu_cache_locations, uvm_cache_stats_, output_dtype,
-                is_experimental, hash_indices.value_or(Tensor())), unique_inverse.value_or(at::Tensor()), is_dynamic};
+                is_experimental, hash_indices.value_or(Tensor()), unique_inverse.value_or(at::Tensor()), is_dynamic)};
         }
         return {at::Tensor()};
     }
@@ -150,6 +150,7 @@ public:
         const auto use_homogeneous_placements = ctx->saved_data["use_homogeneous_placements"].toBool();
         auto eps = ctx->saved_data["eps"].toDouble();
         auto learning_rate = ctx->saved_data["learning_rate"].toDouble();
+        auto is_dynamic = ctx->saved_data["is_dynamic"].toBool();
 
         TORCH_CHECK_EQ(grad_outputs.size(), 1);
 
@@ -206,7 +207,8 @@ public:
             Variable(),        // unique_offsets
             Variable(),        // unique_inverse
             Variable(),        // eps
-            Variable()         // learning_rate
+            Variable(),        // learning_rate
+            Variable(),        // is_dynamic
         };
     }
 };

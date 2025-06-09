@@ -41,8 +41,8 @@ public:
         beta1 = tilingData.beta1;
         beta2 = tilingData.beta2;
         iter = tilingData.iter;
-        stepSize = tilingData.stepSize;
-        beta2sqrt = tilingData.beta2sqrt;
+        beta1pow = tilingData.beta1pow;
+        beta2pow = tilingData.beta2pow;
 
         numOfOut = 3;  // 输出个数为3：grad, momentum1, momentum2
         indicesNumOneBlock = this->blockLen / numOfOut / this->maxD;
@@ -127,8 +127,8 @@ public:
         float oneMinusBeta2 = (1 - beta2);
         float minusLearningRate = -this->learning_rate;
 
-        LocalTensor<float> inputLt = queIn.DeQue<float>();
-        LocalTensor<float> outLt = queOut.AllocTensor<float>();
+        LocalTensor<float> inputLt = this->queIn.template DeQue<float>();
+        LocalTensor<float> outLt = this->queOut.template AllocTensor<float>();
 
         for (int64_t i = 0; i < cnt; i++) {
             UpdateArgs theArgs = updateArgs[i];
@@ -154,7 +154,7 @@ public:
 
             // p[:] -= hyperparams['lr'] * v_bias_corr / (torch.sqrt(s_bias_corr) + eps)
             Sqrt<float>(outLt[thisMoment2Index], outLt[thisMoment2Index], theArgs.embedDim);
-            Adds<float>(outLt[thisMoment2Index], outLt[thisMoment2Index], eps, theArgs.embedDim);
+            Adds<float>(outLt[thisMoment2Index], outLt[thisMoment2Index], this->eps, theArgs.embedDim);
             Div<float>(outLt[thisGradIndex], outLt[thisMoment1Index], outLt[thisMoment2Index], theArgs.embedDim);
             Muls<float>(outLt[thisGradIndex], outLt[thisGradIndex], minusLearningRate, theArgs.embedDim);
         }
@@ -198,7 +198,6 @@ public:
     __aicore__ inline void Compute(Args args)
     {
         this->Init(args);
-        InitAdam(args);
         this->ClearGT(this->workspaceGT, this->totalHashSize);
         this->ClearGrad();
         pipe_barrier(PIPE_ALL);
@@ -223,6 +222,8 @@ private:
     float stepSize;
     float beta2sqrt;
     int64_t iter;
+    float beta1pow;
+    float beta2pow;
 
     int numOfOut;
     int indicesNumOneBlock;

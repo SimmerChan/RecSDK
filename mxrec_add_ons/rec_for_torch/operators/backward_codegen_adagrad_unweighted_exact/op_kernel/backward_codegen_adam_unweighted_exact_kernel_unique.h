@@ -42,6 +42,7 @@ public:
         iter = tilingData.iter;
         beta1pow = tilingData.beta1pow;
         beta2pow = tilingData.beta2pow;
+        beta2sqrt = tilingData.beta2sqrt;
         indicesNumOneBlock = this->blockLen / numOfOut / this->maxD;
         if (indicesNumOneBlock >= MAX_ARGS_PIPE_LEN) {
             indicesNumOneBlock = MAX_ARGS_PIPE_LEN;
@@ -54,7 +55,7 @@ public:
         for (int64_t i = 1; i < this->uniqueHashDim0; i++) {
             if (this->uniqueHashSizeGT.GetValue(i) != lastIndices) { // 每张表上的indices尽量均分到每张卡上
                 Scheduler(this->uniqueHashSizeGT.GetValue(i) - lastIndices, this->offsetOfThisCore, thisTableLen);
-                if (this->thisTableLen > 0) {
+                if (thisTableLen > 0) {
                     tableIndex = i - 1;
                     thisTableOffset = this->offsetOfThisCore + lastIndices;
                     UpdateEmbedAdam();
@@ -217,6 +218,7 @@ public:
     }
     __aicore__ inline void Compute(Args args)
     {
+        this->Init(args);
         this->InitUnique(args);
         InitAdam(args);
         this->ClearGrad();

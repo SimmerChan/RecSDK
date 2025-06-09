@@ -217,7 +217,8 @@ public:
             Variable(),       // unique_ids
             Variable(),       // unique_offsets
             Variable(),       // unique_inverse
-            Variable()        // learning_rate
+            Variable(),       // learning_rate
+            Variable(),       // is_dynamic
         };
     }
 };
