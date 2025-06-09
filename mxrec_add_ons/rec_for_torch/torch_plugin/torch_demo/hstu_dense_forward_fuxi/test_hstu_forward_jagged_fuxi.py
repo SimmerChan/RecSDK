@@ -99,7 +99,7 @@ class TestHstuJaggedFuxi:
         pos_bias_npu = pos_bias.to(f"npu:{device_id}").to(data_type)
         mask_npu = mask.to(f"npu:{device_id}").to(data_type)
 
-        if enable_bias is True:
+        if enable_bias:
             output = torch.ops.mxrec.hstu_fuxi(
                 q_npu, k_npu, v_npu, ts_bias_npu, pos_bias_npu, mask_npu, mask_type, max_seq_len, silu_scale, \
                     "jagged", seq_offset
@@ -197,7 +197,7 @@ class TestHstuJaggedFuxi:
             res = torch.allclose(output, gloden, 1e-3, 1e-3)
         else:
             res = torch.allclose(output, gloden, 1e-4, 1e-4)
-        assert res is True
+        assert res
 
     @pytest.mark.parametrize("batch_size", [1, 16])
     @pytest.mark.parametrize("max_seq_len", [15, 1024])
