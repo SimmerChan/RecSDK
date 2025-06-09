@@ -17,15 +17,7 @@
 | Ascend-mindxsdk-mxrec-add-ons-linux-*.tar.gz        | 算子包             |
 | libfbgemm_npu_api.so                                     | 算子适配层         |
 
-编译环境依赖：
-
-\- Python3.11.0
-
-\- GCC 10.2.0
-
-\- CMake 3.20.6
-
-## 编译环境
+### 编译环境
 参考torchrec/docker/README.md
 
 ### Ascend-mindxsdk-torchrec-1.1.0-npu-linux-*.tar.gz 
