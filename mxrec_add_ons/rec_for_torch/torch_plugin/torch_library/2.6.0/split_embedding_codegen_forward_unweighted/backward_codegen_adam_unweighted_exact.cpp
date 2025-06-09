@@ -176,7 +176,7 @@ public:
             return {embedding_codegen_forward_op.call(
                 flatten_dev_weights, uvm_weights, lxu_cache_weights, weights_placements, weights_offsets, D_offsets,
                 total_D, max_D, indices, offsets, pooling_mode, lxu_cache_locations, uvm_cache_stats_, output_dtype,
-                is_experimental, hash_indices.value_or(Tensor())), is_dynamic=false};
+                is_experimental, hash_indices.value_or(Tensor()), unique_inverse.value_or(at::Tensor()), is_dynamic)};
         }
         return {at::Tensor()};
     }

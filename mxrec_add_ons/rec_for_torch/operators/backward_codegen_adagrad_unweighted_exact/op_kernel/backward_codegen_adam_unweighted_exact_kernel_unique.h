@@ -16,7 +16,7 @@
 using namespace AscendC;
 using namespace BackwardCodegenUnweightedExactUnique;
 using namespace BackwardCodegenUnweightedExact;
-namespace BackwardCodegenAdagradUnweightedExactUnique {
+namespace BackwardCodegenAdamUnweightedExact {
 
 constexpr int M1_INDEX = 1;
 constexpr int M2_INDEX = 2;  

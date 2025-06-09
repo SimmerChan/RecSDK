@@ -24,6 +24,9 @@ extern "C" __global__ __aicore__ void split_embedding_codegen_forward_unweighted
 {
     SplitEmbeddingCodegenForwardUnweighted::Args args{
         devWeights, weightsPlacements, weightsOffsets, dOffsets, indices, offsets, hashIndices, uniqueInverse, out, tiling, workspace};
-    SplitEmbeddingCodegenForwardUnweighted::SplitEmbeddingCodegenForwardUnweightedKernel<DEVWEIGHTS_DTYPE> kernel(args);
+    SplitEmbeddingCodegenForwardUnweighted::SplitEmbeddingCodegenForwardUnweightedKernel<DTYPE_DEV_WEIGHTS
+    
+    
+    > kernel(args);
     kernel.Compute();
 }

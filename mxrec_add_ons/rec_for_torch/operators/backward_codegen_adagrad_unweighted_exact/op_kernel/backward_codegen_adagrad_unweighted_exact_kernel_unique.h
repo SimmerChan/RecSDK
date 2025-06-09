@@ -16,7 +16,7 @@
 using namespace AscendC;
 using namespace BackwardCodegenUnweightedExactUnique;
 using namespace BackwardCodegenUnweightedExact;
-namespace BackwardCodegenAdagradUnweightedExactUnique {
+namespace BackwardCodegenAdagradUnweightedExact {
 
 constexpr int NUM_OF_OUT = 2;
 template <typename wType>

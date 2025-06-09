@@ -159,7 +159,7 @@ public:
 
     __aicore__ inline void ComputeGrad()
     {
-        Scheduler(this->offsetsDim0 - 1,  this->offsetOfThisCore, this->lenOfThisCore);
+        Scheduler(this->offsetsDim0 - 1, this->offsetOfThisCore, this->lenOfThisCore);
         if (this->lenOfThisCore == 0) {
             return;
         }
