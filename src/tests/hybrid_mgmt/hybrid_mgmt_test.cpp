@@ -97,10 +97,11 @@ TEST_F(HybridMgmtTest, SetFeatureTypeForLoad)
 
 TEST_F(HybridMgmtTest, SetFeatureTypeForLoad_SetGlobalEnv)
 {
+    size_t resSize = 2;
     GlobalEnv::recordKeyCount = true;
     std::vector<CkptFeatureType> loadFeatures;
     m_hybridMgmt.SetFeatureTypeForLoad(loadFeatures);
-    EXPECT_EQ(loadFeatures.size(), 2);
+    EXPECT_EQ(loadFeatures.size(), resSize);
 }
 
 TEST_F(HybridMgmtTest, Destroy_NotInitialized_Error)
@@ -694,6 +695,7 @@ TEST_F(HybridMgmtTest, EmbeddingLookUpAndSendL3StorageShouldSendWhenInfoAndH2dEm
 
 TEST_F(HybridMgmtTest, EmbeddingLookUpAndSendL3Storage_IndexOne)
 {
+    size_t resSize = 2;
     int batchId = 0;
     int index = 1;
     int channelId = 0;
@@ -703,7 +705,7 @@ TEST_F(HybridMgmtTest, EmbeddingLookUpAndSendL3Storage_IndexOne)
 
     m_hybridMgmt.EmbeddingLookUpAndSendL3Storage(batchId, index, info, channelId);
 
-    EXPECT_EQ(m_hybridMgmt.lastSendFinishCV.size(), 2);
+    EXPECT_EQ(m_hybridMgmt.lastSendFinishCV.size(), resSize);
 }
 
 TEST_F(HybridMgmtTest, GetUniqueKeysAndSendAll2AllVecAndSendRestoreVec)

@@ -49,8 +49,9 @@ TEST_F(HybridMgmtBlockTest, CheckAndDoBlock)
 
 TEST_F(HybridMgmtBlockTest, CheckAndSetBlock_NotDivisible)
 {
+    auto batchId = 3;
     hybridMgmtBlock = std::make_unique<HybridMgmtBlock>();
-    hybridMgmtBlock->hybridBatchId[TRAIN_CHANNEL_ID] = 3;
+    hybridMgmtBlock->hybridBatchId[TRAIN_CHANNEL_ID] = batchId;
     auto trainStep = 2;
     hybridMgmtBlock->SetStepInterval(trainStep, 1);
     hybridMgmtBlock->CheckAndSetBlock(TRAIN_CHANNEL_ID);
