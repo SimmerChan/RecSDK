@@ -469,7 +469,7 @@ def train(model: TorchMmoeModel, tr_files, va_files, args, device):
             logging.info("Epoch %s - Batch %s - Loss %s", epoch, now_index, loss.item())
 
             now_index += 1
-            if args.train_batch_num & now_index == args.train_batch_num:
+            if args.train_batch_num and now_index == args.train_batch_num:
                 break
         if args.train_batch_num:
             re_train_nums = min(args.train_batch_num, len(dataloader))
@@ -500,7 +500,7 @@ def train(model: TorchMmoeModel, tr_files, va_files, args, device):
                 logging.info("Eval Batch Loss %s - Ctr Auc %s - Ctcvr Auc %s", loss.item(), ctr_auc, ctcvr_auc)
 
                 val_index += 1
-                if args.eval_batch_num & val_index == args.eval_batch_num:
+                if args.eval_batch_num and val_index == args.eval_batch_num:
                     break
 
         if args.eval_batch_num:
@@ -570,7 +570,7 @@ def evaluate(model: TorchMmoeModel, te_files, device):
             logging.info("Test Batch Loss %s", loss.item())
             test_index += 1
 
-            if args.test_batch_num & test_index == args.test_batch_num:
+            if args.test_batch_num and test_index == args.test_batch_num:
                 break
 
     if args.test_batch_num:
