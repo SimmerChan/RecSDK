@@ -2,9 +2,10 @@
 FROM debian:12
 
 WORKDIR /tmp
-COPY . ./
-
-RUN chmod 777 /tmp
+COPY ./version.info ./
+COPY ./ascend_install.info ./
+COPY ./Ascend-cann-toolkit_*.run ./
+COPY ./Ascend-cann-kernels-*.run ./
 
 # 1.配置Debian源
 RUN echo "deb http://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm main contrib non-free" > ./sources.list && \

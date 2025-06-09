@@ -6,7 +6,7 @@
 - 准备基础OS镜像：在物理机上使用命令`docker pull debian:12`从Dockerhub上拉取debian12镜像
 
 ### 构建步骤
-Step1: 新建`build_images`目录，将提供的`package`压缩包解压到该目录中。
+Step1: 新建`build_images`目录。
 
 Step2：在`build_images`目录下准备CANN包。用户可以从[昇腾社区](https://www.hiascend.com/developer/download/community/result?module=pt+cann&product=4&model=26)下载**8.1.RC1.beta1**版本的[toolkit](https://www.hiascend.com/developer/download/community/result?module=cann&cann=8.1.RC1.beta1)包与[kernels](https://www.hiascend.com/developer/download/community/result?module=cann&cann=8.1.RC1.beta1)包。用户也可根据实际情况选择其他CANN包。
 
@@ -44,7 +44,6 @@ docker run \
 -e ASCEND_VISIBLE_DEVICES=0-7 \
 -v /etc/ascend_install.info:/etc/ascend_install.info \
 -v /home:/home \
--v /root/ascend:/root/ascend \
 -v /root/.ssh:/root/.ssh \
 -v /usr/local/Ascend/driver:/usr/local/Ascend/driver \
 ${image_name} \

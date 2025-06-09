@@ -25,6 +25,13 @@
 
 \- CMake 3.20.6
 
+## 环境
+### 构建和启动方法
+参考torchrec/docker/README.md
+
+### 安装CANN
+
+
 ### Ascend-mindxsdk-torchrec-1.1.0-npu-linux-*.tar.gz 
 
 参考 RecSDK/torchrec/README.md
@@ -63,7 +70,7 @@ bash build.sh
 
 ```
 tar zxvf Ascend-mindxsdk-mxrec-add-ons-linux-*.tar.gz  
-cd mindxsdk-mxrec-add-ons
+cd mindxsdk-mxrec-add-ons/mxrec_ops
 bash mxrec_opp_asynchronous_complete_cumsum.run
 bash mxrec_opp_backward_codegen_adagrad_unweighted_exact.run
 bash mxrec_opp_permute2d_sparse_data.run
