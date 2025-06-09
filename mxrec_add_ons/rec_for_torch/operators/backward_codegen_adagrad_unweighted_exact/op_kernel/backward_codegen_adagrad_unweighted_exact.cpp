@@ -54,13 +54,19 @@ extern "C" __global__ __aicore__ void backward_codegen_adagrad_unweighted_exact(
         offsets,    momentum1Dev,    momentum2Dev,      hashIndices,    uniqueId,  uniqueHashSize, uniqueInverse,
         out,        momentum1DevOut, momentum2DevOut,   weightsDevOut,  workspace, tiling};
     if (TILING_KEY_IS(1)) {  // NORMAL_ADAGRAD
-        BackwardCodegenAdagradUnweightedExact::BackwardCodegenAdagradUnweightedExactKernel kernel;
+        BackwardCodegenAdagradUnweightedExact::BackwardCodegenAdagradUnweightedExactKernel<DTYPE_DEV_WEIGHTS> kernel;
         kernel.Compute(args);
     } else if (TILING_KEY_IS(3)) {  // NORMAL_ADAM
-        BackwardCodegenAdamUnweightedExact::BackwardCodegenAdamUnweightedExactKernel kernel;
+        BackwardCodegenAdamUnweightedExact::BackwardCodegenAdamUnweightedExactKernel<DTYPE_DEV_WEIGHTS> kernel;
         kernel.Compute(args);
     } else if (TILING_KEY_IS(5)) {  // NORMAL_SGD
-        BackwardCodegenSgdUnweightedExact::BackwardCodegenSgdUnweightedExactKernel kernel;
+        BackwardCodegenSgdUnweightedExact::BackwardCodegenSgdUnweightedExactKernel<DTYPE_DEV_WEIGHTS> kernel;
+        kernel.Compute(args);
+    } else if (TILING_KEY_IS(2)) {
+        BackwardCodegenAdagradUnweightedExact::BackwardCodegenAdagradUnweightedExactKernelUnique<DTYPE_DEV_WEIGHTS> kernel;
+        kernel.Compute(args);
+    } else if (TILING_KEY_IS(4)) {
+        BackwardCodegenAdagradUnweightedExact::BackwardCodegenAdamUnweightedExactKernelUnique<DTYPE_DEV_WEIGHTS> kernel;
         kernel.Compute(args);
     }
 }
