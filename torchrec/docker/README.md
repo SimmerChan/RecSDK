@@ -8,7 +8,7 @@
 ### 构建步骤
 Step1: 新建`build_images`目录，将提供的`package`压缩包解压到该目录中。
 
-Step2：在`build_images`目录下准备CANN包。用户可以从[昇腾社区](https://www.hiascend.com/developer/download/community/result?module=pt+cann&product=4&model=26)下载**8.0.RC3.beta1**版本的[toolkit](https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/CANN/CANN%208.0.RC3/Ascend-cann-toolkit_8.0.RC3_linux-x86_64.run?response-content-type=application/octet-stream)包与[kernels](https://ascend-repo.obs.cn-east-2.myhuaweicloud.com/CANN/CANN%208.0.RC3/Ascend-cann-kernels-910b_8.0.RC3_linux-x86_64.run?response-content-type=application/octet-stream)包。用户也可根据实际情况选择其他CANN包。
+Step2：在`build_images`目录下准备CANN包。用户可以从[昇腾社区](https://www.hiascend.com/developer/download/community/result?module=pt+cann&product=4&model=26)下载**8.1.RC1.beta1**版本的[toolkit](https://www.hiascend.com/developer/download/community/result?module=cann&cann=8.1.RC1.beta1)包与[kernels](https://www.hiascend.com/developer/download/community/result?module=cann&cann=8.1.RC1.beta1)包。用户也可根据实际情况选择其他CANN包。
 
 安装CANN包需要两个文件，分别是
 - version.info（驱动版本文件）
