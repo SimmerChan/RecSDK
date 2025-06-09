@@ -1,6 +1,7 @@
+from concurrent.futures import ProcessPoolExecutor
 import numpy as np
 from scipy.stats import pareto
-from concurrent.futures import ProcessPoolExecutor
+
 
 # 帕累托参数
 SHAPE_PARAM = 5  # 帕累托分布的形状参数 alpha（必须大于0）,越小尾越大
@@ -42,7 +43,7 @@ MAX_NUM_LIST = [
 ]
 
 
-def generate(i):
+def generate_data(i):
     # labels生成
     day_0_labels = np.random.randint(0, LABELS_NUM, size=(LENGTH, 1)).astype(np.int32)
     # denses生成
@@ -74,4 +75,4 @@ def generate(i):
 
 thrad_pool = ProcessPoolExecutor(DAYS)
 for i in range(DAYS):
-    thrad_pool.submit(generate, i)
+    thrad_pool.submit(generate_data, i)

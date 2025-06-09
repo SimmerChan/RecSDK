@@ -16,6 +16,19 @@
 import os
 import logging
 
+from hybrid_torchrec.distributed.hybrid_train_pipeline import (
+    HybridTrainPipelineSparseDist,
+)
+from hybrid_torchrec.distributed.sharding_plan import get_default_hybrid_sharders
+
+from dataset import RandomRecDataset
+from model import TestModel
+
+import torch.distributed as dist
+from torch.utils.data import DataLoader
+import torch
+
+
 from torchrec.optim.keyed import CombinedOptimizer, KeyedOptimizerWrapper
 from torchrec.optim.optimizers import in_backward_optimizer_filter
 from torchrec.distributed import DistributedModelParallel
@@ -26,16 +39,6 @@ from torchrec.distributed.planner import (
     Topology,
     ParameterConstraints,
 )
-from hybrid_torchrec.distributed.hybrid_train_pipeline import (
-    HybridTrainPipelineSparseDist,
-)
-from hybrid_torchrec.distributed.sharding_plan import get_default_hybrid_sharders
-
-from dataset import RandomRecDataset
-from model import TestModel
-import torch.distributed as dist
-from torch.utils.data import DataLoader
-import torch
 
 
 logging.getLogger().setLevel(logging.INFO)
