@@ -43,7 +43,7 @@ MAX_NUM_LIST = [
 ]
 
 
-def generate_data(i):
+def generate_data(day):
     # labels生成
     day_0_labels = np.random.randint(0, LABELS_NUM, size=(LENGTH, 1)).astype(np.int32)
     # denses生成
@@ -68,11 +68,11 @@ def generate_data(i):
         else:
             day_0_sparse[:, index] = np.random.randint(0, max_num, size=LENGTH)
 
-    np.save(f"day_{i}_labels.npy", day_0_labels)
-    np.save(f"day_{i}_dense.npy", day_0_dense)
-    np.save(f"day_{i}_sparse.npy", day_0_sparse)
+    np.save(f"day_{day}_labels.npy", day_0_labels)
+    np.save(f"day_{day}_dense.npy", day_0_dense)
+    np.save(f"day_{day}_sparse.npy", day_0_sparse)
 
 
 thrad_pool = ProcessPoolExecutor(DAYS)
-for i in range(DAYS):
-    thrad_pool.submit(generate_data, i)
+for day in range(DAYS):
+    thrad_pool.submit(generate_data, day)
