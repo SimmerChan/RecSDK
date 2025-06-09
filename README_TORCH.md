@@ -25,12 +25,8 @@
 
 \- CMake 3.20.6
 
-## 环境
-### 构建和启动方法
+## 编译环境
 参考torchrec/docker/README.md
-
-### 安装CANN
-
 
 ### Ascend-mindxsdk-torchrec-1.1.0-npu-linux-*.tar.gz 
 
