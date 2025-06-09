@@ -54,7 +54,7 @@ public:
     __aicore__ inline void UpdateEmbedAda(int64_t offsetLen, int64_t totalLen, int64_t tableIndex)
     {
         __gm__ int32_t* dOffsetsPtr = (__gm__ int32_t*)this->dOffsets;
-        __gm__ int64_t* weightsOffsetsPtr = (__gm__ int64_t*)weightsOffsets;
+        __gm__ int64_t* weightsOffsetsPtr = (__gm__ int64_t*)this->weightsOffsets;
         int indicesNumOneBlock = this->blockLen / NUM_OF_OUT / this->maxD;
         if (indicesNumOneBlock >= MAX_ARGS_PIPE_LEN) {
             indicesNumOneBlock = MAX_ARGS_PIPE_LEN;

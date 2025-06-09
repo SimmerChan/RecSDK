@@ -217,7 +217,6 @@ public:
     }
     __aicore__ inline void Compute(Args args)
     {
-        this->Init(args);
         this->InitUnique(args);
         InitAdam(args);
         this->ClearGrad();

@@ -115,9 +115,8 @@ __aicore__ inline void CpLocal2Gm(const GlobalTensor<T>& gt, const LocalTensor<T
 template <typename wType>
 class BackwardCodegenUnweightedExactKernel {
 public:
-    __aicore__ inline BackwardCodegenUnweightedExactKernel() {}
-
-    __aicore__ inline void Init(Args args)
+    __aicore__ inline BackwardCodegenUnweightedExactKernel(){}
+    __aicore__ inline Init(Args args)
     {
         GET_TILING_DATA(tilingData, args.tiling);
         // ADDR

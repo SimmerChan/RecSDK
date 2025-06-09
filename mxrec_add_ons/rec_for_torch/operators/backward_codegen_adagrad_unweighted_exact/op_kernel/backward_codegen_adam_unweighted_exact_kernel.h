@@ -125,16 +125,16 @@ public:
     {
         float oneMinusBeta1 = (1 - beta1);
         float oneMinusBeta2 = (1 - beta2);
-        float minusLearningRate = -learning_rate;
+        float minusLearningRate = -this->learning_rate;
 
         LocalTensor<float> inputLt = queIn.DeQue<float>();
         LocalTensor<float> outLt = queOut.AllocTensor<float>();
 
         for (int64_t i = 0; i < cnt; i++) {
             UpdateArgs theArgs = updateArgs[i];
-            int64_t thisGradIndex = i * maxD * numOfOut + outIndex;
-            int64_t thisMoment1Index = i * maxD * numOfOut + outIndex1;
-            int64_t thisMoment2Index = i * maxD * numOfOut + outIndex2;
+            int64_t thisGradIndex = i * this->maxD * numOfOut + outIndex;
+            int64_t thisMoment1Index = i * this->maxD * numOfOut + outIndex1;
+            int64_t thisMoment2Index = i * this->maxD * numOfOut + outIndex2;
 
             // v[:] = beta1 * v + (1 - beta1) * p.grad
             Muls<float>(outLt[thisMoment1Index], inputLt[thisMoment1Index], beta1, theArgs.embedDim);
@@ -198,7 +198,7 @@ public:
     __aicore__ inline void Compute(Args args)
     {
         this->Init(args);
-
+        InitAdam(args);
         this->ClearGT(this->workspaceGT, this->totalHashSize);
         this->ClearGrad();
         pipe_barrier(PIPE_ALL);
