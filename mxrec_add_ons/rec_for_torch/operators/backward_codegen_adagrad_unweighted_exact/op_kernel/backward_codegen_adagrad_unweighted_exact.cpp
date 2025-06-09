@@ -16,6 +16,8 @@ See the License for the specific language governing permissions and
 #include "backward_codegen_adagrad_unweighted_exact_kernel.h"
 #include "backward_codegen_adam_unweighted_exact_kernel.h"
 #include "backward_codegen_sgd_unweighted_exact_kernel.h"
+#include "backward_codegen_adagrad_unweighted_exact_kernel_unique.h"
+#include "backward_codegen_adam_unweighted_exact_kernel_unique.h"
 #include "kernel_operator.h"
 
 extern "C" __global__ __aicore__ void backward_codegen_adagrad_unweighted_exact(GM_ADDR gradOutput,
@@ -56,17 +58,17 @@ extern "C" __global__ __aicore__ void backward_codegen_adagrad_unweighted_exact(
     if (TILING_KEY_IS(1)) {  // NORMAL_ADAGRAD
         BackwardCodegenAdagradUnweightedExact::BackwardCodegenAdagradUnweightedExactKernel<float> kernel;
         kernel.Compute(args);
-    } else if (TILING_KEY_IS(3)) {  // NORMAL_ADAM
+    } else if (TILING_KEY_IS(2)) {  // NORMAL_ADAM
         BackwardCodegenAdamUnweightedExact::BackwardCodegenAdamUnweightedExactKernel<float> kernel;
         kernel.Compute(args);
-    } else if (TILING_KEY_IS(5)) {  // NORMAL_SGD
+    } else if (TILING_KEY_IS(3)) {  // NORMAL_SGD
         BackwardCodegenSgdUnweightedExact::BackwardCodegenSgdUnweightedExactKernel<float> kernel;
         kernel.Compute(args);
-    } else if (TILING_KEY_IS(2)) {
-        BackwardCodegenAdagradUnweightedExact::BackwardCodegenAdagradUnweightedExactKernelUnique<DTYPE_DEV_WEIGHTS> kernel;
-        kernel.Compute(args);
     } else if (TILING_KEY_IS(4)) {
-        BackwardCodegenAdamUnweightedExact::BackwardCodegenAdamUnweightedExactKernelUnique<DTYPE_DEV_WEIGHTS> kernel;
+        BackwardCodegenUnweightedExactUnique::BackwardCodegenAdagradUnweightedExactKernelUnique<DTYPE_DEV_WEIGHTS> kernel;
+        kernel.Compute(args);
+    } else if (TILING_KEY_IS(5)) {
+        BackwardCodegenUnweightedExactUnique::BackwardCodegenAdamUnweightedExactKernelUnique<DTYPE_DEV_WEIGHTS> kernel;
         kernel.Compute(args);
     }
 }

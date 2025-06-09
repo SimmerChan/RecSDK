@@ -1,9 +1,17 @@
-/**
- * @file backward_codegen_adagrad_unweighted_exact_kernel_unique.h
- *
- * Copyright (C) 2025. Huawei Technologies Co., Ltd. All rights reserved.
- *
- */
+/* Copyright 2025. Huawei Technologies Co.,Ltd. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+        limitations under the License.
+==============================================================================*/
 
 #ifndef BACKWARD_CODEGEN_UNWEIGHTED_EXACT_KERNEL_UNIQUE_FUN_H
 #define BACKWARD_CODEGEN_UNWEIGHTED_EXACT_KERNEL_UNIQUE_FUN_H
@@ -16,12 +24,21 @@ using namespace AscendC;
 using namespace BackwardCodegenUnweightedExact;
 namespace BackwardCodegenUnweightedExactUnique {
 
+constexpr int M1_INDEX = 1;
+constexpr int M2_INDEX = 2;
+
 struct ComputeUniqueArgs {
     int64_t tableIndex;
     int64_t embedDim;
     int64_t inOffset;
     int64_t thisLen;
     int64_t startInd;
+    int64_t weightsAddr;
+    int64_t m1Addr;
+    int64_t m2Addr;
+};
+  
+struct DynamicArgs {
     int64_t weightsAddr;
     int64_t m1Addr;
     int64_t m2Addr;
@@ -101,7 +118,7 @@ public:
 
         CpGm2Local(indicesLt, uniqueInverseGT[args.startInd], args.thisLen);
         int64_t inverseOffset = uniqueHashSizeGT.GetValue(args.tableIndex);
-        CpGm2Local(inputLt, gradOutputGT[args.inOffset], args.embedDim);
+        CpGm2Local(inputLt, this->gradOutputGT[args.inOffset], args.embedDim);
 
         queIndices.EnQue(indicesLt);
         this->queIn.template EnQue(inputLt);

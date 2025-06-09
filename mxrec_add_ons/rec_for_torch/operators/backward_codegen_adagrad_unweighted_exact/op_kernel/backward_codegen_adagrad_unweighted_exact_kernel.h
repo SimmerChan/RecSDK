@@ -35,7 +35,6 @@ public:
         __gm__ int32_t* dOffsetsPtr = (__gm__ int32_t*)this->dOffsets;
         __gm__ int64_t* weightsOffsetsPtr = (__gm__ int64_t*)this->weightsOffsets;
         __gm__ int64_t* offsetsPtr = (__gm__ int64_t*)this->offsets;
-        __gm__ float* x = (__gm__ float*)this->momentum1DevOut;
 
         int64_t allLen = this->totalHashSize;
         int64_t totalTableSizeSplit = allLen % GetBlockNum();
@@ -145,6 +144,7 @@ public:
 
     __aicore__ inline void Compute(Args args)
     {
+        this->Init(args);
         this->ClearGT(this->workspaceGT, this->totalHashSize);
         this->ClearGrad();
         pipe_barrier(PIPE_ALL);

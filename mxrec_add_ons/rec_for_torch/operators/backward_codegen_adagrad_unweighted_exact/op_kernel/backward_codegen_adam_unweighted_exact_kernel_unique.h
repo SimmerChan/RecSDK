@@ -1,9 +1,17 @@
-/**
- * @file backward_codegen_adam_unweighted_exact_kernel_unique.h
- *
- * Copyright (C) 2025. Huawei Technologies Co., Ltd. All rights reserved.
- *
- */
+/* Copyright 2025. Huawei Technologies Co.,Ltd. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+        limitations under the License.
+==============================================================================*/
 
 #ifndef BACKWARD_CODEGEN_ADAM_UNWEIGHTED_EXACT_KERNEL_UNIQUE_FUN_H
 #define BACKWARD_CODEGEN_ADAM_UNWEIGHTED_EXACT_KERNEL_UNIQUE_FUN_H
@@ -14,17 +22,9 @@
 #include "backward_codegen_unweighted_exact_kernel_unique.h"
 
 using namespace AscendC;
-using namespace BackwardCodegenUnweightedExactUnique;
 using namespace BackwardCodegenUnweightedExact;
-namespace BackwardCodegenAdamUnweightedExact {
+namespace BackwardCodegenUnweightedExactUnique {
 
-constexpr int M1_INDEX = 1;
-constexpr int M2_INDEX = 2;  
-struct UpdateAdamArgs {
-    int64_t weightsAddr;
-    int64_t m1Addr;
-    int64_t m2Addr;
-};
 template <typename wType>
 class BackwardCodegenAdamUnweightedExactKernelUnique : public BackwardCodegenUnweightedExactKernelUnique<wType> {
 public:
@@ -111,7 +111,7 @@ public:
         this->queIn.template EnQue(inputLt);
     }
 
-    __aicore__ inline void CopyInDynamic(UpdateAdamArgs *updateArgs, int64_t thisLen, int64_t embedDim)
+    __aicore__ inline void CopyInDynamic(DynamicArgs*updateArgs, int64_t thisLen, int64_t embedDim)
     {
         LocalTensor<float> inputLt = this->queIn.template DeQue<float>();  
         for (int64_t i = 0; i < thisLen; i++) {
@@ -126,7 +126,7 @@ public:
         this->queIn.template EnQue(inputLt);
     }
 
-    __aicore__ inline void CopyOutDynamic(UpdateAdamArgs *updateArgs, int thisLen, int embedDim)
+    __aicore__ inline void CopyOutDynamic(DynamicArgs*updateArgs, int thisLen, int embedDim)
     {
         LocalTensor<float> newOutLt = this->queOut.template DeQue<float>();
         SetAtomicAdd<float>();
@@ -202,7 +202,7 @@ public:
                 CopyOutNormal(updateArgs, thisLen, embedDim);
             } else {
                 // CopyIn
-                UpdateAdamArgs updateArgs[MAX_ARGS_PIPE_LEN];
+                DynamicArgsupdateArgs[MAX_ARGS_PIPE_LEN];
                 CopyInDynamic(updateArgs, thisLen, embedDim);
                 // compute
                 inputLt = this->queIn.template DeQue<float>();
