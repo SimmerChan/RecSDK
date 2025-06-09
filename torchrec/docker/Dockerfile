@@ -124,26 +124,5 @@ RUN umask 0022 && \
    rm -rf /root/.cache/pip && \
    rm -f $TOOLKIT_PKG && rm -f $KERNEL_PKG
 
-## 8.安装torchrec相关的包
-#RUN cd package && \
-#    cd FBGEMM && bash cp.sh && cd ../ && \
-#    pip3 install torch_npu/torch_npu-2.6.0+git40bd194-cp311-cp311-linux_x86_64.whl  && \
-#    pip3 install torchrec/torchrec-1.1.0+npu-py3-none-linux_x86_64.whl && \
-#    pip3 install hybrid_torchrec/hybrid_torchrec-1.1.0-py3-none-linux_x86_64.whl && \
-#    cd embed_cache  && \
-#    pip3 install embedding_cache-0.0.1-py3-none-any.whl && \
-#    pip3 install torchrec_embcache_embedding-0.0.1-py3-none-any.whl && \
-#    cd ../
-#
-## 9.安装自定义算子
-#RUN . /usr/local/Ascend/ascend-toolkit/set_env.sh && \
-#    cd operator && \
-#    bash mxrec_opp_asynchronous_complete_cumsum.run && \
-#    bash mxrec_opp_backward_codegen_adagrad_unweighted_exact.run && \
-#    bash mxrec_opp_bounds_check_indices.run && \
-#    bash mxrec_opp_permute2d_sparse_data.run && \
-#    bash mxrec_opp_split_embedding_codegen_forward_unweighted.run && \
-#    cd ../../
-
 # 10.清理临时目录
 RUN rm -rf ./*

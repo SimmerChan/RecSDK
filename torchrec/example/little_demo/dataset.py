@@ -17,10 +17,10 @@ import itertools
 from typing import Iterator
 from dataclasses import dataclass
 import torch_npu
-from torchrec.streamable import Pipelineable
-from torchrec import KeyedJaggedTensor, JaggedTensor
 from torch.utils.data.dataset import IterableDataset
 import torch
+from torchrec.streamable import Pipelineable
+from torchrec import KeyedJaggedTensor, JaggedTensor
 
 
 @dataclass
