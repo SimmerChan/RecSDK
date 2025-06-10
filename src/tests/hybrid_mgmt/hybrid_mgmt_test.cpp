@@ -561,6 +561,7 @@ TEST_F(HybridMgmtTest, InitEmbeddingCache_L3StorageEnabled)
     m_hybridMgmt.isL3StorageEnabled = true;
 
     auto mockFactory = std::make_shared<ock::ctr::FactoryMock>();
+    auto factoryBakUp = factory;
     factory = mockFactory;
 
     EXPECT_CALL(*mockFactory, SetExternalLogFuncInner(_)).Times(1);
@@ -569,6 +570,7 @@ TEST_F(HybridMgmtTest, InitEmbeddingCache_L3StorageEnabled)
     EXPECT_CALL(*m_embCachePtr, Destroy()).Times(1).WillRepeatedly(Return());
 
     EXPECT_THROW(m_hybridMgmt.InitEmbeddingCache(embInfos), std::runtime_error);
+    factory = factoryBakUp;
 }
 
 TEST_F(HybridMgmtTest, EmbeddingReceiveDDR)
