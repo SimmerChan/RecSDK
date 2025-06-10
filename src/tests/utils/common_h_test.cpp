@@ -139,7 +139,7 @@ TEST(TestCkptTransData, DefaultConstructor)
 
 TEST(TestCTRLog, DifferentLevel)
 {
-    int invilid = -1
+    int invilid = -1;
     MxRec::CTRLog(MxRec::CTRLogLevel::DEBUG, "test message");
     MxRec::CTRLog(MxRec::CTRLogLevel::INFO, "test message");
     MxRec::CTRLog(MxRec::CTRLogLevel::WARN, "test message");
