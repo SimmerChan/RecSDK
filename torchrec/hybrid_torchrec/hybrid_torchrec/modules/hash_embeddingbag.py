@@ -105,7 +105,8 @@ def check_embedding_config_valid(config: HashEmbeddingBagConfig):
         or config.embedding_dim > MAX_EMBEDDINGS_DIM
     ):
         raise ValueError(
-            f"The embedding dim should be in [{EMBEDDINGS_DIM_ALIGNMENT}, {MAX_EMBEDDINGS_DIM}], but is {config.embedding_dim}"
+            f"The embedding dim should be in [{EMBEDDINGS_DIM_ALIGNMENT}, "
+            "{MAX_EMBEDDINGS_DIM}], but is {config.embedding_dim}"
         )
     if config.num_embeddings < 1 or config.num_embeddings > MAX_NUM_EMBEDDINGS:
         raise ValueError(
