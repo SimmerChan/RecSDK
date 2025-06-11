@@ -14,7 +14,11 @@ from torch import nn
 
 from hybrid_torchrec.modules.embedding_config import HYBRID_SUPPORT_DEVICE
 from hybrid_torchrec.modules.ids_process import IdsMapper
-from hybrid_torchrec.constants import MAX_EMBEDDINGS_DIM, MAX_NUM_EMBEDDINGS, EMBEDDINGS_DIM_ALIGNMENT
+from hybrid_torchrec.constants import (
+    MAX_EMBEDDINGS_DIM,
+    MAX_NUM_EMBEDDINGS,
+    EMBEDDINGS_DIM_ALIGNMENT,
+)
 from torchrec.modules.embedding_configs import (
     DataType,
     EmbeddingBagConfig,
@@ -81,13 +85,21 @@ class HashTableOption:
 class HashEmbeddingBagConfig(EmbeddingBagConfig):
     pass
 
+
 def check_embedding_config_valid(config: HashEmbeddingBagConfig):
     if config.embedding_dim % EMBEDDINGS_DIM_ALIGNMENT != 0:
-        raise RuntimeError(f"The embedding dim should be a multiple of 8, but is {config.embedding_dim}")
+        raise RuntimeError(
+            f"The embedding dim should be a multiple of 8, but is {config.embedding_dim}"
+        )
     if EMBEDDINGS_DIM_ALIGNMENT <= config.embedding_dim <= MAX_EMBEDDINGS_DIM:
-        raise RuntimeError(f"The embedding dim should be in [8, 8192], but is {config.embedding_dim}")
+        raise RuntimeError(
+            f"The embedding dim should be in [8, 8192], but is {config.embedding_dim}"
+        )
     if 1 <= config.num_embeddings <= MAX_NUM_EMBEDDINGS:
-        raise RuntimeError(f"The embedding dim should be in [8, 8192], but is {config.embedding_dim}")
+        raise RuntimeError(
+            f"The embedding dim should be in [8, 8192], but is {config.embedding_dim}"
+        )
+
 
 class HashEmbeddingBag(torch.nn.Module):
     def __init__(self, config: HashEmbeddingBagConfig, device: torch.device):
@@ -102,7 +114,9 @@ class HashEmbeddingBag(torch.nn.Module):
     ):
         return NotImplemented
 
-    def forward(self, input_tensor: torch.Tensor, offsets: Optional[torch.Tensor] = None):
+    def forward(
+        self, input_tensor: torch.Tensor, offsets: Optional[torch.Tensor] = None
+    ):
         return NotImplemented
 
 
@@ -164,8 +178,9 @@ class HashEmbeddingBagCollection(EmbeddingBagCollectionInterface):
                 if embedding_config.data_type == DataType.FP32
                 else torch.float16
             )
-            is_hybrid_device = (isinstance(device, str) and device in HYBRID_SUPPORT_DEVICE
-                               ) or (hasattr(device, 'type') and device.type in HYBRID_SUPPORT_DEVICE)
+            is_hybrid_device = (
+                isinstance(device, str) and device in HYBRID_SUPPORT_DEVICE
+            ) or (hasattr(device, "type") and device.type in HYBRID_SUPPORT_DEVICE)
             if is_hybrid_device:
                 self.embedding_bags[embedding_config.name] = HybridHashTable(
                     config=embedding_config,
