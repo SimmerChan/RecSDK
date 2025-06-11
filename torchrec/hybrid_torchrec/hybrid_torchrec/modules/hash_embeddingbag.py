@@ -93,13 +93,13 @@ def check_embedding_config_valid(config: HashEmbeddingBagConfig):
         raise ValueError(
             f"The embedding dim should be a multiple of 8, but is {config.embedding_dim}"
         )
-    if EMBEDDINGS_DIM_ALIGNMENT <= config.embedding_dim <= MAX_EMBEDDINGS_DIM:
+    if config.embedding_dim < EMBEDDINGS_DIM_ALIGNMENT or config.embedding_dim > MAX_EMBEDDINGS_DIM:
         raise ValueError(
-            f"The embedding dim should be in [8, 8192], but is {config.embedding_dim}"
+            f"The embedding dim should be in [{EMBEDDINGS_DIM_ALIGNMENT}, {MAX_EMBEDDINGS_DIM}], but is {config.embedding_dim}"
         )
-    if 1 <= config.num_embeddings <= MAX_NUM_EMBEDDINGS:
+    if config.num_embeddings < 1 or config.num_embeddings > MAX_NUM_EMBEDDINGS:
         raise ValueError(
-            f"The embedding dim should be in [8, 8192], but is {config.embedding_dim}"
+            f"The embedding dim should be in [1, {MAX_NUM_EMBEDDINGS}], but is {config.embedding_dim}"
         )
     if config.data_type != DataType.FP32:
         raise ValueError(
