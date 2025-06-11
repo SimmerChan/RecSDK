@@ -87,6 +87,11 @@ class HashTableOption:
 class HashEmbeddingBagConfig(EmbeddingBagConfig):
     pass
 
+def is_valid_feat_name(feat_name):
+    for char in feat_name:
+        if not (char.isalnum() or char == '_'):
+            return False
+    return True
 
 def check_embedding_config_valid(config: HashEmbeddingBagConfig):
     if config.embedding_dim % EMBEDDINGS_DIM_ALIGNMENT != 0:
@@ -105,10 +110,15 @@ def check_embedding_config_valid(config: HashEmbeddingBagConfig):
         raise ValueError(
             f"The data_type should be FP32, but is {config.data_type}"
         )
-    if config.feature_names is None or len(config.feature_names):
+    if config.feature_names is None or len(config.feature_names) == 0 :
         raise ValueError(
             f"The feature_names should not be empty, but is {config.feature_names}"
-        )    
+        )
+    for feat_name in config.feature_names:
+        if (is_valid_feat_name(feat_name)):
+         raise ValueError(
+            f"The feature_name should contain a-Z, 0-9, _, but is {feat_name}"
+        ) 
     if config.weight_init_max is not None:
         raise ValueError(
             f"The config.weight_init_max should be None, but is {config.weight_init_max}"
@@ -121,11 +131,11 @@ def check_embedding_config_valid(config: HashEmbeddingBagConfig):
         raise ValueError(
             f"The config.num_embeddings_post_pruning should be None, but is {config.num_embeddings_post_pruning}"
         )   
-    if config.init_fn is not None and not isinstance(config.init_fn, callable):
+    if config.init_fn is not None and not hasattr(config.init_fn, "__call__"):
         raise ValueError(
             f"The config.init_fn should be callable, but is {config.init_fn}"
         )
-    if config.pooling is not None and config.pooling in [PoolingType.SUM, PoolingType.MEAN]:
+    if config.pooling is not None and config.pooling not in [PoolingType.SUM, PoolingType.MEAN]:
         raise ValueError(
             f"The config.pooling should be in [PoolingType.SUM, PoolingType.MEAN], but is {config.pooling}"
         )

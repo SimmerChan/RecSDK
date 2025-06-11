@@ -286,8 +286,8 @@ class HybridTrainPipelineSparseDist(TrainPipelineSparseDist[In, Out]):
         if apply_jit:
             raise ValueError(f"apply_jit is not support")
         
-        if execute_all_batches:
-            raise ValueError(f"execute_all_batches cant not be flase")
+        if not execute_all_batches:
+            raise ValueError(f"execute_all_batches cant not be false")
     
     def enque_context(self, line_id, context: HybridTrainPipelineContext):
         self._contexts[line_id].append(context)
