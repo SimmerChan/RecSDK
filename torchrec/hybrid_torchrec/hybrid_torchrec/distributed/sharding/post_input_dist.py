@@ -163,23 +163,81 @@ def split_keys_offset(origin_kjt: KeyedJaggedTensor, feature_split_by_table: Lis
         start = end
     return torch.LongTensor(result)
 
+def _unwrap_ids_mapper(hm):
+    if (hasattr(hm, "ids2indices_unique_out") and
+        not isinstance(hm, torch.nn.Module)):
+        return hm
+
+    if hasattr(hm, "_ids_mapper"):
+        return hm._ids_mapper
+    if hasattr(hm, "ids_mapper"):
+        return hm.ids_mapper
+
+    raise TypeError(f"Cannot extract IdsMapper from object {type(hm)}; ")
+
 
 def do_unique_hash_out(
-    origin_kjt: KeyedJaggedTensor,
+    origin_kjt: KeyedJaggedTensor | KeyedJaggedTensorWithCount,
     feature_split_by_table: List[int],
     hashmap_list: List[HashMapBase],
+    enable_admit: bool = False,
 ):
     num_of_table = len(feature_split_by_table)
     ids = origin_kjt.values()
     hash_indices = torch.empty_like(ids, pin_memory=True)
     offsets = split_keys_offset(origin_kjt, feature_split_by_table)
     unique = torch.empty_like(ids, pin_memory=True)
+    unique_ids = torch.empty_like(ids)
     unique_inverse = torch.empty_like(ids, pin_memory=True)
-    unique_offset = torch.zeros(num_of_table + 1).long()
+    unique_offset = torch.zeros(num_of_table + 1, dtype=torch.long)
 
-    for table_i in range(num_of_table):
-        hashmap_list[table_i].ids2indices_unique_out(
-            ids, hash_indices, offsets, unique, unique_inverse, unique_offset, table_i
+    # 存在表开启准入时记录feature count
+    if enable_admit:
+        # 开启local unique时，会传入KeyedJaggedTensorWithCount,使用其counts属性；
+        # 不包含counts属性时使用空tensor, 统计时会用1作为count
+        counts = origin_kjt.counts if hasattr(origin_kjt, "counts") else None
+        counts = counts if counts is not None else torch.empty((0,), dtype=torch.int64)
+        for table_i in range(num_of_table):
+            hashmap_list[table_i].statistic_key_count(
+                ids, offsets, counts, table_i
+            )
+    use_parallel = os.getenv("ENABLE_PARALLEL_GLOBAL_UNIQUE", "0") == "1"
+
+    start_tm = time.perf_counter()
+
+    if use_parallel:
+        IdsMapperNative = _classes.hybrid.IdsMapper
+        native_mappers = [_unwrap_ids_mapper(h) for h in hashmap_list]
+
+        IdsMapperNative.parallel_ids2indices_unique_out(
+            native_mappers,
+            ids,
+            hash_indices,
+            offsets,
+            unique,
+            unique_ids,
+            unique_inverse,
+            unique_offset,
+        )
+        logger.info(
+            "[do_unique_hash_out] run parallel batch implementation. Time cost: %.1f ms",
+            (time.perf_counter() - start_tm) * 1000
+        )
+    else:
+        for table_i in range(num_of_table):
+            hashmap_list[table_i].ids2indices_unique_out(
+                ids,
+                hash_indices,
+                offsets,
+                unique,
+                unique_ids,
+                unique_inverse,
+                unique_offset,
+                table_i,
+            )
+        logger.info(
+            "[do_unique_hash_out] run serial for-loop implementation. Time cost: %.1f ms",
+            (time.perf_counter() - start_tm) * 1000
         )
 
     unique_offset_list_single = unique_offset.tolist()
@@ -191,6 +249,7 @@ def do_unique_hash_out(
     unique_offset_list.append(unique_offset_list_single[-1])
     unique_offset = torch.LongTensor(unique_offset_list)
     unique.resize_(unique_offset_list[-1])
+
     return KeyedJaggedTensorWithLookHelper(
         keys=origin_kjt.keys(),
         values=hash_indices.pin_memory(),
@@ -198,6 +257,8 @@ def do_unique_hash_out(
         unique_indices=unique.pin_memory(),
         unique_offset=unique_offset.pin_memory(),
         unique_offset_host=unique_offset_list,
+        unique_offset_list_single=unique_offset_list_single,
+        unique_ids=unique_ids,
         unique_inverse=unique_inverse.pin_memory(),
         lengths=origin_kjt.lengths().pin_memory(),
         offsets=origin_kjt.offsets().pin_memory(),
@@ -213,10 +274,11 @@ class UniqueHashKJTAwaitable(LazyAwaitable[KeyedJaggedTensorWithLookHelper]):
         origin_kjt: KeyedJaggedTensor,
         feature_split_by_table: List[int],
         hash_list: List[HashMapBase],
+        enable_admit: bool = False,
     ) -> None:
         super().__init__()
         self.future = ThreadPoolExecutorSingleton().executor.submit(
-            do_unique_hash_out, origin_kjt, feature_split_by_table, hash_list
+            do_unique_hash_out, origin_kjt, feature_split_by_table, hash_list, enable_admit
         )
 
     def _wait_impl(self) -> KeyedJaggedTensorWithLookHelper:
@@ -229,16 +291,18 @@ class UniqueHashFeatureProcess(BasePostInputProcess):
         table_names: List[str],
         feature_split_by_table: List[int],
         hashmap_list: List[HashMapBase],
+        enable_admit: bool = False,
     ) -> None:
         super().__init__()
         self.hashmap_list = hashmap_list
         self.table_names = table_names
         self.feature_split_by_table = feature_split_by_table
+        self._enable_admit = enable_admit
 
     def forward(
         self,
         sparse_features: KeyedJaggedTensor,
     ) -> Awaitable[KeyedJaggedTensor]:
         return UniqueHashKJTAwaitable(
-            sparse_features, self.feature_split_by_table, self.hashmap_list
+            sparse_features, self.feature_split_by_table, self.hashmap_list, self._enable_admit
         )

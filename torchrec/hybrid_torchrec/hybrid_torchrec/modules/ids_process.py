@@ -33,6 +33,7 @@ class BucketParams:
     block_bucketize_pos: torch.Tensor = None
     return_bucket_mapping: bool = False
     keep_orig_idx: bool = False
+    return_count: bool = False
 
 
 class HashMapBase(torch.nn.Module):
@@ -91,5 +92,6 @@ def block_bucketize_sparse_features_cpu(bucket_params: BucketParams):
                                                                 bucket_params.max_b,
                                                                 bucket_params.block_bucketize_pos,
                                                                 bucket_params.return_bucket_mapping,
-                                                                bucket_params.keep_orig_idx)
+                                                                bucket_params.keep_orig_idx,
+                                                                bucket_params.return_count)
 
