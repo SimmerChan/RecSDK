@@ -115,7 +115,7 @@ def check_embedding_config_valid(config: HashEmbeddingBagConfig):
             f"The feature_names should not be empty, but is {config.feature_names}"
         )
     for feat_name in config.feature_names:
-        if (is_valid_feat_name(feat_name)):
+        if (not is_valid_feat_name(feat_name)):
          raise ValueError(
             f"The feature_name should contain a-Z, 0-9, _, but is {feat_name}"
         ) 
