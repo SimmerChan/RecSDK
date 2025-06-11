@@ -23,12 +23,14 @@ from torchrec.modules.embedding_configs import (
     DataType,
     EmbeddingBagConfig,
     pooling_type_to_str,
+    PoolingType
 )
 from torchrec.modules.embedding_modules import (
     EmbeddingBagCollectionInterface,
     get_embedding_names_by_table,
 )
 from torchrec.sparse.jagged_tensor import KeyedJaggedTensor, KeyedTensor
+from torchrec.types import DataType
 
 
 @torch.fx.wrap
@@ -88,16 +90,44 @@ class HashEmbeddingBagConfig(EmbeddingBagConfig):
 
 def check_embedding_config_valid(config: HashEmbeddingBagConfig):
     if config.embedding_dim % EMBEDDINGS_DIM_ALIGNMENT != 0:
-        raise RuntimeError(
+        raise ValueError(
             f"The embedding dim should be a multiple of 8, but is {config.embedding_dim}"
         )
     if EMBEDDINGS_DIM_ALIGNMENT <= config.embedding_dim <= MAX_EMBEDDINGS_DIM:
-        raise RuntimeError(
+        raise ValueError(
             f"The embedding dim should be in [8, 8192], but is {config.embedding_dim}"
         )
     if 1 <= config.num_embeddings <= MAX_NUM_EMBEDDINGS:
-        raise RuntimeError(
+        raise ValueError(
             f"The embedding dim should be in [8, 8192], but is {config.embedding_dim}"
+        )
+    if config.data_type != DataType.FP32:
+        raise ValueError(
+            f"The data_type should be FP32, but is {config.data_type}"
+        )
+    if config.feature_names is None or len(config.feature_names):
+        raise ValueError(
+            f"The feature_names should not be empty, but is {config.feature_names}"
+        )    
+    if config.weight_init_max is not None:
+        raise ValueError(
+            f"The config.weight_init_max should be None, but is {config.weight_init_max}"
+        )    
+    if config.weight_init_min is not None:
+        raise ValueError(
+            f"The config.weight_init_min should be None, but is {config.weight_init_min}"
+        )
+    if config.num_embeddings_post_pruning is not None:
+        raise ValueError(
+            f"The config.num_embeddings_post_pruning should be None, but is {config.num_embeddings_post_pruning}"
+        )   
+    if config.init_fn is not None and not isinstance(config.init_fn, callable):
+        raise ValueError(
+            f"The config.init_fn should be callable, but is {config.init_fn}"
+        )
+    if config.pooling is not None and config.pooling in [PoolingType.SUM, PoolingType.MEAN]:
+        raise ValueError(
+            f"The config.pooling should be in [PoolingType.SUM, PoolingType.MEAN], but is {config.pooling}"
         )
 
 
