@@ -81,6 +81,7 @@ TEST_F(LcalSockExchangeTest, GetNodeNumOK)
     auto sock = LcalSockExchange(0, 1, ranks);
 
     auto res = sock.GetNodeNum();
+    ASSERT_EQ(res, 1);
 }
 
 TEST(LcalSockExchange, ParseIpAndPortOK)
