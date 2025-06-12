@@ -144,5 +144,5 @@ TEST(TestCTRLog, DifferentLevel)
     MxRec::CTRLog(MxRec::CTRLogLevel::INFO, "test message");
     MxRec::CTRLog(MxRec::CTRLogLevel::WARN, "test message");
     MxRec::CTRLog(MxRec::CTRLogLevel::ERROR, "test message");
-    MxRec::CTRLog(invilid, "test message");
+    EXPECT_NO_THROW(MxRec::CTRLog(invilid, "test message"));
 }
