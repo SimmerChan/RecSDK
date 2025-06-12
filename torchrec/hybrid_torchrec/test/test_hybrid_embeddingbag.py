@@ -5,41 +5,44 @@
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
-import logging
 import os
-import sysconfig
-from typing import List
-
-import pytest
+import pytz
 import torch
-import torch.distributed as dist
-import torch.multiprocessing as mp
+from typing import List
 import torch_npu
-from torch.nn.parallel import DistributedDataParallel as DDP
+import torch.multiprocessing as mp
+import torch.distributed as dist
 from torch.utils.data import DataLoader
-
-from dataset import RandomRecDataset, Batch
-from hybrid_torchrec.distributed.sharding_plan import get_default_hybrid_sharders
-from model import Model
-from util import setup_logging
-
+from torch.nn.parallel import DistributedDataParallel as DDP
 import torchrec
-import torchrec.distributed
-import torchrec.distributed.shard
+import pytest
+import logging
+import random
 from torchrec import (
     EmbeddingBagConfig,
+    PoolingType,
     EmbeddingBagCollection,
+    KeyedJaggedTensor,
+    JaggedTensor,
+    KeyedTensor,
 )
+import torchrec.distributed
+import torchrec.distributed.shard
+from torchrec.optim.apply_optimizer_in_backward import apply_optimizer_in_backward
+from torchrec.distributed.embeddingbag import EmbeddingBagCollectionAwaitable
 from torchrec.distributed.planner import (
     EmbeddingShardingPlanner,
     Topology,
     ParameterConstraints,
 )
 from torchrec.distributed.types import ShardingEnv
-from torchrec.optim.apply_optimizer_in_backward import apply_optimizer_in_backward
 from torchrec.optim.keyed import CombinedOptimizer
-
-torch.ops.load_library(f"{sysconfig.get_path('purelib')}/libfbgemm_npu_api.so")
+from torchrec.distributed.model_parallel import get_default_sharders
+from hybrid_torchrec.distributed.embeddingbag import HybridEmbeddingBagCollectionSharder
+from hybrid_torchrec.distributed.sharding_plan import get_default_hybrid_sharders
+from model import Model
+from dataset import RandomRecDataset, Batch
+from util import setup_logging
 
 LOOP_TIMES = 8
 BATCH_NUM = 32
@@ -71,14 +74,14 @@ def execute(
     num_embeddings,
     pool_type,
     sharding_type,
-    lockup_len,
+    lookup_len,
     device,
 ):
     setup_logging(rank)
     logging.info("this test %s", os.path.basename(__file__))
     embeding_config = generate_base_config(embedding_dims, num_embeddings, pool_type)
 
-    dataset = RandomRecDataset(BATCH_NUM, lockup_len, num_embeddings, table_num)
+    dataset = RandomRecDataset(BATCH_NUM, lookup_len, num_embeddings, table_num)
     gloden_dataset_loader = DataLoader(
         dataset,
         batch_size=None,
@@ -150,6 +153,8 @@ class TestModel:
             loss, output = model(batch)
             results.append(loss.detach().cpu())
             results.append(output.detach().cpu())
+            loss.backward()
+            opt.step()
 
         for i in range(table_num):
             logging.debug(
@@ -164,7 +169,7 @@ class TestModel:
         os.environ["MASTER_PORT"] = "6000"
         dist.init_process_group(self.pg_method, rank=rank, world_size=world_size)
         os.environ["LOCAL_RANK"] = f"{rank}"
-        
+
     def test_loss(
         self,
         embeding_config: List[EmbeddingBagConfig],
@@ -199,15 +204,15 @@ class TestModel:
         if self.rank == 0:
             logging.debug(plan)
 
-        ddp_model = torchrec.distributed.DistributedModelParallel(
+        ddpModel = torchrec.distributed.DistributedModelParallel(
             ebc,
             sharders=get_default_hybrid_sharders(host_env),
             device=torch.device(self.device),
             plan=plan,
         )
-        logging.debug(ddp_model)
+        logging.debug(ddpModel)
         # Optimizer
-        optimizer = CombinedOptimizer([ddp_model.fused_optimizer])
+        optimizer = CombinedOptimizer([ddpModel.fused_optimizer])
         results = []
         batch: Batch
         iter_ = iter(dataloader)
@@ -217,12 +222,14 @@ class TestModel:
             loss, output = ebc(batch)
             results.append(loss.detach().cpu())
             results.append(output.detach().cpu())
+            loss.backward()
+            optimizer.step()
 
         for i in range(table_num):
             logging.debug(
                 "shard table%d weight %s",
                 i,
-                ddp_model.module.ebc.embedding_bags[f"table{i}"].weight,
+                ddpModel.module.ebc.embedding_bags[f"table{i}"].weight,
             )
         return results
 
@@ -232,15 +239,15 @@ class TestModel:
 @pytest.mark.parametrize("num_embeddings", [[400, 4000, 400]])
 @pytest.mark.parametrize("pool_type", [torchrec.PoolingType.MEAN])
 @pytest.mark.parametrize("sharding_type", ["table_wise", "row_wise"])
-@pytest.mark.parametrize("lockup_len", [1024])
+@pytest.mark.parametrize("lookup_len", [1024])
 @pytest.mark.parametrize("device", ["npu"])
-def test_hstu_dens_normal(
+def test_hybrid_embedding_bag(
     table_num,
     embedding_dims,
     num_embeddings,
     pool_type,
     sharding_type,
-    lockup_len,
+    lookup_len,
     device,
 ):
     if device == "cpu" and sharding_type == "row_wise":
@@ -254,7 +261,7 @@ def test_hstu_dens_normal(
             num_embeddings,
             pool_type,
             sharding_type,
-            lockup_len,
+            lookup_len,
             device,
         ),
         nprocs=WORLD_SIZE,

@@ -5,25 +5,22 @@
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
-import logging
 import os
-from typing import List
-
+import logging
+import numpy as np
+from typing import Dict, List
 import pytest
-import torch
-from torch.utils.data import DataLoader
-
-from dataset import RandomRecDataset, Batch
+import torchrec
+from torchrec import EmbeddingBagCollection, EmbeddingBagConfig
 from hybrid_torchrec import (
     HashEmbeddingBagCollection,
     HashEmbeddingBagConfig,
 )
+import torch
+from torch.utils.data import DataLoader
 from model import Model
+from dataset import RandomRecDataset, Batch
 from util import setup_logging
-
-import torchrec
-from torchrec import EmbeddingBagCollection, EmbeddingBagConfig
-
 
 LOOP_TIMES = 8
 BATCH_NUM = 32

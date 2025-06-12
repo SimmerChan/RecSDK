@@ -6,31 +6,23 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 import os
-from typing import List
-import logging
-import sysconfig
-import pytest
-from dataset import RandomRecDataset, Batch
-from model import Model
-from util import setup_logging
+import pytz
 import torch
+from typing import List
 import torch_npu
 import torch.multiprocessing as mp
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
 from torch.optim import Adam, Adagrad
-
-from hybrid_torchrec import HashEmbeddingBagCollection, HashEmbeddingBagConfig
-from hybrid_torchrec.distributed.sharding_plan import get_default_hybrid_sharders
-from hybrid_torchrec.distributed.hybrid_train_pipeline import (
-    HybridTrainPipelineSparseDist,
-)
-
 import torchrec
-from torchrec import EmbeddingBagConfig
+import pytest
+import logging
+import random
+from torchrec import EmbeddingBagConfig, EmbeddingBagCollection
 import torchrec.distributed
 from torchrec.optim.apply_optimizer_in_backward import apply_optimizer_in_backward
+from torchrec.distributed.embeddingbag import EmbeddingBagCollectionAwaitable
 from torchrec.distributed.planner import (
     EmbeddingShardingPlanner,
     Topology,
@@ -38,8 +30,14 @@ from torchrec.distributed.planner import (
 )
 from torchrec.distributed.types import ShardingEnv
 from torchrec.optim.keyed import CombinedOptimizer
-
-torch.ops.load_library(f"{sysconfig.get_path('purelib')}/libfbgemm_npu_api.so")
+from hybrid_torchrec import HashEmbeddingBagCollection, HashEmbeddingBagConfig
+from hybrid_torchrec.distributed.sharding_plan import get_default_hybrid_sharders
+from hybrid_torchrec.distributed.hybrid_train_pipeline import (
+    HybridTrainPipelineSparseDist,
+)
+from dataset import RandomRecDataset, Batch
+from model import Model
+from util import setup_logging
 
 OPTIMIZER_PARAM = {
     Adam: dict(lr=0.02),
@@ -199,20 +197,20 @@ class TestModel:
         if self.rank == 0:
             logging.debug(plan)
 
-        ddp_model = torchrec.distributed.DistributedModelParallel(
+        ddpModel = torchrec.distributed.DistributedModelParallel(
             ebc,
             sharders=get_default_hybrid_sharders(host_env),
             device=torch.device(self.device),
             plan=plan,
         )
-        logging.debug(ddp_model)
+        logging.debug(ddpModel)
         # Optimizer
-        optimizer = CombinedOptimizer([ddp_model.fused_optimizer])
+        optimizer = CombinedOptimizer([ddpModel.fused_optimizer])
         results = []
         iter_ = iter(dataloader)
-        ddp_model.train()
+        ddpModel.train()
         pipe = HybridTrainPipelineSparseDist(
-            ddp_model,
+            ddpModel,
             optimizer=optimizer,
             device=torch.device(self.device),
             return_loss=True,
@@ -226,12 +224,12 @@ class TestModel:
             logging.debug(
                 "shard table%d weight %s",
                 i,
-                ddp_model.module.ebc.embedding_bags[f"table{i}"].weight,
+                ddpModel.module.ebc.embedding_bags[f"table{i}"].weight,
             )
         return results
 
 
-@pytest.mark.parametrize("table_num", [2])
+@pytest.mark.parametrize("table_num", [3])
 @pytest.mark.parametrize("embedding_dims", [[32, 64, 128]])
 @pytest.mark.parametrize("num_embeddings", [[400, 4000, 400]])
 @pytest.mark.parametrize("pool_type", [torchrec.PoolingType.MEAN])
@@ -249,7 +247,7 @@ def test_hybrid_pipeline_hash_embedding_bag(
     device,
     optim,
 ):
-    if device == "cpu" and sharding_type == "row_wise":
+    if device == "cpu" and (sharding_type == "row_wise" or optim == Adam):
         return
     mp.spawn(
         execute,

@@ -5,41 +5,36 @@
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
-import logging
 import os
-import sysconfig
-from typing import List
-
-import pytest
 import torch
-import torch.distributed as dist
-import torch.multiprocessing as mp
+from typing import List
 import torch_npu
+import torch.multiprocessing as mp
+import torch.distributed as dist
+from torch.utils.data import DataLoader
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.optim import Adam, Adagrad
-from torch.utils.data import DataLoader
-
-from dataset import RandomRecDataset, Batch
-from hybrid_torchrec import HashEmbeddingBagCollection, HashEmbeddingBagConfig
-from hybrid_torchrec.distributed.sharding_plan import get_default_hybrid_sharders
-from model import Model
-from util import setup_logging
-
 import torchrec
-import torchrec.distributed
+import pytest
+import logging
 from torchrec import (
     EmbeddingBagConfig,
+    EmbeddingBagCollection,
 )
+import torchrec.distributed
+from torchrec.optim.apply_optimizer_in_backward import apply_optimizer_in_backward
 from torchrec.distributed.planner import (
     EmbeddingShardingPlanner,
     Topology,
     ParameterConstraints,
 )
 from torchrec.distributed.types import ShardingEnv
-from torchrec.optim.apply_optimizer_in_backward import apply_optimizer_in_backward
 from torchrec.optim.keyed import CombinedOptimizer
-
-torch.ops.load_library(f"{sysconfig.get_path('purelib')}/libfbgemm_npu_api.so")
+from hybrid_torchrec import HashEmbeddingBagCollection, HashEmbeddingBagConfig
+from hybrid_torchrec.distributed.sharding_plan import get_default_hybrid_sharders
+from model import Model
+from dataset import RandomRecDataset, Batch
+from util import setup_logging
 
 LOOP_TIMES = 8
 BATCH_NUM = 32
@@ -49,7 +44,6 @@ OPTIMIZER_PARAM = {
     Adam: dict(lr=0.02),
     Adagrad: dict(lr=0.02, eps=1.0e-8),
 }
-
 
 def generate_hash_config(
     embedding_dims, num_embeddings, pool_type
@@ -76,7 +70,7 @@ def execute(
     num_embeddings,
     pool_type,
     sharding_type,
-    lockup_len,
+    lookup_len,
     device,
     optim,
 ):
@@ -84,7 +78,7 @@ def execute(
     logging.info("this test %s", os.path.basename(__file__))
     embeding_config = generate_hash_config(embedding_dims, num_embeddings, pool_type)
 
-    dataset = RandomRecDataset(BATCH_NUM, lockup_len, num_embeddings, table_num)
+    dataset = RandomRecDataset(BATCH_NUM, lookup_len, num_embeddings, table_num)
     gloden_dataset_loader = DataLoader(
         dataset,
         batch_size=None,
@@ -204,15 +198,15 @@ class TestModel:
         if self.rank == 0:
             logging.debug(plan)
 
-        ddp_model = torchrec.distributed.DistributedModelParallel(
+        ddpModel = torchrec.distributed.DistributedModelParallel(
             ebc,
             sharders=get_default_hybrid_sharders(host_env),
             device=torch.device(self.device),
             plan=plan,
         )
-        logging.debug(ddp_model)
+        logging.debug(ddpModel)
         # Optimizer
-        optimizer = CombinedOptimizer([ddp_model.fused_optimizer])
+        optimizer = CombinedOptimizer([ddpModel.fused_optimizer])
         results = []
         batch: Batch
         iter_ = iter(dataloader)
@@ -229,7 +223,7 @@ class TestModel:
             logging.debug(
                 "shard table%d weight %s",
                 i,
-                ddp_model.module.ebc.embedding_bags[f"table{i}"].weight,
+                ddpModel.module.ebc.embedding_bags[f"table{i}"].weight,
             )
         return results
 
@@ -239,16 +233,16 @@ class TestModel:
 @pytest.mark.parametrize("num_embeddings", [[400, 4000, 400]])
 @pytest.mark.parametrize("pool_type", [torchrec.PoolingType.MEAN])
 @pytest.mark.parametrize("sharding_type", ["table_wise", "row_wise"])
-@pytest.mark.parametrize("lockup_len", [1024])
+@pytest.mark.parametrize("lookup_len", [1024])
 @pytest.mark.parametrize("device", ["npu"])
 @pytest.mark.parametrize("optim", [Adagrad])
-def test_hstu_dens_normal(
+def test_hybrid_hash_embedding_bag(
     table_num,
     embedding_dims,
     num_embeddings,
     pool_type,
     sharding_type,
-    lockup_len,
+    lookup_len,
     device,
     optim,
 ):
@@ -263,7 +257,7 @@ def test_hstu_dens_normal(
             num_embeddings,
             pool_type,
             sharding_type,
-            lockup_len,
+            lookup_len,
             device,
             optim,
         ),
