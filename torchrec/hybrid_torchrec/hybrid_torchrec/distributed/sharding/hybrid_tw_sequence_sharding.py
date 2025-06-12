@@ -12,26 +12,28 @@ from torchrec.distributed.embedding_sharding import (
     BaseSparseFeaturesDist,
     EmbeddingShardingInfo,
 )
-from torchrec.distributed.types import QuantizedCommCodecs, ShardingEnv
-from torchrec.sparse.jagged_tensor import KeyedJaggedTensor
-from torchrec.streamable import Multistreamable
-from torchrec.distributed.sharding.tw_sequence_sharding import (
-    TwSequenceEmbeddingSharding,
-)
-from torchrec.distributed.sharding.tw_sharding import (
-    TwSparseFeaturesDist,
-)
 
 from hybrid_torchrec.distributed.embedding_lookup import (
     HybridGroupedEmbeddingsLookup,
 )
-from hybrid_torchrec.modules.hash_embeddingbag import HashMap
 from hybrid_torchrec.distributed.sharding.post_input_dist import (
     SparseFeaturesPostDist,
     EMPTY_POST_INPUT_DIST,
     UniqueHashFeatureProcess,
     get_feature_len_groupby_table_name,
 )
+from hybrid_torchrec.modules.hash_embeddingbag import HashMap
+
+from torchrec.distributed.types import QuantizedCommCodecs, ShardingEnv
+from torchrec.distributed.sharding.tw_sequence_sharding import (
+    TwSequenceEmbeddingSharding,
+)
+from torchrec.distributed.sharding.tw_sharding import (
+    TwSparseFeaturesDist,
+)
+from torchrec.sparse.jagged_tensor import KeyedJaggedTensor
+from torchrec.streamable import Multistreamable
+
 
 C = TypeVar("C", bound=Multistreamable)
 F = TypeVar("F", bound=Multistreamable)

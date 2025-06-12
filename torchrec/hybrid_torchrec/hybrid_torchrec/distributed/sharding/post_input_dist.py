@@ -5,6 +5,7 @@
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
+import logging
 import os
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -15,6 +16,7 @@ import torch
 from hybrid_torchrec.modules.ids_process import (
     HashMapBase,
 )
+from hybrid_torchrec.sparse import KeyedJaggedTensorWithCount
 from hybrid_torchrec.sparse.jagged_tensor_with_looup_helper import (
     KeyedJaggedTensorWithLookHelper,
 )
@@ -22,6 +24,8 @@ from torchrec.distributed.embedding_types import KJTList
 from torchrec.distributed.types import Awaitable, LazyAwaitable
 from torchrec.sparse.jagged_tensor import KeyedJaggedTensor
 from torchrec.streamable import Multistreamable
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 C = TypeVar("C", bound=Multistreamable)
 F = TypeVar("F", bound=Multistreamable)
@@ -166,12 +170,9 @@ def split_keys_offset(origin_kjt: KeyedJaggedTensor, feature_split_by_table: Lis
 
 
 def _unwrap_ids_mapper(hm):
-    if (hasattr(hm, "ids2indices_unique_out") and
-        not isinstance(hm, torch.nn.Module)):
+    if hasattr(hm, "ids2indices_unique_out") and not isinstance(hm, torch.nn.Module):
         return hm
 
-    if hasattr(hm, "_ids_mapper"):
-        return hm._ids_mapper
     if hasattr(hm, "ids_mapper"):
         return hm.ids_mapper
 
@@ -208,10 +209,9 @@ def do_unique_hash_out(
     start_tm = time.perf_counter()
 
     if use_parallel:
-        IdsMapperNative = _classes.hybrid.IdsMapper
         native_mappers = [_unwrap_ids_mapper(h) for h in hashmap_list]
 
-        IdsMapperNative.parallel_ids2indices_unique_out(
+        torch.classes.hybrid.IdsMapper.parallel_ids2indices_unique_out(
             native_mappers,
             ids,
             hash_indices,

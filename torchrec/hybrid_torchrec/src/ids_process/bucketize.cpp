@@ -278,7 +278,7 @@ BucketResult BlockBucketizeSparseFeaturesCpu(
                 std::nullopt, std::nullopt, unbucketizePermute, batchSizePerFeature, blockBucketizePos, std::nullopt,
                 keepOrigIdx, idsCounts);
         }
-    } else if(sequence && !doUnique) {
+    } else if (sequence && !doUnique) {
         BlockBucketizeSparseFeaturesCpuKernel<true, false, false, int64_t, int64_t, int64_t, false, false>(
             lengths, indices, weights, bucketizePos, blockSizes, totalNumBlocks, bucketSize, newLengths, newIndices,
             std::nullopt, std::nullopt, unbucketizePermute, batchSizePerFeature, blockBucketizePos, std::nullopt,

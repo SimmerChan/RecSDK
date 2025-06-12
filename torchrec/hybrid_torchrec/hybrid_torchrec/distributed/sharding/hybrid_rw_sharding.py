@@ -228,7 +228,7 @@ class HashRwSparseFeaturesDist(RwSparseFeaturesDist):
                 else self._need_pos
             ),
             keep_original_indices=self._keep_original_indices,
-            do_unique = self._do_unique
+            do_unique=self._do_unique
         )
         result = self._dist(bucketized_features)
         if isinstance(result, Awaitable):
