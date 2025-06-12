@@ -8,10 +8,6 @@
 from typing import Dict, List, Optional, TypeVar
 
 import torch
-from torchrec.distributed.embedding_sharding import (
-    BaseSparseFeaturesDist,
-    EmbeddingShardingInfo,
-)
 
 from hybrid_torchrec.distributed.embedding_lookup import (
     HybridGroupedEmbeddingsLookup,
@@ -24,6 +20,10 @@ from hybrid_torchrec.distributed.sharding.post_input_dist import (
 )
 from hybrid_torchrec.modules.hash_embeddingbag import HashMap
 
+from torchrec.distributed.embedding_sharding import (
+    BaseSparseFeaturesDist,
+    EmbeddingShardingInfo,
+)
 from torchrec.distributed.types import QuantizedCommCodecs, ShardingEnv
 from torchrec.distributed.sharding.tw_sequence_sharding import (
     TwSequenceEmbeddingSharding,

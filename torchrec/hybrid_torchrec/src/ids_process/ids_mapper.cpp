@@ -157,10 +157,10 @@ void IdsMapper::UniqueProcessing(const torch::Tensor& hashIndices, const torch::
 
     DeallocFullHashMap(std::move(aHashMap));
 }
-// 需要传入的参数：mapper  tableUniques end  start  gIdsPtr hashIdxPtr
+
 size_t IdsMapper::ProcessIds2Indices(IdsMapper& mapper, std::vector<int64_t>& uniqVec,
-                                     const int64_t start, const int64_t end, int64_t* gIdsPtr, int64_t* hashIdxPtr,
-                                     int64_t* uniqueInvPtr)
+                                     const int64_t start, const int64_t end, const int64_t* gIdsPtr,
+                                     int64_t* hashIdxPtr, int64_t* uniqueInvPtr)
 {
     auto fullMap = mapper.AllocFullHashMap();
     int64_t* bitmap = fullMap->data();
@@ -243,7 +243,6 @@ void IdsMapper::ParallelUniqueHashOut(
                 continue;
             }
 
-            // 需要传入的参数：mapper  tableUniques end  start  gIdsPtr hashIdxPtr
             auto uniqueVecSize = ProcessIds2Indices(mapper, tableUniques[t], start, end, gIdsPtr,
                                                     hashIdxPtr, uniqueInvPtr);
             uniqueCnt[t] = static_cast<int64_t>(uniqueVecSize);
