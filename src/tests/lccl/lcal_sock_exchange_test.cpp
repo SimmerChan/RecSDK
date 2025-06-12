@@ -75,6 +75,7 @@ TEST_F(LcalSockExchangeTest, AllGatherOK)
     delete[] recvBuf;
 }
 
+// tf DT用例环境出错，torch需求转测暂时屏蔽。
 TEST_F(LcalSockExchangeTest, DISABLED_GetNodeNumOK)
 {
     auto ranks = vector<int>{0};
