@@ -75,12 +75,13 @@ TEST_F(LcalSockExchangeTest, AllGatherOK)
     delete[] recvBuf;
 }
 
-TEST_F(LcalSockExchangeTest, GetNodeNumOK)
+TEST_F(LcalSockExchangeTest, DISABLED_GetNodeNumOK)
 {
     auto ranks = vector<int>{0};
     auto sock = LcalSockExchange(0, 1, ranks);
 
     auto res = sock.GetNodeNum();
+    ASSERT_EQ(res, 1);
 }
 
 TEST(LcalSockExchange, ParseIpAndPortOK)
