@@ -88,8 +88,8 @@ void FillNewIndices(const OffsetT* offsetsData, const IndexT* indicesData, Offse
 
 template <typename OffsetT, typename IndexT, bool ReturnCount>
 int64_t Deduplicate(OffsetT* newLengthsData, const OffsetT* newOffsetsData, const OffsetT* offsetsData,
-                 const IndexT* indicesData, IndexT* newIndicesData, IndexT* unbucketizePermuteData,
-                 int32_t numFeatures, int32_t batchSize, int64_t bucketSize, IndexT* idsCountData)
+                    const IndexT* indicesData, IndexT* newIndicesData, IndexT* unbucketizePermuteData,
+                    int32_t numFeatures, int32_t batchSize, int64_t bucketSize, IndexT* idsCountData)
 {
     int32_t uniqueOffset = 0;
     OffsetT curOffset = 0;
@@ -213,7 +213,7 @@ void BlockBucketizeSparseFeaturesCpuKernel(const at::Tensor& lengths, const at::
     if constexpr (DoUnique) {
         auto* idsCountData = idsCounts.data_ptr<IndexT>();
         int64_t uniqueSize = Deduplicate<OffsetT, IndexT, ReturnCount>(
-		    newLengthsData, newOffsetsData, offsetsData, indicesData, newIndicesData,
+            newLengthsData, newOffsetsData, offsetsData, indicesData, newIndicesData,
             unbucketizePermuteData, numFeatures, batchSize, bucketSize, idsCountData);
         newIndices.resize_(uniqueSize);
         if (ReturnCount) {
@@ -231,7 +231,7 @@ BucketResult BlockBucketizeSparseFeaturesCpu(
     const std::optional<at::Tensor>& weights,
     const std::optional<at::Tensor>& batchSizePerFeature, const int64_t maxBatchSize,
     const std::optional<std::vector<at::Tensor>>& blockBucketizePos,
-    const bool returnBucketMapping, const bool keepOrigIdx,
+    const bool returnBucketMapping, const bool keepOrigIdx, const bool doUnique,
     const bool returnCount)
 {
     // 参数校验
@@ -261,23 +261,28 @@ BucketResult BlockBucketizeSparseFeaturesCpu(
 
     auto newLengths = at::zeros({newLengthsSize}, lengths.options());
     auto newIndices = at::empty_like(indices);
-    auto unbucketizePermute = at::empty(indices.sizes(), indices.options());
-    auto idsCounts = sequence && returnCount ?
+    auto unbucketizePermute = at::empty(indices.sizes(), indices.options().pinned_memory(true));
+    auto idsCounts = sequence && doUnique && returnCount ?
         at::empty_like(indices) : torch::tensor({}, torch::dtype(torch::kInt64));
 
     // 根据序列模式选择不同内核
-    if (sequence) {
+    if (sequence && doUnique) {
         if (returnCount) {
-            BlockBucketizeSparseFeaturesCpuKernel<true, false, false, int64_t, int64_t, int64_t, false, true>(
+            BlockBucketizeSparseFeaturesCpuKernel<true, false, false, int64_t, int64_t, int64_t, true, true>(
                 lengths, indices, weights, bucketizePos, blockSizes, totalNumBlocks, bucketSize, newLengths, newIndices,
                 std::nullopt, std::nullopt, unbucketizePermute, batchSizePerFeature, blockBucketizePos, std::nullopt,
                 keepOrigIdx, idsCounts);
         } else {
-            BlockBucketizeSparseFeaturesCpuKernel<true, false, false, int64_t, int64_t, int64_t, false, false>(
+            BlockBucketizeSparseFeaturesCpuKernel<true, false, false, int64_t, int64_t, int64_t, true, false>(
                 lengths, indices, weights, bucketizePos, blockSizes, totalNumBlocks, bucketSize, newLengths, newIndices,
                 std::nullopt, std::nullopt, unbucketizePermute, batchSizePerFeature, blockBucketizePos, std::nullopt,
                 keepOrigIdx, idsCounts);
         }
+    } else if(sequence && !doUnique) {
+        BlockBucketizeSparseFeaturesCpuKernel<true, false, false, int64_t, int64_t, int64_t, false, false>(
+            lengths, indices, weights, bucketizePos, blockSizes, totalNumBlocks, bucketSize, newLengths, newIndices,
+            std::nullopt, std::nullopt, unbucketizePermute, batchSizePerFeature, blockBucketizePos, std::nullopt,
+            keepOrigIdx, idsCounts);
     } else {
         BlockBucketizeSparseFeaturesCpuKernel<false, false, false, int64_t, int64_t, int64_t, false, false>(
             lengths, indices, weights, bucketizePos, blockSizes, totalNumBlocks, bucketSize, newLengths, newIndices,

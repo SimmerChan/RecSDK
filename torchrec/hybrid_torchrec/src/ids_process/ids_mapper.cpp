@@ -156,6 +156,7 @@ void IdsMapper::UniqueProcessing(const torch::Tensor& hashIndices, const torch::
     DeallocFullHashMap(std::move(aHashMap));
 }
 
+constexpr const int EXPAND_CAPACITY_RATE = 2;
 void IdsMapper::ParallelUniqueHashOut(
     const c10::List<c10::intrusive_ptr<IdsMapper>>& mappers,
     const torch::Tensor& globalIds,
@@ -217,7 +218,7 @@ void IdsMapper::ParallelUniqueHashOut(
                 int64_t hidx = hashIdxPtr[i];
 
                 if (hidx >= static_cast<int64_t>(fullMap->size())) {
-                    fullMap->resize(hidx * 2 + 1, -1);
+                    fullMap->resize(hidx * EXPAND_CAPACITY_RATE + 1, -1);
                     bitmap = fullMap->data();
                 }
 

@@ -92,6 +92,7 @@ def bucketize_kjt_before_all2all(
     bucketize_pos: bool = False,
     block_bucketize_row_pos: Optional[List[torch.Tensor]] = None,
     keep_original_indices: bool = False,
+    do_unique: bool = False,
     enable_admit: bool = False,
 ) -> Tuple[KeyedJaggedTensor | KeyedJaggedTensorWithCount, Optional[torch.Tensor]]:
     num_features = len(kjt.keys())
@@ -99,8 +100,8 @@ def bucketize_kjt_before_all2all(
         block_sizes.numel() == num_features,
         f"Expecting block sizes for {num_features} features, but {block_sizes.numel()} received.",
     )
-    # 有表开启准入时，hash映射时需返回counts数据并进行all2all
-    return_count = enable_admit
+    # 开启local unique时且有表开启准入时，需返回counts数据并进行all2all
+    return_count = do_unique and enable_admit
     block_sizes_new_type = _fx_wrap_tensor_to_device_dtype(block_sizes, kjt.values())
     bucket_params = BucketParams( 
         kjt.lengths().view(-1),
@@ -114,6 +115,7 @@ def bucketize_kjt_before_all2all(
         max_b=_fx_wrap_max_B(kjt),
         block_bucketize_pos=block_bucketize_row_pos,  # each tensor should have the same dtype as kjt.lengths()
         keep_orig_idx=keep_original_indices,
+        do_unique=do_unique,
         return_count=return_count
     )
     (
@@ -203,6 +205,10 @@ class HashRwSparseFeaturesDist(RwSparseFeaturesDist):
             keep_original_indices,
         )
         self.pg = pg
+        
+        # local unique只可用于EC(Embedding Collection / Sequence Embedding)
+        self._do_unique = (os.environ.get("DO_EC_LOCAL_UNIQUE", "False").lower() in ('true', '1', 'yes') and 
+                           os.environ.get("USE_EC", "False").lower() in ('true', '1', 'yes'))
 
     def _forward_func(
         self,
@@ -222,6 +228,7 @@ class HashRwSparseFeaturesDist(RwSparseFeaturesDist):
                 else self._need_pos
             ),
             keep_original_indices=self._keep_original_indices,
+            do_unique = self._do_unique
         )
         result = self._dist(bucketized_features)
         if isinstance(result, Awaitable):

@@ -6,6 +6,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 import os
+import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, TypeVar, Optional
 
@@ -163,6 +164,7 @@ def split_keys_offset(origin_kjt: KeyedJaggedTensor, feature_split_by_table: Lis
         start = end
     return torch.LongTensor(result)
 
+
 def _unwrap_ids_mapper(hm):
     if (hasattr(hm, "ids2indices_unique_out") and
         not isinstance(hm, torch.nn.Module)):
@@ -191,10 +193,10 @@ def do_unique_hash_out(
     unique_inverse = torch.empty_like(ids, pin_memory=True)
     unique_offset = torch.zeros(num_of_table + 1, dtype=torch.long)
 
-    # ´æÔÚ±í¿ªÆô×¼ÈëÊ±¼ÇÂ¼feature count
+    # å­˜åœ¨è¡¨å¼€å¯å‡†å…¥æ—¶è®°å½•feature count
     if enable_admit:
-        # ¿ªÆôlocal uniqueÊ±£¬»á´«ÈëKeyedJaggedTensorWithCount,Ê¹ÓÃÆäcountsÊôĞÔ£»
-        # ²»°üº¬countsÊôĞÔÊ±Ê¹ÓÃ¿Õtensor, Í³¼ÆÊ±»áÓÃ1×÷Îªcount
+        # å¼€å¯local uniqueæ—¶ï¼Œä¼šä¼ å…¥KeyedJaggedTensorWithCount,ä½¿ç”¨å…¶countså±æ€§ï¼›
+        # ä¸åŒ…å«countså±æ€§æ—¶ä½¿ç”¨ç©ºtensor, ç»Ÿè®¡æ—¶ä¼šç”¨1ä½œä¸ºcount
         counts = origin_kjt.counts if hasattr(origin_kjt, "counts") else None
         counts = counts if counts is not None else torch.empty((0,), dtype=torch.int64)
         for table_i in range(num_of_table):

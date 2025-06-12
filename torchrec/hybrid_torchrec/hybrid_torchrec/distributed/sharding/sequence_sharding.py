@@ -45,7 +45,7 @@ class HybridSequenceShardingContext(SequenceShardingContext):
 
 
     def to(self, device: torch.device, non_blocking: bool = False) -> "HybridSequenceShardingContext":
-        newContext = HybridSequenceShardingContext(
+        new_context = HybridSequenceShardingContext(
             self.batch_size_per_rank,
             self.batch_size_per_rank_per_feature,
             self.batch_size_per_feature_pre_a2a,
@@ -59,18 +59,21 @@ class HybridSequenceShardingContext(SequenceShardingContext):
         )
         
         if self.features_before_input_dist is not None:
-            newContext.features_before_input_dist = self.features_before_input_dist.to(device=device, non_blocking=non_blocking)
+            new_context.features_before_input_dist = self.features_before_input_dist.to(device=device,
+                                                                                        non_blocking=non_blocking)
             
         if self.sparse_features_recat is not None:
-            newContext.sparse_features_recat = self.sparse_features_recat.to(device=device, non_blocking=non_blocking)   
+            new_context.sparse_features_recat = self.sparse_features_recat.to(device=device, non_blocking=non_blocking)
 
         if self.unbucketize_permute_tensor is not None:
-            newContext.unbucketize_permute_tensor = self.unbucketize_permute_tensor.to(device=device, non_blocking=non_blocking)
+            new_context.unbucketize_permute_tensor = self.unbucketize_permute_tensor.to(device=device,
+                                                                                        non_blocking=non_blocking)
 
         if self.lengths_after_input_dist is not None:
-            newContext.lengths_after_input_dist = self.lengths_after_input_dist.to(device=device, non_blocking=non_blocking)
+            new_context.lengths_after_input_dist = self.lengths_after_input_dist.to(device=device,
+                                                                                    non_blocking=non_blocking)
 
-        return newContext      
+        return new_context
 
     def pin_memory(self):
         if self.features_before_input_dist is not None:

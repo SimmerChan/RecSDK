@@ -32,7 +32,7 @@ public:
     std::tuple<at::Tensor, at::Tensor, at::Tensor> UniqueAndLookup(const torch::Tensor& globalIds);
     void UniqueAndLookupOut(const torch::Tensor& globalIds, const torch::Tensor& hashIndices,
                             const torch::Tensor& offset, const torch::Tensor& unique,
-                            const torch::Tensor& uniqueIds, 
+                            const torch::Tensor& uniqueIds,
                             const torch::Tensor& uniqueInverse, const torch::Tensor& uniqueOffset, int64_t tableId);
 
     std::unique_ptr<std::vector<int64_t>> AllocFullHashMap()
