@@ -8,12 +8,12 @@ COPY ./Ascend-cann-toolkit_*.run ./
 COPY ./Ascend-cann-kernels-*.run ./
 
 # 1.配置Debian源
-RUN echo "deb http://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm main contrib non-free" > ./sources.list && \
-    echo "deb-src http://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm main contrib non-free" >> ./sources.list && \
-    echo "deb http://mirrors.tuna.tsinghua.edu.cn/debian-security/ bookworm-security main contrib non-free" >> ./sources.list && \
-    echo "deb-src http://mirrors.tuna.tsinghua.edu.cn/debian-security/ bookworm-security main contrib non-free" >> ./sources.list && \
-    echo "deb http://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm-updates main contrib non-free" >> ./sources.list && \
-    echo "deb-src http://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm-updates main contrib non-free" >> ./sources.list
+RUN echo "deb https://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm main contrib non-free" > ./sources.list && \
+    echo "deb-src https://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm main contrib non-free" >> ./sources.list && \
+    echo "deb https://mirrors.tuna.tsinghua.edu.cn/debian-security/ bookworm-security main contrib non-free" >> ./sources.list && \
+    echo "deb-src https://mirrors.tuna.tsinghua.edu.cn/debian-security/ bookworm-security main contrib non-free" >> ./sources.list && \
+    echo "deb https://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm-updates main contrib non-free" >> ./sources.list && \
+    echo "deb-src https://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm-updates main contrib non-free" >> ./sources.list
 
 # 2.安装编译环境
 RUN mv /etc/apt/sources.list.d/debian.sources /etc/apt/sources.list.d/debian.sources.bak && \
@@ -28,7 +28,7 @@ RUN mv /etc/apt/sources.list.d/debian.sources /etc/apt/sources.list.d/debian.sou
 
 # 3.安装cmake-3.20.6
 # 下载地址: https://cmake.org/files/v3.20/cmake-3.20.6.tar.gz
-RUN wget --no-check-certificate https://cmake.org/files/v3.20/cmake-3.20.6.tar.gz && \
+RUN wget https://cmake.org/files/v3.20/cmake-3.20.6.tar.gz && \
     . /etc/profile && gcc -v && tar -zxf cmake-3.20.6.tar.gz && \
     cd cmake-3.20.6 && \
     ./bootstrap && make -j 32 && make install && cd .. && \
@@ -36,7 +36,7 @@ RUN wget --no-check-certificate https://cmake.org/files/v3.20/cmake-3.20.6.tar.g
 
 # 4.安装python3.11.9
 # 下载地址: https://mirrors.huaweicloud.com/python/3.11.9/Python-3.11.9.tgz
-RUN wget --no-check-certificate https://mirrors.huaweicloud.com/python/3.11.9/Python-3.11.9.tgz && \
+RUN wget https://mirrors.huaweicloud.com/python/3.11.9/Python-3.11.9.tgz && \
     . /etc/profile && gcc -v && tar -xvf Python-3.11.9.tgz && \
     cd Python-3.11.9 && \
     mkdir -p build && cd build && \
@@ -59,8 +59,8 @@ RUN mkdir ~/.pip && touch ~/.pip/pip.conf && \
     echo "timeout=200" >> ~/.pip/pip.conf
 
 # 5.安装python包
-RUN wget --no-check-certificate https://download.pytorch.org/whl/cpu/torch-2.6.0%2Bcpu-cp311-cp311-linux_x86_64.whl && \
-    wget --no-check-certificate https://download.pytorch.org/whl/cpu/fbgemm_gpu-1.1.0%2Bcpu-cp311-cp311-manylinux2014_x86_64.whl
+RUN wget https://download.pytorch.org/whl/cpu/torch-2.6.0%2Bcpu-cp311-cp311-linux_x86_64.whl && \
+    wget https://download.pytorch.org/whl/cpu/fbgemm_gpu-1.1.0%2Bcpu-cp311-cp311-manylinux2014_x86_64.whl
 
 RUN pip3 install -U pip && \
     pip3 install numpy==1.25.0 && \
