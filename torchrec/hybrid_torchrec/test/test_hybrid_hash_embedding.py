@@ -5,9 +5,10 @@
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
-from dataclasses import dataclass
+import itertools
 import logging
 import os
+from dataclasses import dataclass
 from typing import List
 
 import pytest
@@ -229,43 +230,18 @@ class TestModel:
         return results
 
 
+params = {
+    "table_num": [3],
+    "embedding_dims": [[32, 32, 32]],
+    "num_embeddings": [[400, 4000, 400]],
+    "sharding_type": ["table_wise", "row_wise"],
+    "lookup_len": [1024],
+    "device": ["npu"]
+}
+
+
 @pytest.mark.parametrize("config", [
-    ExecuteConfig(
-        world_size=WORLD_SIZE,
-        table_num=3,
-        embedding_dims=[32, 32, 32],
-        num_embeddings=[400, 4000, 400],
-        sharding_type="table_wise",
-        lookup_len=1024,
-        device="npu"
-    ),
-    ExecuteConfig(
-        world_size=WORLD_SIZE,
-        table_num=3,
-        embedding_dims=[32, 32, 32],
-        num_embeddings=[400, 4000, 400],
-        sharding_type="row_wise",
-        lookup_len=1024,
-        device="npu"
-    ),
-    ExecuteConfig(
-        world_size=WORLD_SIZE,
-        table_num=3,
-        embedding_dims=[32, 32, 32],
-        num_embeddings=[400, 4000, 400],
-        sharding_type="table_wise",
-        lookup_len=1024,
-        device="cpu"
-    ),
-    ExecuteConfig(
-        world_size=WORLD_SIZE,
-        table_num=3,
-        embedding_dims=[32, 32, 32],
-        num_embeddings=[400, 4000, 400],
-        sharding_type="row_wise",
-        lookup_len=1024,
-        device="cpu"
-    ),
+    ExecuteConfig(*v) for v in itertools.product(*params.values())
 ])
 def test_hybrid_hash_embedding(config: ExecuteConfig):
     if config.device == "cpu" and config.sharding_type == "row_wise":
