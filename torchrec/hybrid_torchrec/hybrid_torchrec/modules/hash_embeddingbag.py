@@ -7,7 +7,7 @@
 # LICENSE file in the root directory of this source tree.
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 import torch
 from torch import nn
@@ -16,6 +16,7 @@ from hybrid_torchrec.modules.embedding_config import HYBRID_SUPPORT_DEVICE
 from hybrid_torchrec.modules.ids_process import IdsMapper
 from torchrec.modules.embedding_configs import (
     DataType,
+    EmbeddingConfig,
     EmbeddingBagConfig,
     pooling_type_to_str,
 )
@@ -81,6 +82,29 @@ class HashEmbeddingBagConfig(EmbeddingBagConfig):
     pass
 
 
+class HashMap(Dict):
+    def __init__(self):
+        super().__init__()
+        self.ids2slot_dict = {}
+        self.index = 0
+
+    def ids2indices(self, ids: torch.Tensor) -> torch.Tensor:
+        raw_device = input.device
+        ids_host = input.cpu()
+        index_of_ids = torch.zeros(ids_host.shape, dtype=torch.long)
+        n = ids.shape[0]
+        for i in range(n):
+            k = ids_host[i].item()
+            if k in self.ids2slot_dict:
+                index_of_ids[i] = self.ids2slot_dict[k]
+            else:
+                self.ids2slot_dict[k] = self.index
+                index_of_ids[i] = self.index
+                self.index += 1
+        index_of_ids = index_of_ids.to(raw_device)
+        return index_of_ids
+
+
 class HashEmbeddingBag(torch.nn.Module):
     def __init__(self, config: HashEmbeddingBagConfig, device: torch.device):
         pass
@@ -99,17 +123,29 @@ class HashEmbeddingBag(torch.nn.Module):
 
 
 class HybridHashTable(torch.nn.Module):
-    def __init__(self, config: HashEmbeddingBagConfig, device: torch.device):
+    def __init__(self, config: Union[EmbeddingConfig, EmbeddingBagConfig], device: torch.device):
         super().__init__()
         self.config = config
         self.ids2slot_dict = IdsMapper(self.config.num_embeddings)
-        self.vector_table = torch.nn.EmbeddingBag(
-            self.config.num_embeddings,
-            self.config.embedding_dim,
-            mode=pooling_type_to_str(config.pooling),
-            device=device,
-            include_last_offset=True,
-        )
+        if isinstance(config, EmbeddingBagConfig):
+            self.vector_table = torch.nn.EmbeddingBag(
+                self.config.num_embeddings,
+                self.config.embedding_dim,
+                mode=pooling_type_to_str(config.pooling),
+                device=device,
+                include_last_offset=True,
+            )
+        elif isinstance(config, EmbeddingConfig):
+            self.vector_table = torch.nn.Embedding(
+                self.config.num_embeddings,
+                self.config.embedding_dim,
+                device=device,
+            )
+        else:
+            raise ValueError(
+                "config must be EmbeddingConfig or EmbeddingBagConfig"
+            )
+
         self.index = 0
         self.register_parameter("weight", self.vector_table.weight)
 
@@ -123,7 +159,10 @@ class HybridHashTable(torch.nn.Module):
         ids_host = input_tensor.cpu()
         index_of_ids, _, _ = self.ids2slot_dict(ids_host)
         index_of_ids = index_of_ids.to(raw_device)
-        values = self.vector_table(index_of_ids, offsets)
+        if isinstance(self.config, EmbeddingBagConfig):
+            values = self.vector_table(index_of_ids, offsets)
+        else:
+            values = self.vector_table(index_of_ids)
         return values
 
 
