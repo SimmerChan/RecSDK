@@ -41,7 +41,7 @@ from torchrec.optim.apply_optimizer_in_backward import apply_optimizer_in_backwa
 from torchrec.optim.keyed import CombinedOptimizer
 
 
-torch.ops.loadlibrary(f"{sysconfig.get_path('purelib')}/libfbgemm_npu_api.so")
+torch.ops.load_library(f"{sysconfig.get_path('purelib')}/libfbgemm_npu_api.so")
 
 OPTIMIZER_PARAM = {
     Adam: dict(lr=0.02),

@@ -41,7 +41,7 @@ from torchrec.distributed.types import ShardingEnv
 from torchrec.optim.keyed import CombinedOptimizer
 
 
-torch.ops.loadlibrary(f"{sysconfig.get_path('purelib')}/libfbgemm_npu_api.so")
+torch.ops.load_library(f"{sysconfig.get_path('purelib')}/libfbgemm_npu_api.so")
 
 LOOP_TIMES = 8
 BATCH_NUM = 32
