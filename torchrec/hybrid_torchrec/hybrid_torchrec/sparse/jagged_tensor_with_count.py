@@ -37,6 +37,7 @@ class JaggedTensorWithCount(JaggedTensor):
         self._counts = counts
 
     @property
+
     def counts(self):
         return self._counts
 
