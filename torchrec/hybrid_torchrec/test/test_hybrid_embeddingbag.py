@@ -70,20 +70,30 @@ def generate_base_config(
     return test_table_configs
 
 
-def execute(
-    rank,
-    world_size,
-    table_num,
-    embedding_dims,
-    num_embeddings,
-    pool_type,
-    sharding_type,
-    lookup_len,
-    device,
-):
+@dataclass
+class ExecuteConfig:
+    world_size: int
+    table_num: int
+    embedding_dims: List[int]
+    num_embeddings: List[int]
+    pool_type: PoolingType
+    sharding_type: str
+    lookup_len: int
+    device: str
+
+
+def execute(rank: int, config: ExecuteConfig):
+    world_size = config.world_size
+    table_num = config.table_num
+    embedding_dims = config.embedding_dims
+    num_embeddings = config.num_embeddings
+    pool_type = config.pool_type
+    sharding_type = config.sharding_type
+    lookup_len = config.lookup_len
+    device = config.device
     setup_logging(rank)
     logging.info("this test %s", os.path.basename(__file__))
-    embeding_config = generate_base_config(embedding_dims, num_embeddings, pool_type)
+    embedding_config = generate_base_config(embedding_dims, num_embeddings, pool_type)
 
     dataset = RandomRecDataset(BATCH_NUM, lookup_len, num_embeddings, table_num)
     gloden_dataset_loader = DataLoader(
@@ -102,9 +112,9 @@ def execute(
     test_model = TestModel(rank, world_size, device)
 
     gloden_results = test_model.cpu_gloden_loss(
-        embeding_config, gloden_dataset_loader, sharding_type
+        embedding_config, gloden_dataset_loader, sharding_type
     )
-    test_results = test_model.test_loss(embeding_config, data_loader, sharding_type)
+    test_results = test_model.test_loss(embedding_config, data_loader, sharding_type)
     for gloden, result in zip(gloden_results, test_results):
         logging.debug("")
         logging.debug("===========================")
@@ -135,15 +145,15 @@ class TestModel:
 
     @staticmethod
     def cpu_gloden_loss(
-        embeding_config: List[EmbeddingBagConfig],
+        embedding_config: List[EmbeddingBagConfig],
         dataloader: DataLoader[Batch],
         sharding_type: str,
     ):
         pg = dist.new_group(backend="gloo")
-        table_num = len(embeding_config)
-        ebc = EmbeddingBagCollection(device="cpu", tables=embeding_config)
+        table_num = len(embedding_config)
+        ebc = EmbeddingBagCollection(device="cpu", tables=embedding_config)
 
-        num_features = sum([c.num_features() for c in embeding_config])
+        num_features = sum([c.num_features() for c in embedding_config])
         ebc = Model(ebc, num_features)
         model = DDP(ebc, device_ids=None, process_group=pg)
 
@@ -176,17 +186,17 @@ class TestModel:
 
     def test_loss(
         self,
-        embeding_config: List[EmbeddingBagConfig],
+        embedding_config: List[EmbeddingBagConfig],
         dataloader: DataLoader[Batch],
         sharding_type: str,
     ):
-        num_features = sum([c.num_features() for c in embeding_config])
+        num_features = sum([c.num_features() for c in embedding_config])
         rank, world_size = self.rank, self.world_size
         host_gp = dist.new_group(backend="gloo")
         host_env = ShardingEnv(world_size=world_size, rank=rank, pg=host_gp)
         # Shard
-        table_num = len(embeding_config)
-        ebc = EmbeddingBagCollection(device="meta", tables=embeding_config)
+        table_num = len(embedding_config)
+        ebc = EmbeddingBagCollection(device="meta", tables=embedding_config)
         ebc = Model(ebc, num_features)
         apply_optimizer_in_backward(
             optimizer_class=torch.optim.Adagrad,
@@ -238,21 +248,10 @@ class TestModel:
         return results
 
 
-@dataclass
-class TestConfig:
-    table_num: int
-    embedding_dims: List[int]
-    num_embeddings: List[int]
-    pool_type: PoolingType
-    sharding_type: str
-    lookup_len: int
-    device: str
-
-
 @pytest.mark.parametrize(
     "config",
     [
-        TestConfig(
+        ExecuteConfig(
             table_num=3,
             embedding_dims=[32, 64, 128],
             num_embeddings=[400, 4000, 400],
@@ -261,7 +260,7 @@ class TestConfig:
             lookup_len=1024,
             device="npu",
         ),
-        TestConfig(
+        ExecuteConfig(
             table_num=3,
             embedding_dims=[32, 64, 128],
             num_embeddings=[400, 4000, 400],
@@ -270,9 +269,27 @@ class TestConfig:
             lookup_len=1024,
             device="npu",
         ),
+        ExecuteConfig(
+            table_num=3,
+            embedding_dims=[32, 64, 128],
+            num_embeddings=[400, 4000, 400],
+            pool_type=torchrec.PoolingType.MEAN,
+            sharding_type="table_wise",
+            lookup_len=1024,
+            device="cpu",
+        ),
+        ExecuteConfig(
+            table_num=3,
+            embedding_dims=[32, 64, 128],
+            num_embeddings=[400, 4000, 400],
+            pool_type=torchrec.PoolingType.MEAN,
+            sharding_type="row_wise",
+            lookup_len=1024,
+            device="cpu",
+        ),
     ],
 )
-def test_hybrid_embedding_bag(config: TestConfig):
+def test_hybrid_embedding_bag(config: ExecuteConfig):
     table_num = config.table_num
     embedding_dims = config.embedding_dims
     num_embeddings = config.num_embeddings

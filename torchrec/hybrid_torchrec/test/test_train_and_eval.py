@@ -8,6 +8,7 @@
 import logging
 import os
 import sysconfig
+from dataclasses import dataclass
 from typing import List
 
 import pytest
@@ -47,17 +48,27 @@ LOOP_TIMES = 20
 BATCH_NUM = 10
 
 
-def execute(
-    rank,
-    world_size,
-    table_num,
-    embedding_dims,
-    num_embeddings,
-    pool_type,
-    sharding_type,
-    lookup_len,
-    device,
-):
+@dataclass
+class ExecuteConfig:
+    world_size: int
+    table_num: int
+    embedding_dims: List[int]
+    num_embeddings: List[int]
+    pool_type: torchrec.PoolingType
+    sharding_type: str
+    lookup_len: int
+    device: str
+
+
+def execute(rank: int, config: ExecuteConfig):
+    world_size = config.world_size
+    table_num = config.table_num
+    embedding_dims = config.embedding_dims
+    num_embeddings = config.num_embeddings
+    pool_type = config.pool_type
+    sharding_type = config.sharding_type
+    lookup_len = config.lookup_len
+    device = config.device
     setup_logging(rank)
     logging.info("this test %s", os.path.basename(__file__))
     # , batch_num, lookup_lens, num_embeddings, table_num
@@ -77,7 +88,7 @@ def execute(
         pin_memory=True,
         pin_memory_device="npu",
     )
-    embeding_config = []
+    embedding_config = []
     for i in range(table_num):
         ebc_config = HashEmbeddingBagConfig(
             name=f"table{i}",
@@ -87,10 +98,10 @@ def execute(
             pooling=pool_type,
             init_fn=weight_init,
         )
-        embeding_config.append(ebc_config)
+        embedding_config.append(ebc_config)
 
     test_model = TestModel(rank, world_size, device)
-    test_model.test_loss(embeding_config, data_loader_train, data_loader_eval, sharding_type)
+    test_model.test_loss(embedding_config, data_loader_train, data_loader_eval, sharding_type)
 
 
 def weight_init(param: torch.nn.Parameter):
@@ -120,7 +131,7 @@ class TestModel:
     # data_loader1, data_loader2,
     def test_loss(
         self,
-        embeding_config: List[EmbeddingBagConfig],
+        embedding_config: List[EmbeddingBagConfig],
         data_loader_train: DataLoader[Batch],
         data_loader_eval: DataLoader[Batch],
         sharding_type: str,
@@ -129,9 +140,9 @@ class TestModel:
         host_gp = dist.new_group(backend="gloo")
         host_env = ShardingEnv(world_size=world_size, rank=rank, pg=host_gp)
 
-        table_num = len(embeding_config)
-        ebc = HashEmbeddingBagCollection(device=self.device, tables=embeding_config)
-        num_features = sum([c.num_features() for c in embeding_config])
+        table_num = len(embedding_config)
+        ebc = HashEmbeddingBagCollection(device=self.device, tables=embedding_config)
+        num_features = sum([c.num_features() for c in embedding_config])
         ebc = Model(ebc, num_features)
         apply_optimizer_in_backward(
             optimizer_class=torch.optim.Adagrad,
@@ -196,36 +207,61 @@ class TestModel:
         assert is_stop and step == BATCH_NUM
 
 
-@pytest.mark.parametrize("table_num", [2])
-@pytest.mark.parametrize("embedding_dims", [[32, 64, 128]])
-@pytest.mark.parametrize("num_embeddings", [[400, 4000, 400]])
-@pytest.mark.parametrize("pool_type", [torchrec.PoolingType.MEAN])
-@pytest.mark.parametrize("sharding_type", ["table_wise"])
-@pytest.mark.parametrize("lookup_len", [1024])
-@pytest.mark.parametrize("device", ["cpu", "npu"])
-def test_pipeline_train_eval(
-    table_num,
-    embedding_dims,
-    num_embeddings,
-    pool_type,
-    sharding_type,
-    lookup_len,
-    device,
-):
-    if device == "cpu" and sharding_type == "row_wise":
+# @pytest.mark.parametrize("table_num", [2])
+# @pytest.mark.parametrize("embedding_dims", [[32, 64, 128]])
+# @pytest.mark.parametrize("num_embeddings", [[400, 4000, 400]])
+# @pytest.mark.parametrize("pool_type", [torchrec.PoolingType.MEAN])
+# @pytest.mark.parametrize("sharding_type", ["table_wise"])
+# @pytest.mark.parametrize("lookup_len", [1024])
+# @pytest.mark.parametrize("device", ["cpu", "npu"])
+@pytest.mark.parametrize("config", [
+    ExecuteConfig(
+        world_size=WORLD_SIZE,
+        table_num=3,
+        embedding_dims=[32, 64, 128],
+        num_embeddings=[400, 4000, 400],
+        pool_type=torchrec.PoolingType.MEAN,
+        sharding_type="table_wise",
+        lookup_len=1024,
+        device="npu",
+    ),
+    ExecuteConfig(
+        world_size=WORLD_SIZE,
+        table_num=3,
+        embedding_dims=[32, 64, 128],
+        num_embeddings=[400, 4000, 400],
+        pool_type=torchrec.PoolingType.MEAN,
+        sharding_type="row_wise",
+        lookup_len=1024,
+        device="npu",
+    ),
+    ExecuteConfig(
+        world_size=WORLD_SIZE,
+        table_num=3,
+        embedding_dims=[32, 64, 128],
+        num_embeddings=[400, 4000, 400],
+        pool_type=torchrec.PoolingType.MEAN,
+        sharding_type="table_wise",
+        lookup_len=1024,
+        device="cpu",
+    ),
+    ExecuteConfig(
+        world_size=WORLD_SIZE,
+        table_num=3,
+        embedding_dims=[32, 64, 128],
+        num_embeddings=[400, 4000, 400],
+        pool_type=torchrec.PoolingType.MEAN,
+        sharding_type="row_wise",
+        lookup_len=1024,
+        device="cpu",
+    ),
+])
+def test_pipeline_train_eval(config: ExecuteConfig):
+    if config.device == "cpu" and config.sharding_type == "row_wise":
         return
     mp.spawn(
         execute,
-        args=(
-            WORLD_SIZE,
-            table_num,
-            embedding_dims,
-            num_embeddings,
-            pool_type,
-            sharding_type,
-            lookup_len,
-            device,
-        ),
+        args=(config,),
         nprocs=WORLD_SIZE,
         join=True,
     )
