@@ -6,8 +6,11 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 import logging
-from typing import List
+import sysconfig
 import os
+from typing import List
+
+import pytest
 import torch_npu
 import torch
 import torch.distributed as dist
@@ -22,8 +25,8 @@ from hybrid_torchrec.distributed.hybrid_train_pipeline import (
     HybridTrainPipelineSparseDist,
 )
 from model import Model
-import pytest
 from util import setup_logging
+
 import torchrec
 from torchrec import EmbeddingBagConfig, EmbeddingBagCollection
 import torchrec.distributed
@@ -37,6 +40,8 @@ from torchrec.distributed.types import ShardingEnv
 from torchrec.optim.apply_optimizer_in_backward import apply_optimizer_in_backward
 from torchrec.optim.keyed import CombinedOptimizer
 
+
+torch.ops.loadlibrary(f"{sysconfig.get_path('purelib')}/libfbgemm_npu_api.so")
 
 OPTIMIZER_PARAM = {
     Adam: dict(lr=0.02),

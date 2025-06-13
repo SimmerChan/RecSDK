@@ -7,6 +7,7 @@
 # LICENSE file in the root directory of this source tree.
 import logging
 import os
+import sysconfig
 from typing import List
 
 import pytest
@@ -38,6 +39,8 @@ from torchrec.distributed.types import ShardingEnv
 from torchrec.optim.apply_optimizer_in_backward import apply_optimizer_in_backward
 from torchrec.optim.keyed import CombinedOptimizer
 
+
+torch.ops.loadlibrary(f"{sysconfig.get_path('purelib')}/libfbgemm_npu_api.so")
 
 WORLD_SIZE = 2
 LOOP_TIMES = 20

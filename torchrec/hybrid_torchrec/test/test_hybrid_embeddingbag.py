@@ -5,10 +5,12 @@
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
-from dataclasses import dataclass
-import os
 import logging
+import sysconfig
+import os
+from dataclasses import dataclass
 from typing import List
+
 import torch_npu
 import torch
 import torch.multiprocessing as mp
@@ -43,6 +45,8 @@ from torchrec.distributed.types import ShardingEnv
 from torchrec.optim.apply_optimizer_in_backward import apply_optimizer_in_backward
 from torchrec.optim.keyed import CombinedOptimizer
 
+
+torch.ops.loadlibrary(f"{sysconfig.get_path('purelib')}/libfbgemm_npu_api.so")
 
 LOOP_TIMES = 8
 BATCH_NUM = 32
