@@ -33,7 +33,7 @@ class JaggedTensorWithCount(JaggedTensor):
 
         super().__init__(values, weights, lengths, offsets)
 
-        # 和values值对应的ids出现次数，分桶去重时会进行计算，input_dist all2all会做集合通信，post dist input时做count记录
+        # values涓瘡涓猧ds鍑虹幇娆℃暟锛屽垎妗跺幓閲嶆椂浼氳繘琛岃绠楋紝input_dist all2all浼氬仛闆嗗悎閫氫俊锛宲ost dist input鏃跺仛count璁板綍
         self._counts = counts
 
     @property
@@ -507,8 +507,8 @@ class KeyedJaggedTensorWithCount(KeyedJaggedTensor):
         values = tensors[1]
         stride_per_rank_per_key = tensors[2] if variable_stride_per_key else None
 
-        # 仅当local unique且有表开启准入时，会使用KeyedJaggedTensorWithCount做all2all
-        # 此时会固定在tensors列表末尾传递counts数据
+        # 锟斤拷锟斤拷local unique锟斤拷锟叫憋拷锟斤拷准锟斤拷时锟斤拷锟斤拷使锟斤拷KeyedJaggedTensorWithCount锟斤拷all2all
+        # 锟斤拷时锟斤拷潭锟斤拷锟絫ensors锟叫憋拷末尾锟斤拷锟斤拷counts锟斤拷锟斤拷
         weights = (
             tensors[-2]
             if (variable_stride_per_key and len(tensors) == 5)
