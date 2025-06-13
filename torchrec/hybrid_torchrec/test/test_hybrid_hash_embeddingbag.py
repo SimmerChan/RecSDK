@@ -252,8 +252,6 @@ def test_hstu_dens_normal(
     device,
     optim,
 ):
-    if device == "cpu" and (sharding_type == "row_wise" or optim == Adam):
-        return
     mp.spawn(
         execute,
         args=(

@@ -249,8 +249,6 @@ def test_hybrid_pipeline_hash_embedding_bag(
     device,
     optim,
 ):
-    if device == "cpu" and sharding_type == "row_wise":
-        return
     mp.spawn(
         execute,
         args=(

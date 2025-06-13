@@ -243,8 +243,6 @@ def test_hstu_dens_normal(
     lockup_len,
     device,
 ):
-    if device == "cpu" and sharding_type == "row_wise":
-        return
     mp.spawn(
         execute,
         args=(
