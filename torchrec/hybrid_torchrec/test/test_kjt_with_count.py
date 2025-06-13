@@ -6,9 +6,10 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+import logging
+
 import pytest
 import torch
-import logging
 from hybrid_torchrec.sparse import (
     JaggedTensorWithCount,
     KeyedJaggedTensorWithCount)
@@ -32,7 +33,6 @@ def test_kjt_with_count(table_num, feature_names, input_size):
 
     kjt_with_count = KeyedJaggedTensorWithCount.from_jt_dict(input_dict)
     logging.info("kjt_with_count:%s", kjt_with_count)
-    print("kjt_with_count:", kjt_with_count)
 
     # permute
     feature_names_for_sharding = [f"feat{ind}" for ind in range(feature_len)]

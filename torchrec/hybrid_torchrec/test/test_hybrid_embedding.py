@@ -5,23 +5,30 @@
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
-import os
-import torch
-from typing import List
-import torch_npu
-import torch.multiprocessing as mp
-import torch.distributed as dist
-from torch.utils.data import DataLoader
-from torch.nn.parallel import DistributedDataParallel as DDP
-import torchrec
-import pytest
+from dataclasses import dataclass
 import logging
+import os
+from typing import List
+
+import pytest
+import torch
+import torch.distributed as dist
+import torch.multiprocessing as mp
+import torch_npu
+from dataset import RandomRecDataset, Batch
+from hybrid_torchrec.distributed.sharding_plan import get_default_hybrid_sharders
+from model import Model
+from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.utils.data import DataLoader
+from util import setup_logging
+
+import torchrec
+import torchrec.distributed
+import torchrec.distributed.shard
 from torchrec import (
     EmbeddingConfig,
     EmbeddingCollection,
 )
-import torchrec.distributed
-import torchrec.distributed.shard
 from torchrec.optim.apply_optimizer_in_backward import apply_optimizer_in_backward
 from torchrec.distributed.planner import (
     EmbeddingShardingPlanner,
@@ -30,10 +37,7 @@ from torchrec.distributed.planner import (
 )
 from torchrec.distributed.types import ShardingEnv
 from torchrec.optim.keyed import CombinedOptimizer
-from hybrid_torchrec.distributed.sharding_plan import get_default_hybrid_sharders
-from model import Model
-from dataset import RandomRecDataset, Batch
-from util import setup_logging
+
 
 LOOP_TIMES = 8
 BATCH_NUM = 32
@@ -55,21 +59,35 @@ def generate_base_config(embedding_dims: List[int],
     return test_table_configs
 
 
-def execute(
-    rank,
-    world_size,
-    table_num,
-    embedding_dims,
-    num_embeddings,
-    sharding_type,
-    lookup_len,
-    device,
-):
+@dataclass
+class ExecuteParams:
+    world_size: int
+    table_num: int
+    embedding_dims: List[int]
+    num_embeddings: List[int]
+    sharding_type: str
+    lookup_len: int
+    device: str
+
+
+def execute(rank: int, params: ExecuteParams):
+    world_size = params.world_size
+    table_num = params.table_num
+    embedding_dims = params.embedding_dims
+    num_embeddings = params.num_embeddings
+    sharding_type = params.sharding_type
+    lookup_len = params.lookup_len
+    device = params.device
     setup_logging(rank)
     logging.info("this test %s", os.path.basename(__file__))
     embeding_config = generate_base_config(embedding_dims, num_embeddings)
 
-    dataset = RandomRecDataset(BATCH_NUM, lookup_len, [num_embedding//2 for num_embedding in num_embeddings], table_num)
+    dataset = RandomRecDataset(
+        batch_size=BATCH_NUM,
+        lookup_len=lookup_len,
+        num_lookups=[num_embedding // 2 for num_embedding in num_embeddings],
+        num_tables=table_num,
+    )
     gloden_dataset_loader = DataLoader(
         dataset,
         batch_size=None,
@@ -221,33 +239,32 @@ class TestModel:
         return results
 
 
-@pytest.mark.parametrize("table_num", [3])
-@pytest.mark.parametrize("embedding_dims", [[32, 32, 32]])
-@pytest.mark.parametrize("num_embeddings", [[400,4000, 400]])
-@pytest.mark.parametrize("sharding_type", ["table_wise", "row_wise"])
-@pytest.mark.parametrize("lookup_len", [1024])
-@pytest.mark.parametrize("device", ["npu"])
-def test_hybrid_embedding(
-    table_num,
-    embedding_dims,
-    num_embeddings,
-    sharding_type,
-    lookup_len,
-    device,
-):
-    if device == "cpu" and sharding_type == "row_wise":
+@pytest.mark.parametrize("params", [
+    ExecuteParams(
+        world_size=WORLD_SIZE,
+        table_num=3,
+        embedding_dims=[32, 32, 32],
+        num_embeddings=[400, 4000, 400],
+        sharding_type="table_wise",
+        lookup_len=1024,
+        device="npu",
+    ),
+    ExecuteParams(
+        world_size=WORLD_SIZE,
+        table_num=3,
+        embedding_dims=[32, 32, 32],
+        num_embeddings=[400, 4000, 400],
+        sharding_type="row_wise",
+        lookup_len=1024,
+        device="npu",
+    ),
+])
+def test_hybrid_embedding(params: ExecuteParams):
+    if params.device == "cpu" and params.sharding_type == "row_wise":
         return
     mp.spawn(
         execute,
-        args=(
-            WORLD_SIZE,
-            table_num,
-            embedding_dims,
-            num_embeddings,
-            sharding_type,
-            lookup_len,
-            device,
-        ),
+        args=(params,),
         nprocs=WORLD_SIZE,
         join=True,
     )
