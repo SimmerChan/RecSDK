@@ -1,4 +1,10 @@
-import os
+#!/usr/bin/env python3
+# Copyright (c) Huawei Platforms, Inc. and affiliates.
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
 from typing import Optional, Dict, List, Tuple
 
 import torch
@@ -503,13 +509,14 @@ class KeyedJaggedTensorWithCount(KeyedJaggedTensor):
         stagger: int = 1,
     ) -> "KeyedJaggedTensorWithCount":
         # The original largest length is 4, there is an extra counts params, the biggest length is 5.
-        assert len(tensors) in [2, 3, 4, 5]
+        if len(tensors) not in [2, 3, 4, 5]:
+            raise RuntimeError(f"tensors length must in [2, 3, 4, 5] but got:{len(tensors)}")
         lengths = tensors[0]
         values = tensors[1]
         stride_per_rank_per_key = tensors[2] if variable_stride_per_key else None
 
-        # ����local unique���б���׼��ʱ����ʹ��KeyedJaggedTensorWithCount��all2all
-        # ��ʱ��̶���tensors�б�ĩβ����counts����
+        # 仅当local unique且有表开启准入时，会使用KeyedJaggedTensorWithCount做all2all
+        # 此时会固定在tensors列表末尾传递counts数据
         weights = (
             tensors[-2]
             if (variable_stride_per_key and len(tensors) == 5)
@@ -519,7 +526,6 @@ class KeyedJaggedTensorWithCount(KeyedJaggedTensor):
         counts = tensors[-1]
 
         if variable_stride_per_key:
-            assert stride_per_rank_per_key is not None
             stride_per_key_per_rank_tensor: torch.Tensor = stride_per_rank_per_key.view(
                 num_workers, len(keys)
             ).T.cpu()
@@ -592,7 +598,6 @@ class KeyedJaggedTensorWithCount(KeyedJaggedTensor):
             )
             return kjt.sync()
         else:
-            assert stride_per_rank is not None
             with record_function("## all2all_data:recat_values ##"):
                 if recat is not None:
                     stride = stride_per_rank[0]
