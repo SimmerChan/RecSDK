@@ -5,14 +5,16 @@
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
-from dataset import RandomRecDataset, Batch
 import logging
 import os
 from typing import List
-import torch_npu
+
+import pytest
 import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
+import torch_npu
+from dataset import RandomRecDataset, Batch
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
 from hybrid_torchrec import HashEmbeddingBagCollection, HashEmbeddingBagConfig
@@ -21,11 +23,11 @@ from hybrid_torchrec.distributed.hybrid_train_pipeline import (
     HybridTrainPipelineSparseDist,
 )
 from model import Model
-import pytest
 from util import setup_logging
+
 import torchrec
-from torchrec import EmbeddingBagConfig, EmbeddingBagCollection
 import torchrec.distributed
+from torchrec import EmbeddingBagConfig, EmbeddingBagCollection
 from torchrec.distributed.embeddingbag import EmbeddingBagCollectionAwaitable
 from torchrec.distributed.planner import (
     EmbeddingShardingPlanner,

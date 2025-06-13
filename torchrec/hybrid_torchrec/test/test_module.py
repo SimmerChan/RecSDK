@@ -5,19 +5,21 @@
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
-from dataset import RandomRecDataset, Batch
 import logging
 import os
 from typing import Dict, List
+
+import pytest
 import torch
+from dataset import RandomRecDataset, Batch
 from torch.utils.data import DataLoader
 from hybrid_torchrec import (
     HashEmbeddingBagCollection,
     HashEmbeddingBagConfig,
 )
 from model import Model
-import pytest
 from util import setup_logging
+
 import torchrec
 from torchrec import EmbeddingBagCollection, EmbeddingBagConfig
 
