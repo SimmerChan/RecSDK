@@ -5,6 +5,7 @@
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
+import itertools
 import logging
 import sysconfig
 import os
@@ -247,48 +248,20 @@ class TestModel:
             )
         return results
 
+params = {
+    "table_num": [3],
+    "embedding_dims": [[32, 32, 32]],
+    "num_embeddings": [[400, 4000, 400]],
+    "pool_type": [torchrec.PoolingType.MEAN],
+    "sharding_type": ["table_wise", "row_wise"],
+    "lookup_len": [1024],
+    "device": ["npu"]
+}
 
-@pytest.mark.parametrize(
-    "config",
-    [
-        ExecuteConfig(
-            table_num=3,
-            embedding_dims=[32, 64, 128],
-            num_embeddings=[400, 4000, 400],
-            pool_type=torchrec.PoolingType.MEAN,
-            sharding_type="table_wise",
-            lookup_len=1024,
-            device="npu",
-        ),
-        ExecuteConfig(
-            table_num=3,
-            embedding_dims=[32, 64, 128],
-            num_embeddings=[400, 4000, 400],
-            pool_type=torchrec.PoolingType.MEAN,
-            sharding_type="row_wise",
-            lookup_len=1024,
-            device="npu",
-        ),
-        ExecuteConfig(
-            table_num=3,
-            embedding_dims=[32, 64, 128],
-            num_embeddings=[400, 4000, 400],
-            pool_type=torchrec.PoolingType.MEAN,
-            sharding_type="table_wise",
-            lookup_len=1024,
-            device="cpu",
-        ),
-        ExecuteConfig(
-            table_num=3,
-            embedding_dims=[32, 64, 128],
-            num_embeddings=[400, 4000, 400],
-            pool_type=torchrec.PoolingType.MEAN,
-            sharding_type="row_wise",
-            lookup_len=1024,
-            device="cpu",
-        ),
-    ],
-)
+
+@pytest.mark.parametrize("config", [
+    ExecuteConfig(*v) for v in itertools.product(*params.values())
+])
 def test_hybrid_embedding_bag(config: ExecuteConfig):
     table_num = config.table_num
     embedding_dims = config.embedding_dims

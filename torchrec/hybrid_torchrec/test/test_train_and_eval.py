@@ -5,6 +5,7 @@
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
+import itertools
 import logging
 import os
 import sysconfig
@@ -207,54 +208,19 @@ class TestModel:
         assert is_stop and step == BATCH_NUM
 
 
-# @pytest.mark.parametrize("table_num", [2])
-# @pytest.mark.parametrize("embedding_dims", [[32, 64, 128]])
-# @pytest.mark.parametrize("num_embeddings", [[400, 4000, 400]])
-# @pytest.mark.parametrize("pool_type", [torchrec.PoolingType.MEAN])
-# @pytest.mark.parametrize("sharding_type", ["table_wise"])
-# @pytest.mark.parametrize("lookup_len", [1024])
-# @pytest.mark.parametrize("device", ["cpu", "npu"])
+params = {
+    "table_num": [2],
+    "embedding_dims": [[32, 64, 128]],
+    "num_embeddings": [[400, 4000, 400]],
+    "pool_type": [torchrec.PoolingType.MEAN],
+    "sharding_type": ["table_wise"],
+    "lookup_len": [1024],
+    "device": ["cpu", "npu"],
+}
+
+
 @pytest.mark.parametrize("config", [
-    ExecuteConfig(
-        world_size=WORLD_SIZE,
-        table_num=3,
-        embedding_dims=[32, 64, 128],
-        num_embeddings=[400, 4000, 400],
-        pool_type=torchrec.PoolingType.MEAN,
-        sharding_type="table_wise",
-        lookup_len=1024,
-        device="npu",
-    ),
-    ExecuteConfig(
-        world_size=WORLD_SIZE,
-        table_num=3,
-        embedding_dims=[32, 64, 128],
-        num_embeddings=[400, 4000, 400],
-        pool_type=torchrec.PoolingType.MEAN,
-        sharding_type="row_wise",
-        lookup_len=1024,
-        device="npu",
-    ),
-    ExecuteConfig(
-        world_size=WORLD_SIZE,
-        table_num=3,
-        embedding_dims=[32, 64, 128],
-        num_embeddings=[400, 4000, 400],
-        pool_type=torchrec.PoolingType.MEAN,
-        sharding_type="table_wise",
-        lookup_len=1024,
-        device="cpu",
-    ),
-    ExecuteConfig(
-        world_size=WORLD_SIZE,
-        table_num=3,
-        embedding_dims=[32, 64, 128],
-        num_embeddings=[400, 4000, 400],
-        pool_type=torchrec.PoolingType.MEAN,
-        sharding_type="row_wise",
-        lookup_len=1024,
-        device="cpu",
-    ),
+    ExecuteConfig(*v) for v in itertools.product(*params.values())
 ])
 def test_pipeline_train_eval(config: ExecuteConfig):
     if config.device == "cpu" and config.sharding_type == "row_wise":
