@@ -5,15 +5,16 @@
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
-
-import pytest
-import torch
+from dataclasses import dataclass
 import logging
-from torchrec import JaggedTensor, KeyedJaggedTensor
+import torch
 from hybrid_torchrec.modules.ids_process import (
     IdsMapper,
     block_bucketize_sparse_features_cpu,
 )
+import pytest
+from torchrec import JaggedTensor, KeyedJaggedTensor
+
 
 TEST_NUM = 10
 IDS_RANGE_TIMES = 10
@@ -112,42 +113,59 @@ def test_ids2indices_out(input_size, pin_memory, num_mapper):
             verify_unique(indices, unique_this, unique_inverse_this)
 
 
-def check_bucketized_valid(
-    bucketized_lengths,
-    bucketized_indices,
-    origin_len,
-    origin_indices,
-    feat_num,
-    my_size,
-):
+@dataclass
+class Bucketized:
+    bucketized_lengths: torch.Tensor
+    bucketized_indices: torch.Tensor
+    origin_len: torch.Tensor
+    origin_indices: torch.Tensor
+    feat_num: int
+    my_size: int
+
+
+def check_bucketized_valid(bucketize_parms: Bucketized):
+    bucketized_lengths = bucketize_parms.bucketized_lengths
+    bucketized_indices = bucketize_parms.bucketized_indices
+    origin_len = bucketize_parms.origin_len
+    origin_indices = bucketize_parms.origin_indices
+    feat_num = bucketize_parms.feat_num
+    my_size = bucketize_parms.my_size
     batch_size = bucketized_lengths.numel() // my_size // feat_num
     bucketized_offset = 0
     for rank in range(my_size):
         this_rank_length = bucketized_lengths[
-            rank * feat_num * batch_size : (rank + 1) * feat_num * batch_size
+            rank * feat_num * batch_size: (rank + 1) * feat_num * batch_size
         ]
         origin_batch_offset = 0
         for feat_id in range(feat_num):
             this_feat_length = this_rank_length[
-                feat_id * batch_size : (feat_id + 1) * batch_size
+                feat_id * batch_size: (feat_id + 1) * batch_size
             ]
             for ind in range(batch_size):
                 this_indices_len = this_feat_length[ind].item()
 
                 origin_indices_len = origin_len[feat_id * batch_size + ind]
                 origin_index = origin_indices[
-                    origin_batch_offset : origin_batch_offset + origin_indices_len
+                    origin_batch_offset: origin_batch_offset + origin_indices_len
                 ]
                 for _ in range(this_indices_len):
-                    id = bucketized_indices[bucketized_offset]
+                    ind = bucketized_indices[bucketized_offset]
                     assert (
-                        id % my_size
-                    ) == rank, f"bucketized_indices {id} in invalid bucket {rank} bucketized_offset {bucketized_offset}"
+                        ind % my_size == rank
+                    ), (
+                        f"bucketized_indices {ind} in invalid bucket {rank} "
+                        f"bucketized_offset {bucketized_offset}"
+                    )
                     assert (
-                        id in origin_index
-                    ), f"bucketized_indices {id} in invalid position {origin_batch_offset} origin_index {origin_index} bucketized_offset {bucketized_offset}"
+                        ind in origin_index
+                    ), (
+                        f"bucketized_indices {ind} in invalid position "
+                        f"{origin_batch_offset} origin_index {origin_index} "
+                        f"bucketized_offset {bucketized_offset}"
+                    )
                     bucketized_offset += 1
                 origin_batch_offset += origin_indices_len
+
 
 def check_bucketized_unique_valid(
     bucketized_lengths,
@@ -159,16 +177,16 @@ def check_bucketized_unique_valid(
     bucketized_offset = 0
     for rank in range(my_size):
         this_rank_length = bucketized_lengths[
-            rank * feat_num * batch_size : (rank + 1) * feat_num * batch_size
+            rank * feat_num * batch_size: (rank + 1) * feat_num * batch_size
         ]
 
         for feat_id in range(feat_num):
             this_feat_length_list = this_rank_length[
-                feat_id * batch_size : (feat_id + 1) * batch_size
+                feat_id * batch_size: (feat_id + 1) * batch_size
             ]
             this_feature_len = sum(this_feat_length_list)
             unique_set = set()
-            for ids_ind in range(bucketized_offset, bucketized_offset+this_feature_len):
+            for ids_ind in range(bucketized_offset, bucketized_offset + this_feature_len):
                 assert bucketized_indices[ids_ind] not in unique_set, "ids is not unique"
             bucketized_offset += this_feature_len
 
@@ -208,16 +226,17 @@ def test_block_bucketize_sparse_features_cpu(input_size, mutil_hots, my_size, do
             batch_size_per_feature=None,
             max_B=-1,
             block_bucketize_pos=None,
-            do_unique = do_unique
+            do_unique=do_unique
         )
-        check_bucketized_valid(
-            bucketized_lengths,
-            bucketized_indices,
-            lengths,
-            values,
-            len(mutil_hots),
-            my_size,
+        bucketize_parms = Bucketized(
+            bucketized_lengths=bucketized_lengths,
+            bucketized_indices=bucketized_indices,
+            origin_len=lengths,
+            origin_indices=values,
+            feat_num=len(mutil_hots),
+            my_size=my_size,
         )
+        check_bucketized_valid(bucketize_parms)
         inverse_result = torch.index_select(
             bucketized_indices, dim=0, index=unbucketize_permute
         )

@@ -5,16 +5,12 @@
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
-
-import os
-import pytest
 import torch
-import logging
+import pytest
 from hybrid_torchrec.sparse.jagged_tensor_with_looup_helper import (
     KeyedJaggedTensorWithLookHelper,
     KeyedJaggedTensor,
 )
-import numpy as np
 
 TEST_NUM = 100
 IDS_RANGE_TIMES = 10
@@ -69,7 +65,7 @@ def test_unique_split(table_num, feature_names, input_size):
         for ind, unique_offset in enumerate(kjt.unique_offset):
             unique = kjt.unique_indices[unique_offset:]
             unique_inverse = kjt.unique_inverse[
-                kjt.offsets()[ind] : kjt.offsets()[ind + 1]
+                kjt.offsets()[ind]: kjt.offsets()[ind + 1]
             ]
             unique_results.append(
                 torch.index_select(unique, dim=0, index=unique_inverse)

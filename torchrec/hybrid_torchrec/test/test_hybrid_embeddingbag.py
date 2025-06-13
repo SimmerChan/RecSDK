@@ -5,19 +5,23 @@
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
+from dataclasses import dataclass
 import os
-import pytz
-import torch
+import logging
 from typing import List
 import torch_npu
+import torch
 import torch.multiprocessing as mp
 import torch.distributed as dist
 from torch.utils.data import DataLoader
 from torch.nn.parallel import DistributedDataParallel as DDP
-import torchrec
+from dataset import RandomRecDataset, Batch
+from hybrid_torchrec.distributed.embeddingbag import HybridEmbeddingBagCollectionSharder
+from hybrid_torchrec.distributed.sharding_plan import get_default_hybrid_sharders
+from model import Model
 import pytest
-import logging
-import random
+from util import setup_logging
+import torchrec
 from torchrec import (
     EmbeddingBagConfig,
     PoolingType,
@@ -27,22 +31,18 @@ from torchrec import (
     KeyedTensor,
 )
 import torchrec.distributed
-import torchrec.distributed.shard
-from torchrec.optim.apply_optimizer_in_backward import apply_optimizer_in_backward
 from torchrec.distributed.embeddingbag import EmbeddingBagCollectionAwaitable
+from torchrec.distributed.model_parallel import get_default_sharders
 from torchrec.distributed.planner import (
     EmbeddingShardingPlanner,
     Topology,
     ParameterConstraints,
 )
+import torchrec.distributed.shard
 from torchrec.distributed.types import ShardingEnv
+from torchrec.optim.apply_optimizer_in_backward import apply_optimizer_in_backward
 from torchrec.optim.keyed import CombinedOptimizer
-from torchrec.distributed.model_parallel import get_default_sharders
-from hybrid_torchrec.distributed.embeddingbag import HybridEmbeddingBagCollectionSharder
-from hybrid_torchrec.distributed.sharding_plan import get_default_hybrid_sharders
-from model import Model
-from dataset import RandomRecDataset, Batch
-from util import setup_logging
+
 
 LOOP_TIMES = 8
 BATCH_NUM = 32
@@ -204,15 +204,15 @@ class TestModel:
         if self.rank == 0:
             logging.debug(plan)
 
-        ddpModel = torchrec.distributed.DistributedModelParallel(
+        ddp_model = torchrec.distributed.DistributedModelParallel(
             ebc,
             sharders=get_default_hybrid_sharders(host_env),
             device=torch.device(self.device),
             plan=plan,
         )
-        logging.debug(ddpModel)
+        logging.debug(ddp_model)
         # Optimizer
-        optimizer = CombinedOptimizer([ddpModel.fused_optimizer])
+        optimizer = CombinedOptimizer([ddp_model.fused_optimizer])
         results = []
         batch: Batch
         iter_ = iter(dataloader)
@@ -229,27 +229,53 @@ class TestModel:
             logging.debug(
                 "shard table%d weight %s",
                 i,
-                ddpModel.module.ebc.embedding_bags[f"table{i}"].weight,
+                ddp_model.module.ebc.embedding_bags[f"table{i}"].weight,
             )
         return results
 
 
-@pytest.mark.parametrize("table_num", [3])
-@pytest.mark.parametrize("embedding_dims", [[32, 64, 128]])
-@pytest.mark.parametrize("num_embeddings", [[400, 4000, 400]])
-@pytest.mark.parametrize("pool_type", [torchrec.PoolingType.MEAN])
-@pytest.mark.parametrize("sharding_type", ["table_wise", "row_wise"])
-@pytest.mark.parametrize("lookup_len", [1024])
-@pytest.mark.parametrize("device", ["npu"])
-def test_hybrid_embedding_bag(
-    table_num,
-    embedding_dims,
-    num_embeddings,
-    pool_type,
-    sharding_type,
-    lookup_len,
-    device,
-):
+@dataclass
+class TestConfig:
+    table_num: int
+    embedding_dims: List[int]
+    num_embeddings: List[int]
+    pool_type: PoolingType
+    sharding_type: str
+    lookup_len: int
+    device: str
+
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        TestConfig(
+            table_num=3,
+            embedding_dims=[32, 64, 128],
+            num_embeddings=[400, 4000, 400],
+            pool_type=torchrec.PoolingType.MEAN,
+            sharding_type="table_wise",
+            lookup_len=1024,
+            device="npu",
+        ),
+        TestConfig(
+            table_num=3,
+            embedding_dims=[32, 64, 128],
+            num_embeddings=[400, 4000, 400],
+            pool_type=torchrec.PoolingType.MEAN,
+            sharding_type="row_wise",
+            lookup_len=1024,
+            device="npu",
+        ),
+    ],
+)
+def test_hybrid_embedding_bag(config: TestConfig):
+    table_num = config.table_num
+    embedding_dims = config.embedding_dims
+    num_embeddings = config.num_embeddings
+    pool_type = config.pool_type
+    sharding_type = config.sharding_type
+    lookup_len = config.lookup_len
+    device = config.device
     if device == "cpu" and sharding_type == "row_wise":
         return
     mp.spawn(
