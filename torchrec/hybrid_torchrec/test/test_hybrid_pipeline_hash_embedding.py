@@ -51,7 +51,7 @@ BATCH_NUM = 32
 
 
 @dataclass
-class ExecuteParams:
+class ExecuteConfig:
     world_size: int
     table_num: int
     embedding_dims: List[int]
@@ -62,15 +62,15 @@ class ExecuteParams:
     optim: type
 
 
-def execute(rank: int, params: ExecuteParams):
-    world_size = params.world_size
-    table_num = params.table_num
-    embedding_dims = params.embedding_dims
-    num_embeddings = params.num_embeddings
-    sharding_type = params.sharding_type
-    lookup_len = params.lookup_len
-    device = params.device
-    optim = params.optim
+def execute(rank: int, config: ExecuteConfig):
+    world_size = config.world_size
+    table_num = config.table_num
+    embedding_dims = config.embedding_dims
+    num_embeddings = config.num_embeddings
+    sharding_type = config.sharding_type
+    lookup_len = config.lookup_len
+    device = config.device
+    optim = config.optim
     setup_logging(rank)
     logging.info("this test %s", os.path.basename(__file__))
     # , batch_num, lookup_lens, num_embeddings, table_num
@@ -90,7 +90,7 @@ def execute(rank: int, params: ExecuteParams):
         pin_memory_device="npu",
         num_workers=1,
     )
-    embeding_config = []
+    embedding_config = []
     for i in range(table_num):
         ec_config = EmbeddingConfig(
             name=f"table{i}",
@@ -99,11 +99,11 @@ def execute(rank: int, params: ExecuteParams):
             feature_names=[f"feat{i}"],
             init_fn=weight_init,
         )
-        embeding_config.append(ec_config)
+        embedding_config.append(ec_config)
 
     test_model = TestModel(rank, world_size, device)
-    gloden_results = test_model.cpu_gloden_loss(embeding_config, dataset_loader_gloden, optim)
-    test_results = test_model.test_loss(embeding_config, data_loader, sharding_type, optim)
+    gloden_results = test_model.cpu_gloden_loss(embedding_config, dataset_loader_gloden, optim)
+    test_results = test_model.test_loss(embedding_config, data_loader, sharding_type, optim)
     for gloden, result in zip(gloden_results, test_results):
         logging.debug("")
         logging.debug("===========================")
@@ -134,13 +134,13 @@ class TestModel:
 
     @staticmethod
     def cpu_gloden_loss(
-        embeding_config: List[EmbeddingConfig], dataloader: DataLoader[Batch], optim
+        embedding_config: List[EmbeddingConfig], dataloader: DataLoader[Batch], optim
     ):
         pg = dist.new_group(backend="gloo")
-        table_num = len(embeding_config)
-        ec = EmbeddingCollection(device="cpu", tables=embeding_config)
+        table_num = len(embedding_config)
+        ec = EmbeddingCollection(device="cpu", tables=embedding_config)
 
-        num_features = sum([c.num_features() for c in embeding_config])
+        num_features = sum([c.num_features() for c in embedding_config])
         ec = Model(ec, num_features)
         model = DDP(ec, device_ids=None, process_group=pg)
 
@@ -173,7 +173,7 @@ class TestModel:
 
     def test_loss(
         self,
-        embeding_config: List[EmbeddingConfig],
+        embedding_config: List[EmbeddingConfig],
         dataloader: DataLoader[Batch],
         sharding_type: str,
         optim,
@@ -182,9 +182,9 @@ class TestModel:
         host_gp = dist.new_group(backend="gloo")
         host_env = ShardingEnv(world_size=world_size, rank=rank, pg=host_gp)
 
-        table_num = len(embeding_config)
-        ec = HashEmbeddingCollection(device=self.device, tables=embeding_config)
-        num_features = sum([c.num_features() for c in embeding_config])
+        table_num = len(embedding_config)
+        ec = HashEmbeddingCollection(device=self.device, tables=embedding_config)
+        num_features = sum([c.num_features() for c in embedding_config])
         ec = Model(ec, num_features)
         apply_optimizer_in_backward(
             optimizer_class=optim,
@@ -238,8 +238,8 @@ class TestModel:
         return results
 
 
-@pytest.mark.parametrize("params", [
-    ExecuteParams(
+@pytest.mark.parametrize("config", [
+    ExecuteConfig(
         world_size=WORLD_SIZE,
         table_num=3,
         embedding_dims=[32, 32, 32],
@@ -249,7 +249,7 @@ class TestModel:
         device="npu",
         optim=Adagrad,
     ),
-    ExecuteParams(
+    ExecuteConfig(
         world_size=WORLD_SIZE,
         table_num=3,
         embedding_dims=[32, 32, 32],
@@ -259,13 +259,33 @@ class TestModel:
         device="npu",
         optim=Adagrad,
     ),
+    ExecuteConfig(
+        world_size=WORLD_SIZE,
+        table_num=3,
+        embedding_dims=[32, 32, 32],
+        num_embeddings=[400, 4000, 400],
+        sharding_type="table_wise",
+        lookup_len=1024,
+        device="cpu",
+        optim=Adagrad,
+    ),
+    ExecuteConfig(
+        world_size=WORLD_SIZE,
+        table_num=3,
+        embedding_dims=[32, 32, 32],
+        num_embeddings=[400, 4000, 400],
+        sharding_type="row_wise",
+        lookup_len=1024,
+        device="cpu",
+        optim=Adagrad,
+    ),
 ])
-def test_hybrid_pipeline_hash_embedding(params: ExecuteParams):
-    if params.device == "cpu" and (params.sharding_type == "row_wise" or params.optim == Adam):
+def test_hybrid_pipeline_hash_embedding(config: ExecuteConfig):
+    if config.device == "cpu" and (config.sharding_type == "row_wise" or config.optim == Adam):
         return
     mp.spawn(
         execute,
-        args=(params,),
-        nprocs=params.world_size,
+        args=(config,),
+        nprocs=config.world_size,
         join=True,
     )
