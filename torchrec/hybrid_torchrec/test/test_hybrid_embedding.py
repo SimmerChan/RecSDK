@@ -209,15 +209,15 @@ class TestModel:
         if self.rank == 0:
             logging.debug(plan)
 
-        ddpModel = torchrec.distributed.DistributedModelParallel(
+        ddp_model = torchrec.distributed.DistributedModelParallel(
             ec,
             sharders=get_default_hybrid_sharders(host_env),
             device=torch.device(self.device),
             plan=plan,
         )
-        logging.debug(ddpModel)
+        logging.debug(ddp_model)
         # Optimizer
-        optimizer = CombinedOptimizer([ddpModel.fused_optimizer])
+        optimizer = CombinedOptimizer([ddp_model.fused_optimizer])
         results = []
         batch: Batch
         iter_ = iter(dataloader)
@@ -234,7 +234,7 @@ class TestModel:
             logging.debug(
                 "shard table%d weight %s",
                 i,
-                ddpModel.module.ec.embeddings[f"table{i}"].weight,
+                ddp_model.module.ec.embeddings[f"table{i}"].weight,
             )
         return results
 
