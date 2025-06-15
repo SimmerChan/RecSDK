@@ -124,8 +124,8 @@ def pad_vbe_kjt_lengths(features: KeyedJaggedTensor) -> KeyedJaggedTensor:
     )
     cum_stride = 0
     for i, stride in enumerate(features.stride_per_key()):
-        new_lengths[i * max_stride : i * max_stride + stride] = features.lengths()[
-            cum_stride : cum_stride + stride
+        new_lengths[i * max_stride: i * max_stride + stride] = features.lengths()[
+            cum_stride: cum_stride + stride
         ]
         cum_stride += stride
 
@@ -571,14 +571,14 @@ class HybridShardedEmbeddingCollection(
         )
 
     def compute_and_output_dist(
-        self, ctx: EmbeddingCollectionContext, input: KJTList
+        self, ctx: EmbeddingCollectionContext, input_feature: KJTList
     ) -> LazyAwaitable[Dict[str, JaggedTensor]]:
         awaitables_per_sharding: List[Awaitable[torch.Tensor]] = []
         features_before_all2all_per_sharding: List[KeyedJaggedTensor] = []
         for lookup, odist, features, sharding_ctx, sharding_type in zip(
             self._lookups,
             self._output_dists,
-            input,
+            input_feature,
             ctx.sharding_contexts,
             self._sharding_type_to_sharding,
         ):
