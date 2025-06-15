@@ -115,14 +115,14 @@ class HybridShardedHashEmbeddingCollection(HybridShardedEmbeddingCollection):
             table2hashmap[name] = hashmap
         return table2hashmap
 
-    # def forward(self, *input, **kwargs) -> LazyAwaitable[Out]:
-    #     if len(input) < 1:
-    #         raise ValueError(f"input must be kjt in 0, but got {input}")
-    #     ctx = self.create_context()
-    #     dist_input = self.input_dist(ctx, *input, **kwargs).wait().wait()
-    #     dist_post_input = self.post_input_dist(ctx, dist_input)
-    #     dist_post_input = kjt_list_to_device(dist_post_input, self._device)
-    #     return self.compute_and_output_dist(ctx, dist_post_input)
+    def forward(self, *input_feature, **kwargs) -> LazyAwaitable[Out]:
+        if len(input_feature) < 1:
+            raise ValueError(f"input must be kjt in 0, but got {input_feature}")
+        ctx = self.create_context()
+        dist_input = self.input_dist(ctx, *input_feature, **kwargs).wait().wait()
+        dist_post_input = self.post_input_dist(ctx, dist_input)
+        dist_post_input = kjt_list_to_device(dist_post_input, self._device)
+        return self.compute_and_output_dist(ctx, dist_post_input)
 
 
 class HybridHashEmbeddingCollectionSharder(

@@ -235,7 +235,7 @@ class HybridTrainPipelineSparseDist(TrainPipelineSparseDist[In, Out]):
             exhausting dataloader iterator.
         apply_jit (bool): apply torch.jit.script to non-pipelined (unsharded) modules.
         return_loss (bool): return loss or not.
-        pipe_n_batch (int): pipe_n_batch pipelines to progress.
+        pipe_n_batch (int): pipe_n_batch pipelines to progress.  
     """
 
     def __init__(

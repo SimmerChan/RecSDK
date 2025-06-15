@@ -22,6 +22,7 @@ from torchrec.distributed.types import (
     ModuleSharder,
 )
 
+
 def get_default_hybrid_sharders(
     host_env: ShardingEnv,
 ) -> List[ModuleSharder[nn.Module]]:

@@ -26,7 +26,9 @@ from fbgemm_gpu.split_table_batched_embeddings_ops_training import (
 )
 from fbgemm_gpu.split_embedding_configs import EmbOptimType as OptimType, SparseType
 from fbgemm_gpu.split_table_batched_embeddings_ops_common import CacheAlgorithm
-from fbgemm_gpu.split_table_batched_embeddings_ops_training_common import is_torchdynamo_compiling
+from fbgemm_gpu.split_table_batched_embeddings_ops_training_common import (
+    is_torchdynamo_compiling,
+)
 
 import hybrid_torchrec.hybrid_lookup_invoke as invokers
 from hybrid_torchrec.sparse.jagged_tensor_with_looup_helper import (
@@ -75,18 +77,18 @@ class HybridSplitTableBatchedEmbeddingBagsCodegen(
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
 
-        mixed_D = False
-        D = self.dims[0]
+        is_mixed_dim = False
+        first_dim = self.dims[0]
         for d in self.dims:
-            if d != D:
-                mixed_D = True
+            if d != first_dim:
+                is_mixed_dim = True
                 break
 
-        self.mixed_D = mixed_D
-        optimizer_type = kwargs["optimizer"] 
-        if optimizer_type in (OptimType.ADAM, ):
+        self.is_mixed_dim = is_mixed_dim
+        optimizer_type = kwargs["optimizer"]
+        if optimizer_type in (OptimType.ADAM,):
             self._optim_num = 2
-        elif optimizer_type in (OptimType.EXACT_ADAGRAD, ):
+        elif optimizer_type in (OptimType.EXACT_ADAGRAD,):
             self._optim_num = 1
         else:
             raise ValueError(f"{optimizer_type} is not support")
@@ -177,9 +179,9 @@ class HybridSplitTableBatchedEmbeddingBagsCodegen(
             uvm_cache_stats=(
                 self.local_uvm_cache_stats
                 if (
-                        self.gather_uvm_cache_stats
-                        # Unique conflict misses are only collected when using CacheAlgorithm.LRU
-                        and self.cache_algorithm == CacheAlgorithm.LRU
+                    self.gather_uvm_cache_stats
+                    # Unique conflict misses are only collected when using CacheAlgorithm.LRU
+                    and self.cache_algorithm == CacheAlgorithm.LRU
                 )
                 else None
             ),
@@ -236,8 +238,6 @@ class HybridSplitTableBatchedEmbeddingBagsCodegen(
         else:
             return NotImplemented
 
-
-
     def prepare_inputs(
         self,
         indices: Tensor,
@@ -290,41 +290,56 @@ class HybridSplitTableBatchedEmbeddingBagsCodegen(
                 per_sample_weights = per_sample_weights.float()
 
         return indices, offsets, per_sample_weights, vbe_metadata
-    
+
     def scatter_update_embs(self, indices, updates):
-        if not self.mixed_D:
-            self.weights_dev.reshape(-1, self.dims[0]).index_put_([indices], updates.reshape(-1, self.dims[0]))
+        if not self.is_mixed_dim:
+            self.weights_dev.reshape(-1, self.dims[0]).index_put_(
+                [indices], updates.reshape(-1, self.dims[0])
+            )
         else:
             raise ValueError(f"Mixed dimensions are not supported.")
         return
 
     def gather_embs(self, indices) -> Tensor:
-        if not self.mixed_D:
-            return torch.index_select(self.weights_dev.reshape(-1, self.dims[0]), 0, indices).reshape(-1)
+        if not self.is_mixed_dim:
+            return torch.index_select(
+                self.weights_dev.reshape(-1, self.dims[0]), 0, indices
+            ).reshape(-1)
         else:
             raise ValueError(f"Mixed dimensions are not supported.")
 
     def gather_momentum(self, indices: torch.Tensor) -> Tensor:
-        if not self.mixed_D:
+        if not self.is_mixed_dim:
             result = []
-            if (self._optim_num > 0):
-                moment1 =  torch.index_select(self.momentum1_dev.reshape(-1, self.dims[0]), 0, indices).reshape(-1)
+            if self._optim_num > 0:
+                moment1 = torch.index_select(
+                    self.momentum1_dev.reshape(-1, self.dims[0]), 0, indices
+                ).reshape(-1)
                 result.append(moment1)
-            if (self._optim_num > 1):
-                moment2 =  torch.index_select(self.momentum2_dev.reshape(-1, self.dims[0]), 0, indices).reshape(-1)
+            if self._optim_num > 1:
+                moment2 = torch.index_select(
+                    self.momentum2_dev.reshape(-1, self.dims[0]), 0, indices
+                ).reshape(-1)
                 result.append(moment2)
             return result
         else:
             raise ValueError(f"Mixed dimensions are not supported.")
 
-    def scatter_update_momentum(self, indices: torch.Tensor, updates: List[torch.Tensor]):
-        if not self.mixed_D:
-            if (self._optim_num > 0):
-                self.momentum1_dev.reshape(-1, self.dims[0]).index_put_([indices], updates[0].reshape(-1, self.dims[0]))
-            if (self._optim_num > 1):
-                self.momentum2_dev.reshape(-1, self.dims[0]).index_put_([indices], updates[1].reshape(-1, self.dims[0]))
+    def scatter_update_momentum(
+        self, indices: torch.Tensor, updates: List[torch.Tensor]
+    ):
+        if not self.is_mixed_dim:
+            if self._optim_num > 0:
+                self.momentum1_dev.reshape(-1, self.dims[0]).index_put_(
+                    [indices], updates[0].reshape(-1, self.dims[0])
+                )
+            if self._optim_num > 1:
+                self.momentum2_dev.reshape(-1, self.dims[0]).index_put_(
+                    [indices], updates[1].reshape(-1, self.dims[0])
+                )
         else:
             raise ValueError(f"Mixed dimensions are not supported.")
+
 
 class HybridBatchedFusedEmbeddingBag(
     BaseBatchedEmbeddingBag[torch.Tensor], FusedOptimizerModule
@@ -472,7 +487,9 @@ class HybridBatchedFusedEmbeddingBag(
         self._emb_module.reset_cache_states()
 
 
-class HybridBatchedFusedEmbedding(BaseBatchedEmbedding[torch.Tensor], FusedOptimizerModule):
+class HybridBatchedFusedEmbedding(
+    BaseBatchedEmbedding[torch.Tensor], FusedOptimizerModule
+):
     def __init__(
         self,
         config: GroupedEmbeddingConfig,
@@ -585,7 +602,6 @@ class HybridBatchedFusedEmbedding(BaseBatchedEmbedding[torch.Tensor], FusedOptim
                 unique_inverse=unique_inverse,
                 per_sample_weights=weights,
             )
-
 
     def named_buffers(
         self, prefix: str = "", recurse: bool = True, remove_duplicate: bool = True
