@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "torch/torch.h"
+#include "common_utils.h"
 
 using BucketResult = std::tuple<at::Tensor, at::Tensor, std::optional<at::Tensor>,
                      std::optional<at::Tensor>,
@@ -30,17 +31,7 @@ void PrefixSum(const int length, const T* array, T* preSum)
     }
 }
 
-template <typename T>
-T* GetSafeDataPtr(const at::Tensor& tensor, const char* message)
-{
-    TORCH_CHECK(tensor.defined() && tensor.numel() > 0, message, " is an empty tensor");
 
-    TORCH_CHECK(tensor.dtype() == at::CppTypeToScalarType<T>::value, message, " tensor type mismatch");
-
-    TORCH_CHECK(tensor.is_contiguous(), message, " must be contiguous");
-
-    return tensor.data_ptr<T>();
-}
 
 template <typename OffsetT, typename IndexT>
 void ComputeNewLengths(const OffsetT* offsetsData, const IndexT* indicesData, OffsetT* newLengthsData,
