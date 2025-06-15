@@ -31,6 +31,7 @@ class BucketResult:
     feat_num: int
     bucket_size: int
 
+
 def verify_unique(indices, unique, unique_inverse):
     sets = set()
     for i in unique:
@@ -51,6 +52,7 @@ def verify_mapper(id2indices, indices2id, input_ids, indices):
             assert k == indices2id[v], "Two ids has the same indices"
         else:
             indices2id[v] = k
+
 
 def check_bucketized_valid(bucketize_parms: BucketResult):
     bucketized_lengths = bucketize_parms.bucketized_lengths
@@ -94,6 +96,7 @@ def check_bucketized_valid(bucketize_parms: BucketResult):
                     )
                     bucketized_offset += 1
                 origin_batch_offset += origin_indices_len
+
 
 @pytest.mark.parametrize("input_size", [1000])
 @pytest.mark.parametrize("high_precison", [True, False])
@@ -435,6 +438,7 @@ def test_block_bucketize_sparse_features_cpu_invalid_bucket_size(input_size, mut
             unbucketize_permute,
             _,
         ) = block_bucketize_sparse_features_cpu(params_in)
+
 
 @pytest.mark.parametrize("input_size", [1000])
 @pytest.mark.parametrize("mutil_hots", [[1, 2, 3, 4]])
