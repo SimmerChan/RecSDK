@@ -102,22 +102,18 @@ void IdsMapper::UniqueProcessing(const torch::Tensor& hashIndices, const torch::
     at::ThreadLocalStateGuard tlsGrad(state);
     RECORD_FUNCTION(c10::str("hybrid::UniqueProcessing"), c10::ArrayRef<const c10::IValue>());
 
-    int64_t* hashIndicesPtr = hashIndices.data_ptr<int64_t>();
-    int64_t* offsetPtr = offset.data_ptr<int64_t>();
+    int64_t* hashIndicesPtr = GetSafeDataPtr<int64_t>(hashIndices, "hashIndices");
+    int64_t* offsetPtr = GetSafeDataPtr<int64_t>(offset, "offset");
+
     int64_t start = offsetPtr[tableId];
     int64_t end = offsetPtr[tableId + 1];
-    
-    
 
     auto aHashMap = AllocFullHashMap();
     auto aHashMapPtr = aHashMap->data();
-    int64_t* uniquePtr = unique.data_ptr<int64_t>();
-    int64_t* uniqueInversePtr = uniqueInverse.data_ptr<int64_t>();
-    int64_t* uniqueOffsetPtr = uniqueOffset.data_ptr<int64_t>();
-    if (uniqueOffsetPtr == nullptr || uniquePtr == nullptr || uniqueInversePtr == nullptr) {
-        printf("[ERROR] unique, uniqueOffset and uniqueInverse cannot be None!");
-        return;
-    }
+    int64_t* uniquePtr = GetSafeDataPtr<int64_t>(unique, "unique");
+    int64_t* uniqueInversePtr = GetSafeDataPtr<int64_t>(uniqueInverse, "uniqueInverse");
+    int64_t* uniqueOffsetPtr = GetSafeDataPtr<int64_t>(uniqueOffset, "uniqueOffset");
+
     if (start == end) {
         uniqueOffsetPtr[tableId + 1] = uniqueOffsetPtr[tableId];
         return;

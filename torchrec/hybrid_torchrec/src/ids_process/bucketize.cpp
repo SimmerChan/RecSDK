@@ -31,8 +31,6 @@ void PrefixSum(const int length, const T* array, T* preSum)
     }
 }
 
-
-
 template <typename OffsetT, typename IndexT>
 void ComputeNewLengths(const OffsetT* offsetsData, const IndexT* indicesData, OffsetT* newLengthsData,
                        int32_t numFeatures, int32_t batchSize, int64_t bucketSize, int64_t lengthsSize)
