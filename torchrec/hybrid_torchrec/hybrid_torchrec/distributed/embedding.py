@@ -807,7 +807,8 @@ class HybridShardedEmbeddingCollection(
                 for f in range(table.num_features()):
                     if feature_names[feature_index + f] != table.feature_names[f]:
                         raise ValueError(
-                            f"Feature name mismatch at index {feature_index + f}: expected {table.feature_names[f]}, got {feature_names[feature_index + f]}"
+                            f"Feature name mismatch at index {feature_index + f}: "
+                            f"expected {table.feature_names[f]}, got {feature_names[feature_index + f]}"
                         )
                 feature_index += table.num_features()
 
