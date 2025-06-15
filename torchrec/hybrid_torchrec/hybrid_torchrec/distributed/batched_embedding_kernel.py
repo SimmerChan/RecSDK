@@ -16,19 +16,27 @@ from typing import (
 
 import torch
 import torch.distributed as dist
+from torch import nn, Tensor
+
 from fbgemm_gpu.split_table_batched_embeddings_ops_training import (
     PoolingMode,
     ComputeDevice,
     EmbeddingLocation,
     SplitTableBatchedEmbeddingBagsCodegen,
 )
+from fbgemm_gpu.split_embedding_configs import EmbOptimType as OptimType, SparseType
+from fbgemm_gpu.split_table_batched_embeddings_ops_common import CacheAlgorithm
 from fbgemm_gpu.split_table_batched_embeddings_ops_training_common import is_torchdynamo_compiling
-from torch import nn, Tensor
 
 import hybrid_torchrec.hybrid_lookup_invoke as invokers
 from hybrid_torchrec.sparse.jagged_tensor_with_looup_helper import (
     KeyedJaggedTensorWithLookHelper,
 )
+import hybrid_torchrec.hybrid_lookup_invoke as invokers
+from hybrid_torchrec.sparse.jagged_tensor_with_looup_helper import (
+    KeyedJaggedTensorWithLookHelper,
+)
+
 from torchrec.distributed.batched_embedding_kernel import (
     BaseBatchedEmbeddingBag,
     EmbeddingFusedOptimizer,
@@ -58,13 +66,6 @@ from torchrec.distributed.batched_embedding_kernel import (
     BaseBatchedEmbeddingBag,
     EmbeddingFusedOptimizer,
     _gen_named_parameters_by_table_fused,
-)
-from torch import nn, Tensor
-from fbgemm_gpu.split_embedding_configs import EmbOptimType as OptimType, SparseType
-from fbgemm_gpu.split_table_batched_embeddings_ops_common import CacheAlgorithm
-import hybrid_torchrec.hybrid_lookup_invoke as invokers
-from hybrid_torchrec.sparse.jagged_tensor_with_looup_helper import (
-    KeyedJaggedTensorWithLookHelper,
 )
 
 

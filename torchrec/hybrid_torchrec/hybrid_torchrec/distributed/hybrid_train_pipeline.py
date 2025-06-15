@@ -235,7 +235,7 @@ class HybridTrainPipelineSparseDist(TrainPipelineSparseDist[In, Out]):
             exhausting dataloader iterator.
         apply_jit (bool): apply torch.jit.script to non-pipelined (unsharded) modules.
         return_loss (bool): return loss or not.
-        pipe_n_batch (int): pipe_n_batch pipelines to progress.  
+        pipe_n_batch (int): pipe_n_batch pipelines to progress.
     """
 
     def __init__(
@@ -449,7 +449,9 @@ class HybridTrainPipelineSparseDist(TrainPipelineSparseDist[In, Out]):
             context.awaitables[TaskType.COPY2NPU.value][forward_name].record_stream(
                 cur_stream
             )
-            for shard_context in context.module_contexts[forward_name].sharding_contexts:
+            for shard_context in context.module_contexts[
+                forward_name
+            ].sharding_contexts:
                 shard_context.record_stream(cur_stream)
 
     def _do_post_input_dist(self, context: HybridTrainPipelineContext):
@@ -496,10 +498,18 @@ class HybridTrainPipelineSparseDist(TrainPipelineSparseDist[In, Out]):
                     context.awaitables[TaskType.COPY2NPU.value][name] = (
                         kjt_list_to_device(kjt_list, self._device, non_blocking=True)
                     )
-                    for ind, shard_contex in enumerate(context.module_contexts[name].sharding_contexts):
-                        if hasattr(shard_contex, "pin_memory") and hasattr(shard_contex, "to"):
+                    for ind, shard_contex in enumerate(
+                        context.module_contexts[name].sharding_contexts
+                    ):
+                        if hasattr(shard_contex, "pin_memory") and hasattr(
+                            shard_contex, "to"
+                        ):
                             shard_contex.sparse_features_recat = None
-                            context.module_contexts[name].sharding_contexts[ind] = shard_contex.pin_memory().to(self._device, non_blocking=True)
+                            context.module_contexts[name].sharding_contexts[
+                                ind
+                            ] = shard_contex.pin_memory().to(
+                                self._device, non_blocking=True
+                            )
 
                 if batch is not None:
                     batch = _to_device(batch, self._device, non_blocking=True)

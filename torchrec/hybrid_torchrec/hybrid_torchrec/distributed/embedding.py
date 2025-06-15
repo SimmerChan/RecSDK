@@ -27,6 +27,24 @@ from torch.autograd.profiler import record_function
 from torch.distributed._tensor import DTensor
 from torch.nn.parallel import DistributedDataParallel
 
+from hybrid_torchrec.distributed.sharding.hybrid_tw_sequence_sharding import (
+    HybridTwSequenceEmbeddingSharding,
+)
+from hybrid_torchrec.distributed.sharding.hybrid_rw_sequence_sharding import (
+    HybridRwSequenceEmbeddingSharding,
+)
+from hybrid_torchrec.distributed.sharding.post_input_dist import (
+    EMPTY_POST_INPUT_DIST,
+    PostInputKJTListAwaitable,
+)
+from hybrid_torchrec.distributed.sharding.sequence_sharding import (
+    HybridSequenceShardingContext,
+)
+
+from hybrid_torchrec.distributed.embedding_types import (
+    kjt_list_to_device,
+)
+
 from torchrec.modules.utils import SequenceVBEContext
 from torchrec.modules.embedding_configs import (
     EmbeddingConfig,
@@ -50,7 +68,9 @@ from torchrec.distributed.embedding_types import (
 )
 
 from torchrec.distributed.sharding.sequence_sharding import SequenceShardingContext
-from torchrec.distributed.sharding.dp_sequence_sharding import DpSequenceEmbeddingSharding
+from torchrec.distributed.sharding.dp_sequence_sharding import (
+    DpSequenceEmbeddingSharding,
+)
 from torchrec.distributed.sharding.rw_sharding import RwSparseFeaturesDist
 
 from torchrec.distributed.types import (
@@ -67,7 +87,12 @@ from torchrec.distributed.types import (
 
 from torchrec.optim.fused import EmptyFusedOptimizer, FusedOptimizerModule
 from torchrec.optim.keyed import CombinedOptimizer, KeyedOptimizer
-from torchrec.sparse.jagged_tensor import _to_offsets, KeyedJaggedTensor, KeyedTensor, JaggedTensor
+from torchrec.sparse.jagged_tensor import (
+    _to_offsets,
+    KeyedJaggedTensor,
+    KeyedTensor,
+    JaggedTensor,
+)
 
 from torchrec.distributed.embedding import (
     create_sharding_infos_by_sharding,
@@ -77,18 +102,6 @@ from torchrec.distributed.embedding import (
 
 from torchrec.distributed.shards_wrapper import LocalShardsWrapper
 
-from hybrid_torchrec.distributed.sharding.hybrid_tw_sequence_sharding import (
-    HybridTwSequenceEmbeddingSharding,
-)
-from hybrid_torchrec.distributed.sharding.hybrid_rw_sequence_sharding import (
-    HybridRwSequenceEmbeddingSharding,
-)
-from hybrid_torchrec.distributed.sharding.post_input_dist import EMPTY_POST_INPUT_DIST, PostInputKJTListAwaitable
-from hybrid_torchrec.distributed.sharding.sequence_sharding import HybridSequenceShardingContext
-
-from hybrid_torchrec.distributed.embedding_types import (
-    kjt_list_to_device,
-)
 
 Out = TypeVar("Out")
 
@@ -96,9 +109,11 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 EC_INDEX_DEDUP: bool = False
 
+
 def get_ec_index_dedup() -> bool:
     global EC_INDEX_DEDUP
     return EC_INDEX_DEDUP
+
 
 def pad_vbe_kjt_lengths(features: KeyedJaggedTensor) -> KeyedJaggedTensor:
     max_stride = max(features.stride_per_key())
@@ -130,6 +145,7 @@ def device_is_in(device, check_deivce: list[str]):
     else:
         return device in check_deivce
 
+
 def _pin_and_move(tensor: torch.Tensor, device: torch.device) -> torch.Tensor:
     return (
         tensor
@@ -151,6 +167,7 @@ class HybridShardedEmbeddingCollection(
     Sharded implementation of EmbeddingCollection.
     This is part of the public API to allow for manual data dist pipelining.
     """
+
     def __init__(
         self,
         module: EmbeddingCollection,
@@ -161,14 +178,14 @@ class HybridShardedEmbeddingCollection(
         device: Optional[torch.device] = None,
         qcomm_codecs_registry: Optional[Dict[str, QuantizedCommCodecs]] = None,
         use_index_dedup: bool = False,
-        module_fqn:Optional[str] = None,
+        module_fqn: Optional[str] = None,
     ) -> None:
         super().__init__(qcomm_codecs_registry=qcomm_codecs_registry)
         self._module_fqn = module_fqn
-        self._embedding_configs: List[EmbeddingConfig] = (
-            module.embedding_configs()
-        )
-        self._table_names: List[str] = [config.name for config in self._embedding_configs]
+        self._embedding_configs: List[EmbeddingConfig] = module.embedding_configs()
+        self._table_names: List[str] = [
+            config.name for config in self._embedding_configs
+        ]
 
         self._table_name_to_config: Dict[str, EmbeddingConfig] = {
             config.name: config for config in self._embedding_configs
@@ -200,10 +217,7 @@ class HybridShardedEmbeddingCollection(
         self._sharding_type_to_sharding: Dict[
             str,
             EmbeddingSharding[
-                SequenceShardingContext,
-                KeyedJaggedTensor,
-                torch.Tensor,
-                torch.Tensor
+                SequenceShardingContext, KeyedJaggedTensor, torch.Tensor, torch.Tensor
             ],
         ] = {
             sharding_type: self.create_hybrid_embedding_sharding(
@@ -226,7 +240,6 @@ class HybridShardedEmbeddingCollection(
         self._create_lookups()
         self._output_dists: List[nn.Module] = []
         self._create_output_dist()
-
 
         self._feature_splits: List[int] = []
         self._features_order: List[int] = []
@@ -278,7 +291,8 @@ class HybridShardedEmbeddingCollection(
                     module=lookup,
                     device_ids=(
                         [device]
-                        if self._device and (self._device.type == "cuda" or self._device.type == "npu")
+                        if self._device
+                        and (self._device.type == "cuda" or self._device.type == "npu")
                         else None
                     ),
                     process_group=env.process_group,
@@ -430,11 +444,11 @@ class HybridShardedEmbeddingCollection(
                 f"Sharding type not supported {sharding_type} for hybrid mode"
             )
 
-    def forward(self, *input, **kwargs) -> LazyAwaitable[Out]:
-        if len(input) < 1:
-            raise ValueError(f"input must be kjt in 0, but got {input}")
+    def forward(self, *input_tensor, **kwargs) -> LazyAwaitable[Out]:
+        if len(input_tensor) < 1:
+            raise ValueError(f"input must be kjt in 0, but got {input_tensor}")
         ctx = self.create_context()
-        dist_input = self.input_dist(ctx, *input, **kwargs).wait().wait()
+        dist_input = self.input_dist(ctx, *input_tensor, **kwargs).wait().wait()
         dist_post_input = self.post_input_dist(ctx, dist_input).wait()
         dist_post_input = kjt_list_to_device(dist_post_input, self._device)
         for ind, _ in enumerate(ctx.sharding_contexts):
@@ -465,9 +479,7 @@ class HybridShardedEmbeddingCollection(
                     dist.broadcast(param.data, src=0, group=pg)
 
     def input_dist(
-        self,
-        ctx: EmbeddingCollectionAwaitable,
-        features: KeyedJaggedTensor
+        self, ctx: EmbeddingCollectionAwaitable, features: KeyedJaggedTensor
     ) -> Awaitable[Awaitable[KJTList]]:
         """
         feature的顺序按照Dict[str, list[]]  shardType -> [t.feature_name for t in tables]
@@ -498,9 +510,7 @@ class HybridShardedEmbeddingCollection(
                     features_before_input_dist=features
                 )
                 awaitables.append(input_dist(features, shard_context))
-                ctx.sharding_contexts.append(
-                    shard_context
-                )
+                ctx.sharding_contexts.append(shard_context)
             if unpadded_features is not None:
                 self._compute_sequence_vbe_context(ctx, unpadded_features)
         return KJTListSplitsAwaitable(awaitables, ctx)
@@ -560,7 +570,6 @@ class HybridShardedEmbeddingCollection(
             ctx=ctx,
         )
 
-
     def compute_and_output_dist(
         self, ctx: EmbeddingCollectionContext, input: KJTList
     ) -> LazyAwaitable[Dict[str, JaggedTensor]]:
@@ -598,7 +607,6 @@ class HybridShardedEmbeddingCollection(
             if sharding_type == ShardingType.COLUMN_WISE.value
             else self._embedding_dim
         )
-
 
     def _initialize_torch_state(self) -> None:
         """
@@ -727,21 +735,21 @@ class HybridShardedEmbeddingCollection(
                 )
 
         def post_state_dict_hook(
-                module: HybridShardedEmbeddingCollection,
-                destination: Dict[str, torch.Tensor],
-                prefix: str,
-                _local_metadata: Dict[str, Any],
+            module: HybridShardedEmbeddingCollection,
+            destination: Dict[str, torch.Tensor],
+            prefix: str,
+            _local_metadata: Dict[str, Any],
         ) -> None:
             # Adjust dense MP
             for (
-                    table_name,
-                    sharded_t,
+                table_name,
+                sharded_t,
             ) in module._model_parallel_name_to_sharded_tensor.items():
                 destination_key = f"{prefix}embeddings.{table_name}.weight"
                 destination[destination_key] = sharded_t
             for (
-                    table_name,
-                    d_tensor,
+                table_name,
+                d_tensor,
             ) in module._model_parallel_name_to_dtensor.items():
                 destination_key = f"{prefix}embeddings.{table_name}.weight"
                 destination[destination_key] = d_tensor
@@ -754,9 +762,9 @@ class HybridShardedEmbeddingCollection(
         self.reset_parameters()
 
     def _generate_permute_indices_per_feature(
-            self,
-            embedding_configs: List[EmbeddingConfig],
-            table_name_to_parameter_sharding: Dict[str, ParameterSharding],
+        self,
+        embedding_configs: List[EmbeddingConfig],
+        table_name_to_parameter_sharding: Dict[str, ParameterSharding],
     ) -> None:
         """
         Generates permute indices per feature for column-wise sharding.
@@ -799,7 +807,7 @@ class HybridShardedEmbeddingCollection(
                 if shared_feature[feature_name]:
                     self._features_to_permute_indices[
                         feature_name + "@" + table.name
-                        ] = permute_indices
+                    ] = permute_indices
                 else:
                     self._features_to_permute_indices[feature_name] = permute_indices
 
@@ -871,13 +879,14 @@ class HybridShardedEmbeddingCollection(
         )
         self.register_buffer(
             "_features_order_tensor",
-            torch.tensor(self._features_order, device=torch.device("cpu"), dtype=torch.int32),
+            torch.tensor(
+                self._features_order, device=torch.device("cpu"), dtype=torch.int32
+            ),
             persistent=False,
         )
 
         if self._use_index_dedup:
             self._create_hash_size_info(feature_names)
-
 
     def _create_post_input_dist(
         self,
@@ -932,7 +941,6 @@ class HybridShardedEmbeddingCollection(
 
         return features_by_shards
 
-
     def _create_inverse_indices_permute_per_sharding(
         self, inverse_indices: Tuple[List[str], torch.Tensor]
     ) -> None:
@@ -953,14 +961,15 @@ class HybridShardedEmbeddingCollection(
             permute_per_sharding.append(permute)
         self._inverse_indices_permute_per_sharding = permute_per_sharding
 
-
     def _compute_sequence_vbe_context(
         self,
         ctx: EmbeddingCollectionContext,
         unpadded_features: KeyedJaggedTensor,
     ) -> None:
         if unpadded_features.inverse_indices_or_none() is None:
-            raise ValueError("inverse indices must be provided from KJT if using variable batch size per feature.")
+            raise ValueError(
+                "inverse indices must be provided from KJT if using variable batch size per feature."
+            )
         inverse_indices = unpadded_features.inverse_indices()
         stride = inverse_indices[1].numel() // len(inverse_indices[0])
         if self._inverse_indices_permute_per_sharding is None:
@@ -1035,7 +1044,7 @@ class HybridEmbeddingCollectionSharder(BaseEmbeddingSharder[EmbeddingCollection]
         params: Dict[str, ParameterSharding],
         env: ShardingEnv,
         device: Optional[torch.device] = None,
-        module_fqn:Optional[str] = None,
+        module_fqn: Optional[str] = None,
     ) -> HybridShardedEmbeddingCollection:
         return HybridShardedEmbeddingCollection(
             module=module,

@@ -8,9 +8,6 @@
 
 from typing import cast, List
 from torch import nn
-from torchrec.distributed.types import (
-    ModuleSharder,
-)
 from hybrid_torchrec.distributed.embeddingbag import HybridEmbeddingBagCollectionSharder
 from hybrid_torchrec.distributed.hash_embeddingbag import (
     HybridHashEmbeddingBagCollectionSharder,
@@ -21,7 +18,9 @@ from hybrid_torchrec.distributed.hash_embedding import (
 )
 
 from torchrec.distributed.types import ShardingEnv
-
+from torchrec.distributed.types import (
+    ModuleSharder,
+)
 
 def get_default_hybrid_sharders(
     host_env: ShardingEnv,

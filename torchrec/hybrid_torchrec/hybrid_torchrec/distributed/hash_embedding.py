@@ -9,6 +9,19 @@ from typing import Any, cast, Dict, List, Optional, Type, TypeVar
 
 import torch
 from torch import nn
+from hybrid_torchrec.distributed.sharding.hybrid_tw_sequence_sharding import (
+    HybridHashTwSequenceEmbeddingSharding,
+)
+from hybrid_torchrec.distributed.embedding import HybridShardedEmbeddingCollection
+from hybrid_torchrec.distributed.sharding.hybrid_rw_sequence_sharding import (
+    HybridHashRwSequenceEmbeddingSharding,
+)
+from hybrid_torchrec.modules.hash_embedding import HashEmbeddingCollection
+from hybrid_torchrec.modules.ids_process import HashMapBase
+from hybrid_torchrec.distributed.embedding_types import (
+    kjt_list_to_device,
+)
+
 from torchrec.distributed.embedding_sharding import (
     EmbeddingSharding,
     EmbeddingShardingContext,
@@ -26,18 +39,6 @@ from torchrec.modules.embedding_modules import EmbeddingCollection
 from torchrec.sparse.jagged_tensor import KeyedJaggedTensor
 from torchrec.distributed.embedding import (
     EmbeddingCollectionAwaitable,
-)
-from hybrid_torchrec.distributed.sharding.hybrid_tw_sequence_sharding import (
-    HybridHashTwSequenceEmbeddingSharding,
-)
-from hybrid_torchrec.distributed.embedding import HybridShardedEmbeddingCollection
-from hybrid_torchrec.distributed.sharding.hybrid_rw_sequence_sharding import (
-    HybridHashRwSequenceEmbeddingSharding,
-)
-from hybrid_torchrec.modules.hash_embedding import HashEmbeddingCollection
-from hybrid_torchrec.modules.ids_process import HashMapBase
-from hybrid_torchrec.distributed.embedding_types import (
-    kjt_list_to_device,
 )
 
 
