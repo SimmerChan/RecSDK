@@ -71,8 +71,6 @@ from torchrec.distributed.sharding.sequence_sharding import SequenceShardingCont
 from torchrec.distributed.sharding.dp_sequence_sharding import (
     DpSequenceEmbeddingSharding,
 )
-from torchrec.distributed.sharding.rw_sharding import RwSparseFeaturesDist
-
 from torchrec.distributed.types import (
     Awaitable,
     EmbeddingModuleShardingPlan,
@@ -84,7 +82,6 @@ from torchrec.distributed.types import (
     ShardingType,
     ShardMetadata,
 )
-
 from torchrec.optim.fused import EmptyFusedOptimizer, FusedOptimizerModule
 from torchrec.optim.keyed import CombinedOptimizer, KeyedOptimizer
 from torchrec.sparse.jagged_tensor import (
@@ -93,13 +90,11 @@ from torchrec.sparse.jagged_tensor import (
     KeyedTensor,
     JaggedTensor,
 )
-
 from torchrec.distributed.embedding import (
     create_sharding_infos_by_sharding,
     EmbeddingCollectionContext,
     EmbeddingCollectionAwaitable,
 )
-
 from torchrec.distributed.shards_wrapper import LocalShardsWrapper
 
 
@@ -378,8 +373,8 @@ class HybridShardedEmbeddingCollection(
                         shard_offset = shard.metadata.shard_offsets
                         # Prepare tensor by splicing and placing on appropriate device
                         spliced_tensor = state_dict[key][
-                            shard_offset[0] : shard_offset[0] + shard_size[0],
-                            shard_offset[1] : shard_offset[1] + shard_size[1],
+                            shard_offset[0]: shard_offset[0] + shard_size[0],
+                            shard_offset[1]: shard_offset[1] + shard_size[1],
                         ]
                         # Append spliced tensor into local shards
                         local_shards.append(spliced_tensor)
@@ -391,8 +386,8 @@ class HybridShardedEmbeddingCollection(
                     ):
                         shard_size = tensor.size()
                         spliced_tensor = state_dict[key][
-                            shard_offset[0] : shard_offset[0] + shard_size[0],
-                            shard_offset[1] : shard_offset[1] + shard_size[1],
+                            shard_offset[0]: shard_offset[0] + shard_size[0],
+                            shard_offset[1]: shard_offset[1] + shard_size[1],
                         ]
                         local_shards.append(spliced_tensor)
                 state_dict[key] = (
@@ -766,26 +761,6 @@ class HybridShardedEmbeddingCollection(
         embedding_configs: List[EmbeddingConfig],
         table_name_to_parameter_sharding: Dict[str, ParameterSharding],
     ) -> None:
-        """
-        Generates permute indices per feature for column-wise sharding.
-
-        Since outputs are stored in order of rank, column-wise shards of a table on the
-        same rank will be seen as adjacent, which may not be correct.
-
-        The permute indices store the correct ordering of outputs relative to the
-        provided ordering.
-
-        Example::
-            rank_0 = [f_0(shard_0), f_0(shard_2)]
-            rank_1 = [f_0(shard_1)]
-            output = [f_0(shard_0), f_0(shard_2), f_0(shard_1)]
-
-            shard_ranks = [0, 1, 0]
-            output_ranks = [0, 0, 1]
-
-            # To get the correct order from output_ranks -> shard_ranks
-            permute_indices = [0, 2, 1]
-        """
         shared_feature: Dict[str, bool] = {}
         for table in embedding_configs:
             for feature_name in table.feature_names:
