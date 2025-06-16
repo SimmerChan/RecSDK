@@ -7,4 +7,4 @@ torchrun --master_addr=localhost --master_port=32555 \
          --train_input_path data/taobao_data_train/\*.parquet \
          --eval_input_path data/taobao_data_eval/\*.parquet \
          --model_dir experiments/multi_tower_din_taobao_local
-         
+

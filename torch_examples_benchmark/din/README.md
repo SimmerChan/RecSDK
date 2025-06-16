@@ -82,9 +82,11 @@ cp ../din_npu.patch ./ && git apply din_npu.patch
 
 ## 生成wheel包并安装
 ```bash
-pip3 setup.py sdist bdist_wheel
-cd dist && pip3 install tzrec-0.7.13-*.whl
+python3 setup.py sdist bdist_wheel
+cd dist && pip3 install tzrec-0.7.14-*.whl
+cd ..
 ```
+注意：使用pip3安装tzrec三方库时，会默认安装requirements/runtime.txt中依赖，其中部分三方库需要在指定地址安装，如遇网络问题，请手动安装依赖库，然后使用--no-deps选项安装tzrec库。
 
 ## 数据集准备
 下载训练数据和评估数据，配置文件以multi_tower_din_taobao_local.config为例。

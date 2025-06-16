@@ -1,14 +1,14 @@
 diff --git a/tzrec/main.py b/tzrec/main.py
-index a95fa0f..6d1dbd8 100644
+index a95fa0f..c507f5b 100644
 --- a/tzrec/main.py
 +++ b/tzrec/main.py
-@@ -87,8 +87,17 @@ from tzrec.utils.logging_util import ProgressLogger, logger
- from tzrec.utils.plan_util import create_planner, get_default_sharders
+@@ -88,6 +88,17 @@ from tzrec.utils.plan_util import create_planner, get_default_sharders
  from tzrec.utils.state_dict_util import fix_mch_state, init_parameters
  from tzrec.version import __version__ as tzrec_version
+ 
 +import torch_npu
- 
- 
++
++
 +lib_fbgemm_npu_api_so_path = os.getenv("LIB_FBGEMM_NPU_API_SO_PATH")
 +if lib_fbgemm_npu_api_so_path:
 +    torch.ops.load_library(lib_fbgemm_npu_api_so_path)
@@ -17,10 +17,10 @@ index a95fa0f..6d1dbd8 100644
 +        "Enviroment variable LIB_FBGEMM_NPU_API_SO_PATH is not set. Please configure it with the correct path."
 +    )
 +
+ 
  def init_process_group() -> Tuple[torch.device, str]:
      """Init process_group, device, rank, backend."""
-     rank = int(os.environ.get("LOCAL_RANK", 0))
-@@ -96,6 +105,10 @@ def init_process_group() -> Tuple[torch.device, str]:
+@@ -96,6 +107,10 @@ def init_process_group() -> Tuple[torch.device, str]:
          device: torch.device = torch.device(f"cuda:{rank}")
          backend = "nccl"
          torch.cuda.set_device(device)
@@ -32,7 +32,7 @@ index a95fa0f..6d1dbd8 100644
          device: torch.device = torch.device("cpu")
          backend = "gloo"
 diff --git a/tzrec/utils/plan_util.py b/tzrec/utils/plan_util.py
-index 5edb550..6fb3789 100644
+index 5edb550..48d6a9e 100644
 --- a/tzrec/utils/plan_util.py
 +++ b/tzrec/utils/plan_util.py
 @@ -57,7 +57,7 @@ from torchrec.distributed.types import (
@@ -61,7 +61,7 @@ index 5edb550..6fb3789 100644
 +    # row_wise
 +    constraints = {
 +        f"{feature_name}_emb": ParameterConstraints(
-+            sharding_type=["row_wise"]
++            sharding_types=["row_wise"]
 +        )
 +        for feature_name in ["user_id", "cms_segid", "cms_group_id", "final_gender_code", "age_level",
 +                             "pvalue_level", "shopping_level", "occupation", "new_user_class_level", "adgroup_id",
