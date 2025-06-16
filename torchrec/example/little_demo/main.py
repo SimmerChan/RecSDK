@@ -61,6 +61,9 @@ def get_distribute_env():
 def invoke_main():
     rank, world_size = get_distribute_env()
     device = torch.device(f"npu")
+    os.environ["MASTER_ADDR"] = "127.0.0.1"
+    os.environ["MASTER_PORT"] = "6000"
+    os.environ["GLOO_SOCKET_IFNAME"] = "lo"
     dist.init_process_group(backend="hccl")
     host_gp = dist.new_group(backend="gloo")
     host_env = ShardingEnv(world_size=world_size, rank=rank, pg=host_gp)
