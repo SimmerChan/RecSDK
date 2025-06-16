@@ -1,10 +1,10 @@
 /*
-* Copyright (c) Meta Platforms, Inc. and affiliates.
-* Copyright (c) huawei Platforms, Inc. and affiliates.
-* All rights reserved.
-*
-* This source code is licensed under the BSD-style license found in the
-* LICENSE file in the root directory of this source tree.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * Copyright (c) huawei Platforms, Inc. and affiliates.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 #ifndef EMBEDDING_CACHE_UTILS_STRING_TOOLS_H
 #define EMBEDDING_CACHE_UTILS_STRING_TOOLS_H
@@ -24,7 +24,7 @@ public:
         ss << "[";
         for (int i = 0; i < items.size(); i++) {
             ss << items[i].first << ":" << items[i].second;
-            if (i != items.size()-1) {
+            if (i != items.size() - 1) {
                 ss << ", ";
             }
         }
@@ -39,7 +39,7 @@ public:
         ss << "[";
         for (int i = 0; i < items.size(); i++) {
             ss << items[i];
-            if (i != items.size()-1) {
+            if (i != items.size() - 1) {
                 ss << ", ";
             }
         }
@@ -47,8 +47,9 @@ public:
         return ss.str();
     }
 
-    template<typename T>
-    static std::string ToString(const T* data, size_t size) {
+    template <typename T>
+    static std::string ToString(const T* data, size_t size)
+    {
         if (data == nullptr || size == 0) {
             return "[]";
         }
@@ -65,8 +66,7 @@ public:
 
         return ss.str();
     }
-
 };
 
-}
-#endif //EMBEDDING_CACHE_UTILS_STRING_TOOLS_H
+}  // namespace Embcache
+#endif  // EMBEDDING_CACHE_UTILS_STRING_TOOLS_H

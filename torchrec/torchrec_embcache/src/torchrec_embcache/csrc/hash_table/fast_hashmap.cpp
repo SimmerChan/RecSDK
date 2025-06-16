@@ -1,10 +1,10 @@
 /*
-* Copyright (c) Meta Platforms, Inc. and affiliates.
-* Copyright (c) huawei Platforms, Inc. and affiliates.
-* All rights reserved.
-*
-* This source code is licensed under the BSD-style license found in the
-* LICENSE file in the root directory of this source tree.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * Copyright (c) huawei Platforms, Inc. and affiliates.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 #include "fast_hashmap.h"
 
@@ -81,7 +81,7 @@ void FastHashMap::Destroy()
 }
 
 FkvState FastHashMap::FindOrInsert(uint64_t key, uint64_t& value,
-                      const std::function<BeforePutFuncState()>& beforePutFunc)
+                                   const std::function<BeforePutFuncState()>& beforePutFunc)
 {
     if (HM_UNLIKELY(key == 0)) {
         if (zeroInside) {
@@ -289,7 +289,7 @@ bool FastHashMap::NewAndSetBuckets(const uint64_t& bucketCount, const int& value
         size_t bytesOnceSet = (i + MEMSET_S_MAX_SIZE <= bucketsBytes) ? MEMSET_S_MAX_SIZE : (bucketsBytes - i);
         auto ret = memset_s(destBytePtr + i, bytesOnceSet, value, bytesOnceSet);
         if (ret != 0) {
-            delete [] bucketsPtr;
+            delete[] bucketsPtr;
             bucketsPtr = nullptr;
             FreeSubMaps();
             LOG(ERROR) << "memset_s failed... size:" << std::to_string(bucketsBytes)
@@ -301,7 +301,7 @@ bool FastHashMap::NewAndSetBuckets(const uint64_t& bucketCount, const int& value
 }
 
 FkvState FastHashMap::PutKeyValue(uint64_t key, uint64_t& value, NetHashBucket* buck,
-                     const std::function<BeforePutFuncState()>& beforePutFunc)
+                                  const std::function<BeforePutFuncState()>& beforePutFunc)
 {
     // try 8192 times
     for (uint16_t i = 0; i < 8192; i++) {
@@ -385,4 +385,4 @@ void FastHashMap::ExtractKeyValueInBuck(NetHashBucket* buck, std::vector<std::pa
     }
 }
 
-} // namespace
+}  // namespace Embcache

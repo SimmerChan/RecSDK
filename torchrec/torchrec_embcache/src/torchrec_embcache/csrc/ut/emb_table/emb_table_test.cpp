@@ -1,10 +1,10 @@
 /*
-* Copyright (c) Meta Platforms, Inc. and affiliates.
-* Copyright (c) huawei Platforms, Inc. and affiliates.
-* All rights reserved.
-*
-* This source code is licensed under the BSD-style license found in the
-* LICENSE file in the root directory of this source tree.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * Copyright (c) huawei Platforms, Inc. and affiliates.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 #include "emb_table/emb_table.h"
 
@@ -37,19 +37,16 @@ TEST_F(EmbTableTest, EmbTableUnorderedMap_FindOrInsert)
 {
     unorderedMapTablePtr = std::make_shared<EmbTableUnorderedMap>(embConfig);
 
-    std::vector<int64_t> keys {1, 1};
+    std::vector<int64_t> keys{1, 1};
     std::vector<float> outEmbs(keys.size() * embConfig.embDim);
     std::vector<float> outOptims(keys.size() * embConfig.optimNum * embConfig.embDim);
 
     unorderedMapTablePtr->FindOrInsert(keys, outEmbs.data(), outOptims.data());
 
-    LOG(INFO) << "keys.size():" << keys.size()
-              << ", embDim:" << embConfig.embDim
+    LOG(INFO) << "keys.size():" << keys.size() << ", embDim:" << embConfig.embDim
               << ", optimNum:" << embConfig.optimNum;
-    LOG(INFO) << "outEmbs.size():" << outEmbs.size()
-              << ", outEmbs:" << StringTools::ToString(outEmbs);
-    LOG(INFO) << "outOptims.size():" << outOptims.size()
-              << ", outOptims:" << StringTools::ToString(outOptims);
+    LOG(INFO) << "outEmbs.size():" << outEmbs.size() << ", outEmbs:" << StringTools::ToString(outEmbs);
+    LOG(INFO) << "outOptims.size():" << outOptims.size() << ", outOptims:" << StringTools::ToString(outOptims);
 
     ASSERT_EQ(outEmbs.size(), keys.size() * embConfig.embDim);
     ASSERT_EQ(outOptims.size(), keys.size() * embConfig.optimNum * embConfig.embDim);
@@ -59,7 +56,7 @@ TEST_F(EmbTableTest, EmbTableUnorderedMap_InsertOrAssign)
 {
     unorderedMapTablePtr = std::make_shared<EmbTableUnorderedMap>(embConfig);
 
-    std::vector<int64_t> keys {1, 1};
+    std::vector<int64_t> keys{1, 1};
     std::vector<float> inEmbs(embConfig.embDim, 0.51);
     std::vector<float> finalEmbs(embConfig.embDim, 0.52);
     std::copy(finalEmbs.begin(), finalEmbs.end(), std::back_inserter(inEmbs));
@@ -71,7 +68,7 @@ TEST_F(EmbTableTest, EmbTableUnorderedMap_InsertOrAssign)
     unorderedMapTablePtr->InsertOrAssign(keys, inEmbs.data(), inOptims.data());
 
     // to check
-    std::vector<int64_t> key_to_check {1};
+    std::vector<int64_t> key_to_check{1};
     std::vector<float> outEmbs(embConfig.embDim);
     std::vector<float> outOptims(embConfig.optimNum * embConfig.embDim);
     unorderedMapTablePtr->FindOrInsert(key_to_check, outEmbs.data(), outOptims.data());
@@ -87,19 +84,16 @@ TEST_F(EmbTableTest, EmbTableFastHashMap_FindOrInsert)
 {
     fastHashMapTablePtr = std::make_shared<EmbTableFastHashMap>(embConfig);
 
-    std::vector<int64_t> keys {1, 1};
+    std::vector<int64_t> keys{1, 1};
     std::vector<float> outEmbs(keys.size() * embConfig.embDim);
     std::vector<float> outOptims(keys.size() * embConfig.optimNum * embConfig.embDim);
 
     fastHashMapTablePtr->FindOrInsert(keys, outEmbs.data(), outOptims.data());
 
-    LOG(INFO) << "keys.size():" << keys.size()
-              << ", embDim:" << embConfig.embDim
+    LOG(INFO) << "keys.size():" << keys.size() << ", embDim:" << embConfig.embDim
               << ", optimNum:" << embConfig.optimNum;
-    LOG(INFO) << "outEmbs.size():" << outEmbs.size()
-              << ", outEmbs:" << StringTools::ToString(outEmbs);
-    LOG(INFO) << "outOptims.size():" << outOptims.size()
-              << ", outOptims:" << StringTools::ToString(outOptims);
+    LOG(INFO) << "outEmbs.size():" << outEmbs.size() << ", outEmbs:" << StringTools::ToString(outEmbs);
+    LOG(INFO) << "outOptims.size():" << outOptims.size() << ", outOptims:" << StringTools::ToString(outOptims);
 
     ASSERT_EQ(outEmbs.size(), keys.size() * embConfig.embDim);
     ASSERT_EQ(outOptims.size(), keys.size() * embConfig.optimNum * embConfig.embDim);
@@ -109,7 +103,7 @@ TEST_F(EmbTableTest, EmbTableFastHashMap_InsertOrAssign)
 {
     fastHashMapTablePtr = std::make_shared<EmbTableFastHashMap>(embConfig);
 
-    std::vector<int64_t> keys {1, 1};
+    std::vector<int64_t> keys{1, 1};
     std::vector<float> inEmbs(embConfig.embDim, 0.51);
     std::vector<float> finalEmbs(embConfig.embDim, 0.52);
     std::copy(finalEmbs.begin(), finalEmbs.end(), std::back_inserter(inEmbs));
@@ -121,7 +115,7 @@ TEST_F(EmbTableTest, EmbTableFastHashMap_InsertOrAssign)
     fastHashMapTablePtr->InsertOrAssign(keys, inEmbs.data(), inOptims.data());
 
     // to check
-    std::vector<int64_t> key_to_check {1};
+    std::vector<int64_t> key_to_check{1};
     std::vector<float> outEmbs(embConfig.embDim);
     std::vector<float> outOptims(embConfig.optimNum * embConfig.embDim);
     fastHashMapTablePtr->FindOrInsert(key_to_check, outEmbs.data(), outOptims.data());
@@ -133,7 +127,7 @@ TEST_F(EmbTableTest, EmbTableFastHashMap_InsertOrAssign)
     ASSERT_EQ(finalOptims, outOptims);
 }
 
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
     return common_main(argc, argv);
 }

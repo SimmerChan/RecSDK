@@ -1,10 +1,10 @@
 /*
-* Copyright (c) Meta Platforms, Inc. and affiliates.
-* Copyright (c) huawei Platforms, Inc. and affiliates.
-* All rights reserved.
-*
-* This source code is licensed under the BSD-style license found in the
-* LICENSE file in the root directory of this source tree.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * Copyright (c) huawei Platforms, Inc. and affiliates.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 #include "hash_table/fast_hashmap.h"
 #include "utils/string_tools.h"
@@ -33,7 +33,9 @@ protected:
 
 TEST_F(FastHashMapTest, FindOrInsert)
 {
-    std::function<BeforePutFuncState()> beforePutFunc = []() { return BeforePutFuncState::BEFORE_SUCCESS; };
+    std::function<BeforePutFuncState()> beforePutFunc = []() {
+        return BeforePutFuncState::BEFORE_SUCCESS;
+    };
     uint64_t key = 1;
     uint64_t value = 1;
     FkvState state = hashmap.FindOrInsert(key, value, beforePutFunc);
@@ -42,8 +44,7 @@ TEST_F(FastHashMapTest, FindOrInsert)
 
     value = -1;
     state = hashmap.FindOrInsert(key, value, beforePutFunc);
-    LOG(INFO) << "FindOrInsert (second time, actually Find), state:" << FkvStateStr[(int)state]
-                << ", value:" << value;
+    LOG(INFO) << "FindOrInsert (second time, actually Find), state:" << FkvStateStr[(int)state] << ", value:" << value;
     ASSERT_EQ(state, FkvState::FKV_EXIST);
     ASSERT_EQ(value, 1);
 }
@@ -59,7 +60,9 @@ TEST_F(FastHashMapTest, Find1)
 
 TEST_F(FastHashMapTest, Find2)
 {
-    std::function<BeforePutFuncState()> beforePutFunc = []() { return BeforePutFuncState::BEFORE_SUCCESS; };
+    std::function<BeforePutFuncState()> beforePutFunc = []() {
+        return BeforePutFuncState::BEFORE_SUCCESS;
+    };
     uint64_t key = 1;
     uint64_t value = 1;
     FkvState state = hashmap.FindOrInsert(key, value, beforePutFunc);
@@ -83,7 +86,9 @@ TEST_F(FastHashMapTest, Remove_Not_EXIST)
 
 TEST_F(FastHashMapTest, Remove_EXIST)
 {
-    std::function<BeforePutFuncState()> beforePutFunc = []() { return BeforePutFuncState::BEFORE_SUCCESS; };
+    std::function<BeforePutFuncState()> beforePutFunc = []() {
+        return BeforePutFuncState::BEFORE_SUCCESS;
+    };
     uint64_t key = 1;
     uint64_t value = 1;
     FkvState state = hashmap.FindOrInsert(key, value, beforePutFunc);
@@ -97,7 +102,9 @@ TEST_F(FastHashMapTest, Remove_EXIST)
 
 TEST_F(FastHashMapTest, Export)
 {
-    std::function<BeforePutFuncState()> beforePutFunc = []() { return BeforePutFuncState::BEFORE_SUCCESS; };
+    std::function<BeforePutFuncState()> beforePutFunc = []() {
+        return BeforePutFuncState::BEFORE_SUCCESS;
+    };
 
     uint64_t key = 1;
     uint64_t value = 1;
@@ -117,7 +124,7 @@ TEST_F(FastHashMapTest, Export)
     ASSERT_EQ(expected, results);
 }
 
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
     return common_main(argc, argv);
 }

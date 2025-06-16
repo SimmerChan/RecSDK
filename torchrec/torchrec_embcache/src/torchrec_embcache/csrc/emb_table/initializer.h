@@ -1,10 +1,10 @@
 /*
-* Copyright (c) Meta Platforms, Inc. and affiliates.
-* Copyright (c) huawei Platforms, Inc. and affiliates.
-* All rights reserved.
-*
-* This source code is licensed under the BSD-style license found in the
-* LICENSE file in the root directory of this source tree.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * Copyright (c) huawei Platforms, Inc. and affiliates.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 #ifndef EMBEDDING_CACHE_EMB_TABLE_INITIALIZER_H
 #define EMBEDDING_CACHE_EMB_TABLE_INITIALIZER_H
@@ -21,7 +21,7 @@ public:
         std::random_device rd;
         std::mt19937 gen(rd());
         std::uniform_real_distribution<float> distrib(minVal, maxVal);
-        std::generate(array, array+size, [&]() { return distrib(gen); });
+        std::generate(array, array + size, [&]() { return distrib(gen); });
     }
 
     static void GenLinear(float* array, size_t size, float minVal, float maxVal)
@@ -39,5 +39,5 @@ public:
     }
 };
 
-} // namespace
-#endif //EMBEDDING_CACHE_EMB_TABLE_INITIALIZER_H
+}  // namespace Embcache
+#endif  // EMBEDDING_CACHE_EMB_TABLE_INITIALIZER_H

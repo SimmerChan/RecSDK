@@ -1,10 +1,10 @@
 /*
-* Copyright (c) Meta Platforms, Inc. and affiliates.
-* Copyright (c) huawei Platforms, Inc. and affiliates.
-* All rights reserved.
-*
-* This source code is licensed under the BSD-style license found in the
-* LICENSE file in the root directory of this source tree.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * Copyright (c) huawei Platforms, Inc. and affiliates.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 #ifndef EMBEDDING_CACHE_SWAP_MANAGER_H
 #define EMBEDDING_CACHE_SWAP_MANAGER_H
@@ -19,7 +19,8 @@ namespace Embcache {
 
 class LimitedSet {
 public:
-    explicit LimitedSet(int64_t maxRange) {
+    explicit LimitedSet(int64_t maxRange)
+    {
         capacity_ = nextPowerOfTwo(maxRange);
         sparse_ = std::vector<int64_t>(capacity_, -1);
         dense_ = std::vector<int64_t>(capacity_);
@@ -28,19 +29,24 @@ public:
         size_ = 0;
     }
 
-    void insert(int64_t value) {
+    void insert(int64_t value)
+    {
         int64_t& idx = sparse_[value];
-        if (idx != -1) return;
-        if (size_ == capacity_) return;
+        if (idx != -1)
+            return;
+        if (size_ == capacity_)
+            return;
         int64_t pos = (front_ + size_) & capacity_mask_;
         dense_[pos] = value;
         idx = pos;
         size_++;
     }
 
-    void remove(int64_t value) {
+    void remove(int64_t value)
+    {
         int64_t& idx = sparse_[value];
-        if (idx == -1) return;
+        if (idx == -1)
+            return;
         int64_t last_pos = (front_ + size_ - 1) & capacity_mask_;
         int64_t last = dense_[last_pos];
         if (value != last) {
@@ -51,7 +57,8 @@ public:
         idx = -1;
     }
 
-    int64_t pop_front() {
+    int64_t pop_front()
+    {
         int64_t value = dense_[front_];
         sparse_[value] = -1;
         front_ = (front_ + 1) & capacity_mask_;
@@ -59,29 +66,48 @@ public:
         return value;
     }
 
-    bool find(int64_t value) const {
+    bool find(int64_t value) const
+    {
         return sparse_[value] != -1;
     }
 
-    bool empty() const { return size_ == 0; }
+    bool empty() const
+    {
+        return size_ == 0;
+    }
 
     // 自定义迭代器（保持逻辑顺序）
     class Iterator {
         const LimitedSet* set_;
         int64_t index_;
         int64_t count_;
+
     public:
-        Iterator(const LimitedSet* set, int64_t index, int64_t count)
-            : set_(set), index_(index), count_(count) {}
-        int64_t operator*() const {
+        Iterator(const LimitedSet* set, int64_t index, int64_t count) : set_(set), index_(index), count_(count) {}
+        int64_t operator*() const
+        {
             return set_->dense_[(set_->front_ + index_) & set_->capacity_mask_];
         }
-        Iterator& operator++() { index_++; count_--; return *this; }
-        bool operator!=(const Iterator& other) const { return count_ != other.count_; }
+        Iterator& operator++()
+        {
+            index_++;
+            count_--;
+            return *this;
+        }
+        bool operator!=(const Iterator& other) const
+        {
+            return count_ != other.count_;
+        }
     };
 
-    Iterator begin() const { return Iterator(this, 0, size_); }
-    Iterator end() const { return Iterator(this, size_, 0); }
+    Iterator begin() const
+    {
+        return Iterator(this, 0, size_);
+    }
+    Iterator end() const
+    {
+        return Iterator(this, size_, 0);
+    }
 
 private:
     std::vector<int64_t> sparse_;
@@ -91,16 +117,20 @@ private:
     int64_t capacity_;
     int64_t capacity_mask_;
 
-    static int64_t nextPowerOfTwo(int64_t n) {
-        if (n <= 0) return 1;
-        n--; // 处理n已经是2的幂的情况
-        n |= n >> 1;  n |= n >> 2;
-        n |= n >> 4;  n |= n >> 8;
-        n |= n >> 16; n |= n >> 32;
+    static int64_t nextPowerOfTwo(int64_t n)
+    {
+        if (n <= 0)
+            return 1;
+        n--;  // 处理n已经是2的幂的情况
+        n |= n >> 1;
+        n |= n >> 2;
+        n |= n >> 4;
+        n |= n >> 8;
+        n |= n >> 16;
+        n |= n >> 32;
         return n + 1;
     }
 };
-
 
 class SwapManager {
 public:
@@ -109,9 +139,12 @@ public:
     std::tuple<std::vector<int64_t>, std::vector<int64_t>, std::vector<int64_t>, std::vector<int64_t>,
                std::vector<int64_t>>
     ComputeSwapInfo(const std::vector<int64_t>& keys);
-    
+
     int64_t GetKey(int64_t off);
-    int64_t GetOccupiedNum() { return occupiedNum; };
+    int64_t GetOccupiedNum()
+    {
+        return occupiedNum;
+    };
     void RemoveKeys(const std::vector<int64_t>& keys, std::vector<int64_t>& evictFeatures);
     int64_t GetMemStartOffset() const;
 
@@ -136,4 +169,4 @@ private:
 };
 }  // namespace Embcache
 
-#endif  //EMBEDDING_CACHE_SWAP_MANAGER_H
+#endif  // EMBEDDING_CACHE_SWAP_MANAGER_H

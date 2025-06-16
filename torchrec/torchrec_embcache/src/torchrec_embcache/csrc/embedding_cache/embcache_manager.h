@@ -10,17 +10,16 @@
 #define EMBEDDING_CACHE_EMBEDDING_MANAGER_H
 
 #include <cstddef>
-#include <string>
-//#include <pybind11/pybind11.h>
-//#include <pybind11/stl.h>
-#include <torch/extension.h>
 #include <cstdint>
+#include <string>
+#include <torch/extension.h>
 #include <vector>
-#include "utils/async_task.h"
+
 #include "common/common.h"
-#include "swap_manager.h"
 #include "emb_table/emb_table.h"
 #include "feature_filter/feature_filter.h"
+#include "swap_manager.h"
+#include "utils/async_task.h"
 
 namespace Embcache {
 
@@ -121,7 +120,7 @@ private:
     bool enableFastHashMap = false;
     static const size_t readAndWriteSizePeerTime = 32768;
     const int64_t ONE_TIME_IO_SIZE = 2 * 1024 * 1024 * 1024L;  // 2GB
-    size_t optimNum;
+    int32_t optimNum;
 };
 }  // namespace Embcache
 #endif  //EMBEDDING_CACHE_EMBEDDING_MANAGER_H

@@ -1,17 +1,17 @@
 /*
-* Copyright (c) Meta Platforms, Inc. and affiliates.
-* Copyright (c) huawei Platforms, Inc. and affiliates.
-* All rights reserved.
-*
-* This source code is licensed under the BSD-style license found in the
-* LICENSE file in the root directory of this source tree.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * Copyright (c) huawei Platforms, Inc. and affiliates.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 #include "emb_mem_pool.h"
 
 #include <glog/logging.h>
 #include "initializer.h"
 
-namespace  Embcache {
+namespace Embcache {
 
 void EmbMemoryPool::Stop()
 {
@@ -45,16 +45,14 @@ void EmbMemoryPool::GetValueToBeRecycled(uint64_t value)
     fullCv.notify_one();
 }
 
-
 bool EmbMemoryPool::GetNewAddr(uint64_t& newAddr)
 {
     std::lock_guard<std::mutex> lg(getAddrMutex);
     if (HM_UNLIKELY(currentMemoryUint.leftCapacity <= 0)) {
         /* need to expand memory */
         uint64_t maxSize = std::min(maxExpandSize, totalLeftVocabSize * itemSize);
-        uint64_t newSize = currentMemoryUint.capacity
-                           ? std::min(currentMemoryUint.capacity * dynamicExpandRatio, maxSize)
-                           : itemSize;
+        uint64_t newSize =
+            currentMemoryUint.capacity ? std::min(currentMemoryUint.capacity * dynamicExpandRatio, maxSize) : itemSize;
         if (newSize == 0) {
             if (recycleBin.GetLength() == 0) {
                 full = true;
@@ -116,4 +114,4 @@ void EmbMemoryPool::ProducerWorker()
     }
 }
 
-} // namespace
+}  // namespace Embcache

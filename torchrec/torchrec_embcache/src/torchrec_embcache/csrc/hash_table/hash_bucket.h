@@ -1,10 +1,10 @@
 /*
-* Copyright (c) Meta Platforms, Inc. and affiliates.
-* Copyright (c) huawei Platforms, Inc. and affiliates.
-* All rights reserved.
-*
-* This source code is licensed under the BSD-style license found in the
-* LICENSE file in the root directory of this source tree.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * Copyright (c) huawei Platforms, Inc. and affiliates.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 #ifndef HASH_TABLE_HASH_BUCKET_H
 #define HASH_TABLE_HASH_BUCKET_H
@@ -35,8 +35,7 @@ struct NetHashLockEntry {
 
     void Lock()
     {
-        while (!__sync_bool_compare_and_swap(&lock, 0, 1)) {
-        }
+        while (!__sync_bool_compare_and_swap(&lock, 0, 1)) {}
     }
 
     void UnLock()
@@ -45,23 +44,20 @@ struct NetHashLockEntry {
     }
 } __attribute__((packed));
 
-
 struct alignas(K_ALIGNMENT) NetHashBucket {
     std::atomic<uint64_t> keys[K_KV_NUM_IN_BUCKET]{};
     uint64_t values[K_KV_NUM_IN_BUCKET]{};
-    NetHashBucket *next = nullptr;
+    NetHashBucket* next = nullptr;
     NetHashLockEntry spinLock{};
 
+    FkvState Put(uint64_t key, uint64_t& value, const std::function<BeforePutFuncState()>& beforePutFunc);
 
-    FkvState Put(uint64_t key, uint64_t &value,
-                 const std::function<BeforePutFuncState()> &beforePutFunc);
-
-    bool Find(const uint64_t key, uint64_t &value);
+    bool Find(const uint64_t key, uint64_t& value);
 
     FkvState Remove(uint64_t key);
 
-    FkvState Remove(uint64_t key, const std::function<BeforeRemoveFuncState(uint64_t)> &beforeRemoveFunc);
+    FkvState Remove(uint64_t key, const std::function<BeforeRemoveFuncState(uint64_t)>& beforeRemoveFunc);
 };
 
-}
-#endif //HASH_TABLE_HASH_BUCKET_H
+}  // namespace Embcache
+#endif  // HASH_TABLE_HASH_BUCKET_H

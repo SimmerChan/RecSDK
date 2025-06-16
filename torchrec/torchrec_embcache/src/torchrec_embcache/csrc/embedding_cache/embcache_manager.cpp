@@ -1,42 +1,38 @@
 /*
-* Copyright (c) Meta Platforms, Inc. and affiliates.
-* Copyright (c) huawei Platforms, Inc. and affiliates.
-* All rights reserved.
-*
-* This source code is licensed under the BSD-style license found in the
-* LICENSE file in the root directory of this source tree.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * Copyright (c) huawei Platforms, Inc. and affiliates.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 #include "embcache_manager.h"
 
 #include <c10/util/Exception.h>
-#include <glog/logging.h>
-#include <cstddef>
-#include <fstream>
-#include <fcntl.h>
 #include <exception>
-#include <filesystem>
-#include <sstream>
 #include <fstream>
+#include <filesystem>
+#include <glog/logging.h>
+#include <sstream>
 #include <vector>
+
+#include "glogger.h"
 
 #include "utils/singleton.h"
 #include "utils/timecost.h"
-#include "feature_filter/evict_feature_record.h"
-
-# include "glogger.h"
 
 using namespace Embcache;
 
 EmbcacheManager::EmbcacheManager(const std::vector<EmbConfig>& embConfigs)
-    : embConfigs(embConfigs),
-      embNum(embConfigs.size())
+    : embNum(embConfigs.size()),
+      embConfigs(embConfigs)
 {
     Singleton<Glogger>::GetInstance()->Init();
     enableFastHashMap = EnableFastHashMap();
-    
+
     for (int32_t i = 0; i < embNum; i++) {
         LOG(INFO) << "tableName:" << embConfigs[i].tableName << ", table index:" << i
-            << ", cacheSize is:" << embConfigs[i].cacheSize;
+                  << ", cacheSize is:" << embConfigs[i].cacheSize;
         int64_t memStartOffset = embConfigs[i].admitAndEvictConfig.IsAdmitEnabled() ? 1 : 0;
         swapManagers.emplace_back(embConfigs[i].cacheSize, memStartOffset);
 
@@ -54,7 +50,7 @@ EmbcacheManager::EmbcacheManager(const std::vector<EmbConfig>& embConfigs)
     TORCH_CHECK(embConfigs.size() > 0, "ERROR, Size of embConfigs must > 0")
     optimNum = embConfigs[0].optimNum;
     for (auto& embedConfig : embConfigs) {
-        TORCH_CHECK(embedConfig.optimNum == optimNum);
+        TORCH_CHECK(embedConfig.optimNum == optimNum)
     }
 }
 
@@ -65,7 +61,7 @@ bool EmbcacheManager::EnableFastHashMap()
         LOG(WARNING) << "env ENABLE_FAST_HASHMAP is not deteced, std::unordered_map is used";
         return false;
     }
- 
+
     std::string switchStr = std::string(enableFastHashMapStr);
     std::transform(switchStr.begin(), switchStr.end(), switchStr.begin(), ::tolower);
     if (switchStr == "true" || switchStr == "yes" || switchStr == "1") {
@@ -141,7 +137,8 @@ SwapInfo EmbcacheManager::ComputeSwapInfo(const at::Tensor& batchKeys, const std
     return swapInfo;
 }
 
-AsyncTask<SwapInfo> EmbcacheManager::ComputeSwapInfoAsync(const at::Tensor& batchKeys, const std::vector<int64_t>& offsetPerKey)
+AsyncTask<SwapInfo> EmbcacheManager::ComputeSwapInfoAsync(const at::Tensor& batchKeys,
+                                                          const std::vector<int64_t>& offsetPerKey)
 {
     return AsyncTask<SwapInfo>([this, batchKeys, offsetPerKey]() { return ComputeSwapInfo(batchKeys, offsetPerKey); });
 }
@@ -163,16 +160,17 @@ SwapinTensor EmbcacheManager::EmbeddingLookup(const std::vector<std::vector<int6
 
     int64_t embsSize = jaggedOffsPtr[swapinKeys.size()];
     swapinTensor.swapinEmbs = at::empty({embsSize}, floatPinnedOpt);
-    for (size_t i = 0; i < optimNum; i++) {
+    for (int32_t i = 0; i < optimNum; i++) {
         swapinTensor.swapinOptims.emplace_back(at::empty({embsSize}, floatPinnedOpt));
     }
     std::vector<float*> swapinOptimsPtr(optimNum);
     for (uint64_t i = 0; i < swapinKeys.size(); i++) {
-        for (size_t j = 0; j < optimNum; j++) {
+        for (int32_t j = 0; j < optimNum; j++) {
             swapinOptimsPtr[j] = swapinTensor.swapinOptims[j].data_ptr<float>() + jaggedOffsPtr[i];
         }
 
-        embeddingTables[i]->FindOrInsert(swapinKeys[i], swapinTensor.swapinEmbs.data_ptr<float>() + jaggedOffsPtr[i], swapinOptimsPtr);
+        embeddingTables[i]->FindOrInsert(swapinKeys[i], swapinTensor.swapinEmbs.data_ptr<float>() + jaggedOffsPtr[i],
+                                         swapinOptimsPtr);
     }
 
     embLookupCount++;
@@ -186,7 +184,7 @@ SwapinTensor EmbcacheManager::EmbeddingLookup(const std::vector<std::vector<int6
 
 AsyncTask<SwapinTensor> EmbcacheManager::EmbeddingLookupAsync(const SwapInfo& swapInfo)
 {
-    return AsyncTask<SwapinTensor>([this, swapinKeys=swapInfo.swapinKeys]() { return EmbeddingLookup(swapinKeys); });
+    return AsyncTask<SwapinTensor>([this, swapinKeys = swapInfo.swapinKeys]() { return EmbeddingLookup(swapinKeys); });
 }
 
 void EmbcacheManager::EmbeddingUpdate(const std::vector<std::vector<int64_t>>& swapoutKeys,
@@ -194,7 +192,7 @@ void EmbcacheManager::EmbeddingUpdate(const std::vector<std::vector<int64_t>>& s
 {
     TimeCost embeddingUpdateTC;
     for (auto& embedConfig : embConfigs) {
-        TORCH_CHECK(embedConfig.optimNum == (int32_t) swapoutOptims.size());
+        TORCH_CHECK(embedConfig.optimNum == (int32_t)swapoutOptims.size())
     }
     for (auto& optimition : swapoutOptims) {
         TORCH_CHECK(swapoutEmbs.numel() == optimition.numel())
@@ -217,9 +215,11 @@ void EmbcacheManager::EmbeddingUpdate(const std::vector<std::vector<int64_t>>& s
     LOG(INFO) << "embeddingUpdateTC(ms):" << embeddingUpdateTC.ElapsedMS();
 }
 
-// input dist 之前，调用 RecordTimestamp. 后面淘汰时，要判断key是否在当前卡， 当前只能记录到当前卡上原始batch中的key timestamp
+// input dist 之前，调用 RecordTimestamp. 后面淘汰时，要判断key是否在当前卡， 当前只能记录到当前卡上原始batch中的key
+// timestamp
 void EmbcacheManager::RecordTimestamp(const at::Tensor& batchKeys, const std::vector<int64_t>& offsetPerKey,
-                                      const at::Tensor& timestamps) {
+                                      const at::Tensor& timestamps)
+{
     LOG(INFO) << "Start invoke mgmt RecordTimestamp";
     TimeCost recordTimestampTC;
     const auto* keyPtr = batchKeys.data_ptr<int64_t>();
@@ -256,13 +256,13 @@ void EmbcacheManager::EvictFeatures()
         evictKey2OffsetCount += evictFeatures.size();
     }
     LOG(INFO) << "evictFeaturesTC(ms):" << evictFeaturesTC.ElapsedMS()
-        << ", all evictKey2Offset from swapManager Count:" << evictKey2OffsetCount;
+              << ", all evictKey2Offset from swapManager Count:" << evictKey2OffsetCount;
 }
 
 AsyncTask<void> EmbcacheManager::EmbeddingUpdateAsync(const SwapInfo& swapInfo, const at::Tensor& swapoutEmbs,
                                                       const std::vector<at::Tensor>& swapoutOptims)
 {
-    return AsyncTask<void>([this, swapoutKeys=swapInfo.swapoutKeys, swapoutEmbs, swapoutOptims]() {
+    return AsyncTask<void>([this, swapoutKeys = swapInfo.swapoutKeys, swapoutEmbs, swapoutOptims]() {
         EmbeddingUpdate(swapoutKeys, swapoutEmbs, swapoutOptims);
     });
 }
@@ -301,12 +301,12 @@ void EmbcacheManager::Embedding2Host(const at::Tensor& weightsDev, const std::ve
         // Here, GetOccupiedNum is less than embConfigs[embIndex].cacheSize = weightsDev.shape[0],
         // and we need to skip the unnecessary weight indices.
         jaggedOff += embConfigs[embIndex].cacheSize * embConfigs[embIndex].embDim;
-        LOG(INFO) << "Embedding2Host, embIndex:" <<  embIndex << ", update key size:" << keys.size()
-            << ", jaggedOff:" << jaggedOff << ", currentTableOffset:" << currentTableOffset;
+        LOG(INFO) << "Embedding2Host, embIndex:" << embIndex << ", update key size:" << keys.size()
+                  << ", jaggedOff:" << jaggedOff << ", currentTableOffset:" << currentTableOffset;
     }
 }
 
-std::string EmbcacheManager::GetDevWeightsShape(const at::Tensor &weightsDev) const
+std::string EmbcacheManager::GetDevWeightsShape(const at::Tensor& weightsDev) const
 {
     std::stringstream ss;
     ss << "weightsDev shape:[";
@@ -318,7 +318,6 @@ std::string EmbcacheManager::GetDevWeightsShape(const at::Tensor &weightsDev) co
     ss << "].";
     return ss.str();
 }
-
 
 void EmbcacheManager::Save(const std::string path, const int rank)
 {
@@ -348,51 +347,50 @@ void EmbcacheManager::Save(const std::string path, const int rank)
             }
             // 2. write embedding
             WriteData(fileEmbeddingSliceData, reinterpret_cast<const char*>(value),
-                embConfigs[i].embDim * sizeof(float));
+                      embConfigs[i].embDim * sizeof(float));
             LOG(INFO) << "In save, table:" << i << ", key:" << key << ", embedding.dim:" << embConfigs[i].embDim
-                << ", embedding " << StringTools::ToString(value, embConfigs[i].embDim);
+                      << ", embedding " << StringTools::ToString(value, embConfigs[i].embDim);
 
             // 3. write momentum
             if (optimNum > 0) {
                 WriteData(fileMomentum1SliceData, reinterpret_cast<const char*>(value + embConfigs[i].embDim),
                           embConfigs[i].embDim * sizeof(float));
                 LOG(INFO) << "In save, table:" << i << ", key:" << key << ", momentum1.dim " << embConfigs[i].embDim
-                    << " momentum1 " << StringTools::ToString(value + 1 * embConfigs[i].embDim,
-                                                              embConfigs[i].embDim);
+                          << " momentum1 "
+                          << StringTools::ToString(value + 1 * embConfigs[i].embDim, embConfigs[i].embDim);
             }
             if (optimNum > 1) {
-                WriteData(fileMomentum2SliceData, reinterpret_cast<const char*>(value + 2*embConfigs[i].embDim),
+                WriteData(fileMomentum2SliceData, reinterpret_cast<const char*>(value + 2 * embConfigs[i].embDim),
                           embConfigs[i].embDim * sizeof(float));
                 LOG(INFO) << "In save, table:" << i << ", key:" << key << ", momentum2.dim " << embConfigs[i].embDim
-                    << " momentum2 " << StringTools::ToString(value + 2 * embConfigs[i].embDim,
-                                                              embConfigs[i].embDim);
+                          << " momentum2 "
+                          << StringTools::ToString(value + 2 * embConfigs[i].embDim, embConfigs[i].embDim);
             }
         });
 
         LOG(INFO) << "tableName: " << tableName << " shape: " << count << ", " << embConfigs[i].embDim;
-        
+
         std::vector<int64_t> keyAttribute = {sizeof(int64_t), count};
-        WriteData(fileKeySliceAttr, reinterpret_cast<const char *>(keyAttribute.data()),
-            keyAttribute.size() * sizeof(int64_t));
+        WriteData(fileKeySliceAttr, reinterpret_cast<const char*>(keyAttribute.data()),
+                  keyAttribute.size() * sizeof(int64_t));
 
         std::vector<int64_t> embedAttribute = {sizeof(int64_t), count, embConfigs[i].embDim};
-        WriteData(fileEmbeddingSliceAttr, reinterpret_cast<const char *>(embedAttribute.data()),
-            embedAttribute.size() * sizeof(int64_t));
+        WriteData(fileEmbeddingSliceAttr, reinterpret_cast<const char*>(embedAttribute.data()),
+                  embedAttribute.size() * sizeof(int64_t));
 
         std::vector<int64_t> momentum1Attribute = {sizeof(int64_t), count, embConfigs[i].embDim};
 
         WriteData(fileMomentum1SliceAttr, reinterpret_cast<const char*>(momentum1Attribute.data()),
-            momentum1Attribute.size() * sizeof(int64_t));
+                  momentum1Attribute.size() * sizeof(int64_t));
 
         // 目前momentum2Attribute和momentum1Attribute是一致的
         WriteData(fileMomentum2SliceAttr, reinterpret_cast<const char*>(momentum1Attribute.data()),
-            momentum1Attribute.size() * sizeof(int64_t));
+                  momentum1Attribute.size() * sizeof(int64_t));
 
         // 4 保存准入淘汰数据
         SaveFeatureAdmitAndEvictInfo(i, midPath, saveKeys);
     }
 }
-
 
 std::ofstream EmbcacheManager::OpenFile(std::string path)
 {
@@ -412,7 +410,6 @@ std::ofstream EmbcacheManager::OpenFile(std::string path)
     LOG(INFO) << "open " << path;
     return file;
 }
-
 
 void EmbcacheManager::WriteData(std::ofstream& file, const char* dataPtr, size_t bytes)
 {
@@ -452,20 +449,20 @@ void EmbcacheManager::Load(const std::string& path, int rank)
         if (optimNum > 0) {
             int readMomentum1Valid = EmbcacheManager::ReadFile(filePath, momentum1, "momentum1", embDim);
             LOG(INFO) << "---------momentum1----------";
-            TORCH_CHECK(readMomentum1Valid != -1, "optimNum > 0 but momentum1 file is empty");
+            TORCH_CHECK(readMomentum1Valid != -1, "optimNum > 0 but momentum1 file is empty")
         }
 
         std::vector<std::vector<float>> momentum2;
         if (optimNum > 1) {
             int readMomentum2Valid = EmbcacheManager::ReadFile(filePath, momentum2, "momentum2", embDim);
-            TORCH_CHECK(readMomentum2Valid != -1, "optimNum > 1 but momentum2 file is empty");
+            TORCH_CHECK(readMomentum2Valid != -1, "optimNum > 1 but momentum2 file is empty")
             LOG(INFO) << "---------momentum2----------";
         }
 
         for (auto vec : momentum1) {
             LOG(INFO) << StringTools::ToString(vec);
         }
-        for (size_t k = 0 ; k < keys.size(); k++) {
+        for (size_t k = 0; k < keys.size(); k++) {
             std::vector<int64_t> insertKey = {keys[k]};
             std::vector<float*> momentum = {};
             if (optimNum > 0) {
@@ -484,9 +481,10 @@ void EmbcacheManager::Load(const std::string& path, int rank)
     }
 }
 
-template<class T>
+template <class T>
 int32_t EmbcacheManager::ReadFile(const std::string& filePath, std::vector<T>& dataOutputs,
-                                  const std::string& loadItemName, const std::string& detailFileName) {
+                                  const std::string& loadItemName, const std::string& detailFileName)
+{
     std::stringstream ss;
     ss << filePath << "/" << loadItemName << detailFileName;
 
@@ -535,7 +533,8 @@ int32_t EmbcacheManager::ReadFile(const std::string& filePath, std::vector<T>& d
 }
 
 int32_t EmbcacheManager::ReadFile(const std::string& filePath, std::vector<std::vector<float>>& embedding,
-                                  const std::string& loadItemName, int32_t embDim) {
+                                  const std::string& loadItemName, int32_t embDim)
+{
     std::stringstream ss;
     ss << filePath << "/" << loadItemName << "/slice.data";
 
@@ -600,8 +599,8 @@ bool EmbcacheManager::NeedEvictEmbeddingTable()
             continue;
         }
         // 待删除embTable的keys非空且达到和GetSwapInfo相同的步数
-        if (!featureFilters[i].evictFeatureRecord.GetEvictKeys().empty()
-            && featureFilters[i].evictFeatureRecord.CanRemoveFromEmbTable(embLookupCount)) {
+        if (!featureFilters[i].evictFeatureRecord.GetEvictKeys().empty() &&
+            featureFilters[i].evictFeatureRecord.CanRemoveFromEmbTable(embLookupCount)) {
             return true;
         }
     }
@@ -650,7 +649,8 @@ void EmbcacheManager::SaveFeatureAdmitAndEvictInfo(int32_t tableIndex, const std
             } else {
                 keyCountVec.emplace_back(-1);
             }
-            LOG(INFO) << "In save key count, tableIndex:" << tableIndex << ", key:" << key << ", count:" << keyCountVec[i];
+            LOG(INFO) << "In save key count, tableIndex:" << tableIndex << ", key:" << key
+                      << ", count:" << keyCountVec[i];
 
             if (i > 0 && (i % one_time_to_write == 0 || i == (saveKeys.size() - 1))) {
                 WriteData(dataFile, reinterpret_cast<const char*>(keyCountVec.data()),
@@ -660,7 +660,7 @@ void EmbcacheManager::SaveFeatureAdmitAndEvictInfo(int32_t tableIndex, const std
             }
         }
         LOG(INFO) << "In save key count, tableIndex:" << tableIndex << ", save key count size:" << count
-            << ", featureCountMap size:" << featureCountMap.size();
+                  << ", featureCountMap size:" << featureCountMap.size();
     }
     if (embConfigs[tableIndex].admitAndEvictConfig.IsEvictEnabled()) {
         // 时间戳数据 key数量和当前卡的key不一样；需要单独保存key数据
@@ -682,7 +682,8 @@ void EmbcacheManager::SaveFeatureAdmitAndEvictInfo(int32_t tableIndex, const std
         for (auto iter : featureTimestampMap) {
             evictRecordKeys.emplace_back(iter.first);
             evictRecordTs.emplace_back(static_cast<int64_t>(iter.second));
-            if (loopCount > 0 && (loopCount % one_time_to_write == 0 || loopCount == (featureTimestampMap.size() - 1))) {
+            if (loopCount > 0 &&
+                (loopCount % one_time_to_write == 0 || loopCount == (featureTimestampMap.size() - 1))) {
                 WriteData(evictKeyFile, reinterpret_cast<const char*>(evictRecordKeys.data()),
                           evictRecordKeys.size() * sizeof(int64_t));
                 evictRecordKeys.clear();
@@ -737,7 +738,8 @@ void EmbcacheManager::LoadFeatureAdmitAndEvictInfo(int32_t tableIndex, const std
 void EmbcacheManager::StatisticsKeyCount(const at::Tensor& batchKeys, const torch::Tensor& offset,
                                          const at::Tensor& batchKeyCounts, int64_t tableIndex)
 {
-    LOG(INFO) << "StatisticsKeyCount, tableIndex:" << tableIndex << ", isAdmit:" << embConfigs[tableIndex].admitAndEvictConfig.IsAdmitEnabled();
+    LOG(INFO) << "StatisticsKeyCount, tableIndex:" << tableIndex
+              << ", isAdmit:" << embConfigs[tableIndex].admitAndEvictConfig.IsAdmitEnabled();
     if (!embConfigs[tableIndex].admitAndEvictConfig.IsAdmitEnabled()) {
         return;
     }

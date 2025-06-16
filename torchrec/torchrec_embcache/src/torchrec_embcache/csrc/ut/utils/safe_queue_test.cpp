@@ -1,10 +1,10 @@
 /*
-* Copyright (c) Meta Platforms, Inc. and affiliates.
-* Copyright (c) huawei Platforms, Inc. and affiliates.
-* All rights reserved.
-*
-* This source code is licensed under the BSD-style license found in the
-* LICENSE file in the root directory of this source tree.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * Copyright (c) huawei Platforms, Inc. and affiliates.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 #include "utils/safe_queue.h"
 
@@ -20,7 +20,7 @@ class SafeQueueTest : public ::testing::Test {
 protected:
     void SetUp() override
     {
-        std::vector<int> nums {1, 2, 3, 4, 5};
+        std::vector<int> nums{1, 2, 3, 4, 5};
         for (auto num : nums) {
             sQueue.push(num);
         }
@@ -33,7 +33,7 @@ protected:
 
 TEST_F(SafeQueueTest, PushPop)
 {
-    std::vector<int> toPushNums {6, 7, 8, 9, 10};
+    std::vector<int> toPushNums{6, 7, 8, 9, 10};
     std::thread pushThread([&]() {
         for (auto num : toPushNums) {
             usleep(1000);
@@ -57,7 +57,7 @@ TEST_F(SafeQueueTest, PushPop)
     popThread.join();
 
     LOG(INFO) << "pop_results:" << StringTools::ToString(toPopNums);
-    std::vector<int> expected {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+    std::vector<int> expected{1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
     ASSERT_EQ(expected, toPopNums);
 }
 

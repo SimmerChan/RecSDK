@@ -1,21 +1,22 @@
 /*
-* Copyright (c) Meta Platforms, Inc. and affiliates.
-* Copyright (c) huawei Platforms, Inc. and affiliates.
-* All rights reserved.
-*
-* This source code is licensed under the BSD-style license found in the
-* LICENSE file in the root directory of this source tree.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * Copyright (c) huawei Platforms, Inc. and affiliates.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 #include "feature_filter.h"
 
+#include <cmath>
 #include <iostream>
 #include <stdexcept>
-#include <cmath>
 
 namespace Embcache {
 
 FeatureFilter::FeatureFilter(int32_t admitThreshold, uint64_t evictThreshold)
-    : admitThreshold(admitThreshold), evictThreshold(evictThreshold)
+    : admitThreshold(admitThreshold),
+      evictThreshold(evictThreshold)
 {
 }
 
@@ -32,7 +33,7 @@ void FeatureFilter::RecordTimestamp(const int64_t* featureDataPtr, int64_t start
     }
     auto afterRecordSize = timestampRecordMap.size();
     LOG(INFO) << "enter RecordTimestamp, beforeRecordSize:" << beforeRecordSize
-        << ", afterRecordSize:" << afterRecordSize;
+              << ", afterRecordSize:" << afterRecordSize;
 }
 
 std::vector<int64_t> FeatureFilter::FeatureEvict()
@@ -44,13 +45,14 @@ std::vector<int64_t> FeatureFilter::FeatureEvict()
     }
 
     LOG(INFO) << "The latestTimestamp for current table:" << latestTimestamp << ", evictThreshold:" << evictThreshold;
+    auto tempEvictThreshold = static_cast<std::time_t>(evictThreshold);
     for (auto iter : timestampRecordMap) {
         auto feature = iter.first;
         if (feature == -1) {
             continue;
         }
 
-        if (latestTimestamp - iter.second > evictThreshold) {
+        if (latestTimestamp - iter.second > tempEvictThreshold) {
             evictFeatures.emplace_back(feature);
         }
     }
@@ -97,7 +99,7 @@ void FeatureFilter::LoadTimestampRecords(const std::vector<int64_t>& keys, std::
     }
 }
 
-void FeatureFilter::StatisticsKeyCount(int64_t *featureDataPtr, int64_t *countDataPtr, int64_t startIndex,
+void FeatureFilter::StatisticsKeyCount(const int64_t* featureDataPtr, const int64_t* countDataPtr, int64_t startIndex,
                                        int64_t endIndex, bool isCountDataEmpty)
 {
     for (int64_t i = startIndex; i < endIndex; ++i) {
@@ -127,5 +129,4 @@ void FeatureFilter::CountFilter(int64_t* featureDataPtr, int64_t startIndex, int
     }
 }
 
-}
-
+}  // namespace Embcache

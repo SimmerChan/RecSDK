@@ -1,10 +1,10 @@
 /*
-* Copyright (c) Meta Platforms, Inc. and affiliates.
-* Copyright (c) huawei Platforms, Inc. and affiliates.
-* All rights reserved.
-*
-* This source code is licensed under the BSD-style license found in the
-* LICENSE file in the root directory of this source tree.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * Copyright (c) huawei Platforms, Inc. and affiliates.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 #include "emb_table/emb_mem_pool.h"
 
@@ -45,7 +45,7 @@ TEST_F(EmbMemPoolTest, GetNewValueToBeInserted)
     ASSERT_EQ(1, 1);
 }
 
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
     return common_main(argc, argv);
 }

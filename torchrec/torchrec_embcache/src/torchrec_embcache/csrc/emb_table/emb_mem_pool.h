@@ -1,10 +1,10 @@
 /*
-* Copyright (c) Meta Platforms, Inc. and affiliates.
-* Copyright (c) huawei Platforms, Inc. and affiliates.
-* All rights reserved.
-*
-* This source code is licensed under the BSD-style license found in the
-* LICENSE file in the root directory of this source tree.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * Copyright (c) huawei Platforms, Inc. and affiliates.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 #ifndef EMBEDDING_CACHE_EMB_MEM_POOL_H
 #define EMBEDDING_CACHE_EMB_MEM_POOL_H
@@ -17,7 +17,7 @@
 #include "common/common.h"
 #include "utils/safe_queue.h"
 
-namespace  Embcache {
+namespace Embcache {
 
 using EmExpandMemUint = struct em_expand_memory_uint_ {
     uint64_t address = 0;
@@ -26,9 +26,7 @@ using EmExpandMemUint = struct em_expand_memory_uint_ {
 
     em_expand_memory_uint_() = default;
 
-    em_expand_memory_uint_(uint64_t a, uint64_t c) : address(a), capacity(c), leftCapacity(c)
-    {
-    }
+    em_expand_memory_uint_(uint64_t a, uint64_t c) : address(a), capacity(c), leftCapacity(c) {}
 };
 
 class EmbMemoryPool {
@@ -111,5 +109,5 @@ private:
     uint64_t embMemoryPoolSize = 102400;
 };
 
-}
-#endif //EMBEDDING_CACHE_EMB_MEM_POOL_H
+}  // namespace Embcache
+#endif  // EMBEDDING_CACHE_EMB_MEM_POOL_H

@@ -1,10 +1,10 @@
 /*
-* Copyright (c) Meta Platforms, Inc. and affiliates.
-* Copyright (c) huawei Platforms, Inc. and affiliates.
-* All rights reserved.
-*
-* This source code is licensed under the BSD-style license found in the
-* LICENSE file in the root directory of this source tree.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * Copyright (c) huawei Platforms, Inc. and affiliates.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 #include "../common_main.h"
 #include "hash_table/hash_bucket.h"
@@ -17,7 +17,9 @@ protected:
     {
         uint64_t key = 1;
         uint64_t value = 1;
-        std::function<BeforePutFuncState()> beforePutFunc = []() { return BeforePutFuncState::BEFORE_SUCCESS; };
+        std::function<BeforePutFuncState()> beforePutFunc = []() {
+            return BeforePutFuncState::BEFORE_SUCCESS;
+        };
         FkvState state = bucket.Put(key, value, beforePutFunc);
         LOG(INFO) << "after Put, state:" << FkvStateStr[(int)state];
     }
@@ -31,7 +33,9 @@ TEST_F(NetHashBucketTest, Put)
 {
     uint64_t key = 1;
     uint64_t value = 256;
-    std::function<BeforePutFuncState()> beforePutFunc = []() { return BeforePutFuncState::BEFORE_SUCCESS; };
+    std::function<BeforePutFuncState()> beforePutFunc = []() {
+        return BeforePutFuncState::BEFORE_SUCCESS;
+    };
     FkvState state = bucket.Put(key, value, beforePutFunc);
     LOG(INFO) << "after Put (with the same key), state:" << FkvStateStr[(int)state];
     ASSERT_EQ(state, FkvState::FKV_NOT_EXIST);  // todo: why?
@@ -54,7 +58,7 @@ TEST_F(NetHashBucketTest, Remove)
     ASSERT_EQ(state, FkvState::FKV_EXIST);
 }
 
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
     return common_main(argc, argv);
 }

@@ -1,17 +1,17 @@
 /*
-* Copyright (c) Meta Platforms, Inc. and affiliates.
-* Copyright (c) huawei Platforms, Inc. and affiliates.
-* All rights reserved.
-*
-* This source code is licensed under the BSD-style license found in the
-* LICENSE file in the root directory of this source tree.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * Copyright (c) huawei Platforms, Inc. and affiliates.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
-#include <memory>
 #include "swap_manager.h"
-#include <iostream>
-#include <utils/timecost.h>
-#include <ATen/Parallel.h>
+
 #include <glog/logging.h>
+#include <iostream>
+#include <memory>
+#include <ATen/Parallel.h>
 
 using namespace Embcache;
 
@@ -39,42 +39,39 @@ SwapManager::ComputeSwapInfo(const std::vector<int64_t>& keys)
 
     // 每个线程一个本地 missedIdx 缓冲
     std::vector<std::vector<int64_t>> missed_chunks(at::get_num_threads());
-    at::parallel_for(0, keys.size(), std::ceil(keys.size()*1.0/at::get_num_threads()),
+    at::parallel_for(0, keys.size(), std::ceil(keys.size() * 1.0 / at::get_num_threads()),
                      [&](int64_t begin, int64_t end) {
-        const int tid = at::get_thread_num();
-        auto& local_missed = missed_chunks[tid];
-        local_missed.reserve(end - begin);
+                         const int tid = at::get_thread_num();
+                         auto& local_missed = missed_chunks[tid];
+                         local_missed.reserve(end - begin);
 
-        for (int64_t i = begin; i < end; ++i) {
-            int64_t key = keys[i];
-            if (key == INVALID_KEY) {
-                batchOffs[i] = OFFSET_OF_INVALID_KEY;
-                continue;
-            }
-            auto it = key2off.find(key);
-            if (it != key2off.end()) {
-                int64_t off = it->second;
-                batchOffs[i] = off;
-                cache[off].version = nowVersion;
-            } else {
-                local_missed.push_back(i);
-            }
-        }
-    });
+                         for (int64_t i = begin; i < end; ++i) {
+                             int64_t key = keys[i];
+                             if (key == INVALID_KEY) {
+                                 batchOffs[i] = OFFSET_OF_INVALID_KEY;
+                                 continue;
+                             }
+                             auto it = key2off.find(key);
+                             if (it != key2off.end()) {
+                                 int64_t off = it->second;
+                                 batchOffs[i] = off;
+                                 cache[off].version = nowVersion;
+                             } else {
+                                 local_missed.push_back(i);
+                             }
+                         }
+                     });
 
     // 合并各线程 missed 结果
     missedIdx.clear();
     size_t total = 0;
-    for (auto& v : missed_chunks)
-    {
+    for (auto& v : missed_chunks) {
         total += v.size();
     }
     missedIdx.reserve(total);
 
     for (auto& v : missed_chunks) {
-        missedIdx.insert(missedIdx.end(),
-                         std::make_move_iterator(v.begin()),
-                         std::make_move_iterator(v.end()));
+        missedIdx.insert(missedIdx.end(), std::make_move_iterator(v.begin()), std::make_move_iterator(v.end()));
     }
 
     for (int64_t i : missedIdx) {
@@ -135,7 +132,8 @@ SwapManager::ComputeSwapInfo(const std::vector<int64_t>& keys)
     return std::make_tuple(swapoutKeys, swapoutOffs, swapinKeys, swapinOffs, batchOffs);
 }
 
-void SwapManager::RemoveKeys(const std::vector<int64_t>& keys, std::vector<int64_t>& evictFeatures) {
+void SwapManager::RemoveKeys(const std::vector<int64_t>& keys, std::vector<int64_t>& evictFeatures)
+{
     for (auto key : keys) {
         auto iter = key2off.find(key);
         if (iter == key2off.end()) {
@@ -156,113 +154,9 @@ void SwapManager::RemoveKeys(const std::vector<int64_t>& keys, std::vector<int64
     }
 }
 
-// std::tuple<std::vector<int64_t>, std::vector<int64_t>>
-// SwapManager::GetSwapInfo(int64_t *keysPtr, int64_t keysNum, int64_t *batchOffsPtr, std::vector<int64_t> &swapoutOffs, 
-//                          std::vector<int64_t> &swapinOffs, int64_t offPreSum)
-// {
-//     std::vector<int64_t> swapoutKeys, swapinKeys;
-
-//     // 本 batch 的 key 不能被换出
-//     std::vector<int64_t> missedIdx;
-
-//     // 每个线程一个本地 missedIdx 缓冲
-//     std::vector<std::vector<int64_t>> missed_chunks(at::get_num_threads());
-//     at::parallel_for(start, end, std::ceil((end-start)*1.0/at::get_num_threads()),
-//                      [&](int64_t beginI, int64_t endI) {
-//         const int tid = at::get_thread_num();
-//         auto& local_missed = missed_chunks[tid];
-//         local_missed.reserve(endI - beginI);
-
-//         for (int64_t i = beginI; i < endI; ++i) {
-//             int64_t key = keysPtr[i];
-//             if (key == INVALID_KEY) {
-//                 batchOffsPtr[i] = OFFSET_OF_INVALID_KEY;
-//                 continue;
-//             }
-//             auto it = key2off.find(key);
-//             if (it != key2off.end()) {
-//                 int64_t off = it->second;
-//                 batchOffsPtr[i] = off;
-//                 cache[off].version = nowVersion;
-//             } else {
-//                 local_missed.push_back(i);
-//             }
-//         }
-//     });
-
-//     // 合并各线程 missed 结果
-//     missedIdx.clear();
-//     size_t total = 0;
-//     for (auto& v : missed_chunks)
-//     {
-//         total += v.size();
-//     }
-//     missedIdx.reserve(total);
-
-//     for (auto& v : missed_chunks) {
-//         missedIdx.insert(missedIdx.end(),
-//                          std::make_move_iterator(v.begin()),
-//                          std::make_move_iterator(v.end()));
-//     }
-
-//     for (int64_t i : missedIdx) {
-//         int64_t key = keysPtr[i];
-//         auto it = key2off.find(key);
-//         if (it != key2off.end()) {
-//             batchOffsPtr[i] = it->second;
-//             continue;
-//         }
-
-//         int64_t off;
-//         // cache 未满，直接在cache中新增
-//         if (occupiedNum < cacheSize) {
-//             off = occupiedNum++;
-//             swapinKeys.push_back(key);
-//             swapinOffs.push_back(offPreSum + off);
-//             // 更新状态
-//             cache[off] = {key, nowVersion};
-//             key2off[key] = offPreSum + off;
-//             batchOffsPtr[i] = off;
-//             continue;
-//         }
-
-//         // cache 已满，需要替换
-//         // 找到可以被换出的位置，这一步和上一步正在用的key不能换出
-//         while (swapIdx < cacheSize && cache[swapIdx].version >= nowVersion - 1) {
-//             swapIdx++;
-//         }
-//         // 找到末尾了，重头开始找
-//         if (swapIdx == cacheSize) {
-//             swapIdx = MEM_START_OFFSET;
-//             while (swapIdx < cacheSize && cache[swapIdx].version >= nowVersion - 1) {
-//                 swapIdx++;
-//             }
-//             // 仍没找到，说明没有可以被换出的位置
-//             if (swapIdx == cacheSize) {
-//                 throw std::runtime_error("cacheSize too small");
-//             }
-//         }
-
-//         off = swapIdx++;
-//         swapinKeys.push_back(key);
-//         swapinOffs.push_back(offPreSum + off);
-//         int64_t swapoutKey = cache[off].key;
-//         key2off.erase(swapoutKey);
-//         swapoutKeys.push_back(swapoutKey);
-//         swapoutOffs.push_back(offPreSum + off);
-
-//         // 更新状态
-//         cache[off] = {key, nowVersion};
-//         key2off[key] = off;
-//         batchOffsPtr[i] = off;
-//     }
-//     nowVersion++;
-//     return std::make_tuple(swapoutKeys, swapinKeys);
-// }
-
 int64_t SwapManager::GetKey(int64_t off)
 {
-    TORCH_CHECK(off >= 0 && off < occupiedNum, "off is out of bounds: ", off, ", occupiedNum: ", occupiedNum);
+    TORCH_CHECK(off >= 0 && off < occupiedNum, "off is out of bounds: ", off, ", occupiedNum: ", occupiedNum)
     return cache[off].key;
 }
 

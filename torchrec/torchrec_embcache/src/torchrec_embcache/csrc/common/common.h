@@ -1,10 +1,10 @@
 /*
-* Copyright (c) Meta Platforms, Inc. and affiliates.
-* Copyright (c) huawei Platforms, Inc. and affiliates.
-* All rights reserved.
-*
-* This source code is licensed under the BSD-style license found in the
-* LICENSE file in the root directory of this source tree.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * Copyright (c) huawei Platforms, Inc. and affiliates.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 #ifndef EMBEDDING_CACHE_COMMON_COMMON_H
 #define EMBEDDING_CACHE_COMMON_COMMON_H
@@ -33,7 +33,7 @@ enum class FkvState : uint8_t {
     FKV_FAIL = 6,
 };
 
-extern const char* FkvStateStr[];
+extern const char* FVK_STATE_STR[7];
 
 enum class BeforePutFuncState {
     BEFORE_SUCCESS,
@@ -54,19 +54,22 @@ struct AdmitAndEvictConfig {
     uint64_t evictStepInterval = 0;
 
     AdmitAndEvictConfig() = default;
-    AdmitAndEvictConfig(int32_t admitThreshold, float notAdmittedDefaultValue,
-                        uint64_t evictThreshold, uint64_t evictStepInterval)
+    AdmitAndEvictConfig(int32_t admitThreshold, float notAdmittedDefaultValue, uint64_t evictThreshold,
+                        uint64_t evictStepInterval)
         : admitThreshold(admitThreshold),
           notAdmittedDefaultValue(notAdmittedDefaultValue),
           evictThreshold(evictThreshold),
           evictStepInterval(evictStepInterval){};
-    bool IsAdmitEnabled() const {
+    bool IsAdmitEnabled() const
+    {
         return admitThreshold != -1;
     }
-    bool IsEvictEnabled() const {
+    bool IsEvictEnabled() const
+    {
         return evictThreshold != 0;
     }
-    bool IsFeatureFilterEnabled() const {
+    bool IsFeatureFilterEnabled() const
+    {
         return admitThreshold != -1 || evictThreshold != 0;
     }
 };
@@ -75,7 +78,7 @@ struct EmbConfig {
     std::string tableName;
     int32_t embDim;
     int32_t optimNum;   // 使用的优化器参数数量
-    int64_t cacheSize;  // cache 可以存放的 Embedding 数量 TODO 使用空间大小算出cacheSize
+    int64_t cacheSize;  // cache 可以存放的 Embedding 数量
     float weightInitMin;
     float weightInitMax;
     AdmitAndEvictConfig admitAndEvictConfig;
@@ -87,5 +90,5 @@ struct EmbMemPoolConfig {
     uint32_t refillThreadNum;
 };
 
-}
-#endif //EMBEDDING_CACHE_COMMON_COMMON_H
+}  // namespace Embcache
+#endif  // EMBEDDING_CACHE_COMMON_COMMON_H

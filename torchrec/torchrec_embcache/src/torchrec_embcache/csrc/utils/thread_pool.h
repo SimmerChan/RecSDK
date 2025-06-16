@@ -1,10 +1,10 @@
 /*
-* Copyright (c) Meta Platforms, Inc. and affiliates.
-* Copyright (c) huawei Platforms, Inc. and affiliates.
-* All rights reserved.
-*
-* This source code is licensed under the BSD-style license found in the
-* LICENSE file in the root directory of this source tree.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * Copyright (c) huawei Platforms, Inc. and affiliates.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 #ifndef EMBEDDING_CACHE_THREAD_POOL_H
 #define EMBEDDING_CACHE_THREAD_POOL_H
@@ -23,7 +23,8 @@ namespace Embcache {
 
 class ThreadPool {
 public:
-    static ThreadPool& GetInstance(size_t threads = 10) {
+    static ThreadPool& GetInstance(size_t threads = 10)
+    {
         static ThreadPool instance(threads);
         return instance;
     }
@@ -33,8 +34,9 @@ public:
     ThreadPool(ThreadPool&&) = delete;
     ThreadPool& operator=(ThreadPool&&) = delete;
 
-    template<class F>
-    void enqueue(F&& f) {
+    template <class F>
+    void enqueue(F&& f)
+    {
         {
             std::unique_lock<std::mutex> lock(queue_mutex_);
             if (stopped_) {
@@ -45,13 +47,14 @@ public:
         condition_.notify_one();
     }
 
-    ~ThreadPool() {
+    ~ThreadPool()
+    {
         {
             std::unique_lock<std::mutex> lock(queue_mutex_);
             stopped_ = true;
         }
         condition_.notify_all();
-        for (std::thread &worker : workers_) {
+        for (std::thread& worker : workers_) {
             if (worker.joinable()) {
                 worker.join();
             }
@@ -59,17 +62,17 @@ public:
     }
 
 private:
-    explicit ThreadPool(size_t threads) : stopped_(false) {
-        if (threads == 0) threads = 1;
+    explicit ThreadPool(size_t threads) : stopped_(false)
+    {
+        if (threads == 0)
+            threads = 1;
         for (size_t i = 0; i < threads; ++i) {
             workers_.emplace_back([this] {
                 while (true) {
                     std::function<void()> task;
                     {
                         std::unique_lock<std::mutex> lock(this->queue_mutex_);
-                        this->condition_.wait(lock, [this] {
-                            return this->stopped_ || !this->tasks_.empty();
-                        });
+                        this->condition_.wait(lock, [this] { return this->stopped_ || !this->tasks_.empty(); });
                         if (this->stopped_ && this->tasks_.empty()) {
                             return;
                         }
@@ -88,5 +91,5 @@ private:
     std::condition_variable condition_;
     std::atomic<bool> stopped_;
 };
-} // namespace Embcache
-#endif //EMBEDDING_CACHE_THREAD_POOL_H
+}  // namespace Embcache
+#endif  // EMBEDDING_CACHE_THREAD_POOL_H

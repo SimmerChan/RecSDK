@@ -1,17 +1,16 @@
 /*
-* Copyright (c) Meta Platforms, Inc. and affiliates.
-* Copyright (c) huawei Platforms, Inc. and affiliates.
-* All rights reserved.
-*
-* This source code is licensed under the BSD-style license found in the
-* LICENSE file in the root directory of this source tree.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * Copyright (c) huawei Platforms, Inc. and affiliates.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 #include "hash_bucket.h"
 
 namespace Embcache {
 
-FkvState NetHashBucket::Put(uint64_t key, uint64_t &value,
-                            const std::function<BeforePutFuncState()> &beforePutFunc)
+FkvState NetHashBucket::Put(uint64_t key, uint64_t& value, const std::function<BeforePutFuncState()>& beforePutFunc)
 {
     /* don't put them into loop, flat code is faster than loop */
     uint64_t oldKey = 0;
@@ -77,7 +76,7 @@ FkvState NetHashBucket::Put(uint64_t key, uint64_t &value,
     return FkvState::FKV_FAIL;
 }
 
-bool NetHashBucket::Find(const uint64_t key, uint64_t &value)
+bool NetHashBucket::Find(const uint64_t key, uint64_t& value)
 {
     /*
      * expand the loop, instead of put them into a for/while loop for performance
@@ -136,8 +135,7 @@ FkvState NetHashBucket::Remove(uint64_t key)
     return FkvState::FKV_NOT_EXIST;
 }
 
-FkvState NetHashBucket::Remove(uint64_t key,
-                               const std::function<BeforeRemoveFuncState(uint64_t)> &beforeRemoveFunc)
+FkvState NetHashBucket::Remove(uint64_t key, const std::function<BeforeRemoveFuncState(uint64_t)>& beforeRemoveFunc)
 {
     /* don't put them into loop, flat code is faster than loop */
     uint64_t oldValue = key;
@@ -185,4 +183,4 @@ FkvState NetHashBucket::Remove(uint64_t key,
     return FkvState::FKV_NOT_EXIST;
 }
 
-} // namespace
+}  // namespace Embcache

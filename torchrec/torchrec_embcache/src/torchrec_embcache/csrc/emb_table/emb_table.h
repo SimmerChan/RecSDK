@@ -1,10 +1,10 @@
 /*
-* Copyright (c) Meta Platforms, Inc. and affiliates.
-* Copyright (c) huawei Platforms, Inc. and affiliates.
-* All rights reserved.
-*
-* This source code is licensed under the BSD-style license found in the
-* LICENSE file in the root directory of this source tree.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * Copyright (c) huawei Platforms, Inc. and affiliates.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 #ifndef EMBEDDING_CACHE_EMB_TABLE_H
 #define EMBEDDING_CACHE_EMB_TABLE_H
@@ -35,9 +35,9 @@ class EmbTable {
 public:
     explicit EmbTable(const EmbConfig& embConfig)
         : embDim(embConfig.embDim),
-        optimNum(embConfig.optimNum),
-        weightInitMin(embConfig.weightInitMin),
-        weightInitMax(embConfig.weightInitMax) 
+          optimNum(embConfig.optimNum),
+          weightInitMin(embConfig.weightInitMin),
+          weightInitMax(embConfig.weightInitMax)
     {
         extEmbDim = (1 + optimNum) * embDim;
     }
@@ -51,13 +51,12 @@ public:
 
 protected:
     int32_t embDim;
-    int32_t extEmbDim; // embDim + OptimNum * embDim
+    int32_t extEmbDim;  // embDim + OptimNum * embDim
     int32_t optimNum;
 
     float weightInitMin;
     float weightInitMax;
 };
-
 
 class EmbTableUnorderedMap : public EmbTable {
 public:
@@ -65,7 +64,6 @@ public:
 
     void FindOrInsert(const std::vector<int64_t>& keys, float* outEmbs, std::vector<float*> outOptims) override
     {
-        
         std::lock_guard<std::mutex> lk(mtx);
         for (uint64_t i = 0; i < keys.size(); i++) {
             auto key = keys[i];
@@ -80,19 +78,19 @@ public:
                     Initializer::GenUniform(it->second.data(), embDim, weightInitMin, weightInitMax);
                 }
             }
-            auto &emb = it->second;
-   
+            auto& emb = it->second;
+
             std::memcpy(outEmbs + i * embDim, emb.data(), embDim * sizeof(float));
             if (optimNum > 0) {
                 std::memcpy(outOptims[0] + i * embDim, emb.data() + embDim, embDim * sizeof(float));
             }
             if (optimNum > 1) {
-                std::memcpy(outOptims[1] + i * embDim, emb.data() + 2 * embDim,  embDim * sizeof(float));
+                std::memcpy(outOptims[1] + i * embDim, emb.data() + 2 * embDim, embDim * sizeof(float));
             }
         }
     }
 
-    void InsertOrAssign(const std::vector<int64_t>& keys, float* inEmbs, std::vector<float*>inOptims) override
+    void InsertOrAssign(const std::vector<int64_t>& keys, float* inEmbs, std::vector<float*> inOptims) override
     {
         std::lock_guard<std::mutex> lk(mtx);
         for (uint64_t i = 0; i < keys.size(); i++) {
@@ -106,12 +104,12 @@ public:
 
             std::memcpy(emb.data(), inEmbs + i * embDim, embDim * sizeof(float));
             if (optimNum > 0) {
-                std::memcpy(emb.data() + embDim, inOptims[0] + i * embDim,  embDim * sizeof(float));
+                std::memcpy(emb.data() + embDim, inOptims[0] + i * embDim, embDim * sizeof(float));
             }
 
             if (optimNum > 1) {
-                std::memcpy(emb.data() + 2*embDim, inOptims[1] + i * embDim,  embDim * sizeof(float));
-            } 
+                std::memcpy(emb.data() + 2 * embDim, inOptims[1] + i * embDim, embDim * sizeof(float));
+            }
         }
     }
 
@@ -123,7 +121,7 @@ public:
         }
     }
 
-    void ForEachKey(const std::function<void (const int64_t, const float*)>& callback) override
+    void ForEachKey(const std::function<void(const int64_t, const float*)>& callback) override
     {
         std::lock_guard<std::mutex> lk(mtx);
 
@@ -139,17 +137,15 @@ private:
 
 class EmbTableFastHashMap : public EmbTable {
 public:
-    explicit EmbTableFastHashMap(const EmbConfig& embConfig) : EmbTable(embConfig) 
+    explicit EmbTableFastHashMap(const EmbConfig& embConfig) : EmbTable(embConfig)
     {
         uint64_t embMemoryPoolThreadNum = EmbMemPoolConfigConstants::refillThreadNum;
         char* threadNumStr = getenv("EMB_MEMORY_POOL_THREAD_NUM");
         if (threadNumStr) {
             embMemoryPoolThreadNum = atoi(threadNumStr);
         }
-        memPoolPtr = std::make_shared<EmbMemoryPool>(embConfig,
-                                                    EmbMemPoolConfigConstants::bufferSize,
-                                                    EmbMemPoolConfigConstants::hostVocabSize,
-                                                    embMemoryPoolThreadNum);
+        memPoolPtr = std::make_shared<EmbMemoryPool>(embConfig, EmbMemPoolConfigConstants::bufferSize,
+                                                     EmbMemPoolConfigConstants::hostVocabSize, embMemoryPoolThreadNum);
         hostVocabSize = EmbMemPoolConfigConstants::hostVocabSize;
 
         fastHashMapPtr = std::make_shared<FastHashMap>();
@@ -171,98 +167,94 @@ public:
 
     void FindOrInsert(const std::vector<int64_t>& keys, float* outEmbs, std::vector<float*> outOptims) override
     {
-        at::parallel_for(0, keys.size(), std::ceil(keys.size()*1.0/at::get_num_threads()),
-                         [&](int64_t begin, int64_t end) {
-            for (int64_t i = begin; i < end; ++i) {
-                const auto key = keys[i];
-                uint64_t addrValue = 0;
+        at::parallel_for(
+            0, keys.size(), std::ceil(keys.size() * 1.0 / at::get_num_threads()), [&](int64_t begin, int64_t end) {
+                for (int64_t i = begin; i < end; ++i) {
+                    const auto key = keys[i];
+                    uint64_t addrValue = 0;
 
-                FkvState ret = fastHashMapPtr->FindOrInsert(key, addrValue, [&]() {
-                    const uint64_t currentSize = fastHashMapPtr->GetCurrentSize();
-                    if (HM_UNLIKELY(currentSize >= hostVocabSize)) {
-                        LOG(ERROR) << "No enough space at host, currentSize:" << currentSize
-                                   << ", hostVocabSize:" << hostVocabSize;
-                        return BeforePutFuncState::BEFORE_NO_SPACE;
+                    FkvState ret = fastHashMapPtr->FindOrInsert(key, addrValue, [&]() {
+                        const uint64_t currentSize = fastHashMapPtr->GetCurrentSize();
+                        if (HM_UNLIKELY(currentSize >= hostVocabSize)) {
+                            LOG(ERROR) << "No enough space at host, currentSize:" << currentSize
+                                       << ", hostVocabSize:" << hostVocabSize;
+                            return BeforePutFuncState::BEFORE_NO_SPACE;
+                        }
+                        return memPoolPtr->GetNewValueToBeInserted(addrValue);
+                    });
+
+                    if (ret == FkvState::FKV_FAIL) {
+                        LOG(ERROR) << "fastHashMapPtr->FindOrInsert failed!";
+                        continue;
                     }
-                    return memPoolPtr->GetNewValueToBeInserted(addrValue);
-                });
+                    if (ret == FkvState::FKV_BEFORE_PUT_FUNC_FAIL) {
+                        LOG(ERROR) << "memory alloc failed!";
+                        continue;
+                    }
 
-                if (ret == FkvState::FKV_FAIL) {
-                    LOG(ERROR) << "fastHashMapPtr->FindOrInsert failed!";
-                    continue;
+                    std::memcpy(outEmbs + i * embDim, (float*)addrValue, embDim * sizeof(float));
+                    if (optimNum > 0) {
+                        std::memcpy(outOptims[0] + i * embDim, (float*)addrValue + embDim, embDim * sizeof(float));
+                    }
+                    if (optimNum > 1) {
+                        std::memcpy(outOptims[1] + i * embDim, (float*)addrValue + 2 * embDim, embDim * sizeof(float));
+                    }
                 }
-                if (ret == FkvState::FKV_BEFORE_PUT_FUNC_FAIL) {
-                    LOG(ERROR) << "memory alloc failed!";
-                    continue;
-                }
-
-                std::memcpy(outEmbs + i * embDim, (float*)addrValue, embDim * sizeof(float));
-                if (optimNum > 0) {
-                    std::memcpy(outOptims[0] + i * embDim, (float*)addrValue + embDim,
-                                embDim * sizeof(float));
-                }
-                if (optimNum > 1) {
-                    std::memcpy(outOptims[1] + i * embDim, (float*)addrValue + 2*embDim,
-                                embDim * sizeof(float));
-                }
-            }
-        });
+            });
     }
 
     void InsertOrAssign(const std::vector<int64_t>& keys, float* inEmbs, std::vector<float*> inOptims) override
     {
-        at::parallel_for(0, keys.size(), std::ceil(keys.size()*1.0/at::get_num_threads()),
-                         [&](int64_t begin, int64_t end) {
-            for (int64_t i = begin; i < end; ++i) {
-                const auto key = keys[i];
-                uint64_t addrValue = 0;
+        at::parallel_for(
+            0, keys.size(), std::ceil(keys.size() * 1.0 / at::get_num_threads()), [&](int64_t begin, int64_t end) {
+                for (int64_t i = begin; i < end; ++i) {
+                    const auto key = keys[i];
+                    uint64_t addrValue = 0;
 
-                FkvState ret = fastHashMapPtr->FindOrInsert(key, addrValue, [&]() {
-                    const uint64_t currentSize = fastHashMapPtr->GetCurrentSize();
-                    if (HM_UNLIKELY(currentSize >= hostVocabSize)) {
-                        LOG(ERROR) << "No enough space at host, currentSize:" << currentSize
-                                   << ", hostVocabSize:" << hostVocabSize;
-                        return BeforePutFuncState::BEFORE_NO_SPACE;
+                    FkvState ret = fastHashMapPtr->FindOrInsert(key, addrValue, [&]() {
+                        const uint64_t currentSize = fastHashMapPtr->GetCurrentSize();
+                        if (HM_UNLIKELY(currentSize >= hostVocabSize)) {
+                            LOG(ERROR) << "No enough space at host, currentSize:" << currentSize
+                                       << ", hostVocabSize:" << hostVocabSize;
+                            return BeforePutFuncState::BEFORE_NO_SPACE;
+                        }
+                        return memPoolPtr->GetNewValueToBeInserted(addrValue);
+                    });
+
+                    if (ret == FkvState::FKV_FAIL) {
+                        LOG(ERROR) << "fastHashMapPtr->FindOrInsert failed!";
+                        continue;
                     }
-                    return memPoolPtr->GetNewValueToBeInserted(addrValue);
-                });
+                    if (ret == FkvState::FKV_BEFORE_PUT_FUNC_FAIL) {
+                        LOG(ERROR) << "memory alloc failed!";
+                        continue;
+                    }
 
-                if (ret == FkvState::FKV_FAIL) {
-                    LOG(ERROR) << "fastHashMapPtr->FindOrInsert failed!";
-                    continue;
+                    std::memcpy((float*)addrValue, inEmbs + i * embDim, embDim * sizeof(float));
+                    if (optimNum > 0) {
+                        std::memcpy((float*)addrValue + embDim, inOptims[0] + i * embDim, embDim * sizeof(float));
+                    }
+                    if (optimNum > 1) {
+                        std::memcpy((float*)addrValue + 2 * embDim, inOptims[1] + i * embDim, embDim * sizeof(float));
+                    }
                 }
-                if (ret == FkvState::FKV_BEFORE_PUT_FUNC_FAIL) {
-                    LOG(ERROR) << "memory alloc failed!";
-                    continue;
-                }
-                
-                std::memcpy((float *) addrValue, inEmbs + i * embDim, embDim * sizeof(float));
-                if (optimNum > 0) {
-                    std::memcpy((float*)addrValue + embDim, inOptims[0] + i * embDim,
-                                embDim * sizeof(float));
-                }
-                if (optimNum > 1) {
-                    std::memcpy((float*)addrValue + 2*embDim, inOptims[1] + i * embDim,
-                                 embDim * sizeof(float));
-                }
-            }
-        });
+            });
     }
 
     void RemoveEmbedding(const std::vector<int64_t>& keys) override
     {
         for (auto key : keys) {
             FkvState ret = fastHashMapPtr->Remove(key, [&](uint64_t value) {
-              memPoolPtr->GetValueToBeRecycled(value);
-              return BeforeRemoveFuncState::BEFORE_SUCCESS;
+                memPoolPtr->GetValueToBeRecycled(value);
+                return BeforeRemoveFuncState::BEFORE_SUCCESS;
             });
             if (ret == FkvState::FKV_BEFORE_REMOVE_FUNC_FAIL) {
-                    LOG(ERROR) << "remove embedding failed!";
+                LOG(ERROR) << "remove embedding failed!";
             }
         }
     }
 
-    void ForEachKey(const std::function<void(const int64_t, const float*)>& callback) override 
+    void ForEachKey(const std::function<void(const int64_t, const float*)>& callback) override
     {
         for (auto key : this->fastHashMapPtr->Export()) {
             callback(key.first, (float*)key.second);
@@ -275,5 +267,5 @@ private:
     uint64_t hostVocabSize;
 };
 
-} // namespace Embcache
-#endif //EMBEDDING_CACHE_EMB_TABLE_H
+}  // namespace Embcache
+#endif  // EMBEDDING_CACHE_EMB_TABLE_H
