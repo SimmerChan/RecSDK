@@ -52,7 +52,6 @@ pip3 install torchrec-1.1.0+npu-*.whl
 cd mindxsdk-mxec-add-ons/mxrec_ops
 bash mxrec_opp_backward_codegen_adagrad_unweighted_exact.run
 bash mxrec_opp_split_embedding_codegen_forward_unweighted.run
-bash mxrec_opp_bounds_check_indices.run
 bash mxrec_opp_asynchronous_complete_cumsum.run
 ```
 
@@ -78,6 +77,15 @@ torch.ops.load_library(/path/to/libfbgemm_npu_api.so) # 根据实际路径
 git clone https://github.com/alibaba/TorchEasyRec.git
 cd TorchEasyRec && git checkout 9ffe1f09d336d3a5cdb5bb6970aa8cc8bc648b2e
 cp ../din_npu.patch ./ && git apply din_npu.patch
+```
+将代码仓中.proto定义文件编译为python代码
+```bash
+protoc --proto_path=./ --python_out=./ tzrec/protos/*.proto
+protoc --proto_path=./ --python_out=./ tzrec/protos/models/*.proto
+```
+注意：需先安装Protocl Buffers编译器，如基于Debian/Ubuntu系统参考命令:
+```bash
+apt-get install protobuf-compiler
 ```
 
 ## 生成wheel包并安装
