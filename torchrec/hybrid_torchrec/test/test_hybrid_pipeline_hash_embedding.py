@@ -74,7 +74,6 @@ def execute(rank: int, config: ExecuteConfig):
     optim = config.optim
     setup_logging(rank)
     logging.info("this test %s", os.path.basename(__file__))
-    # , batch_num, lookup_lens, num_embeddings, table_num
     dataset_gloden = RandomRecDataset(BATCH_NUM, lookup_len, num_embeddings, table_num)
     dataset = RandomRecDataset(BATCH_NUM, lookup_len, num_embeddings, table_num)
     dataset_loader_gloden = DataLoader(
@@ -108,8 +107,8 @@ def execute(rank: int, config: ExecuteConfig):
     for gloden, result in zip(gloden_results, test_results):
         logging.debug("")
         logging.debug("===========================")
-        logging.debug("result test %s", gloden)
-        logging.debug("gloden test %s", result)
+        logging.debug("result test %s", result)
+        logging.debug("gloden test %s", gloden)
         assert torch.allclose(
             gloden, result, rtol=1e-04, atol=1e-04
         ), "gloden and result is not closed"
