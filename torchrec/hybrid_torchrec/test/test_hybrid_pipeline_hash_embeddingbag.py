@@ -78,7 +78,6 @@ def execute(rank: int, config: ExecuteConfig):
     optim = config.optim
     setup_logging(rank)
     logging.info("this test %s", os.path.basename(__file__))
-    # , batch_num, lookup_lens, num_embeddings, table_num
     dataset_gloden = RandomRecDataset(BATCH_NUM, lookup_len, num_embeddings, table_num)
     dataset = RandomRecDataset(BATCH_NUM, lookup_len, num_embeddings, table_num)
     dataset_loader_gloden = DataLoader(
