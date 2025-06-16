@@ -6,8 +6,8 @@
  * This source code is licensed under the BSD-style license found in the
  * LICENSE file in the root directory of this source tree.
  */
-#ifndef EMBEDDING_CACHE_EMB_MEM_POOL_H
-#define EMBEDDING_CACHE_EMB_MEM_POOL_H
+#ifndef EMBEDDING_CACHE_EMB_MEMORY_POOL_H
+#define EMBEDDING_CACHE_EMB_MEMORY_POOL_H
 
 #include <atomic>
 #include <condition_variable>
@@ -19,14 +19,14 @@
 
 namespace Embcache {
 
-using EmExpandMemUint = struct em_expand_memory_uint_ {
+using EmExpandMemUint = struct EM_EXPAND_MEMORY_UINT_ {
     uint64_t address = 0;
     uint64_t capacity = 0;
     uint64_t leftCapacity = 0;
 
-    em_expand_memory_uint_() = default;
+    EM_EXPAND_MEMORY_UINT_() = default;
 
-    em_expand_memory_uint_(uint64_t a, uint64_t c) : address(a), capacity(c), leftCapacity(c) {}
+    EM_EXPAND_MEMORY_UINT_(uint64_t a, uint64_t c) : address(a), capacity(c), leftCapacity(c) {}
 };
 
 class EmbMemoryPool {
@@ -103,11 +103,11 @@ private:
     EmExpandMemUint currentMemoryUint{};
     uint64_t dynamicExpandRatio = 2;
 
-    uint64_t maxExpandSize;
+    uint64_t maxExpandSize = 0;
     uint64_t itemSize;
 
     uint64_t embMemoryPoolSize = 102400;
 };
 
 }  // namespace Embcache
-#endif  // EMBEDDING_CACHE_EMB_MEM_POOL_H
+#endif  // EMBEDDING_CACHE_EMB_MEMORY_POOL_H

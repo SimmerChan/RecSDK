@@ -27,7 +27,7 @@
 #include "hash_table/fast_hashmap.h"
 
 #include "initializer.h"
-#include "emb_mem_pool.h"
+#include "emb_memory_pool.h"
 
 namespace Embcache {
 
@@ -85,7 +85,7 @@ public:
                 std::memcpy(outOptims[0] + i * embDim, emb.data() + embDim, embDim * sizeof(float));
             }
             if (optimNum > 1) {
-                std::memcpy(outOptims[1] + i * embDim, emb.data() + 2 * embDim, embDim * sizeof(float));
+                std::memcpy(outOptims[1] + i * embDim, emb.data() + optimNum * embDim, embDim * sizeof(float));
             }
         }
     }
@@ -108,7 +108,7 @@ public:
             }
 
             if (optimNum > 1) {
-                std::memcpy(emb.data() + 2 * embDim, inOptims[1] + i * embDim, embDim * sizeof(float));
+                std::memcpy(emb.data() + optimNum * embDim, inOptims[1] + i * embDim, embDim * sizeof(float));
             }
         }
     }
@@ -182,7 +182,6 @@ public:
                         }
                         return memPoolPtr->GetNewValueToBeInserted(addrValue);
                     });
-
                     if (ret == FkvState::FKV_FAIL) {
                         LOG(ERROR) << "fastHashMapPtr->FindOrInsert failed!";
                         continue;
@@ -197,7 +196,8 @@ public:
                         std::memcpy(outOptims[0] + i * embDim, (float*)addrValue + embDim, embDim * sizeof(float));
                     }
                     if (optimNum > 1) {
-                        std::memcpy(outOptims[1] + i * embDim, (float*)addrValue + 2 * embDim, embDim * sizeof(float));
+                        std::memcpy(outOptims[1] + i * embDim, (float*)addrValue + optimNum * embDim,
+                                    embDim * sizeof(float));
                     }
                 }
             });
@@ -220,7 +220,6 @@ public:
                         }
                         return memPoolPtr->GetNewValueToBeInserted(addrValue);
                     });
-
                     if (ret == FkvState::FKV_FAIL) {
                         LOG(ERROR) << "fastHashMapPtr->FindOrInsert failed!";
                         continue;

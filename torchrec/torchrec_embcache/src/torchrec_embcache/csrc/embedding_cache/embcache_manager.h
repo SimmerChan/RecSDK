@@ -1,10 +1,10 @@
 /*
-* Copyright (c) Meta Platforms, Inc. and affiliates.
-* Copyright (c) huawei Platforms, Inc. and affiliates.
-* All rights reserved.
-*
-* This source code is licensed under the BSD-style license found in the
-* LICENSE file in the root directory of this source tree.
+ * Copyright (c) Meta Platforms, Inc. and affiliates.
+ * Copyright (c) huawei Platforms, Inc. and affiliates.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree.
  */
 #ifndef EMBEDDING_CACHE_EMBEDDING_MANAGER_H
 #define EMBEDDING_CACHE_EMBEDDING_MANAGER_H
@@ -23,6 +23,12 @@
 
 namespace Embcache {
 
+constexpr int SWAP_INFO_TUPLE_INDEX0 = 0;
+constexpr int SWAP_INFO_TUPLE_INDEX1 = 1;
+constexpr int SWAP_INFO_TUPLE_INDEX2 = 2;
+constexpr int SWAP_INFO_TUPLE_INDEX3 = 3;
+constexpr int SWAP_INFO_TUPLE_INDEX4 = 4;
+
 struct SwapInfo {
     std::vector<std::vector<int64_t>> swapoutKeys;
     at::Tensor swapoutOffs;
@@ -33,8 +39,8 @@ struct SwapInfo {
 
 struct SwapinTensor {
     at::Tensor swapinEmbs;
-    std::vector<at::Tensor> swapinOptims;  // TODO 目前只支持一个优化器参数
-    at::Tensor jaggedOffs;  // 区分每个表
+    std::vector<at::Tensor> swapinOptims;
+    at::Tensor jaggedOffs;                 // 区分每个表
 };
 
 class EmbcacheManager {
@@ -45,7 +51,8 @@ public:
 
     AsyncTask<SwapinTensor> EmbeddingLookupAsync(const SwapInfo& swapInfo);
 
-    AsyncTask<void> EmbeddingUpdateAsync(const SwapInfo& swapInfo, const at::Tensor& swapoutEmbs, const std::vector<at::Tensor>& swapoutOptims);
+    AsyncTask<void> EmbeddingUpdateAsync(const SwapInfo& swapInfo, const at::Tensor& swapoutEmbs,
+                                         const std::vector<at::Tensor>& swapoutOptims);
 
     void Save(const std::string path, const int rank);
 
@@ -55,12 +62,11 @@ public:
 
     void EvictFeatures();
 
-    void RecordTimestamp(const at::Tensor& batchKeys,
-                         const std::vector<int64_t>& offsetPerKey,
+    void RecordTimestamp(const at::Tensor& batchKeys, const std::vector<int64_t>& offsetPerKey,
                          const at::Tensor& timestamps);
 
-    void StatisticsKeyCount(const at::Tensor& batchKeys, const torch::Tensor& offset,
-                            const at::Tensor& batchKeyCounts, int64_t tableIndex);
+    void StatisticsKeyCount(const at::Tensor& batchKeys, const torch::Tensor& offset, const at::Tensor& batchKeyCounts,
+                            int64_t tableIndex);
 
     /**
      * 读取指定文件。 示例：save_dir/sparse/table1/rank0/key/slice.data
@@ -71,7 +77,7 @@ public:
      * @param detailFileName 具体文件名称，示例：/slice.data
      * @return code
      */
-    template<class T>
+    template <class T>
     static int32_t ReadFile(const std::string& filePath, std::vector<T>& dataOutputs, const std::string& loadItemName,
                             const std::string& detailFileName = "/slice.data");
 
@@ -83,8 +89,8 @@ private:
 
     SwapinTensor EmbeddingLookup(const std::vector<std::vector<int64_t>>& swapinKeys);
 
-    void EmbeddingUpdate(const std::vector<std::vector<int64_t>>& swapoutKeys,
-                         const at::Tensor& swapoutEmbs, const std::vector<at::Tensor>& swapoutOptims);
+    void EmbeddingUpdate(const std::vector<std::vector<int64_t>>& swapoutKeys, const at::Tensor& swapoutEmbs,
+                         const std::vector<at::Tensor>& swapoutOptims);
 
     bool EnableFastHashMap();
     std::ofstream OpenFile(std::string path);
@@ -92,9 +98,11 @@ private:
 
     bool NeedEvictEmbeddingTable();
     void RemoveEmbeddingTableInfo();
-    void SaveFeatureAdmitAndEvictInfo(int32_t tableIndex, const std::string& filePrefix, const std::vector<int64_t>& saveKeys);
-    void LoadFeatureAdmitAndEvictInfo(int32_t tableIndex, const std::string& filePrefix, const std::vector<int64_t>& saveKeys);
-    std::string GetDevWeightsShape(const at::Tensor &weightsDev) const;
+    void SaveFeatureAdmitAndEvictInfo(int32_t tableIndex, const std::string& filePrefix,
+                                      const std::vector<int64_t>& saveKeys);
+    void LoadFeatureAdmitAndEvictInfo(int32_t tableIndex, const std::string& filePrefix,
+                                      const std::vector<int64_t>& saveKeys);
+    std::string GetDevWeightsShape(const at::Tensor& weightsDev) const;
 
 private:
     int32_t embNum;
@@ -103,7 +111,7 @@ private:
     std::vector<std::unique_ptr<EmbTable>> embeddingTables;
     std::vector<FeatureFilter> featureFilters;
 
-    uint64_t swapCount = 0;  // ComputeSwapInfo 执行次数
+    uint64_t swapCount = 0;       // ComputeSwapInfo 执行次数
     uint64_t embLookupCount = 0;  // EmbeddingLookup 执行次数
 
     const std::string RANK_STR_PATH = "/rank";
@@ -123,4 +131,4 @@ private:
     int32_t optimNum;
 };
 }  // namespace Embcache
-#endif  //EMBEDDING_CACHE_EMBEDDING_MANAGER_H
+#endif  // EMBEDDING_CACHE_EMBEDDING_MANAGER_H

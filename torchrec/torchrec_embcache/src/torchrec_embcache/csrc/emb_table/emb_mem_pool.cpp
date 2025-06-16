@@ -6,9 +6,11 @@
  * This source code is licensed under the BSD-style license found in the
  * LICENSE file in the root directory of this source tree.
  */
-#include "emb_mem_pool.h"
+#include "emb_memory_pool.h"
 
 #include <glog/logging.h>
+#include "securec.h"
+
 #include "initializer.h"
 
 namespace Embcache {
@@ -59,7 +61,7 @@ bool EmbMemoryPool::GetNewAddr(uint64_t& newAddr)
             }
             return false;
         }
-        auto newAddress = (uint64_t)malloc(newSize);
+        auto newAddress = reinterpret_cast<uint64_t>(malloc(newSize));
         if (newAddress == 0) {
             LOG(WARNING) << "Refill thread allocate memory failed!";
             return false;
@@ -85,15 +87,15 @@ void EmbMemoryPool::Produce()
     }
 
     // init embedding
-    char* init_linear = getenv("INIT_LINEAR");
-    if (init_linear) {
+    char* initLinear = getenv("INIT_LINEAR");
+    if (initLinear) {
         Initializer::GenLinear((float*)newAddr, embConfig.embDim, embConfig.weightInitMin, embConfig.weightInitMax);
     } else {
         Initializer::GenUniform((float*)newAddr, embConfig.embDim, embConfig.weightInitMin, embConfig.weightInitMax);
     }
 
     // init optimizer
-    memset((float*)newAddr + embConfig.embDim, 0, embConfig.optimNum * embConfig.embDim * sizeof(float));
+    memset_s((float*)newAddr + embConfig.embDim, 0, embConfig.optimNum * embConfig.embDim * sizeof(float));
 
     BufferBin.push(newAddr);
 }

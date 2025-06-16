@@ -38,7 +38,7 @@ TEST_F(NetHashBucketTest, Put)
     };
     FkvState state = bucket.Put(key, value, beforePutFunc);
     LOG(INFO) << "after Put (with the same key), state:" << FkvStateStr[(int)state];
-    ASSERT_EQ(state, FkvState::FKV_NOT_EXIST);  // todo: why?
+    ASSERT_EQ(state, FkvState::FKV_NOT_EXIST);
 }
 
 TEST_F(NetHashBucketTest, Find)

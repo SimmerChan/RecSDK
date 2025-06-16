@@ -58,7 +58,7 @@ bool EmbcacheManager::EnableFastHashMap()
 {
     char* enableFastHashMapStr = getenv("ENABLE_FAST_HASHMAP");
     if (!enableFastHashMapStr) {
-        LOG(WARNING) << "env ENABLE_FAST_HASHMAP is not deteced, std::unordered_map is used";
+        LOG(WARNING) << "env ENABLE_FAST_HASHMAP is not detected, std::unordered_map is used";
         return false;
     }
 
@@ -73,7 +73,6 @@ bool EmbcacheManager::EnableFastHashMap()
     }
 }
 
-// TODO 减少拷贝
 SwapInfo EmbcacheManager::ComputeSwapInfo(const at::Tensor& batchKeys, const std::vector<int64_t>& offsetPerKey)
 {
     TimeCost getSwapInfoTC;
@@ -98,11 +97,11 @@ SwapInfo EmbcacheManager::ComputeSwapInfo(const at::Tensor& batchKeys, const std
         std::vector<int64_t> batchKeysVec(keyPtr + offsetPerKey[i], keyPtr + offsetPerKey[i + 1]);
         auto tp = swapManagers[i].ComputeSwapInfo(batchKeysVec);
 
-        std::vector<int64_t>& swapoutKeysi = std::get<0>(tp);
-        std::vector<int64_t>& swapoutOffsi = std::get<1>(tp);
-        std::vector<int64_t>& swapinKeysi = std::get<2>(tp);
-        std::vector<int64_t>& swapinOffsi = std::get<3>(tp);
-        std::vector<int64_t>& batchOffsi = std::get<4>(tp);
+        std::vector<int64_t>& swapoutKeysi = std::get<SWAP_INFO_TUPLE_INDEX0>(tp);
+        std::vector<int64_t>& swapoutOffsi = std::get<SWAP_INFO_TUPLE_INDEX1>(tp);
+        std::vector<int64_t>& swapinKeysi = std::get<SWAP_INFO_TUPLE_INDEX2>(tp);
+        std::vector<int64_t>& swapinOffsi = std::get<SWAP_INFO_TUPLE_INDEX3>(tp);
+        std::vector<int64_t>& batchOffsi = std::get<SWAP_INFO_TUPLE_INDEX4>(tp);
 
         // 加上表外偏移
         for (auto& off : swapoutOffsi) {
