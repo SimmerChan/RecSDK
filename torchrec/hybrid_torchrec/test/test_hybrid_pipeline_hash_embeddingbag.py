@@ -113,8 +113,8 @@ def execute(rank: int, config: ExecuteConfig):
     for gloden, result in zip(gloden_results, test_results):
         logging.debug("")
         logging.debug("===========================")
-        logging.debug("result test %s", gloden)
-        logging.debug("gloden test %s", result)
+        logging.debug("result test %s", result)
+        logging.debug("gloden test %s", gloden)
         assert torch.allclose(
             gloden, result, rtol=1e-04, atol=1e-04
         ), "gloden and result is not closed"

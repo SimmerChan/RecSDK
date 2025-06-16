@@ -72,7 +72,6 @@ def execute(rank: int, config: ExecuteConfig):
     device = config.device
     setup_logging(rank)
     logging.info("this test %s", os.path.basename(__file__))
-    # , batch_num, lookup_lens, num_embeddings, table_num
     dataset_train = RandomRecDataset(BATCH_NUM, lookup_len, num_embeddings, table_num)
     dataset_eval = RandomRecDataset(BATCH_NUM, lookup_len, num_embeddings, table_num)
     data_loader_train = DataLoader(
@@ -129,7 +128,6 @@ class TestModel:
         dist.init_process_group(self.pg_method, rank=rank, world_size=world_size)
         os.environ["LOCAL_RANK"] = f"{rank}"
 
-    # data_loader1, data_loader2,
     def test_loss(
         self,
         embedding_config: List[EmbeddingBagConfig],
