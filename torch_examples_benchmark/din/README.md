@@ -66,7 +66,7 @@ bash build_ops.sh
 
 执行完以上命令之后，融合算子的依赖包libfbgemm_npu_api.so会生成在同目录下的build文件夹下，以及python默认安装的site-package路径。也可将该so包拷贝到某固定目录下便于在代码中加载。示例如下：
 ```shell
-torch.ops.load_library(/path/to/libfbgemm_npu_api.so) # 根据实际路径
+torch.ops.load_library(/path/to/libfbgemm_npu_api.so) # 根据实际路径修改
 ```
 
 ## DIN源码适配
