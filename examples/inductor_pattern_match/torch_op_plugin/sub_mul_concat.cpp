@@ -1,0 +1,61 @@
+/* Copyright 2025. Huawei Technologies Co.,Ltd. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+        limitations under the License.
+==============================================================================*/
+
+#include <cstdint>
+#include "torch/csrc/autograd/custom_function.h"
+#include "torch/library.h"
+
+#include "torch_npu_helper.h"
+
+namespace acl_ops {
+static constexpr int64_t NUM_CONCAT = 4;
+static constexpr int64_t DIM_LAST = 2;
+
+/// This operator will concat four tensors: lhs, rhs, lhs - rhs, lhs * rhs, along the last dim.
+/// Constraints: 1. dims of lhs and rhs must be 3.
+at::Tensor SubMulConcat(const at::Tensor& lhs, const at::Tensor& rhs)
+{
+    const at::OptionalDeviceGuard guard(device_of(lhs));
+    auto output = at::empty({lhs.size(0), lhs.size(1), NUM_CONCAT * lhs.size(DIM_LAST)}, lhs.options());
+    EXEC_NPU_CMD(aclnnSubMulConcat, lhs, rhs, DIM_LAST, output);
+    return output;
+}
+}  // namespace acl_ops
+
+TORCH_LIBRARY_FRAGMENT(acl_ops, m)
+{
+    m.def("sub_mul_concat(Tensor lhs, Tensor rhs) -> Tensor");
+}
+
+TORCH_LIBRARY_IMPL(acl_ops, PrivateUse1, m)
+{
+    m.impl("sub_mul_concat", &acl_ops::SubMulConcat);
+}
+
+TORCH_LIBRARY_IMPL(acl_ops, Meta, m)
+{
+    m.impl("sub_mul_concat", [](const at::Tensor& lhs, const at::Tensor& rhs) -> at::Tensor {
+        TORCH_CHECK(lhs.dim() == 3, "lhs must be 3 dims");
+        TORCH_CHECK(rhs.dim() == 3, "rhs must be 3 dims");
+        TORCH_CHECK(lhs.size(0) == rhs.size(0), "lhs and rhs must have same size");
+        TORCH_CHECK(lhs.size(1) == rhs.size(1), "lhs and rhs must have same size");
+        TORCH_CHECK(lhs.size(2) == rhs.size(2), "lhs and rhs must have same size");
+
+        auto outSize = lhs.sizes().vec();
+        outSize[2] *= 4;
+
+        return at::empty(outSize, lhs.options());
+    });
+}
