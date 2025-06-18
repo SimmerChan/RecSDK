@@ -1,3 +1,10 @@
+#!/usr/bin/env python3
+# Copyright (c) Huawei Platforms, Inc. and affiliates.
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
 from typing import List, Tuple
 from dataclasses import dataclass
 from concurrent.futures import ThreadPoolExecutor
@@ -51,13 +58,11 @@ class EmbeddingConfig:
 class AllGatherEmbedding(torch.autograd.Function):
     @staticmethod
     def forward(ctx, fwd_pg, bwd_pg, embedding: torch.Tensor):
-        # print("embedding", embedding)
         ctx.fwd_gp = fwd_pg
         ctx.bwd_pg = bwd_pg
         ctx.embedding = embedding.data
         result_list = [torch.empty_like(embedding) for i in range(2)]
         fwd_pg.allgather(result_list, embedding)
-        # print("result_list",result_list)
         return tuple(result_list)
 
     @staticmethod
