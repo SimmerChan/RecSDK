@@ -20,6 +20,9 @@ def invoke(
     common_args: HybridCommonArgs,
     optimizer_args: OptimizerArgs,
     iteration: int = 0,
+    apply_global_weight_decay: bool = False,
+    prev_iter_dev: Optional[torch.Tensor] = None,
+    gwd_lower_bound: float = 0.0
 ) -> torch.Tensor:
     vbe_metadata = common_args.vbe_metadata
 
@@ -38,10 +41,6 @@ def invoke(
         total_hash_size_bits=common_args.total_hash_size_bits,
         indices=common_args.indices,
         offsets=common_args.offsets,
-        hash_indices=common_args.hash_indices,
-        unique_ids=common_args.unique_indices,
-        unique_offsets=common_args.unique_offset,
-        unique_inverse=common_args.unique_inverse,
         pooling_mode=common_args.pooling_mode,
         indice_weights=common_args.indice_weights,
         feature_requires_grad=common_args.feature_requires_grad,
@@ -59,15 +58,14 @@ def invoke(
         max_gradient=optimizer_args.max_gradient,
         stochastic_rounding=optimizer_args.stochastic_rounding,  # if optimizer == none
         learning_rate=optimizer_args.learning_rate,
-        eps=optimizer_args.eps,
         # prev_iter
-        prev_iter_dev=None,
+        prev_iter_dev=prev_iter_dev,
         # iter
         iter=iteration,
         output_dtype=common_args.output_dtype,
         is_experimental=common_args.is_experimental,
         use_uniq_cache_locations_bwd=common_args.use_uniq_cache_locations_bwd,
         use_homogeneous_placements=common_args.use_homogeneous_placements,
-        apply_global_weight_decay=False,
-        gwd_lower_bound=0.0,
+        apply_global_weight_decay=apply_global_weight_decay,
+        gwd_lower_bound=gwd_lower_bound,
     )

@@ -48,7 +48,7 @@ WORLD_SIZE = 2
 OPTIMIZER_PARAM = {
     Adam: dict(lr=0.02),
     Adagrad: dict(lr=0.02, eps=1.0e-8),
-    SGD: dict(lr=0.02, eps=1.0e-8),
+    SGD: dict(lr=0.02),
 }
 
 

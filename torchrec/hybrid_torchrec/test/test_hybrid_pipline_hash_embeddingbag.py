@@ -44,7 +44,7 @@ torch.ops.load_library(f"{sysconfig.get_path('purelib')}/libfbgemm_npu_api.so")
 OPTIMIZER_PARAM = {
     Adam: dict(lr=0.02),
     Adagrad: dict(lr=0.02, eps=1.0e-8),
-    SGD: dict(lr=0.02, eps=1.0e-8),
+    SGD: dict(lr=0.02),
 }
 
 WORLD_SIZE = 2
