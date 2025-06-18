@@ -1,4 +1,5 @@
 import os
+import logging
 import torch
 import torch.distributed as dist
 
@@ -7,7 +8,7 @@ from hybrid_torchrec.modules.little_embedding import (
     Awaitable,
     EmbeddingConfig,
 )
-import logging
+
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)

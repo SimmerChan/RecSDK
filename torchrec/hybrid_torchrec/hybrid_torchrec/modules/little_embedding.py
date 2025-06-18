@@ -28,7 +28,7 @@ class PostInpuDistAwaitable(Awaitable):
 
 class LookupAndOutputDist(Awaitable):
     def __init__(self, post_awaitable, lookup_and_out_dist_function, *args):
-        # super().__init__()
+        super().__init__()
         self.post_awaitable = post_awaitable
         self.lookup_and_out_dist_function = lookup_and_out_dist_function
         self.args = args
