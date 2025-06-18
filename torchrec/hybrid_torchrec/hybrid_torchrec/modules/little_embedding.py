@@ -1,14 +1,19 @@
-import torch
-from typing import List
-from torch import nn
+from typing import List, Tuple
 from dataclasses import dataclass
 from concurrent.futures import ThreadPoolExecutor
+
+import logging
+
+import torch
+from torch import nn
 import torch.distributed as dist
+from torchrec import KeyedJaggedTensor
 
 
 class Awaitable:
-    def __init__(self, a_function, *args):
-        self.result = executor.submit(a_function, *args)
+    def __init__(self, a_function=None, *args):
+        if a_function is not None:
+            self.result = executor.submit(a_function, *args)
 
     def wait(self):
         return self.result.result()
@@ -23,6 +28,7 @@ class PostInpuDistAwaitable(Awaitable):
 
 class LookupAndOutputDist(Awaitable):
     def __init__(self, post_awaitable, lookup_and_out_dist_function, *args):
+        # super().__init__()
         self.post_awaitable = post_awaitable
         self.lookup_and_out_dist_function = lookup_and_out_dist_function
         self.args = args
@@ -30,14 +36,6 @@ class LookupAndOutputDist(Awaitable):
     def wait(self):
         post_result = self.post_awaitable.wait()
         return self.lookup_and_out_dist_function(post_result, *self.args)
-
-
-class LookupAwaitable:
-    def __init__(self, lookup_function, *args):
-        self.result = executor.submit(lookup_function, *args)
-
-    def wait(self):
-        return self.result.result()
 
 
 @dataclass
@@ -49,14 +47,17 @@ class EmbeddingConfig:
     rank: int = 0
 
 
+# 示例
 class AllGatherEmbedding(torch.autograd.Function):
     @staticmethod
     def forward(ctx, fwd_pg, bwd_pg, embedding: torch.Tensor):
+        # print("embedding", embedding)
         ctx.fwd_gp = fwd_pg
         ctx.bwd_pg = bwd_pg
         ctx.embedding = embedding.data
         result_list = [torch.empty_like(embedding) for i in range(2)]
         fwd_pg.allgather(result_list, embedding)
+        # print("result_list",result_list)
         return tuple(result_list)
 
     @staticmethod
@@ -74,18 +75,51 @@ class AllGatherEmbedding(torch.autograd.Function):
         return None, None, result
 
 
+class LookupContext:
+    def __init__(self):
+        self.fwd_pg
+        self.bwd_pg
+        self.communication_metrix = []
+
+
+# 待实现
+class AllGatherEmbeddings(torch.autograd.Function):
+    @staticmethod
+    def forward(
+        ctx, embedding: torch.Tensor, context: LookupContext
+    ) -> Tuple[torch.Tensor]:
+        pass
+
+    @staticmethod
+    def backward(ctx, *grad_output: Tuple[torch.Tensor]) -> Tuple[torch.Tensor, None]:
+        pass
+
+
 class HashEmbeddingModule(nn.Module):
     def __init__(self, config=None, pipe_n_batch=6):
         super().__init__()
-        self.pg = dist.new_group(backend="gloo")
+        self.fwd_pg = dist.new_group(backend="gloo")
+        self.bwd_pg = dist.new_group(backend="gloo")
         self.rank = config.rank
         self.post_input_dist_module = self.create_post_input_dist()
         self.lookup_module = self.create_lookup()
+
+    def compute_context(self, fid: List[List[torch.Tensor]]) -> LookupContext:
+        pass
+
+    def convert_to_kjt(self, fid: List[List[torch.Tensor]]) -> KeyedJaggedTensor:
+        return
 
     def create_post_input_dist(self):
         return
 
     def create_lookup(self):
+        return
+
+    def do_post_input_dist(self, kjt: KeyedJaggedTensor, context: LookupContext):
+        return
+
+    def do_lookup_and_post_dist(self, kjt: KeyedJaggedTensor, context: LookupContext):
         return
 
     # 示例代码
@@ -110,7 +144,7 @@ class HashEmbeddingModule(nn.Module):
 
     def lookup_and_post_dist(self, indices):
         embedding = self.lookup(indices)
-        result = AllGatherEmbedding().apply(self.pg, self.pg, embedding)
+        result = AllGatherEmbedding().apply(self.fwd_pg, self.bwd_pg, embedding)
         return result
 
     def forward(self, input_fids_list: List[torch.Tensor], is_full_pipe=True):
