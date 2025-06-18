@@ -2,13 +2,21 @@ import os
 import torch
 import torch.distributed as dist
 
-from hybrid_torchrec.modules.little_embedding import HashEmbeddingModule, Awaitable, EmbeddingConfig
+from hybrid_torchrec.modules.little_embedding import (
+    HashEmbeddingModule,
+    Awaitable,
+    EmbeddingConfig,
+)
+import logging
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 
 def get_distribute_env():
-    rank = int(os.environ["LOCAL_RANK"])
-    world_size = int(os.environ["WORLD_SIZE"])
-    return rank, world_size
+    rank_id = int(os.environ["LOCAL_RANK"])
+    total_world_size = int(os.environ["WORLD_SIZE"])
+    return rank_id, total_world_size
 
 
 rank, world_size = get_distribute_env()
@@ -35,9 +43,8 @@ embedding = HashEmbeddingModule(config=config)
 for i in range(10):
     data = dataset_getnext()
     awaitable: Awaitable = embedding(data)
-    print(awaitable)
     result = awaitable.wait()
-    print("result", result)
+    logging.info("result %s", result)
     loss = torch.concat(result).sum()
     loss.backward()
     # result =
@@ -61,4 +68,4 @@ for p in pipe1:
     r = p.wait()
     loss = torch.concat(r).sum()
     loss.backward()
-print("demo done")
+logging.info("demo done")
