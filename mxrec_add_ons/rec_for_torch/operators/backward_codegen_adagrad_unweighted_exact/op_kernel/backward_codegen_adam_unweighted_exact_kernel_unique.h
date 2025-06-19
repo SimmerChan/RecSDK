@@ -82,19 +82,20 @@ public:
 
         // s[:] = beta2 * s + (1 - beta2) * torch.square(p.grad)
         Muls<float>(outLt[thisMoment2Index], inputLt[thisMoment2Index], beta2, totalLen);
-        Mul<float>(outLt[thisGradIndex], inputLt[thisGradIndex], inputLt[thisGradIndex],
-                   totalLen);
+        Mul<float>(outLt[thisGradIndex], inputLt[thisGradIndex], inputLt[thisGradIndex], totalLen);
         Muls<float>(outLt[thisGradIndex], outLt[thisGradIndex], oneMinusBeta2, totalLen);
         Add<float>(outLt[thisMoment2Index], outLt[thisMoment2Index], outLt[thisGradIndex], totalLen);
-        
-        // m2biascorr
-        Duplicate<float>(inputLt, beta2sqrt, totalLen);
-        Sqrt<float>(outLt[thisGradIndex], outLt[thisMoment2Index], totalLen);
-        Div<float>(outLt[thisGradIndex], outLt[thisGradIndex], inputLt, totalLen);
-        Adds<float>(outLt[thisGradIndex], outLt[thisGradIndex], this->eps, totalLen);
-        // theta = -step_size * v /denom
-        Div<float>(outLt[thisGradIndex], outLt[thisMoment1Index], outLt[thisGradIndex], totalLen);
-        Muls<float>(outLt[thisGradIndex], outLt[thisGradIndex], stepSize, totalLen);
+
+        // v_bias_corr = v / (1 - beta1 ** hyperparams['t'])
+        Muls<float>(outLt[thisMoment1Index], outLt[thisMoment1Index], beta1pow, totalLen);
+        // s_bias_corr = s / (1 - beta2 ** hyperparams['t'])
+        Muls<float>(outLt[thisMoment2Index], outLt[thisMoment2Index], beta2pow, totalLen);
+
+        // p[:] -= hyperparams['lr'] * v_bias_corr / (torch.sqrt(s_bias_corr) + eps)
+        Sqrt<float>(outLt[thisMoment2Index], outLt[thisMoment2Index], totalLen);
+        Adds<float>(outLt[thisMoment2Index], outLt[thisMoment2Index], this->eps, totalLen);
+        Div<float>(outLt[thisGradIndex], outLt[thisMoment1Index], outLt[thisMoment2Index], totalLen);
+        Muls<float>(outLt[thisGradIndex], outLt[thisGradIndex], minusLearningRate, totalLen);
     }
 
     __aicore__ inline void CopyInNormal(int *updateArgs, int thisLen, int embedDim)

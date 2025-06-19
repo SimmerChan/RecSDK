@@ -163,7 +163,7 @@ public:
         ctx->saved_data["beta1"] = beta1;
         ctx->saved_data["beta2"] = beta2;
         ctx->saved_data["iter"] = iter;
-        ctx->saved_data["is_dyanmic"] = is_dynamic;
+        ctx->saved_data["is_dynamic"] = is_dynamic;
 
         const auto& flatten_dev_weights = dev_weights;
         // not surport  indice_weights
@@ -466,7 +466,7 @@ TORCH_LIBRARY_FRAGMENT(fbgemm, m)
           "    float beta2 = 0, "
           "    float weight_decay = 0, "
           "    int iter = 0, "
-          "    bool is_dynamic = false,"
+          "    bool is_dynamic = False,"
           "    int output_dtype=0, "
           "    Tensor? B_offsets=None, "
           "    Tensor? vbe_output_offsets_feature_rank=None, "
@@ -528,7 +528,7 @@ TORCH_LIBRARY_FRAGMENT(fbgemm, m)
           "    Tensor unique_offsets = None, "
           "    Tensor unique_inverse = None, "
           "    float eps = 0, float learning_rate = 0, float beta1 = 0, float beta2 = 0, int iter = 0, "
-          "    bool is_dynamic = false"
+          "    bool is_dynamic = False"
           ") -> Tensor");
     m.impl("split_embedding_backward_codegen_adam_unweighted_exact_cuda",
            torch::dispatch(c10::DispatchKey::Autograd,

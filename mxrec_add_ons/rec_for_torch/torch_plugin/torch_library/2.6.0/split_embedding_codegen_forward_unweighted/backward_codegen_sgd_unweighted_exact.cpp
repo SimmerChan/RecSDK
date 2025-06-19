@@ -116,7 +116,7 @@ public:
         ctx->saved_data["use_uniq_cache_locations_bwd"] = use_uniq_cache_locations_bwd;
         ctx->saved_data["use_homogeneous_placements"] = use_homogeneous_placements;
         ctx->saved_data["learning_rate"] = learning_rate;
-        ctx->saved_data["is_dyanmic"] = is_dynamic;
+        ctx->saved_data["is_dynamic"] = is_dynamic;
         const auto& flatten_dev_weights = dev_weights;
         // not surport  indice_weights
         if (!indice_weights) {
@@ -357,7 +357,7 @@ TORCH_LIBRARY_FRAGMENT(fbgemm, m)
           "    Tensor? unique_offsets = None, "
           "    Tensor? unique_inverse = None, "
           "    float learning_rate = 0, "
-          "    bool is_dynamic = false,"
+          "    bool is_dynamic = False,"
           "    int output_dtype=0, "
           "    Tensor? B_offsets=None, "
           "    Tensor? vbe_output_offsets_feature_rank=None, "
@@ -412,7 +412,7 @@ TORCH_LIBRARY_FRAGMENT(fbgemm, m)
           "    Tensor unique_offsets = None, "
           "    Tensor unique_inverse = None, "
           "    float learning_rate = 0, "
-		  "    bool is_dynamic = false "
+		  "    bool is_dynamic = False "
 		  
           ") -> Tensor");
 

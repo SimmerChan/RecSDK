@@ -99,15 +99,6 @@ static ge::graphStatus ShapeTilingFunc(gert::TilingContext* context,
     // dynamic
     bool is_dynamic = *context->GetAttrs()->GetBool(IS_DYNAMIC_INDEX);
     ge::DataType weightsDtype = context ->GetInputTensor(DEV_WEIGHTS_INDEX)->GetDataType();
-    if (is_dynamic) {
-        if (weightsDtype != ge::DT_INT64) {
-            printf("Dynamic mode weights_dev must be int64!");
-            return ge::FAILED;
-        }
-        context->SetTilingKey(DYNAMIC_KEY);
-    } else {
-        context->SetTilingKey(NORMAL_KEY);
-    }
     int64_t bytesOfDataType = sizeof(float);
     int64_t offsetDataType = DATA_TYPE_INT64;
     int64_t maxD = *attrs->GetInt(MAX_D_INDEX);

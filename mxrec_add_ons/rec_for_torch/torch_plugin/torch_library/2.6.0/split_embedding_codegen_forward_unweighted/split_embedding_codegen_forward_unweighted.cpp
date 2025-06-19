@@ -93,7 +93,7 @@ TORCH_LIBRARY_FRAGMENT(fbgemm, m)
           "    bool is_experimental, "
           "    Tensor hash_indices = None, "
           "    Tensor unique_inverse = None, "
-          "    Tensor is_dynamic = False,"
+          "    bool is_dynamic = False "
           ") -> Tensor");
 
     m.impl("split_embedding_codegen_forward_unweighted_cuda",

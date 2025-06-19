@@ -55,7 +55,7 @@ at::Tensor split_embedding_codegen_forward_unweighted_cuda(const at::Tensor& dev
                                                            const int64_t output_dtype,
                                                            const bool is_experimental,
                                                            const at::Tensor& hash_indices,
-                                                           const at::Tensor& unique_inverse，
+                                                           const at::Tensor& unique_inverse,
                                                            const bool is_dynamic);
 
 at::Tensor split_embedding_codegen_forward_unweighted_npu(const at::Tensor& dev_weights,
