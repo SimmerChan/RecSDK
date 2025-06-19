@@ -110,7 +110,7 @@ class HybridHashTwSequenceEmbeddingSharding(HybridTwSequenceEmbeddingSharding):
     def create_post_input_dist(
         self,
         device: Optional[torch.device] = None,
-    ) -> SparseFeaturesPostDist[KeyedJaggedTensor]:
+    ) -> BaseSparseFeaturesDist[KeyedJaggedTensor]:
 
         table_names, features_split_by_table_name = get_feature_len_groupby_table_name(
             self._grouped_embedding_configs
