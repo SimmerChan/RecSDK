@@ -14,6 +14,10 @@ import logging
 import torch
 from torch import nn
 import torch.distributed as dist
+
+from hybrid_torchrec.modules.ids_process import IdsMapper
+from hybrid_torchrec.distributed.sharding.post_input_dist import UniqueHashFeatureProcess
+
 from torchrec import KeyedJaggedTensor, JaggedTensor
 
 
@@ -32,7 +36,7 @@ class Awaitable:
 executor = ThreadPoolExecutor(6)
 
 
-class PostInpuDistAwaitable(Awaitable):
+class PostInputDistAwaitable(Awaitable):
     pass
 
 
@@ -106,29 +110,40 @@ class AllGatherEmbeddings(torch.autograd.Function):
 
 
 class HashEmbeddingModuleCollection(nn.Module):
-    def __init__(self, configs=List[EmbeddingConfig], pipe_n_batch=6):
+    def __init__(self, configs: List[EmbeddingConfig], pipe_n_batch=6):
         super().__init__()
         self.fwd_pg = dist.new_group(backend="gloo")
         self.bwd_pg = dist.new_group(backend="gloo")
         self.rank = configs[0].rank
-        self.post_input_dist_module_dict: Dict[str, nn.Module] = (
-            self.create_post_input_dist()
-        )
         self.lookup_module_dict: Dict[str, nn.Module] = self.create_lookups()
+
+        self.hashmap_list: List[IdsMapper] = [IdsMapper(config_.num_embedding) for config_ in configs]
+        self._has_create_post_input_dist = False
+        self.post_dist: UniqueHashFeatureProcess = None
 
     def compute_context(self, fid: dict[JaggedTensor]) -> LookupContext:
         pass
 
-    def create_post_input_dist(self) -> Dict[str, nn.Module]:
-        return
+    def create_post_input_dist(self):
+        table_names: List[str] = [config_.table_name for config_ in self.configs]
+        feature_split_by_table: List[int] = [1] * len(self.configs)
+        self.post_dist = UniqueHashFeatureProcess(
+            table_names,
+            feature_split_by_table,
+            self.hashmap_list,
+            False
+        )
 
     def create_lookups(self) -> Dict[str, nn.Module]:
         return
 
     def do_post_input_dist(
-        self, jt: JaggedTensor, feat_name: str, context: LookupContext
+        self, features: KeyedJaggedTensor
     ):
-        return
+        if not self._has_create_post_input_dist:
+            self.create_post_input_dist()
+            self._has_create_post_input_dist = True
+        return self.post_dist(features)
 
     def do_lookup_and_post_dist(
         self, jt: JaggedTensor, feat_name: str, context: LookupContext
@@ -158,10 +173,13 @@ class HashEmbeddingModuleCollection(nn.Module):
         return result
 
     def forward(self, kjt_list_each_rank: List[KeyedJaggedTensor]):
+        kjt_for_rank = kjt_list_each_rank[self.rank]
+        awaitable = self.do_post_input_dist(kjt_for_rank)
+
         jt_dict: Dict[str, JaggedTensor] = kjt_list_each_rank[self.rank].to_dict()
         awaitable_dict: Dict[str, LookupAndOutputDistAwaitable] = {}
         for feat_name in jt_dict.keys():
-            post_awaitable = PostInpuDistAwaitable(
+            post_awaitable = PostInputDistAwaitable(
                 self.post_input_dist, jt_dict[feat_name], feat_name
             )
             lookup_and_outdist_awaitable = LookupAndOutputDistAwaitable(
