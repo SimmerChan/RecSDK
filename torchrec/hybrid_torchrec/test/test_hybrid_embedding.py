@@ -83,12 +83,7 @@ def execute(rank: int, config: ExecuteConfig):
     logging.info("this test %s", os.path.basename(__file__))
     embedding_config = generate_base_config(embedding_dims, num_embeddings)
 
-    dataset = RandomRecDataset(
-        batch_size=BATCH_NUM,
-        lookup_len=lookup_len,
-        num_lookups=[num_embedding // 2 for num_embedding in num_embeddings],
-        num_tables=table_num,
-    )
+    dataset = RandomRecDataset(BATCH_NUM, lookup_len, [num_embedding // 2 for num_embedding in num_embeddings], table_num)
     gloden_dataset_loader = DataLoader(
         dataset,
         batch_size=None,
@@ -241,6 +236,7 @@ class TestModel:
 
 
 params = {
+    "world_size": [WORLD_SIZE],
     "table_num": [3],
     "embedding_dims": [[32, 32, 32]],
     "num_embeddings": [[400, 4000, 400]],
