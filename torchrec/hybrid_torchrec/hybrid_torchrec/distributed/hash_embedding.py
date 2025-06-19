@@ -116,7 +116,6 @@ class HybridShardedHashEmbeddingCollection(HybridShardedEmbeddingCollection):
         return table2hashmap
 
 
-
 class HybridHashEmbeddingCollectionSharder(
     BaseEmbeddingSharder[EmbeddingCollection]
 ):
