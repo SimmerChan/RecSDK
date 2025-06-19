@@ -97,7 +97,8 @@ public:
             LocalTensor<float> inputLt = this->queIn.template AllocTensor<float>();
             for (int64_t i = 0; i < thisLen; i++) {
                 UpdateArgs theArgs = updateArgs[i];
-                DataCopy(inputLt[i * this->maxD * numOfOut + outIndex], this->outGT[theArgs.thisOutOffset], theArgs.embedDim);
+                DataCopy(inputLt[i * this->maxD * numOfOut + outIndex], this->outGT[theArgs.thisOutOffset],
+                         theArgs.embedDim);
                 DataCopy(inputLt[i * this->maxD * numOfOut + outIndex1], this->momentum1DevGT[theArgs.thisOutOffset],
                          theArgs.embedDim);
             }
@@ -112,7 +113,8 @@ public:
                 int64_t thisMomentIndex = i * this->maxD * numOfOut + outIndex1;
                 Mul<float>(outLt[thisGradIndex], newInputLt[thisGradIndex], newInputLt[thisGradIndex],
                            theArgs.embedDim);
-                Add<float>(outLt[thisGradIndex], newInputLt[thisMomentIndex], outLt[thisGradIndex], theArgs.embedDim);
+                Add<float>(outLt[thisGradIndex], newInputLt[thisMomentIndex], outLt[thisGradIndex],
+                           theArgs.embedDim);
 
                 Sqrt<float>(outLt[thisGradIndex], outLt[thisGradIndex], theArgs.embedDim);
                 Adds<float>(outLt[thisGradIndex], outLt[thisGradIndex], this->eps, theArgs.embedDim);

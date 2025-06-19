@@ -99,6 +99,34 @@ void NormalAdamTilingFunc(const gert::RuntimeAttrs* attrs,
     tilingData.set_beta2pow(_beta2);
     tilingData.set_iter(iter);
 }
+static ge::graphStatus SetTilingKeyFunc(gert::TilingContext* context,
+                                       BackwardCodegenAdagradUnweightedExactTilingData& tilingData,
+                                       const gert::RuntimeAttrs* attrs)
+{
+    int optimType = *attrs->GetInt(OPTIM_TYPE_INDEX);
+    auto uniqueId = context->GetOptionalInputTensor(UNIQUE_ID_INDEX);
+
+    OPS_CHECK(optimType < ADAGRAD || optimType > SGD,
+              OPS_LOG_E("Tiling Debug", "OptimType is not supported."),
+              return ge::GRAPH_FAILED);
+    
+    if (uniqueId == nullptr) {
+        context->SetTilingKey(optimType);
+    } else {
+        OPS_CHECK(optimType == SGD,
+                  OPS_LOG_E("Tiling Debug", "SGD unique mode is not supported."),
+                  return ge::GRAPH_FAILED);
+        OPS_CHECK(UniqueTilingFunc(context, tilingData),
+                  OPS_LOG_E("Tiling Debug", "UniqueInverse or uniqueoffset is invalid."),
+                  return ge::GRAPH_FAILED);
+        context->SetTilingKey(optimType + UNIQUE_TILING_OFFSET);
+    }
+    
+    if (optimType == ADAM) {
+        NormalAdamTilingFunc(attrs, tilingData);
+    }
+    return ge::GRAPH_SUCCESS; 
+}
 
 static ge::graphStatus ShapeTilingFunc(gert::TilingContext* context,
                                        BackwardCodegenAdagradUnweightedExactTilingData& tilingData,
@@ -138,29 +166,6 @@ static ge::graphStatus ShapeTilingFunc(gert::TilingContext* context,
         indicesDim0 = context->GetInputShape(HASH_INDICES_INDEX)->GetStorageShape().GetDim(0);
     }
     
-    int optimType = attrs->GetInt(OPTIM_TYPE_INDEX);
-    auto uniqueId = context->GetOptionalInputTensor(UNIQUE_ID_INDEX);
-
-    OPS_CHECK(optimType < ADAGRAD || optimType > SGD,
-              OPS_LOG_E("Tiling Debug", "OptimType is not supported."),
-              return ge::GRAPH_FAILED);
-    
-    if (uniqueId == nullptr) {
-        context->SetTilingKey(optimType);
-    } else {
-        OPS_CHECK(optimType == SGD,
-                  OPS_LOG_E("Tiling Debug", "SGD unique mode is not supported."),
-                  return ge::GRAPH_FAILED);
-        OPS_CHECK(UniqueTilingFunc(context, tilingData),
-                  OPS_LOG_E("Tiling Debug", "UniqueInverse or uniqueoffset is invalid."),
-                  return ge::GRAPH_FAILED);
-        context->SetTilingKey(optimType + UNIQUE_TILING_OFFSET);
-    }
-    
-    if (optimType == ADAM) {
-        NormalAdamTilingFunc(attrs, tilingData);
-    }
-   
     tilingData.set_gradOutputDim0(gradOutputDim0);
     tilingData.set_gradOutputDim1(gradOutputDim1);
     tilingData.set_devWeightsDim0(devWeightsDim0);
@@ -172,7 +177,7 @@ static ge::graphStatus ShapeTilingFunc(gert::TilingContext* context,
     tilingData.set_bytesOfDataType(bytesOfDataType);
     tilingData.set_offsetDataType(offsetDataType);
 
-    return ge::GRAPH_SUCCESS;
+    return SetTilingKeyFunc(context, tilingData, attrs);
 }
 
 static ge::graphStatus TilingFunc(gert::TilingContext* context)

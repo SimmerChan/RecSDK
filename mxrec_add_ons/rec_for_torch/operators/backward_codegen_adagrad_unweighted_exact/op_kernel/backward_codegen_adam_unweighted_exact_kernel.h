@@ -112,7 +112,8 @@ public:
         LocalTensor<float> inputLt = this->queIn.template AllocTensor<float>();
         for (int64_t i = 0; i < cnt; i++) {
             UpdateArgs theArgs = updateArgs[i];
-            DataCopy(inputLt[i * this->maxD * numOfOut + outIndex], this->outGT[theArgs.thisOutOffset], theArgs.embedDim);
+            DataCopy(inputLt[i * this->maxD * numOfOut + outIndex], this->outGT[theArgs.thisOutOffset],
+                     theArgs.embedDim);
             DataCopy(inputLt[i * this->maxD * numOfOut + outIndex1], this->momentum1DevGT[theArgs.thisOutOffset],
                      theArgs.embedDim);
             DataCopy(inputLt[i * this->maxD * numOfOut + outIndex2], momentum2DevGT[theArgs.thisOutOffset],

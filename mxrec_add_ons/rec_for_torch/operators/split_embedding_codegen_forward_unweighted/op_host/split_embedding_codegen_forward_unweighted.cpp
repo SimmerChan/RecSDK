@@ -182,7 +182,7 @@ class SplitEmbeddingCodegenForwardUnweighted : public OpDef {
 public:
     explicit SplitEmbeddingCodegenForwardUnweighted(const char* name) : OpDef(name)
     {
-        this->Input("dev_weights") // dynamic: block addr 
+        this->Input("dev_weights") // dynamic int64
             .ParamType(REQUIRED)
             .DataType({ge::DT_FLOAT, ge::DT_INT64})
             .Format({ge::FORMAT_ND, ge::FORMAT_ND})
@@ -207,7 +207,7 @@ public:
             .DataType({ge::DT_INT64, ge::DT_INT64})
             .Format({ge::FORMAT_ND, ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND});
-        this->Input("D_offsets") 
+        this->Input("D_offsets")
             .ParamType(REQUIRED)
             .DataType({ge::DT_INT32, ge::DT_INT32})
             .Format({ge::FORMAT_ND, ge::FORMAT_ND})

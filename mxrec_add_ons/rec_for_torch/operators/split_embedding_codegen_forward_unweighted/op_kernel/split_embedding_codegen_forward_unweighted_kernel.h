@@ -405,7 +405,6 @@ private:
     GlobalTensor<int64_t> weightOffsetGT;
     GlobalTensor<float> dynamicDataGT;
     GlobalTensor<int64_t> uniqueInverseGT;
-
 };
 }  // namespace SplitEmbeddingCodegenForwardUnweighted
 #endif

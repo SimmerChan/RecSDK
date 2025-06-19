@@ -22,8 +22,10 @@ extern "C" __global__ __aicore__ void split_embedding_codegen_forward_unweighted
 	GM_ADDR hashIndices, GM_ADDR uniqueInverse,
     GM_ADDR out, GM_ADDR workspace, GM_ADDR tiling)
 {
-    SplitEmbeddingCodegenForwardUnweighted::Args args{
-        devWeights, weightsPlacements, weightsOffsets, dOffsets, indices, offsets, hashIndices, uniqueInverse, out, tiling, workspace};
-    SplitEmbeddingCodegenForwardUnweighted::SplitEmbeddingCodegenForwardUnweightedKernel<DTYPE_DEV_WEIGHTS> kernel(args);
+    SplitEmbeddingCodegenForwardUnweighted::Args args{devWeights, weightsPlacements, weightsOffsets,
+                                                      dOffsets, indices, offsets, hashIndices, uniqueInverse,
+                                                      out, tiling, workspace};
+    SplitEmbeddingCodegenForwardUnweighted::SplitEmbeddingCodegenForwardUnweightedKernel<DTYPE_DEV_WEIGHTS> \
+        kernel(args);
     kernel.Compute();
 }

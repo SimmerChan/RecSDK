@@ -15,7 +15,9 @@
 
 using namespace AscendC;
 using namespace BackwardCodegenUnweightedExact;
-namespace BackwardCodegenUnweightedExactUnique {
+using namespace BackwardCodegenUnweightedExactUnique;
+
+namespace BackwardCodegenUnweightedExactAdagradUnique {
 
 template <typename wType>
 class BackwardCodegenAdagradUnweightedExactKernelUnique : public BackwardCodegenUnweightedExactKernelUnique<wType> {
@@ -55,7 +57,7 @@ public:
     __aicore__ inline void CopyInNormal(int *updateArgs, int thisLen, int embedDim)
     {
         __gm__ int64_t* weightsOffsetsPtr = (__gm__ int64_t*)this->weightsOffsets;
-        LocalTensor<float> inputLt = this->queIn.template DeQue<float>();  
+        LocalTensor<float> inputLt = this->queIn.template DeQue<float>();
         for (int64_t i = 0; i < thisLen; i++) {
             int64_t thisIndForThisTable = this->uniqueIdGT.GetValue(thisTableOffset + i);
             int64_t thisWeightOffset = *(weightsOffsetsPtr + tableIndex);
@@ -67,7 +69,7 @@ public:
 
     __aicore__ inline void CopyInDynamic(DynamicArgs *updateArgs, int64_t thisLen, int64_t embedDim)
     {
-        LocalTensor<float> inputLt = this->queIn.template DeQue<float>();  
+        LocalTensor<float> inputLt = this->queIn.template DeQue<float>();
         for (int64_t i = 0; i < thisLen; i++) {
             updateArgs[i].weightsAddr = this->weightsDevOutGT.GetValue(thisTableOffset + i);
             updateArgs[i].m1Addr = this->momentum1DevGT.GetValue(thisTableOffset + i);
@@ -84,7 +86,7 @@ public:
         for (uint32_t i = 0; i < thisLen; i++) {
             int thisGradIndex = i * this->maxD;
             dynamicWeightsGT.SetGlobalBuffer((__gm__ float*)updateArgs[i].weightsAddr, embedDim);
-            dynamicM1GT.SetGlobalBuffer((__gm__ float*)updateArgs[i].m1Addr, embedDim);  
+            dynamicM1GT.SetGlobalBuffer((__gm__ float*)updateArgs[i].m1Addr, embedDim);
             DataCopy(dynamicWeightsGT, newOutLt[thisGradIndex], embedDim);
             DataCopy(dynamicM1GT, newOutLt[thisMoment1Index + thisGradIndex], embedDim);
         }
@@ -109,7 +111,7 @@ public:
     {
         __gm__ int32_t* dOffsetsPtr = (__gm__ int32_t*)this->dOffsets;
 
-        int indicesNumOneBlock = this->blockLen / numOfOut / this->maxD;
+        indicesNumOneBlock = this->blockLen / numOfOut / this->maxD;
         if (indicesNumOneBlock >= MAX_ARGS_PIPE_LEN) {
             indicesNumOneBlock = MAX_ARGS_PIPE_LEN;
         }
@@ -133,7 +135,7 @@ public:
             this->queIn.template EnQue(inputLt);
             
             if constexpr(std::is_same<wType, float>::value) {
-                //CopyIn
+                // CopyIn
                 int updateArgs[MAX_ARGS_PIPE_LEN];
                 CopyInNormal(updateArgs, thisLen, embedDim);
                 // compute
@@ -185,7 +187,6 @@ private:
     int64_t thisTableLen;
     int64_t thisTableOffset;
     int64_t tableIndex;
-    
 };
 }  // namespace BackwardCodegenAdagradUnweightedExactUnique
 #endif

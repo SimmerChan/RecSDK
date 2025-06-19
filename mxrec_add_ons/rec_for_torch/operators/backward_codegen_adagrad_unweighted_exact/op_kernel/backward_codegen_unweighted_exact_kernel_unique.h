@@ -198,7 +198,7 @@ public:
             }
 
             int32_t remain = thisLen;
-            float meanLen = (float)1 / thisLen;
+            float meanLen = 1 / static_cast<float>(thisLen);
 
             // dataCopy In params
             int64_t tableIndex = thisOffsetIndex / batchs;
