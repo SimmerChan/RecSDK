@@ -43,7 +43,6 @@ docker run \
 -e ASCEND_VISIBLE_DEVICES=0-7 \
 -v /etc/ascend_install.info:/etc/ascend_install.info \
 -v /home:/home \
--v /root/.ssh:/root/.ssh \
 -v /usr/local/Ascend/driver:/usr/local/Ascend/driver \
 ${image_name} \
 /bin/bash
