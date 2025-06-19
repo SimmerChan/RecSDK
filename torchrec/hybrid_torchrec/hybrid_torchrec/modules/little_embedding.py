@@ -124,7 +124,7 @@ class HashEmbeddingModuleCollection(nn.Module):
         self.post_input_dist_module_dict: Dict[str, nn.Module] = (
             self.create_post_input_dist()
         )
-        self.lookup_module = self.create_lookup()
+        self.lookup_module_dict: Dict[str, nn.Module] = self.create_lookups()
         self.configs = configs
 
     def compute_context(self, fid: dict[JaggedTensor]) -> LookupContext:
@@ -133,35 +133,34 @@ class HashEmbeddingModuleCollection(nn.Module):
     def create_post_input_dist(self) -> Dict[str, nn.Module]:
         return
 
-    def create_lookups(self) -> nn.Module:
-        embedding_specs = []
-        table_names = []
-        feature_table_map = []
-        for idx, config in enumerate(self.configs):
+    def create_lookups(self) -> Dict[str, nn.Module]:
+        lookup_module_dict = {}
+        for config in self.configs:
             name = config.table_name
-            num_embedding = config.num_embedding // config.world_size
+            num_embeddings = config.num_embedding // config.world_size
             if self.rank == config.world_size - 1:
-                num_embedding += config.num_embedding % config.world_size
-            embedding_spec = (num_embedding, config.embedding_dim, EmbeddingLocation.DEVICE, ComputeDevice.NPU)
-            embedding_specs.append(embedding_spec)
-            table_names.append(name)
-            feature_table_map.extend([idx] * 1)
-        output_dtype = SparseType.FP32
-        optimizer = config.optimizer
-        optimizer_args = {"learning_rate": 0.01}
-        pooling_mode = None
-        device = torch.device("npu")
-        lookup_module = HybridSplitTableBatchedEmbeddingBagsCodegen(
-            embedding_specs=[embedding_spec],
-            feature_table_map=feature_table_map,
-            output_dtype=output_dtype,
-            optimizer=optimizer,
-            optimizer_args=optimizer_args,
-            pooling_mode=pooling_mode,
-            device=device,
-            table_names=table_names,
-        )
-        return lookup_module
+                num_embeddings += config.num_embedding % config.world_size
+            embedding_spec = (num_embeddings, config.embedding_dim, EmbeddingLocation.DEVICE, ComputeDevice.NPU)
+            feature_table_map = [0]
+            output_dtype = SparseType.FP32
+            optimizer = config.optimizer
+            optimizer_args = {"learning_rate": 0.01}
+            pooling_mode = None
+            device = torch.device("npu")
+            table_names = [name]
+            lookup_module = HybridSplitTableBatchedEmbeddingBagsCodegen(
+                embedding_specs=[embedding_spec],
+                feature_table_map=feature_table_map,
+                output_dtype=output_dtype,
+                optimizer=optimizer,
+                optimizer_args=optimizer_args,
+                pooling_mode=pooling_mode,
+                device=device,
+                table_names=table_names,
+            )
+            lookup_module_dict[name] = lookup_module
+        return lookup_module_dict
+
 
     def do_post_input_dist(
         self, jt: JaggedTensor, feat_name: str, context: LookupContext
@@ -178,8 +177,8 @@ class HashEmbeddingModuleCollection(nn.Module):
         return fids
 
     # 示例代码
-    def lookup(self, kjt: KeyedJaggedTensorWithLookHelper) -> torch.Tensor:
-        return self.lookup_module(
+    def lookup(self, kjt: KeyedJaggedTensorWithLookHelper, feat_name: str):
+        return self.lookup_module_dict[feat_name](
             indices=kjt.values().long(),
             offsets=kjt.offsets().long(),
             hash_indices=kjt.hash_indices(),
@@ -192,8 +191,8 @@ class HashEmbeddingModuleCollection(nn.Module):
         indices = self.fids2indices(jt)
         return indices
 
-    def lookup_and_post_dist(self, kjt: KeyedJaggedTensorWithLookHelper):
-        embedding = self.lookup(kjt)
+    def lookup_and_post_dist(self, kjt: KeyedJaggedTensorWithLookHelper, feat_name: str):
+        embedding = self.lookup(kjt, feat_name)
         result = AllGatherEmbedding().apply(self.fwd_pg, self.bwd_pg, embedding)
         return result
 
