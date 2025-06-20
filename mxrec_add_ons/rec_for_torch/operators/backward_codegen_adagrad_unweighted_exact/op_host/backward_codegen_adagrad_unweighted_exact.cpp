@@ -84,7 +84,7 @@ static ge::graphStatus UniqueTilingFunc(gert::TilingContext* context,
 }
                  
 static ge::graphStatus NormalAdamTilingFunc(const gert::RuntimeAttrs* attrs,
-                          BackwardCodegenAdagradUnweightedExactTilingData& tilingData)
+                                            BackwardCodegenAdagradUnweightedExactTilingData& tilingData)
 {
     float beta1 = *attrs->GetFloat(BETA1_INDEX);
     float beta2 = *attrs->GetFloat(BETA2_INDEX);
@@ -107,8 +107,8 @@ static ge::graphStatus NormalAdamTilingFunc(const gert::RuntimeAttrs* attrs,
     return ge::GRAPH_SUCCESS;
 }
 static ge::graphStatus SetTilingKeyFunc(gert::TilingContext* context,
-                                       BackwardCodegenAdagradUnweightedExactTilingData& tilingData,
-                                       const gert::RuntimeAttrs* attrs)
+                                        BackwardCodegenAdagradUnweightedExactTilingData& tilingData,
+                                        const gert::RuntimeAttrs* attrs)
 {
     int optimType = *attrs->GetInt(OPTIM_TYPE_INDEX);
     auto uniqueId = context->GetOptionalInputTensor(UNIQUE_ID_INDEX);
