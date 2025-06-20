@@ -30,17 +30,17 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     auto xShape = context->GetInputShape(X_IDX)->GetStorageShape();
     auto indexShape = context->GetInputShape(INDEX_IDX)->GetStorageShape();
     OPS_CHECK(
-        xShape.GetDimNum() == 1,
+        xShape.GetDimNum() != 1,
         OPS_LOG_E("Tiling Debug", "IndexSectForRank1Backward is only used for input-1 with dim 0 but x.dim is %ld",
                   xShape.GetDimNum()),
         return ge::GRAPH_FAILED);
     OPS_CHECK(
-        gradShape.GetDimNum() == 1,
+        gradShape.GetDimNum() != 1,
         OPS_LOG_E("Tiling Debug", "IndexSectForRank1Backward is only used for input-1 with dim 0 but grad.dim is %ld",
                   gradShape.GetDimNum()),
         return ge::GRAPH_FAILED);
     OPS_CHECK(
-        indexShape.GetDimNum() == 1,
+        indexShape.GetDimNum() != 1,
         OPS_LOG_E("Tiling Debug", "IndexSectForRank1Backward is only used for input-1 with dim 0 but index.dim is %ld",
                   indexShape.GetDimNum()),
         return ge::GRAPH_FAILED);
@@ -72,7 +72,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     ascendPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ub);
     ub = ub - RESERVER_UB_SIZE - xDim0 * gradTypeSize;
     uint32_t stride = ub / (gradTypeSize + indexTypeSize);
-    stride = (stride * maxTypeSize + DATA_ALIGN_TARGET - 1) / DATA_ALIGN_TARGET * DATA_ALIGN_TARGET;
+    stride = (stride * maxTypeSize + DATA_ALIGN_TARGET - 1) / DATA_ALIGN_TARGET * DATA_ALIGN_TARGET / maxTypeSize;
     tiling.set_stride(stride);
 
     context->SetBlockDim(coreNum);
