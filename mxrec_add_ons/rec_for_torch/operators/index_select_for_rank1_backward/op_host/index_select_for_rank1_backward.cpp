@@ -12,6 +12,7 @@
 
 namespace optiling {
 
+constexpr int DATA_ALIGN_TARGET = 32;
 constexpr int RESERVER_UB_SIZE = (20 * 1024);
 // input index
 constexpr int GRAD_IDX = 0;
@@ -65,6 +66,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     auto indexType = context->GetInputTensor(INDEX_IDX)->GetDataType();
     int gradTypeSize = ge::GetSizeByDataType(gradType);
     int indexTypeSize = ge::GetSizeByDataType(indexType);
+    int maxTypeSize = gradTypeSize > indexTypeSize ? gradTypeSize : indexTypeSize;
     tiling.set_gradType(gradType);
     tiling.set_indexType(indexType);
 
@@ -72,6 +74,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     ascendPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ub);
     ub = ub - RESERVER_UB_SIZE - xDim0 * gradTypeSize;
     uint32_t stride = ub / (gradTypeSize + indexTypeSize);
+    stride = (stride * maxTypeSize + DATA_ALIGN_TARGET - 1) / DATA_ALIGN_TARGET * DATA_ALIGN_TARGET;
     tiling.set_stride(stride);
 
     context->SetBlockDim(coreNum);

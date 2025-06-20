@@ -10,6 +10,7 @@
 #include "kernel_operator.h"
 
 using namespace AscendC;
+constexpr int DATA_ALIGN_BYTES = 32;
 
 template <typename IndexType>
 class IndexSelectForRank1BackwardKernel {
@@ -58,21 +59,38 @@ public:
     __aicore__ void Process()
     {
         int32_t remain = totalLen;
-        for (int32_t offset = indexOffset; offset < indexOffset + totalLen; offset += stride) {
-            const int32_t cnt = remain > stride ? stride : remain;
-
+        int32_t offset = indexOffset;
+        while (remain > 0) {
+            int32_t cnt = remain > stride ? stride : remain;
             CopyIn(offset, cnt);
             Compute(cnt);
 
             remain -= cnt;
+            offset += cnt;
         }
         CopyOut();
     }
 
+    template <typename T>
+    __aicore__ inline void CpPadGm2Local(const LocalTensor<T>& lt, const GlobalTensor<T>& gt, int64_t len)
+    {
+        uint32_t alignLen = len * sizeof(T) / DATA_ALIGN_BYTES * DATA_ALIGN_BYTES;
+        uint32_t unAlignLen = len * sizeof(T) - alignLen;
+
+        if (alignLen != 0) {
+            DataCopy(lt, gt, alignLen / sizeof(T));
+        }
+        if (unAlignLen != 0) {
+            const DataCopyExtParams dataCopyExtParams{1, unAlignLen, 0, 0, 0};
+            const DataCopyPadExtParams<T> dataCopyPadExtParams{false, 0, 0, 0};
+            DataCopyPad(lt[alignLen / sizeof(T)], gt[alignLen / sizeof(T)], dataCopyExtParams, dataCopyPadExtParams);
+        }
+    }
+
     __aicore__ void CopyIn(const int offset, int32_t cnt)
     {
-        DataCopy(indexUb, indexGm[offset], AlignTo32(cnt));
-        DataCopy(gradYUb, gradYGm[offset], AlignTo32(cnt));
+        CpPadGm2Local(indexUb, indexGm[offset], cnt);
+        CpPadGm2Local(gradYUb, gradYGm[offset], cnt);
     }
 
     __aicore__ void Compute(const int32_t cnt)
