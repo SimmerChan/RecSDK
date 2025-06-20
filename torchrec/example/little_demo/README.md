@@ -25,6 +25,7 @@ class RandomRecDataset(IterableDataset[Batch]):
 
 创建host和device侧的链接。完整代码参考main.py文件。
 ```python
+......
 dist.init_process_group(backend="hccl")
 host_gp = dist.new_group(backend="gloo")
 host_env = ShardingEnv(world_size=world_size, rank=rank, pg=host_gp)
