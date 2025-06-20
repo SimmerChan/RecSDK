@@ -25,13 +25,13 @@ DEVICE = "npu:7"
 torch.ops.load_library(f"{sysconfig.get_path('purelib')}/libfbgemm_npu_api.so")
 
 
-def get_result_golden(grad: torch.Tensor, x: torch.Tensor, index: torch.Tensor)->torch.Tensor:
+def get_result_golden(grad: torch.Tensor, x: torch.Tensor, index: torch.Tensor) -> torch.Tensor:
     grad_x = torch.zeros_like(x, device=grad.device, dtype=grad.dtype)
     grad_x.scatter_add_(0, index, grad)
     return grad_x
 
 
-def get_result_op(grad: torch.Tensor, x: torch.Tensor, index: torch.Tensor)->torch.Tensor:
+def get_result_op(grad: torch.Tensor, x: torch.Tensor, index: torch.Tensor) -> torch.Tensor:
     grad_x, _ = torch.ops.mxrec.index_select_for_rank1_backward(grad, x, index)
     return grad_x
 
