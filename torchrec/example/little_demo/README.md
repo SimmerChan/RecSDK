@@ -62,7 +62,7 @@ apply_optimizer_in_backward(
 创建sharder，并使用EmbeddingShardingPlanner创建分表计划，将模型、分表计划和sharder传入DistributedModelParallel中获得分布式模型。注意当前支持row-wise和fused模式。完整代码参考main.py。
 ```python
     hybrid_sharder = get_default_hybrid_sharders(host_env)
-    constrans = {...}
+    constraints = {...}
     planner = EmbeddingShardingPlanner(...)
     plan = planner.collective_plan(...)
     logging.info(plan)
