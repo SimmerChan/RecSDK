@@ -132,7 +132,7 @@ public:
     {
         LocalTensor<float> newOutLt = this->queOut.template DeQue<float>();
         SetAtomicAdd<float>();
-        for (uint32_t i = 0; i < thisLen; i++) {
+        for (int32_t i = 0; i < thisLen; i++) {
             int thisGradIndex = i * this->maxD;
             dynamicWeightsGT.SetGlobalBuffer((__gm__ float*)updateArgs[i].weightsAddr, embedDim);
             dynamicM1GT.SetGlobalBuffer((__gm__ float*)updateArgs[i].m1Addr, embedDim);
@@ -204,7 +204,7 @@ public:
                 CopyOutNormal(updateArgs, thisLen, embedDim);
             } else {
                 // CopyIn
-                DynamicArgs updateArgs[MAX_ARGS_PIPE_LEN];
+                DynamicArgs   updateArgs[MAX_ARGS_PIPE_LEN];
                 CopyInDynamic(updateArgs, thisLen, embedDim);
                 // compute
                 inputLt = this->queIn.template DeQue<float>();

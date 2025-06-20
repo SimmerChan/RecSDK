@@ -83,13 +83,19 @@ static ge::graphStatus UniqueTilingFunc(gert::TilingContext* context,
     return ge::GRAPH_SUCCESS;
 }
                  
-void NormalAdamTilingFunc(const gert::RuntimeAttrs* attrs,
+static ge::graphStatus NormalAdamTilingFunc(const gert::RuntimeAttrs* attrs,
                           BackwardCodegenAdagradUnweightedExactTilingData& tilingData)
 {
     float beta1 = *attrs->GetFloat(BETA1_INDEX);
     float beta2 = *attrs->GetFloat(BETA2_INDEX);
     int64_t iter = *attrs->GetInt(ITER_INDEX);
 
+    OPS_CHECK(beta1 == 1.0,
+                OPS_LOG_E("Tiling Debug", "beta1 can not be 1.0."),
+                return ge::GRAPH_FAILED);
+    OPS_CHECK(beta2 == 1.0,
+                OPS_LOG_E("Tiling Debug", "beta2 can not be 1.0."),
+                return ge::GRAPH_FAILED);
     float _beta1 = 1 / (1 - pow(beta1, iter));
     float _beta2 = 1 / (1 - pow(beta2, iter));
 
@@ -98,6 +104,7 @@ void NormalAdamTilingFunc(const gert::RuntimeAttrs* attrs,
     tilingData.set_beta1pow(_beta1);
     tilingData.set_beta2pow(_beta2);
     tilingData.set_iter(iter);
+    return ge::GRAPH_SUCCESS;
 }
 static ge::graphStatus SetTilingKeyFunc(gert::TilingContext* context,
                                        BackwardCodegenAdagradUnweightedExactTilingData& tilingData,
@@ -125,7 +132,7 @@ static ge::graphStatus SetTilingKeyFunc(gert::TilingContext* context,
     if (optimType == ADAM) {
         NormalAdamTilingFunc(attrs, tilingData);
     }
-    return ge::GRAPH_SUCCESS; 
+    return ge::GRAPH_SUCCESS;
 }
 
 static ge::graphStatus ShapeTilingFunc(gert::TilingContext* context,
