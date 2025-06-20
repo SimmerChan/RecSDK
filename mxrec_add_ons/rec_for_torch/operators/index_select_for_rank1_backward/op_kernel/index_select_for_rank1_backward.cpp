@@ -25,17 +25,9 @@ extern "C" __global__ __aicore__ void index_select_for_rank1_backward(GM_ADDR gr
                                                                       GM_ADDR tiling)
 {
     GET_TILING_DATA(tilingData, tiling);
-    if (tilingData.indexType == static_cast<int>(DataType::INT32)) {
-        IndexSelectForRank1BackwardKernel<int32_t> op(tiling);
-        KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_AIV_ONLY);
+    IndexSelectForRank1BackwardKernel<DTYPE_INDEX> op(tiling);
+    KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_AIV_ONLY);
 
-        op.Init(gradY, index, gradX);
-        op.Process();
-    } else if (tilingData.indexType == static_cast<int>(DataType::INT64)) {
-        IndexSelectForRank1BackwardKernel<int64_t> op(tiling);
-        KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_AIV_ONLY);
-
-        op.Init(gradY, index, gradX);
-        op.Process();
-    }
+    op.Init(gradY, index, gradX);
+    op.Process();
 }

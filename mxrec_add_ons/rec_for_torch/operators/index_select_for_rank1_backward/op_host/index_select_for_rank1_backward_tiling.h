@@ -15,8 +15,6 @@ TILING_DATA_FIELD_DEF(int64_t, totalLen);
 TILING_DATA_FIELD_DEF(int64_t, xDim0);
 TILING_DATA_FIELD_DEF(int64_t, baseLen);
 TILING_DATA_FIELD_DEF(int64_t, tailSplitIndex);
-TILING_DATA_FIELD_DEF(int, gradType);
-TILING_DATA_FIELD_DEF(int, indexType);
 TILING_DATA_FIELD_DEF(int64_t, stride);
 END_TILING_DATA_DEF;
 

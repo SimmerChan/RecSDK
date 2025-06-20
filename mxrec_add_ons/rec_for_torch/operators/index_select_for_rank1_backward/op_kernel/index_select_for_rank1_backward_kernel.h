@@ -46,7 +46,7 @@ public:
         indexUb = inQueIndex.AllocTensor<IndexType>();
         gradXUb = outQueGradX.AllocTensor<float>();
 
-        Duplicate(gradXUb, (float)0, xDim0);
+        Duplicate(gradXUb, static_cast<float>(0), xDim0);
 
         set_flag(PIPE_V, PIPE_S, EVENT_ID0);
         wait_flag(PIPE_V, PIPE_S, EVENT_ID0);

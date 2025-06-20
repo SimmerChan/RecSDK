@@ -29,28 +29,26 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     auto gradShape = context->GetInputShape(GRAD_IDX)->GetStorageShape();
     auto xShape = context->GetInputShape(X_IDX)->GetStorageShape();
     auto indexShape = context->GetInputShape(INDEX_IDX)->GetStorageShape();
-
-    if (xShape.GetDimNum() != 1) {
-        printf("IndexSectForRank1Backward is only used for input-1 with dim 0 but x.dim is %ld", xShape.GetDimNum());
-        return ge::GRAPH_FAILED;
-    }
-    if (gradShape.GetDimNum() != 1) {
-        printf("IndexSectForRank1Backward is only used for input-1 with dim 0 but grad.dim is %ld",
-               gradShape.GetDimNum());
-        return ge::GRAPH_FAILED;
-    }
-    if (indexShape.GetDimNum() != 1) {
-        printf("IndexSectForRank1Backward is only used for input-1 with dim 0 but index.dim is %ld",
-               indexShape.GetDimNum());
-        return ge::GRAPH_FAILED;
-    }
+    OPS_CHECK(
+        xShape.GetDimNum() == 1,
+        OPS_LOG_E("Tiling Debug", "IndexSectForRank1Backward is only used for input-1 with dim 0 but x.dim is %ld",
+                  xShape.GetDimNum()),
+        return ge::GRAPH_FAILED);
+    OPS_CHECK(
+        gradShape.GetDimNum() == 1,
+        OPS_LOG_E("Tiling Debug", "IndexSectForRank1Backward is only used for input-1 with dim 0 but grad.dim is %ld",
+                  gradShape.GetDimNum()),
+        return ge::GRAPH_FAILED);
+    OPS_CHECK(
+        indexShape.GetDimNum() == 1,
+        OPS_LOG_E("Tiling Debug", "IndexSectForRank1Backward is only used for input-1 with dim 0 but index.dim is %ld",
+                  indexShape.GetDimNum()),
+        return ge::GRAPH_FAILED);
 
     auto ascendPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
     size_t coreNum = ascendPlatform.GetCoreNumAiv();
-    if (coreNum == 0) {
-        printf("[ERROR]No available aicore\n");
-        return ge::GRAPH_FAILED;
-    }
+    OPS_CHECK(coreNum == 0, OPS_LOG_E("Tiling Debug", "No available aicore"), return ge::GRAPH_FAILED);
+
     int64_t totalLen = indexShape.GetShapeSize();
     int64_t xDim0 = xShape.GetShapeSize();
     int64_t baseLen = indexShape.GetShapeSize() / coreNum;
@@ -67,8 +65,8 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     int gradTypeSize = ge::GetSizeByDataType(gradType);
     int indexTypeSize = ge::GetSizeByDataType(indexType);
     int maxTypeSize = gradTypeSize > indexTypeSize ? gradTypeSize : indexTypeSize;
-    tiling.set_gradType(gradType);
-    tiling.set_indexType(indexType);
+    OPS_CHECK(gradTypeSize <= 0 || indexTypeSize <= 0, OPS_LOG_E("Tiling Debug", "Invalid data type."),
+              return ge::GRAPH_FAILED);
 
     uint64_t ub;
     ascendPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ub);
