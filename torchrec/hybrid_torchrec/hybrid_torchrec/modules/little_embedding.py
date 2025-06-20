@@ -5,7 +5,7 @@
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Callable
 from dataclasses import dataclass
 from concurrent.futures import ThreadPoolExecutor
 
@@ -34,10 +34,6 @@ class Awaitable:
 
 
 executor = ThreadPoolExecutor(6)
-
-
-class PostInputDistAwaitable(Awaitable):
-    pass
 
 
 class LookupAndOutputDistAwaitable(Awaitable):
@@ -117,42 +113,36 @@ class HashEmbeddingModuleCollection(nn.Module):
         self.rank = configs[0].rank
         self.lookup_module_dict: Dict[str, nn.Module] = self.create_lookups()
 
-        self.hashmap_list: List[IdsMapper] = [IdsMapper(config_.num_embedding) for config_ in configs]
-        self._has_create_post_input_dist = False
-        self.post_dist: UniqueHashFeatureProcess = None
+        self.post_input_dist_module_dict: Dict[str, UniqueHashFeatureProcess] = {}
+        self.create_post_input_dist()
 
     def compute_context(self, fid: dict[JaggedTensor]) -> LookupContext:
         pass
 
     def create_post_input_dist(self):
-        table_names: List[str] = [config_.table_name for config_ in self.configs]
-        feature_split_by_table: List[int] = [1] * len(self.configs)
-        self.post_dist = UniqueHashFeatureProcess(
-            table_names,
-            feature_split_by_table,
-            self.hashmap_list,
-            False
-        )
+        for config_ in self.configs:
+            table_name = config_.table_name
+            self.post_input_dist_module_dict[table_name] = UniqueHashFeatureProcess(
+                [table_name],
+                [1],
+                [IdsMapper(config_.num_embedding)],
+                False
+            )
 
     def create_lookups(self) -> Dict[str, nn.Module]:
         return
 
-    def do_post_input_dist(
-        self, features: KeyedJaggedTensor
+    def post_input_dist(
+        self, features: JaggedTensor, feat_name: str
     ):
-        if not self._has_create_post_input_dist:
-            self.create_post_input_dist()
-            self._has_create_post_input_dist = True
-        return self.post_dist(features)
+        with torch.no_grad():
+            kjt = KeyedJaggedTensor.from_jt_dict({feat_name: features})
+            return self.post_input_dist_module_dict[feat_name](kjt)
 
     def do_lookup_and_post_dist(
         self, jt: JaggedTensor, feat_name: str, context: LookupContext
     ):
         return
-
-    # 示例代码
-    def fids2indices(self, fids: KeyedJaggedTensor):
-        return fids
 
     # 示例代码
     def lookup(self, fids: JaggedTensor, feat_name: str):
@@ -163,27 +153,18 @@ class HashEmbeddingModuleCollection(nn.Module):
             result.append([a_id / test_num, a_id / test_num])
         return nn.Parameter(torch.Tensor(result), requires_grad=True)
 
-    def post_input_dist(self, jt: JaggedTensor, feat_name: str):
-        indices = self.fids2indices(jt)
-        return indices
-
     def lookup_and_post_dist(self, jt: JaggedTensor, feat_name: str):
         embedding = self.lookup(jt, feat_name)
         result = AllGatherEmbedding().apply(self.fwd_pg, self.bwd_pg, embedding)
         return result
 
     def forward(self, kjt_list_each_rank: List[KeyedJaggedTensor]):
-        kjt_for_rank = kjt_list_each_rank[self.rank]
-        awaitable = self.do_post_input_dist(kjt_for_rank)
-
         jt_dict: Dict[str, JaggedTensor] = kjt_list_each_rank[self.rank].to_dict()
         awaitable_dict: Dict[str, LookupAndOutputDistAwaitable] = {}
         for feat_name in jt_dict.keys():
-            post_awaitable = PostInputDistAwaitable(
-                self.post_input_dist, jt_dict[feat_name], feat_name
-            )
-            lookup_and_outdist_awaitable = LookupAndOutputDistAwaitable(
+            post_awaitable = self.post_input_dist(jt_dict[feat_name], feat_name)
+            lookup_and_output_dist_awaitable = LookupAndOutputDistAwaitable(
                 post_awaitable, self.lookup_and_post_dist, feat_name
             )
-            awaitable_dict[feat_name] = lookup_and_outdist_awaitable
+            awaitable_dict[feat_name] = lookup_and_output_dist_awaitable
         return awaitable_dict
