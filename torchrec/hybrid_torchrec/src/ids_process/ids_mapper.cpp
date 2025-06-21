@@ -77,7 +77,7 @@ void IdsMapper::UniqueAndLookupOut(const torch::Tensor& globalIds, const torch::
         if (it != ids2indicesMap.end()) {
             hashIndicesPtr[i] = it->second;
             continue;
-        } 
+        }
 
         std::lock_guard<std::mutex> lock(insertMute);
         // after lock, let's find(key) again to make sure that
