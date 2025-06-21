@@ -2,11 +2,12 @@ from collections import defaultdict
 from typing import Dict, List
 
 import torch
-from torchrec import JaggedTensor, KeyedJaggedTensor
 
 from hybrid_torchrec.modules.little_embedding import (
     EmbeddingConfig,
 )
+
+from torchrec import JaggedTensor, KeyedJaggedTensor
 
 
 class Ids2IndexSample:
