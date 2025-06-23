@@ -28,8 +28,7 @@ extern "C" __global__ __aicore__ void backward_codegen_adagrad_unweighted_exact(
                                                                                 GM_ADDR weightsOffsets,
                                                                                 GM_ADDR dOffsets,
                                                                                 GM_ADDR hashSizeCumsum,
-                                                                                GM_ADDR indices,
-                                                                                GM_ADDR offsets,
+                                                                                GM_ADDR indices, GM_ADDR offsets,
                                                                                 GM_ADDR lxuCacheLocations,
                                                                                 GM_ADDR momentum1Dev,
                                                                                 GM_ADDR momentum1Uvm,
@@ -39,16 +38,14 @@ extern "C" __global__ __aicore__ void backward_codegen_adagrad_unweighted_exact(
                                                                                 GM_ADDR momentum2Uvm,
                                                                                 GM_ADDR momentum2Placements,
                                                                                 GM_ADDR momentum2Offsets,
-                                                                                GM_ADDR hashIndices,
-                                                                                GM_ADDR uniqueId,
+                                                                                GM_ADDR hashIndices, GM_ADDR uniqueId,
                                                                                 GM_ADDR uniqueHashSize,
                                                                                 GM_ADDR uniqueInverse,
                                                                                 GM_ADDR out,
                                                                                 GM_ADDR momentum1DevOut,
                                                                                 GM_ADDR momentum2DevOut,
                                                                                 GM_ADDR weightsDevOut,
-                                                                                GM_ADDR workspace,
-                                                                                GM_ADDR tiling)
+                                                                                GM_ADDR workspace, GM_ADDR tiling)
 {
     GET_TILING_DATA(tiling_data, tiling);
     BackwardCodegenUnweightedExact::Args args{
