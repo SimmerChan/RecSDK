@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e-------------------------------------------
+# --------------------------------------------
 # lib relate
 #---------------------------------------------
 source /usr/local/Ascend/ascend-toolkit/set_env.sh
@@ -10,24 +10,24 @@ export CUDA_DEVICE_MAX_CONNECTIONS=1
 
 RECSYS_DIR=$(realpath ../)
 HSTU_DIR=$RECSYS_DIR/hstu
-MEGATRON_DIR=$RECSYS_DIR/../../../Megatron-LM/
-MINDSPEED_DIR=$RECSYS_DIR/../../../MindSpeed/
-export PYTHONPATH=${PYTHONPATH}:${HSTU_DIR}:${MEGATRON_DIR}:{MINDSPEED_DIR}
+# 根据实际情况设置python引用路径
+MEGATRON_DIR=$RECSYS_DIR/megatron-lm/
+MINDSPEED_DIR=$RECSYS_DIR/MindSpeed/
+export PYTHONPATH=${PYTHONPATH}:${HSTU_DIR}:${MEGATRON_DIR}:${MINDSPEED_DIR}
 
-#在当前路径下建立tmp_data: mkdir tmp_data
-#将/home/common_user/GR_data下预处理过的数据集软链接到tmp_data: ln -s /home/common_user/GR_data* tmp_data
-export LIB_FBGEMM_NPU_API_SO_PATH="/path/to/libfbgemm_npu_api.so"                     #根据实际情况修改
+#根据实际情况设置算子适配so文件
+export LIB_FBGEMM_NPU_API_SO_PATH="/path/to/libfbgemm_npu_api.so"
 #---------------------------------------------
 # speedup
 #---------------------------------------------
 export TASK_QUEUE_ENABLE=2
 
 # cpu-binding
-NPU_NUM=$(npu-smi info|grep 910B|wc -1)
+NPU_NUM=$(npu-smi info|grep 910B|wc -l)
 CPU_CORES=$(nproc --all)
 CORES_PER_NPU=$((CPU_CORES / NPU_NUM))
 CPU_AFFINITY_CONF_TMP=1
-if [ "$NPU_NUM" -gt 0]; then
+if [ "$NPU_NUM" -gt 0 ]; then
   for (( i=0; i<NPU_NUM; i++)); do
     start_core=$(( i * CORES_PER_NPU))
     end_core=$((start_core + CORES_PER_NPU -1))
@@ -75,9 +75,17 @@ export LOCAL_UNIQUE_PARALLEL_BATCH_NUM=2 #大batchsize适当调高
 py_file=pretrain_gr_ranking.py
 config_file=movielen_ranking.gin
 TOKENIZER_MODEL=$RECSYS_DIR/llama2-tokenizer.model
+
+# 根据实际情况修改
+export WORLD_SIZE=4
+export ASCEND_RT_VISIBLE_DEVICE=4,5,6,7
+
+MICRO_BATCH_SIIZE=8
+GLOBAL_BATCH_SIZE=$((MICRO_BATCH_SIIZE * WORLD_SIZE))
+
 GPT_ARGS="
-    --mico-batch-size 8 \
-    --global-batch-size 8 \
+    --mico-batch-size ${MICRO_BATCH_SIIZE} \
+    --global-batch-size ${GLOBAL_BATCH_SIZE} \
     --hidden-size 128 \
     --num-attention-heads 4 \
     --seq-length 8000 \
@@ -87,7 +95,7 @@ GPT_ARGS="
 "
 
 torchrun \
-    --nproc_per_node 1 \
+    --nproc_per_node ${WORLD_SIZE} \
     --master_addr localhost \
     --master_port 6000 \
     ${py_file} \

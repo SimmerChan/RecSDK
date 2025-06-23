@@ -110,6 +110,20 @@ index fee4520..dc16147 100644
  
  
  @dataclass
+diff --git a/examples/hstu/dataset/sequence_dataset.py b/examples/hstu/dataset/sequence_dataset.py
+index bc07416..2ca7751 100644
+--- a/examples/hstu/dataset/sequence_dataset.py
++++ b/examples/hstu/dataset/sequence_dataset.py
+@@ -142,7 +142,8 @@ class SequenceDataset(IterableDataset[Batch]):
+ 
+     # We do batching in our own
+     def __len__(self) -> int:
+-        return math.ceil(self._num_samples / self._global_batch_size)
++        return self._num_samples // self._global_batch_size
++        #return math.ceil(self._num_samples / self._global_batch_size)
+ 
+     def __iter__(self) -> Iterator[Batch]:
+         for i in range(len(self)):
 diff --git a/examples/hstu/dataset/utils.py b/examples/hstu/dataset/utils.py
 index ed1b9bc..78f93f0 100644
 --- a/examples/hstu/dataset/utils.py
@@ -143,7 +157,7 @@ index ed1b9bc..78f93f0 100644
          """
          Pin the memory of the batch.
 diff --git a/examples/hstu/distributed/sharding.py b/examples/hstu/distributed/sharding.py
-index 4389a45..ce39753 100644
+index 4389a45..03828d7 100644
 --- a/examples/hstu/distributed/sharding.py
 +++ b/examples/hstu/distributed/sharding.py
 @@ -14,22 +14,33 @@
@@ -168,7 +182,7 @@ index 4389a45..ce39753 100644
 -from dynamicemb.shard import (
 -    DynamicEmbeddingBagCollectionSharder,
 -    DynamicEmbeddingCollectionSharder,
-+from torchrec.distributed.planner.types import ParamterConstrains
++from torchrec.distributed.planner.types import ParameterConstrains
 +from torchrec.optim.keyed import CombineOptimizer, KeyeOptimizerWrapper
 +from torchrec_embcache.distributed.embedding import EmbCacheEmbeddingCollection
 +from torchrec_embcache.distributed.embedding_bag import EmbCacheEmbeddingBagCollection
@@ -254,7 +268,7 @@ index 4389a45..ce39753 100644
 +    constraints: Dict[str, List[str]] = {}
 +    for cfg in eb_configs:
 +        if cfg.name in data_parallel_embedding_table_names:
-+            constraints[cfg.name] = ParamterConstrains(sharding_type=[ShardingType.DATA_PARALLEL.value])
++            constraints[cfg.name] = ParameterConstrains(sharding_type=[ShardingType.DATA_PARALLEL.value])
          else:
 -            constraint = DynamicEmbParameterConstraints(
 -                sharding_types=[
@@ -270,7 +284,7 @@ index 4389a45..ce39753 100644
 -    ddr_cap = 512 * 1024 * 1024 * 1024  # Assume a Node have 512GB memory
 -    intra_host_bw = 450e9  # Nvlink bandwidth
 -    inter_host_bw = 25e9  # NIC bandwidth
-+            constraints[cfg.name] = ParamterConstrains(sharding_type=[ShardingType.ROW_WISE.value])
++            constraints[cfg.name] = ParameterConstrains(sharding_type=[ShardingType.ROW_WISE.value])
  
      topology = Topology(
          local_world_size=get_local_size(),
@@ -415,6 +429,20 @@ index 4389a45..ce39753 100644
      )
      model, dense_optimizer = apply_megatron_ddp(
          model, config, dense_optimizer_param, device
+diff --git a/examples/hstu/kuairand_27k_ranking.gin b/examples/hstu/kuairand_27k_ranking.gin
+index d6fe667..a1cc8b5 100644
+--- a/examples/hstu/kuairand_27k_ranking.gin
++++ b/examples/hstu/kuairand_27k_ranking.gin
+@@ -12,6 +12,9 @@ NetworkArgs.num_layers = 1
+ NetworkArgs.num_attention_heads = 4
+ NetworkArgs.hidden_size = 128
+ NetworkArgs.kv_channels = 128
++NetworkArgs.kernel_backend = 'npu_fused'
++NetworkArgs.layer_type = 'native'
++
+ 
+ RankingArgs.prediction_head_arch = [
+     512, 8
 diff --git a/examples/hstu/model/__init__.py b/examples/hstu/model/__init__.py
 index e4fba4b..1ca3e9f 100644
 --- a/examples/hstu/model/__init__.py
@@ -979,25 +1007,35 @@ index 122016f..69bfe06 100644
                  jagged=seq_embeddings,
                  jagged_offsets=seq_offsets,
                  high_inds=high_inds,
+diff --git a/examples/hstu/movielen_ranking.gin b/examples/hstu/movielen_ranking.gin
+index 314a4e5..a10319b 100644
+--- a/examples/hstu/movielen_ranking.gin
++++ b/examples/hstu/movielen_ranking.gin
+@@ -18,8 +18,10 @@ NetworkArgs.num_attention_heads = 4
+ NetworkArgs.hidden_size = 128
+ NetworkArgs.kv_channels = 128
+ NetworkArgs.target_group_size = 1
++NetworkArgs.kernel_backend = 'npu_fused'
++NetworkArgs.layer_type = 'native'
+ 
+-# ratings 0-5
++# ratings 0-551
+ RankingArgs.prediction_head_arch = [512, 10]
+ RankingArgs.prediction_head_bias = True
+ RankingArgs.num_tasks = 1
 diff --git a/examples/hstu/pretrain_gr_ranking.py b/examples/hstu/pretrain_gr_ranking.py
-index 1715109..f1a1a1c 100644
+index 1715109..b95eed7 100644
 --- a/examples/hstu/pretrain_gr_ranking.py
 +++ b/examples/hstu/pretrain_gr_ranking.py
-@@ -12,7 +12,13 @@
+@@ -12,6 +12,7 @@
  # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  # See the License for the specific language governing permissions and
  # limitations under the License.
 +import os
  import warnings
-+from pickletools import optimize
-+
-+from Tools.scripts.objgraph import ignore
-+
-+from torch_examples_benchmark.din.TorchEasyRec.tzrec.main import lib_fbgemm_npu_api_so_path
  
  # Ignore all FutureWarnings
- warnings.filterwarnings("ignore", category=FutureWarning)
-@@ -25,6 +31,8 @@ from typing import List, Tuple, cast
+@@ -25,6 +26,8 @@ from typing import List, Tuple, cast
  import commons.utils.initialize as init
  import gin
  import torch  # pylint: disable-unused-import
@@ -1006,7 +1044,7 @@ index 1715109..f1a1a1c 100644
  from commons.utils.logging import print_rank_0
  from configs import RankingConfig
  from distributed.sharding import make_optimizer_and_shard
-@@ -34,15 +42,15 @@ from utils import (
+@@ -34,15 +37,15 @@ from utils import (
      OptimizerArgs,
      TensorModelParallelArgs,
      TrainerArgs,
@@ -1024,7 +1062,7 @@ index 1715109..f1a1a1c 100644
  
  
  @gin.configurable
-@@ -64,21 +72,7 @@ class RankingArgs:
+@@ -64,21 +67,7 @@ class RankingArgs:
                  "gelu",
              ], "prediction_head_act_type should be in ['relu', 'gelu']"
  
@@ -1047,7 +1085,7 @@ index 1715109..f1a1a1c 100644
      ranking_args = RankingArgs()
  
      return RankingConfig(
-@@ -93,43 +87,55 @@ def create_ranking_config() -> RankingConfig:
+@@ -93,43 +82,55 @@ def create_ranking_config() -> RankingConfig:
          eval_metrics=ranking_args.eval_metrics,
      )
  
