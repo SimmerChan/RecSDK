@@ -122,7 +122,6 @@ class HashEmbeddingModuleCollection(nn.Module):
         self.fwd_pg = dist.new_group(backend="gloo")
         self.bwd_pg = dist.new_group(backend="gloo")
         self.rank = configs[0].rank
-        self.lookup_module_dict: Dict[str, nn.Module] = self.create_lookups()
         self.configs = configs
 
         self.post_input_dist_module_dict: Dict[str, UniqueHashFeatureProcess] = {}
