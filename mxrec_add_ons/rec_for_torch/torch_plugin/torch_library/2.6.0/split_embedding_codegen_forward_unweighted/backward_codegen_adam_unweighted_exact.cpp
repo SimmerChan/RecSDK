@@ -408,7 +408,9 @@ at::Tensor split_embedding_backward_codegen_adam_unweighted_exact_npu(const Tens
     const int64_t t_max_D = max_D.guard_int(__FILE__, __LINE__);
 
     const at::OptionalDeviceGuard guard(device_of(dev_weights));
-    auto output = at::empty({dev_weights.size(0)}, dev_weights.options());
+    int64_t unique_size = static_cast<int64_t>(unique_ids.numel());
+    int64_t totalEmbed = unique_size == 0 ? dev_weights.size(0) : unique_size * t_max_D;
+    auto output = at::empty({totalEmbed}, dev_weights.options());
 
     int optim_type = static_cast<int>(OptimizerType::ADAM);
     EXEC_NPU_CMD(aclnnBackwardCodegenAdagradUnweightedExact, grad_output, dev_weights, uvm_weights, lxu_cache_weights,
