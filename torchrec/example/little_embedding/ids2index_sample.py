@@ -23,9 +23,9 @@ class Ids2IndexSample:
             if ids in self.ids2index_map:
                 hash_indices.append(self.ids2index_map[ids])
             else:
-                index_ = self.max_index
-                self.ids2index_map[ids] = index_
-                hash_indices.append(index_)
+                index = self.max_index
+                self.ids2index_map[ids] = index
+                hash_indices.append(index)
                 self.max_index += 1
         return hash_indices
 
