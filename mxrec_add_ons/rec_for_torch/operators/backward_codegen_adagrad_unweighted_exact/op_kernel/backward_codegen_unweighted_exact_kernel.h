@@ -439,7 +439,7 @@ public:
     int64_t outDim0;
     int64_t totalHashSize;
 
-    // // DataType
+    // DataType
     int64_t bytesOfDataType;
     int64_t offsetDataType;
 
