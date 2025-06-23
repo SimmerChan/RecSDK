@@ -9,7 +9,7 @@ from collections import defaultdict
 import logging
 import os
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Tuple, Dict, Callable
 
 import torch
@@ -102,7 +102,7 @@ class LookupContext:
     rank: int
     fwd_pg: dist.ProcessGroup
     bwd_pg: dist.ProcessGroup
-    communication_metrix: Dict[str, List[torch.Size]] = {}
+    communication_metrix: Dict[str, List[torch.Size]] = field(default_factory=dict)
 
 
 class AllGatherEmbeddings(torch.autograd.Function):
