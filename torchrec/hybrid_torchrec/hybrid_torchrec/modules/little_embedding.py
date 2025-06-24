@@ -60,13 +60,13 @@ class LookupAndOutputDistAwaitable(Awaitable):
         post_result = self.post_awaitable.wait()
         return self.lookup_and_out_dist_function(post_result, *self.args)
 
-
+# lr=0.001, betas=(0.9, 0.999), eps=1e-08
 @dataclass
 class OptimizerArgs:
-    learning_rate: float
-    eps: float
-    beta1: float
-    beta2: float
+    learning_rate: float = 0.001
+    eps: float = 1e-08 
+    beta1: float =  0.9 
+    beta2: float = 0.999
 
 
 # 不支持一表多查
@@ -76,8 +76,6 @@ class EmbeddingConfig:
     num_embedding: int = 0
     embedding_dim: int = 0
     optimizer: OptimType = OptimType.EXACT_ADAGRAD
-    world_size: int = 0
-    rank: int = 0
     optimizer_args: OptimizerArgs = None
 
 
@@ -121,6 +119,7 @@ class HashEmbeddingModuleCollection(nn.Module):
         self.fwd_pg = dist.new_group(backend="hccl")
         self.bwd_pg = dist.new_group(backend="hccl")
         self.rank = dist.get_rank()
+        self.world_size = dist.get_world_size()
         self.configs = configs
 
         self.post_input_dist_module_dict: Dict[str, UniqueHashFeatureProcess] = {}
@@ -165,8 +164,8 @@ class HashEmbeddingModuleCollection(nn.Module):
         lookup_module_dict = {}
         for config in self.configs:
             name = config.table_name
-            num_embeddings = config.num_embedding // config.world_size
-            if self.rank < config.num_embedding % config.world_size:
+            num_embeddings = config.num_embedding // self.world_size
+            if self.rank < config.num_embedding % self.world_size:
                 num_embeddings += 1
             embedding_spec = (
                 num_embeddings,

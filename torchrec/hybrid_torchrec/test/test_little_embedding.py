@@ -23,7 +23,7 @@ from torch.optim import Adam, Adagrad
 from torch.utils.data import DataLoader
 from hybrid_torchrec import HashEmbeddingBagCollection, HashEmbeddingBagConfig
 from hybrid_torchrec.distributed.sharding_plan import get_default_hybrid_sharders
-from hybrid_torchrec.modules.little_embedding import HashEmbeddingModuleCollection
+from hybrid_torchrec.modules.little_embedding import HashEmbeddingModuleCollection, EmbeddingConfig, OptimizerArgs, OptimType
 from model import Model
 from util import setup_logging
 
@@ -142,7 +142,7 @@ def weight_init(param: torch.nn.Parameter):
 
 
 def split_ranks(batch: Batch, world_size):
-    jt_dict_each_rank = [{} for _ in world_size]
+    jt_dict_each_rank = [{} for _ in range(world_size)]
     jt_dict = batch.sparse_features.to_dict()
     for k in jt_dict.keys():
         jt: JaggedTensor = jt_dict[k]
@@ -218,6 +218,11 @@ class TestModel:
         num_features = sum([c.num_features() for c in embedding_config])
         # Shard
         table_num = len(embedding_config)
+        opmizer_args = OptimizerArgs(
+            learning_rate=OPTIMIZER_PARAM[optim]["lr"],
+            eps=OPTIMIZER_PARAM[optim]["eps"]
+        )
+
         ebc = HashEmbeddingModuleCollection(configs=embedding_config)
         ebc = Model(ebc, num_features)
         # Optimizer
