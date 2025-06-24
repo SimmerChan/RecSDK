@@ -68,6 +68,7 @@ class OptimizerArgs:
     beta1: float
     beta2: float
 
+
 # 不支持一表多查
 @dataclass
 class EmbeddingConfig:
@@ -147,7 +148,7 @@ class HashEmbeddingModuleCollection(nn.Module):
             for feat_name, jt in jt_dict.items():
                 communication_metrix[feat_name].append(jt.values().numel())
                 ids2looup_index[feat_name].update(
-                    {ids: index for ids, index in enumerate(jt.values().tolist())}
+                    {ids: index for index, ids in enumerate(jt.values().tolist())}
                 )
         return LookupContext(
             self.rank, self.fwd_pg, self.bwd_pg, communication_metrix, ids2looup_index
