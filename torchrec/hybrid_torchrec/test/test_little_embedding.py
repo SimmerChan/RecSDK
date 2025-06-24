@@ -146,7 +146,7 @@ def split_ranks(batch: Batch, world_size):
     jt_dict = batch.sparse_features.to_dict()
     for k in jt_dict.keys():
         jt: JaggedTensor = jt_dict[k]
-        ids_for_eatch_rank = [[] for _ in world_size]
+        ids_for_eatch_rank = [[] for _ in range(world_size)]
         for a_id in jt.values():
             ids_for_eatch_rank[a_id % world_size].append(a_id)
         for rank in range(world_size):
@@ -222,8 +222,19 @@ class TestModel:
             learning_rate=OPTIMIZER_PARAM[optim]["lr"],
             eps=OPTIMIZER_PARAM[optim]["eps"]
         )
+        new_config = []
+        for config in embedding_config:
+            new_config.append(
+                EmbeddingConfig(
+                    table_name=config.feature_names[0],
+                    num_embedding=config.num_embeddings,
+                    embedding_dim=config.embedding_dim,
+                    optimizer=OptimType.EXACT_ADAGRAD,
+                    optimizer_args=opmizer_args
 
-        ebc = HashEmbeddingModuleCollection(configs=embedding_config)
+                )
+            )
+        ebc = HashEmbeddingModuleCollection(configs=new_config)
         ebc = Model(ebc, num_features)
         # Optimizer
         results = []
