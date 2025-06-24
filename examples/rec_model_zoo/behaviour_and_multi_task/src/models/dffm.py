@@ -263,6 +263,8 @@ def model_fn(features, labels, mode, params):
             mode=mode, predictions=predictions, loss=loss, train_op=train_op
         )
 
+    raise ValueError(f"Invalid mode received: {mode}")
+
 
 def build_embeddings(features, params):
     with tf.compat.v1.variable_scope("Embedding-Layer"):

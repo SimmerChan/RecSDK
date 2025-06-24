@@ -63,6 +63,7 @@ def parse_data(file_name, write_name):
                 write_file.writelines(lines_to_write)
         write_file.close()
 
+
 def process_feat_strs(feat_strs: str, map_dict: dict[str, dict[str, int]],
                       field_dict: dict) -> dict[str, list[int]]:
     sample_dict = {}
