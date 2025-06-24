@@ -77,7 +77,7 @@ class EmbeddingConfig:
     embedding_dim: int = 0
     optimizer: OptimType = OptimType.EXACT_ADAGRAD
     optimizer_args: OptimizerArgs = None
-
+    init_fn: Callable = None
 
 @dataclass
 class LookupContext:
@@ -128,7 +128,7 @@ class HashEmbeddingModuleCollection(nn.Module):
         self.lookup_module_dict: Dict[str, nn.Module] = self.create_lookups()
         self._weight_init_mins = 0
         self._weight_init_maxs = 1
-        self.init_parameters()
+        # self.init_parameters()
 
     def init_parameters(self):
         for module in self.lookup_module_dict.values():
@@ -194,6 +194,8 @@ class HashEmbeddingModuleCollection(nn.Module):
                 eps=optimizer_args.eps,
             )
             lookup_module_dict[name] = lookup_module
+            # 初始化
+            config.init_fn(lookup_module.split_embedding_weights()[0])
         return lookup_module_dict
 
     def post_input_dist(self, features: JaggedTensor, feat_name: str):

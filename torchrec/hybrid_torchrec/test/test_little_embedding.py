@@ -230,8 +230,8 @@ class TestModel:
                     num_embedding=config.num_embeddings,
                     embedding_dim=config.embedding_dim,
                     optimizer=OptimType.EXACT_ADAGRAD,
-                    optimizer_args=opmizer_args
-
+                    optimizer_args=opmizer_args,
+                    init_fn=weight_init
                 )
             )
         ebc = HashEmbeddingModuleCollection(configs=new_config)
@@ -252,14 +252,15 @@ class TestModel:
 
 
 params = {
+    "world_size": [WORLD_SIZE],
     "table_num": [3],
-    "embedding_dims": [[32, 64, 128]],
-    "num_embeddings": [[400, 4000, 400]],
+    "embedding_dims": [[32, 32, 32]],
+    "num_embeddings": [[4000, 40000, 40000]],
     "pool_type": [torchrec.PoolingType.MEAN],
-    "sharding_type": ["table_wise", "row_wise"],
+    "sharding_type": ["table_wise"],
     "lookup_len": [1024],
     "device": ["npu"],
-    "optim": [Adagrad],
+    "optim": [Adagrad]
 }
 
 

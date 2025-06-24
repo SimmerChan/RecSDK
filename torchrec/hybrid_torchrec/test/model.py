@@ -54,7 +54,7 @@ def permute_values_little_emb(result: Dict, feature_num) -> torch.Tensor:
     for k in range(keys_nums):
         k = f"feat{k}"
         embed = result[k].wait()
-        values.append(torch.concat(embed, dim=1))
+        values.append(torch.concat(embed))
     values = torch.concat(values, dim=1)
     return values
 
