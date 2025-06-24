@@ -22,14 +22,12 @@ from hybrid_torchrec.distributed.batched_embedding_kernel import (
 )
 from hybrid_torchrec.modules.ids_process import IdsMapper
 from hybrid_torchrec.sparse.jagged_tensor_with_looup_helper import KeyedJaggedTensorWithLookHelper
-
 from fbgemm_gpu.split_embedding_configs import EmbOptimType as OptimType, SparseType
 from fbgemm_gpu.split_table_batched_embeddings_ops_training import (
     EmbeddingLocation,
     ComputeDevice,
 )
 from fbgemm_gpu.split_table_batched_embeddings_ops_common import PoolingMode
-
 from torchrec import KeyedJaggedTensor, JaggedTensor
 
 
