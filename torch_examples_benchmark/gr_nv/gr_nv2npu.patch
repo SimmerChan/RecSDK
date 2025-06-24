@@ -157,7 +157,7 @@ index ed1b9bc..78f93f0 100644
          """
          Pin the memory of the batch.
 diff --git a/examples/hstu/distributed/sharding.py b/examples/hstu/distributed/sharding.py
-index 4389a45..b8ea3cf 100644
+index 4389a45..9c37d67 100644
 --- a/examples/hstu/distributed/sharding.py
 +++ b/examples/hstu/distributed/sharding.py
 @@ -14,22 +14,32 @@
@@ -266,7 +266,7 @@ index 4389a45..b8ea3cf 100644
 +    constraints: Dict[str, List[str]] = {}
 +    for cfg in eb_configs:
 +        if cfg.name in data_parallel_embedding_table_names:
-+            constraints[cfg.name] = ParameterConstraints(sharding_type=[ShardingType.DATA_PARALLEL.value])
++            constraints[cfg.name] = ParameterConstraints(sharding_types=[ShardingType.DATA_PARALLEL.value])
          else:
 -            constraint = DynamicEmbParameterConstraints(
 -                sharding_types=[
@@ -282,7 +282,7 @@ index 4389a45..b8ea3cf 100644
 -    ddr_cap = 512 * 1024 * 1024 * 1024  # Assume a Node have 512GB memory
 -    intra_host_bw = 450e9  # Nvlink bandwidth
 -    inter_host_bw = 25e9  # NIC bandwidth
-+            constraints[cfg.name] = ParameterConstraints(sharding_type=[ShardingType.ROW_WISE.value])
++            constraints[cfg.name] = ParameterConstraints(sharding_types=[ShardingType.ROW_WISE.value])
  
      topology = Topology(
          local_world_size=get_local_size(),
@@ -493,7 +493,7 @@ index e4fba4b..1ca3e9f 100644
 +#     assert isinstance(task_config, RetrievalConfig), "please provide a retrieval config"
 +#     return RetrievalGR(hstu_config=hstu_config, task_config=task_config)
 diff --git a/examples/hstu/model/ranking_gr.py b/examples/hstu/model/ranking_gr.py
-index bf1f9ac..151b3df 100644
+index bf1f9ac..c302d2e 100644
 --- a/examples/hstu/model/ranking_gr.py
 +++ b/examples/hstu/model/ranking_gr.py
 @@ -13,10 +13,12 @@
@@ -511,24 +511,22 @@ index bf1f9ac..151b3df 100644
  from configs import HSTUConfig, RankingConfig
  from dataset.utils import RankingBatch
  from megatron.core import parallel_state
-@@ -26,6 +28,16 @@ from modules.hstu_block import HSTUBlock
+@@ -26,6 +28,14 @@ from modules.hstu_block import HSTUBlock
  from modules.metrics import get_multi_event_metric_module
  from modules.mlp import MLP
  from modules.multi_task_loss_module import MultiTaskLossModule
 +from torchrec_embcache.distributed.configs import (
 +    EmbCacheEmbeddingConfig,
-+    InintializerType,
++    InitializerType,
 +    AdmitAndEvictConfig,
 +)
 +from torchrec_embcache.distributed.embedding import EmbCacheEmbeddingCollection
 +from torchrec.modules.embedding_configs import EmbeddingConfig
 +from hybrid_torchrec import HashEmbeddingCollection
-+
-+from torch_examples_benchmark.model_zoo.aliccp.step7_gen_spec import multi_hot_fields
  
  
  class RankingGR(BaseModel):
-@@ -49,7 +61,7 @@ class RankingGR(BaseModel):
+@@ -49,7 +59,7 @@ class RankingGR(BaseModel):
          assert (
              self._tp_size == 1
          ), "RankingGR does not support tensor model parallel for now"
@@ -537,7 +535,7 @@ index bf1f9ac..151b3df 100644
          self._hstu_config = hstu_config
          self._task_config = task_config
  
-@@ -59,7 +71,47 @@ class RankingGR(BaseModel):
+@@ -59,7 +69,47 @@ class RankingGR(BaseModel):
                  ebc_config.dim == self._embedding_dim
              ), "hstu layer hidden size should equal to embedding dim"
  
@@ -586,7 +584,7 @@ index bf1f9ac..151b3df 100644
  
          self._hstu_block = HSTUBlock(hstu_config)
          self._mlp = MLP(
-@@ -125,7 +177,6 @@ class RankingGR(BaseModel):
+@@ -125,7 +175,6 @@ class RankingGR(BaseModel):
  
          return self._mlp(hidden_states.values), batch.labels
  
@@ -1005,14 +1003,14 @@ index 122016f..69bfe06 100644
                  jagged_offsets=seq_offsets,
                  high_inds=high_inds,
 diff --git a/examples/hstu/movielen_ranking.gin b/examples/hstu/movielen_ranking.gin
-index 314a4e5..a10319b 100644
+index 314a4e5..fc0c30d 100644
 --- a/examples/hstu/movielen_ranking.gin
 +++ b/examples/hstu/movielen_ranking.gin
 @@ -18,8 +18,10 @@ NetworkArgs.num_attention_heads = 4
  NetworkArgs.hidden_size = 128
  NetworkArgs.kv_channels = 128
  NetworkArgs.target_group_size = 1
-+NetworkArgs.kernel_backend = 'npu_fused'
++NetworkArgs.kernel_backend = 'pytorch'
 +NetworkArgs.layer_type = 'native'
  
 -# ratings 0-5
@@ -1919,7 +1917,7 @@ index 0000000..11df57b
 +    return padded_x.flatten(0, 1)[mask.view(-1), :]
 diff --git a/examples/hstu/ops/pt_ops/pt_position.py b/examples/hstu/ops/pt_ops/pt_position.py
 new file mode 100644
-index 0000000..5bd0134
+index 0000000..91833ea
 --- /dev/null
 +++ b/examples/hstu/ops/pt_ops/pt_position.py
 @@ -0,0 +1,146 @@
@@ -1964,7 +1962,7 @@ index 0000000..5bd0134
 +) -> torch.Tensor:
 +    jagged = jagged * scale
 +    B = high_inds.shape[0]
-+    col_indices = torch_arange(max_seq_len, device=high_inds.device).expend(
++    col_indices = torch_arange(max_seq_len, device=high_inds.device).expand(
 +        B, max_seq_len
 +    )
 +    col_indices = torch.clamp(col_indices, max=high_inds.view(-1, 1))
@@ -2228,7 +2226,7 @@ index 1715109..b95eed7 100644
          model_train,
          trainer_args,
 diff --git a/examples/hstu/utils.py b/examples/hstu/utils.py
-index 09b1a55..10aa03c 100644
+index 09b1a55..5b5e3e9 100644
 --- a/examples/hstu/utils.py
 +++ b/examples/hstu/utils.py
 @@ -17,17 +17,19 @@ import sys
@@ -2263,15 +2261,16 @@ index 09b1a55..10aa03c 100644
 +# from dynamicemb import DynamicEmbTableOptions
  from megatron.core import parallel_state
  from megatron.core.distributed import finalize_model_grads
- from model import RankingGR, RetrievalGR
+-from model import RankingGR, RetrievalGR
++from model import RankingGR
  from modules.embedding import ShardedEmbeddingConfig
  from torchrec.distributed.model_parallel import DistributedModelParallel
 -
-+from torchrec_embcache.distributed.train_pipline import EmbCacheTrainPiplelineSparseDist
++from torchrec_embcache.distributed.train_pipeline import EmbCacheTrainPipelineSparseDist
 +import os
 +from typing import Optional
 +
-+from megatron.core.distributed import DistributedDateParllel
++from megatron.core.distributed import DistributedDataParallel
 +from megatron.core.transformer.module import Float16Module
 +from torch import nn
 +
@@ -2279,7 +2278,7 @@ index 09b1a55..10aa03c 100644
 +    while(
 +      isinstance(module, DistributedModelParallel)
 +        or isinstance(module, Float16Module)
-+        or isinstance(module, DistributedDateParllel)
++        or isinstance(module, DistributedDataParallel)
 +    ):
 +        if isinstance(module, DistributedModelParallel):
 +            module = module._dmp_wrapped_module

@@ -80,12 +80,13 @@ TOKENIZER_MODEL=$RECSYS_DIR/llama2-tokenizer.model
 export WORLD_SIZE=4
 export ASCEND_RT_VISIBLE_DEVICE=4,5,6,7
 
-MICRO_BATCH_SIIZE=8
-GLOBAL_BATCH_SIZE=$((MICRO_BATCH_SIIZE * WORLD_SIZE))
+MICRO_BATCH_SIZE=8
+GLOBAL_BATCH_SIZE=$((MICRO_BATCH_SIZE * WORLD_SIZE))
 
 GPT_ARGS="
-    --mico-batch-size ${MICRO_BATCH_SIIZE} \
+    --micro-batch-size ${MICRO_BATCH_SIZE} \
     --global-batch-size ${GLOBAL_BATCH_SIZE} \
+    --num-layers 1 \
     --hidden-size 128 \
     --num-attention-heads 4 \
     --seq-length 8000 \
