@@ -143,58 +143,9 @@ def train(hparams, scope=None, target_session=""):
     for key, val in params.items():
         hparams.logger.info(str(key) + ':' + str(val))
 
-    print('load and cache data...')
-    if hparams.train_file is not None:
-        cache_data(hparams, hparams.train_file, flag='train')
-    if hparams.eval_file is not None:
-        cache_data(hparams, hparams.eval_file, flag='eval')
-    if hparams.test_file is not None:
-        cache_data(hparams, hparams.test_file, flag='test')
-    if hparams.infer_file is not None:
-        cache_data(hparams, hparams.infer_file, flag='infer')
+    load_and_cache_data(hparams)
 
-    if hparams.model_type == 'deepFM':
-        model_creator = DeepfmModel
-        print("run deepfm model!")
-    elif hparams.model_type == 'deepWide':
-        model_creator = DeepWideModel
-        print("run deepWide model!")
-    elif hparams.model_type == 'dnn':
-        print("run dnn model!")
-        model_creator = DnnModel
-    elif hparams.model_type == 'ipnn':
-        print("run ipnn model!")
-        model_creator = IpnnModel
-    elif hparams.model_type == 'opnn':
-        print("run opnn model!")
-        model_creator = OpnnModel
-    elif hparams.model_type == 'din':
-        print("run din model!")
-        model_creator = DinModel
-    elif hparams.model_type == 'fm':
-        print("run fm model!")
-        model_creator = FmModel
-    elif hparams.model_type == 'lr':
-        print("run lr model!")
-        model_creator = LrModel
-    elif hparams.model_type == 'din':
-        print("run din model!")
-        model_creator = DinModel
-    elif hparams.model_type == 'cccfnet':
-        print("run cccfnet model!")
-        model_creator = CCCFModel
-    elif hparams.model_type == 'deepcross':
-        print("run deepcross model!")
-        model_creator = DeepCrossModel
-    elif hparams.model_type == 'exDeepFM':
-        print("run extreme deepFM model!")
-        model_creator = ExtremeDeepFMModel
-    elif hparams.model_type == 'cross':
-        print("run extreme cross model!")
-        model_creator = CrossModel
-
-    else:
-        raise ValueError("model type should be cccfnet, deepFM, deepWide, dnn, fm, lr, ipnn, opnn, din")
+    model_creator = get_model_creator(hparams.model_type)
 
     # define train,eval,infer graph
     # define train session, eval session, infer session
@@ -289,3 +240,55 @@ def train(hparams, scope=None, target_session=""):
     if hparams.infer_file is not None:
         run_infer(train_model, train_sess, hparams.infer_file_cache, hparams, util.INFER_NUM)
 
+
+def load_and_cache_data(hparams):
+    print('load and cache data...')
+    if hparams.train_file is not None:
+        cache_data(hparams, hparams.train_file, flag='train')
+    if hparams.eval_file is not None:
+        cache_data(hparams, hparams.eval_file, flag='eval')
+    if hparams.test_file is not None:
+        cache_data(hparams, hparams.test_file, flag='test')
+    if hparams.infer_file is not None:
+        cache_data(hparams, hparams.infer_file, flag='infer')
+
+
+def get_model_creator(model_type):
+    if model_type == 'deepFM':
+        print("run deepfm model!")
+        return DeepfmModel
+    elif model_type == 'deepWide':
+        print("run deepWide model!")
+        return DeepWideModel
+    elif model_type == 'dnn':
+        print("run dnn model!")
+        return DnnModel
+    elif model_type == 'ipnn':
+        print("run ipnn model!")
+        return IpnnModel
+    elif model_type == 'opnn':
+        print("run opnn model!")
+        return OpnnModel
+    elif model_type == 'din':
+        print("run din model!")
+        return DinModel
+    elif model_type == 'fm':
+        print("run fm model!")
+        return FmModel
+    elif model_type == 'lr':
+        print("run lr model!")
+        return LrModel
+    elif model_type == 'cccfnet':
+        print("run cccfnet model!")
+        return CCCFModel
+    elif model_type == 'deepcross':
+        print("run deepcross model!")
+        return DeepCrossModel
+    elif model_type == 'exDeepFM':
+        print("run extreme deepFM model!")
+        return ExtremeDeepFMModel
+    elif model_type == 'cross':
+        print("run extreme cross model!")
+        return CrossModel
+    else:
+        raise ValueError("model type should be cccfnet, deepFM, deepWide, dnn, fm, lr, ipnn, opnn, din")
