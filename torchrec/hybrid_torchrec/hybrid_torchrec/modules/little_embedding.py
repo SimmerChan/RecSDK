@@ -61,6 +61,13 @@ class LookupAndOutputDistAwaitable(Awaitable):
         return self.lookup_and_out_dist_function(post_result, *self.args)
 
 
+@dataclass
+class OptimizerArgs:
+    learning_rate: float
+    eps: float
+    beta1: float
+    beta2: float
+
 # 不支持一表多查
 @dataclass
 class EmbeddingConfig:
@@ -79,7 +86,7 @@ class LookupContext:
     fwd_pg: dist.ProcessGroup
     bwd_pg: dist.ProcessGroup
     communication_metrix: Dict[str, List[torch.Size]] = field(default_factory=dict)
-    ids2looup_index: Dict[str, Dict[int]] = field(default_factory=dict)
+    ids2looup_index: Dict[str, Dict[int, int]] = field(default_factory=dict)
 
 
 class AllGatherEmbeddings(torch.autograd.Function):
@@ -91,7 +98,7 @@ class AllGatherEmbeddings(torch.autograd.Function):
         ctx.feat_name = feat_name
         embed_dim = embedding.shape[1]
         result_list = [
-            torch.empty((size, embed_dim), embedding.shape)
+            torch.empty((size, embed_dim), device=embedding.device)
             for size in context.communication_metrix[feat_name]
         ]
         context.fwd_pg.allgather(result_list, embedding).wait()
@@ -138,9 +145,9 @@ class HashEmbeddingModuleCollection(nn.Module):
         for kjt in kjt_list_each_rank:
             jt_dict: Dict[str, JaggedTensor] = kjt.to_dict()
             for feat_name, jt in jt_dict.items():
-                communication_metrix[feat_name].append(jt.values().size())
+                communication_metrix[feat_name].append(jt.values().numel())
                 ids2looup_index[feat_name].update(
-                    {ids: index for ids, index in jt.values().to_list()}
+                    {ids: index for ids, index in enumerate(jt.values().tolist())}
                 )
         return LookupContext(
             self.rank, self.fwd_pg, self.bwd_pg, communication_metrix, ids2looup_index
@@ -169,7 +176,6 @@ class HashEmbeddingModuleCollection(nn.Module):
             feature_table_map = [0]
             output_dtype = SparseType.FP32
             optimizer = config.optimizer
-            learning_rate = 0.01
             pooling_mode = PoolingMode.NONE
             device = torch.device("npu")
             optimizer_args = config.optimizer_args
@@ -215,7 +221,7 @@ class HashEmbeddingModuleCollection(nn.Module):
         kjt = kjt.pin_memory().to(device=torch.device("npu"), non_blocking=True)
         embedding = self.lookup(kjt, feat_name)
         result = AllGatherEmbeddings().apply(embedding, feat_name, context)
-        return result, context
+        return result
 
     def forward(
         self, kjt_list_each_rank: List[KeyedJaggedTensor]
@@ -229,4 +235,4 @@ class HashEmbeddingModuleCollection(nn.Module):
                 post_awaitable, self.lookup_and_post_dist, feat_name, context
             )
             awaitable_dict[feat_name] = lookup_and_output_dist_awaitable
-        return awaitable_dict
+        return awaitable_dict, context

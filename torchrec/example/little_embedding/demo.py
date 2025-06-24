@@ -12,6 +12,7 @@ from typing import Dict
 
 import torch
 import torch.distributed as dist
+import torch_npu
 
 from hybrid_torchrec.modules.little_embedding import (
     HashEmbeddingModuleCollection,
@@ -19,8 +20,9 @@ from hybrid_torchrec.modules.little_embedding import (
     EmbeddingConfig,
     OptimizerArgs,
     OptimType,
-    LookupContext
+    LookupContext,
 )
+import torch_npu.npu
 from torchrec import KeyedJaggedTensor, JaggedTensor
 
 
@@ -37,6 +39,7 @@ def get_distribute_env():
 
 
 rank, world_size = get_distribute_env()
+torch_npu.npu.set_device(rank)
 dist.init_process_group(backend="gloo")
 
 
@@ -63,6 +66,7 @@ def dataset_getnext():
     sparse_fid_list = [input_for_rank0, input_for_rank1]
     return sparse_fid_list
 
+
 optimizer_type = OptimType.EXACT_ADAGRAD
 optimizer_args = OptimizerArgs(
     learning_rate=0.1,
@@ -72,10 +76,20 @@ optimizer_args = OptimizerArgs(
 )
 
 config0 = EmbeddingConfig(
-    table_name="table0", num_embedding=100, embedding_dim=32, rank=rank, world_size=world_size
+    table_name="table0",
+    num_embedding=100,
+    embedding_dim=32,
+    rank=rank,
+    world_size=world_size,
+    optimizer_args=optimizer_args,
 )
 config1 = EmbeddingConfig(
-    table_name="table1", num_embedding=100, embedding_dim=32, rank=rank, world_size=world_size
+    table_name="table1",
+    num_embedding=100,
+    embedding_dim=32,
+    rank=rank,
+    world_size=world_size,
+    optimizer_args=optimizer_args,
 )
 embedding = HashEmbeddingModuleCollection(configs=[config0, config1])
 
@@ -87,6 +101,7 @@ for i in range(3):
     awaitables, context = embedding(data)
     result = [awaitables["table0"].wait()[rank], awaitables["table1"].wait()[rank]]
     logging.info("result %s", result)
+    logging.info("context.ids2looup_index %s", context.ids2looup_index["table0"])
     loss = torch.concat(result).sum()
     loss.backward()
     # result =
@@ -101,7 +116,9 @@ for i in range(3):
 pipe1 = []
 for i in range(10):
     data = dataset_getnext()
-    awaitables: Dict[str, Awaitable] = embedding(data)
+    awaitables: Dict[str, Awaitable]
+    context: LookupContext
+    awaitables, context = embedding(data)
     pipe1.append(awaitables)
 
 pipe2 = []
