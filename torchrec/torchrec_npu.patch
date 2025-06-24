@@ -30,10 +30,10 @@ index 9582f844..c2cfa6b0 100644
          keywords=[
              "pytorch",
 diff --git a/torchrec/__init__.py b/torchrec/__init__.py
-index 29258f6f..12ed11dd 100644
+index 29258f6f..b7940a1c 100644
 --- a/torchrec/__init__.py
 +++ b/torchrec/__init__.py
-@@ -1,36 +1,50 @@
+@@ -1,36 +1,46 @@
 -#!/usr/bin/env python3
 -# Copyright (c) Meta Platforms, Inc. and affiliates.
 -# All rights reserved.
@@ -116,10 +116,6 @@ index 29258f6f..12ed11dd 100644
 +    NPU = 3
 +
 +split_table_batched_embeddings_ops_training.ComputeDevice = ComputeDevice
-+
-+def check(discriminant, error_msg):
-+    if (not discriminant):
-+        raise ValueError(error_msg)
 diff --git a/torchrec/distributed/batched_embedding_kernel.py b/torchrec/distributed/batched_embedding_kernel.py
 index c24b912d..20a564bc 100644
 --- a/torchrec/distributed/batched_embedding_kernel.py
@@ -252,14 +248,14 @@ index 43eeda32..e1575133 100644
                      EmbeddingComputeKernel.FUSED_UVM.value,
                      EmbeddingComputeKernel.FUSED_UVM_CACHING.value,
 diff --git a/torchrec/distributed/model_parallel.py b/torchrec/distributed/model_parallel.py
-index 5cbd2429..4c5d0ae3 100644
+index 5cbd2429..e00ef71f 100644
 --- a/torchrec/distributed/model_parallel.py
 +++ b/torchrec/distributed/model_parallel.py
 @@ -48,6 +48,7 @@ from torchrec.distributed.utils import (
  )
  from torchrec.optim.fused import FusedOptimizerModule
  from torchrec.optim.keyed import CombinedOptimizer, KeyedOptimizer
-+from torchrec import check
++from torchrec.test_util import check
  
  try:
      torch.ops.load_library("//deeplearning/fbgemm/fbgemm_gpu:sparse_ops")
@@ -330,14 +326,14 @@ index 7dd86b06..43b0a37a 100644
  
      return lookup.get((compute_device, compute_kernel))
 diff --git a/torchrec/distributed/planner/planners.py b/torchrec/distributed/planner/planners.py
-index 101240d6..021730a4 100644
+index 101240d6..bdaae0a9 100644
 --- a/torchrec/distributed/planner/planners.py
 +++ b/torchrec/distributed/planner/planners.py
 @@ -65,6 +65,7 @@ from torchrec.distributed.types import (
      ShardMetadata,
  )
  from torchrec.distributed.utils import none_throws
-+from torchrec import check
++from torchrec.test_util import check
  
  
  def to_sharding_plan(
@@ -421,14 +417,14 @@ index 52909970..fad9df2d 100644
      )
  
 diff --git a/torchrec/distributed/planner/types.py b/torchrec/distributed/planner/types.py
-index 4bb0a4f4..435e2385 100644
+index 4bb0a4f4..4b852ea6 100644
 --- a/torchrec/distributed/planner/types.py
 +++ b/torchrec/distributed/planner/types.py
 @@ -38,8 +38,10 @@ from torchrec.distributed.types import (
  from torchrec.modules.embedding_configs import DataType
  from torchrec.modules.embedding_modules import EmbeddingCollectionInterface
  from torchrec.modules.mc_embedding_modules import ManagedCollisionEmbeddingCollection
-+from torchrec import check
++from torchrec.test_util import check
  
  # ---- Perf ---- #
 +MAX_WORLD_SIZE = 8
@@ -630,7 +626,7 @@ index 8085c415..e55a7d03 100644
      def from_process_group(cls, pg: dist.ProcessGroup) -> "ShardingEnv":
          """
 diff --git a/torchrec/optim/apply_optimizer_in_backward.py b/torchrec/optim/apply_optimizer_in_backward.py
-index 99ba72df..b3b7fa6b 100644
+index 99ba72df..310ab1b0 100644
 --- a/torchrec/optim/apply_optimizer_in_backward.py
 +++ b/torchrec/optim/apply_optimizer_in_backward.py
 @@ -11,7 +11,7 @@ from typing import Any, Dict, Iterable, Type
@@ -638,7 +634,7 @@ index 99ba72df..b3b7fa6b 100644
  
  import torch
 -
-+from torchrec import check
++from torchrec.test_util import check
  
  def apply_optimizer_in_backward(
      optimizer_class: Type[torch.optim.Optimizer],
@@ -654,14 +650,14 @@ index 99ba72df..b3b7fa6b 100644
          optimizer_class=optimizer_class,
          params=params,
 diff --git a/torchrec/optim/keyed.py b/torchrec/optim/keyed.py
-index 2f6b75d5..690e2b4b 100644
+index 2f6b75d5..0d50b419 100644
 --- a/torchrec/optim/keyed.py
 +++ b/torchrec/optim/keyed.py
 @@ -28,6 +28,7 @@ import torch
  from torch import optim
  from torch.distributed._shard.sharded_tensor import ShardedTensor
  from torch.distributed.tensor import DTensor
-+from torchrec import check
++from torchrec.test_util import check
  
  OptimizerFactory = Callable[[List[Union[torch.Tensor, ShardedTensor]]], optim.Optimizer]
  
@@ -692,14 +688,14 @@ index 2f6b75d5..690e2b4b 100644
  
      def zero_grad(self, set_to_none: bool = False) -> None:
 diff --git a/torchrec/optim/optimizers.py b/torchrec/optim/optimizers.py
-index 10ffcdb2..d5801387 100644
+index 10ffcdb2..8c5aee13 100644
 --- a/torchrec/optim/optimizers.py
 +++ b/torchrec/optim/optimizers.py
 @@ -15,6 +15,7 @@ import torch
  from torch import nn
  
  from torch.optim.optimizer import Optimizer
-+from torchrec import check
++from torchrec.test_util import check
  
  
  def in_backward_optimizer_filter(
@@ -713,14 +709,14 @@ index 10ffcdb2..d5801387 100644
          if hasattr(param, "_in_backward_optimizers") == include:
              yield fqn, param
 diff --git a/torchrec/sparse/jagged_tensor.py b/torchrec/sparse/jagged_tensor.py
-index 33665883..5d5dcb0b 100644
+index 33665883..675e0034 100644
 --- a/torchrec/sparse/jagged_tensor.py
 +++ b/torchrec/sparse/jagged_tensor.py
 @@ -28,6 +28,7 @@ from torchrec.pt2.checks import (
      pt2_guard_size_oblivious,
  )
  from torchrec.streamable import Pipelineable
-+from torchrec import check
++from torchrec.test_util import check
  
  try:
      torch.ops.load_library("//deeplearning/fbgemm/fbgemm_gpu:sparse_ops")
