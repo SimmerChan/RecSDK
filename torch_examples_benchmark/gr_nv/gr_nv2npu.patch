@@ -157,10 +157,10 @@ index ed1b9bc..78f93f0 100644
          """
          Pin the memory of the batch.
 diff --git a/examples/hstu/distributed/sharding.py b/examples/hstu/distributed/sharding.py
-index 4389a45..03828d7 100644
+index 4389a45..b8ea3cf 100644
 --- a/examples/hstu/distributed/sharding.py
 +++ b/examples/hstu/distributed/sharding.py
-@@ -14,22 +14,33 @@
+@@ -14,22 +14,32 @@
  # limitations under the License.
  
  # pyre-strict
@@ -182,8 +182,7 @@ index 4389a45..03828d7 100644
 -from dynamicemb.shard import (
 -    DynamicEmbeddingBagCollectionSharder,
 -    DynamicEmbeddingCollectionSharder,
-+from torchrec.distributed.planner.types import ParameterConstrains
-+from torchrec.optim.keyed import CombineOptimizer, KeyeOptimizerWrapper
++from torchrec.distributed.planner.types import ParameterConstraints
 +from torchrec_embcache.distributed.embedding import EmbCacheEmbeddingCollection
 +from torchrec_embcache.distributed.embedding_bag import EmbCacheEmbeddingBagCollection
 +# from dynamicemb import DynamicEmbTableOptions
@@ -204,7 +203,7 @@ index 4389a45..03828d7 100644
  from fbgemm_gpu.split_embedding_configs import EmbOptimType, SparseType
  from megatron.core import parallel_state, tensor_parallel
  from megatron.core.distributed import DistributedDataParallel as DDP
-@@ -59,7 +70,7 @@ from torchrec.distributed.fbgemm_qcomm_codec import (
+@@ -59,7 +69,7 @@ from torchrec.distributed.fbgemm_qcomm_codec import (
      get_qcomm_codecs_registry,
  )
  from torchrec.distributed.model_parallel import DistributedModelParallel
@@ -213,7 +212,7 @@ index 4389a45..03828d7 100644
  from torchrec.distributed.planner.storage_reservations import (
      HeuristicalStorageReservation,
  )
-@@ -69,16 +80,23 @@ from torchrec.distributed.types import (
+@@ -69,16 +79,22 @@ from torchrec.distributed.types import (
      ShardingEnv,
      ShardingType,
  )
@@ -226,7 +225,6 @@ index 4389a45..03828d7 100644
 +from hybrid_torchrec import HashEmbeddingCollection, EmbeddingConfig
 +from hybrid_torchrec.modules.hash_embeddingbag import HashEmbeddingBagCollection
 +
-+from torch_examples_benchmark.dlrm.dlrm_main import with_embcache
  
  TORCHREC_TYPES: Set[Type[Union[EmbeddingBagCollection, EmbeddingCollection]]] = {
      EmbeddingBagCollection,
@@ -238,7 +236,7 @@ index 4389a45..03828d7 100644
  }
  
  DATA_PARALLEL_EMBEDDING_MODULE_NAME = "_data_parallel_embedding_collection"
-@@ -147,66 +165,27 @@ def apply_megatron_ddp(
+@@ -147,66 +163,27 @@ def apply_megatron_ddp(
  def get_planner(
      eb_configs: List[EmbeddingConfig],
      data_parallel_embedding_table_names: Set[str],
@@ -268,7 +266,7 @@ index 4389a45..03828d7 100644
 +    constraints: Dict[str, List[str]] = {}
 +    for cfg in eb_configs:
 +        if cfg.name in data_parallel_embedding_table_names:
-+            constraints[cfg.name] = ParameterConstrains(sharding_type=[ShardingType.DATA_PARALLEL.value])
++            constraints[cfg.name] = ParameterConstraints(sharding_type=[ShardingType.DATA_PARALLEL.value])
          else:
 -            constraint = DynamicEmbParameterConstraints(
 -                sharding_types=[
@@ -284,7 +282,7 @@ index 4389a45..03828d7 100644
 -    ddr_cap = 512 * 1024 * 1024 * 1024  # Assume a Node have 512GB memory
 -    intra_host_bw = 450e9  # Nvlink bandwidth
 -    inter_host_bw = 25e9  # NIC bandwidth
-+            constraints[cfg.name] = ParameterConstrains(sharding_type=[ShardingType.ROW_WISE.value])
++            constraints[cfg.name] = ParameterConstraints(sharding_type=[ShardingType.ROW_WISE.value])
  
      topology = Topology(
          local_world_size=get_local_size(),
@@ -313,7 +311,7 @@ index 4389a45..03828d7 100644
  _optimizer_str_to_optim_type = {
      "adam": EmbOptimType.ADAM,
      "sgd": EmbOptimType.EXACT_SGD,
-@@ -252,7 +231,6 @@ def sparse_optimizer_factory_and_class(
+@@ -252,7 +229,6 @@ def sparse_optimizer_factory_and_class(
  
  def apply_dmp(
      model: torch.nn.Module,
@@ -321,7 +319,7 @@ index 4389a45..03828d7 100644
      sparse_optimizer_param: OptimizerParam,
      pg: torch.distributed.ProcessGroup,
      device: torch.device,
-@@ -279,7 +257,6 @@ def apply_dmp(
+@@ -279,7 +255,6 @@ def apply_dmp(
          "beta1": sparse_optimizer_param.adam_beta1,
          "beta2": sparse_optimizer_param.adam_beta2,
          "eps": sparse_optimizer_param.adam_eps,
@@ -329,7 +327,7 @@ index 4389a45..03828d7 100644
          "output_dtype": SparseType.FP32,
      }
      eb_configs = []
-@@ -301,7 +278,6 @@ def apply_dmp(
+@@ -301,7 +276,6 @@ def apply_dmp(
      planner = get_planner(
          eb_configs,
          set(data_parallel_embedding_table_names),
@@ -337,7 +335,7 @@ index 4389a45..03828d7 100644
          device,
      )
      qcomm_codecs_registry = get_qcomm_codecs_registry(
-@@ -310,17 +286,36 @@ def apply_dmp(
+@@ -310,17 +284,36 @@ def apply_dmp(
              backward_precision=CommType.FP32,
          )
      )
@@ -385,7 +383,7 @@ index 4389a45..03828d7 100644
      plan = planner.collective_plan(model, sharders, pg)
      data_parallel_sharding_plans = []
      for data_parallel_embedding_module_name in data_parallel_embedding_module_names:
-@@ -328,15 +323,14 @@ def apply_dmp(
+@@ -328,15 +321,14 @@ def apply_dmp(
              plan.plan.pop(data_parallel_embedding_module_name, None)
          )
      # Shard model
@@ -409,7 +407,7 @@ index 4389a45..03828d7 100644
  
      # Create keyed optimizer
      non_fused_sparse_params = {}
-@@ -379,17 +373,16 @@ def make_optimizer_and_shard(
+@@ -379,17 +371,16 @@ def make_optimizer_and_shard(
      config: TransformerConfig,
      sparse_optimizer_param: OptimizerParam,
      dense_optimizer_param: OptimizerParam,
@@ -679,16 +677,15 @@ index 8aa6894..3be7e77 100644
          sm_minor_version = torch.cuda.get_device_properties(0).minor
          if sm_major_version == 9 and sm_minor_version == 0:
 diff --git a/examples/hstu/modules/hstu_block.py b/examples/hstu/modules/hstu_block.py
-index 2a2b580..07c72d3 100644
+index 2a2b580..9a502ee 100644
 --- a/examples/hstu/modules/hstu_block.py
 +++ b/examples/hstu/modules/hstu_block.py
-@@ -3,19 +3,25 @@
+@@ -3,19 +3,24 @@
  from typing import Dict, Optional, Union
  
  import torch
 -from commons.utils.nvtx_op import output_nvtx_hook
 +import torch_npu
-+from Tools.scripts.make_ctype import values
 +# from commons.utils.nvtx_op import output_nvtx_hook
  from configs.hstu_config import HSTUConfig, HSTULayerType
  from dataset.utils import RankingBatch, RetrievalBatch
@@ -713,7 +710,7 @@ index 2a2b580..07c72d3 100644
  )
  from torchrec.sparse.jagged_tensor import JaggedTensor
  
-@@ -49,16 +55,11 @@ class HSTUBlock(MegatronModule):
+@@ -49,16 +54,11 @@ class HSTUBlock(MegatronModule):
                  use_time_encoding=config.position_encoding_config.use_time_encoding,
                  training_dtype=self._training_dtype,
              )
@@ -731,7 +728,7 @@ index 2a2b580..07c72d3 100644
      def hstu_preprocess(
          self, embeddings: Dict[str, JaggedTensor], batch: RankingBatch
      ) -> JaggedData:
-@@ -125,12 +126,21 @@ class HSTUBlock(MegatronModule):
+@@ -125,12 +125,21 @@ class HSTUBlock(MegatronModule):
                  contextual_seqlen
              )
  
@@ -759,7 +756,7 @@ index 2a2b580..07c72d3 100644
              )
  
              sequence_embeddings_lengths = (
-@@ -182,7 +192,6 @@ class HSTUBlock(MegatronModule):
+@@ -182,7 +191,6 @@ class HSTUBlock(MegatronModule):
              has_interleaved_action=batch.action_feature_name is not None,
          )
  
@@ -767,7 +764,7 @@ index 2a2b580..07c72d3 100644
      def hstu_postprocess(self, jd: JaggedData) -> JaggedData:
          """
          Postprocess the output from the HSTU architecture.
-@@ -202,20 +211,24 @@ class HSTUBlock(MegatronModule):
+@@ -202,20 +210,24 @@ class HSTUBlock(MegatronModule):
          if jd.max_num_candidates > 0:
              seqlen_offsets = jd.num_candidates_offsets
              max_seqlen = jd.max_num_candidates
@@ -800,7 +797,7 @@ index 2a2b580..07c72d3 100644
              )
          else:
              sequence_embeddings = jd.values
-@@ -239,7 +252,6 @@ class HSTUBlock(MegatronModule):
+@@ -239,7 +251,6 @@ class HSTUBlock(MegatronModule):
              has_interleaved_action=False,
          )
  
@@ -1023,6 +1020,1085 @@ index 314a4e5..a10319b 100644
  RankingArgs.prediction_head_arch = [512, 10]
  RankingArgs.prediction_head_bias = True
  RankingArgs.num_tasks = 1
+diff --git a/examples/hstu/new_utils.py b/examples/hstu/new_utils.py
+new file mode 100644
+index 0000000..951617c
+--- /dev/null
++++ b/examples/hstu/new_utils.py
+@@ -0,0 +1,591 @@
++
++
++
++from dataclasses import dataclass
++
++import configs
++import dataset
++import gin
++import torch  # pylint: disable-unused-import
++import torch.distributed as dist
++import os
++import sys
++from functools import partial
++from itertools import islice
++from typing import Dict, List, Optional, Tuple, Union
++from configs import (
++    HSTULayerType,
++    KernelBackend,
++    OptimizerParam,
++    PositionEncodingConfig,
++    get_hstu_config,
++)
++
++
++@dataclass
++class BaseEmbeddingArgs:
++    # for dynamic emb, it serves as capacity, while for static emb, it serves as vocab size
++    feature_names: List[str]
++    table_name: str
++    item_vocab_size_or_capacity: int
++
++
++@gin.configurable
++@dataclass
++class EmbeddingArgs(BaseEmbeddingArgs):
++    sharding_type: str = "None"
++
++    def __post_init__(self):
++        assert self.sharding_type.lower() in [
++            "data_parallel",
++            "model_parallel",
++        ]
++
++
++@gin.configurable
++@dataclass
++class DynamicEmbeddingArgs(EmbeddingArgs):
++    # the precedence is global_hbm_for_values > item_vocab_gpu_capacity > item_vocab_gpu_capacity_ratio
++    # without optimizer consideration
++    global_hbm_for_values: Optional[int] = None
++    item_vocab_gpu_capacity: Optional[float] = None
++    item_vocab_gpu_capacity_ratio: Optional[float] = None
++
++    evict_strategy: str = "lru"
++
++    def __post_init__(self):
++        assert self.evict_strategy.lower() in ["lru", "lfu"]
++
++    def calculate_and_reset_global_hbm_for_values(self, hidden_size):
++        if self.global_hbm_for_values is not None:
++            return
++        assert (
++            self.item_vocab_gpu_capacity_ratio is not None
++            or self.item_vocab_gpu_capacity is not None
++        ), "Please provide either item_vocab_gpu_capacity_ratio or item_vocab_gpu_capacity"
++        if self.item_vocab_gpu_capacity is None:
++            self.item_vocab_gpu_capacity = int(
++                self.item_vocab_size_or_capacity * self.item_vocab_gpu_capacity_ratio
++            )
++        self.global_hbm_for_values = self.item_vocab_gpu_capacity * hidden_size * 4
++
++
++@gin.configurable
++@dataclass
++class TrainerArgs:
++    # below batchsize is batchsize_per_gpu
++    train_batch_size: int
++    eval_batch_size: int
++
++    eval_interval: int = 100
++    log_interval: int = 100
++
++    seed: int = 1234
++    # ==nsys args==
++    profile: bool = False
++    profile_step_start: int = 100
++    profile_step_end: int = 200
++    # ==nsys args==
++    max_train_iters: Optional[int] = None
++    max_eval_iters: Optional[int] = None
++
++    # ckpt args
++    ckpt_save_interval: int = -1  # -1 means not save ckpt
++    ckpt_save_dir: str = "./checkpoints"
++    ckpt_load_dir: str = ""
++
++    def __post_init__(self):
++        if isinstance(self.max_train_iters, str):
++            self.max_train_iters = int(self.max_train_iters)
++
++
++@gin.configurable
++@dataclass
++class DatasetArgs:
++    dataset_name: str
++    max_sequence_length: int
++    max_num_candidates: int = 0
++    shuffle: bool = False
++
++
++@gin.configurable
++@dataclass
++class FeatureArgs:
++    feature_names: List[str]
++    max_sequence_length: int
++    is_jagged: bool = False
++
++
++@gin.configurable
++@dataclass
++class BenchmarkDatasetArgs:
++    feature_args: List[FeatureArgs]
++    embedding_args: List[Union[EmbeddingArgs, DynamicEmbeddingArgs]]
++    item_feature_name: str
++    contextual_feature_names: List[str]
++    action_feature_name: Optional[str] = None
++    max_num_candidates: int = 0
++
++
++@gin.configurable
++@dataclass
++class NetworkArgs:
++    num_layers: int
++    hidden_size: int
++    num_attention_heads: int
++    kv_channels: int
++
++    hidden_dropout: float = 0.2
++    norm_epsilon: float = 1e-5
++    is_causal: bool = True
++
++    dtype_str: str = "bfloat16"
++
++    kernel_backend: str = "cutlass"
++    layer_type: str = "fused"
++    target_group_size: int = 1
++
++    num_position_buckets: int = 8192
++
++    def __post_init__(self):
++        assert self.dtype_str in [
++            "bfloat16",
++            "float16",
++        ], "Only support bfloat16 and float16 precision for Network."
++
++        assert self.kernel_backend.lower() in ["cutlass", "triton", "pytorch", "npu_fused"]
++        assert self.layer_type.lower() in ["fused", "native"]
++
++
++@gin.configurable
++@dataclass
++class OptimizerArgs:
++    optimizer_str: str
++    learning_rate: float
++    adam_beta1: float = 0.9
++    adam_beta2: float = 0.999
++    adam_eps: float = 1e-8
++
++
++@gin.configurable
++@dataclass
++class TensorModelParallelArgs:
++    tensor_model_parallel_size: int = 1
++
++@dataclass
++class ShardedEmbeddingConfig:
++    """
++    Configuration for sharded embeddings with sharding type. Inherits from BaseShardedEmbeddingConfig.
++
++    Args:
++        config (EmbeddingConfig): The embedding configuration.
++        sharding_type (str): The type of sharding, ``'data_parallel'`` | ``'model_parallel'``.
++    """
++
++    """
++    Base configuration for sharded embeddings.
++
++    Args:
++        feature_names (List[str]): The name of the features in this embedding.
++        table_name (str): The name of the table.
++        vocab_size (int): The size of the vocabulary.
++        dim (int): The dimension size of the embeddings.
++        sharding_type (str): The type of sharding, ``'data_parallel'`` | ``'model_parallel'``.
++    """
++
++    feature_names: List[str]
++    table_name: str
++    vocab_size: int
++    dim: int
++    sharding_type: str
++
++    def __post_init__(self):
++        assert self.sharding_type in [
++            "data_parallel",
++            "model_parallel",
++        ], "sharding type should be data_parallel or model_parallel"
++
++def create_embedding_config(
++    hidden_size: int, embedding_args: EmbeddingArgs
++) -> ShardedEmbeddingConfig:
++    if isinstance(embedding_args, DynamicEmbeddingArgs):
++        return configs.ShardedEmbeddingConfig(
++            feature_names=embedding_args.feature_names,
++            table_name=embedding_args.table_name,
++            vocab_size=embedding_args.item_vocab_size_or_capacity,
++            dim=hidden_size,
++            sharding_type="model_parallel",
++        )
++    return configs.ShardedEmbeddingConfig(
++        feature_names=embedding_args.feature_names,
++        table_name=embedding_args.table_name,
++        vocab_size=embedding_args.item_vocab_size_or_capacity,
++        dim=hidden_size,
++        sharding_type=embedding_args.sharding_type,
++    )
++
++def get_dataset_and_embedding_args() -> (
++    Tuple[
++        Union[DatasetArgs, BenchmarkDatasetArgs],
++        List[Union[DynamicEmbeddingArgs, EmbeddingArgs]],
++    ]
++):
++    try:
++        dataset_args = DatasetArgs()  # type: ignore[call-arg]
++    except:
++        benchmark_dataset_args = BenchmarkDatasetArgs()  # type: ignore[call-arg]
++        return benchmark_dataset_args, benchmark_dataset_args.embedding_args
++    assert isinstance(dataset_args, DatasetArgs)
++    HASH_SIZE = 10_000_000
++    if dataset_args.dataset_name == "kuairand-pure":
++        return dataset_args, [
++            DynamicEmbeddingArgs(
++                feature_names=["user_active_degree"],
++                table_name="user_active_degree",
++                item_vocab_size_or_capacity=10,
++                item_vocab_gpu_capacity_ratio=1.0,
++            ),
++            DynamicEmbeddingArgs(
++                feature_names=["follow_user_num_range"],
++                table_name="follow_user_num_range",
++                item_vocab_size_or_capacity=9,
++                item_vocab_gpu_capacity_ratio=1.0,
++            ),
++            DynamicEmbeddingArgs(
++                feature_names=["fans_user_num_range"],
++                table_name="fans_user_num_range",
++                item_vocab_size_or_capacity=10,
++                item_vocab_gpu_capacity_ratio=1.0,
++            ),
++            DynamicEmbeddingArgs(
++                feature_names=["friend_user_num_range"],
++                table_name="friend_user_num_range",
++                item_vocab_size_or_capacity=8,
++                item_vocab_gpu_capacity_ratio=1.0,
++            ),
++            DynamicEmbeddingArgs(
++                feature_names=["register_days_range"],
++                table_name="register_days_range",
++                item_vocab_size_or_capacity=8,
++                item_vocab_gpu_capacity_ratio=1.0,
++            ),
++            DynamicEmbeddingArgs(
++                feature_names=["action_weights"],
++                table_name="action_weights",
++                item_vocab_size_or_capacity=226,
++                item_vocab_gpu_capacity_ratio=1.0,
++            ),
++            DynamicEmbeddingArgs(
++                feature_names=["video_id"],
++                table_name="video_id",
++                item_vocab_size_or_capacity=HASH_SIZE,
++                item_vocab_gpu_capacity_ratio=1.0,
++            ),
++            DynamicEmbeddingArgs(
++                feature_names=["user_id"],
++                table_name="user_id",
++                item_vocab_size_or_capacity=HASH_SIZE,
++                item_vocab_gpu_capacity_ratio=1.0,
++            ),
++        ]
++    elif dataset_args.dataset_name == "kuairand-1k":
++        return dataset_args, [
++            DynamicEmbeddingArgs(
++                feature_names=["user_active_degree"],
++                table_name="user_active_degree",
++                item_vocab_size_or_capacity=8,
++                item_vocab_gpu_capacity_ratio=1.0,
++            ),
++            DynamicEmbeddingArgs(
++                feature_names=["follow_user_num_range"],
++                table_name="follow_user_num_range",
++                item_vocab_size_or_capacity=9,
++                item_vocab_gpu_capacity_ratio=1.0,
++            ),
++            DynamicEmbeddingArgs(
++                feature_names=["fans_user_num_range"],
++                table_name="fans_user_num_range",
++                item_vocab_size_or_capacity=9,
++                item_vocab_gpu_capacity_ratio=1.0,
++            ),
++            DynamicEmbeddingArgs(
++                feature_names=["friend_user_num_range"],
++                table_name="friend_user_num_range",
++                item_vocab_size_or_capacity=8,
++                item_vocab_gpu_capacity_ratio=1.0,
++            ),
++            DynamicEmbeddingArgs(
++                feature_names=["register_days_range"],
++                table_name="register_days_range",
++                item_vocab_size_or_capacity=8,
++                item_vocab_gpu_capacity_ratio=1.0,
++            ),
++            DynamicEmbeddingArgs(
++                feature_names=["action_weights"],
++                table_name="action_weights",
++                item_vocab_size_or_capacity=233,
++                item_vocab_gpu_capacity_ratio=1.0,
++            ),
++            DynamicEmbeddingArgs(
++                feature_names=["video_id"],
++                table_name="video_id",
++                item_vocab_size_or_capacity=HASH_SIZE,
++                item_vocab_gpu_capacity_ratio=0.5,
++            ),
++            DynamicEmbeddingArgs(
++                feature_names=["user_id"],
++                table_name="user_id",
++                item_vocab_size_or_capacity=HASH_SIZE,
++                item_vocab_gpu_capacity_ratio=0.5,
++            ),
++        ]
++    elif dataset_args.dataset_name == "kuairand-27k":
++        return dataset_args, [
++            DynamicEmbeddingArgs(
++                feature_names=["user_active_degree"],
++                table_name="user_active_degree",
++                item_vocab_size_or_capacity=10,
++                item_vocab_gpu_capacity_ratio=1.0,
++            ),
++            DynamicEmbeddingArgs(
++                feature_names=["follow_user_num_range"],
++                table_name="follow_user_num_range",
++                item_vocab_size_or_capacity=9,
++                item_vocab_gpu_capacity_ratio=1.0,
++            ),
++            DynamicEmbeddingArgs(
++                feature_names=["fans_user_num_range"],
++                table_name="fans_user_num_range",
++                item_vocab_size_or_capacity=10,
++                item_vocab_gpu_capacity_ratio=1.0,
++            ),
++            DynamicEmbeddingArgs(
++                feature_names=["friend_user_num_range"],
++                table_name="friend_user_num_range",
++                item_vocab_size_or_capacity=8,
++                item_vocab_gpu_capacity_ratio=1.0,
++            ),
++            DynamicEmbeddingArgs(
++                feature_names=["register_days_range"],
++                table_name="register_days_range",
++                item_vocab_size_or_capacity=8,
++                item_vocab_gpu_capacity_ratio=1.0,
++            ),
++            DynamicEmbeddingArgs(
++                feature_names=["action_weights"],
++                table_name="action_weights",
++                item_vocab_size_or_capacity=246,
++                item_vocab_gpu_capacity_ratio=1.0,
++            ),
++            DynamicEmbeddingArgs(
++                feature_names=["video_id"],
++                table_name="video_id",
++                item_vocab_size_or_capacity=32038725,
++                item_vocab_gpu_capacity_ratio=1.0,
++            ),
++            DynamicEmbeddingArgs(
++                feature_names=["user_id"],
++                table_name="user_id",
++                item_vocab_size_or_capacity=HASH_SIZE,
++                item_vocab_gpu_capacity_ratio=1.0,
++            ),
++        ]
++    elif dataset_args.dataset_name == "ml-1m":
++        return dataset_args, [
++            DynamicEmbeddingArgs(
++                feature_names=["sex"],
++                table_name="sex",
++                item_vocab_size_or_capacity=3,
++                item_vocab_gpu_capacity_ratio=1.0,
++            ),
++            DynamicEmbeddingArgs(
++                feature_names=["age_group"],
++                table_name="age_group",
++                item_vocab_size_or_capacity=8,
++                item_vocab_gpu_capacity_ratio=1.0,
++            ),
++            DynamicEmbeddingArgs(
++                feature_names=["occupation"],
++                table_name="occupation",
++                item_vocab_size_or_capacity=22,
++                item_vocab_gpu_capacity_ratio=1.0,
++            ),
++            DynamicEmbeddingArgs(
++                feature_names=["zip_code"],
++                table_name="zip_code",
++                item_vocab_size_or_capacity=3440,
++                item_vocab_gpu_capacity_ratio=1.0,
++            ),
++            DynamicEmbeddingArgs(
++                feature_names=["rating"],
++                table_name="action_weights",
++                item_vocab_size_or_capacity=11,
++                item_vocab_gpu_capacity_ratio=1.0,
++            ),
++            DynamicEmbeddingArgs(
++                feature_names=["movie_id"],
++                table_name="movie_id",
++                item_vocab_size_or_capacity=HASH_SIZE,
++                item_vocab_gpu_capacity_ratio=1.0,
++            ),
++            DynamicEmbeddingArgs(
++                feature_names=["user_id"],
++                table_name="user_id",
++                item_vocab_size_or_capacity=HASH_SIZE,
++                item_vocab_gpu_capacity_ratio=1.0,
++            ),
++        ]
++    elif dataset_args.dataset_name == "ml-20m":
++        return dataset_args, [
++            DynamicEmbeddingArgs(
++                feature_names=["rating"],
++                table_name="action_weights",
++                item_vocab_size_or_capacity=11,
++                item_vocab_gpu_capacity_ratio=1.0,
++            ),
++            DynamicEmbeddingArgs(
++                feature_names=["movie_id"],
++                table_name="movie_id",
++                item_vocab_size_or_capacity=HASH_SIZE,
++                item_vocab_gpu_capacity_ratio=1.0,
++            ),
++            DynamicEmbeddingArgs(
++                feature_names=["user_id"],
++                table_name="user_id",
++                item_vocab_size_or_capacity=HASH_SIZE,
++                item_vocab_gpu_capacity_ratio=1.0,
++            ),
++        ]
++    else:
++        raise ValueError(f"dataset {dataset_args.dataset_name} is not supported")
++
++def create_hstu_config(network_args: NetworkArgs):
++    dtype = None
++    if network_args.dtype_str == "bfloat16":
++        dtype = torch.bfloat16
++    if network_args.dtype_str == "float16":
++        dtype = torch.float16
++    assert dtype is not None, "dtype not selected. Check your input."
++
++    kernel_backend = None
++    if network_args.kernel_backend == "cutlass":
++        kernel_backend = KernelBackend.CUTLASS
++    elif network_args.kernel_backend == "triton":
++        kernel_backend = KernelBackend.TRITON
++    elif network_args.kernel_backend == "pytorch":
++        kernel_backend = KernelBackend.PYTORCH
++    elif network_args.kernel_backend == "npu_fused":
++        kernel_backend = KernelBackend.NPU_FUSED
++    else:
++        raise ValueError(
++            f"Kernel backend {network_args.kernel_backend} is not supported."
++        )
++    layer_type = None
++    if network_args.layer_type == "fused":
++        layer_type = HSTULayerType.FUSED
++    elif network_args.layer_type == "native":
++        layer_type = HSTULayerType.NATIVE
++    else:
++        raise ValueError(f"Layer type {network_args.layer_type} is not supported.")
++    position_encoding_config = PositionEncodingConfig(
++        num_position_buckets=network_args.num_position_buckets,
++        num_time_buckets=2048,
++        use_time_encoding=False,
++    )
++    return get_hstu_config(
++        hidden_size=network_args.hidden_size,
++        kv_channels=network_args.kv_channels,
++        num_attention_heads=network_args.num_attention_heads,
++        num_layers=network_args.num_layers,
++        hidden_dropout=network_args.hidden_dropout,
++        norm_epsilon=network_args.norm_epsilon,
++        is_causal=network_args.is_causal,
++        dtype=dtype,
++        kernel_backend=kernel_backend,
++        position_encoding_config=position_encoding_config,
++        target_group_size=network_args.target_group_size,
++        hstu_layer_type=layer_type,
++    )
++
++
++def create_optimizer_params(optimizer_args: OptimizerArgs):
++    return OptimizerParam(
++        optimizer_str=optimizer_args.optimizer_str,
++        learning_rate=optimizer_args.learning_rate,
++        adam_beta1=optimizer_args.adam_beta1,
++        adam_beta2=optimizer_args.adam_beta2,
++        adam_eps=optimizer_args.adam_eps,
++    )
++
++
++def get_data_loader(
++    task_type: str,
++    dataset_args: Union[DatasetArgs, BenchmarkDatasetArgs],
++    trainer_args: TrainerArgs,
++    num_tasks: int,
++):
++    assert task_type in [
++        "ranking",
++        "retrieval",
++    ], f"task type should be ranking or retrieval not {task_type}"
++    if isinstance(dataset_args, BenchmarkDatasetArgs):
++        from dataset.utils import FeatureConfig
++
++        assert (
++            trainer_args.max_train_iters is not None
++            and trainer_args.max_eval_iters is not None
++        ), "Benchmark dataset expects max_train_iters and max_eval_iters as num_batches"
++        feature_name_to_max_item_id = {}
++        for e in dataset_args.embedding_args:
++            for feature_name in e.feature_names:
++                feature_name_to_max_item_id[feature_name] = (
++                    sys.maxsize
++                    if isinstance(e, DynamicEmbeddingArgs)
++                    else e.item_vocab_size_or_capacity
++                )
++        feature_configs = []
++        for f in dataset_args.feature_args:
++            feature_configs.append(
++                FeatureConfig(
++                    feature_names=f.feature_names,
++                    max_item_ids=[
++                        feature_name_to_max_item_id[n] for n in f.feature_names
++                    ],
++                    max_sequence_length=f.max_sequence_length,
++                    is_jagged=f.is_jagged,
++                )
++            )
++
++        kwargs = dict(
++            feature_configs=feature_configs,
++            item_feature_name=dataset_args.item_feature_name,
++            contextual_feature_names=dataset_args.contextual_feature_names,
++            action_feature_name=dataset_args.action_feature_name,
++            max_num_candidates=dataset_args.max_num_candidates,
++            num_generated_batches=100,
++            num_tasks=num_tasks,
++        )
++        train_dataset = dataset.dummy_dataset.DummySequenceDataset(
++            batch_size=trainer_args.train_batch_size, **kwargs
++        )
++        test_dataset = dataset.dummy_dataset.DummySequenceDataset(
++            batch_size=trainer_args.eval_batch_size, **kwargs
++        )
++    else:
++        assert isinstance(dataset_args, DatasetArgs)
++        (
++            train_dataset,
++            test_dataset,
++        ) = dataset.sequence_dataset.get_dataset(
++            dataset_name=dataset_args.dataset_name,
++            max_sequence_length=dataset_args.max_sequence_length,
++            max_num_candidates=dataset_args.max_num_candidates,
++            num_tasks=num_tasks,
++            batch_size=trainer_args.train_batch_size,
++            rank=dist.get_rank(),
++            world_size=dist.get_world_size(),
++            shuffle=dataset_args.shuffle,
++            random_seed=trainer_args.seed,
++            eval_batch_size=trainer_args.eval_batch_size,
++        )
++    return dataset.get_data_loader(train_dataset), dataset.get_data_loader(test_dataset)  # type: ignore[attr-defined]
+diff --git a/examples/hstu/ops/pt_ops/pt_add_position_embeddings.py b/examples/hstu/ops/pt_ops/pt_add_position_embeddings.py
+new file mode 100644
+index 0000000..2490317
+--- /dev/null
++++ b/examples/hstu/ops/pt_ops/pt_add_position_embeddings.py
+@@ -0,0 +1,16 @@
++import torch
++from typing import Optional
++
++def add_position_embeddings(jagged, jagged_offsets, high_inds, max_seq_len, dense, scale=1.0):
++    L, D = jagged.shape
++    B = high_inds.shape[0]
++    out = torch.empty_like(jagged)
++    for b in range(B):
++        start = jagged_offsets[b].item()
++        end = jagged_offsets[b + 1].item()
++        seq_len = end - start
++
++        pos_ids = torch.arrage(seq_len, device=jagged.device) + high_inds[b].item()
++        pos_emb = dense[pos_ids]
++        out[start:end, :] = jagged[start:end, :] + pos_emb * scale
++    return out
+\ No newline at end of file
+diff --git a/examples/hstu/ops/pt_ops/pt_concat_2d_jagged.py b/examples/hstu/ops/pt_ops/pt_concat_2d_jagged.py
+new file mode 100644
+index 0000000..0061576
+--- /dev/null
++++ b/examples/hstu/ops/pt_ops/pt_concat_2d_jagged.py
+@@ -0,0 +1,24 @@
++import torch
++from typing import Optional, Tuple
++
++
++def concat_2D_jagged(values_a: torch.Tensor,
++                     offsets_a: torch.Tensor,
++                     values_b: torch.Tensor,
++                     offsets_b: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
++    B = offsets_a.shape[0] - 1
++    D = values_a.shape[1]
++    out_values = []
++    out_offsets = [0]
++    for i in range(B):
++        a_start, a_end = offsets_a[i].item(), offsets_a[i + 1].item()
++        b_start, b_end = offsets_b[i].item(), offsets_b[i + 1].item()
++        a_slice = values_a[a_start:a_end]
++        b_slice = values_b[b_start:b_end]
++        out_slice = torch.cat([a_slice, b_slice], dim=0)
++        out_values.append(out_slice)
++        out_offsets.append(out_offsets[-1] + out_slice.shape[0])
++    out_values = torch.cat(out_values, dim=0)
++    out_offsets = torch.cat(out_offsets, device=values_a.device, dtype=offsets_a.dtype)
++    return out_values, out_offsets
++
+diff --git a/examples/hstu/ops/pt_ops/pt_jagged_tensors.py b/examples/hstu/ops/pt_ops/pt_jagged_tensors.py
+new file mode 100644
+index 0000000..11df57b
+--- /dev/null
++++ b/examples/hstu/ops/pt_ops/pt_jagged_tensors.py
+@@ -0,0 +1,241 @@
++# Copyright (c) Meta Platforms, Inc. and affiliates.
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#    http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++
++#!/usr/bin/env python3
++
++# pyre-strict
++
++from typing import Optional, Tuple
++
++import torch
++
++@torch.fx.wrap
++def fx_arange(len: int, device: torch.device) -> torch.Tensor:
++    return torch.arange(len, device=device)
++
++def _concat_2D_jagged_jagged(
++    values_left: torch.Tensor,
++    values_right: torch.Tensor,
++    max_len_left: int,
++    max_len_right: int,
++    offsets_left: torch.Tensor,
++    offsets_right: torch.Tensor,
++) -> torch.Tensor:
++    max_seq_len = max_len_left + max_len_right
++    lengths_left = offsets_left[1:] - offsets_left[:-1]
++    lengths_right = offsets_right[1:] - offsets_right[:-1]
++    padded_left = torch.ops.fbgemm.jagged_to_padded_dense(
++        values=values_left,
++        offsets=[offsets_left],
++        max_lengths=[max_len_left],
++        padding_value=0.0,
++    )
++    padded_right = torch.ops.fbgemm.jagged_to_padded_dense(
++        values=values_right,
++        offsets=[offsets_right],
++        max_lengths=[max_len_right],
++        padding_value=0.0,
++    )
++    concatted_dense = torch.cat([padded_left, padded_right], dim=1)
++    mask = fx_arange(max_seq_len, device=offsets_left.device).view(1, -1)
++    mask = torch.logical_or(
++        mask < lengths_left.view(-1, 1),
++        torch.logical_and(
++            mask >= max_len_left,
++            mask < max_len_left + lengths_right.view(-1, 1),
++        ),
++    )
++    return concatted_dense.flatten(0, 1)[mask.view(-1), :]
++
++
++@torch.fx.wrap
++def pytorch_concat_2D_jagged(
++    values_left: torch.Tensor,
++    values_right: torch.Tensor,
++    max_len_left: Optional[int],
++    max_len_right: Optional[int],
++    offsets_left: Optional[torch.Tensor],
++    offsets_right: Optional[torch.Tensor],
++) -> torch.Tensor:
++    if offsets_left is None:
++        assert max_len_left is not None
++        B = values_left.shape[0] // max_len_left
++        offsets_left_non_optional = max_len_left * torch.arange(
++            B + 1, device=values_left.device
++        )
++    else:
++        offsets_left_non_optional = offsets_left
++    if offsets_right is None:
++        assert max_len_right is not None
++        B = values_right.shape[0] // max_len_right
++        offsets_right_non_optional = max_len_right * torch.arange(
++            B + 1, device=values_left.device
++        )
++    else:
++        offsets_right_non_optional = offsets_right
++    max_len_left = (
++        int(
++            (offsets_left_non_optional[1:] - offsets_left_non_optional[:-1])
++            .max()
++            .item()
++        )
++        if max_len_left is None
++        else max_len_left
++    )
++    max_len_right = (
++        int(
++            (offsets_right_non_optional[1:] - offsets_right_non_optional[:-1])
++            .max()
++            .item()
++        )
++        if max_len_right is None
++        else max_len_right
++    )
++    return _concat_2D_jagged_jagged(
++        values_left=values_left,
++        values_right=values_right,
++        max_len_left=max_len_left,
++        max_len_right=max_len_right,
++        offsets_left=offsets_left_non_optional,
++        offsets_right=offsets_right_non_optional,
++    )
++
++def _split_2D_jagged_jagged(
++    max_seq_len: int,
++    values: torch.Tensor,
++    offsets_left: torch.Tensor,
++    offsets_right: torch.Tensor,
++) -> Tuple[torch.Tensor, torch.Tensor]:
++    offsets = offsets_left + offsets_right
++    padded_values = torch.ops.fbgemm.jagged_to_padded_dense(
++        values=values,
++        offsets=[offsets],
++        max_lengths=[max_seq_len],
++        padding_value=0.0,
++    ).flatten(0, 1)
++    lengths_left = offsets_left[1:] - offsets_left[:-1]
++    lengths_right = offsets_right[1:] - offsets_right[:-1]
++    mask = fx_arange(max_seq_len, device=values.device).view(1, -1)
++    mask_left = mask < lengths_left.view(-1, 1)
++    mask_right = torch.logical_and(
++        mask >= lengths_left.view(-1, 1),
++        mask < (lengths_left + lengths_right).view(-1, 1),
++    )
++    return padded_values[mask_left.view(-1), :], padded_values[mask_right.view(-1), :]
++
++
++@torch.fx.wrap
++def pytorch_split_2D_jagged(
++    max_seq_len: int,
++    values: torch.Tensor,
++    max_len_left: Optional[int],
++    max_len_right: Optional[int],
++    offsets_left: Optional[torch.Tensor],
++    offsets_right: Optional[torch.Tensor],
++) -> Tuple[torch.Tensor, torch.Tensor]:
++    if offsets_left is None:
++        assert max_len_left is not None
++        assert offsets_right is not None
++        offsets_left_non_optional = max_len_left * torch.arange(
++            offsets_right.shape[0], device=values.device
++        )
++    else:
++        offsets_left_non_optional = offsets_left
++    if offsets_right is None:
++        assert max_len_right is not None
++        assert offsets_left is not None
++        offsets_right_non_optional = max_len_right * torch.arange(
++            offsets_left.shape[0], device=values.device
++        )
++    else:
++        offsets_right_non_optional = offsets_right
++    return _split_2D_jagged_jagged(
++        max_seq_len=max_seq_len,
++        values=values,
++        offsets_left=offsets_left_non_optional,
++        offsets_right=offsets_right_non_optional,
++    )
++
++
++def pytorch_hstu_split_l2_embeddings(
++    max_seq_len: int,
++    x: torch.Tensor,
++    prefix_offsets: torch.Tensor,
++    l2_offsets: torch.Tensor,
++    contextual_seq_len: int,
++) -> Tuple[torch.Tensor, torch.Tensor]:
++    x_offsets = prefix_offsets + l2_offsets
++    x_lengths = x_offsets[1:] - x_offsets[:-1]
++    padded_x = torch.ops.fbgemm.jagged_to_padded_dense(
++        values=x,
++        offsets=[x_offsets],
++        max_lengths=[max_seq_len],
++        padding_value=0.0,
++    ).flatten(0, 1)
++    prefix_lengths = prefix_offsets[1:] - prefix_offsets[:-1]
++    mask = fx_arange(max_seq_len, device=x_offsets.device).view(1, -1)
++    mask_prefix = torch.logical_and(
++        mask >= contextual_seq_len,
++        mask < prefix_lengths.view(-1, 1) + contextual_seq_len,
++    )
++    mask_l2 = torch.logical_or(
++        mask < contextual_seq_len,
++        torch.logical_and(
++            mask >= prefix_lengths.view(-1, 1) + contextual_seq_len,
++            mask < x_lengths.view(-1, 1),
++        ),
++    )
++    return padded_x[mask_prefix.view(-1), :], padded_x[mask_l2.view(-1), :]
++
++
++def pytorch_hstu_concat_l2_embeddings(
++    max_prefix_len: int,
++    prefix_x: torch.Tensor,
++    prefix_offsets: torch.Tensor,
++    max_l2_len: int,
++    l2_x: torch.Tensor,
++    l2_offsets: torch.Tensor,
++    contextual_seq_len: int,
++) -> torch.Tensor:
++    padded_prefix_x = torch.ops.fbgemm.jagged_to_padded_dense(
++        values=prefix_x,
++        offsets=[prefix_offsets],
++        max_lengths=[max_prefix_len],
++        padding_value=0.0,
++    )
++    padded_l2_x = torch.ops.fbgemm.jagged_to_padded_dense(
++        values=l2_x,
++        offsets=[l2_offsets],
++        max_lengths=[max_l2_len],
++        padding_value=0.0,
++    )
++    padded_x = torch.cat(
++        [
++            padded_l2_x[:, 0:contextual_seq_len, :],
++            padded_prefix_x,
++            padded_l2_x[:, contextual_seq_len:, :],
++        ],
++        dim=1,
++    )
++    mask = fx_arange(max_prefix_len + max_l2_len, device=prefix_x.device).view(1, -1)
++    prefix_lengths = prefix_offsets[1:] - prefix_offsets[:-1]
++    l2_lengths = l2_offsets[1:] - l2_offsets[:-1]
++    mask = torch.logical_or(
++        mask < prefix_lengths.view(-1, 1) + contextual_seq_len,
++        torch.logical_and(
++            mask >= max_prefix_len + contextual_seq_len,
++            mask < max_prefix_len + l2_lengths.view(-1, 1),
++        ),
++    )
++    return padded_x.flatten(0, 1)[mask.view(-1), :]
+diff --git a/examples/hstu/ops/pt_ops/pt_position.py b/examples/hstu/ops/pt_ops/pt_position.py
+new file mode 100644
+index 0000000..5bd0134
+--- /dev/null
++++ b/examples/hstu/ops/pt_ops/pt_position.py
+@@ -0,0 +1,146 @@
++# Copyright (c) Meta Platforms, Inc. and affiliates.
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++#    http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++
++#!/usr/bin/env python3
++
++# pyre-strict
++
++from typing import Optional
++
++import torch
++
++@torch.fx.wrap
++def fx_unwrap_optional_tensor(optional: Optional[torch.Tensor]) -> torch.Tensor:
++    assert optional is not None, "Expected optional to be non-None Tensor"
++    return optional
++
++@torch.fx.wrap
++def torch_arange(end: int, device: torch.device) -> torch.Tensor:
++    return torch.arange(end, device=device)
++
++def pytorch_add_position_embeddings(
++        jagged: torch.Tensor,
++        jagged_offsets: torch.Tensor,
++        high_inds: torch.Tensor,
++        max_seq_len: int,
++        dense: torch.Tensor,
++        scale: float=1.0
++) -> torch.Tensor:
++    jagged = jagged * scale
++    B = high_inds.shape[0]
++    col_indices = torch_arange(max_seq_len, device=high_inds.device).expend(
++        B, max_seq_len
++    )
++    col_indices = torch.clamp(col_indices, max=high_inds.view(-1, 1))
++    dense_values = torch.index_select(dense, 0, col_indices.reshape(-1)).view(
++        B, max_seq_len, -1
++    )
++    return torch.ops.fbgemm.jagged_dense_elementwise_add_jagged_output(
++        jagged,
++        [jagged_offsets],
++        dense_values,
++    )[0]
++
++
++@torch.fx.wrap
++def _get_col_indices(
++    max_seq_len: int,
++    max_contextual_seq_len: int,
++    max_pos_ind: int,
++    seq_lengths: torch.Tensor,
++    num_targets: Optional[torch.Tensor],
++    interleave_targets: bool,
++) -> torch.Tensor:
++    B = seq_lengths.size(0)
++    col_indices = torch.arange(max_seq_len, device=seq_lengths.device).expand(
++        B, max_seq_len
++    )
++    if num_targets is not None:
++        if interleave_targets:
++            high_inds = seq_lengths - fx_unwrap_optional_tensor(num_targets) * 2
++        else:
++            high_inds = seq_lengths - fx_unwrap_optional_tensor(num_targets)
++        col_indices = torch.clamp(col_indices, max=high_inds.view(-1, 1))
++        col_indices = high_inds.view(-1, 1) - col_indices
++    else:
++        col_indices = seq_lengths.view(-1, 1) - col_indices
++    col_indices = col_indices + max_contextual_seq_len
++    col_indices = torch.clamp(col_indices, max=max_pos_ind - 1)
++    if max_contextual_seq_len > 0:
++        col_indices[:, :max_contextual_seq_len] = torch.arange(
++            0,
++            max_contextual_seq_len,
++            device=col_indices.device,
++            dtype=col_indices.dtype,
++        ).view(1, -1)
++    return col_indices
++
++
++def pytorch_add_timestamp_positional_embeddings(
++    seq_embeddings: torch.Tensor,
++    seq_offsets: torch.Tensor,
++    pos_embeddings: torch.Tensor,
++    ts_embeddings: torch.Tensor,
++    timestamps: torch.Tensor,
++    max_seq_len: int,
++    max_contextual_seq_len: int,
++    seq_lengths: torch.Tensor,
++    num_targets: Optional[torch.Tensor],
++    interleave_targets: bool,
++    time_bucket_fn: str,
++) -> torch.Tensor:
++    max_pos_ind = pos_embeddings.size(0)
++    # position encoding
++    pos_inds = _get_col_indices(
++        max_seq_len=max_seq_len,
++        max_contextual_seq_len=max_contextual_seq_len,
++        max_pos_ind=max_pos_ind,
++        seq_lengths=seq_lengths,
++        num_targets=num_targets,
++        interleave_targets=interleave_targets,
++    )
++    B, _ = pos_inds.shape
++    # timestamp encoding
++    num_time_buckets = ts_embeddings.size(1) - 1
++    time_bucket_increments = 60.0
++    time_bucket_divisor = 1.0
++    time_delta = 0
++    timestamps = timestamps[:, :max_seq_len]
++    query_time = torch.gather(
++        timestamps, dim=1, index=(seq_lengths - 1).unsqueeze(1).clamp(min=0)
++    )
++    ts = query_time - timestamps
++    ts = ts + time_delta
++    ts = ts.clamp(min=1e-6) / time_bucket_increments
++    if time_bucket_fn == "log":
++        ts = torch.log(ts)
++    else:
++        ts = torch.sqrt(ts)
++    ts = (ts / time_bucket_divisor).clamp(min=0).int()
++    ts = torch.clamp(
++        ts,
++        min=0,
++        max=num_time_buckets,
++    )
++    position_embeddings = torch.index_select(
++        pos_embeddings, 0, pos_inds.reshape(-1)
++    ).view(B, max_seq_len, -1)
++    time_embeddings = torch.index_select(ts_embeddings, 0, ts.reshape(-1)).view(
++        B, max_seq_len, -1
++    )
++    return torch.ops.fbgemm.jagged_dense_elementwise_add_jagged_output(
++        seq_embeddings,
++        [seq_offsets],
++        (time_embeddings + position_embeddings).to(seq_embeddings.dtype),
++    )[0]
+diff --git a/examples/hstu/ops/pt_ops/pt_split_2d_jagged.py b/examples/hstu/ops/pt_ops/pt_split_2d_jagged.py
+new file mode 100644
+index 0000000..8c1d396
+--- /dev/null
++++ b/examples/hstu/ops/pt_ops/pt_split_2d_jagged.py
+@@ -0,0 +1,24 @@
++import torch
++from typing import Optional, Tuple
++
++
++def split_2D_jagged(
++        values: torch.Tensor,
++        offsets_a: torch.Tensor,
++        offsets_b: torch.Tensor
++) -> Tuple[torch.Tensor, torch.Tensor]:
++    L, D = values.shape
++    B = offsets_a.shape[0] - 1
++    values_a_list = []
++    values_b_list = []
++
++    for i in range(B):
++        a_start = offsets_a[i].item()
++        a_end = offsets_a[i + 1].item()
++        b_start = offsets_b[i].item()
++        b_end = offsets_b[i + 1].item()
++        values_a_list.append(values[a_start:a_end])
++        values_b_list.append(values[b_start:b_end])
++    values_a = torch.cat(values_a_list, dim=0) if values_a_list else torch.empty(0, D, device=values.device)
++    values_b = torch.cat(values_b_list, dim=0) if values_b_list else torch.empty(0, D, device=values.device)
++    return values_a, values_b
 diff --git a/examples/hstu/pretrain_gr_ranking.py b/examples/hstu/pretrain_gr_ranking.py
 index 1715109..b95eed7 100644
 --- a/examples/hstu/pretrain_gr_ranking.py

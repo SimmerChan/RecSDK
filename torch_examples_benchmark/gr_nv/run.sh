@@ -11,8 +11,8 @@ export CUDA_DEVICE_MAX_CONNECTIONS=1
 RECSYS_DIR=$(realpath ../)
 HSTU_DIR=$RECSYS_DIR/hstu
 # 根据实际情况设置python引用路径
-MEGATRON_DIR=$RECSYS_DIR/megatron-lm/
-MINDSPEED_DIR=$RECSYS_DIR/MindSpeed/
+MEGATRON_DIR=$RECSYS_DIR/../../megatron-lm/
+MINDSPEED_DIR=$RECSYS_DIR/../../MindSpeed/
 export PYTHONPATH=${PYTHONPATH}:${HSTU_DIR}:${MEGATRON_DIR}:${MINDSPEED_DIR}
 
 #根据实际情况设置算子适配so文件
