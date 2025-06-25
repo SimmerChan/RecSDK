@@ -110,26 +110,14 @@ class HybridShardedEmbeddingBagCollection(
         module_fqn: Optional[str] = None,
     ) -> None:
         super().__init__(qcomm_codecs_registry=qcomm_codecs_registry)
-        self.module_sharding_plan = None
         self._module_fqn = module_fqn
         self._embedding_bag_configs: List[EmbeddingBagConfig] = (
             module.embedding_bag_configs()
         )
-        self.init_data_struct(device, env, fused_params, host_env, module)
-        self.init_lookups(device, env)
-        if env.process_group and dist.get_backend(env.process_group) != "fake":
-            self._initialize_torch_state()
-        if not device_is_in(module.device, ["meta", "cpu"]):
-            self.load_state_dict(module.state_dict(), strict=False)
+        self._table_names: List[str] = []
+        self._pooling_type_to_rs_features: Dict[str, List[str]] = defaultdict(list)
+        self._table_name_to_config: Dict[str, EmbeddingBagConfig] = {}
 
-    def init_sharding(self, device, fused_params, module, table_name_to_parameter_sharding):
-        sharding_type_to_sharding_infos = create_sharding_infos_by_sharding(module, table_name_to_parameter_sharding,
-                                                                            "embedding_bags.", fused_params, )
-        self._embedding_shardings: List[
-            EmbeddingSharding[EmbeddingShardingContext, KeyedJaggedTensor, torch.Tensor, torch.Tensor,]] = [
-            self.create_hybrid_embedding_bag_sharding(embedding_configs, self._env, self._host_env, device,
-                                                      qcomm_codecs_registry=self.qcomm_codecs_registry, ) for
-            embedding_configs in sharding_type_to_sharding_infos.values()]
         for config in self._embedding_bag_configs:
             self._table_names.append(config.name)
             self._table_name_to_config[config.name] = config
@@ -148,8 +136,65 @@ class HybridShardedEmbeddingBagCollection(
                 if table_name in self._table_names
             },
         )
+        self._env = env
+        self._host_env = host_env
+        # output parameters as DTensor in state dict
+        self._output_dtensor: bool = (
+            fused_params.get("output_dtensor", False) if fused_params else False
+        )
+        sharding_type_to_sharding_infos = create_sharding_infos_by_sharding(
+            module,
+            table_name_to_parameter_sharding,
+            "embedding_bags.",
+            fused_params,
+        )
+        self._embedding_shardings: List[
+            EmbeddingSharding[
+                EmbeddingShardingContext,
+                KeyedJaggedTensor,
+                torch.Tensor,
+                torch.Tensor,
+            ]
+        ] = [
+            self.create_hybrid_embedding_bag_sharding(
+                embedding_configs,
+                env,
+                host_env,
+                device,
+                qcomm_codecs_registry=self.qcomm_codecs_registry,
+            )
+            for embedding_configs in sharding_type_to_sharding_infos.values()
+        ]
 
-    def init_lookups(self, device, env):
+        self._is_weighted: bool = module.is_weighted()
+        self._device = device
+        self._input_dists: List[nn.Module] = []
+        self._post_input_dists: List[nn.Module] = []
+        self._lookups: List[nn.Module] = []
+        self._create_lookups()
+        self._output_dists: List[nn.Module] = []
+        self._embedding_names: List[str] = []
+        self._embedding_dims: List[int] = []
+        self._feature_splits: List[int] = []
+        self._features_order: List[int] = []
+        self._uncombined_embedding_names: List[str] = []
+        self._uncombined_embedding_dims: List[int] = []
+        self._inverse_indices_permute_indices: Optional[torch.Tensor] = None
+        # to support mean pooling callback hook
+        self._has_mean_pooling_callback: bool = (
+            PoolingType.MEAN.value in self._pooling_type_to_rs_features
+        )
+        self._dim_per_key: Optional[torch.Tensor] = None
+        self._kjt_key_indices: Dict[str, int] = {}
+        self._kjt_inverse_order: Optional[torch.Tensor] = None
+        self._kt_key_ordering: Optional[torch.Tensor] = None
+        # to support the FP16 hook
+        self._create_output_dist()
+        # forward pass flow control
+        self._has_uninitialized_input_dist: bool = True
+        self._has_uninitialized_post_input_dist: bool = True
+        self._has_features_permute: bool = True
+        # Get all fused optimizers and combine them.
         optims = []
         for lookup in self._lookups:
             for _, tbe_module in lookup.named_modules():
@@ -161,8 +206,9 @@ class HybridShardedEmbeddingBagCollection(
                     tbe_module.fused_optimizer.params = params
                     optims.append(("", tbe_module.fused_optimizer))
         self._optim: CombinedOptimizer = CombinedOptimizer(optims)
+
         for i, (sharding, lookup) in enumerate(
-                zip(self._embedding_shardings, self._lookups)
+            zip(self._embedding_shardings, self._lookups)
         ):
             if isinstance(sharding, DpPooledEmbeddingSharding):
                 self._lookups[i] = DistributedDataParallel(
@@ -177,45 +223,10 @@ class HybridShardedEmbeddingBagCollection(
                     broadcast_buffers=True,
                     static_graph=True,
                 )
-
-    def init_data_struct(self, device, env, fused_params, host_env, module, table_name_to_parameter_sharding=None):
-        self._table_names: List[str] = []
-        self._pooling_type_to_rs_features: Dict[str, List[str]] = defaultdict(list)
-        self._table_name_to_config: Dict[str, EmbeddingBagConfig] = {}
-        self._env = env
-        self._host_env = host_env
-        # output parameters as DTensor in state dict
-        self._output_dtensor: bool = (fused_params.get("output_dtensor", False) if fused_params else False)
-        self._is_weighted: bool = module.is_weighted()
-        self._device = device
-        self._input_dists: List[nn.Module] = []
-        self._post_input_dists: List[nn.Module] = []
-        self._lookups: List[nn.Module] = []
-        self.init_sharding(device, fused_params, module, table_name_to_parameter_sharding)
-        self._create_lookups()
-        self._output_dists: List[nn.Module] = []
-        self._embedding_names: List[str] = []
-        self._embedding_dims: List[int] = []
-        self._feature_splits: List[int] = []
-        self._features_order: List[int] = []
-        self._uncombined_embedding_names: List[str] = []
-        self._uncombined_embedding_dims: List[int] = []
-        self._inverse_indices_permute_indices: Optional[torch.Tensor] = None
-        # to support mean pooling callback hook
-        self._has_mean_pooling_callback: bool = (
-                PoolingType.MEAN.value in self._pooling_type_to_rs_features
-        )
-        self._dim_per_key: Optional[torch.Tensor] = None
-        self._kjt_key_indices: Dict[str, int] = {}
-        self._kjt_inverse_order: Optional[torch.Tensor] = None
-        self._kt_key_ordering: Optional[torch.Tensor] = None
-        # to support the FP16 hook
-        self._create_output_dist()
-        # forward pass flow control
-        self._has_uninitialized_input_dist: bool = True
-        self._has_uninitialized_post_input_dist: bool = True
-        self._has_features_permute: bool = True
-        # Get all fused optimizers and combine them.
+        if env.process_group and dist.get_backend(env.process_group) != "fake":
+            self._initialize_torch_state()
+        if not device_is_in(module.device, ["meta", "cpu"]):
+            self.load_state_dict(module.state_dict(), strict=False)
 
     @property
     def fused_optimizer(self) -> KeyedOptimizer:
@@ -899,7 +910,7 @@ def _create_mean_pooling_divisor(config: MeanPoolingConfig) -> torch.Tensor:
 
         if config.weights is not None:
             # if we have weights, lengths is the sum of weights by offsets for feature
-            lengths = torch.ops.fbgemm.segment_sum_csr(1, config.offsets.int(), config.weights)
+            config.lengths = torch.ops.fbgemm.segment_sum_csr(1, config.offsets.int(), config.weights)
 
         if config.variable_batch_per_feature:
             inverse_indices = none_throws(config.inverse_indices)
@@ -913,27 +924,27 @@ def _create_mean_pooling_divisor(config: MeanPoolingConfig) -> torch.Tensor:
                 :-1
             ].unsqueeze(-1)
             indices = (inverse_indices_t + offsets).flatten()
-            lengths = torch.index_select(input=lengths, dim=0, index=indices)
+            config.lengths = torch.index_select(input=config.lengths, dim=0, index=indices)
 
         # only convert the sum pooling features to be 1 length
         for feature in config.pooling_type_to_rs_features[PoolingType.SUM.value]:
             feature_index = config.kjt_key_indices[feature]
             feature_index = feature_index * batch_size
-            lengths[feature_index: feature_index + batch_size] = 1
+            config.lengths[feature_index: feature_index + batch_size] = 1
 
         if len(config.embedding_names) != len(config.keys):
-            lengths = torch.index_select(
-                lengths.reshape(-1, batch_size),
+            config.lengths = torch.index_select(
+                config.lengths.reshape(-1, batch_size),
                 0,
                 config.kt_key_ordering,
             ).reshape(-1)
 
         # transpose to align features with keyed tensor dim_per_key
-        lengths = lengths.reshape(-1, batch_size).T  # [batch_size, num_features]
+        config.lengths = config.lengths.reshape(-1, batch_size).T  # [batch_size, num_features]
         output_size = sum(config.embedding_dims)
 
         divisor = torch.repeat_interleave(
-            input=lengths,
+            input=config.lengths,
             repeats=config.dim_per_key,
             dim=1,
             output_size=output_size,
