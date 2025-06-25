@@ -118,53 +118,12 @@ class HybridShardedEmbeddingBagCollection(
         self._pooling_type_to_rs_features: Dict[str, List[str]] = defaultdict(list)
         self._table_name_to_config: Dict[str, EmbeddingBagConfig] = {}
 
-        for config in self._embedding_bag_configs:
-            self._table_names.append(config.name)
-            self._table_name_to_config[config.name] = config
-            if table_name_to_parameter_sharding[config.name].sharding_type in [
-                ShardingType.TABLE_ROW_WISE.value,
-                ShardingType.ROW_WISE.value,
-            ]:
-                self._pooling_type_to_rs_features[config.pooling.value].extend(
-                    config.feature_names
-                )
-        self.module_sharding_plan: EmbeddingModuleShardingPlan = cast(
-            EmbeddingModuleShardingPlan,
-            {
-                table_name: parameter_sharding
-                for table_name, parameter_sharding in table_name_to_parameter_sharding.items()
-                if table_name in self._table_names
-            },
-        )
+        self._init_sharding_plan(table_name_to_parameter_sharding)
         self._env = env
         self._host_env = host_env
         # output parameters as DTensor in state dict
-        self._output_dtensor: bool = (
-            fused_params.get("output_dtensor", False) if fused_params else False
-        )
-        sharding_type_to_sharding_infos = create_sharding_infos_by_sharding(
-            module,
-            table_name_to_parameter_sharding,
-            "embedding_bags.",
-            fused_params,
-        )
-        self._embedding_shardings: List[
-            EmbeddingSharding[
-                EmbeddingShardingContext,
-                KeyedJaggedTensor,
-                torch.Tensor,
-                torch.Tensor,
-            ]
-        ] = [
-            self.create_hybrid_embedding_bag_sharding(
-                embedding_configs,
-                env,
-                host_env,
-                device,
-                qcomm_codecs_registry=self.qcomm_codecs_registry,
-            )
-            for embedding_configs in sharding_type_to_sharding_infos.values()
-        ]
+        self._output_dtensor: bool = (fused_params.get("output_dtensor", False) if fused_params else False)
+        self._init_embedding_shardings(device, env, fused_params, host_env, module, table_name_to_parameter_sharding)
 
         self._is_weighted: bool = module.is_weighted()
         self._device = device
@@ -195,20 +154,16 @@ class HybridShardedEmbeddingBagCollection(
         self._has_uninitialized_post_input_dist: bool = True
         self._has_features_permute: bool = True
         # Get all fused optimizers and combine them.
-        optims = []
-        for lookup in self._lookups:
-            for _, tbe_module in lookup.named_modules():
-                if isinstance(tbe_module, FusedOptimizerModule):
-                    # Modify param keys to match EmbeddingBagCollection
-                    params: Mapping[str, Union[torch.Tensor, ShardedTensor]] = {}
-                    for param_key, weight in tbe_module.fused_optimizer.params.items():
-                        params["embedding_bags." + param_key] = weight
-                    tbe_module.fused_optimizer.params = params
-                    optims.append(("", tbe_module.fused_optimizer))
-        self._optim: CombinedOptimizer = CombinedOptimizer(optims)
+        self._init_optim()
+        self._init_lookups(device, env)
+        if env.process_group and dist.get_backend(env.process_group) != "fake":
+            self._initialize_torch_state()
+        if not device_is_in(module.device, ["meta", "cpu"]):
+            self.load_state_dict(module.state_dict(), strict=False)
 
+    def _init_lookups(self, device, env):
         for i, (sharding, lookup) in enumerate(
-            zip(self._embedding_shardings, self._lookups)
+                zip(self._embedding_shardings, self._lookups)
         ):
             if isinstance(sharding, DpPooledEmbeddingSharding):
                 self._lookups[i] = DistributedDataParallel(
@@ -223,10 +178,64 @@ class HybridShardedEmbeddingBagCollection(
                     broadcast_buffers=True,
                     static_graph=True,
                 )
-        if env.process_group and dist.get_backend(env.process_group) != "fake":
-            self._initialize_torch_state()
-        if not device_is_in(module.device, ["meta", "cpu"]):
-            self.load_state_dict(module.state_dict(), strict=False)
+
+    def _init_optim(self):
+        optims = []
+        for lookup in self._lookups:
+            for _, tbe_module in lookup.named_modules():
+                if isinstance(tbe_module, FusedOptimizerModule):
+                    # Modify param keys to match EmbeddingBagCollection
+                    params: Mapping[str, Union[torch.Tensor, ShardedTensor]] = {}
+                    for param_key, weight in tbe_module.fused_optimizer.params.items():
+                        params["embedding_bags." + param_key] = weight
+                    tbe_module.fused_optimizer.params = params
+                    optims.append(("", tbe_module.fused_optimizer))
+        self._optim: CombinedOptimizer = CombinedOptimizer(optims)
+
+    def _init_embedding_shardings(self, device, env, fused_params, host_env, module, table_name_to_parameter_sharding):
+        sharding_type_to_sharding_infos = create_sharding_infos_by_sharding(
+            module,
+            table_name_to_parameter_sharding,
+            "embedding_bags.",
+            fused_params,
+        )
+        self._embedding_shardings: List[
+            EmbeddingSharding[
+                EmbeddingShardingContext,
+                KeyedJaggedTensor,
+                torch.Tensor,
+                torch.Tensor,
+            ]
+        ] = [
+            self.create_hybrid_embedding_bag_sharding(
+                embedding_configs,
+                env,
+                host_env,
+                device,
+                qcomm_codecs_registry=self.qcomm_codecs_registry,
+            )
+            for embedding_configs in sharding_type_to_sharding_infos.values()
+        ]
+
+    def _init_sharding_plan(self, table_name_to_parameter_sharding):
+        for config in self._embedding_bag_configs:
+            self._table_names.append(config.name)
+            self._table_name_to_config[config.name] = config
+            if table_name_to_parameter_sharding[config.name].sharding_type in [
+                ShardingType.TABLE_ROW_WISE.value,
+                ShardingType.ROW_WISE.value,
+            ]:
+                self._pooling_type_to_rs_features[config.pooling.value].extend(
+                    config.feature_names
+                )
+        self.module_sharding_plan: EmbeddingModuleShardingPlan = cast(
+            EmbeddingModuleShardingPlan,
+            {
+                table_name: parameter_sharding
+                for table_name, parameter_sharding in table_name_to_parameter_sharding.items()
+                if table_name in self._table_names
+            },
+        )
 
     @property
     def fused_optimizer(self) -> KeyedOptimizer:
