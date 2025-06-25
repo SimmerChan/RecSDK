@@ -72,8 +72,7 @@ def process_feat_strs(feat_strs: str, map_dict: dict[str, dict[str, int]],
         feat, val = feat_val.split("\x03")
         if field_dict[filed] >= args.length:
             continue
-        else:
-            field_dict[filed] += 1
+        field_dict[filed] += 1
         if filed not in sample_dict:
             sample_dict[filed] = []
         feat_mapped = map_dict[filed][feat] + 1 if feat in map_dict[filed].keys() else 0
