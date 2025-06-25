@@ -6,7 +6,6 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-import logging
 import os
 from typing import (
     Any,
@@ -18,24 +17,44 @@ from typing import (
     Union as TypeUnion,
     Type,
 )
-import torch
-import torch_npu
+import logging
 import numpy as np
 
-from torchrec.distributed import Awaitable
+import torch_npu
+import torch
 from torch import distributed as dist, nn, Tensor
-
-from torchrec.modules.embedding_modules import EmbeddingCollection
-from torchrec.distributed.model_parallel import (
-    DistributedDataParallel,
-)
-from torchrec.sparse.jagged_tensor import KeyedTensor, KeyedJaggedTensor, JaggedTensor
-from torchrec.distributed.embedding_types import (
-    ShardingType,
-    KJTList,
-    ShardedEmbeddingModule,
-)
 from torch.autograd.profiler import record_function
+
+from fbgemm_gpu.split_embedding_configs import EmbOptimType
+from fbgemm_gpu.split_table_batched_embeddings_ops_training import (
+    SplitTableBatchedEmbeddingBagsCodegen,
+)
+
+from hybrid_torchrec.distributed.sharding.post_input_dist import (
+    EMPTY_POST_INPUT_DIST,
+    PostInputKJTListAwaitable,
+)
+from hybrid_torchrec.modules.ids_process import IdsMapper
+from hybrid_torchrec.modules.ids_process import HashMapBase
+from hybrid_torchrec.distributed.sharding.post_input_dist import (
+    EMPTY_POST_INPUT_DIST,
+    PostInputKJTListAwaitable,
+)
+from hybrid_torchrec.distributed.sharding.sequence_sharding import (
+    HybridSequenceShardingContext,
+)
+from hybrid_torchrec.distributed.embedding import HybridShardedEmbeddingCollection
+from hybrid_torchrec.sparse.jagged_tensor_with_looup_helper import (
+    KeyedJaggedTensorWithLookHelper,
+)
+
+from torchrec_embcache.distributed.modules.cache_embedding_configs import (
+    AdmitAndEvictConfig as AdmitAndEvictConfigPy,
+)
+from torchrec_embcache.distributed.modules.cache_embedding_configs import (
+    EmbCacheEmbeddingConfig,
+)
+from torchrec.distributed import Awaitable
 from torchrec.distributed.types import (
     Awaitable,
     LazyAwaitable,
@@ -56,13 +75,21 @@ from torchrec.distributed.sharding.sequence_sharding import SequenceShardingCont
 from torchrec.distributed.sharding.dp_sequence_sharding import (
     DpSequenceEmbeddingSharding,
 )
-
+from torchrec.modules.embedding_modules import EmbeddingCollection
+from torchrec.distributed.model_parallel import (
+    DistributedDataParallel,
+)
+from torchrec.sparse.jagged_tensor import KeyedTensor, KeyedJaggedTensor, JaggedTensor
+from torchrec.distributed.embedding_types import (
+    ShardingType,
+    KJTList,
+    ShardedEmbeddingModule,
+)
 from torchrec.modules.embedding_configs import (
     DataType,
     EmbeddingConfig,
     pooling_type_to_str,
 )
-
 from torchrec.optim.fused import FusedOptimizerModule
 from torchrec.optim.keyed import CombinedOptimizer
 from torchrec.modules.embedding_modules import get_embedding_names_by_table
@@ -76,7 +103,6 @@ from torchrec.distributed.embedding import (
     set_ec_index_dedup,
     get_ec_index_dedup,
 )
-
 from torchrec_embcache.distributed.sharding.rw_sequence_sharding import (
     EmbCacheRwSequenceEmbeddingSharding,
 )
@@ -84,7 +110,6 @@ from torchrec_embcache.sparse.jagged_tensor_with_timestamp import (
     KeyedJaggedTensorWithTimestamp,
 )
 from torchrec_embcache.distributed.utils import get_embedding_optim_num
-
 from torchrec_embcache import (
     EmbcacheManager,
     EmbConfig,
@@ -94,35 +119,6 @@ from torchrec_embcache import (
     SwapInfo,
     SwapinTensor,
 )
-from fbgemm_gpu.split_embedding_configs import EmbOptimType
-from fbgemm_gpu.split_table_batched_embeddings_ops_training import (
-    SplitTableBatchedEmbeddingBagsCodegen,
-)
-from hybrid_torchrec.distributed.sharding.post_input_dist import (
-    EMPTY_POST_INPUT_DIST,
-    PostInputKJTListAwaitable,
-)
-from hybrid_torchrec.modules.ids_process import IdsMapper
-from hybrid_torchrec.modules.ids_process import HashMapBase
-from hybrid_torchrec.distributed.sharding.post_input_dist import (
-    EMPTY_POST_INPUT_DIST,
-    PostInputKJTListAwaitable,
-)
-from hybrid_torchrec.distributed.sharding.sequence_sharding import (
-    HybridSequenceShardingContext,
-)
-from hybrid_torchrec.distributed.embedding import HybridShardedEmbeddingCollection
-from hybrid_torchrec.sparse.jagged_tensor_with_looup_helper import (
-    KeyedJaggedTensorWithLookHelper,
-)
-from torchrec_embcache.distributed.modules.cache_embedding_configs import (
-    AdmitAndEvictConfig as AdmitAndEvictConfigPy,
-)
-from torchrec_embcache.distributed.modules.cache_embedding_configs import (
-    EmbCacheEmbeddingConfig,
-)
-
-import logging
 
 logger: logging.Logger = logging.getLogger(__name__)
 

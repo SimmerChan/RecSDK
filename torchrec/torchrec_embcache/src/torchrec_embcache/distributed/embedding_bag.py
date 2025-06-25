@@ -9,11 +9,36 @@
 import os
 from typing import Any, cast, Dict, List, Optional, Mapping, Union, Type
 from collections import defaultdict, OrderedDict
-
-import torch
-import torch_npu
+import logging
 import numpy as np
+
+import torch_npu
+import torch
 from torch import distributed as dist, nn, Tensor
+
+from embcache_pybind import (
+    EmbcacheManager,
+    EmbConfig,
+    AdmitAndEvictConfig,
+    AsyncSwapInfo,
+    AsyncSwapinTensor,
+    SwapInfo,
+    SwapinTensor,
+)
+from fbgemm_gpu.split_embedding_configs import EmbOptimType
+from fbgemm_gpu.split_table_batched_embeddings_ops_training import (
+    SplitTableBatchedEmbeddingBagsCodegen,
+)
+from hybrid_torchrec.modules.ids_process import IdsMapper
+from hybrid_torchrec.modules.ids_process import HashMapBase
+from hybrid_torchrec.distributed.sharding.post_input_dist import (
+    EMPTY_POST_INPUT_DIST,
+    PostInputKJTListAwaitable,
+)
+from hybrid_torchrec.sparse.jagged_tensor_with_looup_helper import (
+    KeyedJaggedTensorWithLookHelper,
+)
+
 from torchrec.modules.embedding_modules import EmbeddingBagCollection
 from torchrec.distributed.model_parallel import (
     DistributedDataParallel,
@@ -46,17 +71,6 @@ from torchrec.modules.embedding_configs import (
     pooling_type_to_str,
     PoolingType,
 )
-
-from hybrid_torchrec.modules.ids_process import IdsMapper
-from hybrid_torchrec.modules.ids_process import HashMapBase
-from hybrid_torchrec.distributed.sharding.post_input_dist import (
-    EMPTY_POST_INPUT_DIST,
-    PostInputKJTListAwaitable,
-)
-from hybrid_torchrec.sparse.jagged_tensor_with_looup_helper import (
-    KeyedJaggedTensorWithLookHelper,
-)
-
 from torchrec.optim.fused import FusedOptimizerModule
 from torchrec.optim.keyed import CombinedOptimizer
 from torchrec.modules.embedding_modules import (
@@ -75,21 +89,6 @@ from torchrec_embcache.distributed.sharding.rw_sharding import (
 )
 from torchrec_embcache.distributed.utils import get_embedding_optim_num
 
-from embcache_pybind import (
-    EmbcacheManager,
-    EmbConfig,
-    AdmitAndEvictConfig,
-    AsyncSwapInfo,
-    AsyncSwapinTensor,
-    SwapInfo,
-    SwapinTensor,
-)
-from fbgemm_gpu.split_embedding_configs import EmbOptimType
-from fbgemm_gpu.split_table_batched_embeddings_ops_training import (
-    SplitTableBatchedEmbeddingBagsCodegen,
-)
-
-import logging
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -436,7 +435,6 @@ class EmbCacheShardedEmbeddingBagCollection(ShardedEmbeddingBagCollection):
         for i, (sharding, lookup) in enumerate(
             zip(self._embedding_shardings, self._lookups)
         ):
-            # TODO: can move this into DpPooledEmbeddingSharding once all modules are composable
             if isinstance(sharding, DpPooledEmbeddingSharding):
                 self._lookups[i] = DistributedDataParallel(
                     module=lookup,
@@ -577,7 +575,8 @@ class EmbCacheShardedEmbeddingBagCollection(ShardedEmbeddingBagCollection):
                     optim_num = 2
                 else:
                     raise NotImplementedError(
-                        f"Getting optimizer states is not supported for {sharding_info.fused_params['optimizer']}"
+                        f"Getting optimizer states is not supported 
+                        f"for {sharding_info.fused_params['optimizer']}"
                     )
 
                 local_shard_size = 0

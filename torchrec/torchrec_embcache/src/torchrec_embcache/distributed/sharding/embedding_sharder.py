@@ -6,7 +6,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-import torch
+
 from typing import (
     Any,
     cast,
@@ -20,6 +20,8 @@ from typing import (
     Type,
     Union,
 )
+
+import torch
 
 from torchrec.distributed.types import (
     Awaitable,

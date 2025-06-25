@@ -9,7 +9,31 @@
 from concurrent.futures import ThreadPoolExecutor
 import os
 from typing import Any, Dict, List, Optional, Tuple
+
 import torch
+import torch.distributed as dist
+
+import embcache_pybind
+from hybrid_torchrec.distributed.embedding_lookup import (
+    HybridGroupedPooledEmbeddingsLookup,
+)
+
+from hybrid_torchrec.modules.hash_embeddingbag import HashMap
+
+from hybrid_torchrec.distributed.sharding.post_input_dist import (
+    SparseFeaturesPostDist,
+    EMPTY_POST_INPUT_DIST,
+    UniqueHashFeatureProcess,
+    get_feature_len_groupby_table_name,
+)
+
+from hybrid_torchrec.distributed.sharding.hybrid_rw_sharding import (
+    HashRwSparseFeaturesDist,
+    HashRwSparseFeaturesDistAwaitable,
+    bucketize_kjt_before_all2all,
+)
+
+
 from torchrec.distributed.types import (
     Awaitable,
     QuantizedCommCodecs,
@@ -33,30 +57,7 @@ from torchrec.distributed.embedding_types import (
     BaseGroupedFeatureProcessor,
 )
 from torchrec.fx.utils import assert_fx_safe
-import torch.distributed as dist
-
-import embcache_pybind
-
 from torchrec.sparse.jagged_tensor import KeyedJaggedTensor
-
-from hybrid_torchrec.distributed.embedding_lookup import (
-    HybridGroupedPooledEmbeddingsLookup,
-)
-
-from hybrid_torchrec.modules.hash_embeddingbag import HashMap
-
-from hybrid_torchrec.distributed.sharding.post_input_dist import (
-    SparseFeaturesPostDist,
-    EMPTY_POST_INPUT_DIST,
-    UniqueHashFeatureProcess,
-    get_feature_len_groupby_table_name,
-)
-
-from hybrid_torchrec.distributed.sharding.hybrid_rw_sharding import (
-    HashRwSparseFeaturesDist,
-    HashRwSparseFeaturesDistAwaitable,
-    bucketize_kjt_before_all2all,
-)
 
 
 class EmbCacheInputDistThreadPoolExecutorSingleton:

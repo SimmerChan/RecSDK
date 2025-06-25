@@ -8,7 +8,17 @@
 
 import os
 from typing import Any, Dict, List, Optional
+
 import torch
+
+from hybrid_torchrec.modules.hash_embeddingbag import HashMap
+from hybrid_torchrec.distributed.sharding.post_input_dist import (
+    SparseFeaturesPostDist,
+    EMPTY_POST_INPUT_DIST,
+    UniqueHashFeatureProcess,
+    get_feature_len_groupby_table_name,
+)
+
 from torchrec.distributed.types import QuantizedCommCodecs, ShardingEnv, ShardingType
 from torchrec.distributed.sharding.rw_sharding import RwSparseFeaturesDist
 from torchrec.distributed.sharding.rw_sequence_sharding import (
@@ -29,15 +39,6 @@ from torchrec.sparse.jagged_tensor import KeyedJaggedTensor
 from hybrid_torchrec.distributed.embedding_lookup import (
     HybridGroupedEmbeddingsLookup,
 )
-from hybrid_torchrec.modules.hash_embeddingbag import HashMap
-
-from hybrid_torchrec.distributed.sharding.post_input_dist import (
-    SparseFeaturesPostDist,
-    EMPTY_POST_INPUT_DIST,
-    UniqueHashFeatureProcess,
-    get_feature_len_groupby_table_name,
-)
-
 from torchrec_embcache.distributed.sharding.rw_sharding import (
     EmbCacheRwSparseFeaturesDist,
 )

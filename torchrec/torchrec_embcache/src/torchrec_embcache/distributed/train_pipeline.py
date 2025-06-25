@@ -24,29 +24,21 @@ from typing import (
     Union,
     Callable,
 )
+from collections import defaultdict, deque
 import logging
+import time
+import os
+
+import torch_npu
+import torch
+from torch.autograd.profiler import record_function
+
 from hybrid_torchrec.distributed.sharding.sequence_sharding import (
     HybridSequenceShardingContext,
 )
-from torchrec_embcache.distributed.sharding.rw_sharding import (
-    EmbCacheRwSparseFeaturesDistAwaitable,
-)
-from torchrec.distributed.embedding_sharding import (
-    FusedKJTListSplitsAwaitable,
-    KJTListSplitsAwaitable,
-    KJTSplitsAllToAllMeta,
-)
-from torchrec.distributed.embedding_types import KJTList
-from torchrec.distributed.embeddingbag import EmbeddingBagCollectionContext
-from torchrec.distributed.train_pipeline.train_pipelines import TrainPipelineSparseDist
 
-logger: logging.Logger = logging.getLogger(__name__)
-from collections import defaultdict, deque
-
-import torch
-import torch_npu
-from torch.autograd.profiler import record_function
 import embcache_pybind
+
 from torchrec.distributed import TrainPipeline
 from torchrec.distributed.train_pipeline import In, Out, _wait_for_batch
 from torchrec.distributed.train_pipeline.utils import (
@@ -66,8 +58,19 @@ from torchrec.distributed.train_pipeline.utils import (
 from torchrec import KeyedJaggedTensor
 from torchrec.distributed.types import Awaitable, ShardedModule
 from torchrec.streamable import Multistreamable, Pipelineable
-import time
-import os
+from torchrec_embcache.distributed.sharding.rw_sharding import (
+    EmbCacheRwSparseFeaturesDistAwaitable,
+)
+from torchrec.distributed.embedding_sharding import (
+    FusedKJTListSplitsAwaitable,
+    KJTListSplitsAwaitable,
+    KJTSplitsAllToAllMeta,
+)
+from torchrec.distributed.embedding_types import KJTList
+from torchrec.distributed.embeddingbag import EmbeddingBagCollectionContext
+from torchrec.distributed.train_pipeline.train_pipelines import TrainPipelineSparseDist
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 class EmbCacheAwaitableAdapterThreadPoolExecutorSingleton:
