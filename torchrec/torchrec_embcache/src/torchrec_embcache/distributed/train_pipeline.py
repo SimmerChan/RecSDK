@@ -130,7 +130,7 @@ class EmbCacheTrainPipelineContext(TrainPipelineContext):
 
 class EmbCachePipelinedForward(PipelinedForward):
     # pyre-ignore [2, 24]
-    def __call__(self, *input, **kwargs) -> Awaitable:
+    def __call__(self, *input_feature, **kwargs) -> Awaitable:
         self._context.sparse_features_after_restore_future.pop(self._name).get()
         data = self._context.sparse_features_after_post_dist.pop(self._name)
         # 由于把global_unique的结果unique_ids作为输入给到get_swap_info, 因此get_swap_info的结果batch_offs即为unique_indices
@@ -139,9 +139,9 @@ class EmbCachePipelinedForward(PipelinedForward):
         ctx = self._context.module_contexts.pop(self._name)
         cur_stream = torch.get_device_module(self._device).current_stream()
         with torch_npu.npu.stream(self._context.memcpy_stream):
-            for i in range(len(data)):
-                data[i] = data[i].to(self._device, non_blocking=True)
-                data[i].record_stream(cur_stream)
+            for a_data in data:
+                a_data = a_data.to(self._device, non_blocking=True)
+                a_data.record_stream(cur_stream)
 
             for sharding_ctx in ctx.sharding_contexts:
                 if not isinstance(sharding_ctx, HybridSequenceShardingContext):
@@ -175,11 +175,13 @@ def _start_data_dist(
 
     for module in pipelined_modules:
         forward = module.forward
-        assert (
+        if not (
             isinstance(forward, PipelinedForward)
             or isinstance(forward, PrefetchPipelinedForward)
             or isinstance(forward, EmbCachePipelinedForward)
-        )
+        ):
+            raise RuntimeError("forward should be in [PipelinedForward," \
+            " PrefetchPipelinedForward, EmbCachePipelinedForward]")
 
         # Retrieve argument for the input_dist of EBC
         # is_getitem True means this argument could be retrieved by a list
@@ -541,8 +543,8 @@ class EmbCacheTrainPipelineSparseDist(TrainPipelineSparseDist[In, Out]):
                         )  
 
                     swapin_embs.record_stream(self._default_stream)
-                    for ind in range(len(swapin_optims)):
-                        swapin_optims[ind].record_stream(self._default_stream)
+                    for swapin_optim in swapin_optims:
+                        swapin_optim.record_stream(self._default_stream)
 
                     context.swapin_embs[module_name] = swapin_embs
                     context.swapin_optims[module_name] = swapin_optims

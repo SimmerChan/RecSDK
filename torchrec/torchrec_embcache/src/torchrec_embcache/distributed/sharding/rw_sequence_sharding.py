@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional
 
 import torch
 
-from hybrid_torchrec.modules.hash_embeddingbag import HashMap
+from hybrid_torchrec.modules.ids_process import HashMapBase
 from hybrid_torchrec.distributed.sharding.post_input_dist import (
     SparseFeaturesPostDist,
     EMPTY_POST_INPUT_DIST,
@@ -20,6 +20,9 @@ from hybrid_torchrec.distributed.sharding.post_input_dist import (
 )
 from torchrec_embcache.distributed.sharding.rw_sharding import (
     EmbCacheRwSparseFeaturesDist,
+)
+from hybrid_torchrec.distributed.embedding_lookup import (
+    HybridGroupedEmbeddingsLookup,
 )
 
 from torchrec.distributed.types import QuantizedCommCodecs, ShardingEnv, ShardingType
@@ -39,16 +42,13 @@ from torchrec.distributed.embedding_types import (
     BaseGroupedFeatureProcessor,
 )
 from torchrec.sparse.jagged_tensor import KeyedJaggedTensor
-from hybrid_torchrec.distributed.embedding_lookup import (
-    HybridGroupedEmbeddingsLookup,
-)
 
 
 class EmbCacheRwSequenceEmbeddingSharding(RwSequenceEmbeddingSharding):
     def __init__(
         self,
         sharding_infos: List[EmbeddingShardingInfo],
-        table2hashmap: Dict[str, HashMap],
+        table2hashmap: Dict[str, HashMapBase],
         cpu_env: ShardingEnv,
         cpu_device: torch.device,
         npu_device: torch.device,

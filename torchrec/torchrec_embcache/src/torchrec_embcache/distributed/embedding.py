@@ -168,12 +168,12 @@ class EmbCacheHashTable(torch.nn.Module):
 
     def forward(
         self,
-        input: torch.Tensor,
+        input_tensor: torch.Tensor,
         offsets: Optional[torch.Tensor] = None,
         per_sample_weights=None,
     ):
-        raw_device = input.device
-        ids_host = input.cpu()
+        raw_device = input_tensor.device
+        ids_host = input_tensor.cpu()
         index_of_ids, _, _ = self.ids2slot_dict(ids_host, high_precison=True)
         index_of_ids = index_of_ids.to(raw_device)
         values = self.vector_table(index_of_ids, offsets)
@@ -194,7 +194,7 @@ class EmbCacheEmbeddingCollection(EmbeddingCollection):
         tables: List[EmbCacheEmbeddingConfig | EmbeddingConfig],
         world_size: int,
         batch_size: int,
-        multi_hot_sizes: List[int],  
+        multi_hot_sizes: List[int],
         need_indices: bool = False,
         device: Optional[torch.device] = None,
         embedding_optimizer_cls: Type[torch.optim.Optimizer] = torch.optim.Adagrad,
@@ -285,7 +285,7 @@ class EmbCacheEmbeddingCollection(EmbeddingCollection):
                 dtype_size * 2 * batch_size * weight_and_optim_count,
             )
         )
-        # max_hbm_for_vectors = min_mem  
+        # max_hbm_for_vectors = min_mem
         if max_hbm_for_vectors < min_mem:
             # print(f"max_hbm_for_vectors {max_hbm_for_vectors} < min_mem:{min_mem}")
             # max_hbm_for_vectors = min_mem
@@ -470,7 +470,7 @@ class EmbCacheShardedEmbeddingCollection(ShardedEmbeddingCollection):
             ids_mapper.set_cache_mgr(self._embcache_mgr)
 
     def compute_and_output_dist(
-        self, ctx: EmbeddingCollectionContext, input: KJTList
+        self, ctx: EmbeddingCollectionContext, input_feature: KJTList
     ) -> LazyAwaitable[Dict[str, JaggedTensor]]:
         awaitables = []
         features_before_all2all_per_sharding: List[KeyedJaggedTensor] = []
@@ -478,7 +478,7 @@ class EmbCacheShardedEmbeddingCollection(ShardedEmbeddingCollection):
             self._lookups,
             self._output_dists,
             ctx.sharding_contexts,
-            input,
+            input_feature,
             self._sharding_type_to_sharding,
         ):
             sharding_ctx.lengths_after_input_dist = features.lengths().view(
@@ -526,10 +526,11 @@ class EmbCacheShardedEmbeddingCollection(ShardedEmbeddingCollection):
         features_offset_per_key: List[int] = features.offset_per_key()
         feature_key_num = len(features_offset_per_key) - 1
         table_num = len(emb_dims)
-        assert feature_key_num == table_num, (
-            f"Admit current only support same number of feature key and table,"
-            f" but got feature_key_num:{feature_key_num}, table_num:{table_num}"
-        )
+        if feature_key_num != table_num:
+            raise RuntimeError(
+                f"Admit current only support same number of feature key and table,"
+                f" but got feature_key_num:{feature_key_num}, table_num:{table_num}"
+            )
 
         lookup_ret_by_feature: List[Tensor] = []
         lookup_ret_offset = 0
@@ -538,12 +539,12 @@ class EmbCacheShardedEmbeddingCollection(ShardedEmbeddingCollection):
                 features_offset_per_key[i + 1] - features_offset_per_key[i]
             )
             lookup_ret_by_feature.append(
-                lookup_ret[lookup_ret_offset: lookup_ret_offset + lookup_ret_size]
+                lookup_ret[lookup_ret_offset : lookup_ret_offset + lookup_ret_size]
             )
             lookup_ret_offset += lookup_ret_size
         for i in range(feature_key_num):
             ids_offset_tensor = features.values()[
-                features_offset_per_key[i]: features_offset_per_key[i + 1]
+                features_offset_per_key[i] : features_offset_per_key[i + 1]
             ]
             feature_key_offset_musk = ids_offset_tensor == 0
             true_value_num = torch.sum(feature_key_offset_musk).item()
