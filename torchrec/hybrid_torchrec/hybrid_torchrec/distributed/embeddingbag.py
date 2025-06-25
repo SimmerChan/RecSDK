@@ -209,8 +209,8 @@ class HybridShardedEmbeddingBagCollection(
         ] = [
             self.create_hybrid_embedding_bag_sharding(
                 embedding_configs,
-                self.env,
-                self.host_env,
+                self._env,
+                self._host_env,
                 device,
                 qcomm_codecs_registry=self.qcomm_codecs_registry,
             )
