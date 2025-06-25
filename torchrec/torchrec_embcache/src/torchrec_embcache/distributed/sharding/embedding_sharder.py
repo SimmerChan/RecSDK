@@ -1,3 +1,11 @@
+#!/usr/bin/env python3
+# Copyright (c) Huawei Platforms, Inc. and affiliates.
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
 import torch
 from typing import (
     Any,
@@ -28,8 +36,14 @@ from torchrec.distributed.types import (
 
 from torchrec.distributed.embeddingbag import EmbeddingBagCollectionSharder
 from torchrec.distributed.embedding import EmbeddingCollectionSharder
-from torchrec_embcache.distributed.embedding_bag import EmbCacheShardedEmbeddingBagCollection, EmbCacheEmbeddingBagCollection
-from torchrec_embcache.distributed.embedding import EmbCacheShardedEmbeddingCollection, EmbCacheEmbeddingCollection
+from torchrec_embcache.distributed.embedding_bag import (
+    EmbCacheShardedEmbeddingBagCollection,
+    EmbCacheEmbeddingBagCollection,
+)
+from torchrec_embcache.distributed.embedding import (
+    EmbCacheShardedEmbeddingCollection,
+    EmbCacheEmbeddingCollection,
+)
 
 
 class EmbCacheEmbeddingBagCollectionSharder(EmbeddingBagCollectionSharder):
@@ -54,7 +68,7 @@ class EmbCacheEmbeddingBagCollectionSharder(EmbeddingBagCollectionSharder):
         self._cpu_env = cpu_env
         self._npu_device = npu_device
         self._npu_env = npu_env
-        
+
     def shard(
         self,
         module: EmbCacheEmbeddingBagCollection,
@@ -101,13 +115,13 @@ class EmbCacheEmbeddingCollectionSharder(EmbeddingCollectionSharder):
     """
 
     def __init__(
-            self,
-            cpu_device: torch.device,
-            cpu_env: ShardingEnv,
-            npu_device: torch.device,
-            npu_env: ShardingEnv,
-            fused_params: Optional[Dict[str, Any]] = None,
-            qcomm_codecs_registry: Optional[Dict[str, QuantizedCommCodecs]] = None,
+        self,
+        cpu_device: torch.device,
+        cpu_env: ShardingEnv,
+        npu_device: torch.device,
+        npu_env: ShardingEnv,
+        fused_params: Optional[Dict[str, Any]] = None,
+        qcomm_codecs_registry: Optional[Dict[str, QuantizedCommCodecs]] = None,
     ) -> None:
         super().__init__(
             fused_params=fused_params,
@@ -119,12 +133,12 @@ class EmbCacheEmbeddingCollectionSharder(EmbeddingCollectionSharder):
         self._npu_env = npu_env
 
     def shard(
-            self,
-            module: EmbCacheEmbeddingCollection,
-            params: Dict[str, ParameterSharding],
-            env: ShardingEnv,
-            device: Optional[torch.device] = None,
-            module_fqn: Optional[str] = None,
+        self,
+        module: EmbCacheEmbeddingCollection,
+        params: Dict[str, ParameterSharding],
+        env: ShardingEnv,
+        device: Optional[torch.device] = None,
+        module_fqn: Optional[str] = None,
     ) -> EmbCacheShardedEmbeddingCollection:
         return EmbCacheShardedEmbeddingCollection(
             module=module,

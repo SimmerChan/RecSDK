@@ -1,9 +1,26 @@
+#!/usr/bin/env python3
+# Copyright (c) Huawei Platforms, Inc. and affiliates.
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
 from concurrent.futures import ThreadPoolExecutor
 import os
 from typing import Any, Dict, List, Optional, Tuple
 import torch
-from torchrec.distributed.types import Awaitable, QuantizedCommCodecs, ShardingEnv, ShardingType
-from torchrec.distributed.sharding.rw_sharding import RwPooledEmbeddingDist, RwPooledEmbeddingSharding, RwSparseFeaturesDist
+from torchrec.distributed.types import (
+    Awaitable,
+    QuantizedCommCodecs,
+    ShardingEnv,
+    ShardingType,
+)
+from torchrec.distributed.sharding.rw_sharding import (
+    RwPooledEmbeddingDist,
+    RwPooledEmbeddingSharding,
+    RwSparseFeaturesDist,
+)
 from torchrec.distributed.embedding_sharding import (
     EmbeddingShardingInfo,
     EmbeddingShardingContext,
@@ -41,19 +58,23 @@ from hybrid_torchrec.distributed.sharding.hybrid_rw_sharding import (
     bucketize_kjt_before_all2all,
 )
 
+
 class EmbCacheInputDistThreadPoolExecutorSingleton:
     _instance: "EmbCacheInputDistThreadPoolExecutorSingleton" = None
 
     def __new__(cls, *args, **kwargs):
         if not cls._instance:
-            cls._instance = super(EmbCacheInputDistThreadPoolExecutorSingleton, cls).__new__(
-                cls, *args, **kwargs
-            )
+            cls._instance = super(
+                EmbCacheInputDistThreadPoolExecutorSingleton, cls
+            ).__new__(cls, *args, **kwargs)
             cls.executor = ThreadPoolExecutor(2)
         return cls._instance
 
+
 class EmbCacheRwSparseFeaturesDistAwaitable(Awaitable):
-    def __init__(self, function, module, sparse_feature: KeyedJaggedTensor, context) -> None:
+    def __init__(
+        self, function, module, sparse_feature: KeyedJaggedTensor, context
+    ) -> None:
         super().__init__()
         self.future = EmbCacheInputDistThreadPoolExecutorSingleton().executor.submit(
             function, sparse_feature
@@ -66,6 +87,7 @@ class EmbCacheRwSparseFeaturesDistAwaitable(Awaitable):
         if self._context is not None:
             self._context.unbucketize_permute_tensor = unbucketize_permute_tensor
         return result
+
 
 class EmbCacheRwSparseFeaturesDist(RwSparseFeaturesDist):
     def __init__(
@@ -93,10 +115,13 @@ class EmbCacheRwSparseFeaturesDist(RwSparseFeaturesDist):
             keep_original_indices,
         )
         self.pg = pg
-        
+
         # local unique只可用于EC(Embedding Collection / Sequence Embedding)
-        self._do_unique = (os.environ.get("DO_EC_LOCAL_UNIQUE", "False").lower() in ('true', '1', 'yes') and 
-                           os.environ.get("USE_EC", "False").lower() in ('true', '1', 'yes'))
+        self._do_unique = os.environ.get("DO_EC_LOCAL_UNIQUE", "False").lower() in (
+            "true",
+            "1",
+            "yes",
+        ) and os.environ.get("USE_EC", "False").lower() in ("true", "1", "yes")
 
         self._enable_admit = enable_admit
 
@@ -125,14 +150,12 @@ class EmbCacheRwSparseFeaturesDist(RwSparseFeaturesDist):
         return result, unbucketize_permute_tensor
 
     def forward(
-        self,
-        sparse_features: KeyedJaggedTensor,
-        context = None
+        self, sparse_features: KeyedJaggedTensor, context=None
     ) -> Awaitable[Awaitable[KeyedJaggedTensor]]:
         return EmbCacheRwSparseFeaturesDistAwaitable(
             self._forward_func, self, sparse_features, context
         )
-        
+
 
 class EmbCacheRwPooledEmbeddingSharding(RwPooledEmbeddingSharding):
     def __init__(

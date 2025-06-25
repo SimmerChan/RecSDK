@@ -12,21 +12,21 @@ from torchrec.pt2.checks import is_torchdynamo_compiling, is_non_strict_exportin
 
 
 class JaggedTensorWithTimestamp(JaggedTensor):
-    _fields = [
-        "_timestamps"
-    ]
+    _fields = ["_timestamps"]
 
     def __init__(
-            self,
-            values: torch.Tensor,
-            weights: Optional[torch.Tensor] = None,
-            lengths: Optional[torch.Tensor] = None,
-            offsets: Optional[torch.Tensor] = None,
-            timestamps: Optional[torch.Tensor] = None,
+        self,
+        values: torch.Tensor,
+        weights: Optional[torch.Tensor] = None,
+        lengths: Optional[torch.Tensor] = None,
+        offsets: Optional[torch.Tensor] = None,
+        timestamps: Optional[torch.Tensor] = None,
     ) -> None:
         if timestamps is not None and values.size() != timestamps.size():
-            raise ValueError(f"timestamps size must same with values, but got timestamp size:{timestamps.size()},"
-                             f" values size:{values.size()}.")
+            raise ValueError(
+                f"timestamps size must same with values, but got timestamp size:{timestamps.size()},"
+                f" values size:{values.size()}."
+            )
 
         super().__init__(values, weights, lengths, offsets)
 
@@ -39,9 +39,7 @@ class JaggedTensorWithTimestamp(JaggedTensor):
 
 
 class KeyedJaggedTensorWithTimestamp(KeyedJaggedTensor):
-    _fields = [
-        "_timestamps"
-    ]
+    _fields = ["_timestamps"]
 
     def __init__(
         self,
@@ -76,7 +74,7 @@ class KeyedJaggedTensorWithTimestamp(KeyedJaggedTensor):
             offset_per_key,
             index_per_key,
             jt_dict,
-            inverse_indices
+            inverse_indices,
         )
 
         self._timestamps: torch.Tensor = timestamps
@@ -86,7 +84,9 @@ class KeyedJaggedTensorWithTimestamp(KeyedJaggedTensor):
         return self._timestamps
 
     @staticmethod
-    def from_jt_dict(jt_dict: Dict[str, JaggedTensorWithTimestamp]) -> "KeyedJaggedTensorWithTimestamp":
+    def from_jt_dict(
+        jt_dict: Dict[str, JaggedTensorWithTimestamp],
+    ) -> "KeyedJaggedTensorWithTimestamp":
         """
         Constructs a KeyedJaggedTensor from a dictionary of JaggedTensorWithTimestamps.
         Automatically calls `kjt.sync()` on newly created KJT.
@@ -229,7 +229,7 @@ class KeyedJaggedTensorWithTimestamp(KeyedJaggedTensor):
                         lengths=self.lengths()[
                             self.lengths_offset_per_key()[
                                 start
-                            ]: self.lengths_offset_per_key()[end]
+                            ] : self.lengths_offset_per_key()[end]
                         ],
                         offsets=None,
                         stride=stride,
@@ -383,9 +383,7 @@ class KeyedJaggedTensorWithTimestamp(KeyedJaggedTensor):
             keys=self._keys,
             values=self._values.pin_memory(),
             timestamps=(
-                self._timestamps.pin_memory()
-                if self._timestamps is not None
-                else None
+                self._timestamps.pin_memory() if self._timestamps is not None else None
             ),
             weights=weights.pin_memory() if weights is not None else None,
             lengths=lengths.pin_memory() if lengths is not None else None,
@@ -460,4 +458,3 @@ class KeyedJaggedTensorWithTimestamp(KeyedJaggedTensor):
 
     def dist_tensors(self) -> List[torch.Tensor]:
         return NotImplemented
-

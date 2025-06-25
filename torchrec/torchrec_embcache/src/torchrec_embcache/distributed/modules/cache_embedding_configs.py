@@ -1,3 +1,11 @@
+#!/usr/bin/env python3
+# Copyright (c) Huawei Platforms, Inc. and affiliates.
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -24,6 +32,7 @@ class AdmitAndEvictConfig:
         evict_step_interval(Optional[int]): the step interval of feature evict function.
             Default value is 0, and take effect only when `evict_threshold` is a non-default value.
     """
+
     admit_threshold: Optional[int] = _DEFAULT_ADMIT_THRESHOLD
     not_admitted_default_value: Optional[float] = 0.0
 
@@ -39,9 +48,13 @@ class AdmitAndEvictConfig:
 
 @dataclass
 class EmbCacheEmbeddingBagConfig(EmbeddingBagConfig):
-    admit_and_evict_config: Optional[AdmitAndEvictConfig] = field(default_factory=lambda: AdmitAndEvictConfig())
+    admit_and_evict_config: Optional[AdmitAndEvictConfig] = field(
+        default_factory=lambda: AdmitAndEvictConfig()
+    )
 
 
 @dataclass
 class EmbCacheEmbeddingConfig(EmbeddingConfig):
-    admit_and_evict_config: Optional[AdmitAndEvictConfig] = field(default_factory=lambda: AdmitAndEvictConfig())
+    admit_and_evict_config: Optional[AdmitAndEvictConfig] = field(
+        default_factory=lambda: AdmitAndEvictConfig()
+    )

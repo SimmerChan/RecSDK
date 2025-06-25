@@ -1,9 +1,20 @@
+#!/usr/bin/env python3
+# Copyright (c) Huawei Platforms, Inc. and affiliates.
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
 import os
 from typing import Any, Dict, List, Optional
 import torch
 from torchrec.distributed.types import QuantizedCommCodecs, ShardingEnv, ShardingType
 from torchrec.distributed.sharding.rw_sharding import RwSparseFeaturesDist
-from torchrec.distributed.sharding.rw_sequence_sharding import RwSequenceEmbeddingDist, RwSequenceEmbeddingSharding
+from torchrec.distributed.sharding.rw_sequence_sharding import (
+    RwSequenceEmbeddingDist,
+    RwSequenceEmbeddingSharding,
+)
 from torchrec.distributed.embedding_sharding import (
     EmbeddingShardingInfo,
     EmbeddingShardingContext,
@@ -19,7 +30,7 @@ from hybrid_torchrec.distributed.embedding_lookup import (
     HybridGroupedEmbeddingsLookup,
 )
 from hybrid_torchrec.modules.hash_embeddingbag import HashMap
- 
+
 from hybrid_torchrec.distributed.sharding.post_input_dist import (
     SparseFeaturesPostDist,
     EMPTY_POST_INPUT_DIST,
@@ -27,7 +38,10 @@ from hybrid_torchrec.distributed.sharding.post_input_dist import (
     get_feature_len_groupby_table_name,
 )
 
-from torchrec_embcache.distributed.sharding.rw_sharding import EmbCacheRwSparseFeaturesDist
+from torchrec_embcache.distributed.sharding.rw_sharding import (
+    EmbCacheRwSparseFeaturesDist,
+)
+
 
 class EmbCacheRwSequenceEmbeddingSharding(RwSequenceEmbeddingSharding):
     def __init__(
