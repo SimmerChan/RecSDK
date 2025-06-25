@@ -95,6 +95,7 @@ class AllGatherEmbeddings(torch.autograd.Function):
     ) -> Tuple[torch.Tensor]:
         ctx.context = context
         ctx.feat_name = feat_name
+        embedding = embedding.detach()
         embed_dim = embedding.shape[1]
         result_list = [
             torch.empty((size, embed_dim), device=embedding.device)
@@ -107,10 +108,11 @@ class AllGatherEmbeddings(torch.autograd.Function):
     def backward(
         ctx, *grad_output: Tuple[torch.Tensor]
     ) -> Tuple[torch.Tensor, None, None]:
-        grad_output = [g for g in grad_output]
+        grad_output = [g.contiguous() for g in grad_output]
         result = torch.empty_like(grad_output[ctx.context.rank])
         ctx.context.bwd_pg.reduce_scatter(result, grad_output).wait()
-        return result, None, None
+        world_size = ctx.context.bwd_pg.get_world_size()
+        return result/world_size, None, None
 
 
 class HashEmbeddingModuleCollection(nn.Module):
@@ -195,7 +197,8 @@ class HashEmbeddingModuleCollection(nn.Module):
             )
             lookup_module_dict[name] = lookup_module
             # 初始化
-            config.init_fn(lookup_module.split_embedding_weights()[0])
+            if config.init_fn:
+                config.init_fn(lookup_module.split_embedding_weights()[0])
         return lookup_module_dict
 
     def post_input_dist(self, features: JaggedTensor, feat_name: str):

@@ -79,16 +79,12 @@ config0 = EmbeddingConfig(
     table_name="table0",
     num_embedding=100,
     embedding_dim=32,
-    rank=rank,
-    world_size=world_size,
     optimizer_args=optimizer_args,
 )
 config1 = EmbeddingConfig(
     table_name="table1",
     num_embedding=100,
     embedding_dim=32,
-    rank=rank,
-    world_size=world_size,
     optimizer_args=optimizer_args,
 )
 embedding = HashEmbeddingModuleCollection(configs=[config0, config1])
