@@ -83,7 +83,6 @@ class HybridSplitTableBatchedEmbeddingBagsCodegen(
             per_sample_weights: Optional[Tensor] = None,
             feature_requires_grad: Optional[Tensor] = None,
             batch_size_per_feature_per_rank: Optional[List[List[int]]] = None,
-            total_unique_indices: Optional[int] = None,
     ) -> Tensor:
         (indices, offsets, per_sample_weights, vbe_metadata,) = self.prepare_inputs(
             indices, offsets, per_sample_weights, batch_size_per_feature_per_rank, force_cast_input_types=True, )
