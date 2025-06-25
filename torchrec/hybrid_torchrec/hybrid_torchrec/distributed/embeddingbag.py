@@ -115,19 +115,19 @@ class HybridShardedEmbeddingBagCollection(
             module.embedding_bag_configs()
         )
         self.init_data_struct(device, env, fused_params, host_env, module)
-        self.init_sharding(device, env, fused_params, host_env, module, table_name_to_parameter_sharding)
+        self.init_sharding(device, fused_params, module, table_name_to_parameter_sharding)
         self.init_lookups(device, env)
         if env.process_group and dist.get_backend(env.process_group) != "fake":
             self._initialize_torch_state()
         if not device_is_in(module.device, ["meta", "cpu"]):
             self.load_state_dict(module.state_dict(), strict=False)
 
-    def init_sharding(self, device, env, fused_params, host_env, module, table_name_to_parameter_sharding):
+    def init_sharding(self, device, fused_params, module, table_name_to_parameter_sharding):
         sharding_type_to_sharding_infos = create_sharding_infos_by_sharding(module, table_name_to_parameter_sharding,
                                                                             "embedding_bags.", fused_params, )
         self._embedding_shardings: List[
             EmbeddingSharding[EmbeddingShardingContext, KeyedJaggedTensor, torch.Tensor, torch.Tensor,]] = [
-            self.create_hybrid_embedding_bag_sharding(embedding_configs, env, host_env, device,
+            self.create_hybrid_embedding_bag_sharding(embedding_configs, self._env, self._host_env, device,
                                                       qcomm_codecs_registry=self.qcomm_codecs_registry, ) for
             embedding_configs in sharding_type_to_sharding_infos.values()]
         for config in self._embedding_bag_configs:
@@ -867,6 +867,7 @@ class HybridEmbeddingBagCollectionSharder(BaseEmbeddingSharder[EmbeddingBagColle
             name.split(".")[0]: param
             for name, param in module.embedding_bags.named_parameters()
         }
+
 
 @dataclass
 class MeanPoolingConfig:
