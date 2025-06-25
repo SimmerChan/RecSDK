@@ -132,7 +132,6 @@ class HashEmbeddingModuleCollection(nn.Module):
         self.lookup_module_dict: Dict[str, nn.Module] = self.create_lookups()
         self._weight_init_mins = 0
         self._weight_init_maxs = 1
-        # self.init_parameters()
 
     def init_parameters(self):
         for module in self.lookup_module_dict.values():

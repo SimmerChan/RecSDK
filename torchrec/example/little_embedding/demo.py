@@ -106,7 +106,7 @@ for i in range(3):
     #   [torch.Tensor([[0.1, 0.1], [0.3, 0.3], [0.5, 0.5], [1.1, 1.1], [1.3, 1.3], [1.5, 1.5]])],
     #   [torch.Tensor([[0.2, 0.2], [0.4, 0.4], [0.6, 0.6], [1.2, 1.2], [1.4, 1.4], [1.6, 1.6]])],
     # ]
-    # context.ids2looup_index["table0"] = {1, 3, 5, 11, 13, 15, 17}
+    # context.ids2looup_index["table0"] = {1: 0, 3: 1, 5: 2, ...,}
 
 # 2 step pipe_line
 pipe1 = []
