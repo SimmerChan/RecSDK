@@ -83,15 +83,13 @@ __aicore__ inline void DoCausalMask(LocalTensor<qType>& inMaskLt, int64_t maskOf
             int64_t thisIndexMask = maskOffset + i + 1;
             Duplicate<qType>(inMaskLt[i * maskStride], value, thisIndexMask);
         }
-    } else if constexpr (maskType == CausalMaskT::MASK_TRIU) {
-        ASCENDC_ASSERT((false), "DoCausalMask triu is unreadlized");
     } else if constexpr (maskType == CausalMaskT::MASK_NONE) {
         Duplicate<qType>(inMaskLt, 0, maskLens);
         for (int i = 0; i < repeatTimes; i++) {
             Duplicate<qType>(inMaskLt[i * maskStride], value, maskOffset);
         }
     } else {
-        ASCENDC_ASSERT((false), "DoCausalMask custom is unreadlized");
+        ASCENDC_ASSERT((false), "DoCausalMask only support MASK_TRIL and MASK_NONE");
     }
 }
 
