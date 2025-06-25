@@ -68,6 +68,7 @@ class CommonArgsInput:
     unique_inverse: torch.Tensor = None
     unique_offset: torch.Tensor = None
 
+
 class HybridSplitTableBatchedEmbeddingBagsCodegen(
     SplitTableBatchedEmbeddingBagsCodegen
 ):
@@ -81,8 +82,6 @@ class HybridSplitTableBatchedEmbeddingBagsCodegen(
             unique_inverse: torch.Tensor = None,
             per_sample_weights: Optional[Tensor] = None,
             feature_requires_grad: Optional[Tensor] = None,
-            # 2D tensor of batch size for each rank and feature.
-            # Shape (number of features, number of ranks)
             batch_size_per_feature_per_rank: Optional[List[List[int]]] = None,
             total_unique_indices: Optional[int] = None,
     ) -> Tensor:
@@ -288,15 +287,10 @@ class HybridBatchedFusedEmbeddingBag(
         compute_devices: List[ComputeDevice] = []
         for table in config.embedding_tables:
             if table.local_cols % 4 != 0:
-                raise ValueError(
-                    f"table {table.name} has local_cols={table.local_cols} "
-                    "not divisible by 4. "
-                )
+                raise ValueError(f"table {table.name} has local_cols={table.local_cols} " "not divisible by 4. ")
             if device is not None and device.type == "cuda":
                 compute_devices.append(ComputeDevice.CUDA)
-                managed.append(
-                    compute_kernel_to_embedding_location(table.compute_kernel)
-                )
+                managed.append(compute_kernel_to_embedding_location(table.compute_kernel))
             elif device is not None and device.type == "mtia":
                 compute_devices.append(ComputeDevice.MTIA)
                 # Set EmbeddingLocation.HOST to make embedding op in FBGEMM choose CPU path.
@@ -304,9 +298,7 @@ class HybridBatchedFusedEmbeddingBag(
                 managed.append(EmbeddingLocation.HOST)
             elif device is not None and device.type == "npu":
                 compute_devices.append(ComputeDevice.NPU)
-                managed.append(
-                    compute_kernel_to_embedding_location(table.compute_kernel)
-                )
+                managed.append(compute_kernel_to_embedding_location(table.compute_kernel))
             else:
                 compute_devices.append(ComputeDevice.CPU)
                 managed.append(EmbeddingLocation.HOST)
@@ -316,31 +308,15 @@ class HybridBatchedFusedEmbeddingBag(
         if "cache_precision" not in fused_params:
             fused_params["cache_precision"] = weights_precision
 
-        self._emb_module: HybridSplitTableBatchedEmbeddingBagsCodegen = (
-            HybridSplitTableBatchedEmbeddingBagsCodegen(
-                embedding_specs=list(
-                    zip(self._local_rows, self._local_cols, managed, compute_devices)
-                ),
-                feature_table_map=self._feature_table_map,
-                pooling_mode=self._pooling,
-                weights_precision=weights_precision,
-                device=device,
-                **fused_params,
-            )
-        )
-        self._optim: EmbeddingFusedOptimizer = EmbeddingFusedOptimizer(
-            config,
-            self._emb_module,
-            pg,
-        )
+        self._emb_module: HybridSplitTableBatchedEmbeddingBagsCodegen = (HybridSplitTableBatchedEmbeddingBagsCodegen(
+            embedding_specs=list(zip(self._local_rows, self._local_cols, managed, compute_devices)),
+            feature_table_map=self._feature_table_map, pooling_mode=self._pooling, weights_precision=weights_precision,
+            device=device, **fused_params, ))
+        self._optim: EmbeddingFusedOptimizer = EmbeddingFusedOptimizer(config, self._emb_module, pg,)
         self._param_per_table: Dict[str, TableBatchedEmbeddingSlice] = dict(
-            _gen_named_parameters_by_table_fused(
-                emb_module=self._emb_module,
-                table_name_to_count=self.table_name_to_count.copy(),
-                config=self._config,
-                pg=pg,
-            )
-        )
+            _gen_named_parameters_by_table_fused(emb_module=self._emb_module,
+                                                 table_name_to_count=self.table_name_to_count.copy(),
+                                                 config=self._config, pg=pg, ))
         self.init_parameters()
 
     @property
