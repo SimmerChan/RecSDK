@@ -197,74 +197,38 @@ class KeyedJaggedTensorWithLookHelper(KeyedJaggedTensor):
             end_offset = _offset_per_key[end]
             end_unique_offset = self.unique_offset_host[end]
             keys: List[str] = self._keys[start:end]
-            stride, stride_per_key_per_rank = (
-                (None, self.stride_per_key_per_rank()[start:end])
-                if self.variable_stride_per_key()
-                else (self._stride, None)
-            )
+            stride, stride_per_key_per_rank = ((None, self.stride_per_key_per_rank()[start:end])
+                                               if self.variable_stride_per_key() else (self._stride, None))
             if segment == len(self._keys):
                 # no torch slicing required
                 self.split_with_segment_equal_keys_length(split_list, stride, stride_per_key_per_rank)
             elif segment == 0:
                 self.split_with_segment_zero(keys, split_list, stride, stride_per_key_per_rank)
             else:
-                self.split_with_others(_length_per_key, end, end_offset, end_unique_offset, keys, split_list, start,
-                                       start_offset, start_unique_offset, stride, stride_per_key_per_rank)
+                split_length_per_key = _length_per_key[start:end]
+                if start_unique_offset == end_unique_offset:
+                    raise RuntimeError(
+                        "start_unique_offset == end_unique_offset, it caused by spliting keys on the same table")
+                split_list.append(KeyedJaggedTensorWithLookHelper(
+                    keys=keys, values=self._values[start_offset:end_offset],
+                    hash_indices=(
+                        self._hash_indices[start_offset:end_offset] if self._hash_indices is not None else None),
+                    unique_indices=(self._unique_indices[
+                                    start_unique_offset:end_unique_offset] if self._hash_indices is not None else None),
+                    unique_offset=(self._unique_offset[start:end] - self._unique_offset[
+                        start] if self._unique_offset is not None else None),
+                    unique_inverse=(
+                        self._unique_inverse[start_offset:end_offset] if self._unique_inverse is not None else None),
+                    weights=(None if self.weights_or_none() is None else self.weights()[start_offset:end_offset]),
+                    lengths=self.lengths()[self.lengths_offset_per_key()[start]: self.lengths_offset_per_key()[end]],
+                    offsets=None, stride=stride, stride_per_key_per_rank=stride_per_key_per_rank,
+                    length_per_key=split_length_per_key, offset_per_key=None, index_per_key=None, jt_dict=None,)
+                )
             start = end
             start_offset = end_offset
             start_unique_offset = end_unique_offset
         return split_list
 
-    def split_with_others(self, _length_per_key, end, end_offset, end_unique_offset, keys, split_list, start,
-                          start_offset, start_unique_offset, stride, stride_per_key_per_rank):
-        split_length_per_key = _length_per_key[start:end]
-        if start_unique_offset == end_unique_offset:
-            raise RuntimeError(
-                "start_unique_offset == end_unique_offset, it caused by spliting keys on the same table"
-            )
-        split_list.append(
-            KeyedJaggedTensorWithLookHelper(
-                keys=keys,
-                values=self._values[start_offset:end_offset],
-                hash_indices=(
-                    self._hash_indices[start_offset:end_offset]
-                    if self._hash_indices is not None
-                    else None
-                ),
-                unique_indices=(
-                    self._unique_indices[start_unique_offset:end_unique_offset]
-                    if self._hash_indices is not None
-                    else None
-                ),
-                unique_offset=(
-                    self._unique_offset[start:end] - self._unique_offset[start]
-                    if self._unique_offset is not None
-                    else None
-                ),
-                unique_inverse=(
-                    self._unique_inverse[start_offset:end_offset]
-                    if self._unique_inverse is not None
-                    else None
-                ),
-                weights=(
-                    None
-                    if self.weights_or_none() is None
-                    else self.weights()[start_offset:end_offset]
-                ),
-                lengths=self.lengths()[
-                        self.lengths_offset_per_key()[
-                            start
-                        ]: self.lengths_offset_per_key()[end]
-                        ],
-                offsets=None,
-                stride=stride,
-                stride_per_key_per_rank=stride_per_key_per_rank,
-                length_per_key=split_length_per_key,
-                offset_per_key=None,
-                index_per_key=None,
-                jt_dict=None,
-            )
-        )
 
     def split_with_segment_zero(self, keys, split_list, stride, stride_per_key_per_rank):
         empty_int_list: List[int] = torch.jit.annotate(List[int], [])
