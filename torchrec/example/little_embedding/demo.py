@@ -40,7 +40,7 @@ def get_distribute_env():
 
 rank, world_size = get_distribute_env()
 torch_npu.npu.set_device(rank)
-dist.init_process_group(backend="gloo")
+dist.init_process_group(backend="hccl")
 
 
 def dataset_getnext():
