@@ -54,6 +54,22 @@ from torchrec_embcache.distributed.modules.cache_embedding_configs import (
 from torchrec_embcache.distributed.modules.cache_embedding_configs import (
     EmbCacheEmbeddingConfig,
 )
+from torchrec_embcache.distributed.sharding.rw_sequence_sharding import (
+    EmbCacheRwSequenceEmbeddingSharding,
+)
+from torchrec_embcache.sparse.jagged_tensor_with_timestamp import (
+    KeyedJaggedTensorWithTimestamp,
+)
+from torchrec_embcache.distributed.utils import get_embedding_optim_num
+from torchrec_embcache import (
+    EmbcacheManager,
+    EmbConfig,
+    AdmitAndEvictConfig,
+    AsyncSwapInfo,
+    AsyncSwapinTensor,
+    SwapInfo,
+    SwapinTensor,
+)
 from torchrec.distributed import Awaitable
 from torchrec.distributed.types import (
     Awaitable,
@@ -102,22 +118,6 @@ from torchrec.distributed.embedding import (
     pad_vbe_kjt_lengths,
     set_ec_index_dedup,
     get_ec_index_dedup,
-)
-from torchrec_embcache.distributed.sharding.rw_sequence_sharding import (
-    EmbCacheRwSequenceEmbeddingSharding,
-)
-from torchrec_embcache.sparse.jagged_tensor_with_timestamp import (
-    KeyedJaggedTensorWithTimestamp,
-)
-from torchrec_embcache.distributed.utils import get_embedding_optim_num
-from torchrec_embcache import (
-    EmbcacheManager,
-    EmbConfig,
-    AdmitAndEvictConfig,
-    AsyncSwapInfo,
-    AsyncSwapinTensor,
-    SwapInfo,
-    SwapinTensor,
 )
 
 logger: logging.Logger = logging.getLogger(__name__)

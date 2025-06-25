@@ -18,6 +18,9 @@ from hybrid_torchrec.distributed.sharding.post_input_dist import (
     UniqueHashFeatureProcess,
     get_feature_len_groupby_table_name,
 )
+from torchrec_embcache.distributed.sharding.rw_sharding import (
+    EmbCacheRwSparseFeaturesDist,
+)
 
 from torchrec.distributed.types import QuantizedCommCodecs, ShardingEnv, ShardingType
 from torchrec.distributed.sharding.rw_sharding import RwSparseFeaturesDist
@@ -38,9 +41,6 @@ from torchrec.distributed.embedding_types import (
 from torchrec.sparse.jagged_tensor import KeyedJaggedTensor
 from hybrid_torchrec.distributed.embedding_lookup import (
     HybridGroupedEmbeddingsLookup,
-)
-from torchrec_embcache.distributed.sharding.rw_sharding import (
-    EmbCacheRwSparseFeaturesDist,
 )
 
 

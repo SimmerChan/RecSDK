@@ -39,6 +39,11 @@ from hybrid_torchrec.sparse.jagged_tensor_with_looup_helper import (
     KeyedJaggedTensorWithLookHelper,
 )
 
+from torchrec_embcache.distributed.sharding.rw_sharding import (
+    EmbCacheRwPooledEmbeddingSharding,
+)
+from torchrec_embcache.distributed.utils import get_embedding_optim_num
+
 from torchrec.modules.embedding_modules import EmbeddingBagCollection
 from torchrec.distributed.model_parallel import (
     DistributedDataParallel,
@@ -83,11 +88,6 @@ from torchrec.distributed.embeddingbag import (
     EmbeddingBagCollectionAwaitable,
     create_sharding_infos_by_sharding,
 )
-
-from torchrec_embcache.distributed.sharding.rw_sharding import (
-    EmbCacheRwPooledEmbeddingSharding,
-)
-from torchrec_embcache.distributed.utils import get_embedding_optim_num
 
 
 logger: logging.Logger = logging.getLogger(__name__)
