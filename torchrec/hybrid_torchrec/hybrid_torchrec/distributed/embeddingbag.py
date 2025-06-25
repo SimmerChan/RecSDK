@@ -6,6 +6,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 from collections import defaultdict, OrderedDict
+from dataclasses import dataclass
 from functools import partial
 from typing import Any, cast, Dict, List, Mapping, Optional, Type, Union, TypeVar, Tuple
 
@@ -424,7 +425,7 @@ class HybridShardedEmbeddingBagCollection(
                     self._features_order_tensor,
                 )
             if self._has_mean_pooling_callback:
-                ctx.divisor = _create_mean_pooling_divisor(
+                ctx.divisor = _create_mean_pooling_divisor(MeanPoolingConfig(
                     lengths=features.lengths(),
                     stride=features.stride(),
                     keys=features.keys(),
@@ -440,7 +441,7 @@ class HybridShardedEmbeddingBagCollection(
                     kt_key_ordering=self._kt_key_ordering_cpu,  # pyre-ignore[6]
                     inverse_indices=ctx.inverse_indices,
                     weights=features.weights_or_none(),
-                )
+                ))
 
             features_by_shards = features.split(
                 self._feature_splits,
@@ -908,69 +909,71 @@ class HybridEmbeddingBagCollectionSharder(BaseEmbeddingSharder[EmbeddingBagColle
             for name, param in module.embedding_bags.named_parameters()
         }
 
+@dataclass
+class MeanPoolingConfig:
+    lengths: torch.Tensor
+    keys: List[str]
+    offsets: torch.Tensor
+    stride: int
+    stride_per_key: List[int]
+    dim_per_key: torch.Tensor
+    pooling_type_to_rs_features: Dict[str, List[str]]
+    embedding_names: List[str]
+    embedding_dims: List[int]
+    variable_batch_per_feature: bool
+    kjt_inverse_order: torch.Tensor
+    kjt_key_indices: Dict[str, int]
+    kt_key_ordering: torch.Tensor
+    inverse_indices: Optional[Tuple[List[str], torch.Tensor]] = None
+    weights: Optional[torch.Tensor] = None
 
-def _create_mean_pooling_divisor(
-    lengths: torch.Tensor,
-    keys: List[str],
-    offsets: torch.Tensor,
-    stride: int,
-    stride_per_key: List[int],
-    dim_per_key: torch.Tensor,
-    pooling_type_to_rs_features: Dict[str, List[str]],
-    embedding_names: List[str],
-    embedding_dims: List[int],
-    variable_batch_per_feature: bool,
-    kjt_inverse_order: torch.Tensor,
-    kjt_key_indices: Dict[str, int],
-    kt_key_ordering: torch.Tensor,
-    inverse_indices: Optional[Tuple[List[str], torch.Tensor]] = None,
-    weights: Optional[torch.Tensor] = None,
-) -> torch.Tensor:
+
+def _create_mean_pooling_divisor(config: MeanPoolingConfig) -> torch.Tensor:
     with record_function("## ebc create mean pooling callback ##"):
         batch_size = (
-            none_throws(inverse_indices)[1].size(dim=1)
-            if variable_batch_per_feature
-            else stride
+            none_throws(config.inverse_indices)[1].size(dim=1)
+            if config.variable_batch_per_feature
+            else config.stride
         )
 
-        if weights is not None:
+        if config.weights is not None:
             # if we have weights, lengths is the sum of weights by offsets for feature
-            lengths = torch.ops.fbgemm.segment_sum_csr(1, offsets.int(), weights)
+            lengths = torch.ops.fbgemm.segment_sum_csr(1, config.offsets.int(), config.weights)
 
-        if variable_batch_per_feature:
-            inverse_indices = none_throws(inverse_indices)
+        if config.variable_batch_per_feature:
+            inverse_indices = none_throws(config.inverse_indices)
             device = inverse_indices[1].device
             inverse_indices_t = inverse_indices[1]
-            if len(keys) != len(inverse_indices[0]):
+            if len(config.keys) != len(inverse_indices[0]):
                 inverse_indices_t = torch.index_select(
-                    inverse_indices[1], 0, kjt_inverse_order
+                    inverse_indices[1], 0, config.kjt_inverse_order
                 )
-            offsets = _to_offsets(torch.tensor(stride_per_key, device=device))[
+            offsets = _to_offsets(torch.tensor(config.stride_per_key, device=device))[
                 :-1
             ].unsqueeze(-1)
             indices = (inverse_indices_t + offsets).flatten()
             lengths = torch.index_select(input=lengths, dim=0, index=indices)
 
         # only convert the sum pooling features to be 1 length
-        for feature in pooling_type_to_rs_features[PoolingType.SUM.value]:
-            feature_index = kjt_key_indices[feature]
+        for feature in config.pooling_type_to_rs_features[PoolingType.SUM.value]:
+            feature_index = config.kjt_key_indices[feature]
             feature_index = feature_index * batch_size
             lengths[feature_index: feature_index + batch_size] = 1
 
-        if len(embedding_names) != len(keys):
+        if len(config.embedding_names) != len(config.keys):
             lengths = torch.index_select(
                 lengths.reshape(-1, batch_size),
                 0,
-                kt_key_ordering,
+                config.kt_key_ordering,
             ).reshape(-1)
 
         # transpose to align features with keyed tensor dim_per_key
         lengths = lengths.reshape(-1, batch_size).T  # [batch_size, num_features]
-        output_size = sum(embedding_dims)
+        output_size = sum(config.embedding_dims)
 
         divisor = torch.repeat_interleave(
             input=lengths,
-            repeats=dim_per_key,
+            repeats=config.dim_per_key,
             dim=1,
             output_size=output_size,
         )
