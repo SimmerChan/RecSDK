@@ -194,7 +194,7 @@ class EmbCacheEmbeddingCollection(EmbeddingCollection):
         tables: List[EmbCacheEmbeddingConfig | EmbeddingConfig],
         world_size: int,
         batch_size: int,
-        multi_hot_sizes: List[int],  # TODO move to config
+        multi_hot_sizes: List[int],  
         need_indices: bool = False,
         device: Optional[torch.device] = None,
         embedding_optimizer_cls: Type[torch.optim.Optimizer] = torch.optim.Adagrad,
@@ -210,7 +210,7 @@ class EmbCacheEmbeddingCollection(EmbeddingCollection):
             device if device is not None else torch.device("cpu")
         )
         self._optim_num = get_embedding_optim_num(embedding_optimizer_cls)
-        logger.debug(f"======  _optim_num:{self._optim_num}")
+        logger.debug("======  _optim_num: %", self._optim_num)
 
         evict_step_intervals = set(
             config.admit_and_evict_config.evict_step_interval for config in tables
@@ -220,7 +220,7 @@ class EmbCacheEmbeddingCollection(EmbeddingCollection):
 
         # 16GB = 16*1024*1024*1024 = 17179869184
         embcache_size_on_hbm = int(os.getenv("EMBCACHE_SIZE_ON_HBM", "17179869184"))
-        logger.debug(f"======  embcache_size_on_hbm:{embcache_size_on_hbm}")
+        logger.debug("======  embcache_size_on_hbm: %s", embcache_size_on_hbm)
 
         cache_num_embeddings = self._caculate_caches(
             tables, embcache_size_on_hbm, multi_hot_sizes, batch_size, world_size
@@ -232,8 +232,7 @@ class EmbCacheEmbeddingCollection(EmbeddingCollection):
             ].admit_and_evict_config.is_feature_admit_enabled():
                 cache_num_embeddings[i] += 1
 
-        # TODO delete debug info
-        logger.debug(f"table_num_embeddings:{cache_num_embeddings}")
+        logger.debug("table_num_embeddings: %s ", cache_num_embeddings)
         table_names = set()
         for index, config in enumerate(tables):
             # Use the cache_num_embeddings to embedding config
@@ -286,7 +285,7 @@ class EmbCacheEmbeddingCollection(EmbeddingCollection):
                 dtype_size * 2 * batch_size * weight_and_optim_count,
             )
         )
-        # max_hbm_for_vectors = min_mem  # TODO 待删除，调试用
+        # max_hbm_for_vectors = min_mem  
         if max_hbm_for_vectors < min_mem:
             # print(f"max_hbm_for_vectors {max_hbm_for_vectors} < min_mem:{min_mem}")
             # max_hbm_for_vectors = min_mem
@@ -539,12 +538,12 @@ class EmbCacheShardedEmbeddingCollection(ShardedEmbeddingCollection):
                 features_offset_per_key[i + 1] - features_offset_per_key[i]
             )
             lookup_ret_by_feature.append(
-                lookup_ret[lookup_ret_offset : lookup_ret_offset + lookup_ret_size]
+                lookup_ret[lookup_ret_offset: lookup_ret_offset + lookup_ret_size]
             )
             lookup_ret_offset += lookup_ret_size
         for i in range(feature_key_num):
             ids_offset_tensor = features.values()[
-                features_offset_per_key[i] : features_offset_per_key[i + 1]
+                features_offset_per_key[i]: features_offset_per_key[i + 1]
             ]
             feature_key_offset_musk = ids_offset_tensor == 0
             true_value_num = torch.sum(feature_key_offset_musk).item()
@@ -577,7 +576,6 @@ class EmbCacheShardedEmbeddingCollection(ShardedEmbeddingCollection):
     def compute_swap_info_async(
         self, sparse_features_after_dist: KJTList
     ) -> AsyncSwapInfo:
-        # TODO 待完善KJTList有多个KJT的场景，到时候还要把keys()传入与每个表对应
         if isinstance(sparse_features_after_dist[0], KeyedJaggedTensorWithLookHelper):
             return self._embcache_mgr.compute_swap_info_async(
                 sparse_features_after_dist[0]._unique_ids,

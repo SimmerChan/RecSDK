@@ -38,6 +38,9 @@ from hybrid_torchrec.distributed.sharding.sequence_sharding import (
 )
 
 import embcache_pybind
+from torchrec_embcache.distributed.sharding.rw_sharding import (
+    EmbCacheRwSparseFeaturesDistAwaitable,
+)
 
 from torchrec.distributed import TrainPipeline
 from torchrec.distributed.train_pipeline import In, Out, _wait_for_batch
@@ -58,9 +61,6 @@ from torchrec.distributed.train_pipeline.utils import (
 from torchrec import KeyedJaggedTensor
 from torchrec.distributed.types import Awaitable, ShardedModule
 from torchrec.streamable import Multistreamable, Pipelineable
-from torchrec_embcache.distributed.sharding.rw_sharding import (
-    EmbCacheRwSparseFeaturesDistAwaitable,
-)
 from torchrec.distributed.embedding_sharding import (
     FusedKJTListSplitsAwaitable,
     KJTListSplitsAwaitable,
@@ -131,7 +131,6 @@ class EmbCacheTrainPipelineContext(TrainPipelineContext):
 class EmbCachePipelinedForward(PipelinedForward):
     # pyre-ignore [2, 24]
     def __call__(self, *input, **kwargs) -> Awaitable:
-        # TODO 待完善，data[i]代表第i个sharding all2all之后的KJT
         self._context.sparse_features_after_restore_future.pop(self._name).get()
         data = self._context.sparse_features_after_post_dist.pop(self._name)
         # 由于把global_unique的结果unique_ids作为输入给到get_swap_info, 因此get_swap_info的结果batch_offs即为unique_indices
@@ -464,7 +463,6 @@ class EmbCacheTrainPipelineSparseDist(TrainPipelineSparseDist[In, Out]):
                         context.swapout_embs[module_name] = None
                         context.swapout_optims[module_name] = None
                         continue
-                    # TODO 待完善取法，dim0对应不同sharding的lookup，dim1对应lookup的_emb_modules
                     _stb_eb_codegen = module.get_batched_embedding_kernels()[0][0]
                     self._memcpy_stream.wait_event(context.event_can_swapout)
                     context.swapout_embs[module_name] = _stb_eb_codegen.gather_embs(
@@ -535,12 +533,12 @@ class EmbCacheTrainPipelineSparseDist(TrainPipelineSparseDist[In, Out]):
                     # 非阻塞拷贝到NPU设备上，在_memcpy_stream上执行
                     swapin_embs = swapin_tensors.swapin_embs.to(
                         self._npu_device, non_blocking=True
-                    )  # TODO 1D
+                    )  
                     swapin_optims = []
                     for optim in swapin_tensors.swapin_optims:
                         swapin_optims.append(
                             optim.to(self._npu_device, non_blocking=True)
-                        )  # TODO 1D
+                        )  
 
                     swapin_embs.record_stream(self._default_stream)
                     for ind in range(len(swapin_optims)):
@@ -562,7 +560,6 @@ class EmbCacheTrainPipelineSparseDist(TrainPipelineSparseDist[In, Out]):
                 if context.swapin_embs[module_name] is None:
                     continue
 
-                # TODO 待完善取法，dim0对应不同sharding的lookup，dim1对应lookup的_emb_modules
                 _stb_eb_codegen = module.get_batched_embedding_kernels()[0][0]
                 swapin_offs = context.swap_info[module_name].swapin_offs
                 _stb_eb_codegen.scatter_update_embs(
@@ -671,7 +668,6 @@ class EmbCacheTrainPipelineSparseDist(TrainPipelineSparseDist[In, Out]):
         if not self.batches:
             raise StopIteration
 
-        # TODO: Remove once Bulk Eval migrated (needed for bwd compat, this class only)
         self._set_module_context(self.contexts[0])
 
         if self._model.training:
@@ -828,7 +824,6 @@ class SimpleEmbCacheTrainPipelineSparseDist(EmbCacheTrainPipelineSparseDist):
             raise StopIteration
         time2 = time.time()
 
-        # TODO: Remove once Bulk Eval migrated (needed for bwd compat, this class only)
         self._set_module_context(self.contexts[0])
         time3 = time.time()
         if self._model.training:
@@ -898,60 +893,6 @@ class SimpleEmbCacheTrainPipelineSparseDist(EmbCacheTrainPipelineSparseDist):
 
         self.dequeue_batch()
         time14 = time.time()
-        print(
-            f"=============================iter:{self._next_index - 1}============================================",
-            flush=True,
-        )
-        print(
-            f"1. zero_grad                              time is {int((time4 - time3) * 1000)} ms",
-            flush=True,
-        )
-        print(
-            f"2. wait_for_batch                         time is {int((time5 - time4) * 1000)} ms",
-            flush=True,
-        )
-        print(
-            f"3. sparse_data_dist(async)                time is {int((time6 - time5) * 1000)} ms",
-            flush=True,
-        )
-        print(
-            f"4. enqueue_batch                          time is {int((time7 - time6) * 1000)} ms",
-            flush=True,
-        )
-        print(
-            f"5. get_swap_info                          time is {int((time8 - time7) * 1000)} ms",
-            flush=True,
-        )
-        print(
-            f"6. swapout                                time is {int((time9 - time8) * 1000)} ms",
-            flush=True,
-        )
-        print(
-            f"7. host_embedding_update                  time is {int((time10 - time9) * 1000)} ms",
-            flush=True,
-        )
-        print(
-            f"8. host_embedding_lookup_async            time is {int((time11 - time10) * 1000)} ms",
-            flush=True,
-        )
-        print(
-            f"9. swap_in                                time is {int((time12 - time11) * 1000)} ms",
-            flush=True,
-        )
-        print(
-            f"10. forward+backward+optimizer(async)     time is {int((time13 - time12) * 1000)} ms",
-            flush=True,
-        )
-        print(
-            f"11. dequeue_batch                         time is {int((time14 - time13) * 1000)} ms",
-            flush=True,
-        )
-        print(f"Total Time:{int((time14 - time0) * 1000)} ms", flush=True)
-        print(
-            f"=================================================================================",
-            flush=True,
-        )
-
         if self._return_loss:
             return output, losses
         else:

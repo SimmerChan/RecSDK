@@ -211,7 +211,7 @@ class EmbCacheEmbeddingBagCollection(EmbeddingBagCollection):
         tables: List[EmbeddingBagConfig],
         world_size: int,
         batch_size: int,
-        multi_hot_sizes: List[int],  # TODO move to config
+        multi_hot_sizes: List[int], 
         is_weighted: bool = False,
         device: Optional[torch.device] = None,
         embedding_optimizer_cls: Type[torch.optim.Optimizer] = torch.optim.Adagrad,
@@ -524,7 +524,6 @@ class EmbCacheShardedEmbeddingBagCollection(ShardedEmbeddingBagCollection):
     def compute_swap_info_async(
         self, sparse_features_after_dist: KJTList
     ) -> AsyncSwapInfo:
-        # TODO 待完善KJTList有多个KJT的场景，到时候还要把keys()传入与每个表对应
         if isinstance(sparse_features_after_dist[0], KeyedJaggedTensorWithLookHelper):
             return self._embcache_mgr.compute_swap_info_async(
                 sparse_features_after_dist[0]._unique_ids,
