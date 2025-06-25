@@ -73,16 +73,16 @@ class HybridSplitTableBatchedEmbeddingBagsCodegen(
     SplitTableBatchedEmbeddingBagsCodegen
 ):
     def forward(
-            self,
-            indices: Tensor,
-            offsets: Tensor,
-            hash_indices: torch.Tensor = None,
-            unique_indices: torch.Tensor = None,
-            unique_offset: torch.Tensor = None,
-            unique_inverse: torch.Tensor = None,
-            per_sample_weights: Optional[Tensor] = None,
-            feature_requires_grad: Optional[Tensor] = None,
-            batch_size_per_feature_per_rank: Optional[List[List[int]]] = None,
+        self,
+        indices: Tensor,
+        offsets: Tensor,
+        hash_indices: torch.Tensor = None,
+        unique_indices: torch.Tensor = None,
+        unique_offset: torch.Tensor = None,
+        unique_inverse: torch.Tensor = None,
+        per_sample_weights: Optional[Tensor] = None,
+        feature_requires_grad: Optional[Tensor] = None,
+        batch_size_per_feature_per_rank: Optional[List[List[int]]] = None,
     ) -> Tensor:
         (indices, offsets, per_sample_weights, vbe_metadata,) = self.prepare_inputs(
             indices, offsets, per_sample_weights, batch_size_per_feature_per_rank, force_cast_input_types=True, )
@@ -148,8 +148,6 @@ class HybridSplitTableBatchedEmbeddingBagsCodegen(
             placements=self.momentum2_placements,
         )
         return momentum1, momentum2
-
-
 
     def create_common_args(self, args_input: CommonArgsInput):
         common_args = invokers.lookup_args.HybridCommonArgs(
@@ -217,12 +215,12 @@ class HybridSplitTableBatchedEmbeddingBagsCodegen(
                                     else self.lxu_cache_locations_list.pop(0))
 
     def prepare_inputs(
-            self,
-            indices: Tensor,
-            offsets: Tensor,
-            per_sample_weights: Optional[Tensor] = None,
-            batch_size_per_feature_per_rank: Optional[List[List[int]]] = None,
-            force_cast_input_types: bool = True,
+        self,
+        indices: Tensor,
+        offsets: Tensor,
+        per_sample_weights: Optional[Tensor] = None,
+        batch_size_per_feature_per_rank: Optional[List[List[int]]] = None,
+        force_cast_input_types: bool = True,
     ) -> Tuple[Tensor, Tensor, Optional[Tensor], invokers.lookup_args.VBEMetadata]:
         """
         Prepare TBE inputs as follows:
@@ -256,7 +254,7 @@ class HybridSplitTableBatchedEmbeddingBagsCodegen(
 
         # type
         force_cast_input_types = (
-                indices.dtype != offsets.dtype or force_cast_input_types
+            indices.dtype != offsets.dtype or force_cast_input_types
         )
 
         if force_cast_input_types:
@@ -274,11 +272,11 @@ class HybridBatchedFusedEmbeddingBag(
     BaseBatchedEmbeddingBag[torch.Tensor], FusedOptimizerModule
 ):
     def __init__(
-            self,
-            config: GroupedEmbeddingConfig,
-            pg: Optional[dist.ProcessGroup] = None,
-            device: Optional[torch.device] = None,
-            sharding_type: Optional[ShardingType] = None,
+        self,
+        config: GroupedEmbeddingConfig,
+        pg: Optional[dist.ProcessGroup] = None,
+        device: Optional[torch.device] = None,
+        sharding_type: Optional[ShardingType] = None,
     ) -> None:
         super().__init__(config, pg, device, sharding_type)
 
@@ -320,7 +318,7 @@ class HybridBatchedFusedEmbeddingBag(
 
     @property
     def emb_module(
-            self,
+        self,
     ) -> HybridSplitTableBatchedEmbeddingBagsCodegen:
         return self._emb_module
 
@@ -344,7 +342,7 @@ class HybridBatchedFusedEmbeddingBag(
         if weights is not None and not torch.is_floating_point(weights):
             weights = None
         if features.variable_stride_per_key() and isinstance(
-                self.emb_module, SplitTableBatchedEmbeddingBagsCodegen
+            self.emb_module, SplitTableBatchedEmbeddingBagsCodegen
         ):
             return self.emb_module(
                 indices=features.values().long(),
@@ -368,7 +366,7 @@ class HybridBatchedFusedEmbeddingBag(
             )
 
     def named_buffers(
-            self, prefix: str = "", recurse: bool = True, remove_duplicate: bool = True
+        self, prefix: str = "", recurse: bool = True, remove_duplicate: bool = True
     ) -> Iterator[Tuple[str, torch.Tensor]]:
         """
         By convention, fused parameters are designated as buffers because they no longer
@@ -377,10 +375,10 @@ class HybridBatchedFusedEmbeddingBag(
         yield from ()
 
     def named_parameters(
-            self, prefix: str = "", recurse: bool = True, remove_duplicate: bool = True
+        self, prefix: str = "", recurse: bool = True, remove_duplicate: bool = True
     ) -> Iterator[Tuple[str, nn.Parameter]]:
         for name, tensor in self.named_split_embedding_weights(
-                prefix, recurse, remove_duplicate
+            prefix, recurse, remove_duplicate
         ):
             param = nn.Parameter(tensor)
             param._in_backward_optimizers = [EmptyFusedOptimizer()]

@@ -135,6 +135,7 @@ class HybridShardedEmbeddingBagCollection(
         self._embedding_names: List[str] = []
         self._embedding_dims: List[int] = []
         self._feature_splits: List[int] = []
+
         self._features_order: List[int] = []
         self._uncombined_embedding_names: List[str] = []
         self._uncombined_embedding_dims: List[int] = []
@@ -163,7 +164,7 @@ class HybridShardedEmbeddingBagCollection(
 
     def _init_lookups(self, device, env):
         for i, (sharding, lookup) in enumerate(
-                zip(self._embedding_shardings, self._lookups)
+            zip(self._embedding_shardings, self._lookups)
         ):
             if isinstance(sharding, DpPooledEmbeddingSharding):
                 self._lookups[i] = DistributedDataParallel(
@@ -193,12 +194,8 @@ class HybridShardedEmbeddingBagCollection(
         self._optim: CombinedOptimizer = CombinedOptimizer(optims)
 
     def _init_embedding_shardings(self, device, fused_params, module, table_name_to_parameter_sharding):
-        sharding_type_to_sharding_infos = create_sharding_infos_by_sharding(
-            module,
-            table_name_to_parameter_sharding,
-            "embedding_bags.",
-            fused_params,
-        )
+        sharding_type_to_sharding_infos = create_sharding_infos_by_sharding(module, table_name_to_parameter_sharding,
+                                                                            "embedding_bags.", fused_params, )
         self._embedding_shardings: List[
             EmbeddingSharding[
                 EmbeddingShardingContext,
