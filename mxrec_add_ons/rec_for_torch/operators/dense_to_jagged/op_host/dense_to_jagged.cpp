@@ -67,7 +67,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     int64_t jaggedTotal = *outDim0 * outDim1;
     int64_t denseTotal = denseShape.GetDim(DIM0) * denseShape.GetDim(DIM1) * denseShape.GetDim(DIM2);
     
-    OPS_CHECK(coreNum == 0, OPS_LOG_E("[ERROR]", "aiv core num == 0", return ge::GRAPH_FAILED));
+    OPS_CHECK(coreNum == 0, OPS_LOG_E("[ERROR]", "aiv core num == 0"), return ge::GRAPH_FAILED);
     int singleCoreBatch = (offsetShape.GetDim(0) - 1) / coreNum;
     int left = (offsetShape.GetDim(0) - 1) % coreNum;
     int singleLoopSize = (ub - RESERVER_UB_SIZE) / 2 / ALIGN_512 * ALIGN_512;
