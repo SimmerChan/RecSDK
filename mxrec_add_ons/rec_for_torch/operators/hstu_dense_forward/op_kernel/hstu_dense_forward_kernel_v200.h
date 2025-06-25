@@ -32,7 +32,6 @@ public:
 
         int64_t cubeCoreLen = qkTotalBlock / GetBlockNum();
         int64_t cubeCoreSplitId = qkTotalBlock % GetBlockNum();
-
         if (GetBlockIdx() / SPLIT_CORE >= cubeCoreSplitId) {
             lenOfThisCore = cubeCoreLen;
             offsetOfThisCore =
