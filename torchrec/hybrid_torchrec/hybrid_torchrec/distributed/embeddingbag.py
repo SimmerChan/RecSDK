@@ -110,12 +110,12 @@ class HybridShardedEmbeddingBagCollection(
         module_fqn: Optional[str] = None,
     ) -> None:
         super().__init__(qcomm_codecs_registry=qcomm_codecs_registry)
+        self.module_sharding_plan = None
         self._module_fqn = module_fqn
         self._embedding_bag_configs: List[EmbeddingBagConfig] = (
             module.embedding_bag_configs()
         )
         self.init_data_struct(device, env, fused_params, host_env, module)
-        self.init_sharding(device, fused_params, module, table_name_to_parameter_sharding)
         self.init_lookups(device, env)
         if env.process_group and dist.get_backend(env.process_group) != "fake":
             self._initialize_torch_state()
@@ -178,7 +178,7 @@ class HybridShardedEmbeddingBagCollection(
                     static_graph=True,
                 )
 
-    def init_data_struct(self, device, env, fused_params, host_env, module):
+    def init_data_struct(self, device, env, fused_params, host_env, module, table_name_to_parameter_sharding=None):
         self._table_names: List[str] = []
         self._pooling_type_to_rs_features: Dict[str, List[str]] = defaultdict(list)
         self._table_name_to_config: Dict[str, EmbeddingBagConfig] = {}
@@ -191,6 +191,7 @@ class HybridShardedEmbeddingBagCollection(
         self._input_dists: List[nn.Module] = []
         self._post_input_dists: List[nn.Module] = []
         self._lookups: List[nn.Module] = []
+        self.init_sharding(device, fused_params, module, table_name_to_parameter_sharding)
         self._create_lookups()
         self._output_dists: List[nn.Module] = []
         self._embedding_names: List[str] = []
