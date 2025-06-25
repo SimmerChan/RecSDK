@@ -123,7 +123,7 @@ class HybridShardedEmbeddingBagCollection(
         self._host_env = host_env
         # output parameters as DTensor in state dict
         self._output_dtensor: bool = (fused_params.get("output_dtensor", False) if fused_params else False)
-        self._init_embedding_shardings(device, env, fused_params, host_env, module, table_name_to_parameter_sharding)
+        self._init_embedding_shardings(device, fused_params, module, table_name_to_parameter_sharding)
 
         self._is_weighted: bool = module.is_weighted()
         self._device = device
@@ -192,7 +192,7 @@ class HybridShardedEmbeddingBagCollection(
                     optims.append(("", tbe_module.fused_optimizer))
         self._optim: CombinedOptimizer = CombinedOptimizer(optims)
 
-    def _init_embedding_shardings(self, device, env, fused_params, host_env, module, table_name_to_parameter_sharding):
+    def _init_embedding_shardings(self, device, fused_params, module, table_name_to_parameter_sharding):
         sharding_type_to_sharding_infos = create_sharding_infos_by_sharding(
             module,
             table_name_to_parameter_sharding,
@@ -209,8 +209,8 @@ class HybridShardedEmbeddingBagCollection(
         ] = [
             self.create_hybrid_embedding_bag_sharding(
                 embedding_configs,
-                env,
-                host_env,
+                self.env,
+                self.host_env,
                 device,
                 qcomm_codecs_registry=self.qcomm_codecs_registry,
             )
