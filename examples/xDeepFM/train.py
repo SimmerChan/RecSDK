@@ -124,13 +124,13 @@ def cache_data(hparams, filename, flag):
         impression_id_path = util.INFER_IMPRESSION_ID
     else:
         raise ValueError("flag must be train, eval, test, infer")
-    print('cache filename:', filename)
+    hparams.logger.info('cache filename: {}'.format(filename))
     if not os.path.isfile(cached_name):
-        print('has not cached file, begin cached...')
+        hparams.logger.info('has not cached file, begin cached...')
         start_time = time.time()
         sample_num, impression_id_list = cache_obj.write_tfrecord(filename, cached_name, hparams)
         util.print_time("caced file used time", start_time)
-        print("data sample num:{0}".format(sample_num))
+        hparams.logger.info("data sample num:{0}".format(sample_num))
         with open(sample_num_path, 'w') as f:
             f.write(str(sample_num) + '\n')
         with open(impression_id_path, 'w') as f:
@@ -145,7 +145,7 @@ def train(hparams, scope=None, target_session=""):
 
     load_and_cache_data(hparams)
 
-    model_creator = get_model_creator(hparams.model_type)
+    model_creator = get_model_creator(hparams.model_type, hparams.logger)
 
     # define train,eval,infer graph
     # define train session, eval session, infer session
@@ -164,10 +164,10 @@ def train(hparams, scope=None, target_session=""):
         checkpoint_path = hparams.load_model_name
         try:
             train_model.model.saver.restore(train_sess, checkpoint_path)
-            print('load model', checkpoint_path)
+            hparams.logger.info('load model: {}'.format(checkpoint_path))
         except:
             raise IOError("Failed to find any matching files for {0}".format(checkpoint_path))
-    print('total_loss = data_loss+regularization_loss, data_loss = {rmse or logloss ..}')
+    hparams.logger.info('total_loss = data_loss+regularization_loss, data_loss = {rmse or logloss ..}')
     writer = tf.summary.FileWriter(util.SUMMARIES_DIR, train_sess.graph)
     last_eval = 0
     for epoch in range(hparams.epochs):
@@ -189,10 +189,10 @@ def train(hparams, scope=None, target_session=""):
                 epoch_loss += step_loss
                 step += 1
                 if step % hparams.show_step == 0:
-                    print('step {0:d} , total_loss: {1:.4f}, data_loss: {2:.4f}' \
+                    hparams.logger.info('step {0:d} , total_loss: {1:.4f}, data_loss: {2:.4f}' \
                           .format(step, step_loss, step_data_loss))
             except tf.errors.OutOfRangeError:
-                print('finish one epoch!')
+                hparams.logger.info('finish one epoch!')
                 break
         train_end = time.time()
         train_time = train_end - train_start
@@ -218,14 +218,10 @@ def train(hparams, scope=None, target_session=""):
         eval_end = time.time()
         eval_time = eval_end - eval_start
         if hparams.test_file is not None:
-            print('at epoch {0:d}'.format(
-                epoch) + ' train info: ' + train_info + ' eval info: ' + eval_info + ' test info: ' + test_info)
             hparams.logger.info('at epoch {0:d}'.format(
                 epoch) + ' train info: ' + train_info + ' eval info: ' + eval_info + ' test info: ' + test_info)
         else:
-            print('at epoch {0:d}'.format(epoch) + ' train info: ' + train_info + ' eval info: ' + eval_info)
             hparams.logger.info('at epoch {0:d}'.format(epoch) + ' train info: ' + train_info + ' eval info: ' + eval_info)
-        print('at epoch {0:d} , train time: {1:.1f} eval time: {2:.1f}'.format(epoch, train_time, eval_time))
 
         hparams.logger.info('at epoch {0:d} , train time: {1:.1f} eval time: {2:.1f}' \
                     .format(epoch, train_time, eval_time))
@@ -242,7 +238,7 @@ def train(hparams, scope=None, target_session=""):
 
 
 def load_and_cache_data(hparams):
-    print('load and cache data...')
+    hparams.logger.info('load and cache data...')
     if hparams.train_file is not None:
         cache_data(hparams, hparams.train_file, flag='train')
     if hparams.eval_file is not None:
@@ -253,42 +249,42 @@ def load_and_cache_data(hparams):
         cache_data(hparams, hparams.infer_file, flag='infer')
 
 
-def get_model_creator(model_type):
+def get_model_creator(model_type, logger):
     if model_type == 'deepFM':
-        print("run deepfm model!")
+        logger.info("run deepfm model!")
         return DeepfmModel
     elif model_type == 'deepWide':
-        print("run deepWide model!")
+        logger.info("run deepWide model!")
         return DeepWideModel
     elif model_type == 'dnn':
-        print("run dnn model!")
+        logger.info("run dnn model!")
         return DnnModel
     elif model_type == 'ipnn':
-        print("run ipnn model!")
+        logger.info("run ipnn model!")
         return IpnnModel
     elif model_type == 'opnn':
-        print("run opnn model!")
+        logger.info("run opnn model!")
         return OpnnModel
     elif model_type == 'din':
-        print("run din model!")
+        logger.info("run din model!")
         return DinModel
     elif model_type == 'fm':
-        print("run fm model!")
+        logger.info("run fm model!")
         return FmModel
     elif model_type == 'lr':
-        print("run lr model!")
+        logger.info("run lr model!")
         return LrModel
     elif model_type == 'cccfnet':
-        print("run cccfnet model!")
+        logger.info("run cccfnet model!")
         return CCCFModel
     elif model_type == 'deepcross':
-        print("run deepcross model!")
+        logger.info("run deepcross model!")
         return DeepCrossModel
     elif model_type == 'exDeepFM':
-        print("run extreme deepFM model!")
+        logger.info("run extreme deepFM model!")
         return ExtremeDeepFMModel
     elif model_type == 'cross':
-        print("run extreme cross model!")
+        logger.info("run extreme cross model!")
         return CrossModel
     else:
-        raise ValueError("model type should be cccfnet, deepFM, deepWide, dnn, fm, lr, ipnn, opnn, din")
+        raise ValueError("model type should be one of: cccfnet, deepFM, deepWide, dnn, fm, lr, ipnn, opnn, din")
