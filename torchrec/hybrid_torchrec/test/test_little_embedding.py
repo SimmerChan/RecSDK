@@ -23,7 +23,12 @@ from torch.optim import Adam, Adagrad
 from torch.utils.data import DataLoader
 from hybrid_torchrec import HashEmbeddingBagCollection, HashEmbeddingBagConfig
 from hybrid_torchrec.distributed.sharding_plan import get_default_hybrid_sharders
-from hybrid_torchrec.modules.little_embedding import HashEmbeddingModuleCollection, EmbeddingConfig, OptimizerArgs, OptimType
+from hybrid_torchrec.modules.little_embedding import (
+    HashEmbeddingModuleCollection,
+    EmbeddingConfig,
+    OptimizerArgs,
+    OptimType,
+)
 from model import Model
 from util import setup_logging
 
@@ -220,7 +225,7 @@ class TestModel:
         table_num = len(embedding_config)
         opmizer_args = OptimizerArgs(
             learning_rate=OPTIMIZER_PARAM[optim]["lr"],
-            eps=OPTIMIZER_PARAM[optim]["eps"]
+            eps=OPTIMIZER_PARAM[optim]["eps"],
         )
         new_config = []
         for config in embedding_config:
@@ -231,7 +236,7 @@ class TestModel:
                     embedding_dim=config.embedding_dim,
                     optimizer=OptimType.EXACT_ADAGRAD,
                     optimizer_args=opmizer_args,
-                    init_fn=weight_init
+                    init_fn=weight_init,
                 )
             )
         ebc = HashEmbeddingModuleCollection(configs=new_config)
@@ -260,7 +265,7 @@ params = {
     "sharding_type": ["table_wise"],
     "lookup_len": [1024],
     "device": ["npu"],
-    "optim": [Adagrad]
+    "optim": [Adagrad],
 }
 
 
