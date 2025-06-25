@@ -60,12 +60,13 @@ class LookupAndOutputDistAwaitable(Awaitable):
         post_result = self.post_awaitable.wait()
         return self.lookup_and_out_dist_function(post_result, *self.args)
 
+
 # lr=0.001, betas=(0.9, 0.999), eps=1e-08
 @dataclass
 class OptimizerArgs:
     learning_rate: float = 0.001
-    eps: float = 1e-08 
-    beta1: float =  0.9 
+    eps: float = 1e-08
+    beta1: float = 0.9
     beta2: float = 0.999
 
 
@@ -78,6 +79,7 @@ class EmbeddingConfig:
     optimizer: OptimType = OptimType.EXACT_ADAGRAD
     optimizer_args: OptimizerArgs = None
     init_fn: Callable = None
+
 
 @dataclass
 class LookupContext:
@@ -112,7 +114,7 @@ class AllGatherEmbeddings(torch.autograd.Function):
         result = torch.empty_like(grad_output[ctx.context.rank])
         ctx.context.bwd_pg.reduce_scatter(result, grad_output).wait()
         world_size = ctx.context.bwd_pg.get_world_size()
-        return result/world_size, None, None
+        return result / world_size, None, None
 
 
 class HashEmbeddingModuleCollection(nn.Module):
