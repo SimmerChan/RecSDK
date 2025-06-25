@@ -113,7 +113,7 @@ class AllGatherEmbeddings(torch.autograd.Function):
         grad_output = [g.contiguous() for g in grad_output]
         result = torch.empty_like(grad_output[ctx.context.rank])
         ctx.context.bwd_pg.reduce_scatter(result, grad_output).wait()
-        world_size = ctx.context.bwd_pg.get_world_size()
+        world_size = dist.get_world_size()
         return result / world_size, None, None
 
 
