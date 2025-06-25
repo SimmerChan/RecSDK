@@ -37,10 +37,11 @@ public:
             lenOfThisCore = cubeCoreLen;
             offsetOfThisCore =
                 cubeCoreSplitId * (cubeCoreLen + 1) + (GetBlockIdx() / SPLIT_CORE - cubeCoreSplitId) * cubeCoreLen;
-        } else {
-            lenOfThisCore = cubeCoreLen + 1;
-            offsetOfThisCore = GetBlockIdx() / SPLIT_CORE * (cubeCoreLen + 1);
+            return;
         }
+
+        lenOfThisCore = cubeCoreLen + 1;
+        offsetOfThisCore = GetBlockIdx() / SPLIT_CORE * (cubeCoreLen + 1);
     }
 
     __aicore__ inline void DoQkMatmul(QkMatmulArgs& qkPosArgs)
