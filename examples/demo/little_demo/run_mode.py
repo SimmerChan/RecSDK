@@ -159,13 +159,9 @@ class RunMode:
         for i in range(start_step, start_step + self.max_train_steps):
             logger.info("################    training at step %d    ################", i)
             try:
-                self._execute_train_step(
-                    i=i,
-                    latest_ckpt_step=latest_ckpt_step,
-                    train_interval=train_interval,
-                    saving_interval=saving_interval,
-                    loss_dict=loss_dict
-                )
+                should_break = self._execute_train_step(i, latest_ckpt_step, train_interval, saving_interval, loss_dict)
+                if should_break:
+                    break
             except tf.errors.OutOfRangeError:
                 logger.info("Encounter the end of Sequence for training.")
                 break
@@ -214,7 +210,7 @@ class RunMode:
             loss_dict[i] = float(loss[0])
             if i == PRECISION_DUMP_STEP[-1]:
                 time.sleep(10)
-                return
+                return True
 
         for t in self.table_list:
             logger.info(f"training at step:{i}, table[{t.table_name}], table size:{t.size()}, "
@@ -229,6 +225,8 @@ class RunMode:
         if train_interval != -1 and self.is_faae and i == train_interval // 2:
             logger.info("###############    set_threshold at step:%d   ################", i)
             self.change_threshold()
+
+        return False
 
 
 def get_load_step(model_file: List[str]):

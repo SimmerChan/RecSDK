@@ -11,6 +11,22 @@ import utils.metric as metric
 from mx_rec.util.initialize import ConfigInitializer
 from mx_rec.graph.modifier import modify_graph_and_start_emb_cache
 
+MODEL_MAP = {
+    'deepFM': DeepfmModel,
+    'deepWide': DeepWideModel,
+    'dnn': DnnModel,
+    'ipnn': IpnnModel,
+    'opnn': OpnnModel,
+    'din': DinModel,
+    'fm': FmModel,
+    'lr': LrModel,
+    'cccfnet': CCCFModel,
+    'deepcross': DeepCrossModel,
+    'exDeepFM': ExtremeDeepFMModel,
+    'cross': CrossModel,
+}
+
+
 class TrainModel(collections.namedtuple("TrainModel", ("graph", "model", "iterator", "filenames"))):
     """define train class, include graph, model, iterator"""
     pass
@@ -250,41 +266,9 @@ def load_and_cache_data(hparams):
 
 
 def get_model_creator(model_type, logger):
-    if model_type == 'deepFM':
-        logger.info("run deepfm model!")
-        return DeepfmModel
-    elif model_type == 'deepWide':
-        logger.info("run deepWide model!")
-        return DeepWideModel
-    elif model_type == 'dnn':
-        logger.info("run dnn model!")
-        return DnnModel
-    elif model_type == 'ipnn':
-        logger.info("run ipnn model!")
-        return IpnnModel
-    elif model_type == 'opnn':
-        logger.info("run opnn model!")
-        return OpnnModel
-    elif model_type == 'din':
-        logger.info("run din model!")
-        return DinModel
-    elif model_type == 'fm':
-        logger.info("run fm model!")
-        return FmModel
-    elif model_type == 'lr':
-        logger.info("run lr model!")
-        return LrModel
-    elif model_type == 'cccfnet':
-        logger.info("run cccfnet model!")
-        return CCCFModel
-    elif model_type == 'deepcross':
-        logger.info("run deepcross model!")
-        return DeepCrossModel
-    elif model_type == 'exDeepFM':
-        logger.info("run extreme deepFM model!")
-        return ExtremeDeepFMModel
-    elif model_type == 'cross':
-        logger.info("run extreme cross model!")
-        return CrossModel
-    else:
+    model_class = MODEL_MAP.get(model_type)
+    if model_class is None:
         raise ValueError("model type should be one of: cccfnet, deepFM, deepWide, dnn, fm, lr, ipnn, opnn, din")
+    
+    logger.info(f"run {model_type} model!")
+    return model_class
