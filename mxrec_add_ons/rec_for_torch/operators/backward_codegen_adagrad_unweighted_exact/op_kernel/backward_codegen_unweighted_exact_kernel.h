@@ -212,7 +212,7 @@ public:
     __aicore__ inline void Init(Args args)
     {
         GET_TILING_DATA(tilingData, args.tiling);
-        InitAddr(args);
+        InitAddr(args, tilingData);
         InitDataType();
         InitTiling(tilingData);
         InitUb(tilingData);
