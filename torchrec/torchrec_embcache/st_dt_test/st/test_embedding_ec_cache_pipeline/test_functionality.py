@@ -8,19 +8,17 @@
 import logging
 import os
 import random
-import numpy as np
 from concurrent.futures import ProcessPoolExecutor
 from typing import List, Callable
 
 import pytest
 import torch
+import numpy as np
 import torch.multiprocessing as mp
-from torch.utils.data import DataLoader
-from torch.optim import Adam, Adagrad
-
-import torchrec
 from dataset import RandomRecDataset, Batch, BoundOutOfRangeRecDataset, FeatureNameNotInConfigRecDataset
 from model import TestModel, generate_hash_config
+from torch.utils.data import DataLoader
+from torch.optim import Adam, Adagrad
 from util import (
     is_lookup_out_of_bound,
     feature_name_exists,
@@ -29,6 +27,8 @@ from util import (
     check_config,
     OVER_COUNT
 )
+
+import torchrec
 
 
 @pytest.mark.functional

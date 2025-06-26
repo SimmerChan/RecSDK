@@ -13,12 +13,10 @@ from copy import deepcopy
 import pytest
 import torch
 import torch.multiprocessing as mp
-from torch.optim import Adam, Adagrad
-from torch.utils.data import DataLoader
-
-import torchrec
 from dataset import RandomRecDataset, Batch, BoundOutOfRangeRecDataset, FeatureNameNotInConfigRecDataset
 from model import TestModel, generate_hash_config
+from torch.optim import Adam, Adagrad
+from torch.utils.data import DataLoader
 from util import (
     is_lookup_out_of_bound,
     feature_name_exists,
@@ -27,6 +25,8 @@ from util import (
     check_config,
     OVER_COUNT
 )
+
+import torchrec
 
 
 @pytest.mark.functional
