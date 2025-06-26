@@ -20,9 +20,28 @@ See the License for the specific language governing permissions and
 #include "tiling_policy_factory.h"
 #include "tiling_policy_normal.h"
 
+constexpr int QKV_DIM = 4;
+
 namespace HstuDenseForward {
 
 REGISTER_POLICY(LAYOUT_TYPE::NORMAL, std::make_shared<TilingPolicyNormal>());
+
+bool QKVShapeSame(gert::TilingContext* context)
+{
+    OPS_LOG_E_IF_NULL("QShape", context->GetInputShape(INDEX_T::INDEX_0), return false);
+    OPS_LOG_E_IF_NULL("KShape", context->GetInputShape(INDEX_T::INDEX_1), return false);
+    OPS_LOG_E_IF_NULL("VShape", context->GetInputShape(INDEX_T::INDEX_2), return false);
+
+    auto QShape = context->GetInputShape(INDEX_T::INDEX_0)->GetStorageShape();
+    auto KShape = context->GetInputShape(INDEX_T::INDEX_1)->GetStorageShape();
+    auto VShape = context->GetInputShape(INDEX_T::INDEX_2)->GetStorageShape();
+    int dim = QShape.GetDimNum();
+    bool sameShape = (QShape == KShape && KShape == VShape);
+
+    OPS_CHECK(!sameShape, OPS_LOG_E("", "QKV shape not same."), return false);
+    OPS_CHECK(dim != QKV_DIM, OPS_LOG_E("", "Jagged QKV dim should be 4, but got %d", dim), return false);
+    return true;
+}
 
 bool TilingPolicyNormal::TilingShape(gert::TilingContext* context, optiling::HstuDenseForwardTilingData &tiling)
 {
@@ -37,6 +56,9 @@ bool TilingPolicyNormal::TilingShape(gert::TilingContext* context, optiling::Hst
     int64_t dim = qShape.GetDim(3);
     tiling.set_dim(dim);
 
+    if (!QKVShapeSame(context)) {
+        return false;
+    }
     OPS_CHECK(!GeneralShapeCheck(batchSize, seqLen, headNum, dim), OPS_LOG_E("", "Shape Check failed"), return false);
     return true;
 }

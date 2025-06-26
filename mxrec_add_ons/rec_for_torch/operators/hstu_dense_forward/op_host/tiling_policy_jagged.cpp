@@ -33,6 +33,7 @@ constexpr bool JAGGED_TASK_ASSIGN_DEBUG = false;
 #endif
 
 constexpr uint32_t CONST_2 = 2;
+constexpr int QKV_DIM = 3;
 
 namespace {
     struct BlockTaskInfo {
@@ -243,10 +244,27 @@ namespace {
         uint32_t headNum = 0;
     };
 }
-    
+
 namespace HstuDenseForward {
 
 REGISTER_POLICY(LAYOUT_TYPE::JAGGED, std::make_shared<TilingPolicyJagged>());
+
+bool QKVShapeSame(gert::TilingContext* context)
+{
+    OPS_LOG_E_IF_NULL("QShape", context->GetInputShape(INDEX_T::INDEX_0), return false);
+    OPS_LOG_E_IF_NULL("KShape", context->GetInputShape(INDEX_T::INDEX_1), return false);
+    OPS_LOG_E_IF_NULL("VShape", context->GetInputShape(INDEX_T::INDEX_2), return false);
+
+    auto QShape = context->GetInputShape(INDEX_T::INDEX_0)->GetStorageShape();
+    auto KShape = context->GetInputShape(INDEX_T::INDEX_1)->GetStorageShape();
+    auto VShape = context->GetInputShape(INDEX_T::INDEX_2)->GetStorageShape();
+    int dim = QShape.GetDimNum();
+    bool sameShape = (QShape == KShape && KShape == VShape);
+
+    OPS_CHECK(!sameShape, OPS_LOG_E("", "QKV shape not same."), return false);
+    OPS_CHECK(dim != QKV_DIM, OPS_LOG_E("", "Jagged QKV dim should be 3, but got %d", dim), return false);
+    return true;
+}
 
 bool TilingPolicyJagged::TilingShape(gert::TilingContext* context, optiling::HstuDenseForwardTilingData &tiling)
 {
@@ -269,6 +287,9 @@ bool TilingPolicyJagged::TilingShape(gert::TilingContext* context, optiling::Hst
     OPS_CHECK(batchSize > MAX_BATCH_SIZE,
         OPS_LOG_E("", "batch size is over limit %d", MAX_BATCH_SIZE), return false);
 
+    if (!QKVShapeSame(context)) {
+        return false;
+    }
     auto queryShape = context->GetInputShape(INDEX_T::INDEX_0)->GetStorageShape();
     headNum = queryShape.GetDim(INDEX_T::INDEX_1);
     headDIM = queryShape.GetDim(INDEX_T::INDEX_2);
@@ -360,7 +381,7 @@ bool TilingPolicyJagged::TilingCore(gert::TilingContext* context, optiling::Hstu
 
     size_t aicCoreNum = ascendPlatform.GetCoreNumAic();
     context->SetBlockDim(aicCoreNum);
-    
+
     return true;
 }
 

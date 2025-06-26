@@ -26,6 +26,7 @@ See the License for the specific language governing permissions and
 #include "tiling_policy_jagged.h"
 
 constexpr uint32_t CONST_2 = 2;
+constexpr int QKV_DIM = 3;
 
 namespace {
     struct BlockTaskInfo {
@@ -200,6 +201,23 @@ namespace HstuDenseForwardFuxi {
 
 REGISTER_POLICY(LAYOUT_TYPE::JAGGED, std::make_shared<TilingPolicyJagged>());
 
+bool QKVShapeSame(gert::TilingContext* context)
+{
+    OPS_LOG_E_IF_NULL("QShape", context->GetInputShape(INDEX_T::INDEX_0), return false);
+    OPS_LOG_E_IF_NULL("KShape", context->GetInputShape(INDEX_T::INDEX_1), return false);
+    OPS_LOG_E_IF_NULL("VShape", context->GetInputShape(INDEX_T::INDEX_2), return false);
+
+    auto QShape = context->GetInputShape(INDEX_T::INDEX_0)->GetStorageShape();
+    auto KShape = context->GetInputShape(INDEX_T::INDEX_1)->GetStorageShape();
+    auto VShape = context->GetInputShape(INDEX_T::INDEX_2)->GetStorageShape();
+    int dim = QShape.GetDimNum();
+    bool sameShape = (QShape == KShape && KShape == VShape);
+
+    OPS_CHECK(!sameShape, OPS_LOG_E("", "QKV shape not same."), return false);
+    OPS_CHECK(dim != QKV_DIM, OPS_LOG_E("", "Jagged QKV dim should be 3, but got %d", dim), return false);
+    return true;
+}
+
 ge::graphStatus TilingPolicyJagged::InferShape(gert::InferShapeContext* context)
 {
     const gert::Shape* qShape = context->GetInputShape(INDEX_T::INDEX_0);
@@ -242,6 +260,9 @@ bool TilingPolicyJagged::TilingShape(gert::TilingContext* context, optiling::Hst
     OPS_LOG_E_IF(batchSize > MAX_BATCH_SIZE, context, return false,
         "batch size is over limit %d", MAX_BATCH_SIZE);
 
+    if (!QKVShapeSame(context)) {
+        return false;
+    }
     auto queryShape = context->GetInputShape(INDEX_T::INDEX_0)->GetStorageShape();
     int64_t headNum = queryShape.GetDim(INDEX_T::INDEX_1);
     int64_t headDim = queryShape.GetDim(INDEX_T::INDEX_2);
@@ -252,8 +273,8 @@ bool TilingPolicyJagged::TilingShape(gert::TilingContext* context, optiling::Hst
     tiling.set_dim(headDim);
     tiling.set_seqLen(seqLens);
 
-    OPS_LOG_E_IF(!GeneralShapeCheck(batchSize, seqLens, headNum, headDim), context, return false,
-        "Jagged Shape Check failed");
+    OPS_LOG_E_IF(!GeneralShapeCheck(batchSize, seqLens, headNum, headDim),
+                 context, return false, "Jagged Shape Check failed");
     return true;
 }
 
