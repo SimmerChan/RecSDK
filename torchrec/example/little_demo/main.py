@@ -85,8 +85,9 @@ def create_ddp(test_model):
     logging.info(plan)
     ddp_model = DistributedModelParallel(
         test_model, device=torch.device("npu"), plan=plan, sharders=hybrid_sharder
-    )    
+    )
     return ddp_model
+
 
 def invoke_main():
     get_distribute_env()
@@ -116,7 +117,7 @@ def invoke_main():
 
     # Shard
     ddp_model = create_ddp(test_model)
-    
+
     # Optimizer filer
     dense_optimizer = KeyedOptimizerWrapper(
         dict(in_backward_optimizer_filter(ddp_model.named_parameters())),
