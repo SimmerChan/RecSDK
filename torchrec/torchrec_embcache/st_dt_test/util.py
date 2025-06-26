@@ -75,7 +75,7 @@ def check_config(config):
         bound_out_of_range = False
         # if LOOP_TIMES*config["lookup_lens"]
         for i in range(config["table_num"]):
-            if config["lookup_lens"]*config["BATCH_NUM"] > config["num_embeddings"][i] + OVER_COUNT:
+            if config["lookup_lens"] * config["BATCH_NUM"] > config["num_embeddings"][i] + OVER_COUNT:
                 bound_out_of_range = True
                 break
         if not bound_out_of_range:
@@ -109,7 +109,7 @@ def check_config(config):
     min_mem = np.sum(
         np.dot(
             np.multiply(config["embedding_dims"], multi_hot_sizes), 
-            2*dtype_size * config["lookup_lens"] * weight_and_optim_count
+            2 * dtype_size * config["lookup_lens"] * weight_and_optim_count
         )
     ) 
     max_hbm_for_vectors = os.getenv("EMBCACHE_SIZE_ON_HBM")

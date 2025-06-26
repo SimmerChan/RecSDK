@@ -11,6 +11,7 @@ from collections import defaultdict
 
 import yaml
 
+
 def load_config(file_path):
     """
     Load a YAML configuration file and return its contents as a dictionary.
