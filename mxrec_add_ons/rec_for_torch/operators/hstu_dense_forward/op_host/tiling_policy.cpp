@@ -37,7 +37,7 @@ bool ShapeRange::Check(int64_t val) const
     return true;
 }
 
-bool TilingPolicy::QKVShapeCheck(gert::TilingContext* context, int qkvDim)
+bool QKVShapeCheck(gert::TilingContext* context, int qkvDim)
 {
     OPS_LOG_E_IF_NULL("QShape", context->GetInputShape(INDEX_T::INDEX_0), return false);
     OPS_LOG_E_IF_NULL("KShape", context->GetInputShape(INDEX_T::INDEX_1), return false);
@@ -50,7 +50,7 @@ bool TilingPolicy::QKVShapeCheck(gert::TilingContext* context, int qkvDim)
     bool sameShape = (QShape == KShape && KShape == VShape);
 
     OPS_CHECK(!sameShape, OPS_LOG_E("", "QKV shape not same."), return false);
-    OPS_CHECK(dim != QKV_DIM, OPS_LOG_E("", "Jagged QKV dim should be 3, but got %d", dim), return false);
+    OPS_CHECK(dim != qkvDim, OPS_LOG_E("", "Jagged QKV dim should be %d, but got %d", qkvDim, dim), return false);
     return true;
 }
 

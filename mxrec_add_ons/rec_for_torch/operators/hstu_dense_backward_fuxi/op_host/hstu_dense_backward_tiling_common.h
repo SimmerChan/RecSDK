@@ -97,4 +97,6 @@ bool IsSameShape(const gert::Shape &shape0, const gert::Shape &shape1, int dim);
 
 bool BasicShapeCheck(int64_t batchSize, int64_t seqLen, int64_t headNum, int64_t dim);
 
+bool QKVShapeCheck(gert::TilingContext* context, int qkvDim);
+
 #endif
