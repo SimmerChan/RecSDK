@@ -111,9 +111,8 @@ class BackwardCodegenUnweightedExactKernel {
 public:
     __aicore__ inline BackwardCodegenUnweightedExactKernel() {}
 
-    __aicore__ inline void InitAddr(Args args)
+    __aicore__ inline void InitAddr(Args& args, BackwardCodegenAdagradUnweightedExactTilingData& tilingData)
     {
-        GET_TILING_DATA(tilingData, args.tiling);
         // ADDR
         gradOutput = args.gradOutput;
         devWeights = args.devWeights;
@@ -143,41 +142,37 @@ public:
         enableHash = tilingData.enableHash;
     }
 
-    __aicore__ inline void InitDataType(Args args)
+    __aicore__ inline void InitDataType()
     {
         bytesOfDataType = sizeof(float);
     }
 
-    __aicore__ inline void InitTiling(Args args)
+    __aicore__ inline void InitTiling(BackwardCodegenAdagradUnweightedExactTilingData& tilingData)
     {
         // Tiling
-        GET_TILING_DATA(tilingData, args.tiling);
         offsetsSplitLen = tilingData.splitBaseLen;
         offsetsSplitIndex = tilingData.tailSplitIndex;
     }
 
-    __aicore__ inline void InitUb(Args args)
+    __aicore__ inline void InitUb(BackwardCodegenAdagradUnweightedExactTilingData& tilingData)
     {
         // ub
-        GET_TILING_DATA(tilingData, args.tiling);
         ubCanUsed = tilingData.ubCanUsed;
         blockLen = ubCanUsed / USE_QUEUE_NUM / bytesOfDataType;
         blockLen = blockLen / FLOAT_ALIGNMENT * FLOAT_ALIGNMENT;
     }
 
-    __aicore__ inline void InitFunc(Args args)
+    __aicore__ inline void InitFunc(BackwardCodegenAdagradUnweightedExactTilingData& tilingData)
     {
         // func
-        GET_TILING_DATA(tilingData, args.tiling);
         poolMode = tilingData.poolMode;
         eps = tilingData.eps;
         learning_rate = tilingData.learningRate;
     }
 
-    __aicore__ inline void InitTensor(Args args)
+    __aicore__ inline void InitTensor()
     {
         // tensor
-        GET_TILING_DATA(tilingData, args.tiling);
         gradOutputGT.SetGlobalBuffer((__gm__ float*)gradOutput, gradOutputDim0 * gradOutputDim1);
         devWeightsGT.SetGlobalBuffer((__gm__ float*)devWeights, devWeightsDim0);
         momentum1DevGT.SetGlobalBuffer((__gm__ float*)momentum1Dev, outDim0);
@@ -191,7 +186,7 @@ public:
         workspaceGT.SetGlobalBuffer((__gm__ int8_t*)workspace, totalHashSize);
     }
 
-    __aicore__ inline void InitOffset(Args args)
+    __aicore__ inline void InitOffset()
     {
         // ThisCoreLen
         if (GetBlockIdx() >= offsetsSplitIndex) {
@@ -204,10 +199,9 @@ public:
         }
     }
 
-    __aicore__ inline void InitPipe(Args args)
+    __aicore__ inline void InitPipe()
     {
         // Init pipe
-        GET_TILING_DATA(tilingData, args.tiling);
         pipe.InitBuffer(queIn, 1, blockLen * sizeof(float));
         pipe.InitBuffer(queOut, 1, blockLen * sizeof(float));
 
@@ -219,13 +213,13 @@ public:
     {
         GET_TILING_DATA(tilingData, args.tiling);
         InitAddr(args);
-        InitDataType(args);
-        InitTiling(args);
-        InitUb(args);
-        InitFunc(args);
-        InitOffset(args);
-        InitTensor(args);
-        InitPipe(args);
+        InitDataType();
+        InitTiling(tilingData);
+        InitUb(tilingData);
+        InitFunc(tilingData);
+        InitOffset();
+        InitTensor();
+        InitPipe();
     }
 
     __aicore__ inline void SetTheFlag(const GlobalTensor<int8_t>& IndexGt, int8_t flagValue)
@@ -297,6 +291,7 @@ public:
         }
 
         int64_t remain = lenOfThisCore;
+        // 限制indicesNumOneBlock在MAX_ARGS_PIPE_LEN内
         int64_t indicesNumOneBlock = (blockLen / maxD) >= MAX_ARGS_PIPE_LEN ? MAX_ARGS_PIPE_LEN : (blockLen / maxD);
         ComputeArgs argsArry[MAX_ARGS_PIPE_LEN];
         while (remain > 0) {
