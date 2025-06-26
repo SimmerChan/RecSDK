@@ -8,16 +8,19 @@
 import itertools
 import logging
 import os
-import torch
-import torchrec
-import torch_npu
-
 from typing import Dict, List
-import torch.distributed as dist
-from torch.utils.data import DataLoader
-from torch.nn.parallel import DistributedDataParallel as DDP
-from torch.nn import ModuleList
 
+import torch
+import torch_npu
+import torch.distributed as dist
+from torch.optim import Adam, Adagrad
+from torch.nn import ModuleList
+from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.utils.data import DataLoader
+
+import torchrec
+import torchrec.distributed
+from dataset import Batch
 from torchrec import (
     EmbeddingConfig,
     EmbeddingBagConfig,
@@ -25,31 +28,27 @@ from torchrec import (
     EmbeddingCollection,
     KeyedJaggedTensor,
 )
-import torchrec.distributed
-from torch.optim import Adam, Adagrad
-from torchrec.optim.apply_optimizer_in_backward import apply_optimizer_in_backward
 from torchrec.distributed.planner import (
     EmbeddingShardingPlanner,
     Topology,
     ParameterConstraints,
 )
 from torchrec.distributed.types import ShardingEnv
+from torchrec.optim.apply_optimizer_in_backward import apply_optimizer_in_backward
 from torchrec.optim.keyed import CombinedOptimizer
 from torchrec_embcache.distributed.embedding import EmbCacheEmbeddingCollection
 from torchrec_embcache.distributed.embedding_bag import EmbCacheEmbeddingBagCollection
-from torchrec_embcache.distributed.train_pipeline import EmbCacheTrainPipelineSparseDist
-from torchrec_embcache.distributed.sharding.embedding_sharder import (
-EmbCacheEmbeddingCollectionSharder, 
-EmbCacheEmbeddingBagCollectionSharder
-)
 from torchrec_embcache.distributed.modules.cache_embedding_configs import (
 AdmitAndEvictConfig, 
 EmbCacheEmbeddingConfig,
 EmbCacheEmbeddingBagConfig,
 InitializerType
 )
-
-from dataset import Batch
+from torchrec_embcache.distributed.sharding.embedding_sharder import (
+EmbCacheEmbeddingCollectionSharder, 
+EmbCacheEmbeddingBagCollectionSharder
+)
+from torchrec_embcache.distributed.train_pipeline import EmbCacheTrainPipelineSparseDist
 from util import logging
 
 

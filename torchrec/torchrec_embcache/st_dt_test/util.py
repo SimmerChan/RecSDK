@@ -6,14 +6,19 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 import logging
-import pytz
-import torch
-import numpy as np
 import os
-
+import numpy as np
+from collections import defaultdict
 from typing import Callable
 
+import pytz
+import torch
+from torch.autograd.profiler import record_function
+
 from parse_configs import load_all_configs
+from torchrec.distributed.embedding_sharding import FusedKJTListSplitsAwaitable, KJTListSplitsAwaitable, KJTSplitsAllToAllMeta
+from torchrec.distributed.train_pipeline.utils import TrainPipelineContext
+from torchrec_embcache.distributed.sharding.rw_sharding import EmbCacheRwSparseFeaturesDistAwaitable
 
 
 OVER_COUNT = 10
@@ -206,3 +211,49 @@ def compare_list(list1, list2):
         elif item1 != item2:
             return False
     return True
+
+
+# utils for dt test
+def fuse_input_dist_splits(context: TrainPipelineContext) -> None:
+    with record_function("## _fuse_input_dist_splits ##"):
+        names_per_pg = defaultdict(list)
+        for name, request in context.input_dist_splits_requests.items():
+            pg = None
+            if isinstance(request, KJTListSplitsAwaitable):
+                for awaitable in request.awaitables:
+                    if isinstance(awaitable, KJTSplitsAllToAllMeta) or isinstance(
+                        awaitable, EmbCacheRwSparseFeaturesDistAwaitable
+                    ):
+                        pg = awaitable.pg
+                        break
+            names_per_pg[pg].append(name)
+
+        for name, request in context.input_dist_splits_requests.items():
+            for ind, awaitable in enumerate(
+                context.input_dist_splits_requests[name].awaitables
+            ):
+                if isinstance(awaitable, EmbCacheRwSparseFeaturesDistAwaitable):
+                    context.input_dist_splits_requests[name].awaitables[ind] = \
+                        context.input_dist_splits_requests[name].awaitables[ind].wait()
+
+        for pg, names in names_per_pg.items():
+            context.fused_splits_awaitables.append(
+                (
+                    names,
+                    FusedKJTListSplitsAwaitable(
+                        # pyre-ignore[6]
+                        requests=[
+                            context.input_dist_splits_requests[name] for name in names
+                        ],
+                        contexts=[
+                            (
+                                context.module_contexts_next_batch[name]
+                                if context.version == 0
+                                else context.module_contexts[name]
+                            )
+                            for name in names
+                        ],
+                        pg=pg,
+                    ),
+                )
+            )
