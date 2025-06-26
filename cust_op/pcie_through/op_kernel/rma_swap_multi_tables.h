@@ -303,21 +303,6 @@ private:
         SetFlag(ub_buff, update_flag, visitedIdx);
     }
 
-    _aicore__ inline uint64_t CalculateCacheSize()
-    {
-        uint64_t cacheSize = 0;
-        if (cacheRear >= cacheFront) {
-            if (cacheFront == 0) {
-                cacheSize = (cacheCapacity - cacheRear - 1) * embDim;
-            } else {
-                cacheSize = (cacheCapacity - cacheRear) * embDim;
-            }
-        } else {
-            cacheSize = (cacheFront - cacheRear - 1) * embDim;
-        }
-        return cacheSize;
-    }
-
     __aicore__ inline void GetNextMultiThreads()
     {
         __ubuf__ RmaShmDataHead *ub_datahead_buff = (__ubuf__ RmaShmDataHead *)get_imm(0);
@@ -364,7 +349,16 @@ private:
                 }
                 uint64_t copySize = (copyOffset + pipeBlockSize <= sizeOfData) ?
                                     pipeBlockSize : (sizeOfData - copyOffset);
-                uint64_t cacheSize = CalculateCacheSize();
+                uint64_t cacheSize = 0;
+                if (cacheRear >= cacheFront) {
+                    if (cacheFront == 0) {
+                        cacheSize = (cacheCapacity - cacheRear - 1) * embDim;
+                    } else {
+                        cacheSize = (cacheCapacity - cacheRear) * embDim;
+                    }
+                } else {
+                    cacheSize = (cacheFront - cacheRear - 1) * embDim;
+                }
                 copySize = (copySize > cacheSize) ? cacheSize : copySize;
                 gm2gm(copySize, ub_data_buff, embSwapCache + cacheRear * embDim, svmDataBuff + copyOffset);
                 if (copyOffset + stride >= sizeOfData) {
