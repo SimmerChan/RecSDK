@@ -211,14 +211,14 @@ class KeyedJaggedTensorWithLookHelper(KeyedJaggedTensor):
                         "start_unique_offset == end_unique_offset, it caused by spliting keys on the same table")
                 split_list.append(KeyedJaggedTensorWithLookHelper(
                     keys=keys, values=self._values[start_offset:end_offset],
-                    hash_indices=(
-                        self._hash_indices[start_offset:end_offset] if self._hash_indices is not None else None),
-                    unique_indices=(self._unique_indices[
-                                    start_unique_offset:end_unique_offset] if self._hash_indices is not None else None),
-                    unique_offset=(self._unique_offset[start:end] - self._unique_offset[
-                        start] if self._unique_offset is not None else None),
-                    unique_inverse=(
-                        self._unique_inverse[start_offset:end_offset] if self._unique_inverse is not None else None),
+                    hash_indices=(self._hash_indices[start_offset:end_offset]
+                                  if self._hash_indices is not None else None),
+                    unique_indices=(self._unique_indices[start_unique_offset:end_unique_offset]
+                                    if self._hash_indices is not None else None),
+                    unique_offset=(self._unique_offset[start:end] - self._unique_offset[start]
+                                   if self._unique_offset is not None else None),
+                    unique_inverse=(self._unique_inverse[start_offset:end_offset]
+                                    if self._unique_inverse is not None else None),
                     weights=(None if self.weights_or_none() is None else self.weights()[start_offset:end_offset]),
                     lengths=self.lengths()[self.lengths_offset_per_key()[start]: self.lengths_offset_per_key()[end]],
                     offsets=None, stride=stride, stride_per_key_per_rank=stride_per_key_per_rank,
