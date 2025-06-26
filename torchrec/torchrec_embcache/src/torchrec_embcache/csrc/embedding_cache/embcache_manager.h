@@ -18,7 +18,7 @@
 #include "common/common.h"
 #include "emb_table/emb_table.h"
 #include "feature_filter/feature_filter.h"
-#include "../../../../../../../../../工作文档/月度文档记录/202506文档/0626 embcache代码同步/修改结果2/csrc/embedding_cache/swap_manager.h"
+#include "swap_manager.h"
 #include "utils/async_task.h"
 
 namespace Embcache {

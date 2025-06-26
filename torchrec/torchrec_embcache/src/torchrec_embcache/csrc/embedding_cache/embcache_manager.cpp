@@ -16,7 +16,7 @@
 #include <sstream>
 #include <vector>
 
-#include "../../../../../../../../../工作文档/月度文档记录/202506文档/0626 embcache代码同步/修改结果2/csrc/embedding_cache/glogger.h"
+#include "glogger.h"
 
 #include "utils/singleton.h"
 #include "utils/time_cost.h"
