@@ -16,7 +16,7 @@ import torch
 import numpy as np
 import torch.multiprocessing as mp
 from dataset import RandomRecDataset, Batch, BoundOutOfRangeRecDataset, FeatureNameNotInConfigRecDataset
-from model import TestModel, generate_hash_config
+from model import TestModel, generate_hash_config, HashConfig
 from torch.utils.data import DataLoader
 from torch.optim import Adam, Adagrad
 from util import (
@@ -122,8 +122,15 @@ def execute(rank, config):
     feature_names_lst = config["feature_names_lst"]
     instances = config.get("instances", 1)
     pool_type = getattr(torchrec.PoolingType, pool_type)
-    embedding_config = generate_hash_config(embedding_dims, num_embeddings, pool_type, feature_names_lst, 
-                                            create_weight_init(init_fn), "ec")
+    hash_config = HashConfig(
+        embedding_dims=embedding_dims, 
+        num_embeddings=num_embeddings, 
+        pooling=pool_type, 
+        feature_names=feature_names_lst,
+        init_fn=create_weight_init(init_fn),
+        collection_type="ec"
+    )
+    embedding_config = generate_hash_config(hash_config)
     generated_ids = []
     if isinstance(dataset_class, BoundOutOfRangeRecDataset):
         for i in range(table_num):
