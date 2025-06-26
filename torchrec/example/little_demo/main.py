@@ -115,28 +115,8 @@ def invoke_main():
     )
 
     # Shard
-    ddp_model = create_ddp()
-    # host_gp = dist.new_group(backend="gloo")
-    # host_env = ShardingEnv(world_size=world_size, rank=rank, pg=host_gp)
-    # hybrid_sharder = get_default_hybrid_sharders(host_env=host_env)
-    # constraints = {
-    #     table_name: ParameterConstraints(
-    #         sharding_types=["row_wise"], compute_kernels=["fused"]
-    #     )
-    #     for table_name in TABLE_NAMES
-    # }
-
-    # planner = EmbeddingShardingPlanner(
-    #     topology=Topology(world_size=world_size, compute_device="npu"),
-    #     constraints=constraints,
-    # )
-
-    # plan = planner.collective_plan(test_model, hybrid_sharder, dist.GroupMember.WORLD)
-    # logging.info(plan)
-    # ddp_model = DistributedModelParallel(
-    #     test_model, device=torch.device("npu"), plan=plan, sharders=hybrid_sharder
-    # )
-
+    ddp_model = create_ddp(test_model)
+    
     # Optimizer filer
     dense_optimizer = KeyedOptimizerWrapper(
         dict(in_backward_optimizer_filter(ddp_model.named_parameters())),
