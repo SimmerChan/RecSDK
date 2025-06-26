@@ -231,6 +231,21 @@ def compare_list(list1, list2):
 
 
 # utils for dt test
+class TestFusedKJTListSplitsAwaitable(FusedKJTListSplitsAwaitable):
+
+    @property
+    def lengths(self):
+        return self._lengths
+    
+    @property
+    def splits_awaitables(self):
+        return self._splits_awaitables
+    
+    @property
+    def splits_awaitable(self):
+        return self._splits_awaitable
+
+
 def fuse_input_dist_splits(context: TrainPipelineContext) -> None:
     with record_function("## _fuse_input_dist_splits ##"):
         names_per_pg = defaultdict(list)
@@ -257,7 +272,7 @@ def fuse_input_dist_splits(context: TrainPipelineContext) -> None:
             context.fused_splits_awaitables.append(
                 (
                     names,
-                    FusedKJTListSplitsAwaitable(
+                    TestFusedKJTListSplitsAwaitable(
                         # pyre-ignore[6]
                         requests=[
                             context.input_dist_splits_requests[name] for name in names
