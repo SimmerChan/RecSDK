@@ -14,7 +14,11 @@ import numpy as np
 import tensorflow as tf
 from npu_bridge.npu_init import NPUEstimator, NPURunConfig
 
-from utils import get_third_nearest_checkpoint, dump_pred
+from utils import (
+    get_third_nearest_checkpoint,
+    dump_pred,
+    input_fn
+)
 
 MODEL_NAME = "AFN_plus"
 
@@ -40,45 +44,6 @@ def define_flags():
     tf.app.flags.DEFINE_string("log_level", "DEBUG", "log level {DEBUG, INFO, WARNING, ERROR, CRITICAL}")
     tf.app.flags.DEFINE_string("deep_layers", '400,400,400', "deep layers")
     return model_conf
-
-
-# ------ Load tfrecord dataset ------
-def input_fn(filenames: list, batch_size: int = 32, field_size: int = 39, num_epochs: int = 1,
-             perform_shuffle: bool = False) -> tuple:
-    """
-    Input function for loading TFRecord dataset.
-
-    Args:
-        filenames (list): List of TFRecord file paths.
-        batch_size (int): Number of samples per batch.
-        field_size (int): Number of fields in the dataset.
-        num_epochs (int): Number of epochs to repeat the dataset.
-        perform_shuffle (bool): Whether to shuffle the dataset.
-
-    Returns:
-        tuple: A tuple containing batch features and batch labels.
-    """
-
-    def extract_fn(data_record):
-        features = {
-            # Extract features using the keys set during creation
-            'label': tf.io.FixedLenFeature(shape=(), dtype=tf.float32),
-            'ids': tf.io.FixedLenFeature(shape=(field_size,), dtype=tf.int64),
-            'values': tf.io.FixedLenFeature(shape=(field_size,), dtype=tf.float32),
-        }
-        sample = tf.io.parse_example(data_record, features)
-        sample['ids'] = tf.cast(sample['ids'], dtype=tf.int32)
-        return {"feat_ids": sample['ids'], "feat_vals": sample['values']}, sample['label']
-
-    dataset = tf.data.TFRecordDataset(filenames)
-    if perform_shuffle:
-        dataset = dataset.shuffle(buffer_size=500000)
-
-    dataset = dataset.repeat(num_epochs)
-    dataset = dataset.batch(batch_size, drop_remainder=True).map(extract_fn, num_parallel_calls=10).prefetch(100)
-    iterator = tf.compat.v1.data.make_one_shot_iterator(dataset)
-    batch_features, batch_labels = iterator.get_next()
-    return batch_features, batch_labels
 
 
 def layer_first(embeddings_trans, field_size, hidden_size):
