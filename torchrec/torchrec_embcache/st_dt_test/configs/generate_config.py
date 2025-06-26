@@ -1,32 +1,34 @@
-import os
 import json
-import yaml
-import sys
+import os
 import random
+import sys
+
+import yaml
 
 random.seed(4)
 
-def generate_feature_names_lst(feature_num, table_num):
+
+def generate_feature_names_lst(features, tables):
     feature_names_lst = []
-    for i in range(table_num):
+    for i in range(tables):
         feature_names_lst.append([])
-        for j in range(feature_num):
-            feature_name = f"features{i*feature_num+j}"
+        for j in range(features):
+            feature_name = f"features{i*features+j}"
             feature_names_lst[-1].append(feature_name)
     return feature_names_lst
 
 
 def generate_num_embeddings(num_embeddings_message):
-    num_embeddings = []
+    num_embedding_lst = []
     for message in num_embeddings_message:
         if isinstance(message, list):
             if message[0] == "range":
-                num_embeddings.extend(list(range(*message[1:])))
+                num_embedding_lst.extend(list(range(*message[1:])))
             elif message[0] == "randint":
-                num_embeddings.append(random.randint(*message[1:]))
+                num_embedding_lst.append(random.randint(*message[1:]))
         else:
-            num_embeddings.append(message)
-    return num_embeddings
+            num_embedding_lst.append(message)
+    return num_embedding_lst
 
 
 folder_path = sys.argv[1]
@@ -51,7 +53,7 @@ with open(os.path.join(folder_path, "test_cases.jsonl")) as f:
         config = {
             "WORLD_SIZE": world_size,
             "table_num": table_num,
-            "embedding_dims": [embedding_dims[0]]*embedding_dims[1], # undo 需要根据参数range部分固定，部分随机设定值，不用专门传参
+            "embedding_dims": [embedding_dims[0]] * embedding_dims[1], # undo 需要根据参数range部分固定，部分随机设定值，不用专门传参
             "num_embeddings": generate_num_embeddings(num_embeddings),
             "pool_type": pool_type,
             "BATCH_NUM": batch,
