@@ -5,23 +5,30 @@
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
+import logging
 import os
 import random
-import torchrec
-import pytest
-import logging
-
 import numpy as np
-
 from concurrent.futures import ProcessPoolExecutor
 from typing import List, Callable
+
+import pytest
+import torch
 import torch.multiprocessing as mp
 from torch.utils.data import DataLoader
 from torch.optim import Adam, Adagrad
 
+import torchrec
 from dataset import RandomRecDataset, Batch, BoundOutOfRangeRecDataset, FeatureNameNotInConfigRecDataset
-from util import *
 from model import TestModel, generate_hash_config
+from util import (
+    is_lookup_out_of_bound,
+    feature_name_exists,
+    setup_logging,
+    create_weight_init,
+    check_config,
+    OVER_COUNT
+)
 
 
 @pytest.mark.functional
@@ -103,12 +110,12 @@ def execute(rank, config):
     embedding_dims = config["embedding_dims"]
     num_embeddings = config["num_embeddings"]
     pool_type = config["pool_type"]
-    BATCH_NUM = config["BATCH_NUM"]
+    batch_num = config["BATCH_NUM"]
     table_num = config["table_num"]
     lookup_lens = config["lookup_lens"]
     dataset_class = globals()[config["RecDataset"] + "RecDataset"]
     init_fn = globals()[config["init_fn"]]
-    WORLD_SIZE = config["WORLD_SIZE"]
+    world_size = config["WORLD_SIZE"]
     device = config.get("device", "npu")
     sharding_type = config.get("sharding_type", "row_wise")
     optim = globals()[config.get("optim", "Adagrad")]
@@ -122,9 +129,9 @@ def execute(rank, config):
         for i in range(table_num):
             generated_ids.append([])
             for _ in range(len(feature_names_lst[i])):
-                generated_ids[i].append(list(range(num_embeddings[i]+OVER_COUNT)))
+                generated_ids[i].append(list(range(num_embeddings[i] + OVER_COUNT)))
                 random.shuffle(generated_ids[i][-1])
-    dataset = dataset_class(BATCH_NUM, lookup_lens, num_embeddings, table_num, feature_names_lst, generated_ids)
+    dataset = dataset_class(batch_num, lookup_lens, num_embeddings, table_num, feature_names_lst, generated_ids)
     data_loader = DataLoader(
         dataset,
         batch_size=None,
@@ -133,7 +140,7 @@ def execute(rank, config):
         num_workers=1,
     )
 
-    test_model = TestModel(rank, WORLD_SIZE, device, instances, feature_names_lst, BATCH_NUM, collection_type="ec")
+    test_model = TestModel(rank, world_size, device, instances, feature_names_lst, batch_num, collection_type="ec")
     test_model.init_ddp_model(embedding_config, sharding_type, optim, lookup_lens)
     test_results = test_model.test_pipe_loss(data_loader)
     return test_results
