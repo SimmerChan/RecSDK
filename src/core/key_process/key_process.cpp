@@ -534,8 +534,8 @@ bool KeyProcess::KeyProcessTaskHelperForDp(unique_ptr<EmbBatchT>& batch, int cha
     return true;
 }
 
-void KeyProcess::PushResultBasedOnMemoryMode(unique_ptr <EmbBatchT>& batch, unique_ptr<vector<Tensor>> tensors, int channel,
-                                            unique_ptr<vector<Tensor>> keyCountTensors, std::vector<emb_key_t>& lookupKeys)
+void KeyProcess::PushResultBasedOnMemoryMode(unique_ptr <EmbBatchT>& batch, unique_ptr<vector<Tensor>> tensors,
+                                             int channel, unique_ptr<vector<Tensor>> keyCountTensors, std::vector<emb_key_t>& lookupKeys)
 {
     if (!rankInfo.isDDR) {
         PushGlobalUniqueTensors(tensors, lookupKeys, channel, batch->name);
