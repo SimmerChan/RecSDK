@@ -48,7 +48,16 @@ class Batch(Pipelineable):
 
 
 class RandomRecDataset(IterableDataset[Batch]):
-    def __init__(self, batch_num, lookup_lens, num_embeddings, table_num, feature_names_lst=None, generated_ids=None, instances=1):
+    def __init__(
+            self, 
+            batch_num, 
+            lookup_lens, 
+            num_embeddings, 
+            table_num, 
+            feature_names_lst=None, 
+            generated_ids=None, 
+            instances=1
+        ):
         super().__init__()
         self.index = 0
         self.lookup_lens = lookup_lens

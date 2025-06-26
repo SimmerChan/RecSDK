@@ -7,9 +7,9 @@
 # LICENSE file in the root directory of this source tree.
 import os
 import re
-import yaml
 from collections import defaultdict
 
+import yaml
 
 def load_config(file_path):
     """

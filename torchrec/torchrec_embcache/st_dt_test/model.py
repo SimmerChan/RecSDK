@@ -8,19 +8,34 @@
 import itertools
 import logging
 import os
-from typing import Dict, List
+from dataclasses import dataclass
+from typing import Dict, List, Callable
 
 import torch
 import torch_npu
 import torch.distributed as dist
+from dataset import Batch
 from torch.optim import Adam, Adagrad
 from torch.nn import ModuleList
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
+from torchrec_embcache.distributed.embedding import EmbCacheEmbeddingCollection
+from torchrec_embcache.distributed.embedding_bag import EmbCacheEmbeddingBagCollection
+from torchrec_embcache.distributed.modules.cache_embedding_configs import (
+AdmitAndEvictConfig, 
+EmbCacheEmbeddingConfig,
+EmbCacheEmbeddingBagConfig,
+InitializerType
+)
+from torchrec_embcache.distributed.sharding.embedding_sharder import (
+EmbCacheEmbeddingCollectionSharder, 
+EmbCacheEmbeddingBagCollectionSharder
+)
+from torchrec_embcache.distributed.train_pipeline import EmbCacheTrainPipelineSparseDist
+from util import logging
 
 import torchrec
 import torchrec.distributed
-from dataset import Batch
 from torchrec import (
     EmbeddingConfig,
     EmbeddingBagConfig,
@@ -36,20 +51,6 @@ from torchrec.distributed.planner import (
 from torchrec.distributed.types import ShardingEnv
 from torchrec.optim.apply_optimizer_in_backward import apply_optimizer_in_backward
 from torchrec.optim.keyed import CombinedOptimizer
-from torchrec_embcache.distributed.embedding import EmbCacheEmbeddingCollection
-from torchrec_embcache.distributed.embedding_bag import EmbCacheEmbeddingBagCollection
-from torchrec_embcache.distributed.modules.cache_embedding_configs import (
-AdmitAndEvictConfig, 
-EmbCacheEmbeddingConfig,
-EmbCacheEmbeddingBagConfig,
-InitializerType
-)
-from torchrec_embcache.distributed.sharding.embedding_sharder import (
-EmbCacheEmbeddingCollectionSharder, 
-EmbCacheEmbeddingBagCollectionSharder
-)
-from torchrec_embcache.distributed.train_pipeline import EmbCacheTrainPipelineSparseDist
-from util import logging
 
 
 lib_fbgemm_npu_api_so_path = os.getenv('LIB_FBGEMM_NPU_API_SO_PATH')
@@ -71,6 +72,7 @@ def permute_values(kjt: KeyedJaggedTensor, feature_names_lst) -> torch.Tensor:
     values = torch.concat(values, dim=1)
     return values
 
+
 # ec和ebc查询结果返回数据类型不一样
 def permute_values_ec(result: Dict, feature_num_lst) -> torch.Tensor:
     values = []
@@ -79,6 +81,7 @@ def permute_values_ec(result: Dict, feature_num_lst) -> torch.Tensor:
         values.append(jt)
     values = torch.concat(values, dim=1)
     return values
+
 
 class Model(torch.nn.Module):
     def __init__(self, module, feature_names_lst):
@@ -143,7 +146,7 @@ COLLECTION_DICT = {
 
 
 class TestModel:
-    def __init__(self, rank, world_size, device, instances, feature_names_lst, BATCH_NUM, collection_type="ec"):
+    def __init__(self, rank, world_size, device, instances, feature_names_lst, batch_num, collection_type="ec"):
         self.rank = rank
         self.world_size = world_size
         self.device = device
@@ -152,13 +155,13 @@ class TestModel:
         self.pg_method = "hccl" if device == "npu" else "gloo"
         if device == "npu":
             torch_npu.npu.set_device(rank)
-        self.BATCH_NUM = BATCH_NUM
+        self.batch_num = batch_num
         self.setup(rank=rank, world_size=world_size)
         if collection_type not in ["ec", "ebc"]:
             raise ValueError(f"collection type must be one of ec or ebc, find {collection_type} instead")
         self.collection_type = collection_type
         self.module = None
-        self.ddpModel = None
+        self.ddp_model = None
         self.npu_device: torch.device = torch.device(f"npu:{rank}")
         self.cpu_device = torch.device("cpu")
         self.table_num = 0
@@ -173,7 +176,9 @@ class TestModel:
         table_num = len(embedding_config)
         module = ModuleList()
         for _ in range(self.instances):
-            module.append(COLLECTION_DICT[self.collection_type]["collection_cpu"](device="cpu", tables=embedding_config))
+            module.append(
+                COLLECTION_DICT[self.collection_type]["collection_cpu"](device="cpu", tables=embedding_config)
+            )
         module = COLLECTION_DICT[self.collection_type]["model"](module, self.feature_names_lst)
         model = DDP(module, device_ids=None, process_group=pg)
         opt = optim(module.parameters(), **OPTIMIZER_PARAM[optim])
@@ -181,7 +186,7 @@ class TestModel:
         results = []
         batch: Batch
         iter_ = iter(dataloader)
-        for _ in range(self.BATCH_NUM):
+        for _ in range(self.batch_num):
             batch = next(iter_)
             opt.zero_grad()
             loss, out = model(batch)
@@ -198,7 +203,7 @@ class TestModel:
                     instance.embeddings[f"table{i}"].weight if self.collection_type == "ec"
                     else instance.embedding_bags[f"table{i}"].weight,
                 )
-        logging.debug(f"cpu result: {results}")
+        logging.debug("cpu result: %s", results)
         return results
 
     def setup(self, rank: int, world_size: int):
@@ -221,9 +226,13 @@ class TestModel:
         self.table_num = len(embedding_config)
         module = ModuleList()
         for _ in range(self.instances):
-            module.append(COLLECTION_DICT[self.collection_type]["collection"](device=torch.device("meta"), tables=embedding_config,
-                                                      batch_size=lookup_lens, multi_hot_sizes=[1]*self.table_num,
-                                                      world_size=dist.get_world_size()))
+            module.append(
+                COLLECTION_DICT[self.collection_type]["collection"](
+                        device=torch.device("meta"), tables=embedding_config,
+                        batch_size=lookup_lens, multi_hot_sizes=[1] * self.table_num,
+                        world_size=dist.get_world_size()
+                    )
+                )
         module = COLLECTION_DICT[self.collection_type]["model"](module, self.feature_names_lst)
         apply_optimizer_in_backward(
             optimizer_class=optim,
@@ -256,25 +265,25 @@ class TestModel:
         if self.rank == 0:
             logging.debug(plan)
 
-        ddpModel = torchrec.distributed.DistributedModelParallel(
+        ddp_model = torchrec.distributed.DistributedModelParallel(
             module,
             sharders=shaders,
             device=self.npu_device,
             plan=plan,
         )
-        self.ddpModel = ddpModel
+        self.ddp_model = ddp_model
         self.module = module
-        logging.debug(ddpModel)
+        logging.debug(ddp_model)
 
     def test_pipe_loss(self,
         dataloader: DataLoader[Batch],):
         # Optimizer
-        optimizer = CombinedOptimizer([self.ddpModel.fused_optimizer])
+        optimizer = CombinedOptimizer([self.ddp_model.fused_optimizer])
         results = []
         iter_ = iter(dataloader)
-        self.ddpModel.train()
+        self.ddp_model.train()
         pipe = EmbCacheTrainPipelineSparseDist(
-            self.ddpModel,
+            self.ddp_model,
             optimizer=optimizer,
             cpu_device=self.cpu_device,
             npu_device=self.npu_device,
@@ -293,14 +302,28 @@ class TestModel:
                     instance.embeddings[f"table{i}"].weight if self.collection_type == "ec"
                     else instance.embedding_bags[f"table{i}"].weight,
                 )
-        logging.debug(f"npu results: {results}")
+        logging.debug("npu results: %s", results)
         return results
 
 
-def generate_hash_config(
-    embedding_dims, num_embeddings, pool_type, feature_names, init_fn, collection_type
-):
+@dataclass
+class HashConfig:
+    embedding_dims: List[int]
+    num_embeddings: List[int]
+    pool_type: torchrec.PoolingType
+    feature_names: List[List[str]]
+    init_fn: Callable
+    collection_type: str
+
+
+def generate_hash_config(hash_config: HashConfig):
     test_table_configs: List[COLLECTION_DICT[collection_type]["collection_cpu"]] = []
+    embedding_dims = hash_config.embedding_dims
+    num_embeddings = hash_config.num_embeddings
+    pool_type = hash_config.pool_type
+    feature_names = hash_config.feature_names
+    init_fn = hash_config.init_fn
+    collection_type = hash_config.collection_type
     for i, (table_dim, num_embedding, feature_name) in enumerate(zip(embedding_dims, num_embeddings, feature_names)):
         if collection_type == "ebc":    
             config = COLLECTION_DICT[collection_type]["config"](

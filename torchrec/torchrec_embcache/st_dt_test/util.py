@@ -7,18 +7,22 @@
 # LICENSE file in the root directory of this source tree.
 import logging
 import os
-import numpy as np
 from collections import defaultdict
 from typing import Callable
 
 import pytz
 import torch
-from torch.autograd.profiler import record_function
-
+import numpy as np
 from parse_configs import load_all_configs
-from torchrec.distributed.embedding_sharding import FusedKJTListSplitsAwaitable, KJTListSplitsAwaitable, KJTSplitsAllToAllMeta
-from torchrec.distributed.train_pipeline.utils import TrainPipelineContext
+from torch.autograd.profiler import record_function
 from torchrec_embcache.distributed.sharding.rw_sharding import EmbCacheRwSparseFeaturesDistAwaitable
+
+from torchrec.distributed.embedding_sharding import (
+    FusedKJTListSplitsAwaitable, 
+    KJTListSplitsAwaitable, 
+    KJTSplitsAllToAllMeta
+)
+from torchrec.distributed.train_pipeline.utils import TrainPipelineContext
 
 
 OVER_COUNT = 10
@@ -35,7 +39,7 @@ def setup_logging(rank):
             "%m_%d_%H_%M_%S",
         )
     )
-    format = logging.Formatter(
+    format_message = logging.Formatter(
         fmt=f"[rank{rank}][%(levelname)s][%(asctime)s.%(msecs)03d] %(message)s",
         datefmt="%m-%d %H:%M:%S",
     )
@@ -43,7 +47,7 @@ def setup_logging(rank):
     file_handler = logging.FileHandler(
         f"test_rank{rank}_{this_time}.log", encoding="utf-8"
     )
-    file_handler.setFormatter(format)
+    file_handler.setFormatter(format_message)
     logger.addHandler(file_handler)
     logger.setLevel(logging.DEBUG)
 
@@ -71,11 +75,14 @@ def check_config(config):
         bound_out_of_range = False
         # if LOOP_TIMES*config["lookup_lens"]
         for i in range(config["table_num"]):
-            if config["lookup_lens"]*config["BATCH_NUM"] > config["num_embeddings"][i]+OVER_COUNT:
+            if config["lookup_lens"]*config["BATCH_NUM"] > config["num_embeddings"][i] + OVER_COUNT:
                 bound_out_of_range = True
                 break
         if not bound_out_of_range:
-            raise ValueError("lookup_lens and BATCH_NUM is too small, if you want to test out of range, please set lookup_lens*BATCH_NUM*LOOP_TIMES > num_embeddings+OVER_COUNT")
+            raise ValueError(
+                "lookup_lens and BATCH_NUM is too small, if you want to test out of range, "
+                "please set lookup_lens*BATCH_NUM*LOOP_TIMES > num_embeddings+OVER_COUNT"
+                )
         
     # 需要检查是否超出显存
     # 表的大小，要考虑分表的情况：sum(instances*embedding_dim*num_embeddings)/WORLD_SIZE
@@ -87,17 +94,24 @@ def check_config(config):
     lookup_size = 0
     for embedding_dim, feature_names in zip(config["embedding_dims"], config["feature_names_lst"]):
         lookup_size += embedding_dim * len(feature_names)
-    total_size = (table_size + lookup_size)*4/(1024*1024)
+    total_size = (table_size + lookup_size) * dtype_size / (1024 * 1024)  # Convert to MB
     max_size = 65536
     if total_size > max_size:
-        raise ValueError(f"table size is too large, please reduce the table size or increase the WORLD_SIZE, total_size: {total_size}, max_size: {max_size}")
+        raise ValueError(
+            "table size is too large, please reduce the table size"
+            f" or increase the WORLD_SIZE, total_size: {total_size}, max_size: {max_size}"
+        )
 
     # 需要检查HBM缓存是否够用
-    multi_hot_sizes = [1]*config["table_num"]
+    multi_hot_sizes = [1] * config["table_num"]
     dtype_size = 4 # default fp32
     weight_and_optim_count = 2
-    # undo 准入准出会占用一个位置，lookup_lens固定+1，后续根据准入准出的参数形式进行判断
-    min_mem = np.sum(np.dot(np.multiply(config["embedding_dims"], multi_hot_sizes), 2*dtype_size*config["lookup_lens"]*weight_and_optim_count)) 
+    min_mem = np.sum(
+        np.dot(
+            np.multiply(config["embedding_dims"], multi_hot_sizes), 
+            2*dtype_size * config["lookup_lens"] * weight_and_optim_count
+        )
+    ) 
     max_hbm_for_vectors = os.getenv("EMBCACHE_SIZE_ON_HBM")
     if not max_hbm_for_vectors:
         raise EnvironmentError("EMBCACHE_SIZE_ON_HBM is not set, please set it in the environment")
@@ -151,12 +165,12 @@ def init_uniform(in_dim):
 
 
 # utils for conftest
-def generate_test_cases(metafunc, ALL_CONFIGS):
+def generate_test_cases(metafunc, all_configs):
     """
     Pytest hook to generate tests dynamically based on the configurations.
     """
     test_case_name = metafunc.function.__name__
-    configs_for_case = ALL_CONFIGS.get(test_case_name, [])
+    configs_for_case = all_configs.get(test_case_name, [])
 
     # 获取命令行参数
     config_file = metafunc.config.getoption("--test-config-file")
@@ -170,18 +184,21 @@ def generate_test_cases(metafunc, ALL_CONFIGS):
             metafunc.parametrize("config", [selected_config], ids=[config_file])
 
     elif configs_for_case:
-        metafunc.parametrize("config", [cfg for _, cfg in configs_for_case], ids=[fname for fname, _ in configs_for_case])
+        metafunc.parametrize(
+            "config", 
+            [cfg for _, cfg in configs_for_case], ids=[fname for fname, _ in configs_for_case]
+        )
     else:
         metafunc.parametrize("config", [], scope="function")
 
 
-def get_all_configs(MODULE_NAME):
-    CONFIG_DIR = os.path.join(TEST_ROOT_DIR, "configs", MODULE_NAME)
+def get_all_configs(module_name: str) -> dict:
+    config_dir = os.path.join(TEST_ROOT_DIR, "configs", module_name)
 
-    if not os.path.exists(CONFIG_DIR):
-        raise FileNotFoundError(f"Config directory {CONFIG_DIR} does not exist.")
-    ALL_CONFIGS = load_all_configs(CONFIG_DIR)
-    return ALL_CONFIGS
+    if not os.path.exists(config_dir):
+        raise FileNotFoundError(f"Config directory {config_dir} does not exist.")
+    all_configs = load_all_configs(config_dir)
+    return all_configs
 
 
 # utils for compare methods
