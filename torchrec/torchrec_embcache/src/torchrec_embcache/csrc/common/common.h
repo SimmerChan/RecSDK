@@ -33,7 +33,9 @@ enum class FkvState : uint8_t {
     FKV_FAIL = 6,
 };
 
-extern const char* FVK_STATE_STR[7];
+const char* const FVK_STATE_STR[] = {
+    "FKV_EXIST",    "FKV_NOT_EXIST", "FKV_KEY_CONFLICT", "FKV_BEFORE_PUT_FUNC_FAIL", "FKV_BEFORE_REMOVE_FUNC_FAIL",
+    "FKV_NO_SPACE", "FKV_FAIL"};
 
 enum class BeforePutFuncState {
     BEFORE_SUCCESS,

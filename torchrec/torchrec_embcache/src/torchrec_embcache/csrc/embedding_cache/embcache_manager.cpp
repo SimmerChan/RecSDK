@@ -398,7 +398,6 @@ std::ofstream EmbcacheManager::OpenFile(std::string path)
 {
     std::filesystem::path filepath(path);
     std::filesystem::path dir = filepath.parent_path();
-
     if (!std::filesystem::exists(dir)) {
         std::filesystem::create_directories(dir);
     }

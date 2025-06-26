@@ -21,13 +21,16 @@ namespace Embcache {
 constexpr int64_t CAN_REUSE_KEY_VERSION = -2;
 constexpr int64_t OFFSET_OF_INVALID_KEY = 0;
 
+extern int INVALID_KEY;
+
+using ComputeSwapRet = std::tuple<std::vector<int64_t>, std::vector<int64_t>, std::vector<int64_t>,
+                                  std::vector<int64_t>, std::vector<int64_t>>;
+
 class SwapManager {
 public:
     explicit SwapManager(int64_t cacheSize, int64_t memStartOffset = 0);
 
-    std::tuple<std::vector<int64_t>, std::vector<int64_t>, std::vector<int64_t>, std::vector<int64_t>,
-               std::vector<int64_t>>
-    ComputeSwapInfo(const std::vector<int64_t>& keys);
+    ComputeSwapRet ComputeSwapInfo(const std::vector<int64_t>& keys);
 
     int64_t GetKey(int64_t off);
     int64_t GetOccupiedNum()

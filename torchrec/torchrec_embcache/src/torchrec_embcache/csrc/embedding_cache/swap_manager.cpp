@@ -27,8 +27,7 @@ SwapManager::SwapManager(int64_t cacheSize, int64_t memStartOffset) : cacheSize(
     key2off.reserve(cacheSize);
 }
 
-std::tuple<std::vector<int64_t>, std::vector<int64_t>, std::vector<int64_t>, std::vector<int64_t>, std::vector<int64_t>>
-SwapManager::ComputeSwapInfo(const std::vector<int64_t>& keys)
+ComputeSwapRet SwapManager::ComputeSwapInfo(const std::vector<int64_t>& keys)
 {
     std::vector<int64_t> swapoutKeys;
     std::vector<int64_t> swapinKeys;

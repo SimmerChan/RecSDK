@@ -10,8 +10,6 @@
 
 namespace Embcache {
 
-const char* FVK_STATE_STR[] = {
-    "FKV_EXIST",    "FKV_NOT_EXIST", "FKV_KEY_CONFLICT", "FKV_BEFORE_PUT_FUNC_FAIL", "FKV_BEFORE_REMOVE_FUNC_FAIL",
-    "FKV_NO_SPACE", "FKV_FAIL"};
+
 
 }
