@@ -30,8 +30,10 @@ SwapManager::SwapManager(int64_t cacheSize, int64_t memStartOffset) : cacheSize(
 std::tuple<std::vector<int64_t>, std::vector<int64_t>, std::vector<int64_t>, std::vector<int64_t>, std::vector<int64_t>>
 SwapManager::ComputeSwapInfo(const std::vector<int64_t>& keys)
 {
-    std::vector<int64_t> swapoutKeys, swapinKeys;
-    std::vector<int64_t> swapoutOffs, swapinOffs;
+    std::vector<int64_t> swapoutKeys;
+    std::vector<int64_t> swapinKeys;
+    std::vector<int64_t> swapoutOffs;
+    std::vector<int64_t> swapinOffs;
     std::vector<int64_t> batchOffs(keys.size());
 
     // 本 batch 的 key 不能被换出

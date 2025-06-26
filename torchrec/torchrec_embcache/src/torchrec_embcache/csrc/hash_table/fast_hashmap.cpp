@@ -99,7 +99,7 @@ FkvState FastHashMap::FindOrInsert(uint64_t key, uint64_t& value,
                 return FkvState::FKV_NO_SPACE;
             }
             zeroValue = value;
-            current_size++;
+            currentSize++;
             return FkvState::FKV_NOT_EXIST;
         }
         return FkvState::FKV_KEY_CONFLICT;
@@ -157,7 +157,7 @@ FkvState FastHashMap::Remove(uint64_t key)
         if (zeroInside) {
             if (__sync_bool_compare_and_swap(&zeroInside, true, false)) {
                 zeroValue = 0;
-                current_size--;
+                currentSize--;
             }
             return FkvState::FKV_EXIST;
         }
@@ -172,7 +172,7 @@ FkvState FastHashMap::Remove(uint64_t key)
     while (buck != nullptr) {
         if (buck->Find(key, value)) {
             buck->Remove(key);
-            current_size--;
+            currentSize--;
             return FkvState::FKV_EXIST;
         }
 
@@ -194,7 +194,7 @@ FkvState FastHashMap::Remove(uint64_t key, const std::function<BeforeRemoveFuncS
                 return FkvState::FKV_BEFORE_REMOVE_FUNC_FAIL;
             }
             zeroValue = 0;
-            current_size--;
+            currentSize--;
         }
         return FkvState::FKV_EXIST;
     }
@@ -211,7 +211,7 @@ FkvState FastHashMap::Remove(uint64_t key, const std::function<BeforeRemoveFuncS
                 return FkvState::FKV_BEFORE_REMOVE_FUNC_FAIL;
             }
 
-            current_size--;
+            currentSize--;
             return FkvState::FKV_EXIST;
         }
         buck = buck->next;
@@ -312,7 +312,7 @@ FkvState FastHashMap::PutKeyValue(uint64_t key, uint64_t& value, NetHashBucket* 
             FkvState putRet = buck->Put(key, value, beforePutFunc);
             buck->spinLock.UnLock();
             if (putRet == FkvState::FKV_NOT_EXIST) {
-                current_size++;
+                currentSize++;
                 return FkvState::FKV_NOT_EXIST;
             }
 

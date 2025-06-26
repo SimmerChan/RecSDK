@@ -84,7 +84,7 @@ PYBIND11_MODULE(embcache_pybind, m)
     py::class_<AsyncTask<SwapInfo>>(m, "AsyncSwapInfo").def("get", &AsyncTask<SwapInfo>::get);
     py::class_<AsyncTask<SwapinTensor>>(m, "AsyncSwapinTensor").def("get", &AsyncTask<SwapinTensor>::get);
     py::class_<AsyncTask<void>>(m, "AsyncUpdate").def("get", &AsyncTask<void>::get);
-    m.def("mod_bucketize", &ModBucketize, py::arg("lengths"), py::arg("values"), py::arg("num_buckets"));
+//    m.def("mod_bucketize", &ModBucketize, py::arg("lengths"), py::arg("values"), py::arg("num_buckets"));
     m.def("restore", &Restore, py::arg("unique_indices"), py::arg("unique_inverse"), py::arg("unique_offset"),
           py::arg("offsets"), py::arg("hash_indices"));
     m.def("restore_async", &RestoreAsync, py::arg("unique_indices"), py::arg("unique_inverse"),

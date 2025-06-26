@@ -7,14 +7,17 @@
  * LICENSE file in the root directory of this source tree.
  */
 #include <bits/stdc++.h>
-using namespace std;
-
 #include <iostream>
 #include <vector>
 #include <unordered_map>
 #include <tuple>
 #include "embedding_cache/swap_manager.h"
+
 using namespace Embcache;
+
+constexpr int BATCH_SIZE = 100000;
+constexpr int INT10 = 10;
+constexpr int NUM_SIZE = 100;
 
 std::vector<int64_t> GenRandKeys(int numKeys, int64_t limit = std::numeric_limits<int64_t>::max())
 {
@@ -109,7 +112,7 @@ void PrintSwapIOVectors(const std::vector<int64_t>& swapoutKeys, const std::vect
 
 void SwapManagerTest(int64_t batchSize, int64_t cacheSize, int testNum)
 {
-    Gen gen(cacheSize * 10);
+    Gen gen(cacheSize * INT10);
     SwapManager swapManager(cacheSize);
 
     std::vector<int64_t> cache(cacheSize);
@@ -206,17 +209,17 @@ int main()
 
     batchSize = 0;
     cacheSize = 0;
-    testNum = 100;
+    testNum = NUM_SIZE;
     SwapManagerTest(batchSize, cacheSize, testNum);
 
     batchSize = 1;
     cacheSize = 1;
-    testNum = 100;
+    testNum = NUM_SIZE;
     SwapManagerTest(batchSize, cacheSize, testNum);
 
-    batchSize = 100000;
-    cacheSize = 100000;
-    testNum = 100;
+    batchSize = BATCH_SIZE;
+    cacheSize = BATCH_SIZE;
+    testNum = NUM_SIZE;
     SwapManagerTest(batchSize, cacheSize, testNum);
     return 0;
 }

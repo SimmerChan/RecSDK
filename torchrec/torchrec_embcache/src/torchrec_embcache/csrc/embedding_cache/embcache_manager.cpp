@@ -19,7 +19,7 @@
 #include "glogger.h"
 
 #include "utils/singleton.h"
-#include "utils/timecost.h"
+#include "utils/time_cost.h"
 
 using namespace Embcache;
 
@@ -363,32 +363,35 @@ void EmbcacheManager::Save(const std::string path, const int rank)
                           embConfigs[i].embDim * sizeof(float));
                 LOG(INFO) << "In save, table:" << i << ", key:" << key << ", momentum2.dim " << embConfigs[i].embDim
                           << " momentum2 "
-                          << StringTools::ToString(value + 2 * embConfigs[i].embDim, embConfigs[i].embDim);
+                          << StringTools::ToString(value + OPTIMIZER_SLOT_INDEX2 * embConfigs[i].embDim,
+                                                   embConfigs[i].embDim);
             }
         });
-
         LOG(INFO) << "tableName: " << tableName << " shape: " << count << ", " << embConfigs[i].embDim;
-
         std::vector<int64_t> keyAttribute = {sizeof(int64_t), count};
         WriteData(fileKeySliceAttr, reinterpret_cast<const char*>(keyAttribute.data()),
                   keyAttribute.size() * sizeof(int64_t));
-
         std::vector<int64_t> embedAttribute = {sizeof(int64_t), count, embConfigs[i].embDim};
         WriteData(fileEmbeddingSliceAttr, reinterpret_cast<const char*>(embedAttribute.data()),
                   embedAttribute.size() * sizeof(int64_t));
-
-        std::vector<int64_t> momentum1Attribute = {sizeof(int64_t), count, embConfigs[i].embDim};
-
-        WriteData(fileMomentum1SliceAttr, reinterpret_cast<const char*>(momentum1Attribute.data()),
-                  momentum1Attribute.size() * sizeof(int64_t));
-
-        // 目前momentum2Attribute和momentum1Attribute是一致的
-        WriteData(fileMomentum2SliceAttr, reinterpret_cast<const char*>(momentum1Attribute.data()),
-                  momentum1Attribute.size() * sizeof(int64_t));
+        WriteOptimizerAttributeFile(i, fileMomentum1SliceAttr, fileMomentum2SliceAttr, count);
 
         // 4 保存准入淘汰数据
         SaveFeatureAdmitAndEvictInfo(i, midPath, saveKeys);
     }
+}
+
+void EmbcacheManager::WriteOptimizerAttributeFile(int32_t i, std::ofstream& fileMomentum1SliceAttr,
+                                                  std::ofstream& fileMomentum2SliceAttr, size_t count)
+{
+    std::vector<int64_t> momentum1Attribute = {sizeof(int64_t), count, embConfigs[i].embDim};
+
+    WriteData(fileMomentum1SliceAttr, reinterpret_cast<const char*>(momentum1Attribute.data()),
+              momentum1Attribute.size() * sizeof(int64_t));
+
+    // 目前momentum2Attribute和momentum1Attribute是一致的
+    WriteData(fileMomentum2SliceAttr, reinterpret_cast<const char*>(momentum1Attribute.data()),
+              momentum1Attribute.size() * sizeof(int64_t));
 }
 
 std::ofstream EmbcacheManager::OpenFile(std::string path)
@@ -561,7 +564,7 @@ int32_t EmbcacheManager::ReadFile(const std::string& filePath, std::vector<std::
         file.close();
         return -1;
     }
-
+    TORCH_CHECK(embDim != 0, "table embedding dim must be non zero value.")
     const uint32_t rows = totalElements / embDim;
     if (rows * embDim != totalElements) {
         LOG(ERROR) << "Invalid embedding dimension " << embDim << " for file size " << fileSize;
@@ -627,73 +630,83 @@ void EmbcacheManager::RemoveEmbeddingTableInfo()
 void EmbcacheManager::SaveFeatureAdmitAndEvictInfo(int32_t tableIndex, const std::string& filePrefix,
                                                    const std::vector<int64_t>& saveKeys)
 {
-    int64_t one_time_to_write = ONE_TIME_IO_SIZE / sizeof(int64_t);
     TimeCost saveFeatureFilterDataTC;
     if (embConfigs[tableIndex].admitAndEvictConfig.IsAdmitEnabled()) {
-        // write attribute
-        std::ofstream attributeFile = OpenFile(filePrefix + ADMIT_STR_PATH + SLICE_ATTR_PATH);
-        std::vector<int64_t> attrVec = {sizeof(int64_t), saveKeys.size()};
-        WriteData(attributeFile, reinterpret_cast<const char*>(attrVec.data()), attrVec.size() * sizeof(int64_t));
-
-        // write key count data.
-        std::ofstream dataFile = OpenFile(filePrefix + ADMIT_STR_PATH + SLICE_DATA_PATH);
-        const auto& featureCountMap = featureFilters[tableIndex].GetFeatureCountMap();
-        std::vector<int64_t> keyCountVec;
-        size_t count = 0;
-        for (size_t i = 0; i < saveKeys.size(); ++i) {
-            auto key = saveKeys[i];
-            auto ret = featureCountMap.find(key);
-            if (ret != featureCountMap.end()) {
-                keyCountVec.emplace_back(ret->second.count);
-            } else {
-                keyCountVec.emplace_back(-1);
-            }
-            LOG(INFO) << "In save key count, tableIndex:" << tableIndex << ", key:" << key
-                      << ", count:" << keyCountVec[i];
-
-            if (i > 0 && (i % one_time_to_write == 0 || i == (saveKeys.size() - 1))) {
-                WriteData(dataFile, reinterpret_cast<const char*>(keyCountVec.data()),
-                          keyCountVec.size() * sizeof(int64_t));
-                count += keyCountVec.size();
-                keyCountVec.clear();
-            }
-        }
-        LOG(INFO) << "In save key count, tableIndex:" << tableIndex << ", save key count size:" << count
-                  << ", featureCountMap size:" << featureCountMap.size();
+        SaveFeatureCount(tableIndex, filePrefix, saveKeys);
     }
     if (embConfigs[tableIndex].admitAndEvictConfig.IsEvictEnabled()) {
-        // 时间戳数据 key数量和当前卡的key不一样；需要单独保存key数据
-        auto& featureTimestampMap = featureFilters[tableIndex].GetFeatureTimestampMap();
-
-        // write attribute
-        std::ofstream attributeFile = OpenFile(filePrefix + EVICT_STR_PATH + SLICE_ATTR_PATH);
-        std::vector<int64_t> attrVec = {sizeof(int64_t), featureTimestampMap.size()};
-        WriteData(attributeFile, reinterpret_cast<const char*>(attrVec.data()), attrVec.size() * sizeof(int64_t));
-
-        // write evict record key
-        std::ofstream evictKeyFile = OpenFile(filePrefix + EVICT_STR_PATH + SLICE_EVICT_KEY_DATA_PATH);
-        std::vector<int64_t> evictRecordKeys;
-        // write evict record timestamp
-        std::ofstream evictTsFile = OpenFile(filePrefix + EVICT_STR_PATH + SLICE_EVICT_TS_DATA_PATH);
-        std::vector<int64_t> evictRecordTs;
-
-        size_t loopCount = 0;
-        for (auto iter : featureTimestampMap) {
-            evictRecordKeys.emplace_back(iter.first);
-            evictRecordTs.emplace_back(static_cast<int64_t>(iter.second));
-            if (loopCount > 0 &&
-                (loopCount % one_time_to_write == 0 || loopCount == (featureTimestampMap.size() - 1))) {
-                WriteData(evictKeyFile, reinterpret_cast<const char*>(evictRecordKeys.data()),
-                          evictRecordKeys.size() * sizeof(int64_t));
-                evictRecordKeys.clear();
-                WriteData(evictTsFile, reinterpret_cast<const char*>(evictRecordTs.data()),
-                          evictRecordTs.size() * sizeof(int64_t));
-                evictRecordTs.clear();
-            }
-            loopCount++;
-        }
+        SaveFeatureTimestamp(tableIndex, filePrefix);
     }
     LOG(INFO) << "saveFeatureFilterDataTC(ms):" << saveFeatureFilterDataTC.ElapsedMS();
+}
+
+void EmbcacheManager::SaveFeatureTimestamp(int32_t tableIndex, const std::string& filePrefix)
+{
+    // 时间戳数据 key数量和当前卡的key不一样；需要单独保存key数据
+    auto& featureTimestampMap = featureFilters[tableIndex].GetFeatureTimestampMap();
+
+    // write attribute
+    std::ofstream attributeFile = OpenFile(filePrefix + EVICT_STR_PATH + SLICE_ATTR_PATH);
+    std::vector<int64_t> attrVec = {sizeof(int64_t), featureTimestampMap.size()};
+    WriteData(attributeFile, reinterpret_cast<const char*>(attrVec.data()), attrVec.size() * sizeof(int64_t));
+
+    // write evict record key
+    std::ofstream evictKeyFile = OpenFile(filePrefix + EVICT_STR_PATH + SLICE_EVICT_KEY_DATA_PATH);
+    std::vector<int64_t> evictRecordKeys;
+    // write evict record timestamp
+    std::ofstream evictTsFile = OpenFile(filePrefix + EVICT_STR_PATH + SLICE_EVICT_TS_DATA_PATH);
+    std::vector<int64_t> evictRecordTs;
+
+    size_t loopCount = 0;
+    for (auto iter : featureTimestampMap) {
+        evictRecordKeys.emplace_back(iter.first);
+        evictRecordTs.emplace_back(static_cast<int64_t>(iter.second));
+        if (loopCount > 0 &&
+            (loopCount % ONE_TIME_IO_WRITE == 0 || loopCount == (featureTimestampMap.size() - 1))) {
+            WriteData(evictKeyFile, reinterpret_cast<const char*>(evictRecordKeys.data()),
+                      evictRecordKeys.size() * sizeof(int64_t));
+            evictRecordKeys.clear();
+            WriteData(evictTsFile, reinterpret_cast<const char*>(evictRecordTs.data()),
+                      evictRecordTs.size() * sizeof(int64_t));
+            evictRecordTs.clear();
+        }
+        loopCount++;
+    }
+}
+
+void EmbcacheManager::SaveFeatureCount(int32_t tableIndex, const std::string& filePrefix,
+                                       const std::vector<int64_t>& saveKeys)
+{
+    // write attribute
+    std::ofstream attributeFile = OpenFile(filePrefix + ADMIT_STR_PATH + SLICE_ATTR_PATH);
+    std::vector<int64_t> attrVec = {sizeof(int64_t), saveKeys.size()};
+    WriteData(attributeFile, reinterpret_cast<const char*>(attrVec.data()), attrVec.size() * sizeof(int64_t));
+
+    // write key count data.
+    std::ofstream dataFile = OpenFile(filePrefix + ADMIT_STR_PATH + SLICE_DATA_PATH);
+    const auto& featureCountMap = featureFilters[tableIndex].GetFeatureCountMap();
+    std::vector<int64_t> keyCountVec;
+    size_t count = 0;
+    for (size_t i = 0; i < saveKeys.size(); ++i) {
+        auto key = saveKeys[i];
+        auto ret = featureCountMap.find(key);
+        if (ret != featureCountMap.end()) {
+            keyCountVec.emplace_back(ret->second.count);
+        } else {
+            keyCountVec.emplace_back(-1);
+        }
+        LOG(INFO) << "In save key count, tableIndex:" << tableIndex << ", key:" << key
+                  << ", count:" << keyCountVec[i];
+
+        if (i > 0 && (i % ONE_TIME_IO_WRITE == 0 || i == (saveKeys.size() - 1))) {
+            WriteData(dataFile, reinterpret_cast<const char*>(keyCountVec.data()),
+                      keyCountVec.size() * sizeof(int64_t));
+            count += keyCountVec.size();
+            keyCountVec.clear();
+        }
+    }
+    LOG(INFO) << "In save key count, tableIndex:" << tableIndex << ", save key count size:" << count
+              << ", featureCountMap size:" << featureCountMap.size();
 }
 
 void EmbcacheManager::LoadFeatureAdmitAndEvictInfo(int32_t tableIndex, const std::string& filePrefix,

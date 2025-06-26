@@ -32,7 +32,7 @@ add_executable(emb_table_test
 
 # hash_table related
 add_executable(hash_bucket_test
-        ./hash_table/hash_bucket_test.cpp
+        hash_table/net_hash_bucket_test.cpp
         ../hash_table/hash_bucket.cpp
         ../common/common.cpp
 )

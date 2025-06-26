@@ -23,6 +23,7 @@
 
 namespace Embcache {
 
+constexpr int ONE_TIME_IO_WRITE = 100000;
 constexpr int SWAP_INFO_TUPLE_INDEX0 = 0;
 constexpr int SWAP_INFO_TUPLE_INDEX1 = 1;
 constexpr int SWAP_INFO_TUPLE_INDEX2 = 2;
@@ -103,6 +104,10 @@ private:
     void LoadFeatureAdmitAndEvictInfo(int32_t tableIndex, const std::string& filePrefix,
                                       const std::vector<int64_t>& saveKeys);
     std::string GetDevWeightsShape(const at::Tensor& weightsDev) const;
+    void WriteOptimizerAttributeFile(int32_t i, std::ofstream& fileMomentum1SliceAttr,
+                                     std::ofstream& fileMomentum2SliceAttr, size_t count);
+    void SaveFeatureCount(int32_t tableIndex, const std::string& filePrefix, const std::vector<int64_t>& saveKeys);
+    void SaveFeatureTimestamp(int32_t tableIndex, const std::string& filePrefix);
 
 private:
     int32_t embNum;
@@ -127,7 +132,6 @@ private:
     const std::string SLICE_EVICT_TS_DATA_PATH = "/slice_evict_ts.data";
     bool enableFastHashMap = false;
     static const size_t readAndWriteSizePeerTime = 32768;
-    const int64_t ONE_TIME_IO_SIZE = 2 * 1024 * 1024 * 1024L;  // 2GB
     int32_t optimNum;
 };
 }  // namespace Embcache

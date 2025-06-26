@@ -12,19 +12,25 @@
 
 using namespace Embcache;
 
+constexpr int EMB_DIM = 8;
+constexpr int OPT_NUM = 2;
+constexpr int BUFFER_SIZE = 1024;
+constexpr float WEIGHT_INIT_MIN = -0.5;
+constexpr float WEIGHT_INIT_MAX = 0.5;
+
 class EmbMemPoolTest : public ::testing::Test {
 protected:
     void SetUp() override
     {
         EmbConfig embConfig;
         embConfig.tableName = "user_table";
-        embConfig.embDim = 8;
-        embConfig.optimNum = 2;
-        embConfig.weightInitMin = -0.5;
-        embConfig.weightInitMax = 0.5;
+        embConfig.embDim = EMB_DIM;
+        embConfig.optimNum = OPT_NUM;
+        embConfig.weightInitMin = WEIGHT_INIT_MIN;
+        embConfig.weightInitMax = WEIGHT_INIT_MAX;
 
-        uint64_t bufferSize = 1024;
-        uint64_t hostVocabSize = 1024 * 1024 * 1024;
+        uint64_t bufferSize = BUFFER_SIZE;
+        uint64_t hostVocabSize = BUFFER_SIZE * BUFFER_SIZE * BUFFER_SIZE;
 
         memPoolPtr = std::make_shared<EmbMemoryPool>(embConfig, bufferSize, hostVocabSize);
     }
@@ -47,5 +53,5 @@ TEST_F(EmbMemPoolTest, GetNewValueToBeInserted)
 
 int main(int argc, char* argv[])
 {
-    return common_main(argc, argv);
+    return CommonMain(argc, argv);
 }

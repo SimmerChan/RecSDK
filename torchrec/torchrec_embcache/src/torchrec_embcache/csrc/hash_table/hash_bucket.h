@@ -16,8 +16,8 @@
 
 namespace Embcache {
 
-static constexpr size_t K_ALIGNMENT = 64;
-static constexpr size_t K_KV_NUM_IN_BUCKET = 3;
+constexpr size_t K_ALIGNMENT = 64;
+constexpr size_t K_KV_NUM_IN_BUCKET = 3;
 
 enum BucketIdx {
     FIRST,

@@ -20,6 +20,8 @@
 
 namespace Embcache {
 
+constexpr int64_t INVALID_KEY = -1;
+
 struct FeatureRecord {
     uint64_t count;
 };
@@ -48,8 +50,7 @@ public:
     void LoadTimestampRecords(const std::vector<int64_t>& keys, std::vector<int64_t>& timestamps);
 
 private:
-    const int64_t INVALID_KEY = -1;
-    int32_t admitThreshold = -1;                                  //
+    int32_t admitThreshold = -1;                                  // 准入阈值，默认值表示未开启准入
     uint64_t evictThreshold = 0;                                  // unit: second
     std::unordered_map<int64_t, FeatureRecord> featureRecordMap;  // 准入，记录key次数
     std::unordered_map<int64_t, std::time_t> timestampRecordMap;  // 淘汰，记录key时间戳

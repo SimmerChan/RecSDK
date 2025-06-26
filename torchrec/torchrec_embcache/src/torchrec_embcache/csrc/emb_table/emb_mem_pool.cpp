@@ -8,7 +8,8 @@
  */
 #include "emb_memory_pool.h"
 
-#include <glog/logging.h>
+#include <stdexcept>
+
 #include "securec.h"
 
 #include "initializer.h"
@@ -95,7 +96,11 @@ void EmbMemoryPool::Produce()
     }
 
     // init optimizer
-    memset_s((float*)newAddr + embConfig.embDim, 0, embConfig.optimNum * embConfig.embDim * sizeof(float));
+    auto ret = memset_s((float*)newAddr + embConfig.embDim, embConfig.optimNum * embConfig.embDim * sizeof(float), 0,
+                        embConfig.optimNum * embConfig.embDim * sizeof(float));
+    if (ret != EOK) {
+        throw std::runtime_error("memset_s failed when init optimizer data.");
+    }
 
     BufferBin.push(newAddr);
 }

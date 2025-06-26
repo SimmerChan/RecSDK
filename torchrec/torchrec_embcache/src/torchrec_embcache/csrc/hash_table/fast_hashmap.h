@@ -50,23 +50,8 @@ public:
 
     uint64_t GetCurrentSize()
     {
-        return current_size.load();
+        return currentSize.load();
     }
-
-private:
-    void FreeSubMaps();
-
-    void FreeOverFlowedEntries();
-
-    bool NewAndSetBuckets(const uint64_t& bucketCount, const int& value, NetHashBucket*& bucketsPtr);
-
-    FkvState PutKeyValue(uint64_t key, uint64_t& value, NetHashBucket* buck,
-                         const std::function<BeforePutFuncState()>& beforePutFunc);
-
-    void ExtractKeyValueInBuck(NetHashBucket* buck, std::vector<std::pair<uint64_t, uint64_t>>& results);
-
-private:
-    std::atomic<uint64_t> current_size{0};
 
 protected:
     static constexpr uint16_t gSubMapCount = 5;
@@ -110,6 +95,21 @@ protected:
         849749479,  919334987,  994618837,  1076067617, 1164186217, 1259520799, 1362662261, 1474249943, 1594975441,
         1725587117, 1866894511, 2019773507, 2185171673, 2364114217, 2557710269, 2767159799, 2993761039, 3238918481,
         3504151727, 3791104843, 4101556399, 4294967291};
+
+private:
+    void FreeSubMaps();
+
+    void FreeOverFlowedEntries();
+
+    bool NewAndSetBuckets(const uint64_t& bucketCount, const int& value, NetHashBucket*& bucketsPtr);
+
+    FkvState PutKeyValue(uint64_t key, uint64_t& value, NetHashBucket* buck,
+                         const std::function<BeforePutFuncState()>& beforePutFunc);
+
+    void ExtractKeyValueInBuck(NetHashBucket* buck, std::vector<std::pair<uint64_t, uint64_t>>& results);
+
+private:
+    std::atomic<uint64_t> currentSize{0};
 };
 
 }  // namespace Embcache

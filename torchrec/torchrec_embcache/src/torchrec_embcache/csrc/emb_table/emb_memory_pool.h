@@ -14,19 +14,21 @@
 #include <mutex>
 #include <thread>
 
+#include <glog/logging.h>
+
 #include "common/common.h"
 #include "utils/safe_queue.h"
 
 namespace Embcache {
 
-using EmExpandMemUint = struct EM_EXPAND_MEMORY_UINT_ {
+using EmExpandMemUint = struct EmExpandMemoryUint {
     uint64_t address = 0;
     uint64_t capacity = 0;
     uint64_t leftCapacity = 0;
 
-    EM_EXPAND_MEMORY_UINT_() = default;
+    EmExpandMemoryUint() = default;
 
-    EM_EXPAND_MEMORY_UINT_(uint64_t a, uint64_t c) : address(a), capacity(c), leftCapacity(c) {}
+    EmExpandMemoryUint(uint64_t a, uint64_t c) : address(a), capacity(c), leftCapacity(c) {}
 };
 
 class EmbMemoryPool {

@@ -34,7 +34,7 @@ protected:
 TEST_F(SafeQueueTest, PushPop)
 {
     std::vector<int> toPushNums{6, 7, 8, 9, 10};
-    std::thread pushThread([&]() {
+    std::thread pushThread([&toPushNums, &sQueue]() {
         for (auto num : toPushNums) {
             usleep(1000);
             sQueue.push(num);
@@ -42,7 +42,7 @@ TEST_F(SafeQueueTest, PushPop)
     });
 
     std::vector<int> toPopNums;
-    std::thread popThread([&]() {
+    std::thread popThread([&toPopNums, &sQueue]() {
         while (toPopNums.size() != 10) {
             int data;
             bool success = sQueue.pop(data);
@@ -63,5 +63,5 @@ TEST_F(SafeQueueTest, PushPop)
 
 int main(int argc, char* argv[])
 {
-    return common_main(argc, argv);
+    return CommonMain(argc, argv);
 }

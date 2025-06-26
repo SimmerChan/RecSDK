@@ -29,6 +29,8 @@
 #include "initializer.h"
 #include "emb_memory_pool.h"
 
+constexpr int OPTIMIZER_SLOT_INDEX2 = 2;
+
 namespace Embcache {
 
 class EmbTable {
@@ -234,7 +236,8 @@ public:
                         std::memcpy((float*)addrValue + embDim, inOptims[0] + i * embDim, embDim * sizeof(float));
                     }
                     if (optimNum > 1) {
-                        std::memcpy((float*)addrValue + 2 * embDim, inOptims[1] + i * embDim, embDim * sizeof(float));
+                        std::memcpy((float*)addrValue + OPTIMIZER_SLOT_INDEX2 * embDim, inOptims[1] + i * embDim,
+                                    embDim * sizeof(float));
                     }
                 }
             });

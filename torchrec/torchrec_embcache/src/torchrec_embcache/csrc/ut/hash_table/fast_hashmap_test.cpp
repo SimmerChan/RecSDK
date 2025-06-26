@@ -126,5 +126,5 @@ TEST_F(FastHashMapTest, Export)
 
 int main(int argc, char* argv[])
 {
-    return common_main(argc, argv);
+    return CommonMain(argc, argv);
 }
