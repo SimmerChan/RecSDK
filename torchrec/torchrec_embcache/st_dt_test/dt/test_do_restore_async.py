@@ -8,17 +8,13 @@
 import logging
 import random
 import os
-import numpy as np
 from concurrent.futures import ProcessPoolExecutor
 
-import pytest
-import torchrec
-import torch
-import torch.multiprocessing as mp
-from torch.utils.data import DataLoader
-from torch.optim import Adam, Adagrad
-
 import embcache_pybind
+import pytest
+import torch
+import numpy as np
+import torch.multiprocessing as mp
 from dataset import (
     RandomRecDataset, 
     Batch, 
@@ -26,10 +22,9 @@ from dataset import (
     FeatureNameNotInConfigRecDataset
 )
 from dt.conftest import MODULE_NAME
-from hybrid_torchrec.distributed.sharding.sequence_sharding import HybridSequenceShardingContext
-from model import TestModel, generate_hash_config
-from torchrec import EmbeddingBagConfig, EmbeddingBagCollection
-from torchrec.sparse.jagged_tensor import KeyedJaggedTensor
+from model import TestModel, generate_hash_config, HashConfig
+from torch.utils.data import DataLoader
+from torch.optim import Adam, Adagrad
 from torchrec_embcache.distributed.train_pipeline import (
     AwaitableAdapter,
     EmbcacheTrainPipelineContext,
@@ -47,6 +42,11 @@ from util import (
     compare_lists,
     fuse_input_dist_splits,
 )
+
+import torchrec
+from hybrid_torchrec.distributed.sharding.sequence_sharding import HybridSequenceShardingContext
+from torchrec import EmbeddingBagConfig, EmbeddingBagCollection
+from torchrec.sparse.jagged_tensor import KeyedJaggedTensor
 
 
 @pytest.mark.functional
@@ -95,7 +95,7 @@ def test_num_embeddings_invalid(request, config):
     assert "ValueError" in str(exc_info.value)
 
 
-# HBM需要 DDR不需要
+# 只有多级缓存需要
 @pytest.mark.functional
 def test_lookup_out_of_bound(request, config):
     fname = request.node.callspec.id
@@ -151,12 +151,12 @@ def execute(rank, config):
     embedding_dims = config["embedding_dims"]
     num_embeddings = config["num_embeddings"]
     pool_type = config["pool_type"]
-    BATCH_NUM = config["BATCH_NUM"]
+    batch_num = config["BATCH_NUM"]
     table_num = config["table_num"]
     lookup_lens = config["lookup_lens"]
     dataset_class = globals()[config["RecDataset"] + "RecDataset"]
     init_fn = globals()[config["init_fn"]]
-    WORLD_SIZE = config["WORLD_SIZE"]
+    world_size = config["WORLD_SIZE"]
     device = config.get("device", "npu")
     sharding_type = config.get("sharding_type", "row_wise")
     optim = globals()[config.get("optim", "Adagrad")]
@@ -164,14 +164,21 @@ def execute(rank, config):
     instances = config.get("instances", 1)
     pool_type = getattr(torchrec.PoolingType, pool_type)
     collection_type = config["collection_type"]
-    embedding_config = generate_hash_config(embedding_dims, num_embeddings, pool_type, feature_names_lst, 
-                                            create_weight_init(init_fn), collection_type)
+    hash_config = HashConfig(
+        embedding_dims=embedding_dims, 
+        num_embeddings=num_embeddings, 
+        pooling_type=pool_type, 
+        feature_names=feature_names_lst, 
+        weight_init=create_weight_init(init_fn), 
+        collection_type=collection_type
+    )
+    embedding_config = generate_hash_config(hash_config)
     generated_ids = []
     if isinstance(dataset_class, BoundOutOfRangeRecDataset):
         for i in range(table_num):
             generated_ids.append([])
             for _ in range(len(feature_names_lst[i])):
-                generated_ids[i].append(list(range(num_embeddings[i]+OVER_COUNT)))
+                generated_ids[i].append(list(range(num_embeddings[i] + OVER_COUNT)))
                 random.shuffle(generated_ids[i][-1])
     dataset = dataset_class(100, lookup_lens, num_embeddings, table_num, feature_names_lst, generated_ids)
     data_loader = DataLoader(
@@ -182,7 +189,7 @@ def execute(rank, config):
         num_workers=1,
     )
 
-    test_model = TestModel(rank, WORLD_SIZE, device, instances, feature_names_lst, BATCH_NUM, collection_type)
+    test_model = TestModel(rank, world_size, device, instances, feature_names_lst, batch_num, collection_type)
     test_model.init_ddp_model(embedding_config, sharding_type, optim, lookup_lens)
     iter_ = iter(data_loader)
     module_lst = getattr(test_model.module, collection_type)
@@ -217,10 +224,10 @@ def execute(rank, config):
             future = swap_info_future.get()
             batch_offs = future.batch_offs
             swapout_keys = future.swapout_keys
-            unique_inverse = sparse_features[0].unique_inverse()
-            unique_offsets = sparse_features[0].unique_offsets()
-            offset_per_key = sparse_features[0].offset_per_key()
-            hash_indices = sparse_features[0].hash_indices()
+            unique_inverse = sparse_features[0].unique_inverse
+            unique_offsets = sparse_features[0].unique_offsets
+            offset_per_key = sparse_features[0].offset_per_key
+            hash_indices = sparse_features[0].hash_indices
             if swapout_keys:
                 sparse_features_after_restore_future = embcache_pybind.restore_async(
                     batch_offs,
@@ -230,7 +237,7 @@ def execute(rank, config):
                     hash_indices,
                 )
                 sparse_features_after_restore_future.get()
-                update_hash_indices = sparse_features[0].hash_indices()
+                update_hash_indices = sparse_features[0].hash_indices
                 update_hash_indices_lst.append(update_hash_indices)
                 loop_stop = True
         if loop_stop:

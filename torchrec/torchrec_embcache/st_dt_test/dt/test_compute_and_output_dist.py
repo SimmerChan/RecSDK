@@ -8,16 +8,12 @@
 import logging
 import random
 import os
-import numpy as np
 from concurrent.futures import ProcessPoolExecutor
 
 import pytest
-import torchrec
 import torch
+import numpy as np
 import torch.multiprocessing as mp
-from torch.utils.data import DataLoader
-from torch.optim import Adam, Adagrad
-
 from dataset import (
     RandomRecDataset, 
     Batch, 
@@ -25,13 +21,9 @@ from dataset import (
     FeatureNameNotInConfigRecDataset
 )
 from dt.conftest import MODULE_NAME
-from model import TestModel, generate_hash_config
-from torchrec import EmbeddingBagConfig, EmbeddingBagCollection
-from torchrec.sparse.jagged_tensor import KeyedJaggedTensor
-from torchrec_embcache.distributed.train_pipeline import (
-    AwaitableAdapter,
-    EmbcacheTrainPipelineContext,
-)
+from model import TestModel, generate_hash_config, HashConfig
+from torch.utils.data import DataLoader
+from torch.optim import Adam, Adagrad
 from util import (
     setup_logging,
     is_lookup_out_of_bound,
@@ -43,6 +35,14 @@ from util import (
     compare_tensors,
     compare_lists,
     fuse_input_dist_splits,
+)
+
+import torchrec
+from torchrec import EmbeddingBagConfig, EmbeddingBagCollection
+from torchrec.sparse.jagged_tensor import KeyedJaggedTensor
+from torchrec_embcache.distributed.train_pipeline import (
+    AwaitableAdapter,
+    EmbcacheTrainPipelineContext,
 )
 
 
@@ -92,7 +92,7 @@ def test_num_embeddings_invalid(request, config):
     assert "ValueError" in str(exc_info.value)
 
 
-# HBM需要 DDR不需要
+# 只有多级缓存需要
 @pytest.mark.functional
 def test_lookup_out_of_bound(request, config):
     fname = request.node.callspec.id
@@ -148,12 +148,12 @@ def execute(rank, config):
     embedding_dims = config["embedding_dims"]
     num_embeddings = config["num_embeddings"]
     pool_type = config["pool_type"]
-    BATCH_NUM = config["BATCH_NUM"]
+    batch_num = config["BATCH_NUM"]
     table_num = config["table_num"]
     lookup_lens = config["lookup_lens"]
     dataset_class = globals()[config["RecDataset"] + "RecDataset"]
     init_fn = globals()[config["init_fn"]]
-    WORLD_SIZE = config["WORLD_SIZE"]
+    world_size = config["WORLD_SIZE"]
     device = config.get("device", "npu")
     sharding_type = config.get("sharding_type", "row_wise")
     optim = globals()[config.get("optim", "Adagrad")]
@@ -161,16 +161,23 @@ def execute(rank, config):
     instances = config.get("instances", 1)
     pool_type = getattr(torchrec.PoolingType, pool_type)
     collection_type = config["collection_type"]
-    embedding_config = generate_hash_config(embedding_dims, num_embeddings, pool_type, feature_names_lst, 
-                                            create_weight_init(init_fn), collection_type)
+    hash_config = HashConfig(
+        embedding_dims=embedding_dims, 
+        num_embeddings=num_embeddings, 
+        pooling_type=pool_type, 
+        feature_names=feature_names_lst, 
+        weight_init=create_weight_init(init_fn), 
+        collection_type=collection_type
+    )
+    embedding_config = generate_hash_config(hash_config)
     generated_ids = []
     if isinstance(dataset_class, BoundOutOfRangeRecDataset):
         for i in range(table_num):
             generated_ids.append([])
             for _ in range(len(feature_names_lst[i])):
-                generated_ids[i].append(list(range(num_embeddings[i]+OVER_COUNT)))
+                generated_ids[i].append(list(range(num_embeddings[i] + OVER_COUNT)))
                 random.shuffle(generated_ids[i][-1])
-    dataset = dataset_class(BATCH_NUM, lookup_lens, num_embeddings, table_num, feature_names_lst, generated_ids)
+    dataset = dataset_class(batch_num, lookup_lens, num_embeddings, table_num, feature_names_lst, generated_ids)
     data_loader = DataLoader(
         dataset,
         batch_size=None,
@@ -179,7 +186,7 @@ def execute(rank, config):
         num_workers=1,
     )
 
-    test_model = TestModel(rank, WORLD_SIZE, device, instances, feature_names_lst, BATCH_NUM, collection_type)
+    test_model = TestModel(rank, world_size, device, instances, feature_names_lst, batch_num, collection_type)
     test_model.init_ddp_model(embedding_config, sharding_type, optim, lookup_lens)
     iter_ = iter(data_loader)
     module_lst = getattr(test_model.module, collection_type)
@@ -210,8 +217,9 @@ def execute(rank, config):
         sparse_features = post_waitable.wait()
         swap_info_future = module.compute_swap_info_async(sparse_features)
         swap_info = swap_info_future.get()
-        sparse_features[0]._unique_indices = swap_info.batch_offs
-        for i in range(len(sparse_features)):
+        sparse_features[0].unique_indices = swap_info.batch_offs
+        length = len(sparse_features)
+        for i in range(length):
             sparse_features[i] = sparse_features[i].to(test_model.npu_device, non_blocking=True)
 
         module_awaitable = module.compute_and_output_dist(ctx, sparse_features)
