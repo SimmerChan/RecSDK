@@ -19,9 +19,6 @@ See the License for the specific language governing permissions and
 #include "hstu_dense_backward_normal_tiling.h"
 #include "hstu_dense_backward_jagged_tiling.h"
 
-constexpr int QKV_DIM_JAGGED = 3;
-constexpr int QKV_DIM_NORMAL = 4;
-
 namespace optiling {
 static ge::graphStatus TilingCommonFunc(gert::TilingContext *context, HstuDenseBackwardFuxiTilingData &tiling)
 {
@@ -169,8 +166,6 @@ ge::graphStatus TilingFunc(gert::TilingContext* context)
     HstuDenseBackwardFuxiTilingData tiling;
 
     if (layout == InputLayout::JAGGED) {
-        OPS_CHECK(!QKVShapeCheck(context, QKV_DIM_JAGGED),
-                  OPS_LOG_E("TilingFunc", ""), return ge::GRAPH_FAILED)
         TilingJaggedFunc(context, attrs, tiling);
     } else {
         OPS_LOG_E("TilingFunc", "invalid layout, only support jagged");
