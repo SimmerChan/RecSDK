@@ -201,7 +201,7 @@ namespace HstuDenseForwardFuxi {
 
 REGISTER_POLICY(LAYOUT_TYPE::JAGGED, std::make_shared<TilingPolicyJagged>());
 
-`ge::graphStatus TilingPolicyJagged::InferShape(gert::InferShapeContext* context)
+ge::graphStatus TilingPolicyJagged::InferShape(gert::InferShapeContext* context)
 {
     const gert::Shape* qShape = context->GetInputShape(INDEX_T::INDEX_0);
     OPS_LOG_E_IF_NULL("qShape", qShape, return ge::GRAPH_FAILED);
