@@ -69,7 +69,7 @@ def test_num_embeddings_invalid(config):
     assert "ValueError" in str(exc_info.value)
 
 
-# HBM需要 DDR不需要
+# 只有多级缓存需要
 @pytest.mark.functional
 def test_lookup_out_of_bound(config):
     assert is_lookup_out_of_bound(config)
