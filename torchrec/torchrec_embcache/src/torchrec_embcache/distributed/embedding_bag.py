@@ -229,11 +229,11 @@ class EmbCacheEmbeddingBagCollection(EmbeddingBagCollection):
         logger.debug(f"======  _optim_num:{self._optim_num}")
 
         # 16GB = 16*1024*1024*1024 = 17179869184
-        embcache_size_on_hbm = int(os.getenv("EMBCACHE_SIZE_ON_HBM", "17179869184"))
-        logger.debug(f"======  embcache_size_on_hbm:{embcache_size_on_hbm}")
+        embcache_size_on_device_mem = int(os.getenv("EMBCACHE_SIZE_ON_DEVICE_MEM", "17179869184"))
+        logger.debug(f"======  embcache_size_on_device_mem:{embcache_size_on_device_mem}")
 
         cache_num_embeddings = self._caculate_caches(
-            tables, embcache_size_on_hbm, multi_hot_sizes, batch_size, world_size
+            tables, embcache_size_on_device_mem, multi_hot_sizes, batch_size, world_size
         )
         logger.debug(f"table_num_embeddings:{cache_num_embeddings}")
         table_names = set()
@@ -273,7 +273,7 @@ class EmbCacheEmbeddingBagCollection(EmbeddingBagCollection):
     def _caculate_caches(
         self,
         tables: List[EmbeddingBagConfig],
-        max_hbm_for_vectors: int,
+        max_device_mem_for_vectors: int,
         multi_hot_sizes: List[int],
         batch_size: int,
         world_size: int,
@@ -290,15 +290,15 @@ class EmbCacheEmbeddingBagCollection(EmbeddingBagCollection):
                 dtype_size * 2 * batch_size * weight_and_optim_count,
             )
         )
-        if max_hbm_for_vectors < min_mem:
+        if max_device_mem_for_vectors < min_mem:
             raise ValueError(
-                f"max_hbm_for_vectors {max_hbm_for_vectors} < min_mem:{min_mem}"
+                f"max_device_mem_for_vectors {max_device_mem_for_vectors} < min_mem:{min_mem}"
             )
 
         table_num_embeddings = np.trunc(
             np.dot(
                 multi_hot_sizes,
-                (1.0 * max_hbm_for_vectors / min_mem) * 2 * batch_size * world_size,
+                (1.0 * max_device_mem_for_vectors / min_mem) * 2 * batch_size * world_size,
             )
         ).astype(int)
         return table_num_embeddings
