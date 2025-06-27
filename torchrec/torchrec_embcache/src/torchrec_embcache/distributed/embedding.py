@@ -68,7 +68,6 @@ from torchrec_embcache import (
     SwapInfo,
     SwapinTensor,
 )
-from torchrec.distributed import Awaitable
 from torchrec.distributed.types import (
     Awaitable,
     LazyAwaitable,
@@ -220,7 +219,10 @@ class EmbCacheEmbeddingCollection(EmbeddingCollection):
             raise ValueError("all table must have the same evict_step_interval param.")
 
         # 16GB = 16*1024*1024*1024 = 17179869184
-        embcache_size_on_device_mem = int(os.getenv("EMBCACHE_SIZE_ON_DEVICE_MEM", "17179869184"))
+        try:
+            embcache_size_on_device_mem = int(os.getenv("EMBCACHE_SIZE_ON_DEVICE_MEM", "17179869184"))
+        except ValueError:
+            raise ValueError("environ EMBCACHE_SIZE_ON_DEVICE_MEM must be int")
         logger.debug("======  embcache_size_on_device_mem: %s", embcache_size_on_device_mem)
 
         cache_num_embeddings = self._caculate_caches(
@@ -288,7 +290,6 @@ class EmbCacheEmbeddingCollection(EmbeddingCollection):
         )
         # max_device_mem_for_vectors = min_mem
         if max_device_mem_for_vectors < min_mem:
-            # print(f"max_device_mem_for_vectors {max_device_mem_for_vectors} < min_mem:{min_mem}")
             # max_device_mem_for_vectors = min_mem
             raise ValueError(
                 f"max_device_mem_for_vectors {max_device_mem_for_vectors} < min_mem:{min_mem}"
