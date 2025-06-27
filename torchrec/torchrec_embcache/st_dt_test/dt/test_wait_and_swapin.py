@@ -92,7 +92,7 @@ def test_num_embeddings_invalid(request, config):
     assert "ValueError" in str(exc_info.value)
 
 
-# HBM需要 DDR不需要
+# 多级缓存不需要
 @pytest.mark.functional
 def test_lookup_out_of_bound(request, config):
     fname = request.node.callspec.id

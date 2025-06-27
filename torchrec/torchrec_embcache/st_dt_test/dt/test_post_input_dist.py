@@ -24,6 +24,10 @@ from dt.conftest import MODULE_NAME
 from model import TestModel, generate_hash_config
 from torch.utils.data import DataLoader
 from torch.optim import Adam, Adagrad
+from torchrec_embcache.distributed.train_pipeline import (
+    AwaitableAdapter,
+    EmbcacheTrainPipelineContext,
+)
 from util import (
     setup_logging,
     is_lookup_out_of_bound,
@@ -40,10 +44,6 @@ from util import (
 import torchrec
 from torchrec import EmbeddingBagConfig, EmbeddingBagCollection
 from torchrec.sparse.jagged_tensor import KeyedJaggedTensor
-from torchrec_embcache.distributed.train_pipeline import (
-    AwaitableAdapter,
-    EmbcacheTrainPipelineContext,
-)
 
 
 @pytest.mark.functional
