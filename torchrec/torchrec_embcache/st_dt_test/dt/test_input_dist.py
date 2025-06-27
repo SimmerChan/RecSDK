@@ -189,12 +189,12 @@ def execute(rank, config):
     embedding_dims = config["embedding_dims"]
     num_embeddings = config["num_embeddings"]
     pool_type = config["pool_type"]
-    BATCH_NUM = config["BATCH_NUM"]
+    batch_num = config["BATCH_NUM"]
     table_num = config["table_num"]
     lookup_lens = config["lookup_lens"]
     dataset_class = globals()[config["RecDataset"] + "RecDataset"]
     init_fn = globals()[config["init_fn"]]
-    WORLD_SIZE = config["WORLD_SIZE"]
+    world_size = config["WORLD_SIZE"]
     device = config.get("device", "npu")
     sharding_type = config.get("sharding_type", "row_wise")
     optim = globals()[config.get("optim", "Adagrad")]
@@ -218,7 +218,7 @@ def execute(rank, config):
             for _ in range(len(feature_names_lst[i])):
                 generated_ids[i].append(list(range(num_embeddings[i] + OVER_COUNT)))
                 random.shuffle(generated_ids[i][-1])
-    dataset = dataset_class(BATCH_NUM, lookup_lens, num_embeddings, table_num, feature_names_lst, generated_ids)
+    dataset = dataset_class(batch_num, lookup_lens, num_embeddings, table_num, feature_names_lst, generated_ids)
     data_loader = DataLoader(
         dataset,
         batch_size=None,
@@ -227,7 +227,7 @@ def execute(rank, config):
         num_workers=1,
     )
 
-    test_model = TestModel(rank, WORLD_SIZE, device, instances, feature_names_lst, BATCH_NUM, collection_type)
+    test_model = TestModel(rank, world_size, device, instances, feature_names_lst, batch_num, collection_type)
     test_model.init_ddp_model(embedding_config, sharding_type, optim, lookup_lens)
     iter_ = iter(data_loader)
     module_lst = getattr(test_model.module, collection_type)
