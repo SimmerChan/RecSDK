@@ -90,10 +90,7 @@ class EmbCacheEmbeddingBagCollectionSharder(EmbeddingBagCollectionSharder):
         )
 
     def sharding_types(self, compute_device_type: str) -> List[str]:
-        # # compute_device_type 只支持cpu
-        # if compute_device_type in {"mtia", "cuda", "npu"}:
-        #     return []
-
+        # compute_device_type 只支持cpu
         types = [
             ShardingType.ROW_WISE.value,
             # 以下 ShardingType 待实现
