@@ -448,11 +448,6 @@ class EmbCacheTrainPipelineSparseDist(TrainPipelineSparseDist[In, Out]):
                     swap_info.swapin_offs = swap_info.swapin_offs.to(
                         self._npu_device, non_blocking=True
                     )
-                    # logger.debug(f"self.swapout_keys:{context.swapout_keys}")
-                    # logger.debug(f"self.swapout_offs:{swap_info.swapout_offs.shape}")
-                    # # logger.debug(f"self.swapin_keys:{context.swapin_keys}")
-                    # logger.debug(f"self.swapin_offs:{swap_info.swapin_offs.shape}")
-                    # logger.debug(f"self.batch_offs:{swap_info.batch_offs.shape}")
                     context.swap_info[module_name] = swap_info
 
     def swap_out(self, context: EmbCacheTrainPipelineContext) -> None:
