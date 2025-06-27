@@ -549,12 +549,12 @@ class EmbCacheShardedEmbeddingCollection(ShardedEmbeddingCollection):
                 features_offset_per_key[i + 1] - features_offset_per_key[i]
             )
             lookup_ret_by_feature.append(
-                lookup_ret[lookup_ret_offset : lookup_ret_offset + lookup_ret_size]
+                lookup_ret[lookup_ret_offset: lookup_ret_offset + lookup_ret_size]
             )
             lookup_ret_offset += lookup_ret_size
         for i in range(feature_key_num):
             ids_offset_tensor = features.values()[
-                features_offset_per_key[i] : features_offset_per_key[i + 1]
+                features_offset_per_key[i]: features_offset_per_key[i + 1]
             ]
             feature_key_offset_musk = ids_offset_tensor == 0
             true_value_num = torch.sum(feature_key_offset_musk).item()
