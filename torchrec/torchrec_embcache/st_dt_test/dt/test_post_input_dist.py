@@ -207,15 +207,15 @@ def execute(rank, config):
 
     fuse_input_dist_splits(context)
 
+    kjt_list_dict = {}
     for names, awaitable in context.fused_splits_awaitables:
         for name, request in zip(names, awaitable.wait()):
-            context.input_dist_tensors_requests[name] = AwaitableAdapter(request)
+            kjt_list_dict[name] = request.awaitables
 
     features = []
     for i, module in enumerate(module_lst):
         name = f"module.{i}"
-        awaitable = context.input_dist_tensors_requests[name]
-        kjt_list = awaitable.wait()
+        kjt_list = kjt_list_dict[name]
         post_waitable = module.post_input_dist(
             context.module_contexts[name],
             kjt_list,
