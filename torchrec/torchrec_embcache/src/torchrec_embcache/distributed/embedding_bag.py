@@ -48,7 +48,6 @@ from torchrec.modules.embedding_modules import EmbeddingBagCollection
 from torchrec.distributed.model_parallel import (
     DistributedDataParallel,
 )
-from torchrec.modules.embedding_configs import EmbeddingBagConfig
 from torchrec.sparse.jagged_tensor import KeyedTensor, KeyedJaggedTensor
 from torchrec.distributed.embedding_types import (
     ShardingType,
@@ -574,7 +573,7 @@ class EmbCacheShardedEmbeddingBagCollection(ShardedEmbeddingBagCollection):
                     optim_num = 2
                 else:
                     raise NotImplementedError(
-                        f"Getting optimizer states is not supported 
+                        f"Getting optimizer states is not supported "
                         f"for {sharding_info.fused_params['optimizer']}"
                     )
 
