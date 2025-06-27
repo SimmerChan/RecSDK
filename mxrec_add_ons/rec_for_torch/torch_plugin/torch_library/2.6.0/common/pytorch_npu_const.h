@@ -35,8 +35,6 @@
 
 #define NPU_NAME_SPACE at_npu::native
 
-#define __FILENAME__ (strrchr("/" __FILE__, '/') + 1)
-
 typedef struct aclOpExecutor aclOpExecutor;
 typedef struct aclTensor aclTensor;
 typedef struct aclScalar aclScalar;
@@ -52,7 +50,7 @@ typedef aclScalar* (*_aclCreateScalar)(void* value, aclDataType data_type);
 typedef aclIntArray* (*_aclCreateIntArray)(const int64_t* value, uint64_t size);
 typedef aclFloatArray* (*_aclCreateFloatArray)(const float* value, uint64_t size);
 typedef aclBoolArray* (*_aclCreateBoolArray)(const bool* value, uint64_t size);
-typedef aclTensorList* (*_aclCreateTensorList)(const aclTensor* const* value, uint64_t size);
+typedef aclTensorList* (*_aclCreateTensorList)(const aclTensor* const *value, uint64_t size);
 
 typedef int (*_aclDestroyTensor)(const aclTensor* tensor);
 typedef int (*_aclDestroyScalar)(const aclScalar* scalar);
