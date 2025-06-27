@@ -68,7 +68,7 @@ def _check_admit_key_count(data_loader_golden, embedding_configs: List[EmbCacheE
         values = kjt.values()
         offset_per_key = kjt.offset_per_key()
         for i in range(len(offset_per_key) - 1):
-            values_per_table = values[offset_per_key[i]: offset_per_key[i+1]]
+            values_per_table = values[offset_per_key[i]: offset_per_key[i + 1]]
             for ids in values_per_table:
                 ids = ids.item()
                 if ids % WORLD_SIZE != rank:
@@ -290,7 +290,7 @@ class TestModel:
 
             save_dir = os.path.abspath("save_dir")
             if os.path.exists(save_dir):
-               os.rmdir(save_dir)
+                os.rmdir(save_dir)
             os.makedirs(save_dir, exist_ok=True) 
 
             saver = Saver(rank=rank)
