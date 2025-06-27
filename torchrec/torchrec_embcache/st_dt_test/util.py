@@ -102,7 +102,7 @@ def check_config(config):
             f" or increase the WORLD_SIZE, total_size: {total_size}, max_size: {max_size}"
         )
 
-    # 需要检查HBM缓存是否够用
+    # 需要检查device缓存是否够用
     multi_hot_sizes = [1] * config["table_num"]
     dtype_size = 4 # default fp32
     weight_and_optim_count = 2
@@ -112,14 +112,14 @@ def check_config(config):
             2 * dtype_size * config["lookup_lens"] * weight_and_optim_count
         )
     ) 
-    max_hbm_for_vectors = os.getenv("EMBCACHE_SIZE_ON_HBM")
-    if not max_hbm_for_vectors:
-        raise EnvironmentError("EMBCACHE_SIZE_ON_HBM is not set, please set it in the environment")
-    max_hbm_for_vectors = int(max_hbm_for_vectors)
-    if max_hbm_for_vectors < min_mem:
-        raise ValueError(f"max_hbm_for_vectors is not enough, \
-            please increase the EMBCACHE_SIZE_ON_HBM or reduce the embedding_dim or lookup_lens, \
-                current EMBCACHE_SIZE_ON_HBM: {max_hbm_for_vectors}, min_mem: {min_mem}")
+    max_device_mem_for_vectors = os.getenv("EMBCACHE_SIZE_ON_DEVICE_MEM")
+    if not max_device_mem_for_vectors:
+        raise EnvironmentError("EMBCACHE_SIZE_ON_DEVICE_MEM is not set, please set it in the environment")
+    max_device_mem_for_vectors = int(max_device_mem_for_vectors)
+    if max_device_mem_for_vectors < min_mem:
+        raise ValueError(f"max_device_mem_for_vectors is not enough, \
+            please increase the EMBCACHE_SIZE_ON_DEVICE_MEM or reduce the embedding_dim or lookup_lens, \
+                current EMBCACHE_SIZE_ON_DEVICE_MEM: {max_device_mem_for_vectors}, min_mem: {min_mem}")
 
 
 # utils for weight init
