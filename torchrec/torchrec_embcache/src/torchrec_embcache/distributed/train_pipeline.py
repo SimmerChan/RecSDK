@@ -70,6 +70,7 @@ from torchrec.distributed.embedding_types import KJTList
 from torchrec.distributed.embeddingbag import EmbeddingBagCollectionContext
 from torchrec.distributed.train_pipeline.train_pipelines import TrainPipelineSparseDist
 
+MIN_EVICT_STEP_INTERVAL = 10
 logger: logging.Logger = logging.getLogger(__name__)
 
 
