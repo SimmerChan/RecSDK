@@ -425,10 +425,10 @@ class EmbCacheTrainPipelineSparseDist(TrainPipelineSparseDist[In, Out]):
                 context.sparse_features_after_restore_future[module_name] = (
                     embcache_pybind.restore_async(
                         context.swap_info[module_name].batch_offs,
-                        data[0]._unique_inverse,
-                        data[0]._unique_offset,
+                        data[0].unique_inverse,
+                        data[0].unique_offset,
                         data[0].offset_per_key(),
-                        data[0]._hash_indices,
+                        data[0].hash_indices,
                     )
                 )
 

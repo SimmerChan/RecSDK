@@ -7,6 +7,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import os
+from dataclasses import dataclass
 from typing import (
     Any,
     cast,
@@ -123,33 +124,38 @@ from torchrec.distributed.embedding import (
 logger: logging.Logger = logging.getLogger(__name__)
 
 
+@dataclass
+class ShardingConfig:
+    sharding_type: str
+    table2hashmap: Dict[str, HashMapBase]
+    sharding_infos: List[EmbeddingShardingInfo]
+    cpu_env: ShardingEnv
+    cpu_device: Optional[torch.device] = None
+    permute_embeddings: bool = False
+    qcomm_codecs_registry: Optional[Dict[str, QuantizedCommCodecs]] = None
+    npu_device: Optional[torch.device] = None
+    npu_env: Optional[ShardingEnv] = None
+    enable_admit: bool = False
+
+
 def create_embcache_embedding_sharding(
-    sharding_type: str,
-    table2hashmap: Dict[str, HashMapBase],
-    sharding_infos: List[EmbeddingShardingInfo],
-    cpu_env: ShardingEnv,
-    cpu_device: Optional[torch.device] = None,
-    permute_embeddings: bool = False,
-    qcomm_codecs_registry: Optional[Dict[str, QuantizedCommCodecs]] = None,
-    npu_device: Optional[torch.device] = None,
-    npu_env: Optional[ShardingEnv] = None,
-    enable_admit: bool = False,
+    sharding_config: ShardingConfig,
 ) -> EmbeddingSharding[
     EmbeddingShardingContext, KeyedJaggedTensor, torch.Tensor, torch.Tensor
 ]:
-    if sharding_type == ShardingType.ROW_WISE.value:
+    if sharding_config.sharding_type == ShardingType.ROW_WISE.value:
         return EmbCacheRwSequenceEmbeddingSharding(
-            sharding_infos,
-            table2hashmap,
-            cpu_env=cpu_env,
-            cpu_device=cpu_device,
-            npu_device=npu_device,
-            npu_env=npu_env,
-            qcomm_codecs_registry=qcomm_codecs_registry,
-            enable_admit=enable_admit,
+            sharding_config.sharding_infos,
+            sharding_config.table2hashmap,
+            cpu_env=sharding_config.cpu_env,
+            cpu_device=sharding_config.cpu_device,
+            npu_device=sharding_config.npu_device,
+            npu_env=sharding_config.npu_env,
+            qcomm_codecs_registry=sharding_config.qcomm_codecs_registry,
+            enable_admit=sharding_config.enable_admit,
         )
     else:
-        raise ValueError(f"Sharding type not supported {sharding_type}")
+        raise ValueError(f"Sharding type not supported {sharding_config.sharding_type}")
 
 
 class EmbCacheHashTable(torch.nn.Module):
@@ -226,7 +232,7 @@ class EmbCacheEmbeddingCollection(EmbeddingCollection):
             tables, embcache_size_on_hbm, multi_hot_sizes, batch_size, world_size
         )
         # 开启准入时会预留offset 0位置，手动给计算后的表大小加1
-        for i in range(len(cache_num_embeddings)):
+        for i, _ in enumerate(cache_num_embeddings):
             if self._embedding_configs[
                 i
             ].admit_and_evict_config.is_feature_admit_enabled():
@@ -364,16 +370,18 @@ class EmbCacheShardedEmbeddingCollection(ShardedEmbeddingCollection):
             ],
         ] = {
             sharding_type: create_embcache_embedding_sharding(
-                sharding_type,
-                self.table2hashmap,
-                embedding_configs,
-                cpu_env=cpu_env,
-                cpu_device=cpu_device,
-                permute_embeddings=True,
-                qcomm_codecs_registry=self.qcomm_codecs_registry,
-                npu_env=npu_env,
-                npu_device=npu_device,
-                enable_admit=self._enable_admit,
+                ShardingConfig(
+                    sharding_type,
+                    self.table2hashmap,
+                    embedding_configs,
+                    cpu_env=cpu_env,
+                    cpu_device=cpu_device,
+                    permute_embeddings=True,
+                    qcomm_codecs_registry=self.qcomm_codecs_registry,
+                    npu_env=npu_env,
+                    npu_device=npu_device,
+                    enable_admit=self._enable_admit,
+                )
             )
             for sharding_type, embedding_configs in self.sharding_type_to_sharding_infos.items()
         }
@@ -474,7 +482,7 @@ class EmbCacheShardedEmbeddingCollection(ShardedEmbeddingCollection):
     ) -> LazyAwaitable[Dict[str, JaggedTensor]]:
         awaitables = []
         features_before_all2all_per_sharding: List[KeyedJaggedTensor] = []
-        for lookup, dist, sharding_ctx, features, sharding_type in zip(
+        for lookup, out_dist, sharding_ctx, features, sharding_type in zip(
             self._lookups,
             self._output_dists,
             ctx.sharding_contexts,
@@ -492,7 +500,9 @@ class EmbCacheShardedEmbeddingCollection(ShardedEmbeddingCollection):
                 )
             embedding_dim = self._embedding_dim_for_sharding_type(sharding_type)
 
-            awaitables.append(dist(lookup_ret.view(-1, embedding_dim), sharding_ctx))
+            awaitables.append(
+                out_dist(lookup_ret.view(-1, embedding_dim), sharding_ctx)
+            )
 
             features_before_all2all_per_sharding.append(
                 sharding_ctx.features_before_input_dist
@@ -579,8 +589,8 @@ class EmbCacheShardedEmbeddingCollection(ShardedEmbeddingCollection):
     ) -> AsyncSwapInfo:
         if isinstance(sparse_features_after_dist[0], KeyedJaggedTensorWithLookHelper):
             return self._embcache_mgr.compute_swap_info_async(
-                sparse_features_after_dist[0]._unique_ids,
-                sparse_features_after_dist[0]._unique_offset_host,
+                sparse_features_after_dist[0].unique_ids,
+                sparse_features_after_dist[0].unique_offset_host,
             )
         else:
             return self._embcache_mgr.compute_swap_info_async(
