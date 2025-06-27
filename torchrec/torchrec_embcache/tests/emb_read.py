@@ -13,19 +13,21 @@ def emb_read(out_dir="save_dir", table_names=None, ranks=None):
         table_names = ["table0", "table1"]
     if ranks is None:
         ranks = [0]
+
     def do_in(table_name, rank, slice_name, dtype_in=np.float32):
         attribute_path = os.path.join(out_dir, table_name, f"rank{rank}", slice_name, "slice.attribute")
         data_path = os.path.join(out_dir, table_name, f"rank{rank}", slice_name, "slice.data")
         attr = np.fromfile(attribute_path, dtype=np.int64)
         data = np.fromfile(data_path, dtype=dtype_in).reshape(*attr[1:])
         return attr, data
+
     embedding_dt = dict()
     for table in table_names:
         tabledt = dict()
         logging.info("Processing table: %s", table)
         for rank in ranks:
             rankdt = dict()
-            logging.debug("--------------------rank%d-----------------"%rank)
+            logging.debug("--------------------rank%d-----------------", rank)
             attrkey, datakey = do_in(table, rank, "key", np.int64)
             attrembedding, dataembedding = do_in(table, rank, "embedding")
             attrmomentum1, datamomentum1 = do_in(table, rank, "momentum1")
