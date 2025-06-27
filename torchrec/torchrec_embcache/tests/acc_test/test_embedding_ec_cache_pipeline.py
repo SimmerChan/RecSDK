@@ -5,34 +5,49 @@
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
+import itertools
+import logging
 import os
-import torch
+import random
+from dataclasses import dataclass
 from typing import List
+
+import pytz
+import pytest
+import torch
 import torch_npu
 import torch.multiprocessing as mp
 import torch.distributed as dist
+from dataset import RandomRecDataset, Batch
+from model import Model
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
+from torchrec_embcache.distributed.embedding_bag import EmbCacheEmbeddingCollection
+from torchrec_embcache.distributed.modules.cache_embedding_configs import AdmitAndEvictConfig, EmbCacheEmbeddingConfig
+from torchrec_embcache.distributed.train_pipeline import (
+    EmbCacheTrainPipelineSparseDist, SimpleEmbCacheTrainPipelineSparseDist
+)
+from torchrec_embcache.distributed.sharding.embedding_sharder import EmbCacheEmbeddingCollectionSharder
+from util import setup_logging
+
 import torchrec
-import pytest
-import logging
-from torchrec import EmbeddingConfig, EmbeddingCollection
 import torchrec.distributed
-from torchrec.optim.apply_optimizer_in_backward import apply_optimizer_in_backward
+from torchrec import EmbeddingConfig, EmbeddingCollection
+from torchrec.distributed import TrainPipelineSparseDist
+from torchrec.distributed.embeddingbag import EmbeddingCollectionAwaitable
+from torchrec.distributed.model_parallel import (
+    DistributedModelParallel,
+    get_default_sharders,
+)
 from torchrec.distributed.planner import (
     EmbeddingShardingPlanner,
     Topology,
     ParameterConstraints,
 )
 from torchrec.distributed.types import ShardingEnv
+from torchrec.optim.apply_optimizer_in_backward import apply_optimizer_in_backward
 from torchrec.optim.keyed import CombinedOptimizer
-from torchrec_embcache.distributed.embedding import EmbCacheEmbeddingCollection
-from torchrec_embcache.distributed.train_pipeline import EmbCacheTrainPipelineSparseDist, SimpleEmbCacheTrainPipelineSparseDist
-from torchrec_embcache.distributed.sharding.embedding_sharder import EmbCacheEmbeddingCollectionSharder
-from torchrec_embcache.distributed.modules.cache_embedding_configs import AdmitAndEvictConfig, EmbCacheEmbeddingConfig
-from dataset import RandomRecDataset, Batch
-from model import ModelEc as Model
-from util import setup_logging
+
 
 lib_fbgemm_npu_api_so_path = os.getenv('LIB_FBGEMM_NPU_API_SO_PATH')
 torch.ops.load_library(lib_fbgemm_npu_api_so_path)
@@ -43,22 +58,32 @@ LOOP_TIMES = 10
 BATCH_NUM = 1000
 
 
-def execute(
-    rank,
-    world_size,
-    table_num,
-    embedding_dims,
-    num_embeddings,
-    sharding_type,
-    lockup_len,
-    device,
-    admit_threshold
-):
+@dataclass
+class ExecuteConfig:
+    world_size: int
+    table_num: int
+    embedding_dims: List[int]
+    num_embeddings: List[int]
+    sharding_type: str
+    lookup_len: int
+    device: str
+    admit_threshold: float
+
+
+def execute(rank: int, config: ExecuteConfig):
+    world_size = config.world_size
+    embedding_dims = config.embedding_dims
+    num_embeddings = config.num_embeddings
+    sharding_type = config.sharding_type
+    lookup_len = config.lookup_len
+    device = config.device
+    table_num = config.table_num
+    admit_threshold = config.admit_threshold
     setup_logging(rank)
     logging.info("this test %s", os.path.basename(__file__))
     # , batch_num, lookup_lens, num_embeddings, table_num
-    dataset_gloden = RandomRecDataset(BATCH_NUM, lockup_len, num_embeddings, table_num)
-    dataset = RandomRecDataset(BATCH_NUM, lockup_len, num_embeddings, table_num)
+    dataset_gloden = RandomRecDataset(BATCH_NUM, lookup_len, num_embeddings, table_num)
+    dataset = RandomRecDataset(BATCH_NUM, lookup_len, num_embeddings, table_num)
     dataset_loader_gloden = DataLoader(
         dataset_gloden,
         batch_size=None,
@@ -177,7 +202,7 @@ class TestModel:
 
         table_num = len(embeding_config)
         ec = EmbCacheEmbeddingCollection(device=torch.device("meta"), tables=embeding_config,
-                                         batch_size=2, multi_hot_sizes=[1]*table_num,
+                                         batch_size=2, multi_hot_sizes=[1] * table_num,
                                          world_size=dist.get_world_size())
         num_features = sum([c.num_features() for c in embeding_config])
         ec = Model(ec, num_features)
@@ -213,21 +238,21 @@ class TestModel:
         if self.rank == 0:
             logging.debug(plan)
 
-        ddpModel = torchrec.distributed.DistributedModelParallel(
+        ddp_model = torchrec.distributed.DistributedModelParallel(
             ec,
             sharders=shaders,
             device=npu_device,
             plan=plan,
         )
 
-        logging.debug(ddpModel)
+        logging.debug(ddp_model)
         # Optimizer
-        optimizer = CombinedOptimizer([ddpModel.fused_optimizer])
+        optimizer = CombinedOptimizer([ddp_model.fused_optimizer])
         results = []
         iter_ = iter(dataloader)
-        ddpModel.train()
+        ddp_model.train()
         pipe = EmbCacheTrainPipelineSparseDist(
-            ddpModel,
+            ddp_model,
             optimizer=optimizer,
             cpu_device=cpu_device,
             npu_device=npu_device,
@@ -241,34 +266,25 @@ class TestModel:
         return results
 
 
-@pytest.mark.parametrize("table_num", [2])
-@pytest.mark.parametrize("embedding_dims", [[128, 128]])
-@pytest.mark.parametrize("num_embeddings", [[4000, 400]])
-@pytest.mark.parametrize("sharding_type", ["row_wise"])
-@pytest.mark.parametrize("lockup_len", [128])  # batchsize
-@pytest.mark.parametrize("device", ["npu"])
-@pytest.mark.parametrize("admit_threshold", [-1])
-def test_hstu_dens_normal(
-    table_num,
-    embedding_dims,
-    num_embeddings,
-    sharding_type,
-    lockup_len,
-    device,
-    admit_threshold,
-):
+params = {
+    "warld_size": [WORLD_SIZE],
+    "table_num": [2],
+    "embedding_dims": [[128, 128]],
+    "num_embeddings": [[4000, 400]],
+    "sharding_type": ["row_wise"],
+    "lookup_len": [128],  # batchsize
+    "device": ["npu"],
+    "admit_threshold": [-1], 
+}
+
+
+@pytest.mark.parametrize("config", [
+    ExecuteConfig(*v) for v in itertools.product(*params.values())
+])
+def test_hstu_dens_normal(config: ExecuteConfig):
     mp.spawn(
         execute,
-        args=(
-            WORLD_SIZE,
-            table_num,
-            embedding_dims,
-            num_embeddings,
-            sharding_type,
-            lockup_len,
-            device,
-            admit_threshold,
-        ),
+        args=(config,),
         nprocs=WORLD_SIZE,
         join=True,
     )

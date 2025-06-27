@@ -6,9 +6,12 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 from typing import Dict
-from dataset import Batch
-from torchrec import KeyedJaggedTensor
+
 import torch
+from dataset import Batch
+from util import setup_logging
+
+from torchrec import KeyedJaggedTensor
 
 
 def permute_values(kjt: KeyedJaggedTensor, feature_num) -> torch.Tensor:
@@ -63,7 +66,6 @@ class ModelEc(torch.nn.Module):
         return self._ec
 
     def forward(self, batch: Batch):
-        print("forward features:", batch.sparse_features)
         result = self._ec(batch.sparse_features)
         result = permute_values_ec(result, self.feature_num)
         loss = result.sum()

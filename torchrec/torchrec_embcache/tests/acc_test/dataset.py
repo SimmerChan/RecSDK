@@ -7,18 +7,19 @@
 # LICENSE file in the root directory of this source tree.
 import itertools
 import time
-from typing import Iterator
 from dataclasses import dataclass
-import torch_npu
-from torchrec.streamable import Pipelineable
-from torchrec import KeyedJaggedTensor, JaggedTensor
-from torch.utils.data.dataset import IterableDataset
-import torch
+from typing import Iterator
 
+import torch
+import torch_npu
+from torch.utils.data.dataset import IterableDataset
 from torchrec_embcache.sparse.jagged_tensor_with_timestamp import (
     JaggedTensorWithTimestamp,
     KeyedJaggedTensorWithTimestamp
 )
+
+from torchrec import KeyedJaggedTensor, JaggedTensor
+from torchrec.streamable import Pipelineable
 
 
 @dataclass
@@ -59,8 +60,9 @@ class RandomRecDataset(IterableDataset[Batch]):
 
         # 淘汰相关参数
         self.is_evict_enabled = is_evict_enabled
-        if (is_evict_enabled and timestamp_min is not None and timestamp_max is not None
-                and timestamp_min >= timestamp_max):
+        timestamp_is_not_none = timestamp_min is not None or timestamp_max is not None
+        timestamp_illegal = False if not timestamp_is_not_none else timestamp_min >= timestamp_max
+        if is_evict_enabled and timestamp_illegal:
             raise ValueError("The timestamp param invalid, timestamp_min is greater than or equal to timestamp_max,"
                              f" timestamp_min:{timestamp_min}, timestamp_max:{timestamp_max}.")
         default_start_time = int(time.mktime(time.struct_time((2023, 5, 5, 14, 33, 20, 0, 0, 0))))  # 1683268400
