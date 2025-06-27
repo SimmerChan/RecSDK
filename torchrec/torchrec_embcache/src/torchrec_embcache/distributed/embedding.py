@@ -222,7 +222,8 @@ class EmbCacheEmbeddingCollection(EmbeddingCollection):
         try:
             embcache_size_on_device_mem = int(os.getenv("EMBCACHE_SIZE_ON_DEVICE_MEM", "17179869184"))
         except ValueError:
-            raise ValueError("environ EMBCACHE_SIZE_ON_DEVICE_MEM must be int")
+            logger.error("environ EMBCACHE_SIZE_ON_DEVICE_MEM must be int")
+            raise
         logger.debug("======  embcache_size_on_device_mem: %s", embcache_size_on_device_mem)
 
         cache_num_embeddings = self._caculate_caches(
