@@ -28,6 +28,19 @@ constexpr int SWAP_INFO_TUPLE_INDEX1 = 1;
 constexpr int SWAP_INFO_TUPLE_INDEX2 = 2;
 constexpr int SWAP_INFO_TUPLE_INDEX3 = 3;
 constexpr int SWAP_INFO_TUPLE_INDEX4 = 4;
+constexpr size_t READ_AND_WRITE_SIZE_PEER_TIME = 32768;
+
+const std::string RANK_STR_PATH = "/rank";
+const std::string EMBEDDING_STR_PATH = "/embedding";
+const std::string KEY_STR_PATH = "/key";
+const std::string ADMIT_STR_PATH = "/admit_count";
+const std::string EVICT_STR_PATH = "/evict_timestamp";
+const std::string MOMENTUM1_STR_PATH = "/momentum1";
+const std::string MOMENTUM2_STR_PATH = "/momentum2";
+const std::string SLICE_ATTR_PATH = "/slice.attribute";
+const std::string SLICE_DATA_PATH = "/slice.data";
+const std::string SLICE_EVICT_KEY_DATA_PATH = "/slice_evict_key.data";
+const std::string SLICE_EVICT_TS_DATA_PATH = "/slice_evict_ts.data";
 
 struct SwapInfo {
     std::vector<std::vector<int64_t>> swapoutKeys;
@@ -118,19 +131,7 @@ private:
     uint64_t swapCount = 0;       // ComputeSwapInfo 执行次数
     uint64_t embLookupCount = 0;  // EmbeddingLookup 执行次数
 
-    const std::string RANK_STR_PATH = "/rank";
-    const std::string EMBEDDING_STR_PATH = "/embedding";
-    const std::string KEY_STR_PATH = "/key";
-    const std::string ADMIT_STR_PATH = "/admit_count";
-    const std::string EVICT_STR_PATH = "/evict_timestamp";
-    const std::string MOMENTUM1_STR_PATH = "/momentum1";
-    const std::string MOMENTUM2_STR_PATH = "/momentum2";
-    const std::string SLICE_ATTR_PATH = "/slice.attribute";
-    const std::string SLICE_DATA_PATH = "/slice.data";
-    const std::string SLICE_EVICT_KEY_DATA_PATH = "/slice_evict_key.data";
-    const std::string SLICE_EVICT_TS_DATA_PATH = "/slice_evict_ts.data";
     bool enableFastHashMap = false;
-    static const size_t readAndWriteSizePeerTime = 32768;
     int32_t optimNum;
 };
 }  // namespace Embcache

@@ -512,8 +512,8 @@ int32_t EmbcacheManager::ReadFile(const std::string& filePath, std::vector<T>& d
 
     dataOutputs.reserve(elementCount);
 
-    std::vector<char> buffer(readAndWriteSizePeerTime);
-    while (file.read(buffer.data(), readAndWriteSizePeerTime)) {
+    std::vector<char> buffer(READ_AND_WRITE_SIZE_PEER_TIME);
+    while (file.read(buffer.data(), READ_AND_WRITE_SIZE_PEER_TIME)) {
         size_t readBytes = file.gcount();
         size_t readElements = readBytes / sizeof(T);
         T* elements = reinterpret_cast<T*>(buffer.data());
