@@ -12,11 +12,10 @@ import time
 
 import pytest
 import torch
-import logging
+import numpy as np
 from torchrec_embcache.sparse.jagged_tensor_with_timestamp import (
     JaggedTensorWithTimestamp,
     KeyedJaggedTensorWithTimestamp)
-import numpy as np
 
 TEST_NUM = 100
 IDS_RANGE_TIMES = 10

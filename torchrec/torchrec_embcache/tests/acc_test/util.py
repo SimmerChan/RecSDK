@@ -6,7 +6,10 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 import logging
+
 import pytz
+
+
 def setup_logging(rank):
     from datetime import datetime
 
@@ -15,7 +18,7 @@ def setup_logging(rank):
             "%m_%d_%H_%M_%S",
         )
     )
-    format = logging.Formatter(
+    format_mess = logging.Formatter(
         fmt=f"[rank{rank}][%(levelname)s][%(asctime)s.%(msecs)03d] %(message)s",
         datefmt="%m-%d %H:%M:%S",
     )
@@ -23,6 +26,6 @@ def setup_logging(rank):
     file_handler = logging.FileHandler(
         f"test_rank{rank}_{this_time}.log", encoding="utf-8"
     )
-    file_handler.setFormatter(format)
+    file_handler.setFormatter(format_mess)
     logger.addHandler(file_handler)
     logger.setLevel(logging.DEBUG)

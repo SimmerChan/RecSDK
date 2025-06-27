@@ -5,24 +5,47 @@
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
+import itertools
+import logging
+import multiprocessing
+import random
 import os
+from dataclasses import dataclass
+from typing import List
+
+import pytest
 import pytz
 import torch
-from typing import List
 import torch_npu
-import torch.multiprocessing as mp
 import torch.distributed as dist
+import torch.multiprocessing as mp
+from dataset import RandomRecDataset, Batch
+from model import Model
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
+from torchrec_embcache.distributed.embedding_bag import (
+    EmbCacheEmbeddingBagCollection,
+)
+from torchrec_embcache.distributed.sharding.embedding_sharder import (
+    EmbCacheEmbeddingBagCollectionSharder,
+)
+from torchrec_embcache.distributed.train_pipeline import (
+    EmbCacheTrainPipelineSparseDist,
+    SimpleEmbCacheTrainPipelineSparseDist,
+)
+from torchrec_embcache.saver import Saver
+from util import setup_logging
+
 import torchrec
-import pytest
-import logging
-import random
 from torchrec import EmbeddingBagConfig, EmbeddingBagCollection
 import torchrec.distributed
 from torchrec.distributed import TrainPipelineSparseDist
 from torchrec.optim.apply_optimizer_in_backward import apply_optimizer_in_backward
 from torchrec.distributed.embeddingbag import EmbeddingBagCollectionAwaitable
+from torchrec.distributed.model_parallel import (
+    DistributedModelParallel,
+    get_default_sharders,
+)
 from torchrec.distributed.planner import (
     EmbeddingShardingPlanner,
     Topology,
@@ -30,27 +53,6 @@ from torchrec.distributed.planner import (
 )
 from torchrec.distributed.types import ShardingEnv
 from torchrec.optim.keyed import CombinedOptimizer
-from torchrec_embcache.distributed.embedding_bag import (
-    EmbCacheEmbeddingBagCollection,
-)
-from torchrec_embcache.distributed.train_pipeline import (
-    EmbCacheTrainPipelineSparseDist,
-    SimpleEmbCacheTrainPipelineSparseDist,
-)
-from torchrec_embcache.distributed.sharding.embedding_sharder import (
-    EmbCacheEmbeddingBagCollectionSharder,
-)
-import embedding_cache
-from dataset import RandomRecDataset, Batch
-from model import Model
-from util import setup_logging
-from torchrec.distributed.model_parallel import (
-    DistributedModelParallel,
-    get_default_sharders,
-)
-
-# sparse-保存
-from torchrec_embcache.saver import Saver
 
 
 lib_fbgemm_npu_api_so_path = os.getenv("LIB_FBGEMM_NPU_API_SO_PATH")
@@ -59,28 +61,36 @@ torch.ops.load_library(lib_fbgemm_npu_api_so_path)
 
 _world_size_env = int(os.getenv('WORLD_SIZE', '2'))
 WORLD_SIZE = _world_size_env
-print("WORLD_SIZE is:", WORLD_SIZE)
 LOOP_TIMES = 10
 LOOP_TIMES = 500
 BATCH_NUM = 1000
 
 
-def execute(
-    rank,
-    world_size,
-    table_num,
-    embedding_dims,
-    num_embeddings,
-    pool_type,
-    sharding_type,
-    lockup_len,
-    device,
-):
+@dataclass
+class ExecuteConfig:
+    world_size: int
+    table_num: int
+    embedding_dims: List[int]
+    num_embeddings: List[int]
+    pool_type: torchrec.PoolingType
+    sharding_type: str
+    lookup_len: int
+    device: str
+
+
+def execute(rank: int, config: ExecuteConfig):
+    world_size = config.world_size
+    table_num = config.table_num
+    embedding_dims = config.embedding_dims
+    num_embeddings = config.num_embeddings
+    pool_type = config.pool_type
+    sharding_type = config.sharding_type
+    lookup_len = config.lookup_len
+    device = config.device
     setup_logging(rank)
     logging.info("this test %s", os.path.basename(__file__))
-    # , batch_num, lookup_lens, num_embeddings, table_num
-    dataset_gloden = RandomRecDataset(BATCH_NUM, lockup_len, num_embeddings, table_num)
-    dataset = RandomRecDataset(BATCH_NUM, lockup_len, num_embeddings, table_num)
+    dataset_gloden = RandomRecDataset(BATCH_NUM, lookup_len, num_embeddings, table_num)
+    dataset = RandomRecDataset(BATCH_NUM, lookup_len, num_embeddings, table_num)
     dataset_loader_gloden = DataLoader(
         dataset,
         batch_size=None,
@@ -112,7 +122,6 @@ def execute(
         embeding_config.append(ebc_config)
 
     test_model = TestModel(rank, world_size, device)
-    # gloden_results = test_model.cpu_gloden_loss(embeding_config, dataset_loader_gloden)
     gloden_results = test_model.test_loss(
         embeding_config, dataset_loader_gloden, sharding_type, training=True
     )
@@ -244,60 +253,59 @@ class TestModel:
         if self.rank == 0:
             logging.debug(plan)
 
-        ddpModel = torchrec.distributed.DistributedModelParallel(
+        ddp_model = torchrec.distributed.DistributedModelParallel(
             ebc,
             sharders=shaders,
             device=npu_device,
             plan=plan,
         )
 
-        logging.debug(ddpModel)
+        logging.debug(ddp_model)
         # Optimizer
-        optimizer = CombinedOptimizer([ddpModel.fused_optimizer])
+        optimizer = CombinedOptimizer([ddp_model.fused_optimizer])
         results = []
         iter_ = iter(dataloader)
-        ddpModel.train()
+        ddp_model.train()
         pipe = EmbCacheTrainPipelineSparseDist(
-            ddpModel,
+            ddp_model,
             optimizer=optimizer,
             cpu_device=cpu_device,
             npu_device=npu_device,
             return_loss=True,
         )
-        if training and os.path.exists("save_dir"):
-            os.system("rm -rf save_dir")
+        save_dir = os.path.abspath("save_dir")
+        if training and os.path.exists(save_dir):
+            os.system(f"rm -rf {save_dir}")
         if training:
-            os.mkdir("save_dir")
+            os.mkdir(save_dir)
         saver = Saver(rank=rank)
         if training:
             for _ in range(LOOP_TIMES):
                 out, loss = pipe.progress(iter_)
-                # results.append(loss.detach().cpu())
-                # results.append(out.detach().cpu())
 
-            ddpModel.eval()
+            ddp_model.eval()
             for _ in range(LOOP_TIMES):
                 out, loss = pipe.progress(iter_)
                 results.append(loss.detach().cpu())
                 results.append(out.detach().cpu())
-            logging.info("ddpModel.state_dict %s", ddpModel.state_dict())
+            logging.info("ddp_model.state_dict %s", ddp_model.state_dict())
             # dense-保存
-            torch.save(ddpModel.state_dict(), f"save_dir/model_{rank}.pt")
+            torch.save(ddp_model.state_dict(), f"save_dir/model_{rank}.pt")
             torch.save(optimizer.state_dict(), f"save_dir/optimizer_{rank}.pt")
 
-            saver.save(ddpModel, "save_dir/sparse")
+            saver.save(ddp_model, "save_dir/sparse")
 
         else:
             ddp_state_dict = torch.load(f"save_dir/model_{rank}.pt", weights_only=False)
             logging.info("ddp_state_dict %s", ddp_state_dict)
-            ddpModel.load_state_dict(ddp_state_dict)
+            ddp_model.load_state_dict(ddp_state_dict)
             optimizer.load_state_dict(
                 torch.load(f"save_dir/optimizer_{rank}.pt", weights_only=False)
             )
 
             # sparse-加载
-            saver.load(ddpModel, "save_dir/sparse")
-            ddpModel.eval()
+            saver.load(ddp_model, "save_dir/sparse")
+            ddp_model.eval()
             for _ in range(LOOP_TIMES):
                 out, loss = pipe.progress(iter_)
             for _ in range(LOOP_TIMES):
@@ -308,50 +316,39 @@ class TestModel:
         return results
 
 
-@pytest.mark.parametrize("table_num", [2])
-@pytest.mark.parametrize("embedding_dims", [[128, 128]])
-@pytest.mark.parametrize("num_embeddings", [[4000, 400]])
-@pytest.mark.parametrize("pool_type", [torchrec.PoolingType.SUM])
-@pytest.mark.parametrize("sharding_type", ["row_wise"])
-@pytest.mark.parametrize("lockup_len", [128])  # batchsize
-@pytest.mark.parametrize("device", ["npu"])
-def test_hstu_dens_normal(
-    table_num,
-    embedding_dims,
-    num_embeddings,
-    pool_type,
-    sharding_type,
-    lockup_len,
-    device,
-):
+params = {
+    "world_size": [WORLD_SIZE],
+    "table_num": [2],
+    "embedding_dims": [[128, 128]],
+    "num_embeddings": [[4000, 400]],
+    "pool_type": [torchrec.PoolingType.SUM],
+    "sharding_type": ["row_wise"],
+    "lookup_len": [128],  # batchsize
+    "device": ["npu"],
+}
+
+
+@pytest.mark.parametrize("config", [
+    ExecuteConfig(*v) for v in itertools.product(*params.values())
+])
+def test_hstu_dens_normal(config: ExecuteConfig):
     mp.spawn(
         execute,
-        args=(
-            WORLD_SIZE,
-            table_num,
-            embedding_dims,
-            num_embeddings,
-            pool_type,
-            sharding_type,
-            lockup_len,
-            device,
-        ),
+        args=(config,),
         nprocs=WORLD_SIZE,
         join=True,
     )
 
 
-import multiprocessing
-
-
 if __name__ == "__main__":
     multiprocessing.freeze_support()
-    test_hstu_dens_normal(
-        2,
-        [128, 128],
-        [4000, 400],
-        torchrec.PoolingType.SUM,
-        "row_wise",
-        128,
-        "npu",
-    )
+    test_hstu_dens_normal(ExecuteConfig(
+        world_size=WORLD_SIZE,
+        table_num=2,
+        embedding_dims=[128, 128],
+        num_embeddings=[4000, 400],
+        pool_type=torchrec.PoolingType.SUM,
+        sharding_type="row_wise",
+        lookup_len=128,
+        device="npu",
+    ))

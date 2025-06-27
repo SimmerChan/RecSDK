@@ -5,20 +5,30 @@
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
-
+import itertools
 import logging
 import os
-import numpy as np
-
-import torch
+from dataclasses import dataclass
 from typing import List
+
+import pytest
+import torch
 import torch_npu
+import numpy as np
 import torch.multiprocessing as mp
 import torch.distributed as dist
+from dataset import RandomRecDataset, Batch
+from model import ModelEc as Model
 from torch.utils.data import DataLoader
-import torchrec
-import pytest
+from torchrec_embcache.distributed.embedding import EmbCacheEmbeddingCollection
+from torchrec_embcache.distributed.modules.cache_embedding_configs import (EmbCacheEmbeddingConfig,
+                                                                                     AdmitAndEvictConfig)
+from torchrec_embcache.distributed.train_pipeline import EmbCacheTrainPipelineSparseDist
+from torchrec_embcache.distributed.sharding.embedding_sharder import EmbCacheEmbeddingCollectionSharder
+from torchrec_embcache.saver import Saver
+from util import setup_logging
 
+import torchrec
 import torchrec.distributed
 from torchrec.optim.apply_optimizer_in_backward import apply_optimizer_in_backward
 from torchrec.distributed.planner import (
@@ -28,17 +38,6 @@ from torchrec.distributed.planner import (
 )
 from torchrec.distributed.types import ShardingEnv
 from torchrec.optim.keyed import CombinedOptimizer
-from torchrec_embcache.distributed.embedding import EmbCacheEmbeddingCollection
-from torchrec_embcache.distributed.modules.cache_embedding_configs import (EmbCacheEmbeddingConfig,
-                                                                                     AdmitAndEvictConfig)
-from torchrec_embcache.distributed.train_pipeline import EmbCacheTrainPipelineSparseDist
-from torchrec_embcache.distributed.sharding.embedding_sharder import EmbCacheEmbeddingCollectionSharder
-from torchrec_embcache.saver import Saver
-
-from dataset import RandomRecDataset, Batch
-from model import ModelEc as Model
-from util import setup_logging
-
 
 _SAVE_PATH = "save_dir/sparse"
 
@@ -69,7 +68,7 @@ def _check_admit_key_count(data_loader_golden, embedding_configs: List[EmbCacheE
         values = kjt.values()
         offset_per_key = kjt.offset_per_key()
         for i in range(len(offset_per_key) - 1):
-            values_per_table = values[offset_per_key[i]:offset_per_key[i+1]]
+            values_per_table = values[offset_per_key[i]: offset_per_key[i+1]]
             for ids in values_per_table:
                 ids = ids.item()
                 if ids % WORLD_SIZE != rank:
@@ -109,23 +108,35 @@ def _check_admit_key_count(data_loader_golden, embedding_configs: List[EmbCacheE
             assert count_equal, "key count value is not equal."
 
 
-def execute(
-    rank,
-    world_size,
-    table_num,
-    embedding_dims,
-    num_embeddings,
-    sharding_type,
-    lockup_len,
-    device,
-    enable_admit,
-    enable_evict,
-):
+@dataclass
+class ExecuteConfig:
+    world_size: int
+    table_num: int
+    embedding_dims: List[int]
+    num_embeddings: List[int]
+    sharding_type: str
+    lookup_len: int
+    device: str
+    enable_admit: bool
+    enable_evict: bool
+
+
+
+def execute(config: ExecuteConfig, rank: int):
+    world_size = config.world_size
+    table_num = config.table_num
+    embedding_dims = config.embedding_dims
+    num_embeddings = config.num_embeddings
+    sharding_type = config.sharding_type
+    lookup_len = config.lookup_len
+    device = config.device
+    enable_admit = config.enable_admit
+    enable_evict = config.enable_evict
     setup_logging(rank)
     logging.info("this test %s", os.path.basename(__file__))
 
-    dataset = RandomRecDataset(BATCH_NUM, lockup_len, num_embeddings, table_num, is_evict_enabled=True)
-    dataset_golden = RandomRecDataset(BATCH_NUM, lockup_len, num_embeddings, table_num, is_evict_enabled=True)
+    dataset = RandomRecDataset(BATCH_NUM, lookup_len, num_embeddings, table_num, is_evict_enabled=True)
+    dataset_golden = RandomRecDataset(BATCH_NUM, lookup_len, num_embeddings, table_num, is_evict_enabled=True)
     data_loader_golden = DataLoader(
         dataset_golden,
         batch_size=None,
@@ -212,7 +223,7 @@ class TestModel:
 
         table_num = len(embedding_configs)
         ec = EmbCacheEmbeddingCollection(device=torch.device("meta"), tables=embedding_configs,
-                                         batch_size=2, multi_hot_sizes=[1]*table_num,
+                                         batch_size=2, multi_hot_sizes=[1] * table_num,
                                          world_size=dist.get_world_size())
         num_features = sum([c.num_features() for c in embedding_configs])
         ec = Model(ec, num_features)
@@ -248,23 +259,23 @@ class TestModel:
         if self.rank == 0:
             logging.debug(plan)
 
-        ddpModel = torchrec.distributed.DistributedModelParallel(
+        ddp_model = torchrec.distributed.DistributedModelParallel(
             ec,
             sharders=shaders,
             device=npu_device,
             plan=plan,
         )
 
-        logging.debug(ddpModel)
+        logging.debug(ddp_model)
         # Optimizer
-        optimizer = CombinedOptimizer([ddpModel.fused_optimizer])
+        optimizer = CombinedOptimizer([ddp_model.fused_optimizer])
         results = []
         if training:
             iter_ = iter(dataloader)
-            ddpModel.train()
+            ddp_model.train()
             evict_step_interval = EVICT_STEP_INTERVAL if enable_evict else None
             pipe = EmbCacheTrainPipelineSparseDist(
-                ddpModel,
+                ddp_model,
                 optimizer=optimizer,
                 cpu_device=cpu_device,
                 npu_device=npu_device,
@@ -277,90 +288,78 @@ class TestModel:
                 results.append(loss.detach().cpu())
                 results.append(out.detach().cpu())
 
-            if os.path.exists("save_dir"):
-                os.system("rm -rf save_dir")
-                os.makedirs("save_dir", exist_ok=True)
+            save_dir = os.path.abspath("save_dir")
+            if os.path.exists(save_dir):
+               os.rmdir(save_dir)
+            os.makedirs(save_dir, exist_ok=True) 
 
             saver = Saver(rank=rank)
-            saver.save(ddpModel, _SAVE_PATH)
+            saver.save(ddp_model, _SAVE_PATH)
         else:
             saver = Saver(rank=rank)
-            saver.load(ddpModel, _SAVE_PATH)
+            saver.load(ddp_model, _SAVE_PATH)
         return results
 
 
-@pytest.mark.parametrize("table_num", [2])
-@pytest.mark.parametrize("embedding_dims", [[128, 128]])
-@pytest.mark.parametrize("num_embeddings", [[4000, 400]])
-@pytest.mark.parametrize("sharding_type", ["row_wise"])
-@pytest.mark.parametrize("lockup_len", [128])  # batchsize
-@pytest.mark.parametrize("device", ["npu"])
-@pytest.mark.parametrize("enable_admit", [True])
-@pytest.mark.parametrize("enable_evict", [True])
-def test_hstu_dens_normal(
-    table_num,
-    embedding_dims,
-    num_embeddings,
-    sharding_type,
-    lockup_len,
-    device,
-    enable_admit,
-    enable_evict,
-):
+params = {
+    "world_size": [WORLD_SIZE],
+    "table_num": [2],
+    "embedding_dims": [[128, 128]],
+    "num_embeddings": [[4000, 400]],
+    "sharding_type": ["row_wise"],
+    "lookup_len": [128],  # batchsize
+    "device": ["npu"],
+    "enable_admit": [True],
+    "enable_evict": [True],
+}
+
+
+@pytest.mark.parametrize("config", [
+    ExecuteConfig(*v) for v in itertools.product(*params.values())
+])
+def test_hstu_dens_normal(config: ExecuteConfig):
     mp.spawn(
         execute,
-        args=(
-            WORLD_SIZE,
-            table_num,
-            embedding_dims,
-            num_embeddings,
-            sharding_type,
-            lockup_len,
-            device,
-            enable_admit,
-            enable_evict,
-        ),
+        args=(config,),
         nprocs=WORLD_SIZE,
         join=True,
     )
 
 
-@pytest.mark.parametrize("table_num", [2])
-@pytest.mark.parametrize("embedding_dims", [[128, 128]])
-@pytest.mark.parametrize("num_embeddings", [[4000, 400]])
-@pytest.mark.parametrize("sharding_type", ["row_wise"])
-@pytest.mark.parametrize("lockup_len", [128])  # batchsize
-@pytest.mark.parametrize("device", ["npu"])
-@pytest.mark.parametrize("enable_admit", [True])
-@pytest.mark.parametrize("enable_evict", [False])
-def test_admit_count_correctness(
-    table_num,
-    embedding_dims,
-    num_embeddings,
-    sharding_type,
-    lockup_len,
-    device,
-    enable_admit,
-    enable_evict,
-):
+params = {
+    "world_size": [WORLD_SIZE],
+    "table_num": [2],
+    "embedding_dims": [[128, 128]],
+    "num_embeddings": [[4000, 400]],
+    "sharding_type": ["row_wise"],
+    "lookup_len": [128],  # batchsize
+    "device": ["npu"],
+    "enable_admit": [True],
+    "enable_evict": [False],
+}
+
+
+@pytest.mark.parametrize("config", [
+    ExecuteConfig(*v) for v in itertools.product(*params.values())
+])
+def test_admit_count_correctness(config: ExecuteConfig):
     mp.spawn(
         execute,
-        args=(
-            WORLD_SIZE,
-            table_num,
-            embedding_dims,
-            num_embeddings,
-            sharding_type,
-            lockup_len,
-            device,
-            enable_admit,
-            enable_evict,
-        ),
+        args=(config,),
         nprocs=WORLD_SIZE,
         join=True,
     )
 
 
 if __name__ == '__main__':
-    test_admit_count_correctness(2, [128, 128], [4000, 400],
-                                 "row_wise", 128, "npu", True, False)
+    test_admit_count_correctness(ExecuteConfig(
+        world_size=2,
+        table_num=2,
+        embedding_dims=[128, 128],
+        num_embeddings=[4000, 400],
+        sharding_type="row_wise",
+        lookup_len=128,
+        device="npu",
+        enable_admit=True,
+        enable_evict=False
+    ))
