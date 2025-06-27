@@ -549,15 +549,15 @@ void KeyProcess::PushResultBasedOnMemoryMode(unique_ptr <EmbBatchT>& batch, uniq
         if (isIncrementalCheckpoint && channel == TRAIN_CHANNEL_ID) {
             PushKeyCount(batch, move(keyCountTensors));
         }
-    } else {
-        vector<uint64_t> lookupKeysUint(lookupKeys.begin(), lookupKeys.end());
-        vector<uint64_t> uniqueKeys;
-        vector<int32_t> restoreVecSec;
-        GlobalUnique(lookupKeysUint, uniqueKeys, restoreVecSec);
-        PushResultDDR(batch, move(tensors), uniqueKeys, restoreVecSec);
-        if (isIncrementalCheckpoint && channel == TRAIN_CHANNEL_ID) {
-            PushKeyCount(batch, move(keyCountTensors));
-        }
+        return;
+    }
+    vector<uint64_t> lookupKeysUint(lookupKeys.begin(), lookupKeys.end());
+    vector<uint64_t> uniqueKeys;
+    vector<int32_t> restoreVecSec;
+    GlobalUnique(lookupKeysUint, uniqueKeys, restoreVecSec);
+    PushResultDDR(batch, move(tensors), uniqueKeys, restoreVecSec);
+    if (isIncrementalCheckpoint && channel == TRAIN_CHANNEL_ID) {
+        PushKeyCount(batch, move(keyCountTensors));
     }
 }
 
