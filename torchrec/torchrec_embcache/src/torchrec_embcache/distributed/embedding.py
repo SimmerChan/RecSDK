@@ -44,16 +44,13 @@ from hybrid_torchrec.distributed.sharding.post_input_dist import (
 from hybrid_torchrec.distributed.sharding.sequence_sharding import (
     HybridSequenceShardingContext,
 )
-from hybrid_torchrec.distributed.embedding import HybridShardedEmbeddingCollection
 from hybrid_torchrec.sparse.jagged_tensor_with_looup_helper import (
     KeyedJaggedTensorWithLookHelper,
 )
 
 from torchrec_embcache.distributed.modules.cache_embedding_configs import (
     AdmitAndEvictConfig as AdmitAndEvictConfigPy,
-)
-from torchrec_embcache.distributed.modules.cache_embedding_configs import (
-    EmbCacheEmbeddingConfig,
+    EmbCacheEmbeddingConfig
 )
 from torchrec_embcache.distributed.sharding.rw_sequence_sharding import (
     EmbCacheRwSequenceEmbeddingSharding,
@@ -96,11 +93,10 @@ from torchrec.modules.embedding_modules import EmbeddingCollection
 from torchrec.distributed.model_parallel import (
     DistributedDataParallel,
 )
-from torchrec.sparse.jagged_tensor import KeyedTensor, KeyedJaggedTensor, JaggedTensor
+from torchrec.sparse.jagged_tensor import KeyedJaggedTensor, JaggedTensor
 from torchrec.distributed.embedding_types import (
     ShardingType,
-    KJTList,
-    ShardedEmbeddingModule,
+    KJTList
 )
 from torchrec.modules.embedding_configs import (
     DataType,
@@ -110,7 +106,6 @@ from torchrec.modules.embedding_configs import (
 from torchrec.optim.fused import FusedOptimizerModule
 from torchrec.optim.keyed import CombinedOptimizer
 from torchrec.modules.embedding_modules import get_embedding_names_by_table
-
 from torchrec.distributed.embedding import (
     ShardedEmbeddingCollection,
     EmbeddingCollectionContext,
