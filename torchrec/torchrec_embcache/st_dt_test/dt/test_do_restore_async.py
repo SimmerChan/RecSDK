@@ -22,6 +22,7 @@ from dataset import (
     FeatureNameNotInConfigRecDataset
 )
 from dt.conftest import MODULE_NAME
+from hybrid_torchrec.distributed.sharding.sequence_sharding import HybridSequenceShardingContext
 from model import TestModel, generate_hash_config, HashConfig
 from torch.utils.data import DataLoader
 from torch.optim import Adam, Adagrad
@@ -44,7 +45,6 @@ from util import (
 )
 
 import torchrec
-from hybrid_torchrec.distributed.sharding.sequence_sharding import HybridSequenceShardingContext
 from torchrec import EmbeddingBagConfig, EmbeddingBagCollection
 from torchrec.sparse.jagged_tensor import KeyedJaggedTensor
 

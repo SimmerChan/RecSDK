@@ -24,6 +24,10 @@ from dt.conftest import MODULE_NAME
 from model import TestModel, generate_hash_config, HashConfig
 from torch.utils.data import DataLoader
 from torch.optim import Adam, Adagrad
+from torchrec_embcache.distributed.train_pipeline import (
+    AwaitableAdapter,
+    EmbcacheTrainPipelineContext,
+)
 from util import (
     setup_logging,
     is_lookup_out_of_bound,
@@ -40,10 +44,6 @@ from util import (
 import torchrec
 from torchrec import EmbeddingBagConfig, EmbeddingBagCollection
 from torchrec.sparse.jagged_tensor import KeyedJaggedTensor
-from torchrec_embcache.distributed.train_pipeline import (
-    AwaitableAdapter,
-    EmbcacheTrainPipelineContext,
-)
 
 
 @pytest.mark.functional
@@ -218,9 +218,8 @@ def execute(rank, config):
         swap_info_future = module.compute_swap_info_async(sparse_features)
         swap_info = swap_info_future.get()
         sparse_features[0].unique_indices = swap_info.batch_offs
-        length = len(sparse_features)
-        for i in range(length):
-            sparse_features[i] = sparse_features[i].to(test_model.npu_device, non_blocking=True)
+        for j, sparse_feature in enumerate(sparse_features):
+            sparse_features[j] = sparse_feature.to(test_model.npu_device, non_blocking=True)
 
         module_awaitable = module.compute_and_output_dist(ctx, sparse_features)
         jt = module_awaitable.wait()
