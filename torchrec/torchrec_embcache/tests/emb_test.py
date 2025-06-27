@@ -1,7 +1,12 @@
-import torch
-import embedding_cache
+import logging
 import sys
-sys.path.append("/home/zengxiong/20250401_torchrec/torchrec/contrib/torchrec_embcache/embcache_embedding/src/")
+
+import embedding_cache
+import torch
+from acc_test.util import setup_logging
+from torchrec_embcache.saver import Saver
+
+setup_logging(0)
 
 
 # 假设我们有两个 embedding table
@@ -28,21 +33,21 @@ jagged_offs = [0, 2, 4, 6, 8]
 swap_info_task = manager.compute_swap_info_async(batch_keys, jagged_offs)
 swap_info = swap_info_task.get()
 
-print("SwapInfo:")
-print("  Swapout Keys:", swap_info.swapout_keys)
-print("  Swapout Offs:", swap_info.swapout_offs)
-print("  Swapin Keys:", swap_info.swapin_keys)
-print("  Swapin Offs:", swap_info.swapin_offs)
-print("  Batch Offs:", swap_info.batch_offs)
+logging.debug("SwapInfo:")
+logging.debug("  Swapout Keys: %s", swap_info.swapout_keys)
+logging.debug("  Swapout Offsets: %s", swap_info.swapout_offs)
+logging.debug("  Swapin Keys: %s", swap_info.swapin_keys)
+logging.debug("  Swapin Offsets: %s", swap_info.swapin_offs)
+logging.debug("  Batch Offsets: %s", swap_info.batch_offs)
 
 # 2. 异步进行 Embedding Lookup
 swapin_tensor_task = manager.embedding_lookup_async(swap_info.swapin_keys)
 swapin_tensor = swapin_tensor_task.get()
 
-print("\nSwapin Tensor:")
-print("  Swapin Embeddings:", swapin_tensor.swapin_embs)
-print("  Swapin Optimizers:", swapin_tensor.swapin_optims)
-print("  Jagged Offs:", swapin_tensor.jagged_offs)
+logging.debug("\nSwapin Tensor Details:")
+logging.debug("  Swapin Embeddings: %s", swapin_tensor.swapin_embs)
+logging.debug("  Swapin Optimizers: %s", swapin_tensor.swapin_optims)
+logging.debug("  Jagged Offsets: %s", swapin_tensor.jagged_offs)
 
 # 3. 进行 Embedding Update（假设我们有一些梯度）
 # 假设 swapout_embs 和 swapout_optims 是从外部获取的，例如通过 optimizer.step()
@@ -50,24 +55,29 @@ print("  Jagged Offs:", swapin_tensor.jagged_offs)
 swapout_embs = torch.cat((torch.arange(0.1, 0.1 + 2 * emb_configs[0].emb_dim * 0.1, 0.1, dtype=torch.float32),
                           torch.arange(-0.1, -0.1 - 2 * emb_configs[1].emb_dim * 0.1, -0.1,
                                        dtype=torch.float32))).reshape(1, -1)
-print("  swapOutEmbs:", swapout_embs)
+logging.debug("  Swapout Embeddings: %s", swapout_embs)
 swapout_optims = torch.cat((torch.arange(1, 1 + 2 * emb_configs[0].emb_dim * 1, 1, dtype=torch.float32),
                             torch.arange(-1, -1 - 2 * emb_configs[1].emb_dim * 1, -1, dtype=torch.float32))).reshape(1,
                                                                                                                      -1)
-print("  swapOutOptims:", swapout_optims)
-manager.embedding_update([[100, 200], [300, 400]], swapout_embs, swapout_optims)
-print("\nEmbedding updated.")
+logging.debug("  Swapout Optimizers: %s", swapout_optims)
+manager.embedding_update(
+    torch.tensor([[100, 200], [300, 400]], dtype=torch.int64),
+    swapout_embs,
+    swapout_optims
+)
+logging.debug("\nEmbedding updated.")
 
-# 4. 把更新的 Embedding 查出来，看是否正确
-swapin_tensor_task = manager.embedding_lookup_async([[100, 200], [300, 400]])
-swapin_tensor = swapin_tensor_task.get()
+# 4. Retrieve the updated embeddings to verify correctness
+updated_tensor_task = manager.embedding_lookup_async(
+    torch.tensor([[100, 200], [300, 400]], dtype=torch.int64)
+)
+updated_tensor = updated_tensor_task.get()
 
-print("\nSwapin Tensor:")
-print("  Swapin Embeddings:", swapin_tensor.swapin_embs)
-print("  Swapin Optimizers:", swapin_tensor.swapin_optims)
-print("  Jagged Offs:", swapin_tensor.jagged_offs)
+logging.debug("\nUpdated Tensor Details:")
+logging.debug("  Updated Embeddings: %s", updated_tensor.swapin_embs)
+logging.debug("  Updated Optimizers: %s", updated_tensor.swapin_optims)
+logging.debug("  Jagged Offsets: %s", updated_tensor.jagged_offs)
 
-from torchrec_embcache.saver import Saver
 manager.save("save_dir", 0)
 
 from emb_read import emb_read, compare_embedding_dicts
@@ -76,4 +86,5 @@ dt1 = emb_read("save_dir")
 manager.load("save_dir", 0)
 manager.save("save_dir2", 0)
 dt2 = emb_read("save_dir2")
-assert True == compare_embedding_dicts(dt1 ,dt2)
+if not compare_embedding_dicts(dt1, dt2):
+    raise ValueError("Embedding dictionaries do not match after save and load.")

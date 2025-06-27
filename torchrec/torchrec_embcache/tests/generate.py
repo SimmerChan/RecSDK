@@ -1,6 +1,8 @@
+import os
+
 import numpy as np
 
-import os
+
 np.random.seed(2)
 
 KEYS_NUMS = [40, 20]
@@ -12,16 +14,18 @@ TABLE_NAMES = ["table0", "table1"]
 RANKS = [0, 1]
 OUT_DIR = "sparse"
 
+
 try:
     os.makedirs(OUT_DIR)
 except FileExistsError:
     pass  # 目录已存在，跳过
 
-def do_out(table_name, rank, slice_name, attribute, data):
-    path = os.path.join(OUT_DIR, table_name, f"rank{rank}", slice_name)
+
+def do_out(table_name, rank_id, slice_name, attribute, data):
+    path = os.path.join(OUT_DIR, table_name, f"rank{rank_id}", slice_name)
     os.makedirs(path, exist_ok=False)
-    attribute_path = os.path.join(OUT_DIR, table_name, f"rank{rank}", slice_name, "slice.attribute")
-    data_path = os.path.join(OUT_DIR, table_name,  f"rank{rank}", slice_name, "slice.data")
+    attribute_path = os.path.join(OUT_DIR, table_name, f"rank{rank_id}", slice_name, "slice.attribute")
+    data_path = os.path.join(OUT_DIR, table_name, f"rank{rank_id}", slice_name, "slice.data")
     attribute.tofile(attribute_path)
     data.tofile(data_path)
 
@@ -32,8 +36,13 @@ moment1_attributes = [np.array([EMBED_TYPE_BYTEST, KEYS_NUM, EMBED_DIM]).astype(
 # moment2_attribute = np.array([EMBED_TYPE_BYTEST, KEYS_NUM, EMBED_DIM]).astype(np.int64)
 
 keys_datas = [np.arange(KEYS_NUM).astype(np.int64) for KEYS_NUM in KEYS_NUMS]
-embed_datas = [np.broadcast_to(np.arange(KEYS_NUM)[:, np.newaxis], (KEYS_NUM, EMBED_DIM)).astype(np.float32) for KEYS_NUM in KEYS_NUMS]
-moment1_datas = [np.ones((KEYS_NUM, EMBED_DIM), dtype=np.float32) for KEYS_NUM in KEYS_NUMS]# moment2_data = np.random.randn(KEYS_NUM, EMBED_DIM).astype(np.float32)
+embed_datas = [
+    np.broadcast_to(
+            np.arange(KEYS_NUM)[:, np.newaxis], 
+            (KEYS_NUM, EMBED_DIM)
+        ).astype(np.float32) for KEYS_NUM in KEYS_NUMS
+    ]
+moment1_datas = [np.ones((KEYS_NUM, EMBED_DIM), dtype=np.float32) for KEYS_NUM in KEYS_NUMS]
 
 
 for i, table in enumerate(TABLE_NAMES):

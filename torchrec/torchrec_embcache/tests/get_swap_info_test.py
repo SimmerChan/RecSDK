@@ -1,6 +1,12 @@
+import logging
+import random
+
 import embedding_cache
 import torch
-import random
+from acc_test.util import setup_logging
+
+
+setup_logging(0)
 
 
 class Gen:
@@ -25,7 +31,7 @@ def swap_manager_test(batch_size, cache_size, test_num):
     key2off = {}
 
     for t in range(test_num):
-        print(f"\n===================== Testing batch {t} =====================")
+        logging.debug("\n===================== Testing batch %d =====================", t)
         keys = gen.gen_keys(batch_size)
         keys_bak = keys.copy()
         key_set = set(keys)
@@ -42,53 +48,56 @@ def swap_manager_test(batch_size, cache_size, test_num):
         swapin_keys = swap_info.swapin_keys[0]
         swapin_offs = swap_info.swapin_offs
         batch_offs = swap_info.batch_offs
-
-        print("swapout size:", len(swapout_keys))
-        print("swapin size:", len(swapin_keys))
-        print()
+        logging.debug("swapout size: %d", len(swapout_keys))
+        logging.debug("swapin size: %d", len(swapin_keys))
+        logging.debug()
 
         # 1. key 和 off size 相同
-        assert len(swapout_keys) == len(swapout_offs)
-        assert len(swapin_keys) == len(swapin_offs)
+        if len(swapout_keys) != len(swapout_offs):
+            raise ValueError("Mismatch in size of swapout_keys and swapout_offs")
+        if len(swapin_keys) != len(swapin_offs):
+            raise ValueError("Mismatch in size of swapin_keys and swapin_offs")
 
         # 2. 执行 swapout，验证 swapoutKeys 和 swapoutOffs 都在 cache 中，
         # 且 swapoutKeys 不在 keys 中，且 off 都在范围内
-        for i in range(len(swapout_keys)):
-            key = swapout_keys[i]
-            off = swapout_offs[i]
-
-            assert off < cache_size
-            assert cache[off] == key
-            assert key in key2off
-            assert key not in key_set
+        for key, off in zip(swapout_keys, swapout_offs):
+            if off >= cache_size:
+                raise ValueError(f"swapout offset {off} out of range")
+            if cache[off] != key:
+                raise ValueError(f"swapout key {key} not found at offset {off} in cache")
+            if key not in key2off:
+                raise ValueError(f"swapout key {key} not found in key2off")
+            if key in key_set:
+                raise ValueError(f"swapout key {key} unexpectedly found in key_set")
 
             cache[off] = 0
             del key2off[key]
 
         # 3. 执行 swapin，验证 swapinKeys 都在 keys 中，
         # 且 swapinKeys 和 swapoutOffs 都不在 cache 中，且 off 都在范围内
-        for i in range(len(swapin_keys)):
-            key = swapin_keys[i]
-            off = swapin_offs[i]
-
-            assert off < cache_size
-            assert key in key_set
-            assert key not in key2off
+        for key, off in zip(swapin_keys, swapin_offs):
+            if off >= cache_size:
+                raise ValueError(f"swapin offset {off} out of range")
+            if key not in key_set:
+                raise ValueError(f"swapin key {key} not found in key_set")
+            if key in key2off:
+                raise ValueError(f"swapin key {key} unexpectedly found in key2off")
 
             cache[off] = key
             key2off[key] = off
 
         # 4. 验证 keys 都在 cache 中，且 key 都转化成 off
-        for i in range(len(batch_offs)):
-            key = keys_bak[i]
-            off = batch_offs[i]
+        for key, off in zip(keys_bak, batch_offs):
             cache[off] = key
             key2off[key] = off
-            assert key in key2off
-            assert cache[off] == key
-            assert key2off[key] == off
+            if key not in key2off:
+                raise ValueError(f"Key {key} not found in key2off after batch processing")
+            if cache[off] != key:
+                raise ValueError(f"Key {key} not found at offset {off} in cache after batch processing")
+            if key2off[key] != off:
+                raise ValueError(f"Offset mismatch for key {key}: expected {off}, got {key2off[key]}")
 
-        print(f"Test {t} passed!")
+        logging.debug("Test %d passed!", t)
 
 
 if __name__ == "__main__":
