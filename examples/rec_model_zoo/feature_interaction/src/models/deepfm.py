@@ -16,7 +16,8 @@ from npu_bridge.npu_init import NPUEstimator, NPURunConfig
 from utils import (
     get_third_nearest_checkpoint,
     dump_pred,
-    input_fn
+    input_fn,
+    build_optimizer
 )
 
 MODEL_NAME = "DeepFM"
@@ -101,29 +102,6 @@ def build_deep_layer(embeddings_deep: tf.Tensor, field_size: int, embedding_size
         deep_part = tf.contrib.layers.fully_connected(inputs=deep_inputs, num_outputs=1, activation_fn=tf.identity,
                                                       scope='deep_out')
     return deep_part
-
-
-def build_optimizer(optimizer_name: str, learning_rate: float) -> tf.compat.v1.train.Optimizer:
-    """
-    Build the optimizer.
-
-    Args:
-        optimizer_name (str): Name of the optimizer.
-        learning_rate (float): Learning rate.
-
-    Returns:
-        tf.compat.v1.train.Optimizer: Optimizer.
-    """
-    if optimizer_name == 'Adam':
-        return tf.compat.v1.train.AdamOptimizer(learning_rate=learning_rate, beta1=0.9, beta2=0.999, epsilon=1e-8)
-    elif optimizer_name == 'Adagrad':
-        return tf.compat.v1.train.AdagradOptimizer(learning_rate=learning_rate, initial_accumulator_value=1e-8)
-    elif optimizer_name == 'Momentum':
-        return tf.compat.v1.train.MomentumOptimizer(learning_rate=learning_rate, momentum=0.95)
-    elif optimizer_name == 'ftrl':
-        return tf.compat.v1.train.FtrlOptimizer(learning_rate)
-    else:
-        raise ValueError("Unsupported optimizer: {}".format(optimizer_name))
 
 
 def model_fn(features, labels, mode, params):

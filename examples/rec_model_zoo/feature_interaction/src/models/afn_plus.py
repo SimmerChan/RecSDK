@@ -17,7 +17,8 @@ from npu_bridge.npu_init import NPUEstimator, NPURunConfig
 from utils import (
     get_third_nearest_checkpoint,
     dump_pred,
-    input_fn
+    input_fn,
+    build_optimizer
 )
 
 MODEL_NAME = "AFN_plus"
@@ -112,32 +113,6 @@ def combine_layers(y_d, y_afn):
     return y
 
 
-def build_optimizer(loss: tf.Tensor, learning_rate: float, model_cfg: object) -> tf.Operation:
-    """
-    Build the optimizer.
-
-    Args:
-        loss (tf.Tensor): The loss value.
-        learning_rate (float): The learning rate.
-        model_cfg (object): The model configuration object.
-
-    Returns:
-        tf.Operation: The training operation.
-    """
-    if model_cfg.optimizer == 'Adam':
-        optimizer = tf.compat.v1.train.AdamOptimizer(learning_rate=learning_rate, beta1=0.9, beta2=0.999, epsilon=1e-8)
-    elif model_cfg.optimizer == 'Adagrad':
-        optimizer = tf.compat.v1.train.AdagradOptimizer(learning_rate=learning_rate, initial_accumulator_value=1e-8)
-    elif model_cfg.optimizer == 'Momentum':
-        optimizer = tf.compat.v1.train.MomentumOptimizer(learning_rate=learning_rate, momentum=0.95)
-    elif model_cfg.optimizer == 'ftrl':
-        optimizer = tf.compat.v1.train.FtrlOptimizer(learning_rate)
-    else:
-        raise NotImplementedError("This optimizer is not implemented.")
-    train_op = optimizer.minimize(loss, global_step=tf.compat.v1.train.get_global_step())
-    return train_op
-
-
 def model_fn(features, labels, mode, params):
     """Bulid Model function f(x) for Estimator."""
     # ------hyperparameters----
@@ -225,7 +200,8 @@ def model_fn(features, labels, mode, params):
         "stop_criterion": (auc_metric[0] - loss_metric[0], tf.group(auc_metric[1], loss_metric[1]))
     }
 
-    train_op = build_optimizer(loss, learning_rate, params)
+    optimizer = build_optimizer(params.optimizer, learning_rate)
+    train_op = optimizer.minimize(loss, global_step=tf.compat.v1.train.get_global_step())
 
     if mode == tf.estimator.ModeKeys.EVAL:
         return tf.estimator.EstimatorSpec(

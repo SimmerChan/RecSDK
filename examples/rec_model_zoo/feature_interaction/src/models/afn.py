@@ -17,7 +17,8 @@ from npu_bridge.npu_init import NPUEstimator, NPURunConfig
 from utils import (
     get_third_nearest_checkpoint,
     dump_pred,
-    input_fn
+    input_fn,
+    build_optimizer
 )
 
 MODEL_NAME = "AFN"
@@ -44,29 +45,6 @@ def define_flags():
     tf.app.flags.DEFINE_boolean("clear_existing_model", True, "clear existing model or not")
     tf.app.flags.DEFINE_string("log_level", "DEBUG", "log level {DEBUG, INFO, WARNING, ERROR, CRITICAL}")
     return model_conf
-
-
-def build_optimizer(learning_rate: float, model_cfg: object) -> tf.Operation:
-    """
-    Build the optimizer.
-
-    Args:
-        learning_rate (float): The learning rate.
-        model_cfg (object): The model configuration object.
-
-    Returns:
-        tf.Operation: The training operation.
-    """
-    if model_cfg.optimizer == 'Adam':
-        return tf.compat.v1.train.AdamOptimizer(learning_rate=learning_rate, beta1=0.9, beta2=0.999, epsilon=1e-8)
-    elif model_cfg.optimizer == 'Adagrad':
-        return tf.compat.v1.train.AdagradOptimizer(learning_rate=learning_rate, initial_accumulator_value=1e-8)
-    elif model_cfg.optimizer == 'Momentum':
-        return tf.compat.v1.train.MomentumOptimizer(learning_rate=learning_rate, momentum=0.95)
-    elif model_cfg.optimizer == 'ftrl':
-        return tf.compat.v1.train.FtrlOptimizer(learning_rate)
-    else:
-        raise ValueError("Invalid optimizer type: {}".format(model_cfg.optimizer))
 
 
 def model_fn(features, labels, mode, params):
@@ -157,7 +135,7 @@ def model_fn(features, labels, mode, params):
     }
 
     # ------bulid optimizer------
-    optimizer = build_optimizer(learning_rate, params)
+    optimizer = build_optimizer(params.optimizer, learning_rate)
     train_op = optimizer.minimize(loss, global_step=tf.compat.v1.train.get_global_step())
 
     # Provide an estimator spec for `ModeKeys.PREDICT`

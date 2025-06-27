@@ -17,7 +17,8 @@ from npu_bridge.npu_init import NPUEstimator, NPURunConfig
 from utils import (
     get_third_nearest_checkpoint,
     dump_pred,
-    input_fn
+    input_fn,
+    build_optimizer
 )
 
 MODEL_NAME = "FFM"
@@ -94,29 +95,6 @@ def field_factorization_machine(feat_ids: tf.Tensor, feat_vals: tf.Tensor, feat_
     return ffm_part
 
 
-def build_optimizer(learning_rate: float, optimizer_type: str) -> tf.compat.v1.train.Optimizer:
-    """
-    Build optimizer for the model.
-
-    Args:
-        learning_rate (float): Learning rate.
-        optimizer_type (str): Type of optimizer.
-
-    Returns:
-        tf.compat.v1.train.Optimizer: Optimizer.
-    """
-    if optimizer_type == 'Adam':
-        return tf.compat.v1.train.AdamOptimizer(learning_rate=learning_rate, beta1=0.9, beta2=0.999, epsilon=1e-8)
-    elif optimizer_type == 'Adagrad':
-        return tf.compat.v1.train.AdagradOptimizer(learning_rate=learning_rate, initial_accumulator_value=1e-8)
-    elif optimizer_type == 'Momentum':
-        return tf.compat.v1.train.MomentumOptimizer(learning_rate=learning_rate, momentum=0.95)
-    elif optimizer_type == 'ftrl':
-        return tf.compat.v1.train.FtrlOptimizer(learning_rate)
-    else:
-        raise ValueError("Unsupported optimizer type: {}".format(optimizer_type))
-
-
 def model_fn(features, labels, mode, params):
     """Bulid Model function f(x) for Estimator."""
     # ------hyperparameters----
@@ -171,7 +149,7 @@ def model_fn(features, labels, mode, params):
         "stop_criterion": (auc_metric[0] - loss_metric[0], tf.group(auc_metric[1], loss_metric[1]))
     }
 
-    optimizer = build_optimizer(learning_rate, params.optimizer)
+    optimizer = build_optimizer(params.optimizer, learning_rate)
     train_op = optimizer.minimize(loss, global_step=tf.compat.v1.train.get_global_step())
 
 

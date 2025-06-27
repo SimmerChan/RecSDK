@@ -17,7 +17,8 @@ from npu_bridge.npu_init import NPUEstimator, NPURunConfig
 from utils import (
     get_third_nearest_checkpoint,
     dump_pred,
-    input_fn
+    input_fn,
+    build_optimizer
 )
 
 MODEL_NAME = "PNN"
@@ -75,29 +76,6 @@ def inner_outer_product(embeddings_deep: tf.Tensor, field_size: int, embedding_s
     tmp = tf.transpose(tmp, perm=(0, 2, 1))
     outer_product = tf.reduce_sum(tmp * q, axis=-1)
     return inner_product, outer_product
-
-
-def build_optimizer(optimizer_name: str, learning_rate: float) -> tf.compat.v1.train.Optimizer:
-    """
-    Build the optimizer.
-
-    Args:
-        optimizer_name (str): Name of the optimizer.
-        learning_rate (float): Learning rate.
-
-    Returns:
-        tf.compat.v1.train.Optimizer: Optimizer.
-    """
-    if optimizer_name == 'Adam':
-        return tf.compat.v1.train.AdamOptimizer(learning_rate=learning_rate, beta1=0.9, beta2=0.999, epsilon=1e-8)
-    elif optimizer_name == 'Adagrad':
-        return tf.compat.v1.train.AdagradOptimizer(learning_rate=learning_rate, initial_accumulator_value=1e-8)
-    elif optimizer_name == 'Momentum':
-        return tf.compat.v1.train.MomentumOptimizer(learning_rate=learning_rate, momentum=0.95)
-    elif optimizer_name == 'ftrl':
-        return tf.compat.v1.train.FtrlOptimizer(learning_rate)
-    else:
-        raise ValueError("Unsupported optimizer: {}".format(optimizer_name))
 
 
 def model_fn(features, labels, mode, params):

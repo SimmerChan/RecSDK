@@ -45,6 +45,29 @@ def input_fn(filenames: List[str], batch_size: int = 32, field_size: int = 39, n
     return batch_features, batch_labels
 
 
+def build_optimizer(optimizer_name: str, learning_rate: float) -> tf.compat.v1.train.Optimizer:
+    """
+    Build the optimizer.
+
+    Args:
+        optimizer_name (str): Name of the optimizer.
+        learning_rate (float): Learning rate.
+
+    Returns:
+        tf.compat.v1.train.Optimizer: Optimizer.
+    """
+    if optimizer_name == 'Adam':
+        return tf.compat.v1.train.AdamOptimizer(learning_rate=learning_rate, beta1=0.9, beta2=0.999, epsilon=1e-8)
+    elif optimizer_name == 'Adagrad':
+        return tf.compat.v1.train.AdagradOptimizer(learning_rate=learning_rate, initial_accumulator_value=1e-8)
+    elif optimizer_name == 'Momentum':
+        return tf.compat.v1.train.MomentumOptimizer(learning_rate=learning_rate, momentum=0.95)
+    elif optimizer_name == 'ftrl':
+        return tf.compat.v1.train.FtrlOptimizer(learning_rate)
+    else:
+        raise ValueError("Unsupported optimizer: {}".format(optimizer_name))
+
+
 def get_third_nearest_checkpoint(path):
     filenames = glob.glob(os.path.join(path, 'model.ckpt-*.index'))
     pattern = re.compile(r'model.ckpt-(.*?).index', re.S)

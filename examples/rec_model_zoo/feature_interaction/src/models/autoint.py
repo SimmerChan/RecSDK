@@ -31,7 +31,8 @@ from npu_bridge.npu_init import NPUEstimator, NPURunConfig
 from utils import (
     get_third_nearest_checkpoint,
     dump_pred,
-    input_fn
+    input_fn,
+    build_optimizer
 )
 
 MODEL_NAME = "AutoInt"
@@ -171,29 +172,6 @@ def fc_layer(attention_part: tf.Tensor, field_size: int, embedding_size: int) ->
     return tf.reshape(y, shape=[-1])
 
 
-def build_optimizer(learning_rate: float, model_cfg: object) -> tf.Operation:
-    """
-    Build the optimizer.
-
-    Args:
-        learning_rate (float): The learning rate.
-        model_cfg (object): The model configuration object.
-
-    Returns:
-        tf.Operation: The training operation.
-    """
-    if model_cfg.optimizer == 'Adam':
-        return tf.compat.v1.train.AdamOptimizer(learning_rate=learning_rate, beta1=0.9, beta2=0.999, epsilon=1e-8)
-    elif model_cfg.optimizer == 'Adagrad':
-        return tf.compat.v1.train.AdagradOptimizer(learning_rate=learning_rate, initial_accumulator_value=1e-8)
-    elif model_cfg.optimizer == 'Momentum':
-        return tf.compat.v1.train.MomentumOptimizer(learning_rate=learning_rate, momentum=0.95)
-    elif model_cfg.optimizer == 'ftrl':
-        return tf.compat.v1.train.FtrlOptimizer(learning_rate)
-    else:
-        raise ValueError("Invalid optimizer type: {}".format(model_cfg.optimizer))
-
-
 def model_fn(features, labels, mode, params):
     """Bulid Model function f(x) for Estimator."""
     # ------hyperparameters----
@@ -250,7 +228,7 @@ def model_fn(features, labels, mode, params):
     }
 
     # ------bulid optimizer------
-    optimizer = build_optimizer(learning_rate, params)
+    optimizer = build_optimizer(params.optimizer, learning_rate)
 
     train_op = optimizer.minimize(loss, global_step=tf.compat.v1.train.get_global_step())
 
