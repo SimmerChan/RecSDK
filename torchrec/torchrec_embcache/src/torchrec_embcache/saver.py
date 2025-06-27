@@ -16,7 +16,7 @@ class Saver:
         self.find_all_embed_cache_instance(module)
         logging.info("In save scene, cache_module info:%s", self.cache_module)
         for mod in self.cache_module:
-            print(mod.embcache_mgr)
+            logging.info("In save scene, embcache_mgr info:%s", mod.embcache_mgr)
             codegen = mod.get_batched_embedding_kernels()[0][0]
             momentum_list = [momentum.detach().to("cpu") for momentum in codegen.get_momentum()] 
             mod.embcache_mgr.embedding_to_host(codegen.weights_dev.detach().to("cpu"), momentum_list)
