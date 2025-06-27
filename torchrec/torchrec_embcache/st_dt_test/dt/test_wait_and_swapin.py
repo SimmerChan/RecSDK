@@ -205,9 +205,10 @@ def execute(rank, config):
 
     fuse_input_dist_splits(context)
 
+    kjt_list_dict = {}
     for names, awaitable in context.fused_splits_awaitables:
         for name, request in zip(names, awaitable.wait()):
-            context.input_dist_tensors_requests[name] = AwaitableAdapter(request)
+            kjt_list_dict[name] = request.awaitables
 
     update_embs_momentums_dict_lst = []
     for i, module in enumerate(module_lst):
@@ -237,9 +238,8 @@ def execute(rank, config):
         _stb_eb_codegen.scatter_update_momentums(swapin_offs, swapin_optims)
         update_momentums1 = torch.tensor([])
         update_momentums2 = torch.tensor([])
-        if _stb_eb_codegen._optim_num > 0:
-            update_momentums1 = _stb_eb_codegen.momentum1_dev.clone()
-        if _stb_eb_codegen._optim_num > 1:
+        update_momentums1 = _stb_eb_codegen.momentum1_dev.clone()
+        if hasattr(_stb_eb_codegen, 'momentum2_dev'):
             update_momentums2 = _stb_eb_codegen.momentum2_dev.clone()
         update_embs_momentums_dict = {
             "update_embs": update_embs,
@@ -266,4 +266,7 @@ def execute(rank, config):
     else:
         base_line = torch.load(saved_file, weights_only=False)
         for obj1, obj2 in zip(base_line, update_embs_momentums_dict_lst):
-            assert are_features_equal(obj1, obj2), "Update embs and momentums are not equal: {} != {}".format(obj1, obj2)
+            assert (
+                are_features_equal(obj1, obj2), 
+                "Update embs and momentums are not equal: {} != {}".format(obj1, obj2)
+            )
