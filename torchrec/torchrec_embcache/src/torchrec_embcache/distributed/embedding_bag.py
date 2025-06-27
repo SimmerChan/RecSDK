@@ -7,6 +7,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import os
+from dataclasses import dataclass
 from typing import Any, cast, Dict, List, Optional, Mapping, Union, Type
 from collections import defaultdict, OrderedDict
 import logging
@@ -48,6 +49,7 @@ from torchrec.modules.embedding_modules import EmbeddingBagCollection
 from torchrec.distributed.model_parallel import (
     DistributedDataParallel,
 )
+from torchrec.modules.embedding_configs import EmbeddingBagConfig
 from torchrec.sparse.jagged_tensor import KeyedTensor, KeyedJaggedTensor
 from torchrec.distributed.embedding_types import (
     ShardingType,
@@ -92,31 +94,36 @@ from torchrec.distributed.embeddingbag import (
 logger: logging.Logger = logging.getLogger(__name__)
 
 
+@dataclass
+class ShardingConfig:
+    sharding_type: str
+    table2hashmap: Dict[str, HashMapBase]
+    sharding_infos: List[EmbeddingShardingInfo]
+    cpu_env: ShardingEnv
+    cpu_device: Optional[torch.device] = None
+    permute_embeddings: bool = False
+    qcomm_codecs_registry: Optional[Dict[str, QuantizedCommCodecs]] = None
+    npu_device: Optional[torch.device] = None
+    npu_env: Optional[ShardingEnv] = None
+
+
 def create_embcache_embedding_bag_sharding(
-    sharding_type: str,
-    table2hashmap: Dict[str, HashMapBase],
-    sharding_infos: List[EmbeddingShardingInfo],
-    cpu_env: ShardingEnv,
-    cpu_device: Optional[torch.device] = None,
-    permute_embeddings: bool = False,
-    qcomm_codecs_registry: Optional[Dict[str, QuantizedCommCodecs]] = None,
-    npu_device: Optional[torch.device] = None,
-    npu_env: Optional[ShardingEnv] = None,
+    sharding_config: ShardingConfig,
 ) -> EmbeddingSharding[
     EmbeddingShardingContext, KeyedJaggedTensor, torch.Tensor, torch.Tensor
 ]:
-    if sharding_type == ShardingType.ROW_WISE.value:
+    if sharding_config.sharding_type == ShardingType.ROW_WISE.value:
         return EmbCacheRwPooledEmbeddingSharding(
-            sharding_infos,
-            table2hashmap,
-            cpu_env=cpu_env,
-            cpu_device=cpu_device,
-            npu_device=npu_device,
-            npu_env=npu_env,
-            qcomm_codecs_registry=qcomm_codecs_registry,
+            sharding_config.sharding_infos,
+            sharding_config.table2hashmap,
+            cpu_env=sharding_config.cpu_env,
+            cpu_device=sharding_config.cpu_device,
+            npu_device=sharding_config.npu_device,
+            npu_env=sharding_config.npu_env,
+            qcomm_codecs_registry=sharding_config.qcomm_codecs_registry,
         )
     else:
-        raise ValueError(f"Sharding type not supported {sharding_type}")
+        raise ValueError(f"Sharding type not supported {sharding_config.sharding_type}")
 
 
 class EmbCacheHashTable(torch.nn.Module):
@@ -136,12 +143,12 @@ class EmbCacheHashTable(torch.nn.Module):
 
     def forward(
         self,
-        input: torch.Tensor,
+        input_feat: torch.Tensor,
         offsets: Optional[torch.Tensor] = None,
         per_sample_weights=None,
     ):
-        raw_device = input.device
-        ids_host = input.cpu()
+        raw_device = input_feat.device
+        ids_host = input_feat.cpu()
         index_of_ids, _, _ = self.ids2slot_dict(ids_host, high_precison=True)
         index_of_ids = index_of_ids.to(raw_device)
         values = self.vector_table(index_of_ids, offsets)
@@ -225,16 +232,16 @@ class EmbCacheEmbeddingBagCollection(EmbeddingBagCollection):
             device if device is not None else torch.device("cpu")
         )
         self._optim_num = get_embedding_optim_num(embedding_optimizer_cls)
-        logger.debug(f"======  _optim_num:{self._optim_num}")
+        logger.debug("======  _optim_num: %s", self._optim_num)
 
         # 16GB = 16*1024*1024*1024 = 17179869184
         embcache_size_on_device_mem = int(os.getenv("EMBCACHE_SIZE_ON_DEVICE_MEM", "17179869184"))
-        logger.debug(f"======  embcache_size_on_device_mem:{embcache_size_on_device_mem}")
+        logger.debug("======  embcache_size_on_device_mem: %s", embcache_size_on_device_mem)
 
         cache_num_embeddings = self._caculate_caches(
             tables, embcache_size_on_device_mem, multi_hot_sizes, batch_size, world_size
         )
-        logger.debug(f"table_num_embeddings:{cache_num_embeddings}")
+        logger.debug("table_num_embeddings: %s", cache_num_embeddings)
         table_names = set()
         for index, embedding_config in enumerate(tables):
             # Use the cache_num_embeddings to embedding config
@@ -374,15 +381,17 @@ class EmbCacheShardedEmbeddingBagCollection(ShardedEmbeddingBagCollection):
             ]
         ] = [
             create_embcache_embedding_bag_sharding(
-                sharding_type,
-                self.table2hashmap,
-                embedding_configs,
-                cpu_env=cpu_env,
-                cpu_device=cpu_device,
-                permute_embeddings=True,
-                qcomm_codecs_registry=self.qcomm_codecs_registry,
-                npu_env=npu_env,
-                npu_device=npu_device,
+                ShardingConfig(
+                    sharding_type,
+                    self.table2hashmap,
+                    embedding_configs,
+                    cpu_env=cpu_env,
+                    cpu_device=cpu_device,
+                    permute_embeddings=True,
+                    qcomm_codecs_registry=self.qcomm_codecs_registry,
+                    npu_env=npu_env,
+                    npu_device=npu_device,
+                )
             )
             for sharding_type, embedding_configs in self.sharding_type_to_sharding_infos.items()
         ]
@@ -480,16 +489,16 @@ class EmbCacheShardedEmbeddingBagCollection(ShardedEmbeddingBagCollection):
         return table2hashmap
 
     def compute_and_output_dist(
-        self, ctx: EmbeddingBagCollectionContext, input: KJTList
+        self, ctx: EmbeddingBagCollectionContext, input_feat: KJTList
     ) -> LazyAwaitable[KeyedTensor]:
         awaitables = []
-        for lookup, dist, sharding_ctx, features in zip(
+        for lookup, out_dist, sharding_ctx, features in zip(
             self._lookups,
             self._output_dists,
             ctx.sharding_contexts,
-            input,
+            input_feat,
         ):
-            awaitables.append(dist(lookup(features), sharding_ctx))
+            awaitables.append(out_dist(lookup(features), sharding_ctx))
         return EmbeddingBagCollectionAwaitable(
             awaitables=awaitables,
             embedding_dims=self._embedding_dims,
