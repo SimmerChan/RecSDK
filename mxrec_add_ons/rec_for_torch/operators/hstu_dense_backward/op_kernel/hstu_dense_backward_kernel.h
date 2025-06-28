@@ -195,31 +195,6 @@ public:
         }
     }
 
-    __aicore__ inline void CastQType2Float(LocalTensor<float> dstTensor, LocalTensor<qType> srcTensor,
-                                           LocalTensor<qType> midTensor, int64_t len)
-    {
-        DataCopy<qType>(midTensor, srcTensor, len);
-        Cast(dstTensor, midTensor, RoundMode::CAST_NONE, len);
-    }
-
-    __aicore__ inline void CastInputData(LocalTensor<float> &inputQK, LocalTensor<float> &inputGV,
-                                         LocalTensor<float> &inputMask, LocalTensor<float> &inputBias, int64_t thisLen,
-                                         bool useMask)
-    {
-        LocalTensor<qType> outputMidTemp = this->queueOutputTemp.template AllocTensor<qType>();
-        if (!std::is_same<qType, float>::value) {
-            CastQType2Float(inputQK, inputQK.template ReinterpretCast<qType>(), outputMidTemp, thisLen);
-            CastQType2Float(inputGV, inputGV.template ReinterpretCast<qType>(), outputMidTemp, thisLen);
-            if (useMask) {
-                CastQType2Float(inputMask, inputMask.template ReinterpretCast<qType>(), outputMidTemp, thisLen);
-            }
-            if (this->enableBias) {
-                CastQType2Float(inputBias, inputBias.template ReinterpretCast<qType>(), outputMidTemp, thisLen);
-            }
-        }
-        this->queueOutputTemp.template FreeTensor(outputMidTemp);
-    }
-
     __aicore__ inline void CalcuScoreWithFloat32(int64_t thisLen, bool useMask)
     {
         auto inputQK = this->queueVecScoreQK.template DeQue<float>();
@@ -229,7 +204,7 @@ public:
         LocalTensor<float> inputBias = this->enableBias ? this->queueVecScoreBias.template DeQue<float>() :
                                                     this->queueVecScoreBias.template AllocTensor<float>();
 
-        CastInputData(inputQK, inputGV, inputMask, inputBias, thisLen, useMask);
+        this->CastInputData(inputQK, inputGV, inputMask, inputBias, thisLen, useMask);
 
         if (this->enableBias) {
             // qkb = qk + attn_bias

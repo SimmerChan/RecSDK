@@ -198,6 +198,31 @@ public:
         DataCopyPad(dstTensor, srcTensor, copyParams);
     }
 
+    __aicore__ inline void CastQType2Float(LocalTensor<float> dstTensor, LocalTensor<qType> srcTensor,
+                                           LocalTensor<qType> midTensor, int64_t len)
+    {
+        DataCopy<qType>(midTensor, srcTensor, len);
+        Cast(dstTensor, midTensor, RoundMode::CAST_NONE, len);
+    }
+
+    __aicore__ inline void CastInputData(LocalTensor<float> &inputQK, LocalTensor<float> &inputGV,
+                                         LocalTensor<float> &inputMask, LocalTensor<float> &inputBias, int64_t thisLen,
+                                         bool useMask)
+    {
+        LocalTensor<qType> outputMidTemp = this->queueOutputTemp.template AllocTensor<qType>();
+        if (!std::is_same<qType, float>::value) {
+            this->CastQType2Float(inputQK, inputQK.template ReinterpretCast<qType>(), outputMidTemp, thisLen);
+            this->CastQType2Float(inputGV, inputGV.template ReinterpretCast<qType>(), outputMidTemp, thisLen);
+            if (useMask) {
+                this->CastQType2Float(inputMask, inputMask.template ReinterpretCast<qType>(), outputMidTemp, thisLen);
+            }
+            if (this->enableBias) {
+                this->CastQType2Float(inputBias, inputBias.template ReinterpretCast<qType>(), outputMidTemp, thisLen);
+            }
+        }
+        this->queueOutputTemp.template FreeTensor(outputMidTemp);
+    }
+
     GM_ADDR curAICWorkspace;
 
     // Shape
