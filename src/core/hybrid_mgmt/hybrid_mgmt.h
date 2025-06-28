@@ -72,6 +72,7 @@ struct EmbTaskInfo {
     int batchId;
     int threadIdx;
     int cvNotifyIndex;
+    int embeddingSize;
     int extEmbeddingSize;
     int channelId;
     string name;
