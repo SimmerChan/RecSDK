@@ -13,15 +13,11 @@ from typing import (
     Deque,
     cast,
     Dict,
-    Generic,
     Iterator,
     List,
     Optional,
-    Set,
     Tuple,
     Type,
-    TypeVar,
-    Union,
     Callable,
 )
 from collections import defaultdict, deque
@@ -42,7 +38,6 @@ from torchrec_embcache.distributed.sharding.rw_sharding import (
     EmbCacheRwSparseFeaturesDistAwaitable,
 )
 
-from torchrec.distributed import TrainPipeline
 from torchrec.distributed.train_pipeline import In, Out, _wait_for_batch
 from torchrec.distributed.train_pipeline.utils import (
     In,
@@ -52,22 +47,18 @@ from torchrec.distributed.train_pipeline.utils import (
     _wait_for_batch,
     TrainPipelineContext,
     PipelinedForward,
-    _to_device,
-    _pipeline_detach_model,
     _rewrite_model,
     _override_input_dist_forwards,
 )
 
-from torchrec import KeyedJaggedTensor
 from torchrec.distributed.types import Awaitable, ShardedModule
-from torchrec.streamable import Multistreamable, Pipelineable
+from torchrec.streamable import Pipelineable
 from torchrec.distributed.embedding_sharding import (
     FusedKJTListSplitsAwaitable,
     KJTListSplitsAwaitable,
     KJTSplitsAllToAllMeta,
 )
 from torchrec.distributed.embedding_types import KJTList
-from torchrec.distributed.embeddingbag import EmbeddingBagCollectionContext
 from torchrec.distributed.train_pipeline.train_pipelines import TrainPipelineSparseDist
 
 MIN_EVICT_STEP_INTERVAL = 10
