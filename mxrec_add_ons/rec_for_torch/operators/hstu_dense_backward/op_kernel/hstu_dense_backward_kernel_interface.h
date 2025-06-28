@@ -172,6 +172,32 @@ public:
         }
     }
 
+    __aicore__ inline void CopyInPadding(LocalTensor<qType> dstTensor, GlobalTensor<qType> srcTensor, int64_t rowNum,
+                                         int64_t colNum, int64_t seqLen)
+    {
+        uint16_t blockCount = rowNum;
+        uint32_t blockLen = colNum * sizeof(qType);
+        uint32_t srcStride = (seqLen - colNum) * sizeof(qType);
+        uint32_t dstStride = (this->blockHeight - colNum) / (DATA_ALIGN_BYTES / sizeof(qType));
+        uint8_t rightPadding = (this->blockHeight - colNum) % (DATA_ALIGN_BYTES / sizeof(qType));
+
+        DataCopyExtParams copyParams{blockCount, blockLen, srcStride, dstStride, 0};
+        DataCopyPadExtParams<qType> padParams{true, 0, rightPadding, 0};
+        DataCopyPad(dstTensor, srcTensor, copyParams, padParams);
+    }
+
+    __aicore__ inline void CopyOutPadding(GlobalTensor<qType> dstTensor, LocalTensor<qType> srcTensor, int64_t rowNum,
+                                          int64_t colNum, int64_t seqLen)
+    {
+        uint16_t blockCount = rowNum;
+        uint32_t blockLen = colNum * sizeof(qType);
+        uint32_t srcStride = (this->blockHeight - colNum) / (DATA_ALIGN_BYTES / sizeof(qType));
+        uint32_t dstStride = (seqLen - colNum) * sizeof(qType);
+
+        DataCopyExtParams copyParams{blockCount, blockLen, srcStride, dstStride, 0};
+        DataCopyPad(dstTensor, srcTensor, copyParams);
+    }
+
     GM_ADDR curAICWorkspace;
 
     // Shape

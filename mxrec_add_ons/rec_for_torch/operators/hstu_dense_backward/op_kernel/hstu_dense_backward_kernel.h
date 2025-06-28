@@ -320,32 +320,6 @@ public:
                      this->taskInfo[curTaskId].colLine, useMask);
     }
 
-    __aicore__ inline void CopyInPadding(LocalTensor<qType> dstTensor, GlobalTensor<qType> srcTensor, int64_t rowNum,
-                                         int64_t colNum, int64_t seqLen)
-    {
-        uint16_t blockCount = rowNum;
-        uint32_t blockLen = colNum * sizeof(qType);
-        uint32_t srcStride = (seqLen - colNum) * sizeof(qType);
-        uint32_t dstStride = (this->blockHeight - colNum) / (DATA_ALIGN_BYTES / sizeof(qType));
-        uint8_t rightPadding = (this->blockHeight - colNum) % (DATA_ALIGN_BYTES / sizeof(qType));
-
-        DataCopyExtParams copyParams{blockCount, blockLen, srcStride, dstStride, 0};
-        DataCopyPadExtParams<qType> padParams{true, 0, rightPadding, 0};
-        DataCopyPad(dstTensor, srcTensor, copyParams, padParams);
-    }
-
-    __aicore__ inline void CopyOutPadding(GlobalTensor<qType> dstTensor, LocalTensor<qType> srcTensor, int64_t rowNum,
-                                          int64_t colNum, int64_t seqLen)
-    {
-        uint16_t blockCount = rowNum;
-        uint32_t blockLen = colNum * sizeof(qType);
-        uint32_t srcStride = (this->blockHeight - colNum) / (DATA_ALIGN_BYTES / sizeof(qType));
-        uint32_t dstStride = (seqLen - colNum) * sizeof(qType);
-
-        DataCopyExtParams copyParams{blockCount, blockLen, srcStride, dstStride, 0};
-        DataCopyPad(dstTensor, srcTensor, copyParams);
-    }
-
     __aicore__ inline void ValidVecScore(int64_t thisLen, int64_t validRowNum, int64_t totalColNum, int64_t qkOffset,
                                          int64_t curMaskOffset, int64_t curAttnBiasOffset, bool useMask)
     {
@@ -364,14 +338,14 @@ public:
                 DataCopy<qType>(inputMask.template ReinterpretCast<qType>(), this->maskTemp[curMaskOffset], thisLen);
             }
             if (IfMask(this->maskType, MaskType::MASK_CUSTOM)) {
-                CopyInPadding(inputMask.template ReinterpretCast<qType>(), this->mask[curMaskOffset], validRowNum,
+               this->CopyInPadding(inputMask.template ReinterpretCast<qType>(), this->mask[curMaskOffset], validRowNum,
                               totalColNum, this->maxSeqLen);
             }
             this->queueVecScoreMask.template EnQue(inputMask);
         }
         if (this->enableBias) {
             LocalTensor<float> inputBias = this->queueVecScoreBias.template AllocTensor<float>();
-            CopyInPadding(inputBias.template ReinterpretCast<qType>(), this->attnBias[curAttnBiasOffset], validRowNum,
+            this->CopyInPadding(inputBias.template ReinterpretCast<qType>(), this->attnBias[curAttnBiasOffset], validRowNum,
                           totalColNum, this->biasGradSeqLen);
             this->queueVecScoreBias.template EnQue(inputBias);
         }
@@ -381,7 +355,7 @@ public:
         LocalTensor<qType> outputScore = this->queueOutputScore.template DeQue<qType>();
         LocalTensor<qType> outputBias = this->queueOutputBias.template DeQue<qType>();
         DataCopy<qType>(this->scoreTemp[scoreTempOffset], outputScore, thisLen);
-        CopyOutPadding(this->attnBiasGrad[curAttnBiasOffset], outputBias, validRowNum, totalColNum,
+        this->CopyOutPadding(this->attnBiasGrad[curAttnBiasOffset], outputBias, validRowNum, totalColNum,
             this->biasGradSeqLen);
         this->queueOutputScore.template FreeTensor(outputScore);
         this->queueOutputBias.template FreeTensor(outputBias);
@@ -429,7 +403,7 @@ public:
 
                 int64_t curAttnBiasDiagonalOffset = attnBiasDiagonalOffset + startRowNum * this->biasGradSeqLen;
                 outputTempTensor = this->queueOutputTemp.template DeQue<qType>();
-                CopyOutPadding(this->attnBiasGrad[curAttnBiasDiagonalOffset], outputTempTensor, thisRowNum, totalRowNum,
+                this->CopyOutPadding(this->attnBiasGrad[curAttnBiasDiagonalOffset], outputTempTensor, thisRowNum, totalRowNum,
                                this->biasGradSeqLen);
                 this->queueOutputTemp.template FreeTensor(outputTempTensor);
             }
