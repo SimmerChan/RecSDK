@@ -20,8 +20,8 @@ import stat
 import re
 import glob
 import json
-import tensorflow as tf
 from typing import Dict, List
+import tensorflow as tf
 
 
 def get_third_nearest_checkpoint(path):
