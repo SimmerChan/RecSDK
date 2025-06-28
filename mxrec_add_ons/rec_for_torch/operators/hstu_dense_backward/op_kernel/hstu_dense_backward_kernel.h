@@ -345,8 +345,8 @@ public:
         }
         if (this->enableBias) {
             LocalTensor<float> inputBias = this->queueVecScoreBias.template AllocTensor<float>();
-            this->CopyInPadding(inputBias.template ReinterpretCast<qType>(), this->attnBias[curAttnBiasOffset], validRowNum,
-                          totalColNum, this->biasGradSeqLen);
+            this->CopyInPadding(inputBias.template ReinterpretCast<qType>(), this->attnBias[curAttnBiasOffset],
+                validRowNum, totalColNum, this->biasGradSeqLen);
             this->queueVecScoreBias.template EnQue(inputBias);
         }
 
@@ -403,8 +403,8 @@ public:
 
                 int64_t curAttnBiasDiagonalOffset = attnBiasDiagonalOffset + startRowNum * this->biasGradSeqLen;
                 outputTempTensor = this->queueOutputTemp.template DeQue<qType>();
-                this->CopyOutPadding(this->attnBiasGrad[curAttnBiasDiagonalOffset], outputTempTensor, thisRowNum, totalRowNum,
-                               this->biasGradSeqLen);
+                this->CopyOutPadding(this->attnBiasGrad[curAttnBiasDiagonalOffset], outputTempTensor, thisRowNum,
+                    totalRowNum, this->biasGradSeqLen);
                 this->queueOutputTemp.template FreeTensor(outputTempTensor);
             }
 
