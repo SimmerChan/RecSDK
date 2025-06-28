@@ -28,6 +28,7 @@ constexpr int SWAP_INFO_TUPLE_INDEX1 = 1;
 constexpr int SWAP_INFO_TUPLE_INDEX2 = 2;
 constexpr int SWAP_INFO_TUPLE_INDEX3 = 3;
 constexpr int SWAP_INFO_TUPLE_INDEX4 = 4;
+constexpr size_t TABLE_NAME_LENGTH = 100;
 constexpr size_t READ_AND_WRITE_SIZE_PEER_TIME = 32768;
 
 const std::string RANK_STR_PATH = "/rank";

@@ -85,11 +85,5 @@ struct EmbConfig {
     AdmitAndEvictConfig admitAndEvictConfig;
 };
 
-struct EmbMemPoolConfig {
-    uint64_t bufferSize;
-    uint64_t hostVocabSize;
-    uint32_t refillThreadNum;
-};
-
 }  // namespace Embcache
 #endif  // EMBEDDING_CACHE_COMMON_COMMON_H

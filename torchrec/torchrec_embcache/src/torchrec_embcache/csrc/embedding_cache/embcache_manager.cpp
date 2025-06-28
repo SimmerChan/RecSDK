@@ -23,9 +23,18 @@
 using namespace Embcache;
 
 EmbcacheManager::EmbcacheManager(const std::vector<EmbConfig>& embConfigs)
-    : embNum(embConfigs.size()),
-      embConfigs(embConfigs)
+    : embNum(embConfigs.size())
 {
+    for (auto& config : embConfigs) {
+        auto length = config.tableName.size();
+        if (config.tableName.size() > TABLE_NAME_LENGTH) {
+            LOG(ERROR) << "The length of table name:" << config.tableName << " is grater than max length "
+                       << TABLE_NAME_LENGTH;
+            throw std::runtime_error("the length of table name is invalid.");
+        }
+    }
+    this->embConfigs = embConfigs;
+    auto length = embConfigs[0].tableName.size();
     Singleton<Glogger>::GetInstance()->Init();
     enableFastHashMap = EnableFastHashMap();
 
@@ -237,7 +246,7 @@ void EmbcacheManager::EvictFeatures()
     size_t evictKeyCount = 0;
     for (int32_t i = 0; i < embNum; ++i) {
         if (!embConfigs[i].admitAndEvictConfig.IsEvictEnabled()) {
-            LOG(INFO) << "The table：" << embConfigs[i].tableName << " doesn't enable evict, skip feature evictr.";
+            LOG(INFO) << "The table：" << embConfigs[i].tableName << " doesn't enable evict, skip feature evict.";
             continue;
         }
 
