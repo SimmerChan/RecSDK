@@ -81,6 +81,8 @@ public:
     void StatisticsKeyCount(const at::Tensor& batchKeys, const torch::Tensor& offset, const at::Tensor& batchKeyCounts,
                             int64_t tableIndex);
 
+    void RecordEmbeddingUpdateTimes();
+
     /**
      * 读取指定文件。 示例：save_dir/sparse/table1/rank0/key/slice.data
      * @tparam T 数据类型泛型
@@ -129,7 +131,7 @@ private:
     std::vector<FeatureFilter> featureFilters;
 
     uint64_t swapCount = 0;       // ComputeSwapInfo 执行次数
-    uint64_t embLookupCount = 0;  // EmbeddingLookup 执行次数
+    uint64_t embUpdateCount = 0;  // EmbeddingUpdate 执行次数
 
     bool enableFastHashMap = false;
     int32_t optimNum;

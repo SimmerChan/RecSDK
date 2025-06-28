@@ -553,6 +553,9 @@ class EmbCacheShardedEmbeddingBagCollection(ShardedEmbeddingBagCollection):
             swap_info, swapout_embs, swapout_optims
         )
 
+    def record_host_emb_update_times(self):
+        self._embcache_mgr.record_embedding_update_times()
+
     def host_embedding_lookup_async(self, swap_info: SwapInfo) -> AsyncSwapinTensor:
         return self._embcache_mgr.embedding_lookup_async(swap_info)
 

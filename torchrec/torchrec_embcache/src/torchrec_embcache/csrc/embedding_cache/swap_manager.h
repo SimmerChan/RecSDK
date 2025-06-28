@@ -37,7 +37,7 @@ public:
     {
         return occupiedNum;
     };
-    void RemoveKeys(const std::vector<int64_t>& keys, std::vector<int64_t>& evictFeatures);
+    void RemoveKeys(const std::vector<int64_t>& keys);
     int64_t GetMemStartOffset() const;
 
 private:

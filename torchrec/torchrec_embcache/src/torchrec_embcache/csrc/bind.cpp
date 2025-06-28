@@ -5,17 +5,17 @@
  * This source code is licensed under the BSD-style license found in the
  * LICENSE file in the root directory of this source tree.
  */
-#include <pybind11/pybind11.h>
 #include <any>
-#include <chrono>
 #include <vector>
+
+#include <pybind11/pybind11.h>
 
 #include "embedding_cache/embcache_manager.h"
 #include "ops/restore.h"
 
 using namespace Embcache;
 
-void AddEmcacheManager(pybind11::module_& m)
+void AddEmbCacheManager(pybind11::module_& m)
 {
     py::class_<EmbcacheManager>(m, "EmbcacheManager")
         .def(py::init<const std::vector<EmbConfig>&>(), py::arg("emb_configs"))
@@ -31,7 +31,8 @@ void AddEmcacheManager(pybind11::module_& m)
              py::arg("batch_timestamps"))
         .def("evict_features", &EmbcacheManager::EvictFeatures)
         .def("statistics_key_count", &EmbcacheManager::StatisticsKeyCount, py::arg("batch_keys"), py::arg("offset"),
-             py::arg("batch_key_counts"), py::arg("table_index"));
+             py::arg("batch_key_counts"), py::arg("table_index"))
+        .def("record_embedding_update_times", &EmbcacheManager::RecordEmbeddingUpdateTimes);
 }
 
 // Registers _C as a Python extension module.
@@ -75,7 +76,7 @@ PYBIND11_MODULE(embcache_pybind, m)
         .def_readwrite("swapin_optims", &SwapinTensor::swapinOptims)
         .def_readwrite("jagged_offs", &SwapinTensor::jaggedOffs);
 
-    AddEmcacheManager(m);
+    AddEmbCacheManager(m);
 
     py::class_<AsyncTask<SwapInfo>>(m, "AsyncSwapInfo").def("get", &AsyncTask<SwapInfo>::get);
     py::class_<AsyncTask<SwapinTensor>>(m, "AsyncSwapinTensor").def("get", &AsyncTask<SwapinTensor>::get);
