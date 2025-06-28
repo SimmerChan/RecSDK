@@ -223,7 +223,6 @@ public:
         this->queueOutputTemp.template FreeTensor(outputMidTemp);
     }
 
-
     __aicore__ inline void CalcBaseOffsets(int64_t curTaskId, bool isCol = true)
     {
         this->taskInfo[curTaskId].qkLeftOffset = this->taskInfo[curTaskId].batchId * this->seqLen * this->headNum *
