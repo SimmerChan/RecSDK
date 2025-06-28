@@ -314,7 +314,7 @@ public:
             }
             if (IfMask(this->maskType, MaskType::MASK_CUSTOM)) {
                this->CopyInPadding(inputMask.template ReinterpretCast<qType>(), this->mask[curMaskOffset], validRowNum,
-                              totalColNum, this->maxSeqLen);
+                   totalColNum, this->maxSeqLen);
             }
             this->queueVecScoreMask.template EnQue(inputMask);
         }
