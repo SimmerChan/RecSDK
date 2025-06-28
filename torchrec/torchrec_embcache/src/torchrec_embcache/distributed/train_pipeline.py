@@ -135,7 +135,7 @@ class EmbCachePipelinedForward(PipelinedForward):
         self._context.sparse_features_after_restore_future.pop(self._name).get()
         data = self._context.sparse_features_after_post_dist.pop(self._name)
         # 由于把global_unique的结果unique_ids作为输入给到get_swap_info, 因此get_swap_info的结果batch_offs即为unique_indices
-        data[0]._unique_indices = self._context.swap_info[self._name].batch_offs
+        data[0].unique_indices = self._context.swap_info[self._name].batch_offs
 
         ctx = self._context.module_contexts.pop(self._name)
         cur_stream = torch.get_device_module(self._device).current_stream()
