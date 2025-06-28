@@ -23,6 +23,7 @@ from torchrec.distributed.embedding_sharding import (
     KJTSplitsAllToAllMeta
 )
 from torchrec.distributed.train_pipeline.utils import TrainPipelineContext
+from torchrec.modules.embedding_modules import get_embedding_names_by_table
 
 
 OVER_COUNT = 10
@@ -95,7 +96,7 @@ def check_config(config):
     for embedding_dim, feature_names in zip(config["embedding_dims"], config["feature_names_lst"]):
         lookup_size += embedding_dim * len(feature_names)
     total_size = (table_size + lookup_size) * dtype_size / (1024 * 1024)  # Convert to MB
-    max_size = 65536
+    max_size = int(os.getenv("MAX_TABLE_SIZE_MB", 65536))
     if total_size > max_size:
         raise ValueError(
             "table size is too large, please reduce the table size"
@@ -105,7 +106,15 @@ def check_config(config):
     # 需要检查device缓存是否够用
     multi_hot_sizes = [1] * config["table_num"]
     dtype_size = 4 # default fp32
-    weight_and_optim_count = 2
+    if config["optim"] == "Adagrad":
+        embedding_optimizer_cls = torch.optim.Adagrad
+    elif config["optim"] == "Adam":
+        embedding_optimizer_cls = torch.optim.Adam
+    else:
+        raise ValueError(f"Unsupported optimizer: {config['optim']}")
+    optim_num = get_embedding_names_by_table(embedding_optimizer_cls)
+    # 由于同时训练换入换出，最少要能放下2倍的batch_size的emb + optim
+    weight_and_optim_count = optim_num + 1
     min_mem = np.sum(
         np.dot(
             np.multiply(config["embedding_dims"], multi_hot_sizes), 

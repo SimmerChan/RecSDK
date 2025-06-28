@@ -22,7 +22,7 @@ class Batch(Pipelineable):
     sparse_features: KeyedJaggedTensor
     labels: torch.Tensor
 
-    def __init__(self, sparse_features, labels, instances) -> None:
+    def __init__(self, sparse_features: KeyedJaggedTensor, labels: torch.Tensor, instances: int = 1) -> None:
         self.sparse_features = sparse_features
         for i in range(instances):
             setattr(self, f"instance{i}_sparse_features", sparse_features)

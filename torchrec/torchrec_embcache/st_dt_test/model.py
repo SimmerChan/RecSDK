@@ -9,7 +9,7 @@ import itertools
 import logging
 import os
 from dataclasses import dataclass
-from typing import Dict, List, Callable
+from typing import Dict, List, Callable, Union
 
 import torch
 import torch_npu
@@ -22,14 +22,14 @@ from torch.utils.data import DataLoader
 from torchrec_embcache.distributed.embedding import EmbCacheEmbeddingCollection
 from torchrec_embcache.distributed.embedding_bag import EmbCacheEmbeddingBagCollection
 from torchrec_embcache.distributed.modules.cache_embedding_configs import (
-AdmitAndEvictConfig, 
-EmbCacheEmbeddingConfig,
-EmbCacheEmbeddingBagConfig,
-InitializerType
+    AdmitAndEvictConfig, 
+    EmbCacheEmbeddingConfig,
+    EmbCacheEmbeddingBagConfig,
+    InitializerType
 )
 from torchrec_embcache.distributed.sharding.embedding_sharder import (
-EmbCacheEmbeddingCollectionSharder, 
-EmbCacheEmbeddingBagCollectionSharder
+    EmbCacheEmbeddingCollectionSharder, 
+    EmbCacheEmbeddingBagCollectionSharder
 )
 from torchrec_embcache.distributed.train_pipeline import EmbCacheTrainPipelineSparseDist
 from util import logging
@@ -63,7 +63,7 @@ OPTIMIZER_PARAM = {
 }
 
 
-def permute_values(kjt: KeyedJaggedTensor, feature_names_lst) -> torch.Tensor:
+def permute_values(kjt: KeyedJaggedTensor, feature_names_lst: List[List[str]]) -> torch.Tensor:
     values = []
     jt_dict = kjt.to_dict()
     for feature_name in itertools.chain(*feature_names_lst):
@@ -74,7 +74,7 @@ def permute_values(kjt: KeyedJaggedTensor, feature_names_lst) -> torch.Tensor:
 
 
 # ec和ebc查询结果返回数据类型不一样
-def permute_values_ec(result: Dict, feature_num_lst) -> torch.Tensor:
+def permute_values_ec(result: Dict, feature_num_lst: List[List[str]]) -> torch.Tensor:
     values = []
     for feature_name in itertools.chain(*feature_num_lst):
         jt = result[feature_name].values()
@@ -84,13 +84,27 @@ def permute_values_ec(result: Dict, feature_num_lst) -> torch.Tensor:
 
 
 class Model(torch.nn.Module):
-    def __init__(self, module, feature_names_lst):
+    def __init__(
+            self, 
+            module: Union[EmbeddingCollection, EmbeddingBagCollection],
+            feature_names_lst: List[List[str]], 
+            collection_type: str = "ebc"
+        ):
         super().__init__()
         self._module = module
         self.feature_names_lst = feature_names_lst
+        self.collection_type = collection_type
 
     @property
     def ebc(self):
+        if self.collection_type != "ebc":
+            raise ValueError(f"collection type must be ebc, find {self.collection_type} instead")
+        return self._module
+    
+    @property
+    def ec(self):
+        if self.collection_type != "ec":
+            raise ValueError(f"collection type must be ec, find {self.collection_type} instead")
         return self._module
 
     def forward(self, batch: Batch):
@@ -105,34 +119,12 @@ class Model(torch.nn.Module):
         return loss, result
 
 
-class ModelEc(torch.nn.Module):
-    def __init__(self, module, feature_names_lst):
-        super().__init__()
-        self._module = module
-        self.feature_names_lst = feature_names_lst
-
-    @property
-    def ec(self):
-        return self._module
-
-    def forward(self, batch: Batch):
-        results = []
-        for i, module in enumerate(self._module):
-            result = module(getattr(batch, f"instance{i}_sparse_features"))
-            result = permute_values_ec(result, self.feature_names_lst)
-            results.append(result)
-
-        result = torch.concat(results, dim=1)
-        loss = result.sum()
-        return loss, result
-
-
 COLLECTION_DICT = {
     "ec": {
         "collection": EmbCacheEmbeddingCollection,
         "collection_cpu": EmbeddingCollection,
         "sharder": EmbCacheEmbeddingCollectionSharder,
-        "model": ModelEc,
+        "model": Model,
         "config": EmbCacheEmbeddingConfig
     },
     "ebc": {
@@ -146,7 +138,16 @@ COLLECTION_DICT = {
 
 
 class TestModel:
-    def __init__(self, rank, world_size, device, instances, feature_names_lst, batch_num, collection_type="ec"):
+    def __init__(
+            self,
+            rank: int,
+            world_size: int,
+            device: str,
+            instances: int = 1,
+            feature_names_lst: List[List[str]] = None,
+            batch_num: int = 8,
+            collection_type: str = "ec",
+    ):
         self.rank = rank
         self.world_size = world_size
         self.device = device
@@ -168,9 +169,9 @@ class TestModel:
 
     def cpu_golden_loss(
         self, 
-        embedding_config,
+        embedding_config: List[EmbeddingConfig],
         dataloader: DataLoader[Batch], 
-        optim
+        optim: Callable = Adagrad
     ):
         pg = dist.new_group(backend="gloo")
         table_num = len(embedding_config)
@@ -179,7 +180,7 @@ class TestModel:
             module.append(
                 COLLECTION_DICT[self.collection_type]["collection_cpu"](device="cpu", tables=embedding_config)
             )
-        module = COLLECTION_DICT[self.collection_type]["model"](module, self.feature_names_lst)
+        module = COLLECTION_DICT[self.collection_type]["model"](module, self.feature_names_lst, self.collection_type)
         model = DDP(module, device_ids=None, process_group=pg)
         opt = optim(module.parameters(), **OPTIMIZER_PARAM[optim])
 
@@ -214,10 +215,10 @@ class TestModel:
 
     def init_ddp_model(
         self,
-        embedding_config,
+        embedding_config: List[EmbeddingConfig],
         sharding_type: str,
-        optim,
-        lookup_lens,
+        optim: Callable = Adagrad,
+        lookup_lens: int = 100,
     ):
         rank, world_size = self.rank, self.world_size
         host_gp = dist.new_group(backend="gloo")
@@ -233,7 +234,7 @@ class TestModel:
                         world_size=dist.get_world_size()
                     )
                 )
-        module = COLLECTION_DICT[self.collection_type]["model"](module, self.feature_names_lst)
+        module = COLLECTION_DICT[self.collection_type]["model"](module, self.feature_names_lst, self.collection_type)
         apply_optimizer_in_backward(
             optimizer_class=optim,
             params=module.parameters(),
@@ -325,31 +326,25 @@ def generate_hash_config(hash_config: HashConfig):
     init_fn = hash_config.init_fn
     collection_type = hash_config.collection_type
     for i, (table_dim, num_embedding, feature_name) in enumerate(zip(embedding_dims, num_embeddings, feature_names)):
+        config_params = {
+            "name": f"table{i}",
+            "embedding_dim": table_dim,
+            "num_embeddings": num_embedding,
+            "feature_names": feature_name,
+            "init_fn": init_fn,
+            "weight_init_max": 1.0,
+            "weight_init_min": 0.0,
+            "pooling": pool_type,
+            "initializer_type": InitializerType.LINEAR
+        }
         if collection_type == "ebc":    
-            config = COLLECTION_DICT[collection_type]["config"](
-                name=f"table{i}",
-                embedding_dim=table_dim,
-                num_embeddings=num_embedding,
-                feature_names=feature_name,
-                pooling=pool_type,
-                init_fn=init_fn,
-                weight_init_max=1.0,
-                weight_init_min=0.0,
-                initializer_type=InitializerType.LINEAR
-            )
+            config = COLLECTION_DICT[collection_type]["config"](**config_params)
         else:
             admit_and_evict_config = AdmitAndEvictConfig(admit_threshold=-1, 
                                                          not_admitted_default_value=0.99)
             config = COLLECTION_DICT[collection_type]["config"](
-                name=f"table{i}",
-                embedding_dim=table_dim,
-                num_embeddings=num_embedding,
-                feature_names=feature_name,
-                init_fn=init_fn,
-                weight_init_max=1.0,
-                weight_init_min=0.0,
                 admit_and_evict_config=admit_and_evict_config,
-                initializer_type=InitializerType.LINEAR
+                **config_params
             )
         test_table_configs.append(config)
     return test_table_configs

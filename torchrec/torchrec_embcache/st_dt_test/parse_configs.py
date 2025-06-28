@@ -12,7 +12,7 @@ from collections import defaultdict
 import yaml
 
 
-def load_config(file_path):
+def load_config(file_path: str) -> dict:
     """
     Load a YAML configuration file and return its contents as a dictionary.
     """
@@ -21,7 +21,7 @@ def load_config(file_path):
     return config
 
 
-def load_all_configs(config_dir):
+def load_all_configs(config_dir: str) -> dict:
     """
     Load all YAML configuration files from a specified directory.
     """
