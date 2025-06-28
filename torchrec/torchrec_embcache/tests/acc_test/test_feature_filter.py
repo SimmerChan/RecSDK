@@ -74,7 +74,7 @@ def _check_admit_key_count(data_loader_golden, embedding_configs: List[EmbCacheE
                 if ids % WORLD_SIZE != rank:
                     continue
                 if ids in table_key_count[i]:
-                    table_key_count[i][ids] += 1
+                    table_key_count[i][ids] = table_key_count[i][ids] + 1
                 else:
                     table_key_count[i][ids] = 1
 
