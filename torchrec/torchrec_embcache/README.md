@@ -24,13 +24,13 @@ bash zbuild.sh
 完成Step 3后，可以到dist目录下去安装*.whl包。
 ```
 cd ./dist
-pip3 uninstall -y embedding-cache
-pip3 install embedding_cache-0.0.1-py3-none-any.whl
+pip3 uninstall -y torchrec-embcache
+pip3 install torchrec_embcache-0.0.1-py3-none-any.whl
 ```
 
 安装完成后，可以进行测试.
 ```bash
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/python3.11.0/lib/python3.11/site-packages/torch/lib:/usr/local/python3.11.0/lib/python3.11/site-packages/embedding_cache/
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/python3.11.0/lib/python3.11/site-packages/torch/lib:/usr/local/python3.11.0/lib/python3.11/site-packages/torchrec_embcache/
 cd tests
 python3 get_swap_info_test.py
 ```
