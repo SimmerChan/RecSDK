@@ -48,14 +48,10 @@ def emb_read(out_dir="save_dir", table_names=None, ranks=None):
     return embedding_dt
 
 
-import numpy as np
-
-
 def compare_structures(struct1, struct2):
     """
     递归比较两个结构（字典或元组）中的所有元素。
     """
-    flag = True
     # 检查结构类型是否一致
     if isinstance(struct1, dict) and isinstance(struct2, dict):
         # 比较字典的键

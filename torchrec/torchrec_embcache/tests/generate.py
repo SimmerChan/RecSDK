@@ -15,10 +15,7 @@ RANKS = [0, 1]
 OUT_DIR = "sparse"
 
 
-try:
-    os.makedirs(OUT_DIR)
-except FileExistsError:
-    pass  # 目录已存在，跳过
+os.makedirs(OUT_DIR, exist_ok=True)
 
 
 def do_out(table_name, rank_id, slice_name, attribute, data):
@@ -33,7 +30,6 @@ def do_out(table_name, rank_id, slice_name, attribute, data):
 keys_attributes = [np.array([KEYS_TYPE_BYTES, KEYS_NUM]).astype(np.int64) for KEYS_NUM in KEYS_NUMS]
 embed_attributes = [np.array([EMBED_TYPE_BYTEST, KEYS_NUM, EMBED_DIM]).astype(np.int64) for KEYS_NUM in KEYS_NUMS]
 moment1_attributes = [np.array([EMBED_TYPE_BYTEST, KEYS_NUM, EMBED_DIM]).astype(np.int64) for KEYS_NUM in KEYS_NUMS]
-# moment2_attribute = np.array([EMBED_TYPE_BYTEST, KEYS_NUM, EMBED_DIM]).astype(np.int64)
 
 keys_datas = [np.arange(KEYS_NUM).astype(np.int64) for KEYS_NUM in KEYS_NUMS]
 embed_datas = [
