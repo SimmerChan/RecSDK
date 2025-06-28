@@ -107,8 +107,8 @@ def execute(rank, config):
     for golden, result in zip(golden_results, test_results):
         logging.debug("")
         logging.debug("===========================")
-        logging.debug("result test %s", golden)
-        logging.debug("gloden test %s", result)
+        logging.debug("result test %s", result)
+        logging.debug("golden test %s", golden)
         assert torch.allclose(
             golden, result, rtol=1e-04, atol=1e-04
         ), "golden and result is not closed"
