@@ -81,10 +81,10 @@ def execute(rank: int, config: ExecuteConfig):
     admit_threshold = config.admit_threshold
     setup_logging(rank)
     logging.info("this test %s", os.path.basename(__file__))
-    dataset_gloden = RandomRecDataset(BATCH_NUM, lookup_len, num_embeddings, table_num)
+    dataset_golden = RandomRecDataset(BATCH_NUM, lookup_len, num_embeddings, table_num)
     dataset = RandomRecDataset(BATCH_NUM, lookup_len, num_embeddings, table_num)
-    dataset_loader_gloden = DataLoader(
-        dataset_gloden,
+    dataset_loader_golden = DataLoader(
+        dataset_golden,
         batch_size=None,
         batch_sampler=None,
         pin_memory=True,
@@ -111,10 +111,10 @@ def execute(rank: int, config: ExecuteConfig):
         embedding_configs.append(ec_config)
 
     test_model = TestModel(rank, world_size, device)
-    gloden_results = test_model.cpu_gloden_loss(embedding_configs, dataset_loader_gloden)
+    golden_results = test_model.cpu_golden_loss(embedding_configs, dataset_loader_golden)
     test_results = test_model.test_loss(embedding_configs, data_loader, sharding_type)
     i = 0
-    for golden, result in zip(gloden_results, test_results):
+    for golden, result in zip(golden_results, test_results):
         logging.debug("")
         logging.debug("==============batch %d================", i // 2)
         logging.debug("result test %s", result)
@@ -148,7 +148,7 @@ class TestModel:
         self.setup(rank=rank, world_size=world_size)
 
     @staticmethod
-    def cpu_gloden_loss(
+    def cpu_golden_loss(
         embeding_config: List[EmbCacheEmbeddingConfig], dataloader: DataLoader[Batch]
     ):
         pg = dist.new_group(backend="gloo")
