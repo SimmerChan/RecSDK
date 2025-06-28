@@ -42,39 +42,6 @@ public:
         this->ComputeSecond();
     }
 
-    __aicore__ inline void CalcBaseOffsets(int64_t curTaskId, bool isCol = true)
-    {
-        this->taskInfo[curTaskId].qkLeftOffset = this->taskInfo[curTaskId].batchId * this->seqLen * this->headNum *
-            this->headDim + this->taskInfo[curTaskId].rowId * this->blockHeight * this->headNum * this->headDim +
-            this->taskInfo[curTaskId].headId * this->headDim;
-        this->taskInfo[curTaskId].qkRightOffset = this->taskInfo[curTaskId].batchId * this->seqLen * this->headNum *
-            this->headDim + this->taskInfo[curTaskId].colId * this->blockHeight *
-            this->headNum * this->headDim + this->taskInfo[curTaskId].headId * this->headDim;
-        this->taskInfo[curTaskId].kGradLeftOffset = this->taskInfo[curTaskId].batchId * this->headNum *
-            this->biasGradSeqLen * this->biasGradSeqLen + this->taskInfo[curTaskId].headId * this->biasGradSeqLen *
-            this->biasGradSeqLen + this->taskInfo[curTaskId].rowId * this->blockHeight * this->biasGradSeqLen +
-            this->taskInfo[curTaskId].colId * this->blockHeight;
-        if (isCol) {
-            this->taskInfo[curTaskId].vGradRightOffset = this->taskInfo[curTaskId].batchId * this->seqLen *
-                this->headNum * this->headDim + this->taskInfo[curTaskId].rowId * this->blockHeight *
-                this->headNum * this->headDim + this->taskInfo[curTaskId].headId * this->headDim;
-
-            this->taskInfo[curTaskId].rowLine = this->seqLen - this->taskInfo[curTaskId].rowId * this->blockHeight;
-            if (this->taskInfo[curTaskId].rowLine > this->blockHeight) {
-                this->taskInfo[curTaskId].rowLine = this->blockHeight;
-            }
-        } else {
-            this->taskInfo[curTaskId].vGradRightOffset = this->taskInfo[curTaskId].batchId * this->seqLen *
-                this->headNum * this->headDim + this->taskInfo[curTaskId].colId * this->blockHeight *
-                this->headNum * this->headDim + this->taskInfo[curTaskId].headId * this->headDim;
-
-            this->taskInfo[curTaskId].colLine = this->seqLen - this->taskInfo[curTaskId].colId * this->blockHeight;
-            if (this->taskInfo[curTaskId].colLine > this->blockHeight) {
-                this->taskInfo[curTaskId].colLine = this->blockHeight;
-            }
-        }
-    }
-
     __aicore__ inline void DoQKMatmul(int64_t taskId)
     {
         int64_t curTaskId = taskId % COMPUTE_PIPE_NUM;
@@ -542,7 +509,7 @@ public:
                 int64_t curTaskId = taskId % COMPUTE_PIPE_NUM;
                 this->taskInfo[curTaskId] = BlockInfo{taskId, batchId, headId, rowId, colId, accumId};
                 this->taskInfo[curTaskId].colLine = colLine;
-                CalcBaseOffsets(curTaskId);
+                this->CalcBaseOffsets(curTaskId);
 
                 FirstStagePipeline(taskId);
 
@@ -596,7 +563,7 @@ public:
                 int64_t curTaskId = taskId % COMPUTE_PIPE_NUM;
                 this->taskInfo[curTaskId] = BlockInfo{taskId, batchId, headId, rowId, colId, accumId};
                 this->taskInfo[curTaskId].rowLine = rowLine;
-                CalcBaseOffsets(curTaskId, false);
+                this->CalcBaseOffsets(curTaskId, false);
 
                 SecondStagePipeline(taskId);
 
