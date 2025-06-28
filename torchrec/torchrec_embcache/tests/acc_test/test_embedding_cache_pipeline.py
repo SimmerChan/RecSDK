@@ -80,7 +80,6 @@ def execute(rank: int, config: ExecuteConfig):
     device = config.device
     setup_logging(rank)
     logging.info("this test %s", os.path.basename(__file__))
-    # , batch_num, lookup_lens, num_embeddings, table_num
     dataset_gloden = RandomRecDataset(BATCH_NUM, lookup_len, num_embeddings, table_num)
     dataset = RandomRecDataset(BATCH_NUM, lookup_len, num_embeddings, table_num)
     dataset_loader_gloden = DataLoader(
@@ -106,8 +105,6 @@ def execute(rank: int, config: ExecuteConfig):
             feature_names=[f"feat{i}"],
             pooling=pool_type,
             init_fn=weight_init,
-            weight_init_min=0.0,
-            weight_init_max=1.0,
         )
         embeding_config.append(ebc_config)
 
@@ -115,15 +112,15 @@ def execute(rank: int, config: ExecuteConfig):
     gloden_results = test_model.cpu_gloden_loss(embeding_config, dataset_loader_gloden)
     test_results = test_model.test_loss(embeding_config, data_loader, sharding_type)
     i = 0
-    for gloden, result in zip(gloden_results, test_results):
+    for golden, result in zip(gloden_results, test_results):
         logging.debug("")
         logging.debug("==============batch %d================", i // 2)
         logging.debug("result test %s", result)
-        logging.debug("gloden test %s", gloden)
+        logging.debug("golden test %s", golden)
         i += 1
         assert torch.allclose(
-            gloden, result, rtol=1e-04, atol=1e-04
-        ), "gloden and result is not closed"
+            golden, result, rtol=1e-04, atol=1e-04
+        ), "golden and result is not closed"
 
 
 def weight_init(param: torch.nn.Parameter):

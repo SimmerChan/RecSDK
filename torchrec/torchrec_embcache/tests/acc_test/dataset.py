@@ -93,7 +93,6 @@ class RandomRecDataset(IterableDataset[Batch]):
             kjt_tensor = KeyedJaggedTensorWithTimestamp.from_jt_dict(input_dict)
             label = torch.randint(0, 2, (self.lookup_lens,))
         else:
-            # for ind in range(feature_len-1, -1, -1):
             for ind in range(feature_len):
                 name = f"feat{ind}"
                 id_range = self.num_embeddings[ind]
