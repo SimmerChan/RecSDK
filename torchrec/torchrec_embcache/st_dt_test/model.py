@@ -332,8 +332,6 @@ def generate_hash_config(hash_config: HashConfig):
             "num_embeddings": num_embedding,
             "feature_names": feature_name,
             "init_fn": init_fn,
-            "weight_init_max": 1.0,
-            "weight_init_min": 0.0,
             "pooling": pool_type,
             "initializer_type": InitializerType.LINEAR
         }
