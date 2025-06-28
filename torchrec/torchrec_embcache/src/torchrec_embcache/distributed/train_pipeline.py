@@ -281,9 +281,12 @@ class EmbCacheTrainPipelineSparseDist(TrainPipelineSparseDist[In, Out]):
         self._npu_device = npu_device
         self._return_loss = return_loss
         self._global_steps = 0
-        if evict_step_interval is not None and evict_step_interval < 10:
+        if (
+            evict_step_interval is not None
+            and evict_step_interval < MIN_EVICT_STEP_INTERVAL
+        ):
             raise ValueError(
-                f"Param error, evict_step_interval must greater or equal than 10,"
+                f"Param error, evict_step_interval must greater or equal than {MIN_EVICT_STEP_INTERVAL},"
                 f" but got {evict_step_interval}."
             )
         self._evict_step_interval = evict_step_interval or 0
