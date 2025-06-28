@@ -280,8 +280,8 @@ public:
                 DataCopy<qType>(inputMask.template ReinterpretCast<qType>(), this->maskTemp[curMaskOffset], thisLen);
             }
             if (IfMask(this->maskType, MaskType::MASK_CUSTOM)) {
-               this->CopyInPadding(inputMask.template ReinterpretCast<qType>(), this->mask[curMaskOffset], validRowNum,
-                   totalColNum, this->maxSeqLen);
+                this->CopyInPadding(inputMask.template ReinterpretCast<qType>(), this->mask[curMaskOffset], validRowNum,
+                    totalColNum, this->maxSeqLen);
             }
             this->queueVecScoreMask.template EnQue(inputMask);
         }
