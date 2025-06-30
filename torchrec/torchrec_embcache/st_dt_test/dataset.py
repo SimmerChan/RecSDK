@@ -121,7 +121,7 @@ class BoundOutOfRangeRecDataset(RandomRecDataset):
                 ids = torch.tensor(ids)
                 lengths = torch.ones(self.lookup_lens).long()
                 input_dict[feature_name] = JaggedTensor(values=ids, lengths=lengths)
-                self.generate_ids[ind].update(ids.tolist())
+                self.generated_ids[ind].update(ids.tolist())
         kjt_tensor = KeyedJaggedTensor.from_jt_dict(input_dict)
         label = torch.randint(0, 2, (self.lookup_lens,))
         return Batch(kjt_tensor, label, self.instances)

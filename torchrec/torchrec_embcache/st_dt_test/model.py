@@ -54,6 +54,8 @@ from torchrec.optim.keyed import CombinedOptimizer
 
 
 lib_fbgemm_npu_api_so_path = os.getenv('LIB_FBGEMM_NPU_API_SO_PATH')
+if not lib_fbgemm_npu_api_so_path:
+    raise ValueError("LIB_FBGEMM_NPU_API_SO_PATH environment variable is not set.")
 torch.ops.load_library(lib_fbgemm_npu_api_so_path)
 
 

@@ -31,6 +31,8 @@ def load_all_configs(config_dir: str) -> dict:
             config_path = os.path.join(config_dir, filename)
             config = load_config(config_path)
             filename = filename.split(".")[0]
+            if not re.match(r".*_\d+$", filename):
+                continue  # Skip files that do not match the expected format
             test_case_name, _, _ = re.split("_(\d+)$", filename)
             configs[test_case_name].append((filename, config))
     return configs
