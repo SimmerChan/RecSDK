@@ -151,7 +151,13 @@ void* ShmMemSet(std::string& shmName, uint64_t memSize)
         }
 
         shmctl(shmId, IPC_STAT, &buf);
-        (void)memset_s(memory, memSize, 0, memSize);
+        const errno_t ret = memset_s(memory, memSize, 0, memSize);
+        if (ret != EOK) {
+            const auto error = Error(ModuleName::M_RMA_SHM_SVM, ErrorType::MEMORY_ERROR,
+                                     StringFormat("memset_s failed, ret=%d", ret));
+            LOG_ERROR(error.ToString());
+            throw runtime_error(error.ToString());
+        }
         g_shmId.insert(std::make_pair(shmName, shmId));
         LOG_INFO("Create shm {}, shmid: {}, size: {} bytes successfully.", shmName.c_str(), shmId, memSize);
     }

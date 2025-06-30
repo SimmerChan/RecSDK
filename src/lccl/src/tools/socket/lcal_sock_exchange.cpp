@@ -470,7 +470,11 @@ int BootstrapGetServerIp(LcalSocketAddress& handle)
     }
 
     // 填充 sockaddr_in 结构体
-    memset_s(&handle, sizeof(handle), 0, sizeof(handle));
+    const errno_t ret = memset_s(&handle, sizeof(handle), 0, sizeof(handle));
+    if (ret != EOK) {
+        ASD_LOG(ERROR) << "ERROR: memset_s failed, ret=" << std::to_string(ret);
+        return LCAL_ERROR_INTERNAL;
+    }
     handle.sin.sin_family = AF_INET;
     handle.sin.sin_addr.s_addr = inet_addr(ip); // 将IP地址填入sockaddr_in
     handle.sin.sin_port = 0;

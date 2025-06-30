@@ -291,7 +291,13 @@ string StringFormat(const string& format, Args... args)
 {
     auto size = static_cast<size_t>(GLOG_MAX_BUF_SIZE);
     auto buf = std::make_unique<char[]>(size); // LCOV_EXCL_BR_LINE
-    memset_s(buf.get(), size, 0, size);
+    const errno_t ret = memset_s(buf.get(), size, 0, size);
+    if (ret != EOK) {
+        const auto error = Error(ModuleName::M_UTILS, ErrorType::MEMORY_ERROR,
+                                 StringFormat("memset_s failed, ret=%d", ret));
+        LOG_ERROR(error.ToString());
+        throw runtime_error(error.ToString());
+    }
     int nChar = snprintf_s(buf.get(), size, size - 1, format.c_str(), args...);
     if (nChar == -1) { // LCOV_EXCL_BR_LINE
         throw invalid_argument("StringFormat failed");
