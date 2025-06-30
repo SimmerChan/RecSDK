@@ -20,9 +20,17 @@ C算子开发手册[Ascend C算子开发](https://www.hiascend.com/document/deta
 
 1. 上传index_select_for_rank1_backward文件夹到目标环境，并进入当前目录，执行指令对index_select_for_rank1_backward算子进行编译和部署
 
+默认编译与安装：
 ```shell
 bash run.sh
 ```
+
+指定 AI Core 类型编译：
+
+```shell
+bash run.sh <ai_core_type>
+```
+如不指定，默认使用`ai_core-Ascend910B1`。
 
 注：需先在环境中设置CANN相关环境变量，再执行算子编译和安装指令。使用默认路径安装CANN时设置环境变量指令如下：
 
