@@ -72,9 +72,7 @@ public:
         } else if (cfg.initializerType == InitializerType::TRUNCATED_NORMAL) {
             WeightInitParam param = {cfg.weightInitMean, cfg.weightInitStddev,
                                      cfg.weightInitMin, cfg.weightInitMax};
-            Initializer::GenTruncatedNormal(embeddingAddr,
-                                            cfg.embDim,
-                                            param);
+            Initializer::GenTruncatedNormal(embeddingAddr, cfg.embDim, param);
         } else {
             Initializer::GenUniform(embeddingAddr, cfg.embDim, cfg.weightInitMin, cfg.weightInitMax);
         }
