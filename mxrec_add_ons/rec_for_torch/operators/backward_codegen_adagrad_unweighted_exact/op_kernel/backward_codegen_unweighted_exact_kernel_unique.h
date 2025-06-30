@@ -147,7 +147,7 @@ public:
         
     __aicore__ inline void GetTableSize(int *tables)
     {
-        int batches = (offsetsDim0 - 1) / this->weightsOffsetsDim0;
+        int batches = (this->offsetsDim0 - 1) / this->weightsOffsetsDim0;
         for (size_t i = 0; i <= this->weightsOffsetsDim0; i++) {
             tables[i] = offsetGT.GetValue(batches * i);
         }
@@ -188,7 +188,7 @@ public:
                 ComputeGradEC();
             } else {
                 ComputeGradEBC();
-            } 
+            }
     }
 
     __aicore__ inline void ComputeGradEC()
@@ -214,7 +214,7 @@ public:
 
             // datacopy In params
             int64_t tableIndex = i - 1;
-            int64_t embedDim = dOffsetsGT.GetValue(tableIndex - 1) - dOffsetsGT.GetValue(tableIndex);
+            int64_t embedDim = dOffsetsGT.GetValue(tableIndex + 1) - dOffsetsGT.GetValue(tableIndex);
             int64_t inputOffset = startIndices * this->gradOutputDim1;
             while (remain > 0) {
                 if (thisLen > indicesNumOneBlock) {
@@ -229,7 +229,6 @@ public:
             }
             lastIndices = tables[i];
         }
-
     }
 
     __aicore__ inline void ComputeGradEBC()

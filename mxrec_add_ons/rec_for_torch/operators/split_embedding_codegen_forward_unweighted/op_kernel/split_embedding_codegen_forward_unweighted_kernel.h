@@ -346,10 +346,7 @@ public:
         if (lenOfThisCore == 0) {
             return;
         }
-        indicesNumOneBlock = blockLen / alignMaxD;
-        if (indicesNumOneBlock >= MAX_INDICS_ONE_BLOCK) {
-            indicesNumOneBlock = MAX_INDICS_ONE_BLOCK;
-        }
+        
         for (int64_t loop = 0; loop < lenOfThisCore; loop++) {
             int64_t i = (offsetOfThisCore + loop) / weightsOffsetsDim0;
             int64_t j = (offsetOfThisCore + loop) % weightsOffsetsDim0;
@@ -376,6 +373,10 @@ public:
 
     __aicore__ inline void Compute()
     {
+        indicesNumOneBlock = blockLen / alignMaxD;
+        if (indicesNumOneBlock >= MAX_INDICS_ONE_BLOCK) {
+            indicesNumOneBlock = MAX_INDICS_ONE_BLOCK;
+        }
         if (poolMode == NONE_POOL) {
             ComputeEC();
         } else {
