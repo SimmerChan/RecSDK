@@ -15,11 +15,10 @@
 
 #include <glog/logging.h>
 
+#include "common/constants.h."
 #include "evict_feature_record.h"
 
 namespace Embcache {
-
-const int64_t INVALID_KEY = -1;
 
 struct FeatureRecord {
     uint64_t count;

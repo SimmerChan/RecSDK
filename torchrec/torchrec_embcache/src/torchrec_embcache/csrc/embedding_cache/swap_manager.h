@@ -15,13 +15,13 @@
 
 #include <c10/util/flat_hash_map.h>
 
+#include "common/constants.h."
+
 namespace Embcache {
 
 // 被淘汰的key的version给一个特殊标记，用以表示该位置可用；
 constexpr int64_t CAN_REUSE_KEY_VERSION = -2;
 constexpr int64_t OFFSET_OF_INVALID_KEY = 0;
-
-extern const int64_t INVALID_KEY;
 
 using ComputeSwapRet = std::tuple<std::vector<int64_t>, std::vector<int64_t>, std::vector<int64_t>,
                                   std::vector<int64_t>, std::vector<int64_t>>;
