@@ -70,7 +70,7 @@ def _check_admit_key_count(data_loader_golden, embedding_configs: List[EmbCacheE
             break
         kjt = batch.sparse_features
         if len(kjt.keys()) != len(embedding_configs):
-            return
+            raise ValueError("key num should equal with embedding_configs length")
         values = kjt.values()
         offset_per_key = kjt.offset_per_key()
         for i in range(len(offset_per_key) - 1):
@@ -201,6 +201,7 @@ def execute(config: ExecuteConfig, rank: int):
             assert torch.allclose(
                 golden, result, rtol=1e-04, atol=1e-04
             ), "golden and result is not closed"
+    dist.destroy_process_group()
 
 
 def weight_init(param: torch.nn.Parameter):
@@ -247,6 +248,7 @@ class TestModel:
         os.environ["MASTER_PORT"] = "6015"
         dist.init_process_group(self.pg_method, rank=rank, world_size=world_size)
         os.environ["LOCAL_RANK"] = f"{rank}"
+
 
     def test_loss(
         self,
@@ -362,8 +364,6 @@ class TestModel:
                 ts = ts_per_table[index].item()
                 self.timestamps_for_table[table_index][ids] = ts
                 self.last_timestamp_for_table[table_index] = max(self.last_timestamp_for_table[table_index], ts)
-                logging.debug("Record timestamp, batchId:%d, table name:table{%d}, key:%d, ts:%d, lastTimeStamp:%d",
-                              batch_id, table_index, ids, ts, self.last_timestamp_for_table[table_index])
 
     def _evict_embedding_cpu(self, evict_threshold: int, embeddings: nn.ModuleDict,
                              opt: torch.optim.Adagrad, batch_id: int):
@@ -383,8 +383,6 @@ class TestModel:
                 if last_timestamp - ts > evict_threshold:
                     evict_ids_per_table.append(ids)
                     need_evict = True
-                logging.debug("batchId:%d, table name:table%s, key:%d, ts:%d, lastTimeStamp:%d, needEvict:%s",
-                              batch_id, table_index, ids, ts, last_timestamp, need_evict)
 
             table_name = table_names[table_index]
             # get slot tensor of Adagrad optimizer
@@ -399,8 +397,8 @@ class TestModel:
                     embeddings[table_name].weight.data.copy_(emb_init_values[table_index])
                     # init optimizer slot
                     slot_tensor[ids].data.copy_(optimizer_init_values[table_index])
-            logging.info("batchId:%d, table name:%s, evict ids num:%d, evict ids list:%s",
-                         batch_id, table_name, len(evict_ids_per_table), evict_ids_per_table)
+            logging.info("batchId:%d, table name:%s, evict ids num:%d",
+                         batch_id, table_name, len(evict_ids_per_table))
 
     def cpu_golden_loss(self, embedding_configs: List[EmbCacheEmbeddingConfig], dataloader: DataLoader[Batch],
                         evict_threshold: int, rank_id: int):

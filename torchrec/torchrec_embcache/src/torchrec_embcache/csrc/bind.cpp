@@ -80,7 +80,7 @@ PYBIND11_MODULE(embcache_pybind, m)
         .def_readwrite("admit_threshold", &AdmitAndEvictConfig::admitThreshold)
         .def_readwrite("not_admitted_default_value", &AdmitAndEvictConfig::notAdmittedDefaultValue)
         .def_readwrite("evict_threshold", &AdmitAndEvictConfig::evictThreshold)
-        .def_readwrite("evict_step_interval", &AdmitAndEvictConfig::evictThreshold);
+        .def_readwrite("evict_step_interval", &AdmitAndEvictConfig::evictStepInterval);
 
     AddEmbConfigModule(m);
 
