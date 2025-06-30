@@ -33,19 +33,15 @@ from util import (
     is_lookup_out_of_bound,
     feature_name_exists,
     create_weight_init,
-    init_random,
-    init_linspace,
-    init_ones,
-    init_zeros,
-    init_uniform,
     check_config,
     TEST_ROOT_DIR,
     OVER_COUNT,
-    compare_tensors,
-    compare_lists,
     fuse_input_dist_splits,
     are_features_equal,
-    run_model_with_config
+    run_model_with_config,
+    DATASET_REGISTRY,
+    INIT_FN_REGISTRY,
+    OPTIM_REGISTRY
 )
 
 import torchrec
@@ -57,7 +53,7 @@ from torchrec.sparse.jagged_tensor import KeyedJaggedTensor
 def test_normal(request, config):
     fname = request.node.callspec.id
     config["fname"] = fname
-    run_model_with_config(config)
+    run_model_with_config(config, execute)
 
 
 @pytest.mark.functional
@@ -66,7 +62,7 @@ def test_table_num_invalid(request, config):
     config["fname"] = fname
     assert config["table_num"] < 1
     with ProcessPoolExecutor() as executor:
-        future = executor.submit(run_model_with_config, config)
+        future = executor.submit(run_model_with_config, config, execute)
         with pytest.raises(Exception) as exc_info:
             future.result()
 
@@ -79,7 +75,7 @@ def test_embedding_dim_invalid(request, config):
     config["fname"] = fname
     assert any([embedding_dim < 1 or embedding_dim % 4 for embedding_dim in config["embedding_dims"]])
     with ProcessPoolExecutor() as executor:
-        future = executor.submit(run_model_with_config, config)
+        future = executor.submit(run_model_with_config, config, execute)
         with pytest.raises(Exception) as exc_info:
             future.result()
 
@@ -92,7 +88,7 @@ def test_num_embeddings_invalid(request, config):
     config["fname"] = fname
     assert any([num_embedding < 1 for num_embedding in config["num_embeddings"]])
     with ProcessPoolExecutor() as executor:
-        future = executor.submit(run_model_with_config, config)
+        future = executor.submit(run_model_with_config, config, execute)
         with pytest.raises(Exception) as exc_info:
             future.result()
 
@@ -106,7 +102,7 @@ def test_lookup_out_of_bound(request, config):
     config["fname"] = fname
     assert is_lookup_out_of_bound(config)
     with ProcessPoolExecutor() as executor:
-        future = executor.submit(run_model_with_config, config)
+        future = executor.submit(run_model_with_config, config, execute)
         with pytest.raises(Exception) as exc_info:
             future.result()
 
@@ -119,33 +115,11 @@ def test_feature_name_exist(request, config):
     config["fname"] = fname
     assert feature_name_exists(config)
     with ProcessPoolExecutor() as executor:
-        future = executor.submit(run_model_with_config, config)
+        future = executor.submit(run_model_with_config, config, execute)
         with pytest.raises(Exception) as exc_info:
             future.result()
 
     assert "KeyError" in str(exc_info.value)
-
-
-DATASET_REGISTRY = {
-    "RandomRecDataset": RandomRecDataset,
-    "BoundOutOfRangeRecDataset": BoundOutOfRangeRecDataset,
-    "FeatureNameNotInConfigRecDataset": FeatureNameNotInConfigRecDataset,
-}
-
-
-INIT_FN_REGISTRY = {
-    "init_random": init_random,
-    "init_linspace": init_linspace,
-    "init_ones": init_ones,
-    "init_zeros": init_zeros,
-    "init_uniform": init_uniform,
-}
-
-
-OPTIM_REGISTRY = {
-    "Adagrad": Adagrad,
-    "Adam": Adam,
-}
 
 
 def execute(rank, config):
