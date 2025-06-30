@@ -25,7 +25,7 @@ using namespace Embcache;
 EmbcacheManager::EmbcacheManager(const std::vector<EmbConfig>& embConfigs)
     : embNum(embConfigs.size())
 {
-    for (auto& config : embConfigs) {
+    for (const auto& config : embConfigs) {
         auto length = config.tableName.size();
         if (config.tableName.size() > TABLE_NAME_LENGTH) {
             LOG(ERROR) << "The length of table name:" << config.tableName << " is grater than max length "

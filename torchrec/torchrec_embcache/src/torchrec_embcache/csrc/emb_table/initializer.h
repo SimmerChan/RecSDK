@@ -15,6 +15,13 @@
 
 namespace Embcache {
 
+struct WeightInitParam {
+    float mean;
+    float stddev;
+    float minVal;
+    float maxVal;
+};
+
 class Initializer {
 public:
     static void GenUniform(float* array, size_t size, float minVal, float maxVal)
@@ -39,52 +46,40 @@ public:
         }
     }
 
-    static void GenTruncatedNormal(float* array, size_t size,
-                                   float mean, float stddev,
-                                   float minVal, float maxVal,
+    static void GenTruncatedNormal(float* array, size_t size, WeightInitParam weightParam,
                                    unsigned int seed = std::random_device{}())
     {
-        if (array == nullptr || size == 0 || stddev <= 0.0f || minVal >= maxVal) {
+        if (array == nullptr || size == 0 || weightParam.stddev <= 0.0f || weightParam.minVal >= weightParam.maxVal) {
             return;
         }
 
         std::mt19937 gen(seed);
-        std::normal_distribution<float> distrib(mean, stddev);
+        std::normal_distribution<float> distrib(weightParam.mean, weightParam.stddev);
 
         std::generate(array, array + size, [&]() {
             float val = distrib(gen);
-            while (val < minVal || val > maxVal) {
+            while (val < weightParam.minVal || val > weightParam.maxVal) {
                 val = distrib(gen);
             }
             return val;
         });
     }
-
-    inline void InitEmbeddingWeights(float* addr, const EmbConfig& cfg)
-    {
-        if (cfg.initializerType == InitializerType::LINEAR) {
-            Initializer::GenLinear(
-                addr,
-                cfg.embDim,
-                cfg.weightInitMin,
-                cfg.weightInitMax);
-        } else if (cfg.initializerTypr == InitializerType::TRUNCATED_NORMAL) {
-            Initializer::GenTruncatedNormal(
-                addr,
-                cfg.embDim,
-                cfg.weightInitMean,
-                cfg.weightInitStddev,
-                cfg.weightInitMin,
-                cfg.weightInitMax);
-        } else {
-            Initializer::GenUniform(
-                addr,
-                cfg.embDim,
-                cfg.weightInitMin,
-                cfg.weightInitMax);
-        }
-    }
 };
+
+void InitEmbeddingWeights(float* embeddingAddr, const EmbConfig& cfg)
+{
+    if (cfg.initializerType == InitializerType::LINEAR) {
+        Initializer::GenLinear(embeddingAddr, cfg.embDim, cfg.weightInitMin, cfg.weightInitMax);
+    } else if (cfg.initializerType == InitializerType::TRUNCATED_NORMAL) {
+        WeightInitParam param = {cfg.weightInitMean, cfg.weightInitStddev,
+                                 cfg.weightInitMin, cfg.weightInitMax};
+        Initializer::GenTruncatedNormal(embeddingAddr,
+                                        cfg.embDim,
+                                        param);
+    } else {
+        Initializer::GenUniform(embeddingAddr, cfg.embDim, cfg.weightInitMin, cfg.weightInitMax);
+    }
+}
 
 }  // namespace Embcache
 #endif  // EMBEDDING_CACHE_EMB_TABLE_INITIALIZER_H

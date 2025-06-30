@@ -8,8 +8,8 @@
 import itertools
 import logging
 import os
-from dataclasses import dataclass
 import pytest
+from dataclasses import dataclass
 from typing import List
 
 import numpy as np
@@ -17,11 +17,11 @@ import torch
 import torch_npu
 import torch.multiprocessing as mp
 import torch.distributed as dist
-import torchrec
-import torchrec.distributed
-from torch import Tensor, nn
+from torch import nn, Tensor
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
+import torchrec
+import torchrec.distributed
 from torchrec import EmbeddingCollection
 from torchrec.optim.apply_optimizer_in_backward import apply_optimizer_in_backward
 from torchrec.distributed.planner import (
@@ -50,7 +50,7 @@ if lib_fbgemm_npu_api_so_path is None:
     raise RuntimeError("LIB_FBGEMM_NPU_API_SO_PATH environment variable is not set.")
 torch.ops.load_library(lib_fbgemm_npu_api_so_path)
 
-WORLD_SIZE_STR = os.environ.get("WORLD_SIZE", "2")
+WORLD_SIZE_STR = str(os.environ.get("WORLD_SIZE", "2"))
 WORLD_SIZE = int(WORLD_SIZE_STR) if WORLD_SIZE_STR.isalnum() else 2
 LOOP_TIMES = 500
 EVICT_STEP_INTERVAL = LOOP_TIMES // 4
@@ -355,14 +355,14 @@ class TestModel:
             end = offset_per_key[table_index + 1]
             values_per_table = values[start:end]
             ts_per_table = timestamps[start:end]
-            for index in range(len(values_per_table)):
-                ids = values_per_table[index].item()
+
+            for index, ids in enumerate(values_per_table):
+                ids = ids.item()
                 ts = ts_per_table[index].item()
                 self.timestamps_for_table[table_index][ids] = ts
                 self.last_timestamp_for_table[table_index] = max(self.last_timestamp_for_table[table_index], ts)
-                logging.debug("Record timestamp, batchId:{}, table name:table{}, key:{}, ts:{}, lastTimeStamp:{}"
-                              .format(batch_id, table_index, ids, ts, self.last_timestamp_for_table[table_index]))
-                
+                logging.debug("Record timestamp, batchId:%d, table name:table{%d}, key:%d, ts:%d, lastTimeStamp:%d",
+                              batch_id, table_index, ids, ts, self.last_timestamp_for_table[table_index])
 
     def _evict_embedding_cpu(self, evict_threshold: int, embeddings: nn.ModuleDict, table_names: List[str],
                              emb_dims: List[int], opt: torch.optim.Adagrad, batch_id: int):

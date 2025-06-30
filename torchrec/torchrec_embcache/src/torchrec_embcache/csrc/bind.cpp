@@ -61,11 +61,12 @@ PYBIND11_MODULE(embcache_pybind, m)
 
     py::class_<EmbConfig>(m, "EmbConfig")
         .def(py::init<>())
-        .def(py::init<const std::string&, InitializerType, int32_t, int32_t, int64_t, float, float,
+        .def(py::init<const std::string&, InitializerType, int32_t, int32_t, int64_t, float, float, float, float,
                       AdmitAndEvictConfig>(),
              py::arg("table_name"), py::arg("initializer_type"),
              py::arg("emb_dim"), py::arg("optim_num"), py::arg("cache_size"),
              py::arg("weight_init_min"), py::arg("weight_init_max"),
+             py::arg("weight_init_mean"), py::arg("weight_init_stddev"),
              py::arg("admit_and_evict_config") = AdmitAndEvictConfig())
         .def_readwrite("table_name", &EmbConfig::tableName)
         .def_readwrite("initializer_type", &EmbConfig::initializerType)
@@ -74,6 +75,8 @@ PYBIND11_MODULE(embcache_pybind, m)
         .def_readwrite("cache_size", &EmbConfig::cacheSize)
         .def_readwrite("weight_init_min", &EmbConfig::weightInitMin)
         .def_readwrite("weight_init_max", &EmbConfig::weightInitMax)
+        .def_readwrite("weight_init_mean", &EmbConfig::weightInitMean)
+        .def_readwrite("weight_init_stddev", &EmbConfig::weightInitStddev)
         .def_readwrite("admit_and_evict_config", &EmbConfig::admitAndEvictConfig);
 
     py::class_<SwapInfo>(m, "SwapInfo")
