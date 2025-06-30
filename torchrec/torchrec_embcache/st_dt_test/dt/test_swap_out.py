@@ -36,12 +36,19 @@ from util import (
     is_lookup_out_of_bound,
     feature_name_exists,
     create_weight_init,
+    init_random,
+    init_linspace,
+    init_ones,
+    init_zeros,
+    init_uniform,
     check_config,
     TEST_ROOT_DIR,
     OVER_COUNT,
     compare_tensors,
     compare_lists,
     fuse_input_dist_splits,
+    are_features_equal,
+    run_model_with_config
 )
 
 import torchrec
@@ -122,39 +129,26 @@ def test_feature_name_exist(request, config):
     assert "KeyError" in str(exc_info.value)
 
 
-def run_model_with_config(config):
-    if config.get("device", "npu") == "cpu" and config.get("sharding_type", "table_wise") == "row_wise":
-        return
-    mp.spawn(
-        execute,
-        args=(config,),
-        nprocs=config.get("WORLD_SIZE", 2),
-        join=True,
-    )
+DATASET_REGISTRY = {
+    "RandomRecDataset": RandomRecDataset,
+    "BoundOutOfRangeRecDataset": BoundOutOfRangeRecDataset,
+    "FeatureNameNotInConfigRecDataset": FeatureNameNotInConfigRecDataset,
+}
 
 
-def are_features_equal(obj1, obj2):
-    attributes_to_compare = [
-        "swapout_embs", "swapout_momentum"
-        ]
+INIT_FN_REGISTRY = {
+    "init_random": init_random,
+    "init_linspace": init_linspace,
+    "init_ones": init_ones,
+    "init_zeros": init_zeros,
+    "init_uniform": init_uniform,
+}
 
-    for attr in attributes_to_compare:
-        value1 = getattr(obj1, attr, None)
-        value2 = getattr(obj2, attr, None)
 
-        if value1 is None or value2 is None:
-            logging.error(f"Attribute '{attr}' not found in one of the objects.")
-            return False
-        elif isinstance(value1, list):
-            if not compare_lists(value1, value2):
-                logging.debug("Lists are not equal: %s != %s", value1, value2)
-                return False
-        elif isinstance(value1, torch.Tensor):
-            if not compare_tensors(value1, value2):
-                logging.debug("Tensors are not equal: %s != %s", value1, value2)
-                return False
-    
-    return True
+OPTIM_REGISTRY = {
+    "Adagrad": Adagrad,
+    "Adam": Adam,
+}
 
 
 def execute(rank, config):
@@ -167,12 +161,12 @@ def execute(rank, config):
     batch_num = config["BATCH_NUM"]
     table_num = config["table_num"]
     lookup_lens = config["lookup_lens"]
-    dataset_class = globals()[config["RecDataset"] + "RecDataset"]
-    init_fn = globals()[config["init_fn"]]
+    dataset_class = DATASET_REGISTRY.get(config["RecDataset"] + "RecDataset", RandomRecDataset)
+    init_fn = INIT_FN_REGISTRY.get(config["init_fn"], create_weight_init("init_linspace"))
     world_size = config["WORLD_SIZE"]
     device = config.get("device", "npu")
     sharding_type = config.get("sharding_type", "row_wise")
-    optim = globals()[config.get("optim", "Adagrad")]
+    optim = OPTIM_REGISTRY.get(config.get("optim", "Adagrad"), Adagrad)
     feature_names_lst = config["feature_names_lst"]
     instances = config.get("instances", 1)
     pool_type = getattr(torchrec.PoolingType, pool_type)
@@ -180,7 +174,7 @@ def execute(rank, config):
     embedding_config = generate_hash_config(embedding_dims, num_embeddings, pool_type, feature_names_lst, 
                                             create_weight_init(init_fn), collection_type)
     generated_ids = []
-    if isinstance(dataset_class, BoundOutOfRangeRecDataset):
+    if dataset_class is BoundOutOfRangeRecDataset:
         for i in range(table_num):
             generated_ids.append([])
             for _ in range(len(feature_names_lst[i])):
@@ -268,4 +262,10 @@ def execute(rank, config):
     else:
         base_line = torch.load(saved_file, weights_only=False)
         for obj1, obj2 in zip(base_line, swapout_dict_lst):
-            assert are_features_equal(obj1, obj2), "Swapout dicts are not equal: {} != {}".format(obj1, obj2)
+            attributes_to_compare = [
+                "swapout_embs", "swapout_momentum"
+                ]
+            assert (
+                are_features_equal(obj1, obj2, attributes_to_compare), 
+                "Swapout dicts are not equal: {} != {}".format(obj1, obj2)
+            )
