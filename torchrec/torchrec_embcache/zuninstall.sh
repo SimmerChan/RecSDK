@@ -1,5 +1,11 @@
 #!/bin/bash
- 
+# Copyright (c) Huawei Platforms, Inc. and affiliates.
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
 curr_path=$(cd $(dirname $0); pwd)
 cd ${curr_path}
 
