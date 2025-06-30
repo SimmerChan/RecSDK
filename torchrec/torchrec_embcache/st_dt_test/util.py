@@ -14,8 +14,14 @@ import pytz
 import torch
 import torch.multiprocessing as mp
 import numpy as np
+from dataset import (
+    RandomRecDataset, 
+    BoundOutOfRangeRecDataset, 
+    FeatureNameNotInConfigRecDataset
+)
 from parse_configs import load_all_configs
 from torch.autograd.profiler import record_function
+from torch.optim import Adam, Adagrad
 from torchrec_embcache.distributed.sharding.rw_sharding import EmbCacheRwSparseFeaturesDistAwaitable
 
 from torchrec.distributed.embedding_sharding import (
@@ -211,35 +217,6 @@ def get_all_configs(module_name: str) -> dict:
     return all_configs
 
 
-# utils for compare methods
-def compare_tensors(tensor1, tensor2):
-    if tensor1 is None and tensor2 is None:
-        return True
-    if tensor1 is None or tensor2 is None:
-        return False
-    return torch.allclose(tensor1, tensor2)
-
-
-def compare_list(list1, list2):
-    if list1 is None and list2 is None:
-        return True
-    if list1 is None or list2 is None:
-        return False
-    if len(list1) != len(list2):
-        return False
-    
-    for item1, item2 in zip(list1, list2):
-        if isinstance(item1, list) and isinstance(item2, list):
-            if not compare_list(item1, item2):
-                return False
-        elif isinstance(item1, torch.Tensor) and isinstance(item2, torch.Tensor):
-            if not compare_tensors(item1, item2):
-                return False
-        elif item1 != item2:
-            return False
-    return True
-
-
 # utils for dt test
 class TestFusedKJTListSplitsAwaitable(FusedKJTListSplitsAwaitable):
 
@@ -313,6 +290,34 @@ def run_model_with_config(config, execute_func):
     )
 
 
+def compare_tensors(tensor1, tensor2):
+    if tensor1 is None and tensor2 is None:
+        return True
+    if tensor1 is None or tensor2 is None:
+        return False
+    return torch.allclose(tensor1, tensor2)
+
+
+def compare_list(list1, list2):
+    if list1 is None and list2 is None:
+        return True
+    if list1 is None or list2 is None:
+        return False
+    if len(list1) != len(list2):
+        return False
+    
+    for item1, item2 in zip(list1, list2):
+        if isinstance(item1, list) and isinstance(item2, list):
+            if not compare_list(item1, item2):
+                return False
+        elif isinstance(item1, torch.Tensor) and isinstance(item2, torch.Tensor):
+            if not compare_tensors(item1, item2):
+                return False
+        elif item1 != item2:
+            return False
+    return True
+
+
 def are_features_equal(obj1, obj2):
     attributes_to_compare = ["update_embs", "update_momentums1", "update_momentums2"]
 
@@ -333,3 +338,25 @@ def are_features_equal(obj1, obj2):
                 return False
     
     return True
+
+
+DATASET_REGISTRY = {
+    "RandomRecDataset": RandomRecDataset,
+    "BoundOutOfRangeRecDataset": BoundOutOfRangeRecDataset,
+    "FeatureNameNotInConfigRecDataset": FeatureNameNotInConfigRecDataset,
+}
+
+
+INIT_FN_REGISTRY = {
+    "init_random": init_random,
+    "init_linspace": init_linspace,
+    "init_ones": init_ones,
+    "init_zeros": init_zeros,
+    "init_uniform": init_uniform,
+}
+
+
+OPTIM_REGISTRY = {
+    "Adagrad": Adagrad,
+    "Adam": Adam,
+}
