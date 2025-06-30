@@ -12,7 +12,7 @@
 source /usr/local/Ascend/ascend-toolkit/set_env.sh
 export LD_PRELOAD=/usr/lib64/libgomp.so.1
 
-SITE_PACKAGES=$(python3 -c "import sysconfig; print(sysconfig.get_path('purelib')")
+SITE_PACKAGES=$(python3 -c "import sysconfig; print(sysconfig.get_path('purelib'))")
 TORCH_LIB_PATH="$SITE_PACKAGES/torch/lib"
 CUSTOM_LIB_PATH="$SITE_PACKAGES/torchrec_embcache"
 export LD_LIBRARY_PATH="$SITE_PACKAGES:$TORCH_LIB_PATH:$CUSTOM_LIB_PATH:$LD_LIBRARY_PATH"
