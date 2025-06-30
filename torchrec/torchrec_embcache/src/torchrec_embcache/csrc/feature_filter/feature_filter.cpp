@@ -32,8 +32,6 @@ void FeatureFilter::RecordTimestamp(const int64_t* featureDataPtr, int64_t start
         auto timestamp = static_cast<std::time_t>(timestampData);
         timestampRecordMap.insert_or_assign(feature, timestamp);
         latestTimestamp = std::max(latestTimestamp, timestamp);
-        LOG(INFO) << "RecordTimestamp, batchId:" << recordTsBatchId << ", tableName:" << tableName
-            << ", key:" << feature << ", ts:" << timestamp << ", latestTimestamp:" << latestTimestamp;
     }
     auto afterRecordSize = timestampRecordMap.size();
     LOG(INFO) << "Enter RecordTimestamp, beforeRecordSize:" << beforeRecordSize
@@ -66,9 +64,6 @@ void FeatureFilter::FeatureEvict()
             evictKeys.emplace_back(feature);
             needEvict = true;
         }
-        LOG(INFO) << "The recordTsBatchId:" << recordTsBatchId << ", table name:" << tableName
-                  << ", key:" << feature << ", ts:" << iter.second
-                  << ", latestTimestamp:" << latestTimestamp << ", needEvict:" << needEvict;
     }
     // 淘汰掉的key从timestampRecordMap中移出
     bool isAdmitEnabled = admitThreshold != -1;
@@ -125,7 +120,6 @@ void FeatureFilter::StatisticsKeyCount(const int64_t* featureDataPtr, const int6
             FeatureRecord featureRecord = {count};
             featureRecordMap[feature] = featureRecord;
         }
-        LOG(INFO) << "In StatisticsKeyCount, key:" << feature << ", count:" << featureRecordMap[feature].count;
     }
 }
 
