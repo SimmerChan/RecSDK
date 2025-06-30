@@ -36,9 +36,12 @@ from util import (
     check_config,
     TEST_ROOT_DIR,
     OVER_COUNT,
-    compare_tensors,
-    compare_lists,
     fuse_input_dist_splits,
+    are_features_equal,
+    run_model_with_config,
+    DATASET_REGISTRY,
+    INIT_FN_REGISTRY,
+    OPTIM_REGISTRY
 )
 
 import torchrec
@@ -50,7 +53,7 @@ from torchrec.sparse.jagged_tensor import KeyedJaggedTensor
 def test_normal(request, config):
     fname = request.node.callspec.id
     config["fname"] = fname
-    run_model_with_config(config)
+    run_model_with_config(config, execute)
 
 
 @pytest.mark.functional
@@ -59,7 +62,7 @@ def test_table_num_invalid(request, config):
     config["fname"] = fname
     assert config["table_num"] < 1
     with ProcessPoolExecutor() as executor:
-        future = executor.submit(run_model_with_config, config)
+        future = executor.submit(run_model_with_config, config, execute)
         with pytest.raises(Exception) as exc_info:
             future.result()
 
@@ -72,7 +75,7 @@ def test_embedding_dim_invalid(request, config):
     config["fname"] = fname
     assert any([embedding_dim < 1 or embedding_dim % 4 for embedding_dim in config["embedding_dims"]])
     with ProcessPoolExecutor() as executor:
-        future = executor.submit(run_model_with_config, config)
+        future = executor.submit(run_model_with_config, config, execute)
         with pytest.raises(Exception) as exc_info:
             future.result()
 
@@ -85,7 +88,7 @@ def test_num_embeddings_invalid(request, config):
     config["fname"] = fname
     assert any([num_embedding < 1 for num_embedding in config["num_embeddings"]])
     with ProcessPoolExecutor() as executor:
-        future = executor.submit(run_model_with_config, config)
+        future = executor.submit(run_model_with_config, config, execute)
         with pytest.raises(Exception) as exc_info:
             future.result()
 
@@ -99,7 +102,7 @@ def test_lookup_out_of_bound(request, config):
     config["fname"] = fname
     assert is_lookup_out_of_bound(config)
     with ProcessPoolExecutor() as executor:
-        future = executor.submit(run_model_with_config, config)
+        future = executor.submit(run_model_with_config, config, execute)
         with pytest.raises(Exception) as exc_info:
             future.result()
 
@@ -112,43 +115,11 @@ def test_feature_name_exist(request, config):
     config["fname"] = fname
     assert feature_name_exists(config)
     with ProcessPoolExecutor() as executor:
-        future = executor.submit(run_model_with_config, config)
+        future = executor.submit(run_model_with_config, config, execute)
         with pytest.raises(Exception) as exc_info:
             future.result()
 
     assert "KeyError" in str(exc_info.value)
-
-
-def run_model_with_config(config):
-    if config.get("device", "npu") == "cpu" and config.get("sharding_type", "table_wise") == "row_wise":
-        return
-    mp.spawn(
-        execute,
-        args=(config,),
-        nprocs=config.get("WORLD_SIZE", 2),
-        join=True,
-    )
-
-
-def are_features_equal(obj1, obj2):
-    attributes_to_compare = ["embs", "optims"]
-
-    for attr in attributes_to_compare:
-        value1 = getattr(obj1, attr, None)
-        value2 = getattr(obj2, attr, None)
-
-        if value1 is None or value2 is None:
-            logging.error(f"Attribute '{attr}' not found in one of the objects.")
-            return False
-        elif isinstance(value1, list):
-            if not compare_lists(value1, value2):
-                logging.debug("Lists are not equal: %s != %s", value1, value2)
-                return False
-        elif isinstance(value1, torch.Tensor):
-            if not compare_tensors(value1, value2):
-                logging.debug("Tensors are not equal: %s != %s", value1, value2)
-                return False
-    return True
 
 
 def execute(rank, config):
@@ -161,27 +132,20 @@ def execute(rank, config):
     batch_num = config["BATCH_NUM"]
     table_num = config["table_num"]
     lookup_lens = config["lookup_lens"]
-    dataset_class = globals()[config["RecDataset"] + "RecDataset"]
-    init_fn = globals()[config["init_fn"]]
+    dataset_class = DATASET_REGISTRY.get(config["RecDataset"] + "RecDataset", RandomRecDataset)
+    init_fn = INIT_FN_REGISTRY.get(config["init_fn"], create_weight_init("init_linspace"))
     world_size = config["WORLD_SIZE"]
     device = config.get("device", "npu")
     sharding_type = config.get("sharding_type", "row_wise")
-    optim = globals()[config.get("optim", "Adagrad")]
+    optim = OPTIM_REGISTRY.get(config.get("optim", "Adagrad"), Adagrad)
     feature_names_lst = config["feature_names_lst"]
     instances = config.get("instances", 1)
     pool_type = getattr(torchrec.PoolingType, pool_type)
     collection_type = config["collection_type"]
-    hash_config = HashConfig(
-        embedding_dims=embedding_dims, 
-        num_embeddings=num_embeddings, 
-        pooling_type=pool_type, 
-        feature_names=feature_names_lst, 
-        weight_init=create_weight_init(init_fn), 
-        collection_type=collection_type
-    )
-    embedding_config = generate_hash_config(hash_config)
+    embedding_config = generate_hash_config(embedding_dims, num_embeddings, pool_type, feature_names_lst, 
+                                            create_weight_init(init_fn), collection_type)
     generated_ids = []
-    if isinstance(dataset_class, BoundOutOfRangeRecDataset):
+    if dataset_class is BoundOutOfRangeRecDataset:
         for i in range(table_num):
             generated_ids.append([])
             for _ in range(len(feature_names_lst[i])):
@@ -265,4 +229,8 @@ def execute(rank, config):
         return
 
     for obj1, obj2 in zip(swapout_tensor_dict_lst, swapout_dict_lst):
-        assert are_features_equal(obj1, obj2), "swapout_tensor_dict and swapout_dict are not equal"
+        attributes_to_compare = ["embs", "optims"]
+        assert (
+            are_features_equal(obj1, obj2, attributes_to_compare), 
+            "swapout_tensor_dict and swapout_dict are not equal"
+        )
