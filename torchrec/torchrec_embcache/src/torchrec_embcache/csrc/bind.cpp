@@ -39,8 +39,8 @@ void AddInitializerType(pybind11::module_& m)
 {
     py::enum_<InitializerType>(m, "InitializerType")
         .value("LINEAR", InitializerType::LINEAR)
-            .value("TRUNCATED_NORMAL", InitializerType::TRUNCATED_NORMAL)
-            .value("UNIFORM", InitializerType::UNIFORM)
+        .value("TRUNCATED_NORMAL", InitializerType::TRUNCATED_NORMAL)
+        .value("UNIFORM", InitializerType::UNIFORM)
         .export_values();
 }
 

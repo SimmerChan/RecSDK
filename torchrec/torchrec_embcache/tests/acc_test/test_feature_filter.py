@@ -236,7 +236,8 @@ class TestModel:
         if device == "npu":
             torch_npu.npu.set_device(rank)
         self.setup(rank=rank, world_size=world_size)
-        
+        self.emb_configs: List[EmbCacheEmbeddingConfig] = []
+
         # for evict 
         self.timestamps_for_table: List[dict] = []
         self.last_timestamp_for_table = []
@@ -364,9 +365,11 @@ class TestModel:
                 logging.debug("Record timestamp, batchId:%d, table name:table{%d}, key:%d, ts:%d, lastTimeStamp:%d",
                               batch_id, table_index, ids, ts, self.last_timestamp_for_table[table_index])
 
-    def _evict_embedding_cpu(self, evict_threshold: int, embeddings: nn.ModuleDict, table_names: List[str],
-                             emb_dims: List[int], opt: torch.optim.Adagrad, batch_id: int):
+    def _evict_embedding_cpu(self, evict_threshold: int, embeddings: nn.ModuleDict,
+                             opt: torch.optim.Adagrad, batch_id: int):
         logging.info("Start cpu embedding evict, current step:%d", batch_id)
+        emb_dims: List[int] = [c.embedding_dim for c in self.emb_configs]
+        table_names = [c.name for c in self.emb_configs]
         table_num = len(table_names)
         emb_init_values: List[Tensor] = _get_init_weight(emb_dims)
         logging.info("emb_init_values: %s", emb_init_values)
@@ -402,20 +405,19 @@ class TestModel:
     def cpu_golden_loss(self, embedding_configs: List[EmbCacheEmbeddingConfig], dataloader: DataLoader[Batch],
                         evict_threshold: int, rank_id: int):
         pg = dist.new_group(backend="gloo")
+        self.emb_configs = embedding_configs
         table_num = len(embedding_configs)
         ec = EmbeddingCollection(device=torch.device("cpu"), tables=embedding_configs)
 
         num_features = sum([c.num_features() for c in embedding_configs])
         ec_wrap = Model(ec, num_features)
-        model = DDP(ec_wrap, process_group=ps)
+        model = DDP(ec_wrap, process_group=pg)
 
         opt = torch.optim.Adagrad(model.parameters(), lr=0.02, eps=1e-8)
         results = []
         batch: Batch
         iter_ = iter(dataloader)
-        emb_dims: List[int] = [c.embedding_dim for c in embedding_configs]
-        table_names = [c.name for c in embedding_configs]
-        for i in range(LOOP_TIMES0):
+        for i in range(LOOP_TIMES):
             batch = next(iter_)
             opt.zero_grad()
             loss, outputs = model(batch)
@@ -425,9 +427,9 @@ class TestModel:
             opt.step()
 
             # 1 record batch timestamp data
-            self._record_timestamp_info_cpu(batch, table_numm, i)
+            self._record_timestamp_info_cpu(batch, table_num, i)
             # evict emb and optimizer data
-            self._evict_embedding_cpu(evict_threshold, ec.embeddings, table_names, emb_dims, opt, i)
+            self._evict_embedding_cpu(evict_threshold, ec.embeddings, opt, i)
 
         return results
 
