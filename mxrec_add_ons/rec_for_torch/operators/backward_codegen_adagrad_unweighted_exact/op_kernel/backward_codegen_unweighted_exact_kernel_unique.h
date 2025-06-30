@@ -144,6 +144,15 @@ public:
         this->queOut.template FreeTensor(newOutLt);
         queIndices.FreeTensor(indicesLt);
     }
+        
+    __aicore__ inline void GetTableSize(int *tables)
+    {
+        int tableNum = weightsOffsetsDim0;
+        int batches = (offsetsDim0 - 1) / weightsOffsetsDim0;
+        for (size_t i = 0; i <= tableNum; i++) {
+            tables[i] = offsetGT.GetValue(batches * i);
+        }
+    }
 
     __aicore__ inline void ComputeGradNoBag(ComputeUniqueArgs &args)
     {
@@ -176,6 +185,56 @@ public:
 
     __aicore__ inline void ComputeGrad()
     {
+        if (this->poolMode == NONE_POOL) {
+                ComputeGradEC();
+            } else {
+                ComputeGradEBC();
+            } 
+    }
+
+    __aicore__ inline void ComputeGradEC()
+    {
+        int64_t indicesNumOneBlock = blockLen / maxD;
+        if (indicesNumOneBlock >= MAX_ARGS_PIPE_LEN) {
+            indicesNumOneBlock = MAX_ARGS_PIPE_LEN;
+        }
+        int tables[MAX_INDICES_ONE_BLOCK];
+        GetTableSize(tables);
+        int64_t lastIndices = 0;
+        int64_t thisTableLen = 0;
+        int64_t batchs = (offsesDim0 - 1) / weightsOffsetsDim0;
+        for (int64_t i = 1; i <= weightsOffsetsDim0; i++) {
+            Scheduler(tables[i] - lastIndices, this->OffsetOfThisCore, thisTableLen);
+            int64_t startIndices = this->offsetOfThisCore + lastIndices; // 上一张表的偏移+table_i的偏移
+
+            if (thisTableLen <= 0) {
+                continue;
+            }
+            int32_t remain = thisTableLen;
+            int64_t thisOffsetIndex = startIndices;
+
+            // datacopy In params
+            int64_t tableIndex = i - 1;
+            int64_t embedDim = dOffsetGT.GetValue(tableIndex - 1) - dOffsetGT.GetValue(tableIndex);
+            int64_t inputOffset = startIndices * gradOutputDim1;
+            while (remain > 0) {
+                if (thisLen > indicesNumOneBlock) {
+                    thisLen = indicesNumOneBlock;
+                }
+                remain -= thisLen;
+                ComputeUniqueArgs args{tableIndex, embedDim, inputOffset, thisLen, startIndices};
+                ComputeGradNoBag(args);
+                inputOffset += thisLen * gradOutputDim1;
+                startIndices += thisLen;
+                thisLen = remain;
+            }
+            lastIndices = tables[i];
+        }
+
+    }
+
+    __aicore__ inline void ComputeGradEBC()
+    {
         Scheduler(this->offsetsDim0 - 1, this->offsetOfThisCore, this->lenOfThisCore);
         if (this->lenOfThisCore == 0) {
             return;
@@ -205,24 +264,14 @@ public:
             int64_t embedDim = dOffsetsGT.GetValue(tableIndex + 1) - dOffsetsGT.GetValue(tableIndex);
             int64_t inputBatchInd = thisOffsetIndex % batchs;
             int64_t inputEmbedOffset = dOffsetsGT.GetValue(tableIndex);
-            int64_t inputOffset;
-            if (this->poolMode == NONE_POOL) {
-                inputOffset = startIndices * this->gradOutputDim1;
-            } else {
-                inputOffset = inputBatchInd * this->gradOutputDim1 + inputEmbedOffset;
-            }
+            int64_t inputOffset = inputBatchInd * this->gradOutputDim1 + inputEmbedOffset;
             while (remain > 0) {
                 if (thisLen > indicesNumOneBlock) {
                     thisLen = indicesNumOneBlock;
                 }
                 remain -= thisLen;
                 ComputeUniqueArgs args{tableIndex, embedDim, inputOffset, thisLen, startIndices};
-                if (this->poolMode == NONE_POOL) {
-                    ComputeGradNoBag(args);
-                    inputOffset += thisLen * this->gradOutputDim1;
-                } else {
-                    ComputeGradBag(args, meanLen);
-                }
+                ComputeGradBag(args, meanLen);
                 startIndices += thisLen;
                 thisLen = remain;
             }
