@@ -11,6 +11,8 @@
 #include <iostream>
 #include <stdexcept>
 
+#include "common/constants.h"
+
 namespace Embcache {
 
 FeatureFilter::FeatureFilter(const std::string& tableName, int32_t admitThreshold,

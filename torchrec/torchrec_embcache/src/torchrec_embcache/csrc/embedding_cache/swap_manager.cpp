@@ -13,6 +13,8 @@
 #include <glog/logging.h>
 #include <ATen/Parallel.h>
 
+#include "common/constants.h"
+
 using namespace Embcache;
 
 SwapManager::SwapManager(int64_t cacheSize, int64_t memStartOffset) : cacheSize(cacheSize)

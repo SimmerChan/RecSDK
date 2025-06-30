@@ -15,8 +15,6 @@
 
 #include <c10/util/flat_hash_map.h>
 
-#include "common/constants.h."
-
 namespace Embcache {
 
 // 被淘汰的key的version给一个特殊标记，用以表示该位置可用；

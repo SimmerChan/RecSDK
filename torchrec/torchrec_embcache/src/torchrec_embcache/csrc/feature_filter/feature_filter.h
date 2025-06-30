@@ -15,7 +15,6 @@
 
 #include <glog/logging.h>
 
-#include "common/constants.h."
 #include "evict_feature_record.h"
 
 namespace Embcache {
