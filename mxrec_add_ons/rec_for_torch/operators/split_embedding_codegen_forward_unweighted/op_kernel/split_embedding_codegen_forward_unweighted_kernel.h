@@ -160,9 +160,8 @@ public:
 
     __aicore__ inline void GetTableSize(int *tables)
     {
-        int tableNum = weightsOffsetsDim0;
-        int batches = (offsetsDim0 - 1) / weightsOffsetsDim0;
-        for (size_t i = 0; i <= tableNum; i++) {
+        int batches = (offsetsDim0 - 1) / weightsOffsetsDim0; // weightsOffsetsDim0=tableNum
+        for (size_t i = 0; i <= weightsOffsetsDim0; i++) {
             tables[i] = offsetGT.GetValue(batches * i);
         }
     }
@@ -316,7 +315,7 @@ public:
         int64_t tailSplitLen = totalLen % GetBlockNum();
         if (GetBlockIdx() >= tailSplitIndex) {
             calcLen = splitBaseLen;
-            offsetLen = tailSplitIndex * (splitBaseLen + 1) + (GetBlockIdx() -  tailSPlitIndex) * splitBaseLen;
+            offsetLen = tailSplitIndex * (splitBaseLen + 1) + (GetBlockIdx() -  tailSplitIndex) * splitBaseLen;
         } else {
             calcLen = splitBaseLen + 1;
             offsetLen = GetBlockIdx() * (splitBaseLen + 1);
@@ -375,7 +374,7 @@ public:
         }
     }
 
-    __aicore__ inline void ComputeEBC()
+    __aicore__ inline void Compute()
     {
         if (poolMode == NONE_POOL) {
             ComputeEC();

@@ -147,9 +147,8 @@ public:
         
     __aicore__ inline void GetTableSize(int *tables)
     {
-        int tableNum = weightsOffsetsDim0;
-        int batches = (offsetsDim0 - 1) / weightsOffsetsDim0;
-        for (size_t i = 0; i <= tableNum; i++) {
+        int batches = (offsetsDim0 - 1) / this->weightsOffsetsDim0;
+        for (size_t i = 0; i <= this->weightsOffsetsDim0; i++) {
             tables[i] = offsetGT.GetValue(batches * i);
         }
     }
@@ -194,29 +193,29 @@ public:
 
     __aicore__ inline void ComputeGradEC()
     {
-        int64_t indicesNumOneBlock = blockLen / maxD;
+        int64_t indicesNumOneBlock = blockLen / this->maxD;
         if (indicesNumOneBlock >= MAX_ARGS_PIPE_LEN) {
             indicesNumOneBlock = MAX_ARGS_PIPE_LEN;
         }
         int tables[MAX_INDICES_ONE_BLOCK];
         GetTableSize(tables);
         int64_t lastIndices = 0;
-        int64_t thisTableLen = 0;
-        int64_t batchs = (offsesDim0 - 1) / weightsOffsetsDim0;
-        for (int64_t i = 1; i <= weightsOffsetsDim0; i++) {
-            Scheduler(tables[i] - lastIndices, this->OffsetOfThisCore, thisTableLen);
+        int64_t thisLen = 0;
+        int64_t batchs = (this->offsesDim0 - 1) / this->weightsOffsetsDim0;
+        for (int64_t i = 1; i <= this->weightsOffsetsDim0; i++) {
+            Scheduler(tables[i] - lastIndices, this->OffsetOfThisCore, thisLen);
             int64_t startIndices = this->offsetOfThisCore + lastIndices; // 上一张表的偏移+table_i的偏移
 
-            if (thisTableLen <= 0) {
+            if (thisLen <= 0) {
                 continue;
             }
-            int32_t remain = thisTableLen;
+            int32_t remain = thisLen;
             int64_t thisOffsetIndex = startIndices;
 
             // datacopy In params
             int64_t tableIndex = i - 1;
-            int64_t embedDim = dOffsetGT.GetValue(tableIndex - 1) - dOffsetGT.GetValue(tableIndex);
-            int64_t inputOffset = startIndices * gradOutputDim1;
+            int64_t embedDim = dOffsetsGT.GetValue(tableIndex - 1) - dOffsetsGT.GetValue(tableIndex);
+            int64_t inputOffset = startIndices * this->gradOutputDim1;
             while (remain > 0) {
                 if (thisLen > indicesNumOneBlock) {
                     thisLen = indicesNumOneBlock;
@@ -224,7 +223,7 @@ public:
                 remain -= thisLen;
                 ComputeUniqueArgs args{tableIndex, embedDim, inputOffset, thisLen, startIndices};
                 ComputeGradNoBag(args);
-                inputOffset += thisLen * gradOutputDim1;
+                inputOffset += thisLen * this->gradOutputDim1;
                 startIndices += thisLen;
                 thisLen = remain;
             }
