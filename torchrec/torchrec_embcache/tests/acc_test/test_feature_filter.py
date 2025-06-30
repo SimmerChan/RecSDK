@@ -5,14 +5,14 @@
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
+from dataclasses import dataclass
 import itertools
 import logging
 import os
-import pytest
-from dataclasses import dataclass
 from typing import List
 
 import numpy as np
+import pytest
 import torch
 import torch_npu
 import torch.multiprocessing as mp
@@ -20,6 +20,13 @@ import torch.distributed as dist
 from torch import nn, Tensor
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
+from torchrec_embcache.distributed.embedding import EmbCacheEmbeddingCollection
+from torchrec_embcache.distributed.modules.cache_embedding_configs import (EmbCacheEmbeddingConfig,
+                                                                           AdmitAndEvictConfig)
+from torchrec_embcache.distributed.train_pipeline import EmbCacheTrainPipelineSparseDist
+from torchrec_embcache.distributed.sharding.embedding_sharder import EmbCacheEmbeddingCollectionSharder
+from torchrec_embcache.sparse.jagged_tensor_with_timestamp import KeyedJaggedTensorWithTimestamp
+from torchrec_embcache.saver import Saver
 import torchrec
 import torchrec.distributed
 from torchrec import EmbeddingCollection
@@ -31,13 +38,6 @@ from torchrec.distributed.planner import (
 )
 from torchrec.distributed.types import ShardingEnv
 from torchrec.optim.keyed import CombinedOptimizer
-from torchrec_embcache.distributed.embedding import EmbCacheEmbeddingCollection
-from torchrec_embcache.distributed.modules.cache_embedding_configs import (EmbCacheEmbeddingConfig,
-                                                                           AdmitAndEvictConfig)
-from torchrec_embcache.distributed.train_pipeline import EmbCacheTrainPipelineSparseDist
-from torchrec_embcache.distributed.sharding.embedding_sharder import EmbCacheEmbeddingCollectionSharder
-from torchrec_embcache.sparse.jagged_tensor_with_timestamp import KeyedJaggedTensorWithTimestamp
-from torchrec_embcache.saver import Saver
 
 from dataset import RandomRecDataset, Batch
 from model import ModelEc as Model

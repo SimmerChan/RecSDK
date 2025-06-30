@@ -44,25 +44,12 @@ void AddInitializerType(pybind11::module_& m)
         .export_values();
 }
 
-// Registers _C as a Python extension module.
-PYBIND11_MODULE(embcache_pybind, m)
+void AddEmbConfigModule(pybind11::module_& m)
 {
-    AddInitializerType(m);
-
-    py::class_<AdmitAndEvictConfig>(m, "AdmitAndEvictConfig")
+    pybind11::class_<EmbConfig>(m, "EmbConfig")
         .def(py::init<>())
-        .def(py::init<int32_t, float, uint64_t, uint64_t>(), py::arg("admit_threshold") = -1,
-             py::arg("not_admitted_default_value") = 0.0, py::arg("evict_threshold") = 0,
-             py::arg("evict_step_interval") = 0)
-        .def_readwrite("admit_threshold", &AdmitAndEvictConfig::admitThreshold)
-        .def_readwrite("not_admitted_default_value", &AdmitAndEvictConfig::notAdmittedDefaultValue)
-        .def_readwrite("evict_threshold", &AdmitAndEvictConfig::evictThreshold)
-        .def_readwrite("evict_step_interval", &AdmitAndEvictConfig::evictThreshold);
-
-    py::class_<EmbConfig>(m, "EmbConfig")
-        .def(py::init<>())
-        .def(py::init<const std::string&, InitializerType, int32_t, int32_t, int64_t, float, float, float, float,
-                      AdmitAndEvictConfig>(),
+        .def(pybind11::init<const std::string&, InitializerType, int32_t, int32_t, int64_t,
+                            float, float, float, float, AdmitAndEvictConfig>(),
              py::arg("table_name"), py::arg("initializer_type"),
              py::arg("emb_dim"), py::arg("optim_num"), py::arg("cache_size"),
              py::arg("weight_init_min"), py::arg("weight_init_max"),
@@ -78,6 +65,24 @@ PYBIND11_MODULE(embcache_pybind, m)
         .def_readwrite("weight_init_mean", &EmbConfig::weightInitMean)
         .def_readwrite("weight_init_stddev", &EmbConfig::weightInitStddev)
         .def_readwrite("admit_and_evict_config", &EmbConfig::admitAndEvictConfig);
+}
+
+// Registers _C as a Python extension module.
+PYBIND11_MODULE(embcache_pybind, m)
+{
+    AddInitializerType(m);
+
+    py::class_<AdmitAndEvictConfig>(m, "AdmitAndEvictConfig")
+        .def(py::init<>())
+        .def(py::init<int32_t, float, uint64_t, uint64_t>(), py::arg("admit_threshold") = -1,
+             py::arg("not_admitted_default_value") = 0.0, py::arg("evict_threshold") = 0,
+             py::arg("evict_step_interval") = 0)
+        .def_readwrite("admit_threshold", &AdmitAndEvictConfig::admitThreshold)
+        .def_readwrite("not_admitted_default_value", &AdmitAndEvictConfig::notAdmittedDefaultValue)
+        .def_readwrite("evict_threshold", &AdmitAndEvictConfig::evictThreshold)
+        .def_readwrite("evict_step_interval", &AdmitAndEvictConfig::evictThreshold);
+
+    AddEmbConfigModule(m);
 
     py::class_<SwapInfo>(m, "SwapInfo")
         .def(py::init<>())  // 默认构造函数
