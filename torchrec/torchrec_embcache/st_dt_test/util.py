@@ -12,6 +12,7 @@ from typing import Callable
 
 import pytz
 import torch
+import torch.multiprocessing as mp
 import numpy as np
 from parse_configs import load_all_configs
 from torch.autograd.profiler import record_function
@@ -298,3 +299,37 @@ def fuse_input_dist_splits(context: TrainPipelineContext) -> None:
                     ),
                 )
             )
+
+
+# utils for public test
+def run_model_with_config(config, execute_func):
+    if config.get("device", "npu") == "cpu" and config.get("sharding_type", "table_wise") == "row_wise":
+        return
+    mp.spawn(
+        execute_func,
+        args=(config,),
+        nprocs=config.get("WORLD_SIZE", 2),
+        join=True,
+    )
+
+
+def are_features_equal(obj1, obj2):
+    attributes_to_compare = ["update_embs", "update_momentums1", "update_momentums2"]
+
+    for attr in attributes_to_compare:
+        value1 = getattr(obj1, attr, None)
+        value2 = getattr(obj2, attr, None)
+
+        if value1 is None or value2 is None:
+            logging.error(f"Attribute '{attr}' not found in one of the objects.")
+            return False
+        elif isinstance(value1, list):
+            if not compare_lists(value1, value2):
+                logging.debug("Lists are not equal: %s != %s", value1, value2)
+                return False
+        elif isinstance(value1, torch.Tensor):
+            if not compare_tensors(value1, value2):
+                logging.debug("Tensors are not equal: %s != %s", value1, value2)
+                return False
+    
+    return True
