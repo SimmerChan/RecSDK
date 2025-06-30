@@ -65,7 +65,7 @@ public:
             if (it == table.end()) {
                 auto res = table.emplace(key, extEmbDim);
                 it = res.first;
-                InitEmbeddingWeights(it->second.data(), config);
+                Initializer::InitEmbeddingWeights(it->second.data(), config);
             }
             auto& emb = it->second;
 

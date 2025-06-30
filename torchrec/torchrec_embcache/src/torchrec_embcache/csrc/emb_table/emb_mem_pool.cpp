@@ -85,7 +85,7 @@ void EmbMemoryPool::Produce()
     }
 
     // init embedding
-    InitEmbeddingWeights(reinterpret_cast<float*>(newAddr), embConfig);
+    Initializer::InitEmbeddingWeights(reinterpret_cast<float*>(newAddr), embConfig);
 
     // init optimizer
     auto ret = memset_s(reinterpret_cast<float*>(newAddr) + embConfig.embDim,

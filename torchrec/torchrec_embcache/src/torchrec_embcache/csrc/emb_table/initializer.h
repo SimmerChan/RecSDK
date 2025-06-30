@@ -64,22 +64,22 @@ public:
             return val;
         });
     }
-};
 
-void InitEmbeddingWeights(float* embeddingAddr, const EmbConfig& cfg)
-{
-    if (cfg.initializerType == InitializerType::LINEAR) {
-        Initializer::GenLinear(embeddingAddr, cfg.embDim, cfg.weightInitMin, cfg.weightInitMax);
-    } else if (cfg.initializerType == InitializerType::TRUNCATED_NORMAL) {
-        WeightInitParam param = {cfg.weightInitMean, cfg.weightInitStddev,
-                                 cfg.weightInitMin, cfg.weightInitMax};
-        Initializer::GenTruncatedNormal(embeddingAddr,
-                                        cfg.embDim,
-                                        param);
-    } else {
-        Initializer::GenUniform(embeddingAddr, cfg.embDim, cfg.weightInitMin, cfg.weightInitMax);
+    static void InitEmbeddingWeights(float* embeddingAddr, const EmbConfig& cfg)
+    {
+        if (cfg.initializerType == InitializerType::LINEAR) {
+            Initializer::GenLinear(embeddingAddr, cfg.embDim, cfg.weightInitMin, cfg.weightInitMax);
+        } else if (cfg.initializerType == InitializerType::TRUNCATED_NORMAL) {
+            WeightInitParam param = {cfg.weightInitMean, cfg.weightInitStddev,
+                                     cfg.weightInitMin, cfg.weightInitMax};
+            Initializer::GenTruncatedNormal(embeddingAddr,
+                                            cfg.embDim,
+                                            param);
+        } else {
+            Initializer::GenUniform(embeddingAddr, cfg.embDim, cfg.weightInitMin, cfg.weightInitMax);
+        }
     }
-}
+};
 
 }  // namespace Embcache
 #endif  // EMBEDDING_CACHE_EMB_TABLE_INITIALIZER_H

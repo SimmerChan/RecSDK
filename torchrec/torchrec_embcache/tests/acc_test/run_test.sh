@@ -14,7 +14,7 @@ export LD_PRELOAD=/usr/lib64/libgomp.so.1
 
 SITE_PACKAGES=$(python3 -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")
 TORCH_LIB_PATH="$SITE_PACKAGES/torch/lib"
-CUSTOM_LIB_PATH="$SITE_PACKAGES/embedding_cache"
+CUSTOM_LIB_PATH="$SITE_PACKAGES/torchrec_embcache"
 export LD_LIBRARY_PATH="$SITE_PACKAGES:$TORCH_LIB_PATH:$CUSTOM_LIB_PATH:$LD_LIBRARY_PATH"
 
 export OMP_NUM_THREADS=12
