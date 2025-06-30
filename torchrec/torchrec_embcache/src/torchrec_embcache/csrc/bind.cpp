@@ -35,9 +35,20 @@ void AddEmbCacheManager(pybind11::module_& m)
         .def("record_embedding_update_times", &EmbcacheManager::RecordEmbeddingUpdateTimes);
 }
 
+void AddInitializerType(pybind11::module_& m)
+{
+    py::enum_<InitializerType>(m, "InitializerType")
+        .value("LINEAR", InitializerType::LINEAR)
+            .value("TRUNCATED_NORMAL", InitializerType::TRUNCATED_NORMAL)
+            .value("UNIFORM", InitializerType::UNIFORM)
+        .export_values();
+}
+
 // Registers _C as a Python extension module.
 PYBIND11_MODULE(embcache_pybind, m)
 {
+    AddInitializerType(m);
+
     py::class_<AdmitAndEvictConfig>(m, "AdmitAndEvictConfig")
         .def(py::init<>())
         .def(py::init<int32_t, float, uint64_t, uint64_t>(), py::arg("admit_threshold") = -1,
@@ -50,11 +61,14 @@ PYBIND11_MODULE(embcache_pybind, m)
 
     py::class_<EmbConfig>(m, "EmbConfig")
         .def(py::init<>())
-        .def(py::init<const std::string&, int32_t, int32_t, int64_t, float, float, AdmitAndEvictConfig>(),
-             py::arg("table_name"), py::arg("emb_dim"), py::arg("optim_num"), py::arg("cache_size"),
+        .def(py::init<const std::string&, InitializerType, int32_t, int32_t, int64_t, float, float,
+                      AdmitAndEvictConfig>(),
+             py::arg("table_name"), py::arg("initializer_type"),
+             py::arg("emb_dim"), py::arg("optim_num"), py::arg("cache_size"),
              py::arg("weight_init_min"), py::arg("weight_init_max"),
              py::arg("admit_and_evict_config") = AdmitAndEvictConfig())
         .def_readwrite("table_name", &EmbConfig::tableName)
+        .def_readwrite("initializer_type", &EmbConfig::initializerType)
         .def_readwrite("emb_dim", &EmbConfig::embDim)
         .def_readwrite("optim_num", &EmbConfig::optimNum)
         .def_readwrite("cache_size", &EmbConfig::cacheSize)
