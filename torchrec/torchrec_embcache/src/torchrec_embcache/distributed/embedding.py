@@ -24,17 +24,12 @@ import numpy as np
 import torch_npu
 import torch
 from torch import distributed as dist, nn, Tensor
-from torch.autograd.profiler import record_function
 
 from fbgemm_gpu.split_embedding_configs import EmbOptimType
 from fbgemm_gpu.split_table_batched_embeddings_ops_training import (
     SplitTableBatchedEmbeddingBagsCodegen,
 )
 
-from hybrid_torchrec.distributed.sharding.post_input_dist import (
-    EMPTY_POST_INPUT_DIST,
-    PostInputKJTListAwaitable,
-)
 from hybrid_torchrec.modules.ids_process import IdsMapper
 from hybrid_torchrec.modules.ids_process import HashMapBase
 from hybrid_torchrec.distributed.sharding.post_input_dist import (
@@ -48,7 +43,7 @@ from hybrid_torchrec.sparse.jagged_tensor_with_looup_helper import (
     KeyedJaggedTensorWithLookHelper,
 )
 
-from torchrec_embcache.distributed.modules.cache_embedding_configs import (
+from torchrec_embcache.distributed.configs import (
     AdmitAndEvictConfig as AdmitAndEvictConfigPy,
     EmbCacheEmbeddingConfig
 )
@@ -67,7 +62,6 @@ from torchrec_embcache import (
     AsyncSwapinTensor,
     InitializerType as CppInitType,
     SwapInfo,
-    SwapinTensor,
 )
 from torchrec.distributed.types import (
     Awaitable,
@@ -101,7 +95,6 @@ from torchrec.distributed.embedding_types import (
 from torchrec.modules.embedding_configs import (
     DataType,
     EmbeddingConfig,
-    pooling_type_to_str,
 )
 from torchrec.optim.fused import FusedOptimizerModule
 from torchrec.optim.keyed import CombinedOptimizer
@@ -112,7 +105,6 @@ from torchrec.distributed.embedding import (
     EmbeddingCollectionAwaitable,
     create_sharding_infos_by_sharding,
     pad_vbe_kjt_lengths,
-    set_ec_index_dedup,
     get_ec_index_dedup,
 )
 

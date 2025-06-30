@@ -21,8 +21,8 @@ from torch import nn, Tensor
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
 from torchrec_embcache.distributed.embedding import EmbCacheEmbeddingCollection
-from torchrec_embcache.distributed.modules.cache_embedding_configs import (EmbCacheEmbeddingConfig,
-                                                                           AdmitAndEvictConfig)
+from torchrec_embcache.distributed.configs import (EmbCacheEmbeddingConfig,
+                                                   AdmitAndEvictConfig)
 from torchrec_embcache.distributed.train_pipeline import EmbCacheTrainPipelineSparseDist
 from torchrec_embcache.distributed.sharding.embedding_sharder import EmbCacheEmbeddingCollectionSharder
 from torchrec_embcache.sparse.jagged_tensor_with_timestamp import KeyedJaggedTensorWithTimestamp
