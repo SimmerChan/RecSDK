@@ -8,11 +8,9 @@
 import itertools
 import logging
 import os
-import random
 from dataclasses import dataclass
 from typing import List
 
-import pytz
 import pytest
 import torch
 import torch_npu
@@ -24,21 +22,13 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
 from torchrec_embcache.distributed.embedding_bag import EmbCacheEmbeddingCollection
 from torchrec_embcache.distributed.modules.cache_embedding_configs import AdmitAndEvictConfig, EmbCacheEmbeddingConfig
-from torchrec_embcache.distributed.train_pipeline import (
-    EmbCacheTrainPipelineSparseDist, SimpleEmbCacheTrainPipelineSparseDist
-)
+from torchrec_embcache.distributed.train_pipeline import EmbCacheTrainPipelineSparseDist
 from torchrec_embcache.distributed.sharding.embedding_sharder import EmbCacheEmbeddingCollectionSharder
 from util import setup_logging
 
 import torchrec
 import torchrec.distributed
-from torchrec import EmbeddingConfig, EmbeddingCollection
-from torchrec.distributed import TrainPipelineSparseDist
-from torchrec.distributed.embeddingbag import EmbeddingCollectionAwaitable
-from torchrec.distributed.model_parallel import (
-    DistributedModelParallel,
-    get_default_sharders,
-)
+from torchrec import EmbeddingCollection
 from torchrec.distributed.planner import (
     EmbeddingShardingPlanner,
     Topology,
@@ -50,6 +40,8 @@ from torchrec.optim.keyed import CombinedOptimizer
 
 
 lib_fbgemm_npu_api_so_path = os.getenv('LIB_FBGEMM_NPU_API_SO_PATH')
+if lib_fbgemm_npu_api_so_path is None:
+    raise RuntimeError("LIB_FBGEMM_NPU_API_SO_PATH environment variable is not set.")
 torch.ops.load_library(lib_fbgemm_npu_api_so_path)
 
 

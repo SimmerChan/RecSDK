@@ -9,7 +9,6 @@ from typing import Dict
 
 import torch
 from dataset import Batch
-from util import setup_logging
 
 from torchrec import KeyedJaggedTensor
 
