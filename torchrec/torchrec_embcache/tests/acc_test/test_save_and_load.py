@@ -8,13 +8,11 @@
 import itertools
 import logging
 import multiprocessing
-import random
 import os
 from dataclasses import dataclass
 from typing import List
 
 import pytest
-import pytz
 import torch
 import torch_npu
 import torch.distributed as dist
@@ -29,23 +27,14 @@ from torchrec_embcache.distributed.embedding_bag import (
 from torchrec_embcache.distributed.sharding.embedding_sharder import (
     EmbCacheEmbeddingBagCollectionSharder,
 )
-from torchrec_embcache.distributed.train_pipeline import (
-    EmbCacheTrainPipelineSparseDist,
-    SimpleEmbCacheTrainPipelineSparseDist,
-)
+from torchrec_embcache.distributed.train_pipeline import EmbCacheTrainPipelineSparseDist
 from torchrec_embcache.saver import Saver
 from util import setup_logging
 
 import torchrec
 from torchrec import EmbeddingBagConfig, EmbeddingBagCollection
 import torchrec.distributed
-from torchrec.distributed import TrainPipelineSparseDist
 from torchrec.optim.apply_optimizer_in_backward import apply_optimizer_in_backward
-from torchrec.distributed.embeddingbag import EmbeddingBagCollectionAwaitable
-from torchrec.distributed.model_parallel import (
-    DistributedModelParallel,
-    get_default_sharders,
-)
 from torchrec.distributed.planner import (
     EmbeddingShardingPlanner,
     Topology,
@@ -56,6 +45,8 @@ from torchrec.optim.keyed import CombinedOptimizer
 
 
 lib_fbgemm_npu_api_so_path = os.getenv("LIB_FBGEMM_NPU_API_SO_PATH")
+if lib_fbgemm_npu_api_so_path is None:
+    raise RuntimeError("LIB_FBGEMM_NPU_API_SO_PATH environment variable is not set")
 torch.ops.load_library(lib_fbgemm_npu_api_so_path)
 
 

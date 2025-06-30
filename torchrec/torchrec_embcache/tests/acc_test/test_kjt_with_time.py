@@ -7,12 +7,10 @@
 # LICENSE file in the root directory of this source tree.
 
 import logging
-import os
 import time
 
 import pytest
 import torch
-import numpy as np
 from torchrec_embcache.sparse.jagged_tensor_with_timestamp import (
     JaggedTensorWithTimestamp,
     KeyedJaggedTensorWithTimestamp)
