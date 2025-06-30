@@ -25,7 +25,8 @@ from util import (
     setup_logging,
     create_weight_init,
     check_config,
-    OVER_COUNT
+    OVER_COUNT,
+    run_model_with_config
 )
 
 import torchrec
@@ -90,17 +91,6 @@ def test_feature_name_exist(config):
             future.result()
 
     assert "KeyError" in str(exc_info.value)
-
-
-def run_model_with_config(config):
-    if config.get("device", "npu") == "cpu" and config.get("sharding_type", "table_wise") == "row_wise":
-        return
-    mp.spawn(
-        execute,
-        args=(config,),
-        nprocs=config.get("WORLD_SIZE", 2),
-        join=True,
-    )
 
 
 def execute(rank, config):
