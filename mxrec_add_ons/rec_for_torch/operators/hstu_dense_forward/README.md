@@ -20,7 +20,7 @@ C算子开发手册[Ascend C算子开发](https://www.hiascend.com/document/deta
 
 1. 上传hstu_dense_forward文件夹到目标环境，并进入当前目录，执行指令对hstu_dense_forward算子进行编译和部署
 
-默认编译与安装：
+默认编译安装Atlas A2训练系列产品AI Core类型：
 ```shell
 bash run.sh
 ```
