@@ -7,6 +7,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import os
+import logging
 import sysconfig
 import torch
 from hybrid_torchrec.modules.hash_embeddingbag import (
@@ -17,4 +18,11 @@ from hybrid_torchrec.modules.hash_embeddingbag import (
 
 __all__ = ["HashEmbeddingBagCollection", "HashEmbeddingBagConfig"]
 
-torch.ops.load_library(f"{sysconfig.get_path('purelib')}/libfbgemm_npu_api.so")
+try:
+    torch.ops.load_library(f"{sysconfig.get_path('purelib')}/libfbgemm_npu_api.so")
+except FileNotFoundError as e:
+    logging.error(f"library file not found: {e}")
+except RuntimeError as e:
+    logging.error(f"Runtime error during library loading: {e}")
+except Exception as e:
+    logging.critical(f"Unexpected error: {e}")
