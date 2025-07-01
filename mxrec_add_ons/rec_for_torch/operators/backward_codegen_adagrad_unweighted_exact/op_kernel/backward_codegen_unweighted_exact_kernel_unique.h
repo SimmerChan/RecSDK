@@ -186,9 +186,9 @@ public:
     {
         if (this->poolMode == NONE_POOL) {
                 ComputeGradEC();
-            } else {
-                ComputeGradEBC();
-            }
+        } else {
+            ComputeGradEBC();
+        }
     }
 
     __aicore__ inline void ComputeGradEC()
