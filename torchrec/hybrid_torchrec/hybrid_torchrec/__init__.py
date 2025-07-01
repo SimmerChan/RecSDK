@@ -23,8 +23,6 @@ __all__ = ["HashEmbeddingBagCollection", "HashEmbeddingBagConfig"]
 try:
     torch.ops.load_library(f"{sysconfig.get_path('purelib')}/libfbgemm_npu_api.so")
 except FileNotFoundError as e:
-    logging.error(f"library file not found: {e}")
-except RuntimeError as e:
-    logging.error(f"Runtime error during library loading: {e}")
+    logging.warning(f"libfbgemm_npu_api.so is not exist")
 except Exception as e:
-    logging.critical(f"Unexpected error: {e}")
+    logging.warning(f"libfbgemm_npu_api.so failed to load: {e}")
