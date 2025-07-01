@@ -38,6 +38,9 @@ parser.add_argument('--estimator', type=int, choices=[0, 1], default=1, required
 parser.add_argument('--ddr', type=int, choices=[0, 1], default=0, required=False)
 parser.add_argument('--save_easy', type=int, choices=[0, 1], default=1, required=False)
 
+hbm_prefix_list = ["HashTable", "HBM"]
+ddr_prefix_list = ["HashTable", "DDR"]
+
 
 class DataAttr(Enum):
     SHAPE = "shape"
@@ -68,7 +71,7 @@ class ModelConverter:
 
     @staticmethod
     def _get_key_array(sparse_file_path, table_name):
-        upper_dir = generate_upper_dir(sparse_file_path, common.hbm_prefix_list, table_name, "key")
+        upper_dir = generate_upper_dir(sparse_file_path, hbm_prefix_list, table_name, "key")
         attribute_data_dir, target_data_dir = get_attribute_and_data_file(upper_dir)
         with tf.io.gfile.GFile(attribute_data_dir, "r") as fin:
             emb_attributes = json.load(fin)
@@ -108,9 +111,9 @@ class ModelConverter:
 
     def _get_key_and_offset(self, sparse_file_path, table_name):
         if self._is_ddr:
-            upper_dir = generate_upper_dir(sparse_file_path, common.ddr_prefix_list, table_name, "embedding_hashmap")
+            upper_dir = generate_upper_dir(sparse_file_path, ddr_prefix_list, table_name, "embedding_hashmap")
         else:
-            upper_dir = generate_upper_dir(sparse_file_path, common.hbm_prefix_list, table_name, "key_offset_map")
+            upper_dir = generate_upper_dir(sparse_file_path, hbm_prefix_list, table_name, "key_offset_map")
         attribute_data_dir, target_data_dir = get_attribute_and_data_file(upper_dir)
 
         with open(attribute_data_dir, "r") as fin:
@@ -125,7 +128,7 @@ class ModelConverter:
         return offset, key
 
     def _get_embedding_array(self, sparse_file_path, table_name):
-        upper_dir = generate_upper_dir(sparse_file_path, common.hbm_prefix_list, table_name, "embedding")
+        upper_dir = generate_upper_dir(sparse_file_path, hbm_prefix_list, table_name, "embedding")
         attribute_data_dir, target_data_dir = get_attribute_and_data_file(upper_dir)
         with tf.io.gfile.GFile(attribute_data_dir, "r") as fin:
             emb_attributes = json.load(fin)
@@ -137,7 +140,7 @@ class ModelConverter:
         emb_data = emb_data.reshape(data_shape)
 
         if self._is_ddr:
-            ddr_upper_dir = generate_upper_dir(sparse_file_path, common.ddr_prefix_list, table_name, "embedding_data")
+            ddr_upper_dir = generate_upper_dir(sparse_file_path, ddr_prefix_list, table_name, "embedding_data")
             attribute_data_dir, target_data_dir = get_attribute_and_data_file(ddr_upper_dir)
             with open(attribute_data_dir, "r") as fin:
                 attributes = np.fromfile(attribute_data_dir, dtype=np.uint64)

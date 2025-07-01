@@ -22,8 +22,6 @@ SLICE_PREFIX = "slice_"
 SPARSE_FILE_PREFIX = "sparse-"
 DATA_SUFFIX = ".data"
 ATTRIBUTE_SUFFIX = ".attribute"
-hbm_prefix_list = ["HashTable", "HBM"]
-ddr_prefix_list = ["HashTable", "DDR"]
 MIN_FILE_SIZE = 1
 MAX_FILE_SIZE = 1024 * 1024 * 1024 * 1024
 
