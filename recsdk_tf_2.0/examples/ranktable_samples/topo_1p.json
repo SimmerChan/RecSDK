@@ -1,0 +1,11 @@
+{
+  "version": "2.0",
+  "peer_count": 1,
+  "peer_list": [
+    {
+      "id": 0
+    }
+  ],
+  "edge_count": 1,
+  "edge_list": []
+}

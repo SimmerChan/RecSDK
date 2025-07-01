@@ -1,0 +1,110 @@
+{
+  "version": "2.0",
+  "rank_count": "8",
+  "rank_list": [
+    {
+      "rank_id": 0,
+      "local_id": 0,
+      "level_list": [
+        {
+          "level": 0,
+          "id": "az0-rack0",
+          "fabric_type": "INNER",
+          "rank_addr_type": "",
+          "rank_addrs": []
+        }
+      ]
+    },
+    {
+      "rank_id": 1,
+      "local_id": 1,
+      "level_list": [
+        {
+          "level": 0,
+          "id": "az0-rack0",
+          "fabric_type": "INNER",
+          "rank_addr_type": "",
+          "rank_addrs": []
+        }
+      ]
+    },
+    {
+      "rank_id": 2,
+      "local_id": 2,
+      "level_list": [
+        {
+          "level": 0,
+          "id": "az0-rack0",
+          "fabric_type": "INNER",
+          "rank_addr_type": "",
+          "rank_addrs": []
+        }
+      ]
+    },
+    {
+      "rank_id": 3,
+      "local_id": 3,
+      "level_list": [
+        {
+          "level": 0,
+          "id": "az0-rack0",
+          "fabric_type": "INNER",
+          "rank_addr_type": "",
+          "rank_addrs": []
+        }
+      ]
+    },
+    {
+      "rank_id": 4,
+      "local_id": 4,
+      "level_list": [
+        {
+          "level": 0,
+          "id": "az0-rack0",
+          "fabric_type": "INNER",
+          "rank_addr_type": "",
+          "rank_addrs": []
+        }
+      ]
+    },
+    {
+      "rank_id": 5,
+      "local_id": 5,
+      "level_list": [
+        {
+          "level": 0,
+          "id": "az0-rack0",
+          "fabric_type": "INNER",
+          "rank_addr_type": "",
+          "rank_addrs": []
+        }
+      ]
+    },
+    {
+      "rank_id": 6,
+      "local_id": 6,
+      "level_list": [
+        {
+          "level": 0,
+          "id": "az0-rack0",
+          "fabric_type": "INNER",
+          "rank_addr_type": "",
+          "rank_addrs": []
+        }
+      ]
+    },
+    {
+      "rank_id": 7,
+      "local_id": 7,
+      "level_list": [
+        {
+          "level": 0,
+          "id": "az0-rack0",
+          "fabric_type": "INNER",
+          "rank_addr_type": "",
+          "rank_addrs": []
+        }
+      ]
+    }
+  ]
+}

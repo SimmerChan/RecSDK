@@ -1,0 +1,481 @@
+{
+  "version": "2.0",
+  "peer_count": 8,
+  "peer_list": [
+    {
+      "id": 0
+    },
+    {
+      "id": 1
+    },
+    {
+      "id": 2
+    },
+    {
+      "id": 3
+    },
+    {
+      "id": 4
+    },
+    {
+      "id": 5
+    },
+    {
+      "id": 6
+    },
+    {
+      "id": 7
+    }
+  ],
+  "edge_count": 28,
+  "edge_list": [
+    {
+      "level": 0,
+      "protocol": "UBC-CTP",
+      "u_endpoint": {
+        "type": "PEER",
+        "id": 0,
+        "addr": "192.168.30.1",
+        "position": "device"
+      },
+      "v_endpoint": {
+        "type": "PEER",
+        "id": 1,
+        "addr": "192.168.30.2",
+        "position": "device"
+      }
+    },
+    {
+      "level": 0,
+      "protocol": "UBC-CTP",
+      "u_endpoint": {
+        "type": "PEER",
+        "id": 0,
+        "addr": "192.168.30.1",
+        "position": "device"
+      },
+      "v_endpoint": {
+        "type": "PEER",
+        "id": 2,
+        "addr": "192.168.30.3",
+        "position": "device"
+      }
+    },
+    {
+      "level": 0,
+      "protocol": "UBC-CTP",
+      "u_endpoint": {
+        "type": "PEER",
+        "id": 0,
+        "addr": "192.168.30.1",
+        "position": "device"
+      },
+      "v_endpoint": {
+        "type": "PEER",
+        "id": 3,
+        "addr": "192.168.30.4",
+        "position": "device"
+      }
+    },
+    {
+      "level": 0,
+      "protocol": "UBC-CTP",
+      "u_endpoint": {
+        "type": "PEER",
+        "id": 0,
+        "addr": "192.168.30.1",
+        "position": "device"
+      },
+      "v_endpoint": {
+        "type": "PEER",
+        "id": 4,
+        "addr": "192.168.30.5",
+        "position": "device"
+      }
+    },
+    {
+      "level": 0,
+      "protocol": "UBC-CTP",
+      "u_endpoint": {
+        "type": "PEER",
+        "id": 0,
+        "addr": "192.168.30.1",
+        "position": "device"
+      },
+      "v_endpoint": {
+        "type": "PEER",
+        "id": 5,
+        "addr": "192.168.30.6",
+        "position": "device"
+      }
+    },
+    {
+      "level": 0,
+      "protocol": "UBC-CTP",
+      "u_endpoint": {
+        "type": "PEER",
+        "id": 0,
+        "addr": "192.168.30.1",
+        "position": "device"
+      },
+      "v_endpoint": {
+        "type": "PEER",
+        "id": 6,
+        "addr": "192.168.30.7",
+        "position": "device"
+      }
+    },
+    {
+      "level": 0,
+      "protocol": "UBC-CTP",
+      "u_endpoint": {
+        "type": "PEER",
+        "id": 0,
+        "addr": "192.168.30.1",
+        "position": "device"
+      },
+      "v_endpoint": {
+        "type": "PEER",
+        "id": 7,
+        "addr": "192.168.30.8",
+        "position": "device"
+      }
+    },
+    {
+      "level": 0,
+      "protocol": "UBC-CTP",
+      "u_endpoint": {
+        "type": "PEER",
+        "id": 1,
+        "addr": "192.168.30.2",
+        "position": "device"
+      },
+      "v_endpoint": {
+        "type": "PEER",
+        "id": 2,
+        "addr": "192.168.30.3",
+        "position": "device"
+      }
+    },
+    {
+      "level": 0,
+      "protocol": "UBC-CTP",
+      "u_endpoint": {
+        "type": "PEER",
+        "id": 1,
+        "addr": "192.168.30.2",
+        "position": "device"
+      },
+      "v_endpoint": {
+        "type": "PEER",
+        "id": 3,
+        "addr": "192.168.30.4",
+        "position": "device"
+      }
+    },
+    {
+      "level": 0,
+      "protocol": "UBC-CTP",
+      "u_endpoint": {
+        "type": "PEER",
+        "id": 1,
+        "addr": "192.168.30.2",
+        "position": "device"
+      },
+      "v_endpoint": {
+        "type": "PEER",
+        "id": 4,
+        "addr": "192.168.30.5",
+        "position": "device"
+      }
+    },
+    {
+      "level": 0,
+      "protocol": "UBC-CTP",
+      "u_endpoint": {
+        "type": "PEER",
+        "id": 1,
+        "addr": "192.168.30.2",
+        "position": "device"
+      },
+      "v_endpoint": {
+        "type": "PEER",
+        "id": 5,
+        "addr": "192.168.30.6",
+        "position": "device"
+      }
+    },
+    {
+      "level": 0,
+      "protocol": "UBC-CTP",
+      "u_endpoint": {
+        "type": "PEER",
+        "id": 1,
+        "addr": "192.168.30.2",
+        "position": "device"
+      },
+      "v_endpoint": {
+        "type": "PEER",
+        "id": 6,
+        "addr": "192.168.30.7",
+        "position": "device"
+      }
+    },
+    {
+      "level": 0,
+      "protocol": "UBC-CTP",
+      "u_endpoint": {
+        "type": "PEER",
+        "id": 1,
+        "addr": "192.168.30.2",
+        "position": "device"
+      },
+      "v_endpoint": {
+        "type": "PEER",
+        "id": 7,
+        "addr": "192.168.30.8",
+        "position": "device"
+      }
+    },
+    {
+      "level": 0,
+      "protocol": "UBC-CTP",
+      "u_endpoint": {
+        "type": "PEER",
+        "id": 2,
+        "addr": "192.168.30.3",
+        "position": "device"
+      },
+      "v_endpoint": {
+        "type": "PEER",
+        "id": 3,
+        "addr": "192.168.30.4",
+        "position": "device"
+      }
+    },
+    {
+      "level": 0,
+      "protocol": "UBC-CTP",
+      "u_endpoint": {
+        "type": "PEER",
+        "id": 2,
+        "addr": "192.168.30.3",
+        "position": "device"
+      },
+      "v_endpoint": {
+        "type": "PEER",
+        "id": 4,
+        "addr": "192.168.30.5",
+        "position": "device"
+      }
+    },
+    {
+      "level": 0,
+      "protocol": "UBC-CTP",
+      "u_endpoint": {
+        "type": "PEER",
+        "id": 2,
+        "addr": "192.168.30.3",
+        "position": "device"
+      },
+      "v_endpoint": {
+        "type": "PEER",
+        "id": 5,
+        "addr": "192.168.30.6",
+        "position": "device"
+      }
+    },
+    {
+      "level": 0,
+      "protocol": "UBC-CTP",
+      "u_endpoint": {
+        "type": "PEER",
+        "id": 2,
+        "addr": "192.168.30.3",
+        "position": "device"
+      },
+      "v_endpoint": {
+        "type": "PEER",
+        "id": 6,
+        "addr": "192.168.30.7",
+        "position": "device"
+      }
+    },
+    {
+      "level": 0,
+      "protocol": "UBC-CTP",
+      "u_endpoint": {
+        "type": "PEER",
+        "id": 2,
+        "addr": "192.168.30.3",
+        "position": "device"
+      },
+      "v_endpoint": {
+        "type": "PEER",
+        "id": 7,
+        "addr": "192.168.30.8",
+        "position": "device"
+      }
+    },
+    {
+      "level": 0,
+      "protocol": "UBC-CTP",
+      "u_endpoint": {
+        "type": "PEER",
+        "id": 3,
+        "addr": "192.168.30.4",
+        "position": "device"
+      },
+      "v_endpoint": {
+        "type": "PEER",
+        "id": 4,
+        "addr": "192.168.30.5",
+        "position": "device"
+      }
+    },
+    {
+      "level": 0,
+      "protocol": "UBC-CTP",
+      "u_endpoint": {
+        "type": "PEER",
+        "id": 3,
+        "addr": "192.168.30.4",
+        "position": "device"
+      },
+      "v_endpoint": {
+        "type": "PEER",
+        "id": 5,
+        "addr": "192.168.30.6",
+        "position": "device"
+      }
+    },
+    {
+      "level": 0,
+      "protocol": "UBC-CTP",
+      "u_endpoint": {
+        "type": "PEER",
+        "id": 3,
+        "addr": "192.168.30.4",
+        "position": "device"
+      },
+      "v_endpoint": {
+        "type": "PEER",
+        "id": 6,
+        "addr": "192.168.30.7",
+        "position": "device"
+      }
+    },
+    {
+      "level": 0,
+      "protocol": "UBC-CTP",
+      "u_endpoint": {
+        "type": "PEER",
+        "id": 3,
+        "addr": "192.168.30.4",
+        "position": "device"
+      },
+      "v_endpoint": {
+        "type": "PEER",
+        "id": 7,
+        "addr": "192.168.30.8",
+        "position": "device"
+      }
+    },
+    {
+      "level": 0,
+      "protocol": "UBC-CTP",
+      "u_endpoint": {
+        "type": "PEER",
+        "id": 4,
+        "addr": "192.168.30.5",
+        "position": "device"
+      },
+      "v_endpoint": {
+        "type": "PEER",
+        "id": 5,
+        "addr": "192.168.30.6",
+        "position": "device"
+      }
+    },
+    {
+      "level": 0,
+      "protocol": "UBC-CTP",
+      "u_endpoint": {
+        "type": "PEER",
+        "id": 4,
+        "addr": "192.168.30.5",
+        "position": "device"
+      },
+      "v_endpoint": {
+        "type": "PEER",
+        "id": 6,
+        "addr": "192.168.30.7",
+        "position": "device"
+      }
+    },
+    {
+      "level": 0,
+      "protocol": "UBC-CTP",
+      "u_endpoint": {
+        "type": "PEER",
+        "id": 4,
+        "addr": "192.168.30.5",
+        "position": "device"
+      },
+      "v_endpoint": {
+        "type": "PEER",
+        "id": 7,
+        "addr": "192.168.30.8",
+        "position": "device"
+      }
+    },
+    {
+      "level": 0,
+      "protocol": "UBC-CTP",
+      "u_endpoint": {
+        "type": "PEER",
+        "id": 5,
+        "addr": "192.168.30.6",
+        "position": "device"
+      },
+      "v_endpoint": {
+        "type": "PEER",
+        "id": 6,
+        "addr": "192.168.30.7",
+        "position": "device"
+      }
+    },
+    {
+      "level": 0,
+      "protocol": "UBC-CTP",
+      "u_endpoint": {
+        "type": "PEER",
+        "id": 5,
+        "addr": "192.168.30.6",
+        "position": "device"
+      },
+      "v_endpoint": {
+        "type": "PEER",
+        "id": 7,
+        "addr": "192.168.30.8",
+        "position": "device"
+      }
+    },
+    {
+      "level": 0,
+      "protocol": "UBC-CTP",
+      "u_endpoint": {
+        "type": "PEER",
+        "id": 6,
+        "addr": "192.168.30.7",
+        "position": "device"
+      },
+      "v_endpoint": {
+        "type": "PEER",
+        "id": 7,
+        "addr": "192.168.30.8",
+        "position": "device"
+      }
+    }
+  ]
+}

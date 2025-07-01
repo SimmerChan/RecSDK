@@ -1,0 +1,6 @@
+# Ignored normal files and directories.
+build/
+
+# Ignored hidden files and directories.
+.cache/
+**/__pycache__/

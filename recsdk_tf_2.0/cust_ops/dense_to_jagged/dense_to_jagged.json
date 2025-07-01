@@ -1,0 +1,48 @@
+[
+    {
+        "op": "DenseToJagged",
+        "language": "cpp",
+        "input_desc": [
+            {
+                "name": "dense",
+                "param_type": "required",
+                "format": [
+                    "ND"
+                ],
+                "type": [
+                    "float"
+                ]
+            },
+            {
+                "name": "offset",
+                "param_type": "required",
+                "format": [
+                    "ND"
+                ],
+                "type": [
+                    "int64"
+                ]
+            }
+        ],
+        "output_desc": [
+            {
+                "name": "jagged_dense",
+                "param_type": "required",
+                "format": [
+                    "ND"
+                ],
+                "type": [
+                    "float"
+                ]
+            }
+        ],
+        "attr": [
+            {
+              "name": "jagged_dim",
+			  "param_type": "required",
+              "type": "int",
+              "default_value": 0
+            }
+        ]
+    }
+]
