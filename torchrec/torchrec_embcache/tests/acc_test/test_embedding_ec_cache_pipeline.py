@@ -17,10 +17,10 @@ import torch_npu
 import torch.multiprocessing as mp
 import torch.distributed as dist
 from dataset import RandomRecDataset, Batch
-from model import Model
+from model import ModelEc
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
-from torchrec_embcache.distributed.embedding_bag import EmbCacheEmbeddingCollection
+from torchrec_embcache.distributed.embedding import EmbCacheEmbeddingCollection
 from torchrec_embcache.distributed.configs import AdmitAndEvictConfig, EmbCacheEmbeddingConfig
 from torchrec_embcache.distributed.train_pipeline import EmbCacheTrainPipelineSparseDist
 from torchrec_embcache.distributed.sharding.embedding_sharder import EmbCacheEmbeddingCollectionSharder
@@ -37,12 +37,6 @@ from torchrec.distributed.planner import (
 from torchrec.distributed.types import ShardingEnv
 from torchrec.optim.apply_optimizer_in_backward import apply_optimizer_in_backward
 from torchrec.optim.keyed import CombinedOptimizer
-
-
-lib_fbgemm_npu_api_so_path = os.getenv('LIB_FBGEMM_NPU_API_SO_PATH')
-if lib_fbgemm_npu_api_so_path is None:
-    raise RuntimeError("LIB_FBGEMM_NPU_API_SO_PATH environment variable is not set.")
-torch.ops.load_library(lib_fbgemm_npu_api_so_path)
 
 
 WORLD_SIZE = 2
@@ -98,6 +92,8 @@ def execute(rank: int, config: ExecuteConfig):
             num_embeddings=num_embeddings[i],
             feature_names=[f"feat{i}"],
             init_fn=weight_init,
+            weight_init_min=0.0,
+            weight_init_max=1.0,
             admit_and_evict_config=admit_and_evict_config
         )
         embedding_configs.append(ec_config)
@@ -148,7 +144,7 @@ class TestModel:
         ec = EmbeddingCollection(device=torch.device("cpu"), tables=embeding_config)
 
         num_features = sum([c.num_features() for c in embeding_config])
-        ec = Model(ec, num_features)
+        ec = ModelEc(ec, num_features)
         model = DDP(ec, device_ids=None, process_group=pg)
 
         opt = torch.optim.Adagrad(model.parameters(), lr=0.02, eps=1e-8)
@@ -194,7 +190,7 @@ class TestModel:
                                          batch_size=2, multi_hot_sizes=[1] * table_num,
                                          world_size=dist.get_world_size())
         num_features = sum([c.num_features() for c in embeding_config])
-        ec = Model(ec, num_features)
+        ec = ModelEc(ec, num_features)
         apply_optimizer_in_backward(
             optimizer_class=torch.optim.Adagrad,
             params=ec.parameters(),

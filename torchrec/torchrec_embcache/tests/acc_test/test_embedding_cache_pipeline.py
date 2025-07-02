@@ -38,12 +38,6 @@ from torchrec.optim.apply_optimizer_in_backward import apply_optimizer_in_backwa
 from torchrec.optim.keyed import CombinedOptimizer
 
 
-lib_fbgemm_npu_api_so_path = os.getenv('LIB_FBGEMM_NPU_API_SO_PATH')
-if lib_fbgemm_npu_api_so_path is None:
-    raise RuntimeError("LIB_FBGEMM_NPU_API_SO_PATH environment variable is not set.")
-torch.ops.load_library(lib_fbgemm_npu_api_so_path)
-
-
 WORLD_SIZE = 2
 LOOP_TIMES = 200
 BATCH_NUM = 1000

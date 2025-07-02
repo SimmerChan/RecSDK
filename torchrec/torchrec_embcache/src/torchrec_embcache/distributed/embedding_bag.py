@@ -131,7 +131,7 @@ class EmbCacheHashTable(torch.nn.Module):
     def __init__(self, config: EmbeddingBagConfig, device: torch.device):
         super().__init__()
         self.config = config
-        self.ids2slot_dict = IdsMapper(self.config.num_embeddings)
+        self.ids2slot_dict = IdsMapper(self.config.num_embeddings, only_device_memory=False)
         self.vector_table = torch.nn.EmbeddingBag(
             self.config.num_embeddings,
             self.config.embedding_dim,

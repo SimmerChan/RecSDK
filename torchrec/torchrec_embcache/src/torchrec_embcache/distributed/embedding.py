@@ -54,7 +54,7 @@ from torchrec_embcache.sparse.jagged_tensor_with_timestamp import (
     KeyedJaggedTensorWithTimestamp,
 )
 from torchrec_embcache.distributed.utils import get_embedding_optim_num
-from torchrec_embcache import (
+from embcache_pybind import (
     EmbcacheManager,
     EmbConfig,
     AdmitAndEvictConfig,
@@ -149,7 +149,7 @@ class EmbCacheHashTable(torch.nn.Module):
     def __init__(self, config: EmbeddingConfig, device: torch.device):
         super().__init__()
         self.config = config
-        self.ids2slot_dict = IdsMapper(self.config.num_embeddings)
+        self.ids2slot_dict = IdsMapper(self.config.num_embeddings, only_device_memory=False)
         self.vector_table = nn.Embedding(
             num_embeddings=config.num_embeddings,
             embedding_dim=config.embedding_dim,
@@ -203,7 +203,7 @@ class EmbCacheEmbeddingCollection(EmbeddingCollection):
             device if device is not None else torch.device("cpu")
         )
         self._optim_num = get_embedding_optim_num(embedding_optimizer_cls)
-        logger.debug("======  _optim_num: %", self._optim_num)
+        logger.debug("======  _optim_num: %d", self._optim_num)
 
         evict_step_intervals = set(
             config.admit_and_evict_config.evict_step_interval for config in tables
@@ -219,7 +219,7 @@ class EmbCacheEmbeddingCollection(EmbeddingCollection):
             raise
         logger.debug("======  embcache_size_on_device_mem: %s", embcache_size_on_device_mem)
 
-        cache_num_embeddings = self._caculate_caches(
+        cache_num_embeddings = self._calculate_caches(
             tables, embcache_size_on_device_mem, multi_hot_sizes, batch_size, world_size
         )
         # 开启准入时会预留offset 0位置，手动给计算后的表大小加1
@@ -262,7 +262,7 @@ class EmbCacheEmbeddingCollection(EmbeddingCollection):
         )
         self._feature_names: List[List[str]] = [table.feature_names for table in tables]
 
-    def _caculate_caches(
+    def _calculate_caches(
         self,
         tables: List[EmbeddingConfig],
         max_device_mem_for_vectors: int,
