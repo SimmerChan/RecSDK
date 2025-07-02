@@ -16,6 +16,7 @@
 # ==============================================================================
 
 import os
+
 import tensorflow as tf
 
 SLICE_PREFIX = "slice_"

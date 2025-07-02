@@ -16,6 +16,7 @@
 # ==============================================================================
 
 import os
+
 import tensorflow as tf
 
 from mx_rec.core.asc.helper import get_asc_insert_func

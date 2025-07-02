@@ -20,12 +20,12 @@ import sys
 import time
 import argparse
 import logging
+
 import numpy as np
 import tensorflow as tf
 from mpi4py import MPI  # must before emb_cache after SparseOps
 import psutil
 from sklearn.metrics import roc_auc_score
-
 from tensorflow.python.ops import math_ops
 from tensorflow.python.framework import ops
 from tensorflow.core.protobuf.rewriter_config_pb2 import RewriterConfig
