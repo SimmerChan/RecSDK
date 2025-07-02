@@ -19,13 +19,14 @@ import os
 import re
 import stat
 import subprocess
+from pathlib import Path
 from setuptools import setup, find_packages
 import pkg_resources
 from setuptools.extern.packaging import version as packaging_version
 
 
 def run_setup(build_script_name, build_type):
-    script_path = os.getcwd()
+    script_path = Path(__file__).parent.absolute()
 
     # Patch Version class to preserve original version string
     class NoNormalizeVersion(packaging_version.Version):
@@ -40,6 +41,7 @@ def run_setup(build_script_name, build_type):
         return v
 
     packaging_version.Version = NoNormalizeVersion
+    # Patch safe_version() to prevent version normalization
     pkg_resources.safe_version = safe_version
 
     try:
@@ -73,7 +75,7 @@ def run_setup(build_script_name, build_type):
     build_script = os.path.join(script_path, build_script_name)
     res = subprocess.run([build_script], shell=False)
     if res.returncode:
-        raise RuntimeError(f"compile so files failed: {build_script}")
+        raise RuntimeError("compile so files failed!")
 
     setup(
         name='mx_rec',
@@ -81,8 +83,14 @@ def run_setup(build_script_name, build_type):
         author='HUAWEI Inc',
         description='MindSDK Recommend',
         long_description=LONG_DESCRIPTION,
-        packages=find_packages(where='.', include=["mx_rec*"]),
+        # include mx_rec
+        packages=find_packages(
+            where='.',
+            include=["mx_rec*"]
+        ),
+        # other file
         package_data={'': ['tools/*', 'tools/*/*', '*.yml', '*.sh', '*.so*']},
+        # dependency
         python_requires='>=3.7.5'
     )
 
