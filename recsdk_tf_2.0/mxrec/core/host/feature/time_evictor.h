@@ -54,6 +54,8 @@ public:
     void Load(const std::string& filePath);
     std::vector<common::emb_key_t> Evict();
 
+    bool isRunning{true};
+
 private:
     void Update(const std::vector<common::emb_key_t>& keys);
 

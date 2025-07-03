@@ -28,7 +28,7 @@ constexpr int NUM_QUEUE = 4;
 constexpr int UB_ALIGN = 32;
 constexpr int SUPORT_EMBEDDING_DIM_NUM = 2;
 
-static void SetTypeTiling(gert::TilingContext* context, JaggedToPaddedDenseTilingData& tiling) 
+static void SetTypeTiling(gert::TilingContext* context, JaggedToPaddedDenseTilingData& tiling)
 {
     int64_t bytesOfDataType = 0;
     ge::DataType dataType = context->GetInputTensor(0)->GetDataType();

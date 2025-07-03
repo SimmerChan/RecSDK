@@ -49,6 +49,10 @@ void TimeEvictor::Start()
 {
     future_ = std::async(std::launch::async, [this]() {
         while (true) {
+            if (!isRunning) {
+                break;
+            }
+
             auto recv_tensors = d2hTransporter_->RecvTensors();
             auto keys = ConvertTensorToVector1D<emb_key_t>(std::move(recv_tensors[0]));
             this->Update(keys);

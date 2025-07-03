@@ -14,11 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+#include "all2all_v_c.h"
+
 #include "kernel_operator.h"
 #include "op_def.h"
 #include "collectives.h"
 
-#include "all2all_v_c.h"
 #include "all2all_v_c_cf.h"
 
 #define ALL2ALL_CLASS_OP_LAUNCH(name, type)             \

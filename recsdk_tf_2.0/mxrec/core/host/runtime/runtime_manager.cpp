@@ -52,6 +52,17 @@ RuntimeManager::RuntimeManager(int32_t deviceId) : deviceId_(deviceId)
 
 RuntimeManager::~RuntimeManager() noexcept
 {
+    for (auto& pair: countFilters_) {
+        if (pair.second) {
+            pair.second->isRunning = false;
+        }
+    }
+    for (auto& pair: timeFilters_) {
+        if (pair.second) {
+            pair.second->isRunning = false;
+        }
+    }
+
     auto err = aclrtResetDevice(deviceId_);
     if (err != ACL_SUCCESS) {
         spdlog::error("Failed to reset device, error code: {}.", err);

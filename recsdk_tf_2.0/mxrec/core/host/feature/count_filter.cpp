@@ -54,6 +54,10 @@ void CountFilter::Start()
 {
     future_ = std::async(std::launch::async, [this]() {
         while (true) {
+            if (!isRunning) {
+                break;
+            }
+
             auto recvTensors = d2hTransporter_->RecvTensors();
 
             auto keys = ConvertTensorToVector1D<emb_key_t>(recvTensors[0]);

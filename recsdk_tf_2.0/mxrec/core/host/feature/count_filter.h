@@ -54,6 +54,8 @@ public:
     void Save(const std::string& filePath);
     void Load(const std::string& filePath);
 
+    bool isRunning{true};
+
 private:
     void Filter(std::vector<common::emb_key_t>& keys, const std::vector<common::i32>& cnts);
 

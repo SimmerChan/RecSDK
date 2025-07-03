@@ -17,8 +17,8 @@
 #include <array>
 #include <cstdint>
 
-#include "acl/acl_base.h"
 #include "gtest/gtest.h"
+#include "acl/acl_base.h"
 #include "tensorflow/core/framework/tensor_shape.h"
 
 #include "hdc/acl_channel.h"
