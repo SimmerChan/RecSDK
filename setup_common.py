@@ -26,20 +26,22 @@ import pkg_resources
 from setuptools.extern.packaging import version as packaging_version
 
 
+# Patch Version class to preserve original version string
+class NoNormalizeVersion(packaging_version.Version):
+    def __init__(self, version):
+        self._orig_version = version
+        super().__init__(version)
+
+    def __str__(self):
+        return self._orig_version
+
+
+def safe_version(v):
+    return v
+
+
 def run_setup(build_script_name, build_type):
     script_path = Path(__file__).parent.absolute()
-
-    # Patch Version class to preserve original version string
-    class NoNormalizeVersion(packaging_version.Version):
-        def __init__(self, version):
-            self._orig_version = version
-            super().__init__(version)
-
-        def __str__(self):
-            return self._orig_version
-
-    def safe_version(v):
-        return v
 
     packaging_version.Version = NoNormalizeVersion
     # Patch safe_version() to prevent version normalization
