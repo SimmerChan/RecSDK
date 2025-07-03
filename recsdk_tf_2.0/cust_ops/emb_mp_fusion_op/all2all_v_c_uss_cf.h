@@ -1,6 +1,6 @@
 #ifndef LCCL_ALL2ALL_V_C_USS_CF_H
 #define LCCL_ALL2ALL_V_C_USS_CF_H
-/* Copyright 2024. Huawei Technologies Co.,Ltd. All rights reserved.
+/* Copyright 2025. Huawei Technologies Co.,Ltd. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.

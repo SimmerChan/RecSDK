@@ -45,7 +45,7 @@ class Model:
                 self._h_w.append(
                     tf.compat.v1.get_variable(
                         "h%d_w" % (i + 1),
-                        shape=self._all_layer_dims[i : i + 2],
+                        shape=self._all_layer_dims[i: i + 2],
                         initializer=tf.random_uniform_initializer(-0.01, 0.01, Config.random_seed),
                         dtype=tf.float32,
                         collections=[tf.compat.v1.GraphKeys.GLOBAL_VARIABLES, "deep", "mlp_wts"],
@@ -64,7 +64,7 @@ class Model:
             i += 1
             self._h_w_head_0 = tf.compat.v1.get_variable(
                 "h_w_head_0",
-                shape=self._all_layer_dims[i : i + 2],
+                shape=self._all_layer_dims[i: i + 2],
                 initializer=tf.random_uniform_initializer(-0.01, 0.01, Config.random_seed),
                 dtype=tf.float32,
                 collections=[tf.compat.v1.GraphKeys.GLOBAL_VARIABLES, "deep", "mlp_wts"],
@@ -78,7 +78,7 @@ class Model:
             )
             self._h_w_head_1 = tf.compat.v1.get_variable(
                 "h_w_head_1",
-                shape=self._all_layer_dims[i : i + 2],
+                shape=self._all_layer_dims[i: i + 2],
                 initializer=tf.random_uniform_initializer(-0.01, 0.01, Config.random_seed),
                 dtype=tf.float32,
                 collections=[tf.compat.v1.GraphKeys.GLOBAL_VARIABLES, "deep", "mlp_wts"],
