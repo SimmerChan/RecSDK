@@ -23,7 +23,7 @@ from dataset import (
 )
 from dt.conftest import MODULE_NAME
 from hybrid_torchrec.distributed.sharding.sequence_sharding import HybridSequenceShardingContext
-from model import TestModel, generate_hash_config
+from model import TestModel, generate_hash_config, HashConfig
 from torch.utils.data import DataLoader
 from torch.optim import Adam, Adagrad
 from torchrec_embcache.distributed.train_pipeline import (
@@ -145,8 +145,15 @@ def execute(rank, config):
     instances = config.get("instances", 1)
     pool_type = getattr(torchrec.PoolingType, pool_type)
     collection_type = config["collection_type"]
-    embedding_config = generate_hash_config(embedding_dims, num_embeddings, pool_type, feature_names_lst, 
-                                            create_weight_init(init_fn), collection_type)
+    hash_config = HashConfig(
+        embedding_dims=embedding_dims,
+        num_embeddings=num_embeddings,
+        pool_type=pool_type,
+        feature_names_lst=feature_names_lst,
+        init_fn=create_weight_init(init_fn),
+        collection_type=collection_type,
+    )
+    embedding_config = generate_hash_config(hash_config)
     generated_ids = []
     if dataset_class is BoundOutOfRangeRecDataset:
         for i in range(table_num):

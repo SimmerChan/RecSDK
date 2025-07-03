@@ -312,7 +312,7 @@ class HashConfig:
     embedding_dims: List[int]
     num_embeddings: List[int]
     pool_type: torchrec.PoolingType
-    feature_names: List[List[str]]
+    feature_names_lst: List[List[str]]
     init_fn: Callable
     collection_type: str
 
@@ -322,15 +322,15 @@ def generate_hash_config(hash_config: HashConfig):
     embedding_dims = hash_config.embedding_dims
     num_embeddings = hash_config.num_embeddings
     pool_type = hash_config.pool_type
-    feature_names = hash_config.feature_names
+    feature_names_lst = hash_config.feature_names_lst
     init_fn = hash_config.init_fn
     collection_type = hash_config.collection_type
-    for i, (table_dim, num_embedding, feature_name) in enumerate(zip(embedding_dims, num_embeddings, feature_names)):
+    for i, (table_dim, num_embedding, feature_names) in enumerate(zip(embedding_dims, num_embeddings, feature_names_lst)):
         config_params = {
             "name": f"table{i}",
             "embedding_dim": table_dim,
             "num_embeddings": num_embedding,
-            "feature_names": feature_name,
+            "feature_names": feature_names,
             "init_fn": init_fn,
             "pooling": pool_type,
             "initializer_type": InitializerType.LINEAR
