@@ -55,7 +55,7 @@ void CountFilter::Start()
     future_ = std::async(std::launch::async, [this]() {
         while (true) {
             if (!isRunning) {
-                break;
+                return;
             }
 
             auto recvTensors = d2hTransporter_->RecvTensors();
