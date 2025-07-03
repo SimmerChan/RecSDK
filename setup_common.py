@@ -20,6 +20,7 @@ import re
 import stat
 import subprocess
 from pathlib import Path
+
 from setuptools import setup, find_packages
 import pkg_resources
 from setuptools.extern.packaging import version as packaging_version
