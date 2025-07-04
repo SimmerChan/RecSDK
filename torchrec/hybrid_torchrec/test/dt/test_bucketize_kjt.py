@@ -1,11 +1,11 @@
 import sys
 from unittest.mock import MagicMock
+sys.modules['torch_npu'] = MagicMock
 
 import pytest
 import torch
 from hybrid_torchrec.distributed.sharding.hybrid_rw_sharding import bucketize_kjt_before_all2all
 from torchrec.sparse.jagged_tensor import KeyedJaggedTensor
-sys.modules['torch_npu'] = MagicMock
 
 
 class TestBucketizeKJTBeforeAll2All:
