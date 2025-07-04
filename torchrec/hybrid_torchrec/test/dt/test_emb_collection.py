@@ -25,6 +25,10 @@ import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
 from torch.utils.data.dataset import IterableDataset
+
+from hybrid_torchrec.distributed.sharding_plan import get_default_hybrid_sharders
+from hybrid_torchrec import HashEmbeddingBagCollection, HashEmbeddingBagConfig
+
 import torchrec.distributed.shard
 from torchrec import (
     EmbeddingBagConfig,
@@ -40,8 +44,7 @@ from torchrec.optim.apply_optimizer_in_backward import apply_optimizer_in_backwa
 from torchrec.streamable import Pipelineable
 from torchrec import KeyedJaggedTensor, JaggedTensor
 
-from hybrid_torchrec.distributed.sharding_plan import get_default_hybrid_sharders
-from hybrid_torchrec import HashEmbeddingBagCollection, HashEmbeddingBagConfig
+
 
 
 LOOP_TIMES = 8
