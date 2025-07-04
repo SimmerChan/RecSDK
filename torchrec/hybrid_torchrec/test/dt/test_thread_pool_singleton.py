@@ -1,3 +1,5 @@
+from concurrent.futures import ThreadPoolExecutor
+
 import pytest
 from hybrid_torchrec.distributed.sharding.hybrid_rw_sharding import (InputDistThreadPoolExecutorSingleton,
                                                                      DEFAULT_INPUT_DIST_THREADS,
@@ -20,7 +22,7 @@ class TestThreadPoolExecutorSingleton:
         instance1 = singleton()
         instance2 = singleton()
         assert instance1 is instance2
-        assert isinstance(instance1.executor, singleton)
+        assert isinstance(instance1.executor, ThreadPoolExecutor)
 
     @pytest.mark.parametrize("singleton", [InputDistThreadPoolExecutorSingleton, ThreadPoolExecutorSingleton])
     def test_with_valid_env_threads(self, monkeypatch, singleton):
@@ -39,5 +41,5 @@ class TestThreadPoolExecutorSingleton:
     def test_invalid_thread_counts(self, monkeypatch, singleton, invalid_count):
         monkeypatch.setenv("INPUT_DIST_THREADS", str(invalid_count))
         monkeypatch.setenv("POST_INPUT_THREADS", str(invalid_count))
-        with pytest.raises(ValueError, Exception):
+        with pytest.raises((ValueError, Exception)):
             singleton()
