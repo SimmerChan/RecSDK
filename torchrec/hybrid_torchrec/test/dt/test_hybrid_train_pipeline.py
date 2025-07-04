@@ -27,7 +27,8 @@ from dataset import RandomRecDataset
 
 import torchrec
 
-BATCH_SIZE=8
+BATCH_SIZE = 8
+
 
 def get_embedding_config(embedding_dims, num_embeddings, table_num):
     embeding_config = []
