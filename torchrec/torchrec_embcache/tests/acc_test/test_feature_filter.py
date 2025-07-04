@@ -216,7 +216,7 @@ def _get_init_weight(table_dims: List[int]):
     return init_embs
 
 
-def _get_init_optimi_slot(table_dims: List[int]):
+def _get_init_optimizer_slot(table_dims: List[int]):
     init_slots = []
     for dim in table_dims:
         slot = torch.zeros((dim,))
@@ -368,7 +368,7 @@ class TestModel:
         table_names = [c.name for c in self.emb_configs]
         table_num = len(table_names)
         emb_init_values: List[Tensor] = _get_init_weight(emb_dims)
-        optimizer_init_values: List[Tensor] = _get_init_optimi_slot(emb_dims)
+        optimizer_init_values: List[Tensor] = _get_init_optimizer_slot(emb_dims)
         for table_index in range(table_num):
             evict_ids_per_table = []
             last_timestamp = self.last_timestamp_for_table[table_index]
@@ -386,7 +386,7 @@ class TestModel:
                 # step2 reset emb and optimizer slot as init value
                 with torch.no_grad():
                     # init emb
-                    embeddings[table_name].weight.data.copy_(emb_init_values[table_index])
+                    embeddings[table_name].weight[ids].data.copy_(emb_init_values[table_index])
                     # init optimizer slot
                     slot_tensor[ids].data.copy_(optimizer_init_values[table_index])
             logging.info("batchId:%d, table name:%s, evict ids num:%d",
