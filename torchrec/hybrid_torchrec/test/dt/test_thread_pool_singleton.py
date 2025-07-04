@@ -1,3 +1,5 @@
+import sys
+from unittest.mock import MagicMock
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
@@ -7,6 +9,7 @@ from hybrid_torchrec.distributed.sharding.hybrid_rw_sharding import (InputDistTh
 from hybrid_torchrec.distributed.sharding.post_input_dist import (ThreadPoolExecutorSingleton,
                                                                   DEFAULT_POST_INPUT_THREADS,
                                                                   MAX_POST_INPUT_THREADS)
+sys.modules['torch_npu'] = MagicMock
 
 
 class TestThreadPoolExecutorSingleton:
