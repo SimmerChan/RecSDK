@@ -332,21 +332,3 @@ def test_embedding_bag_collection(
         nprocs=WORLD_SIZE,
         join=True,
     )
-
-# if __name__ == '__main__':
-#     table_num=3
-#     num_embeddings=[10,10,10]
-#     embedding_dims=[8, 8, 8]
-#     pool_type=torchrec.PoolingType.MEAN
-#     sharding_type='row_wise'
-#     lockup_len=2
-#     device='cpu'
-#     test_embedding_bag_collection(
-#         table_num,
-#         embedding_dims,
-#         num_embeddings,
-#         pool_type,
-#         sharding_type,
-#         lockup_len,
-#         device
-#     )

@@ -146,9 +146,5 @@ class TestHybridOps(unittest.TestCase):
         with pytest.raises(AttributeError, match=f"object has no attribute"):
             output2 = invoke(new_args2, optimizer_args, momentum1)
 
-        # 验证返回值
-        # assert torch.equal(output2, mock_result)
-
-
 if __name__ == "__main__":
     unittest.main()
