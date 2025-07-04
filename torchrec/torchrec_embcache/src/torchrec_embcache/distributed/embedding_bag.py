@@ -40,7 +40,7 @@ from hybrid_torchrec.distributed.sharding.post_input_dist import (
 from hybrid_torchrec.sparse.jagged_tensor_with_looup_helper import (
     KeyedJaggedTensorWithLookHelper,
 )
-
+from torchrec_embcache.distributed.configs import EmbCacheEmbeddingBagConfig
 from torchrec_embcache.distributed.sharding.rw_sharding import (
     EmbCacheRwPooledEmbeddingSharding,
 )
@@ -156,6 +156,16 @@ class EmbCacheHashTable(torch.nn.Module):
         return values
 
 
+def _convert_2_cache_embedding_bag_config(tables: List[EmbCacheEmbeddingBagConfig | EmbeddingBagConfig]):
+    for i, ori_config in enumerate(tables):
+        if isinstance(ori_config, EmbCacheEmbeddingBagConfig):
+            continue
+        emb_cache_config = EmbCacheEmbeddingBagConfig(embedding_dim=ori_config.embedding_dim,
+                                                      num_embeddings=ori_config.num_embeddings)
+        emb_cache_config.__dict__.update(ori_config.__dict__)
+        tables[i] = emb_cache_config
+
+
 class EmbCacheEmbeddingBagCollection(EmbeddingBagCollection):
     """
     EmbeddingBagCollection represents a collection of pooled embeddings (`EmbeddingBags`).
@@ -227,6 +237,7 @@ class EmbCacheEmbeddingBagCollection(EmbeddingBagCollection):
         torch._C._log_api_usage_once(f"torchrec.modules.{self.__class__.__name__}")
         self._is_weighted = is_weighted
         self.embedding_bags: nn.ModuleDict = nn.ModuleDict()
+        _convert_2_cache_embedding_bag_config(tables)
         self._embedding_bag_configs = tables
         self._lengths_per_embedding: List[int] = []
         self._device: torch.device = (

@@ -40,7 +40,7 @@ from torchrec.optim.keyed import CombinedOptimizer
 
 
 WORLD_SIZE = 2
-LOOP_TIMES = 10
+LOOP_TIMES = 500
 BATCH_NUM = 1000
 
 

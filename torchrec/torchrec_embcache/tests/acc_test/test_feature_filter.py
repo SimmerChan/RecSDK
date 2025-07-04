@@ -270,7 +270,7 @@ class TestModel:
             optimizer_kwargs={"lr": 0.02},
         )
         # Shard
-        constrans = {
+        constrains = {
             f"table{i}": ParameterConstraints(sharding_types=[sharding_type])
             for i in range(table_num)
         }
@@ -288,7 +288,7 @@ class TestModel:
         shaders = [hash_shader]
         planner = EmbeddingShardingPlanner(
             topology=Topology(world_size=self.world_size, compute_device=self.device),
-            constraints=constrans,
+            constraints=constrains,
         )
         plan = planner.collective_plan(
             ec, shaders, dist.GroupMember.WORLD
