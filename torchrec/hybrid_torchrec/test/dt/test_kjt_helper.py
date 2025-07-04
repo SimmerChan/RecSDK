@@ -84,7 +84,7 @@ def test_unique_split(table_num, feature_names, input_size):
     assert kjt_helper.from_offsets_sync(
         keys=keys,
         values=torch.concat(total_values),
-        offsets=torch.tensor([1,1])
+        offsets=torch.tensor([1, 1])
     ) == NotImplemented
 
     assert kjt_helper.from_lengths_sync(
@@ -99,7 +99,7 @@ def test_unique_split(table_num, feature_names, input_size):
 
     assert kjt_helper.empty_like('KeyedJaggedTensor') == NotImplemented
 
-    assert kjt_helper.from_jt_dict({"feat":torch.tensor([1])}) == NotImplemented
+    assert kjt_helper.from_jt_dict({"feat": torch.tensor([1])}) == NotImplemented
 
     assert kjt_helper.dist_init(
         keys=['feat1', 'feat2'],
@@ -110,7 +110,7 @@ def test_unique_split(table_num, feature_names, input_size):
         stride_per_rank=[0]
     ) == NotImplemented
 
-    assert kjt_helper.permute([1,2,3]) == NotImplemented
+    assert kjt_helper.permute([1, 2, 3]) == NotImplemented
 
     assert kjt_helper.to_dict() == NotImplemented
 
@@ -124,10 +124,3 @@ def test_unique_split(table_num, feature_names, input_size):
     # 验证分割结果
     assert len(split_list) == 1
     assert isinstance(split_list[0], KeyedJaggedTensorWithLookHelper)
-
-
-if __name__ == '__main__':
-    table_num = 3
-    feature_names = [1,1,1]
-    input_size = 3
-    test_unique_split(table_num, feature_names, input_size)

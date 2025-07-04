@@ -9,10 +9,8 @@
 
 import unittest
 import pytest
+
 import torch
-import logging
-from unittest.mock import patch
-from typing import Optional, NamedTuple
 
 from hybrid_torchrec.hybrid_lookup_invoke.hybrid_lookup_args import HybridCommonArgs
 
