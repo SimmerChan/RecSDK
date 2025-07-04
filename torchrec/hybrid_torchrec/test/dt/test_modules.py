@@ -35,7 +35,7 @@ from hybrid_torchrec.constants import (
 
 class TestReorderInverseIndices:
     @staticmethod
-    def test_basic_reordering(self):
+    def test_basic_reordering():
         # 输入特征名与索引张量
         inverse_indices = (["featA", "featB", "featC"], torch.tensor([10, 20, 30]))
         # 目标特征名（带@后缀）
@@ -46,13 +46,13 @@ class TestReorderInverseIndices:
         assert torch.equal(result, expected)
 
     @staticmethod
-    def test_empty_input(self):
+    def test_empty_input():
         assert torch.equal(reorder_inverse_indices(None, ["featX"]), torch.empty(0))
 
 
 class TestProcessPooledEmbeddings:
     @staticmethod
-    def test_empty_inverse_indices(self):
+    def test_empty_inverse_indices():
         # 空索引测试
         embeddings = [torch.randn(3, 4), torch.randn(3, 5)]
         empty_indices = torch.tensor([])
@@ -60,7 +60,7 @@ class TestProcessPooledEmbeddings:
         assert result.shape == (3, 9)  # 直接拼接4+5维
 
     @staticmethod
-    def test_index_selection(self):
+    def test_index_selection():
         # 索引选择功能测试
         emb1 = torch.tensor([[1, 1], [2, 2]])
         emb2 = torch.tensor([[3, 3], [4, 4]])
@@ -82,7 +82,7 @@ class TestProcessPooledEmbeddings:
 
 class TestIsValidFeatname:
     @staticmethod
-    def test_valid_feature_names(self):
+    def test_valid_feature_names():
         """测试合法特征名"""
         assert is_valid_feat_name("feature_1") == True
         assert is_valid_feat_name("FEATURE2") == True
@@ -90,14 +90,14 @@ class TestIsValidFeatname:
         assert is_valid_feat_name("a" * 100) == True  # 长字符串测试
 
     @staticmethod
-    def test_invalid_feature_names(self):
+    def test_invalid_feature_names():
         """测试非法字符"""
         assert is_valid_feat_name("feature@") == False  # 特殊字符
         assert is_valid_feat_name("space in") == False  # 空格
         assert is_valid_feat_name("dash-ed") == False  # 连字符
 
     @staticmethod
-    def test_edge_cases(self):
+    def test_edge_cases():
         """边界条件测试"""
         assert is_valid_feat_name("") == True  # 空字符串
         assert is_valid_feat_name("_") == True  # 单下划线
@@ -106,7 +106,7 @@ class TestIsValidFeatname:
 
 class TestEmbeddingConfigValid:
     @staticmethod
-    def test_valid_config(self):
+    def test_valid_config():
         """测试完全合法的配置"""
         config = HashEmbeddingBagConfig(
             embedding_dim=16,
@@ -119,7 +119,7 @@ class TestEmbeddingConfigValid:
         check_embedding_config_valid(config)
 
     @staticmethod
-    def test_embedding_dim_alignment(self):
+    def test_embedding_dim_alignment():
         """测试embedding_dim对齐检查"""
         with pytest.raises(ValueError, match="multiple of 8"):
             config = HashEmbeddingBagConfig(
@@ -129,7 +129,7 @@ class TestEmbeddingConfigValid:
             check_embedding_config_valid(config)
 
     @staticmethod
-    def test_embedding_dim_range(self):
+    def test_embedding_dim_range():
         """测试embedding_dim范围检查"""
         # 测试下边界
         with pytest.raises(ValueError, match=f"should be in"):
@@ -147,7 +147,7 @@ class TestEmbeddingConfigValid:
             check_embedding_config_valid(config)
 
     @staticmethod
-    def test_num_embeddings_range(self):
+    def test_num_embeddings_range():
         """测试num_embeddings范围检查"""
         # 测试下边界
         with pytest.raises(ValueError, match=f"should be in"):
@@ -165,7 +165,7 @@ class TestEmbeddingConfigValid:
             check_embedding_config_valid(config)
 
     @staticmethod
-    def test_data_type_validation(self):
+    def test_data_type_validation():
         """测试数据类型检查"""
         with pytest.raises(ValueError, match="should be FP32"):
             config = HashEmbeddingBagConfig(
@@ -176,7 +176,7 @@ class TestEmbeddingConfigValid:
             check_embedding_config_valid(config)
 
     @staticmethod
-    def test_feature_names_validation(self):
+    def test_feature_names_validation():
         """测试特征名检查"""
         # 测试空特征名
         with pytest.raises(ValueError, match="should not be empty"):
@@ -197,7 +197,7 @@ class TestEmbeddingConfigValid:
             check_embedding_config_valid(config)
 
     @staticmethod
-    def test_weight_init_validation(self):
+    def test_weight_init_validation():
         """测试权重初始化参数检查"""
         with pytest.raises(ValueError, match="should be None"):
             config = HashEmbeddingBagConfig(
@@ -218,7 +218,7 @@ class TestEmbeddingConfigValid:
             check_embedding_config_valid(config)
 
     @staticmethod
-    def test_num_embeddings_post_pruning_validation(self):
+    def test_num_embeddings_post_pruning_validation():
         with pytest.raises(ValueError, match="should be None"):
             config = HashEmbeddingBagConfig(
                 embedding_dim=8,
@@ -229,7 +229,7 @@ class TestEmbeddingConfigValid:
             check_embedding_config_valid(config)
 
     @staticmethod
-    def test_pooling_type_validation(self):
+    def test_pooling_type_validation():
         """测试池化类型检查"""
         with pytest.raises(ValueError, match="should be in"):
             config = HashEmbeddingBagConfig(
@@ -241,7 +241,7 @@ class TestEmbeddingConfigValid:
             check_embedding_config_valid(config)
 
     @staticmethod
-    def test_init_fn_validation(self):
+    def test_init_fn_validation():
         """测试初始化函数检查"""
         with pytest.raises(ValueError, match="should be callable"):
             config = HashEmbeddingBagConfig(
@@ -327,7 +327,7 @@ class TestHashEmbeddingBagCollection:
             )
 
     @staticmethod
-    def test_reset_parameters(self):
+    def test_reset_parameters():
         # 创建测试配置
         config = HashEmbeddingBagConfig(
             name="test_table",
@@ -355,7 +355,7 @@ class TestHashEmbeddingBagCollection:
 
 class TestHashEmbeddingBag:
     @staticmethod
-    def test_initialization(self):
+    def test_initialization():
         config = HashEmbeddingBagConfig(
             name="test_table",
             embedding_dim=16,
@@ -366,7 +366,7 @@ class TestHashEmbeddingBag:
         assert isinstance(model, torch.nn.Module)
 
     @staticmethod
-    def test_find_and_insert(self):
+    def test_find_and_insert():
         config = HashEmbeddingBagConfig(
             name="test_table",
             embedding_dim=8,
@@ -383,7 +383,7 @@ class TestHashEmbeddingBag:
         assert model.find_and_insert(keys, values, scores, founds) == NotImplemented
 
     @staticmethod
-    def test_forward(self):
+    def test_forward():
         config = HashEmbeddingBagConfig(
             name="test_table",
             embedding_dim=4,
