@@ -8,7 +8,6 @@ import shutil
 from dataclasses import dataclass
 from typing import Tuple, Dict, Union, Any
 from datetime import datetime
-from functools import partial
 
 import numpy as np
 import tensorflow as tf
@@ -19,8 +18,10 @@ from utils import (
     dump_pred_prob,
     json_file_load,
     embedding_lookup_sparse_fake,
-    build_feature_descriptions,
-    setup_logger
+    setup_logger,
+    input_fn,
+    build_optimizer,
+    model_conf, spec  
 )
 
 tf.compat.v1.set_random_seed(2024)
@@ -31,7 +32,6 @@ MODEL_NAME = "BST"
 
 
 def define_flags():
-    model_conf = tf.app.flags.FLAGS
     tf.app.flags.DEFINE_integer("embedding_size", 16, "Embedding size")
     tf.app.flags.DEFINE_integer("batch_size", 4096, "Number of batch size")
     tf.app.flags.DEFINE_float("learning_rate", 0.001, "learning rate")
@@ -41,7 +41,6 @@ def define_flags():
     tf.app.flags.DEFINE_integer("heads_num", 4, "Number of attention heads")
     tf.app.flags.DEFINE_string("attention_layers", '80,40', "Attention Net mlp layers")
     tf.app.flags.DEFINE_string("deep_layers", "512,256,128,64", "deep layers")
-    tf.app.flags.DEFINE_string("data_dir", "../data/aliccp/cast50_padded/", "data dir")
     tf.app.flags.DEFINE_string("dt_dir", '', "data dt partition")
     tf.app.flags.DEFINE_string("model_dir", f"../checkpoint/aliccp/{MODEL_NAME}/", "code check point dir")
     tf.app.flags.DEFINE_string("servable_model_dir", f"../model/serving/{MODEL_NAME}/",
@@ -51,58 +50,6 @@ def define_flags():
     tf.app.flags.DEFINE_integer("max_seq_len", 50, "max length of sequence")
     tf.app.flags.DEFINE_string("log_level", "DEBUG", "log level {DEBUG, INFO, WARNING, ERROR, CRITICAL}")
     return model_conf
-
-
-def parse_example(mode_type: str, example: tf.Tensor) -> Tuple[Dict[str, tf.Tensor], Dict[str, tf.Tensor]]:
-    """
-    Parse a single example for the given mode type.
-
-    Args:
-        mode_type (str): The mode type (e.g., TRAIN, EVAL, PREDICT).
-        example (tf.Tensor): The serialized example to parse.
-
-    Returns:
-        Tuple[Dict[str, tf.Tensor], Dict[str, tf.Tensor]]: A tuple containing
-        the input dictionary and target dictionary.
-    """
-    # Parse the example using the feature descriptions for the given mode type
-    parsed_example = tf.io.parse_example(example, feature_descriptions.get(mode_type))
-
-    input_dict = {}
-    target = {"y": parsed_example["y"], "z": parsed_example["z"]}
-
-    # Extract one-hot fields from the parsed example
-    for index, key in enumerate(spec["one_hot_fields"]):
-        input_dict[key] = parsed_example["one_hot_fields"][:, index]
-
-    # Extract multi-hot fields from the parsed example
-    for key in spec["multi_hot_fields"]:
-        input_dict[key] = parsed_example[key]
-
-    # Extract special fields from the parsed example
-    for key in spec["special_fields"]:
-        input_dict[key] = parsed_example[key]
-
-    return input_dict, target
-
-
-def input_fn(filenames, mode, batch_size=32, num_epochs=1, perform_shuffle=False):
-    dataset = tf.data.TFRecordDataset(filenames)
-    if perform_shuffle:
-        dataset = dataset.shuffle(buffer_size=500000)
-
-    dataset = dataset.repeat(num_epochs).batch(batch_size, drop_remainder=True).map(
-        partial(
-            parse_example,
-            mode,
-        ),
-        num_parallel_calls=10
-    ).prefetch(100)
-
-    iterator = tf.compat.v1.data.make_one_shot_iterator(dataset)
-    batch_features, batch_labels = iterator.get_next()
-
-    return batch_features, batch_labels
 
 
 def build_embedding_layer(features: Dict[str, tf.Tensor], model_cfg) -> Tuple[
@@ -475,38 +422,6 @@ def build_loss(labels: Dict[str, tf.Tensor], pred: tf.Tensor) -> tf.Tensor:
     return loss
 
 
-def build_optimizer(model_cfg) -> tf.compat.v1.train.Optimizer:
-    """
-    Build the optimizer based on the model configuration.
-
-    Args:
-        model_cfg: Model configuration containing optimizer type and learning rate.
-
-    Returns:
-        tf.compat.v1.train.Optimizer: The configured optimizer.
-
-    Raises:
-        ValueError: If the optimizer type is not supported.
-    """
-
-    if model_cfg.optimizer == "Adam":
-        return tf.compat.v1.train.AdamOptimizer(
-            learning_rate=model_cfg.learning_rate, beta1=0.9, beta2=0.999, epsilon=1e-8
-        )
-    elif model_cfg.optimizer == "Adagrad":
-        return tf.compat.v1.train.AdagradOptimizer(
-            learning_rate=model_cfg.learning_rate, initial_accumulator_value=1e-6
-        )
-    elif model_cfg.optimizer == "Momentum":
-        return tf.compat.v1.train.MomentumOptimizer(
-            learning_rate=model_cfg.learning_rate, momentum=0.95
-        )
-    elif model_cfg.optimizer == "SGD":
-        return tf.compat.v1.train.GradientDescentOptimizer(learning_rate=model_cfg.learning_rate)
-    else:
-        raise ValueError("Optimizer not supported: {}".format(model_cfg.optimizer))
-
-
 def model_fn(features, labels, mode, params):
     """build Estimator model"""
 
@@ -559,17 +474,7 @@ def model_fn(features, labels, mode, params):
         )
 
     # ------bulid optimizer------
-    optimizer = build_optimizer(params)
-
-    gvs = optimizer.compute_gradients(loss)
-
-    def clip_if_not_none(grad):
-        if grad is None:
-            return grad
-        return tf.clip_by_value(grad, -1, 1)
-
-    clipped_gradients = [(clip_if_not_none(grad), var) for grad, var in gvs]
-    train_op = optimizer.apply_gradients(clipped_gradients, global_step=tf.compat.v1.train.get_global_step())
+    train_op = build_optimizer(loss, params)
 
     # Provide an estimator spec for `ModeKeys.TRAIN` modes
     if mode == tf.estimator.ModeKeys.TRAIN:
@@ -667,7 +572,6 @@ def main(model_cfg):
 if __name__ == "__main__":
     model_config = define_flags()
     logger, china_tz = setup_logger(model_config, MODEL_NAME)
-    spec, feature_descriptions = build_feature_descriptions(model_config)
 
     logger.info("FLAGS: " + str(model_config))
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.INFO)

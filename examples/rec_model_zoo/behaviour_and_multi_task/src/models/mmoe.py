@@ -6,8 +6,6 @@ import glob
 import random
 import shutil
 from datetime import datetime
-from functools import partial
-from typing import Dict, Tuple
 
 import tensorflow as tf
 from npu_bridge.npu_init import NPUEstimator, NPURunConfig
@@ -17,8 +15,10 @@ from utils import (
     json_file_load,
     dump_pred_multi,
     embedding_lookup_sparse_fake,
-    build_feature_descriptions,
-    setup_logger
+    setup_logger,
+    input_fn,
+    build_optimizer,
+    model_conf, spec
 )
 
 tf.compat.v1.enable_control_flow_v2()
@@ -30,7 +30,6 @@ MODEL_NAME = "MMOE"
 
 
 def define_flags():
-    model_conf = tf.app.flags.FLAGS
     tf.app.flags.DEFINE_integer("embedding_size", 16, "Embedding size")
     tf.app.flags.DEFINE_integer("batch_size", 4096, "Number of batch size")
     tf.app.flags.DEFINE_float("learning_rate", 0.001, "learning rate")
@@ -38,7 +37,6 @@ def define_flags():
     tf.app.flags.DEFINE_string("expert_layers", "512,256", "expert layers")
     tf.app.flags.DEFINE_string("tower_layers", "128,64", "tower layers")
     tf.app.flags.DEFINE_float("ctr_task_wgt", 0.5, "loss weight of ctr task")
-    tf.app.flags.DEFINE_string("data_dir", "../data/aliccp/cast50_padded/", "data dir")
     tf.app.flags.DEFINE_string("dt_dir", '', "data dt partition")
     tf.app.flags.DEFINE_string("model_dir", f"../checkpoint/aliccp/{MODEL_NAME}/", "code check point dir")
     tf.app.flags.DEFINE_string("servable_model_dir", f"../model/serving/{MODEL_NAME}/",
@@ -50,63 +48,6 @@ def define_flags():
     tf.app.flags.DEFINE_integer("experts_num", 8, "Number of experts")
     tf.app.flags.DEFINE_string("log_level", "DEBUG", "log level {DEBUG, INFO, WARNING, ERROR, CRITICAL}")
     return model_conf
-
-
-def parse_example(mode_type: str, example: tf.Tensor) -> Tuple[Dict[str, tf.Tensor], Dict[str, tf.Tensor]]:
-    """
-    Parse a single example for the given mode type.
-
-    Args:
-        mode_type (str): The mode type (e.g., TRAIN, EVAL, PREDICT).
-        example (tf.Tensor): The serialized example to parse.
-
-    Returns:
-        Tuple[Dict[str, tf.Tensor], Dict[str, tf.Tensor]]: A tuple containing the
-        input dictionary and target dictionary.
-    """
-    # Parse the example using the feature descriptions for the given mode type
-    parsed_example = tf.io.parse_example(example, feature_descriptions.get(mode_type))
-
-    input_dict = {}
-    target = {"y": parsed_example["y"], "z": parsed_example["z"]}
-
-    # Extract one-hot fields from the parsed example
-    for index, key in enumerate(spec["one_hot_fields"]):
-        input_dict[key] = parsed_example["one_hot_fields"][:, index]
-
-    # Extract multi-hot fields from the parsed example
-    for key in spec["multi_hot_fields"]:
-        input_dict[key] = parsed_example[key]
-
-    # Extract special fields from the parsed example
-    for key in spec["special_fields"]:
-        input_dict[key] = parsed_example[key]
-
-    return input_dict, target
-
-
-
-def input_fn(filenames: list, mode_type: str, batch_size: int = 32, num_epochs: int = 1,
-             perform_shuffle: bool = False) -> tuple:
-    """
-    Input function to create a dataset for training, evaluation, or prediction.
-    """
-    dataset = tf.data.TFRecordDataset(filenames)
-    if perform_shuffle:
-        dataset = dataset.shuffle(buffer_size=500000)
-
-    dataset = dataset.repeat(num_epochs).batch(batch_size, drop_remainder=True).map(
-        partial(
-            parse_example,
-            mode_type,
-        ),
-        num_parallel_calls=10
-    ).prefetch(100)
-
-    iterator = tf.compat.v1.data.make_one_shot_iterator(dataset)
-    batch_features, batch_labels = iterator.get_next()
-
-    return batch_features, batch_labels
 
 
 def build_embedding_layer(features: dict, spec: dict, model_cfg: object) -> tf.Tensor:
@@ -307,48 +248,6 @@ def build_loss(labels: dict, y_ctr_prediction: tf.Tensor, y_ctcvr_prediction: tf
     return ctr_task_wgt * ctr_loss + (1 - ctr_task_wgt) * ctcvr_loss
 
 
-def build_optimizer(loss: tf.Tensor, model_cfg: object) -> tf.Operation:
-    """
-    Build the optimizer for training.
-
-    Args:
-        loss (tf.Tensor): The loss tensor to minimize.
-        model_cfg (object): The model configuration object containing optimizer settings.
-
-    Returns:
-        tf.Operation: The operation for applying gradients.
-
-    Raises:
-        ValueError: If the optimizer type is not supported.
-    """
-    if model_cfg.optimizer == "Adam":
-        optimizer = tf.compat.v1.train.AdamOptimizer(
-            learning_rate=model_cfg.learning_rate, beta1=0.9, beta2=0.999, epsilon=1e-8
-        )
-    elif model_cfg.optimizer == "Adagrad":
-        optimizer = tf.compat.v1.train.AdagradOptimizer(
-            learning_rate=model_cfg.learning_rate, initial_accumulator_value=1e-6
-        )
-    elif model_cfg.optimizer == "Momentum":
-        optimizer = tf.compat.v1.train.MomentumOptimizer(
-            learning_rate=model_cfg.learning_rate, momentum=0.95
-        )
-    elif model_cfg.optimizer == "SGD":
-        optimizer = tf.compat.v1.train.GradientDescentOptimizer(learning_rate=model_cfg.learning_rate)
-    else:
-        raise ValueError("Unsupported optimizer type: {}".format(model_cfg.optimizer))
-
-    gvs = optimizer.compute_gradients(loss)
-
-    def clip_grad(grad):
-        if grad is None:
-            return grad
-        return tf.clip_by_value(grad, -1, 1)
-
-    clipped_gradients = [(clip_grad(grad), var) for grad, var in gvs]
-    return optimizer.apply_gradients(clipped_gradients, global_step=tf.compat.v1.train.get_global_step())
-
-
 def model_fn(features: dict, labels: dict, mode: tf.estimator.ModeKeys,
              params: object) -> tf.estimator.EstimatorSpec:
     """
@@ -494,7 +393,6 @@ def main(model_cfg):
 if __name__ == "__main__":
     model_config = define_flags()
     logger, china_tz = setup_logger(model_config, MODEL_NAME)
-    spec, feature_descriptions = build_feature_descriptions(model_config)
 
     logger.info("FLAGS: " + str(model_config))
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.INFO)

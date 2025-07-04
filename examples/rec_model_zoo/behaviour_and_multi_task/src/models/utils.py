@@ -23,6 +23,7 @@ import json
 from typing import Dict, List
 import logging
 from datetime import datetime
+from functools import partial
 
 import pytz
 import tensorflow as tf
@@ -189,3 +190,82 @@ def setup_logger(model_config, model_name):
     logger.addHandler(fh)
 
     return logger, china_tz
+
+
+def parse_example(mode, example):
+    parsed_example = tf.io.parse_example(example, feature_descriptions.get(mode))
+    input_data = {}
+    target = {"y": parsed_example["y"], "z": parsed_example["z"]}
+    for index, key in enumerate(spec["one_hot_fields"]):
+        input_data[key] = parsed_example["one_hot_fields"][:, index]
+    for key in spec["multi_hot_fields"]:
+        input_data[key] = parsed_example[key]
+    for key in spec["special_fields"]:
+        input_data[key] = parsed_example[key]
+    return input_data, target
+
+
+def input_fn(filenames, mode, batch_size=32, num_epochs=1, perform_shuffle=False):
+    dataset = tf.data.TFRecordDataset(filenames)
+    if perform_shuffle:
+        dataset = dataset.shuffle(buffer_size=500000)
+
+    dataset = dataset.repeat(num_epochs).batch(batch_size, drop_remainder=True).map(
+        partial(
+            parse_example,
+            mode,
+        ),
+        num_parallel_calls=10
+    ).prefetch(100)
+
+    iterator = tf.compat.v1.data.make_one_shot_iterator(dataset)
+    batch_features, batch_labels = iterator.get_next()
+
+    return batch_features, batch_labels
+
+
+def build_optimizer(loss: tf.Tensor, model_cfg: object) -> tf.Operation:
+    """
+    Build the optimizer for training.
+
+    Args:
+        loss (tf.Tensor): The loss tensor to minimize.
+        model_cfg (object): The model configuration object containing optimizer settings.
+
+    Returns:
+        tf.Operation: The operation for applying gradients.
+
+    Raises:
+        ValueError: If the optimizer type is not supported.
+    """
+    if model_cfg.optimizer == "Adam":
+        optimizer = tf.compat.v1.train.AdamOptimizer(
+            learning_rate=model_cfg.learning_rate, beta1=0.9, beta2=0.999, epsilon=1e-8
+        )
+    elif model_cfg.optimizer == "Adagrad":
+        optimizer = tf.compat.v1.train.AdagradOptimizer(
+            learning_rate=model_cfg.learning_rate, initial_accumulator_value=1e-6
+        )
+    elif model_cfg.optimizer == "Momentum":
+        optimizer = tf.compat.v1.train.MomentumOptimizer(
+            learning_rate=model_cfg.learning_rate, momentum=0.95
+        )
+    elif model_cfg.optimizer == "SGD":
+        optimizer = tf.compat.v1.train.GradientDescentOptimizer(learning_rate=model_cfg.learning_rate)
+    else:
+        raise ValueError("Unsupported optimizer type: {}".format(model_cfg.optimizer))
+
+    gvs = optimizer.compute_gradients(loss)
+
+    def clip_if_not_none(grad):
+        if grad is None:
+            return grad
+        return tf.clip_by_value(grad, -1, 1)
+
+    clipped_gradients = [(clip_if_not_none(grad), var) for grad, var in gvs]
+    return optimizer.apply_gradients(clipped_gradients, global_step=tf.compat.v1.train.get_global_step())
+
+
+model_conf = tf.app.flags.FLAGS
+tf.app.flags.DEFINE_string("data_dir", "../data/aliccp/cast50_padded/", "data dir")
+spec, feature_descriptions = build_feature_descriptions(model_conf)
