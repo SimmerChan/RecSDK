@@ -9,8 +9,6 @@
 from dataclasses import dataclass
 import logging
 import os
-import pytest
-import pytz
 import sys
 from typing import List, Iterator
 from unittest.mock import MagicMock
@@ -19,6 +17,8 @@ mock_npu = MagicMock()
 mock_npu.npu = MagicMock()  # 显式定义npu子模块
 sys.modules['torch_npu'] = mock_npu
 
+import pytest
+import pytz
 import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
