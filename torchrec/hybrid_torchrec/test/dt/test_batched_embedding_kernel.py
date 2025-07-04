@@ -7,9 +7,9 @@
 # LICENSE file in the root directory of this source tree.
 
 import sys
-import pytest
 import unittest
 from unittest.mock import patch, MagicMock
+import pytest
 from parameterized import parameterized
 import torch
 from torch.optim import Adam, Adagrad, SGD
@@ -34,7 +34,8 @@ TORCH_OPTIMIZER_TO_FBGEMM = {
     SGD: EmbOptimType.EXACT_SGD
 }
 
-class TestSplit(unittest.TestCase):
+
+class TestHybridSplitTableBatchedEmbeddingBagsCodegen(unittest.TestCase):
     def setUp(self):
         self.indices = torch.Tensor([0, 1, 2, 3, 1]).to(torch.int64)
         self.offsets = torch.Tensor([0, 2, 4, 5]).to(torch.int64)
