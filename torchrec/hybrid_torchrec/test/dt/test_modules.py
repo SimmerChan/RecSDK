@@ -11,10 +11,10 @@ import pytest
 
 import torch
 
-from torchrec import KeyedJaggedTensor, KeyedTensor
-from torchrec.modules.embedding_configs import (
-    DataType,
-    PoolingType,
+from hybrid_torchrec.constants import (
+    MAX_EMBEDDINGS_DIM,
+    MAX_NUM_EMBEDDINGS,
+    EMBEDDINGS_DIM_ALIGNMENT,
 )
 from hybrid_torchrec.modules.hash_embeddingbag import (
     reorder_inverse_indices,
@@ -26,10 +26,10 @@ from hybrid_torchrec.modules.hash_embeddingbag import (
     HashEmbeddingBagConfig,
     HashEmbeddingBagCollection
 )
-from hybrid_torchrec.constants import (
-    MAX_EMBEDDINGS_DIM,
-    MAX_NUM_EMBEDDINGS,
-    EMBEDDINGS_DIM_ALIGNMENT,
+from torchrec import KeyedJaggedTensor, KeyedTensor
+from torchrec.modules.embedding_configs import (
+    DataType,
+    PoolingType,
 )
 
 

@@ -117,7 +117,7 @@ def test_unique_split(table_num, feature_names, input_size):
     # 空列表分割
     split_list = []
     kjt_helper.split_with_segment_zero(
-        keys = ["feature1", "feature2"],
+        keys=["feature1", "feature2"],
         split_list=split_list,
         stride=4,
         stride_per_key_per_rank=[2, 2])
