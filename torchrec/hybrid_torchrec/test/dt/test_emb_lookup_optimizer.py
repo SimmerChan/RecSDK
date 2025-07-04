@@ -28,8 +28,8 @@ from fbgemm_gpu.split_embedding_codegen_lookup_invokers.lookup_adagrad import (
 
 class TestHybridOps(unittest.TestCase):
     def setUp(self):
-        self.device = "cpu"
         """生成测试所需的各种Tensor"""
+        self.device = "cpu"
         self.placeholder = torch.randn(1, requires_grad=True)
         self.dev_weights = torch.randn(10, device=self.device)
         self.host_weights = torch.randn(10)
@@ -146,5 +146,3 @@ class TestHybridOps(unittest.TestCase):
         with pytest.raises(AttributeError, match=f"object has no attribute"):
             output2 = invoke(new_args2, optimizer_args, momentum1)
 
-if __name__ == "__main__":
-    unittest.main()

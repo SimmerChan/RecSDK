@@ -230,8 +230,8 @@ class TestModel:
 
     @staticmethod
     def cpu_gloden_loss(
-            embeding_config: List[EmbeddingBagConfig],
-            dataloader: DataLoader[Batch]
+        embeding_config: List[EmbeddingBagConfig],
+        dataloader: DataLoader[Batch]
     ):
         pg = dist.new_group(backend="gloo")
         table_num = len(embeding_config)
