@@ -142,7 +142,9 @@ def execute(rank, config):
         num_workers=1,
     )
 
-    test_model = TestModel(rank, world_size, device, instances, feature_names_lst, batch_num, collection_type="ec")
+    test_model = TestModel(
+        rank, world_size, device, instances, feature_names_lst, batch_num, collection_type= collection_type
+    )
     test_model.init_ddp_model(embedding_config, sharding_type, optim, lookup_lens)
     test_results = test_model.test_pipe_loss(data_loader)
     return test_results

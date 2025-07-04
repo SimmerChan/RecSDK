@@ -50,7 +50,7 @@ def execute(rank, config):
     table_num = config["table_num"]
     lookup_lens = config["lookup_lens"]
     dataset_class = DATASET_REGISTRY.get(config["RecDataset"] + "RecDataset", RandomRecDataset)
-    init_fn = INIT_FN_REGISTRY.get(config["init_fn"], create_weight_init("init_linspace"))
+    init_fn = INIT_FN_REGISTRY.get("init_linspace", create_weight_init("init_linspace"))
     world_size = config["WORLD_SIZE"]
     device = config.get("device", "npu")
     sharding_type = config.get("sharding_type", "row_wise")
@@ -94,7 +94,9 @@ def execute(rank, config):
         num_workers=1,
     )
 
-    test_model = TestModel(rank, world_size, device, instances, feature_names_lst, batch_num, collection_type="ec")
+    test_model = TestModel(
+        rank, world_size, device, instances, feature_names_lst, batch_num, collection_type=collection_type
+    )
 
     golden_results = test_model.cpu_golden_loss(embedding_config, data_loader_gloden, optim)
     test_model.init_ddp_model(embedding_config, sharding_type, optim, lookup_lens)

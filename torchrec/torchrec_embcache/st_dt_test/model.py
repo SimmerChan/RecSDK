@@ -111,7 +111,12 @@ class Model(torch.nn.Module):
         results = []
         for i, module in enumerate(self._module):
             result = module(getattr(batch, f"instance{i}_sparse_features"))
-            result = permute_values(result, self.feature_names_lst)
+            if self.collection_type == "ebc":
+                result = permute_values(result, self.feature_names_lst)
+            elif self.collection_type == "ec":
+                result = permute_values_ec(result, self.feature_names_lst)
+            else:
+                raise ValueError(f"collection type must be ec or ebc, find {self.collection_type} instead")
             results.append(result)
 
         result = torch.concat(results, dim=1)
@@ -290,7 +295,7 @@ class TestModel:
             npu_device=self.npu_device,
             return_loss=True,
         )
-        for _ in range(self.BATCH_NUM):
+        for _ in range(self.batch_num):
             out, loss = pipe.progress(iter_)
             results.append(loss.detach().cpu())
             results.append(out.detach().cpu())
@@ -332,11 +337,10 @@ def generate_hash_config(hash_config: HashConfig):
             "num_embeddings": num_embedding,
             "feature_names": feature_names,
             "init_fn": init_fn,
-            "pooling": pool_type,
             "initializer_type": InitializerType.LINEAR
         }
         if collection_type == "ebc":    
-            config = COLLECTION_DICT[collection_type]["config"](**config_params)
+            config = COLLECTION_DICT[collection_type]["config"](pooling=pool_type, **config_params)
         else:
             admit_and_evict_config = AdmitAndEvictConfig(admit_threshold=-1, 
                                                          not_admitted_default_value=0.99)
