@@ -23,6 +23,6 @@ class TestBucketizeKJTBeforeAll2All:
     def test_basic_bucketize(self, world_size):
         kjt = self.create_kjt()
         length = len(kjt.lengths()) // len(kjt.keys())
-        block_sizes = [kjt.lengths()[i * length: i * length + length] for i in range(len(kjt.keys()))]
+        block_sizes = [kjt.lengths()[i * length: i * length + length].sum() for i in range(len(kjt.keys()))]
         block_sizes = torch.tensor(block_sizes)
         bucketize_kjt_before_all2all(kjt, world_size, block_sizes)
