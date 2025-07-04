@@ -107,8 +107,8 @@ def test_ids2indices_sequential_invalid_ids(input_size):
     mapper = IdsMapper(input_size)
     id2indices = {}
     indices2id = {}
-    for _ in range(TEST_NUM):
-        with pytest.raises(RuntimeError):
+    with pytest.raises(RuntimeError):
+        for _ in range(TEST_NUM):
             input_ids = torch.randint(0, input_size * IDS_RANGE_TIMES, (input_size,))
             indices, unique, unique_inverse = mapper(input_ids)
             verify_mapper(id2indices, indices2id, input_ids, indices)
