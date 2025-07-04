@@ -30,6 +30,7 @@ class Batch(Pipelineable):
             sparse_features=self.sparse_features.to(device, non_blocking=non_blocking),
             labels=self.labels.to(device, non_blocking=non_blocking),
         )
+
     def record_stream(self, stream) -> None:
         self.sparse_features.record_stream(stream)
         self.labels.record_stream(stream)

@@ -23,12 +23,11 @@ from hybrid_torchrec.distributed.hybrid_train_pipeline import (
     _fuse_input_dist_splits
 )
 from hybrid_torchrec import HashEmbeddingBagCollection, HashEmbeddingBagConfig
-
-import torchrec
 from dataset import RandomRecDataset
 
-BATCH_SIZE=8
+import torchrec
 
+BATCH_SIZE=8
 
 def get_embedding_config(embedding_dims, num_embeddings, table_num):
     embeding_config = []
@@ -45,7 +44,6 @@ def get_embedding_config(embedding_dims, num_embeddings, table_num):
 
 
 class TestHybridTrainPipelineSparseDist(unittest.TestCase):
-    @classmethod
     def setUp(self):
         self.rank = 0
         self.world_size = 1
@@ -77,16 +75,17 @@ class TestHybridTrainPipelineSparseDist(unittest.TestCase):
             pipe = HybridTrainPipelineSparseDist(
                 self.model,
                 optimizer=Adagrad,
-                device=torch.device("npu"),
+                device=torch.device("cpu"),
                 pipe_n_batch=0,
                 return_loss=True
             )
+
     def test_pipeline_with_invalid_model(self):
         with pytest.raises(TypeError):
             pipe = HybridTrainPipelineSparseDist(
                 None,
                 optimizer=Adagrad,
-                device=torch.device("npu"),
+                device=torch.device("cpu"),
                 pipe_n_batch=6,
                 return_loss=True
             )
