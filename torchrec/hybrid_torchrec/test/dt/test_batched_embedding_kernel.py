@@ -1,8 +1,16 @@
+#!/usr/bin/env python3
+# Copyright (c) Huawei Platforms, Inc. and affiliates.
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+import sys
 import pytest
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 from parameterized import parameterized
-
 import torch
 from torch.optim import Adam, Adagrad, SGD
 
@@ -11,6 +19,8 @@ from fbgemm_gpu.split_table_batched_embeddings_ops_common import (
     EmbeddingLocation,
     PoolingMode,
 )
+
+sys.modules['torch_npu'] = MagicMock
 
 from hybrid_torchrec.distributed.batched_embedding_kernel import ( 
     HybridSplitTableBatchedEmbeddingBagsCodegen,
@@ -57,10 +67,10 @@ class TestSplit(unittest.TestCase):
             tbe.iter = torch.Tensor([0]) # device为meta类型需要对使用的tensor进行初始化
             mock_invoke.return_value = mock_result
             result = tbe(self.indices,
-                self.offsets,
-                self.hash_indices,
-                self.unique_indices,
-                self.unique_inverse)
+                         self.offsets,
+                         self.hash_indices,
+                         self.unique_indices,
+                         self.unique_inverse)
             assert torch.equal(mock_result, result)
     
     def test_forward_with_unsupported_optim(self):
@@ -72,7 +82,7 @@ class TestSplit(unittest.TestCase):
         )
         tbe.iter = torch.Tensor([0])
         assert(tbe(self.indices,
-            self.offsets,
-            self.hash_indices,
-            self.unique_indices,
-            self.unique_inverse) == NotImplemented)
+                   self.offsets,
+                   self.hash_indices,
+                   self.unique_indices,
+                   self.unique_inverse) == NotImplemented)
