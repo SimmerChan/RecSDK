@@ -76,9 +76,7 @@ def check_bucketized_valid(params: BucketResult):
                 ]
                 for _ in range(this_indices_len):
                     ids = params.bucketized_indices[bucketized_offset]
-                    assert (
-                        ids % params.bucket_size
-                    ) == rank, \
+                    assert (ids % params.bucket_size) == rank, \
                     f"bucketized_indices {ids} in invalid bucket {rank} bucketized_offset {bucketized_offset}"
                     assert (
                         ids in origin_index
