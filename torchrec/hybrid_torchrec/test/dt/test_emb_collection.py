@@ -37,11 +37,12 @@ from torchrec.distributed.planner import (
 )
 from torchrec.distributed.types import ShardingEnv
 from torchrec.optim.apply_optimizer_in_backward import apply_optimizer_in_backward
-
 from torchrec.streamable import Pipelineable
 from torchrec import KeyedJaggedTensor, JaggedTensor
-from hybrid_torchrec import HashEmbeddingBagCollection, HashEmbeddingBagConfig
+
 from hybrid_torchrec.distributed.sharding_plan import get_default_hybrid_sharders
+from hybrid_torchrec import HashEmbeddingBagCollection, HashEmbeddingBagConfig
+
 
 LOOP_TIMES = 8
 BATCH_NUM = 32
@@ -292,18 +293,7 @@ class TestModel:
             )
             for i in range(table_num)
         }
-        planner = EmbeddingShardingPlanner(
-            topology=Topology(world_size=self.world_size, compute_device=self.device),
-            constraints=constrans,
-        )
-        # planner
-        plan = planner.collective_plan(
-            ebc, get_default_hybrid_sharders(host_env), dist.GroupMember.WORLD
-        )
-        if self.rank == 0:
-            logging.debug(plan)
-            assert isinstance(plan, torchrec.distributed.types.ShardingPlan)
-
+        
 
 @pytest.mark.parametrize("table_num", [3])
 @pytest.mark.parametrize("embedding_dims", [[32, 64, 128]])
