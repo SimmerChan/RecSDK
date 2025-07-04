@@ -622,7 +622,7 @@ void EmbcacheManager::RemoveEmbeddingTableInfo()
     for (int32_t i = 0; i < embNum; ++i) {
         auto& keys = featureFilters[i].evictFeatureRecord.GetEvictKeys();
         if (keys.empty()) {
-            LOG(INFO) << "When remove embedding from table:" << embConfigs[i].tableName << ", keys list is empty, skip.";
+            LOG(INFO) << "Feature keys list is empty, skip to remove embedding from table:" << embConfigs[i].tableName;
             continue;
         }
 
