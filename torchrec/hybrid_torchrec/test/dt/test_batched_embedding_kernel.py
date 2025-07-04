@@ -46,9 +46,9 @@ class TestHybridSplitTableBatchedEmbeddingBagsCodegen(unittest.TestCase):
         self.batch_size_per_feature_per_rank = ([1, 1], [1, 1])
         tables = [[100, 32], [200, 64]]
         self.embedding_specs = [
-        (num_embeddings, embedding_dim, EmbeddingLocation.DEVICE, ComputeDevice.NPU)
-        for (num_embeddings, embedding_dim) in tables
-    ]
+            (num_embeddings, embedding_dim, EmbeddingLocation.DEVICE, ComputeDevice.NPU)
+            for (num_embeddings, embedding_dim) in tables
+        ]
     
     @parameterized.expand([
         ("SGD", SGD, "lookup_sgd.invoke"),
