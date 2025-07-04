@@ -132,8 +132,8 @@ class TestHybridOps(unittest.TestCase):
             host=torch.zeros_like(self.args.dev_weights),
             offsets=torch.tensor([0], dtype=torch.long),
             placements=torch.tensor([0], dtype=torch.long),
-            dev = torch.device('cpu:0'),  # 明确指定计算设备
-            uvm = False  # 禁用统一虚拟内存
+            dev=torch.device('cpu:0'),  # 明确指定计算设备
+            uvm=False  # 禁用统一虚拟内存
         )
 
         output = invoke(self.args, optimizer_args, momentum1)

@@ -47,6 +47,7 @@ LOOP_TIMES = 8
 BATCH_NUM = 32
 WORLD_SIZE = 2
 
+
 def generate_base_config(
         embedding_dims,
         num_embeddings,
@@ -171,6 +172,7 @@ def setup_logging(rank):
     logger.addHandler(file_handler)
     logger.setLevel(logging.DEBUG)
 
+
 def weight_init(param: torch.nn.Parameter):
     if len(param.shape) != 2:
         return
@@ -186,10 +188,10 @@ def execute(
         embedding_dims,
         num_embeddings,
         pool_type,
-        sharding_type,
         lockup_len,
-        device,
 ):
+    device = 'cpu'
+    sharding_type = 'row_wise'
     setup_logging(rank)
     logging.info("this test %s", os.path.basename(__file__))
     embeding_config = generate_base_config(embedding_dims, num_embeddings, pool_type)
@@ -216,6 +218,7 @@ def execute(
         logging.debug("===========================")
         logging.debug("result test %s", gloden)
         assert tuple(gloden.size()) == (10, 224)   # lockup_len, sum(embedding_dims)
+
 
 class TestModel:
     def __init__(self, rank, world_size, device):
@@ -301,21 +304,18 @@ class TestModel:
             logging.debug(plan)
             assert isinstance(plan, torchrec.distributed.types.ShardingPlan)
 
+
 @pytest.mark.parametrize("table_num", [3])
 @pytest.mark.parametrize("embedding_dims", [[32, 64, 128]])
 @pytest.mark.parametrize("num_embeddings", [[400, 4000, 400]])
 @pytest.mark.parametrize("pool_type", [torchrec.PoolingType.MEAN, torchrec.PoolingType.SUM])
-@pytest.mark.parametrize("sharding_type", ["row_wise"])
 @pytest.mark.parametrize("lockup_len", [10])
-@pytest.mark.parametrize("device", ["cpu"])
 def test_embedding_bag_collection(
         table_num,
         embedding_dims,
         num_embeddings,
         pool_type,
-        sharding_type,
         lockup_len,
-        device,
 ):
     mp.spawn(
         execute,
@@ -325,9 +325,7 @@ def test_embedding_bag_collection(
             embedding_dims,
             num_embeddings,
             pool_type,
-            sharding_type,
             lockup_len,
-            device,
         ),
         nprocs=WORLD_SIZE,
         join=True,
