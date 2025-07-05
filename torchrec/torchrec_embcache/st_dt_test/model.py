@@ -51,12 +51,6 @@ from torchrec.optim.apply_optimizer_in_backward import apply_optimizer_in_backwa
 from torchrec.optim.keyed import CombinedOptimizer
 
 
-lib_fbgemm_npu_api_so_path = os.getenv('LIB_FBGEMM_NPU_API_SO_PATH')
-if not lib_fbgemm_npu_api_so_path:
-    raise ValueError("LIB_FBGEMM_NPU_API_SO_PATH environment variable is not set.")
-torch.ops.load_library(lib_fbgemm_npu_api_so_path)
-
-
 OPTIMIZER_PARAM = {
     Adam: dict(lr=0.02),
     Adagrad: dict(lr=0.02, eps=1.0e-8),
@@ -337,6 +331,8 @@ def generate_hash_config(hash_config: HashConfig):
             "num_embeddings": num_embedding,
             "feature_names": feature_names,
             "init_fn": init_fn,
+            "weight_init_min": 0.0,
+            "weight_init_max": 1.0,
             "initializer_type": InitializerType.LINEAR
         }
         if collection_type == "ebc":    

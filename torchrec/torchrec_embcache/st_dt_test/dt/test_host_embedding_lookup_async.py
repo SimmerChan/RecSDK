@@ -26,7 +26,7 @@ from torch.utils.data import DataLoader
 from torch.optim import Adam, Adagrad
 from torchrec_embcache.distributed.train_pipeline import (
     AwaitableAdapter,
-    EmbcacheTrainPipelineContext,
+    EmbCacheTrainPipelineContext,
 )
 from util import (
     setup_logging,
@@ -171,7 +171,7 @@ def execute(rank, config):
     test_model.init_ddp_model(embedding_config, sharding_type, optim, lookup_lens)
     iter_ = iter(data_loader)
     module_lst = getattr(test_model.module, collection_type)
-    context = EmbcacheTrainPipelineContext(index=0, version=1)
+    context = EmbCacheTrainPipelineContext(index=0, version=1)
 
     for i, module in enumerate(module_lst):
         name = f"module.{i}"
@@ -182,18 +182,18 @@ def execute(rank, config):
 
     fuse_input_dist_splits(context)
 
-    kjt_list_dict = {}
     for names, awaitable in context.fused_splits_awaitables:
         for name, request in zip(names, awaitable.wait()):
-            kjt_list_dict[name] = request.awaitables
+            context.input_dist_splits_requests[name] = AwaitableAdapter(request)
 
     swapin_tensor_dicts = []
     for i, module in enumerate(module_lst):
         name = f"module.{i}"
-        kjt_list = kjt_list_dict[name]
+        awaitable = context.input_dist_splits_requests[name]
+        kjt_list = awaitable.wait()
         post_waitable = module.post_input_dist(
-            context.module_contexts[name],
-            kjt_list,
+            context.module_contexts[name], 
+            kjt_list
         )
         sparse_features = post_waitable.wait()
         swap_info_future = module.compute_swap_info_async(sparse_features)

@@ -26,7 +26,7 @@ from torch.utils.data import DataLoader
 from torch.optim import Adam, Adagrad
 from torchrec_embcache.distributed.train_pipeline import (
     AwaitableAdapter,
-    EmbcacheTrainPipelineContext,
+    EmbCacheTrainPipelineContext,
 )
 from util import (
     setup_logging,

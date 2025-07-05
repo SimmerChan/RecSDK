@@ -24,7 +24,7 @@ from dt.conftest import MODULE_NAME
 from model import TestModel, generate_hash_config, HashConfig
 from torch.utils.data import DataLoader
 from torch.optim import Adam, Adagrad
-from torchrec_embcache.distributed.train_pipeline import AwaitableAdapter, EmbcacheTrainPipelineContext
+from torchrec_embcache.distributed.train_pipeline import AwaitableAdapter, EmbCacheTrainPipelineContext
 from util import (
     setup_logging,
     is_lookup_out_of_bound,
@@ -168,7 +168,7 @@ def execute(rank, config):
     test_model.init_ddp_model(embedding_config, sharding_type, optim, lookup_lens)
     iter_ = iter(data_loader)
     module_lst = getattr(test_model.module, collection_type)
-    context = EmbcacheTrainPipelineContext(index=0, version=1)
+    context = EmbCacheTrainPipelineContext(index=0, version=1)
 
     for i, module in enumerate(module_lst):
         name = f"module.{i}"
