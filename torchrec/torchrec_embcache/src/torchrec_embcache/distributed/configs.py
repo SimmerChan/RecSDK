@@ -57,7 +57,7 @@ class InitializerType(str, Enum):
 class EmbCacheEmbeddingBagConfig(EmbeddingBagConfig):
     weight_init_mean: Optional[float] = 0.0  # used for InitializerType.UNIFORM
     weight_init_stddev: Optional[float] = 0.05  # used for InitializerType.UNIFORM
-    initializer_type = InitializerType.LINEAR
+    initializer_type: InitializerType = field(default=InitializerType.LINEAR)
     admit_and_evict_config: Optional[AdmitAndEvictConfig] = field(
         default_factory=lambda: AdmitAndEvictConfig()
     )
@@ -67,7 +67,7 @@ class EmbCacheEmbeddingBagConfig(EmbeddingBagConfig):
 class EmbCacheEmbeddingConfig(EmbeddingConfig):
     weight_init_mean: Optional[float] = 0.0  # used for InitializerType.UNIFORM
     weight_init_stddev: Optional[float] = 0.05  # used for InitializerType.UNIFORM
-    initializer_type = InitializerType.LINEAR
+    initializer_type: InitializerType = field(default=InitializerType.LINEAR)
     admit_and_evict_config: Optional[AdmitAndEvictConfig] = field(
         default_factory=lambda: AdmitAndEvictConfig()
     )
