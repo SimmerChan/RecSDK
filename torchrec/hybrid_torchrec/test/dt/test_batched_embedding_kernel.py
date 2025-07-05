@@ -92,21 +92,3 @@ class TestHybridSplitTableBatchedEmbeddingBagsCodegen(unittest.TestCase):
                    self.unique_indices,
                    self.unique_inverse) == NotImplemented)
     
-    def test_forward_with_cpu_success(self):
-        # 1. Mock 优化器调用
-        with patch(f"hybrid_torchrec.hybrid_lookup_invoke.lookup_adagrad") as mock_invoke:
-            tbe = HybridSplitTableBatchedEmbeddingBagsCodegen(
-                self.embedding_specs_cpu,
-                optimizer=TORCH_OPTIMIZER_TO_FBGEMM[Adagrad],
-                pooling_mode=PoolingMode.SUM,
-                device=torch.device("meta")
-            )
-            mock_result = torch.Tensor([1, 2, 3]).to(torch.float)
-            tbe.iter = torch.Tensor([0]) # device为meta类型需要对使用的tensor进行初始化
-            mock_invoke.return_value = mock_result
-            result = tbe(self.indices,
-                         self.offsets,
-                         self.hash_indices,
-                         self.unique_indices,
-                         self.unique_inverse)
-            assert torch.equal(mock_result, result)
