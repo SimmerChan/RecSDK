@@ -1,0 +1,717 @@
+/* Copyright 2025. Huawei Technologies Co.,Ltd. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+    limitations under the License.
+==============================================================================*/
+
+#ifndef LCCL_ALL2ALL_V_C_USS_CF_H
+#define LCCL_ALL2ALL_V_C_USS_CF_H
+#include "collectives.h"
+#include "ipc_queue_cf.h"
+
+using namespace AscendC;
+
+template <typename T>
+class All2AllVCUSSCF : public Collectives {
+    constexpr static int INVALID_RANK_NUM = 0xFFFFFFFF;  // 非法rank
+    constexpr static int64_t CORE_NUMS_PER_STAGE = 16;   // 每个阶段提供的最大核数
+    constexpr static int64_t SHARE_QUE_DEPTH = 8;        // 单个共享队列深度
+    constexpr static int64_t DATA_SLICE = 2;
+    constexpr static int64_t STAGE_NUM = 2;
+    constexpr static int64_t RACK_NUM = 2;
+    constexpr static int64_t MAX_FLAG_OFFSET = 128;
+    constexpr static int64_t SINGLE_RANK_MAX_NUM = CORE_NUMS_PER_STAGE;
+    constexpr static int64_t LCAL_MAX_RANK_SIZE = 128;
+    constexpr static int LOCAL_RANK_SIZE = 8;
+    constexpr static int64_t MULTI_RANK_SIZE = (LCAL_MAX_RANK_SIZE + SINGLE_RANK_MAX_NUM - 1) / SINGLE_RANK_MAX_NUM;
+
+    constexpr static int64_t IDLER_CORE = 0;         // 闲置的核
+    constexpr static int64_t PRODUCER_CORE_X = 1;    // 生产组，负责向共享内存写入数据，input->ipc
+    constexpr static int64_t PRODUCER_CORE_Y = 2;    // 生产组，负责向共享内存写入数据，input->ipc
+    constexpr static int64_t CONSUMER_CORE_X = 3;    // 消费组X
+    constexpr static int64_t CONSUMER_CORE_Y = 4;    // 消费组Y
+    constexpr static int64_t PRODUCER_P2P_CORE = 5;  // 跨框P2P生产组
+    constexpr static int64_t CONSUMER_P2P_CORE = 6;  // 跨框P2P消费组
+    constexpr static int UB_ALIGN_SIZE = 32;
+
+public:
+    __aicore__ inline All2AllVCUSSCF(int rank, int rankSize, uint32_t extraFlag)
+        : Collectives(rank, rankSize, extraFlag)
+    {
+    }
+
+    __aicore__ inline void Init(GM_ADDR input, GM_ADDR send_count_matrix, GM_ADDR shape_vec, GM_ADDR peer_mem,
+                                GM_ADDR restore, GM_ADDR output, int64_t rank, int64_t rankSize, int64_t magic,
+                                int64_t dim, int64_t outShape)
+    {
+        this->root = 0;
+        this->len = 0;
+        this->magic = magic;
+        this->rank = rank;
+        this->rankSize = rankSize;
+        this->dim = dim;
+        this->restorePtr = restore;
+        this->outputPtr = output;
+        this->coreNumsPerStage = 16;  // 16 core for each process stage due to hardware only has max 32 core
+        this->localRankSize = LOCAL_RANK_SIZE;
+        this->xRankSize = localRankSize;
+        this->yRankSize = rankSize / localRankSize;
+        this->xRankIdx = rank % localRankSize;
+        this->yRankIdx = rank / localRankSize;
+
+        blockIdx = GetBlockIdx();
+        blockNum = GetBlockNum();
+
+        GlobalTensor<int64_t> peerMemsAddrGm;
+        int64_t peer_mem_addr = reinterpret_cast<int64_t>(peer_mem);
+        peerMemsAddrGm.SetGlobalBuffer((__gm__ int64_t*)peer_mem_addr, rankSize * sizeof(int64_t));
+        for (int i = 0; i < rankSize; ++i) {
+            shareAddrs[i] = (GM_ADDR)(peerMemsAddrGm.GetValue(i)) +
+                            (this->magic % PING_PONG_SIZE) * (IPC_BUFF_MAX_SIZE + IPC_DATA_OFFSET);
+        }
+
+        sync.Init(rank, rankSize, shareAddrs, blockIdx, blockNum);
+
+        yRankSizeReal = yRankSize;
+        yRankSize = yRankSize / RACK_NUM;  // 假设两个框使用的机器数对称
+        yRankIdxReal = yRankIdx;
+        rackId = yRankIdxReal >= yRankSize ? 1 : 0;
+        yRankIdx = yRankIdxReal >= yRankSize ? yRankIdxReal - yRankSize : yRankIdxReal;
+        sendCountMatrixGm.SetGlobalBuffer((__gm__ int64_t*)send_count_matrix, rankSize * rankSize * sizeof(int64_t));
+        // 初始化共享内存信息
+        InitShare();
+        // 初始化核分组
+        InitCoreGroup();
+        // 初始化数据切片
+        InitDataSlice();
+
+        // 初始化输入输出
+        for (int j = 0; j < rankSize; j++) {
+            sendLen += sendCountMatrixGm.GetValue(rank * rankSize + j);
+        }
+        inputGt.SetGlobalBuffer((__gm__ T*)input, sendLen * sizeof(T));
+        for (int j = 0; j < rankSize; j++) {
+            revLen += sendCountMatrixGm.GetValue(j * rankSize + rank);
+        }
+        pipe.InitBuffer(tempBuffer, PING_PONG_SIZE, UB_SINGLE_DMA_SIZE_MAX / PING_PONG_SIZE);
+        outputGt.SetGlobalBuffer((__gm__ T*)output, outShape * dim * sizeof(T));
+
+        int initSize = outShape * dim / coreNumsPerStage / PING_PONG_SIZE;
+        outputGtInit.SetGlobalBuffer((__gm__ T*)output + initSize * blockIdx);
+        sync.SetInnerFlag(magic, 0, rank, blockIdx + MAX_FLAG_OFFSET);
+        pipe_barrier(PIPE_ALL);
+        if (blockIdx < (coreNumsPerStage * PING_PONG_SIZE)) {
+            AscendC::InitGlobalMemory(outputGtInit, initSize * sizeof(T), (T)0);
+            sync.SetInnerFlag(magic, 1, rank, blockIdx + MAX_FLAG_OFFSET);
+            pipe_barrier(PIPE_ALL);
+        }
+    }
+
+    __aicore__ inline void Process()
+    {
+        if (coreGroup == PRODUCER_CORE_X || coreGroup == PRODUCER_CORE_Y || coreGroup == PRODUCER_P2P_CORE) {
+            ProducerStage();
+        } else if (coreGroup == CONSUMER_CORE_X || coreGroup == CONSUMER_CORE_Y || coreGroup == CONSUMER_P2P_CORE) {
+            ConsumerStage();
+        }
+    }
+
+private:
+    // 工具函数，计算框内rankIdx对应的全局rankIdx
+    __aicore__ inline int64_t ComputeReal(int64_t virtualData)
+    {
+        virtualData = rank / (xRankSize * yRankSize) * (xRankSize * yRankSize) + virtualData % (xRankSize * yRankSize);
+        return virtualData;
+    }
+
+    // 计算rank数量较大时的queNum 以及  每个队列里单块可放入的元素数量queElemLen
+    __aicore__ inline void InitShare()
+    {
+        int64_t queNum = xRankSize + yRankSize;
+        int64_t queElemNum = xRankSize * yRankSize * STAGE_NUM;
+        int64_t ipcSliceNum = 2;
+        queElemLen =
+            IPC_BUFF_MAX_SIZE / ipcSliceNum / sizeof(T) / queElemNum / SHARE_QUE_DEPTH;  // 计算共享队列元素大小
+    }
+
+    __aicore__ inline void InitCoreGroup()
+    {
+        coreNumPerRank = 1;
+        rankNumPerCore = 1;
+        // 多卡下为coreNumsPerStage
+        coreNumPerStage = xRankSize + yRankSize;
+        // 隔壁框的卡数
+        p2pRankSize = (yRankSizeReal - yRankSize) * xRankSize;
+        // 跨框分核数量
+        int coreNums = 32;
+        if (p2pRankSize * STAGE_NUM <= coreNums) {
+            p2pCoreNumPerStage = p2pRankSize;
+        } else {
+            p2pRankNumPerCore = CeilDiv(p2pRankSize, CORE_NUMS_PER_STAGE);
+            p2pCoreNumPerStage = CeilDiv(p2pRankSize, p2pRankNumPerCore);
+        }
+        if (blockIdx < STAGE_NUM * coreNumPerStage) {
+            if (blockIdx < coreNumPerStage) {
+                coreGroup = blockIdx % coreNumPerStage < xRankSize ? PRODUCER_CORE_X : PRODUCER_CORE_Y;
+                targetRank[0] = (coreGroup == PRODUCER_CORE_X) ? yRankIdx * xRankSize + blockIdx
+                                                               : (blockIdx - xRankSize) * xRankSize + xRankIdx;
+                targetRank[0] = ComputeReal(targetRank[0]);
+            } else {
+                coreGroup = blockIdx % coreNumPerStage < xRankSize ? CONSUMER_CORE_X : CONSUMER_CORE_Y;
+                targetRank[0] = (coreGroup == CONSUMER_CORE_X)
+                                    ? yRankIdx * xRankSize + blockIdx % coreNumPerStage
+                                    : (blockIdx % coreNumPerStage - xRankSize) * xRankSize + xRankIdx;
+                targetRank[0] = ComputeReal(targetRank[0]);
+            }
+            targetXRankIdxGlobal = targetRank[0] % xRankSize;
+            targetYRankIdxGlobal = targetRank[0] / xRankSize;
+        } else if (blockIdx < (STAGE_NUM * coreNumPerStage + STAGE_NUM * p2pCoreNumPerStage)) {
+            coreGroup =
+                blockIdx < STAGE_NUM * coreNumPerStage + p2pCoreNumPerStage ? PRODUCER_P2P_CORE : CONSUMER_P2P_CORE;
+            rankNumPerCore = CeilDiv(p2pRankSize, p2pCoreNumPerStage);
+        } else {
+            coreGroup = IDLER_CORE;
+        }
+    }
+
+    __aicore__ inline void InitDataSlice()
+    {
+        int64_t ipcSliceNum = 2;
+        queLen = IPC_BUFF_MAX_SIZE / ipcSliceNum / sizeof(T) /
+                 (xRankSize * yRankSize * STAGE_NUM);  // 一个que的可放入的元素数量
+        queSize = queLen * sizeof(T);
+
+        // 生产者负责搬运本rank的输入数据至共享内存，input-->share
+        if (coreGroup == PRODUCER_CORE_X || coreGroup == PRODUCER_CORE_Y) {
+            ProducerDataSlice();
+        } else if (coreGroup == CONSUMER_CORE_X || coreGroup == CONSUMER_CORE_Y) {
+            ConsumerDataSlice();
+        } else if (coreGroup == PRODUCER_P2P_CORE) {
+            ProducerP2PDataSlice();
+        } else if (coreGroup == CONSUMER_P2P_CORE) {
+            ConsumerP2PDataSlice();
+        }
+    }
+
+    __aicore__ inline void ProducerDataSlice()
+    {
+        maxSliceNum = 0;
+        if (coreGroup == PRODUCER_CORE_X) {
+            for (int i = 0; i < yRankSize; i++) {
+                writeQue[i].Init(&sync, magic,
+                                 shareAddrs[targetRank[0]] + IPC_DATA_OFFSET + (xRankIdx * yRankSize + i) * queSize,
+                                 queLen, queElemLen);
+                sendOffset[i] = 0;
+                for (int j = 0; j < (targetXRankIdxGlobal + i * xRankSize + rackId * yRankSize * xRankSize); j++) {
+                    sendOffset[i] += sendCountMatrixGm.GetValue(rank * rankSize + j);
+                }
+                inputDataLen[i] = sendCountMatrixGm.GetValue(rank * rankSize + (targetXRankIdxGlobal + i * xRankSize +
+                                                                                rackId * yRankSize * xRankSize)) /
+                                  DATA_SLICE;
+                SplitData(inputDataLen[i], 1, 0, inputOffset[i], inputLen[i], sendOffset[i]);
+                // 当前核负责的数据切片数，能分成一个que中的多少小块
+                sliceNum[i] = CeilDiv(inputLen[i], queElemLen);
+                if (sliceNum[i] > maxSliceNum) {
+                    maxSliceNum = sliceNum[i];
+                }
+            }
+        } else {
+            for (int i = 0; i < xRankSize; i++) {
+                writeQue[i].Init(&sync, magic,
+                                 shareAddrs[targetRank[0]] + IPC_DATA_OFFSET +
+                                     (xRankSize * yRankSize + yRankIdx * xRankSize + i) * queSize,
+                                 queLen, queElemLen);
+                sendOffset[i] = 0;
+                for (int j = 0; j < (targetYRankIdxGlobal * xRankSize + i); j++) {
+                    sendOffset[i] += sendCountMatrixGm.GetValue(rank * rankSize + j);
+                }
+                int inputDataLenTmp =
+                    sendCountMatrixGm.GetValue(rank * rankSize + (targetYRankIdxGlobal * xRankSize + i)) / DATA_SLICE;
+                sendOffset[i] += inputDataLenTmp;
+                inputDataLen[i] = sendCountMatrixGm.GetValue(rank * rankSize + (targetYRankIdxGlobal * xRankSize + i)) -
+                                  inputDataLenTmp;
+                SplitData(inputDataLen[i], 1, 0, inputOffset[i], inputLen[i], sendOffset[i]);
+                // 当前核负责的数据切片数，能分成一个que中的多少小块
+                sliceNum[i] = CeilDiv(inputLen[i], queElemLen);
+                if (sliceNum[i] > maxSliceNum) {
+                    maxSliceNum = sliceNum[i];
+                }
+            }
+        }
+    }
+
+    __aicore__ inline void ProducerP2PDataSlice()
+    {
+        maxSliceNum = 0;
+        for (auto i = 0; i < rankNumPerCore; ++i) {
+            // 当前核负责的rank
+            targetRank[i] =
+                (1 - rackId) * yRankSize * xRankSize + (blockIdx - STAGE_NUM * coreNumPerStage) * rankNumPerCore + i;
+            if (targetRank[i] >= (RACK_NUM - rackId) * yRankSize * xRankSize) {
+                targetRank[i] = INVALID_RANK_NUM;
+                continue;
+            }
+            // 当前核负责的ipcQue
+            writeQue[i].Init(&sync, magic,
+                             shareAddrs[targetRank[i]] + IPC_DATA_OFFSET +
+                                 (xRankSize * yRankSizeReal + rank % (yRankSize * xRankSize)) * queSize,
+                             queLen, queElemLen);
+
+            // 当前核负责的数据长度和偏移
+            sendOffset[i] = 0;
+            for (int j = 0; j < targetRank[i]; j++) {
+                sendOffset[i] += sendCountMatrixGm.GetValue(rank * rankSize + j);
+            }
+            inputDataLen[i] = sendCountMatrixGm.GetValue(rank * rankSize + targetRank[i]);
+            SplitData(inputDataLen[i], coreNumPerRank, i % coreNumPerRank, inputOffset[i], inputLen[i], sendOffset[i]);
+            // 当前核负责的数据切片数，能分成一个que中的多少小块
+            sliceNum[i] = CeilDiv(inputLen[i], queElemLen);
+            if (sliceNum[i] > maxSliceNum) {
+                maxSliceNum = sliceNum[i];
+            }
+        }
+    }
+
+    __aicore__ inline void ConsumerDataSlice()
+    {
+        maxSliceNum = 0;
+        if (coreGroup == CONSUMER_CORE_X) {
+            for (int k = 0; k < yRankSize; k++) {
+                readQue[k].Init(&sync, magic,
+                                shareAddrs[targetRank[0]] + IPC_DATA_OFFSET +
+                                    (xRankSize * yRankSize + k * xRankSize + xRankIdx) * queSize,
+                                queLen, queElemLen);
+                revOffset[k] = 0;
+                for (int j = 0; j < (k * xRankSize + targetXRankIdxGlobal + rackId * yRankSize * xRankSize); j++) {
+                    revOffset[k] += sendCountMatrixGm.GetValue(j * rankSize + rank);
+                }
+                int inputDataLenTmp =
+                    sendCountMatrixGm.GetValue(
+                        (k * xRankSize + targetXRankIdxGlobal + rackId * yRankSize * xRankSize) * rankSize + rank) /
+                    DATA_SLICE;
+                revOffset[k] += inputDataLenTmp;
+                outputDataLen[k] =
+                    sendCountMatrixGm.GetValue(
+                        (k * xRankSize + targetXRankIdxGlobal + rackId * yRankSize * xRankSize) * rankSize + rank) -
+                    inputDataLenTmp;
+                SplitData(outputDataLen[k], 1, 0, outputOffset[k], outputLen[k], revOffset[k]);
+                // 当前核负责的数据切片数，能分成一个que中的多少小块
+                sliceNum[k] = CeilDiv(outputLen[k], queElemLen);
+                if (sliceNum[k] > maxSliceNum) {
+                    maxSliceNum = sliceNum[k];
+                }
+            }
+        } else {
+            for (int k = 0; k < xRankSize; k++) {
+                readQue[k].Init(&sync, magic,
+                                shareAddrs[targetRank[0]] + IPC_DATA_OFFSET + (k * yRankSize + yRankIdx) * queSize,
+                                queLen, queElemLen);
+                revOffset[k] = 0;
+                for (int j = 0; j < (xRankSize * targetYRankIdxGlobal + k); j++) {
+                    revOffset[k] += sendCountMatrixGm.GetValue(j * rankSize + rank);
+                }
+                outputDataLen[k] =
+                    sendCountMatrixGm.GetValue((xRankSize * targetYRankIdxGlobal + k) * rankSize + rank) / DATA_SLICE;
+                SplitData(outputDataLen[k], 1, 0, outputOffset[k], outputLen[k], revOffset[k]);
+                // 当前核负责的数据切片数，能分成一个que中的多少小块
+                sliceNum[k] = CeilDiv(outputLen[k], queElemLen);
+                if (sliceNum[k] > maxSliceNum) {
+                    maxSliceNum = sliceNum[k];
+                }
+            }
+        }
+    }
+
+    __aicore__ inline void ConsumerP2PDataSlice()
+    {
+        maxSliceNum = 0;
+        for (auto i = 0; i < rankNumPerCore; ++i) {
+            // 当前核负责的rank
+            targetRank[i] = (1 - rackId) * yRankSize * xRankSize +
+                            (blockIdx - STAGE_NUM * coreNumPerStage - p2pCoreNumPerStage) * rankNumPerCore + i;
+            if (targetRank[i] >= (RACK_NUM - rackId) * yRankSize * xRankSize) {
+                targetRank[i] = INVALID_RANK_NUM;
+                continue;
+            }
+            // 当前核负责的ipcQue
+            readQue[i].Init(&sync, magic,
+                            shareAddrs[rank] + IPC_DATA_OFFSET +
+                                (xRankSize * yRankSizeReal + targetRank[i] % (yRankSize * xRankSize)) * queSize,
+                            queLen, queElemLen);
+            // 当前核负责的数据长度和偏移
+            revOffset[i] = 0;
+            for (int j = 0; j < targetRank[i]; j++) {
+                revOffset[i] += sendCountMatrixGm.GetValue(j * rankSize + rank);
+            }
+            outputDataLen[i] = sendCountMatrixGm.GetValue(targetRank[i] * rankSize + rank);
+
+            SplitData(outputDataLen[i], coreNumPerRank, i % coreNumPerRank, outputOffset[i], outputLen[i],
+                      revOffset[i]);
+            // 当前核负责的数据切片数，能分成一个que中的多少小块
+            sliceNum[i] = CeilDiv(outputLen[i], queElemLen);
+            if (sliceNum[i] > maxSliceNum) {
+                maxSliceNum = sliceNum[i];
+            }
+        }
+    }
+
+    __aicore__ inline void SplitData(const int64_t totalLen, const int64_t useCoreNum, const int64_t useCoreIdx,
+                                     int64_t& dataOffset, int64_t& dataLen, int startOffset)
+    {
+        // 向上整除获取每个core切分的数据个数
+        dataLen = CeilDiv(totalLen, useCoreNum);
+        // 数据量极小或略微超过核数的情况，后面若干个core数据量为0
+        dataOffset = useCoreIdx * dataLen + startOffset;  // 使用当前block在useBlock里的相对索引来计算偏移
+        if (useCoreIdx * dataLen >= totalLen) {
+            dataOffset = totalLen + startOffset;
+            dataLen = 0;
+            return;
+        }
+        // 非整除情况，最后一个core数据量为剩余数据量
+        if (dataOffset + dataLen - startOffset > totalLen) {
+            dataLen = totalLen - useCoreIdx * dataLen;
+        }
+    }
+
+    __aicore__ inline void ProducerStage()
+    {
+        for (auto i = 0; i < rankNumPerCore; ++i) {
+            if (targetRank[i] == INVALID_RANK_NUM) {
+                continue;
+            }
+            // 写共享内存队列时，需要等待当前rank
+            waitRankListForWrite[i][0] = targetRank[i];
+            waitNumForWrite[i] = 1;
+        }
+        InputToSharePipeline();
+    }
+
+    __aicore__ inline void InputToSharePipeline()
+    {
+        int64_t flagValue[MULTI_RANK_SIZE];  // 要等待标志位的储存值
+        for (auto i = 0; i < rankNumPerCore; ++i) {
+            flagValue[i] = -1;  // 统一赋值为-1，便于后续小于判断
+        }
+        // 以最多切片sliceNum[0]为切片数进行循环，切片数不足的不拷贝
+        for (auto sliceIdx = 0; sliceIdx < maxSliceNum; ++sliceIdx) {
+            for (auto i = 0; i < rankNumPerCore; ++i) {
+                if (targetRank[i] == INVALID_RANK_NUM) {
+                    continue;
+                }
+                if (coreGroup == PRODUCER_P2P_CORE) {
+                    InputToShareP2PSlice(i, sliceIdx, flagValue[i]);
+                } else {
+                    InputToShareSlice(i, sliceIdx, flagValue[i]);
+                }
+            }
+        }
+    }
+
+    __aicore__ inline void InputToShareSlice(int64_t idx, int64_t sliceIdx, int64_t& flagValue)
+    {
+        // 计算当前切片拷贝数据量，数据量为0时不拷贝
+        int tmpRankSize = (coreGroup == PRODUCER_CORE_X) ? yRankSize : xRankSize;
+        for (int i = 0; i < tmpRankSize; i++) {
+            copyLen = inputLen[i] - queElemLen * sliceIdx;
+            if (copyLen > queElemLen) {
+                copyLen = queElemLen;
+            } else if (copyLen <= 0) {
+                copyLen = 0;
+                continue;
+            }
+            readGt = inputGt[sliceIdx * queElemLen + inputOffset[i]];
+            // 这里一共定义了xranksize*yranksize *2 个标志位，两个方向各使用一半，前一半以[x,y]为shape考虑
+            // [j,k]表示x方向第j个队列发给y方向第k个rank的；y方向反之
+            int tmpRankIdx = (coreGroup == PRODUCER_CORE_X) ? xRankIdx * yRankSize + i
+                                                            : xRankSize * yRankSize + yRankIdx * xRankSize + i;
+            writeQue[i].DeQue(waitRankListForWrite[idx], 1, tmpRankIdx + xRankSize * yRankSize * STAGE_NUM);
+            writeGt = writeQue[i].EnQue();
+            if (copyLen > 0) {
+                CpGM2GMPingPong<T>(copyLen * sizeof(T), readGt, writeGt, COPYONLY);
+            }
+            sync.SetInnerFlag(magic, sliceIdx, targetRank[idx], tmpRankIdx);
+        }
+    }
+
+    __aicore__ inline void InputToShareP2PSlice(int64_t idx, int64_t sliceIdx, int64_t& flagValue)
+    {
+        readGt = inputGt[sliceIdx * queElemLen + inputOffset[idx]];
+        // 计算当前切片拷贝数据量，数据量为0时不拷贝
+        copyLen = inputLen[idx] - queElemLen * sliceIdx;
+        if (copyLen > queElemLen) {
+            copyLen = queElemLen;
+        } else if (copyLen < 0) {
+            copyLen = 0;
+        }
+        int tmpRankIdx = rank % (xRankSize * yRankSize);
+        writeQue[idx].DeQue(waitRankListForWrite[idx], waitNumForWrite[idx],
+                            tmpRankIdx + xRankSize * yRankSize + xRankSize * yRankSizeReal * STAGE_NUM);
+        writeGt = writeQue[idx].EnQue();
+        if (copyLen > 0) {
+            CpGM2GMPingPong<T>(copyLen * sizeof(T), readGt, writeGt, COPYONLY);
+        }
+        sync.SetInnerFlag(magic, sliceIdx, targetRank[idx], tmpRankIdx + xRankSize * yRankSizeReal * STAGE_NUM);
+    }
+
+    __aicore__ inline void ConsumerStage()
+    {
+        int64_t flagValue[MULTI_RANK_SIZE];  // 要等待标志位的储存值
+        int tmpRankSize;
+        if (coreGroup == CONSUMER_P2P_CORE) {
+            tmpRankSize = rankNumPerCore;
+        } else {
+            tmpRankSize = (coreGroup == CONSUMER_CORE_X) ? yRankSize : xRankSize;
+        }
+        for (auto i = 0; i < tmpRankSize; ++i) {
+            flagValue[i] = -1;
+        }
+        // 以最多切片sliceNum[0]为切片数进行循环，切片数不足的不拷贝
+        for (auto sliceIdx = 0; sliceIdx < maxSliceNum; ++sliceIdx) {
+            for (auto i = 0; i < rankNumPerCore; ++i) {
+                if (targetRank[i] == INVALID_RANK_NUM) {
+                    continue;
+                }
+                if (coreGroup == CONSUMER_P2P_CORE) {
+                    ShareToOutputP2PSlice(i, sliceIdx, flagValue[i]);
+                } else {
+                    ShareToOutputSlice(i, sliceIdx, flagValue);
+                }
+            }
+        }
+    }
+
+    __aicore__ inline void ShareToOutputSlice(int64_t idx, int64_t sliceIdx, int64_t* flagValue)
+    {
+        int tmpRankSize = (coreGroup == CONSUMER_CORE_X) ? yRankSize : xRankSize;
+        for (int i = 0; i < tmpRankSize; i++) {
+            copyLen = outputLen[i] - queElemLen * sliceIdx;
+            if (copyLen > queElemLen) {
+                copyLen = queElemLen;
+            } else if (copyLen <= 0) {
+                copyLen = 0;
+                continue;
+            }
+            // consume的x方向，查看target上的flag后半部分[ysize,xsize]，来判断上一步y方向上的第tmpRankSize个rank是否发给target了
+            int tmpRankIdx = (coreGroup == CONSUMER_CORE_X) ? xRankSize * yRankSize + i * xRankSize + xRankIdx
+                                                            : i * yRankSize + yRankIdx;
+            if (flagValue[i] < sliceIdx) {
+                sync.WaitInnerFlag(magic, sliceIdx, targetRank[idx], tmpRankIdx);
+            }
+            readGt = readQue[i].ReadFront();
+            __gm__ T* output = const_cast<__gm__ T*>(outputGt.GetPhyAddr());
+            if (copyLen > 0) {
+                flagValue[i] = sync.GetInnerFlag(targetRank[idx], tmpRankIdx) & EVENT_ID_MASK;
+                intraRackUss(output, copyLen, i, sliceIdx);
+            }
+            sync.SetInnerFlag(magic, sliceIdx, targetRank[idx], tmpRankIdx + xRankSize * yRankSize * STAGE_NUM);
+        }
+        if (sliceIdx == maxSliceNum - 1) {
+            for (int i = 0; i < tmpRankSize; i++) {
+                int tmpRankIdx = (coreGroup == CONSUMER_CORE_X) ? xRankSize * yRankSize + i * xRankSize + xRankIdx
+                                                                : i * yRankSize + yRankIdx;
+                sync.SetInnerFlag(0, 0, targetRank[idx], tmpRankIdx + xRankSize * yRankSize * STAGE_NUM);
+                sync.SetInnerFlag(0, 0, targetRank[idx], tmpRankIdx);
+            }
+        }
+    }
+
+    FORCE_INLINE_AICORE void intraRackUss(__gm__ T* output, int64_t copyLen, int i, int64_t sliceIdx)
+    {
+        LocalTensor<T> buffer1 = tempBuffer.AllocTensor<T>();
+        LocalTensor<T> buffer2 = tempBuffer.AllocTensor<T>();
+        int64_t remain = copyLen * sizeof(T);
+        int64_t offset = 0;
+        int64_t outOffset = 0;
+        set_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID0);
+        set_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID1);
+        int loop = 0;
+        SetAtomicDataType<T>();
+#ifdef __DAV_C220_VEC__
+        SetAtomicOpType(0);
+#endif
+        while (remain > 0) {
+            event_t eventId = (loop & 1) ? EVENT_ID0 : EVENT_ID1;
+            wait_flag(PIPE_MTE3, PIPE_MTE2, eventId);
+            // emb数量
+            int64_t totalNum = remain < UB_SINGLE_DMA_SIZE_MAX / PING_PONG_SIZE
+                                   ? CeilDiv(remain, dim * sizeof(T))
+                                   : CeilDiv(UB_SINGLE_DMA_SIZE_MAX / PING_PONG_SIZE, dim * sizeof(T));
+            __ubuf__ T* buffer = (loop & 1) ? (__ubuf__ T*)buffer1.GetPhyAddr() : (__ubuf__ T*)buffer2.GetPhyAddr();
+            CpGM2UB(buffer, (__gm__ T*)readGt[offset].GetPhyAddr(), totalNum * dim * sizeof(T));
+            offset += totalNum * dim;
+            set_flag(PIPE_MTE2, PIPE_MTE3, eventId);
+            wait_flag(PIPE_MTE2, PIPE_MTE3, eventId);
+            for (int j = 0; j < totalNum; j++) {
+                int64_t outIdx = *((__gm__ int32_t*)restorePtr + sliceIdx * queElemLen / dim + outputOffset[i] / dim +
+                                   outOffset + j);
+                CpUB2GMUss(copyLen, output, outIdx, buffer, j, totalNum);
+            }
+            set_flag(PIPE_MTE3, PIPE_MTE2, eventId);
+            remain -= UB_SINGLE_DMA_SIZE_MAX / PING_PONG_SIZE;
+            outOffset += totalNum;
+            loop += 1;
+        }
+        wait_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID0);
+        wait_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID1);
+
+        set_flag(PIPE_MTE3, PIPE_S, EVENT_ID3);  // Scalar等MTE3
+        wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID3);
+        set_atomic_none();
+        tempBuffer.FreeTensor(buffer1);
+        tempBuffer.FreeTensor(buffer2);
+    }
+
+    FORCE_INLINE_AICORE void CpUB2GMUss(int64_t copyLen, __gm__ T* output, int64_t outIdx, __ubuf__ T* buffer, int j,
+                                        int64_t totalNum)
+    {
+        if (copyLen % dim == 0) {
+            CpUB2GM((output + outIdx * dim), buffer + j * dim, dim * sizeof(T));
+        } else if (j == totalNum - 1 && coreGroup == CONSUMER_CORE_Y) {
+            CpUB2GM((output + outIdx * dim), buffer + j * dim, dim / DATA_SLICE * sizeof(T));
+        } else if (j == 0 && coreGroup == CONSUMER_CORE_X) {
+            CpUB2GM((output + outIdx * dim + dim / DATA_SLICE), buffer + j * dim, CeilDiv(dim, DATA_SLICE) * sizeof(T));
+        } else if (coreGroup == CONSUMER_CORE_Y) {
+            CpUB2GM((output + outIdx * dim), buffer + j * dim, dim * sizeof(T));
+        } else if (coreGroup == CONSUMER_CORE_X) {
+            CpUB2GM((output + outIdx * dim), buffer + j * dim - dim / DATA_SLICE, dim * sizeof(T));
+        }
+    }
+
+    __aicore__ inline void ShareToOutputP2PSlice(int64_t idx, int64_t sliceIdx, int64_t& flagValue)
+    {
+        // 计算当前切片拷贝数据量，数据量为0时不拷贝
+        copyLen = outputLen[idx] - queElemLen * sliceIdx;
+        if (copyLen > queElemLen) {
+            copyLen = queElemLen;
+        } else if (copyLen < 0) {
+            copyLen = 0;
+        }
+
+        int tmpRankIdx = targetRank[idx] % (xRankSize * yRankSize);
+        if (flagValue < sliceIdx) {
+            sync.WaitInnerFlag(magic, sliceIdx, rank, tmpRankIdx + xRankSize * yRankSizeReal * STAGE_NUM);
+        }
+        readGt = readQue[idx].ReadFront();
+        __gm__ T* output = const_cast<__gm__ T*>(outputGt.GetPhyAddr());
+        if (copyLen > 0) {
+            flagValue = sync.GetInnerFlag(rank, tmpRankIdx + xRankSize * yRankSizeReal * STAGE_NUM) & EVENT_ID_MASK;
+            interRackUss(output, copyLen, idx, sliceIdx);
+        }
+        sync.SetInnerFlag(magic, sliceIdx, rank,
+                          tmpRankIdx + xRankSize * yRankSize + xRankSize * yRankSizeReal * STAGE_NUM);
+    }
+
+    FORCE_INLINE_AICORE void interRackUss(__gm__ T* output, int64_t copyLen, int idx, int64_t sliceIdx)
+    {
+        LocalTensor<T> buffer1 = tempBuffer.AllocTensor<T>();
+        LocalTensor<T> buffer2 = tempBuffer.AllocTensor<T>();
+        int64_t remain = copyLen * sizeof(T);
+        int64_t offset = 0;
+        int64_t outOffset = 0;
+        set_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID0);
+        set_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID1);
+        int loop = 0;
+        SetAtomicDataType<T>();
+#ifdef __DAV_C220_VEC__
+        SetAtomicOpType(0);
+#endif
+        while (remain > 0) {
+            event_t eventId = (loop & 1) ? EVENT_ID0 : EVENT_ID1;
+            wait_flag(PIPE_MTE3, PIPE_MTE2, eventId);
+            // emb数量
+            int64_t totalNum = remain < UB_SINGLE_DMA_SIZE_MAX / PING_PONG_SIZE
+                                   ? remain / dim / sizeof(T)
+                                   : UB_SINGLE_DMA_SIZE_MAX / PING_PONG_SIZE / dim / sizeof(T);
+            __ubuf__ T* buffer = (loop & 1) ? (__ubuf__ T*)buffer1.GetPhyAddr() : (__ubuf__ T*)buffer2.GetPhyAddr();
+            CpGM2UB(buffer, (__gm__ T*)readGt[offset].GetPhyAddr(), totalNum * dim * sizeof(T));
+            offset += totalNum * dim;
+            set_flag(PIPE_MTE2, PIPE_MTE3, eventId);
+            wait_flag(PIPE_MTE2, PIPE_MTE3, eventId);
+            for (int i = 0; i < totalNum; i++) {
+                int64_t outIdx = *((__gm__ int32_t*)restorePtr + sliceIdx * queElemLen / dim + outputOffset[idx] / dim +
+                                   outOffset + i);
+                CpUB2GM((output + outIdx * dim), buffer + i * dim, dim * sizeof(T));
+            }
+            set_flag(PIPE_MTE3, PIPE_MTE2, eventId);
+            remain -= UB_SINGLE_DMA_SIZE_MAX / PING_PONG_SIZE;
+            outOffset += totalNum;
+            loop += 1;
+        }
+        wait_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID0);
+        wait_flag(PIPE_MTE3, PIPE_MTE2, EVENT_ID1);
+
+        set_flag(PIPE_MTE3, PIPE_S, EVENT_ID3);  // Scalar等MTE3
+        wait_flag(PIPE_MTE3, PIPE_S, EVENT_ID3);
+        set_atomic_none();
+        tempBuffer.FreeTensor(buffer1);
+        tempBuffer.FreeTensor(buffer2);
+    }
+
+    GlobalTensor<T> inputGt;
+    GM_ADDR outputPtr;
+    GlobalTensor<T> outputGt;
+    GlobalTensor<T> outputGtInit;
+    GlobalTensor<T> readGt;
+    GlobalTensor<T> writeGt;
+    GlobalTensor<int64_t> sendCountMatrixGm;
+    GM_ADDR restorePtr;
+    int rackId;
+    int yRankIdxReal;
+    int yRankSizeReal;
+    int targetXRankIdxGlobal;
+    int targetYRankIdxGlobal;
+    int coreNumsPerStage;
+    int64_t maxSliceNum;
+    int64_t revLen = 0;
+    int64_t sendLen = 0;
+    int64_t sendOffset[MULTI_RANK_SIZE];
+    int64_t revOffset[MULTI_RANK_SIZE];
+    int64_t inputDataLen[MULTI_RANK_SIZE];
+    int64_t outputDataLen[MULTI_RANK_SIZE];
+
+    int waitRankListForWrite[MULTI_RANK_SIZE][1];  // 写共享内存时，需要等待的rank列表
+    int waitNumForWrite[MULTI_RANK_SIZE];          // 写共享内存时，需要等待的数量
+    int waitBlockForWrite[MULTI_RANK_SIZE];        // 写共享内存时，需要等待的标志位
+
+    int64_t dim;
+    int64_t p2pRankSize;
+    int64_t queLen;
+    int64_t queSize;
+    int64_t coreNumPerStage;  // 每个阶段使用的核数
+    int64_t p2pCoreNumPerStage;
+    int64_t coreNumPerRank;     // 每个rank数据分配的核数
+    int64_t rankNumPerCore;     // 每个核负责的rank数
+    int64_t p2pRankNumPerCore;  // p2p阶段每个核负责的rank数
+    int64_t coreGroup;          // 当前核的功能分组
+
+    int localRankSize = 0;
+    int xRankSize = 0;
+    int yRankSize = 0;
+    int xRankIdx = 0;
+    int yRankIdx = 0;
+    int64_t groupCoreIdx[MULTI_RANK_SIZE];  // 当前核在组内的索引，可以为等效核索引
+    int64_t targetRank[MULTI_RANK_SIZE];    // 当前核负责的rank
+
+    IpcQueue<T> readQue[MULTI_RANK_SIZE];                 // 读端共享内存队列
+    IpcQueue<T> writeQue[MULTI_RANK_SIZE];                // 写端共享内存队列
+    TQue<QuePosition::VECIN, PING_PONG_SIZE> tempBuffer;  // UB
+    int64_t queElemLen;                                   // 共享内存队列里每个元素大小（以T计）
+
+    int64_t sliceNum[MULTI_RANK_SIZE];      // 当前核负责的数据切片总数
+    int64_t copyLen;                        // 当前拷贝数据片的长度（以T计）
+    int64_t inputOffset[MULTI_RANK_SIZE];   // 当前核负责的input偏移（以T计）
+    int64_t inputLen[MULTI_RANK_SIZE];      // 当前核负责的input长度（以T计）
+    int64_t outputOffset[MULTI_RANK_SIZE];  // 当前核负责的output偏移（以T计）
+    int64_t outputLen[MULTI_RANK_SIZE];     // 当前核负责的output长度（以T计）
+};
+
+#endif
