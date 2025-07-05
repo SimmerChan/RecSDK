@@ -47,6 +47,7 @@ OPTIMIZER_PARAM = {
 
 BATCH_SIZE = 8
 
+dist.init_process_group("gloo", init_method="tcp://127.0.0.1:6000", world_size=1, rank=0)
 
 def get_embedding_config(embedding_dims, num_embeddings, table_num):
     embeding_config = []
@@ -89,7 +90,7 @@ class TestHybridTrainPipelineSparseDist(unittest.TestCase):
                 self.model,
                 optimizer=Adagrad,
                 device=torch.device("cpu"),
-                return_loss=True
+                return_loss=True    
             )
     
     def test_pipeline_with_invalid_pipe_n_batch(self):
@@ -125,8 +126,9 @@ class TestHybridTrainPipelineSparseDist(unittest.TestCase):
         # 跳过所有device校验
         torchrec.distributed.planner.ParameterConstraints.__post_init__ = MagicMock(return_value=None)
         torchrec.tensor_types.check = MagicMock(return_value=None)
-        torchrec.distributed.model_parallel.__param_check__ = MagicMock(return_value=None)
-        HybridTrainPipelineSparseDist.param_check = MagicMock(return_value=None)
+        torchrec.distributed.model_parallel.check = MagicMock(return_value=None)
+        torchrec.distributed.planner.types.check = MagicMock(return_value=None)
+       
         constrans = {
             f"table{i}": ParameterConstraints(
                 sharding_types=["table_wise"], compute_kernels=["fused"]
@@ -134,7 +136,7 @@ class TestHybridTrainPipelineSparseDist(unittest.TestCase):
             for i in range(2)
         }
         planner = EmbeddingShardingPlanner(
-            topology=Topology(world_size=self.world_size, compute_device=self.device),
+            topology=Topology(world_size=self.world_size, compute_device="cpu"),
             constraints=constrans,
         )
         plan = planner.collective_plan(
@@ -151,12 +153,16 @@ class TestHybridTrainPipelineSparseDist(unittest.TestCase):
         optimizer = CombinedOptimizer([ddp_model.fused_optimizer])
 
         ddp_model.train()
-        pipe = HybridTrainPipelineSparseDist(
-            ddp_model,
-            optimizer=optimizer,
-            device=torch.device(self.device),
-            return_loss=True,
-        )
+        HybridTrainPipelineSparseDist.param_check = MagicMock(return_value=None)
+        with patch(f"hybrid_torchrec.distributed.hybrid_train_pipeline.HybridTrainPipelineSparseDist.param_check")\
+            as mock_method:
+                mock_method.return_value = None
+                pipe = HybridTrainPipelineSparseDist(
+                    ddp_model,
+                    optimizer=optimizer,
+                    device=torch.device(self.device),
+                    return_loss=True,
+                )
 
     def test_hybrid_train_pipeline_context(self):
         iter_ = iter(self.data_loader)
