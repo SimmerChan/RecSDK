@@ -24,9 +24,11 @@ from typing import Dict, List
 import logging
 from datetime import datetime
 from functools import partial
+import shutil
 
 import pytz
 import tensorflow as tf
+from npu_bridge.npu_init import NPUEstimator, NPURunConfig
 
 
 def get_third_nearest_checkpoint(path):
@@ -264,6 +266,97 @@ def build_optimizer(loss: tf.Tensor, model_cfg: object) -> tf.Operation:
 
     clipped_gradients = [(clip_if_not_none(grad), var) for grad, var in gvs]
     return optimizer.apply_gradients(clipped_gradients, global_step=tf.compat.v1.train.get_global_step())
+
+
+def main(model_cfg, model_fn, logger, dump_func):
+    if dump_func == "prob":
+        dump_pred_func = dump_pred_prob
+        predict_keys="prob"
+    elif dump_func == "multi":
+        dump_pred_func = dump_pred_multi
+        predict_keys=["ctr", "cvr", "ctcvr"]
+    else:
+        raise ValueError(f"Unsupported dump_func: {dump_func}. Choose from ['prob', 'multi']")
+
+    train_order = json_file_load("order", "./order.json")
+    tr_files = []
+    for index in train_order["reading_order"]:
+        tr_files.append("%strain/data_train.csv.tfrecord.%s" % (model_cfg.data_dir, index))
+    va_files = glob.glob("%sval/data_val.csv.tfrecord.*" % model_cfg.data_dir)
+    te_files = glob.glob("%stest/data_test.csv.tfrecord.*" % model_cfg.data_dir)
+
+    if model_cfg.clear_existing_model:
+        if os.path.exists(model_cfg.model_dir):
+            try:
+                shutil.rmtree(model_cfg.model_dir)
+            except PermissionError as e:
+                raise PermissionError("Permission denied: {}".format(e)) from e
+            except Exception as e:
+                raise RuntimeError("Error clearing existing model: {}".format(e)) from e
+        else:
+            logger.warning("Model directory does not exist, skipping deletion.")
+
+    # ------ for NPU  ------
+    config = NPURunConfig(
+        model_dir=model_cfg.model_dir,
+        log_step_count_steps=100, save_summary_steps=100,
+        save_checkpoints_steps=spec["dataset_size"]["train"] // model_cfg.batch_size + 1,
+        session_config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=False)
+    )
+    model = NPUEstimator(model_fn=model_fn, model_dir=model_cfg.model_dir, config=config, params=model_cfg)
+
+    hook = tf.estimator.experimental.stop_if_no_increase_hook(model, "auc_ctr",
+    max_steps_without_increase=spec["dataset_size"]["train"] // model_cfg.batch_size,
+    run_every_secs=None, run_every_steps=10)
+    hook_stop = tf.estimator.StopAtStepHook(last_step=200)
+
+    if model_cfg.task_type == "train":
+        train_spec = tf.estimator.TrainSpec(
+            input_fn=lambda: input_fn(tr_files, num_epochs=None, batch_size=model_cfg.batch_size, perform_shuffle=True,
+                                      mode=tf.estimator.ModeKeys.TRAIN),
+            hooks=[hook]
+        )
+
+        test_spec = tf.estimator.EvalSpec(
+            input_fn=lambda: input_fn(va_files, num_epochs=1, batch_size=model_cfg.batch_size,
+                                      mode=tf.estimator.ModeKeys.EVAL),
+            steps=None,
+            start_delay_secs=10,
+            throttle_secs=0
+        )
+        logger.info("start train and evaluate")
+        tf.estimator.train_and_evaluate(model, train_spec, test_spec)
+        logger.info("early stopped, start evaluating....")
+        model.evaluate(
+            input_fn=lambda: input_fn(te_files, num_epochs=1, batch_size=model_cfg.batch_size,
+                                      mode=tf.estimator.ModeKeys.PREDICT),
+            checkpoint_path=get_third_nearest_checkpoint(model.model_dir))
+
+    elif model_cfg.task_type == "eval":
+        model.evaluate(
+            input_fn=lambda: input_fn(te_files, num_epochs=1, batch_size=model_cfg.batch_size,
+                                      mode=tf.estimator.ModeKeys.EVAL),
+        )
+
+    elif model_cfg.task_type == 'infer':
+        preds = model.predict(input_fn=lambda: input_fn(te_files, num_epochs=1, batch_size=model_cfg.batch_size,
+                                                        mode=tf.estimator.ModeKeys.PREDICT),
+                              predict_keys=predict_keys, hooks=[])
+        dump_pred_func(preds, model_cfg.data_dir)
+
+    elif model_cfg.task_type == 'profiling_train':
+        model.train(
+            input_fn=lambda: input_fn(tr_files, num_epochs=1, batch_size=model_cfg.batch_size, perform_shuffle=True,
+                                      mode=tf.estimator.ModeKeys.TRAIN),
+            hooks=[hook_stop])
+
+    elif model_cfg.task_type == 'profiling_infer':
+        preds = model.predict(input_fn=lambda: input_fn(te_files, num_epochs=1, batch_size=model_cfg.batch_size,
+                                                        mode=tf.estimator.ModeKeys.PREDICT),
+                              predict_keys=predict_keys, hooks=[hook_stop])
+        dump_pred_func(preds, model_cfg.data_dir)
+    else:
+        raise ValueError("task_type should be 'train', 'eval', 'infer', 'profiling_train' or 'profiling_infer'")
 
 
 model_conf = tf.app.flags.FLAGS
