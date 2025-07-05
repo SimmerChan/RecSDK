@@ -6,12 +6,12 @@ from datetime import datetime
 
 import tensorflow as tf
 
+import utils
 from utils import (
     embedding_lookup_sparse_fake,
     setup_logger,
     build_optimizer,
-    main,
-    model_conf, spec
+    main
 )
 
 tf.compat.v1.enable_control_flow_v2()
@@ -23,6 +23,7 @@ MODEL_NAME = "MMOE"
 
 
 def define_flags():
+    model_conf = tf.app.flags.FLAGS
     tf.app.flags.DEFINE_integer("embedding_size", 16, "Embedding size")
     tf.app.flags.DEFINE_integer("batch_size", 4096, "Number of batch size")
     tf.app.flags.DEFINE_float("learning_rate", 0.001, "learning rate")
@@ -256,7 +257,7 @@ def model_fn(features: dict, labels: dict, mode: tf.estimator.ModeKeys,
         tf.estimator.EstimatorSpec: The EstimatorSpec object for the given mode.
     """
     # Build the embedding layer
-    x_deep = build_embedding_layer(features, spec, params)
+    x_deep = build_embedding_layer(features, utils.spec, params)
 
     # Build the experts
     experts = build_experts(x_deep, params)

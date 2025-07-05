@@ -7,12 +7,12 @@ from datetime import datetime, date, timedelta
 
 import tensorflow as tf
 
+import utils
 from utils import (
     embedding_lookup_sparse_fake,
     setup_logger,
     build_optimizer,
-    main,
-    model_conf, spec
+    main
 )
 
 tf.compat.v1.set_random_seed(2024)
@@ -22,6 +22,7 @@ MODEL_NAME = "CAN"
 
 
 def define_flags():
+    model_conf = tf.app.flags.FLAGS
     tf.app.flags.DEFINE_integer("embedding_size", 16, "Embedding size")
     tf.app.flags.DEFINE_integer("batch_size", 4096, "Number of batch size")
     tf.app.flags.DEFINE_float("learning_rate", 0.001, "learning rate")
@@ -255,9 +256,9 @@ def build_loss_function(labels: dict, pred: tf.Tensor) -> tf.Tensor:
 def model_fn(features, labels, mode, params):
     """build Estimator model"""
 
-    embeddings = build_embedding_layer(features, params, spec)
+    embeddings = build_embedding_layer(features, params, utils.spec)
 
-    embedding = build_coaction_layer(features, params, spec, embeddings)
+    embedding = build_coaction_layer(features, params, utils.spec, embeddings)
 
     x_deep = tf.reshape(embedding,
                         [-1, 23 * params.embedding_size + 4 * params.orders * sum(

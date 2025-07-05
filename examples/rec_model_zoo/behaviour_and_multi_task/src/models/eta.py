@@ -12,7 +12,7 @@ from utils import (
     setup_logger,
     build_optimizer,
     main,
-    model_conf, spec
+    spec
 )
 
 tf.compat.v1.set_random_seed(2024)
@@ -22,6 +22,7 @@ MODEL_NAME = "ETA"
 
 
 def define_flags():
+    model_conf = tf.app.flags.FLAGS
     tf.app.flags.DEFINE_integer("embedding_size", 16, "Embedding size")
     tf.app.flags.DEFINE_integer("batch_size", 4096, "Number of batch size")
     tf.app.flags.DEFINE_float("learning_rate", 0.001, "learning rate")

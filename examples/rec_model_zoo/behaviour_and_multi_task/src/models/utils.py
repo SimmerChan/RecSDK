@@ -142,11 +142,13 @@ def embedding_lookup_sparse_fake(params: tf.Tensor, ids: tf.Tensor, combiner: st
         raise ValueError("combiner only supports 'sum' or 'mean'")
 
 
-def build_feature_descriptions(model_config):
+def build_feature_descriptions():
+    model_config = tf.app.flags.FLAGS
+    tf.app.flags.DEFINE_string("data_dir", "../data/aliccp/cast50_padded/", "data dir")
     spec_json_path = os.path.join(model_config.data_dir, "spec.json")
-    spec = json_file_load("spec", spec_json_path)
+    local_spec = json_file_load("spec", spec_json_path)
 
-    feature_descriptions = {}
+    local_feature_descriptions = {}
     for mode_type in [tf.estimator.ModeKeys.TRAIN, tf.estimator.ModeKeys.EVAL, tf.estimator.ModeKeys.PREDICT]:
         key_map = {
             tf.estimator.ModeKeys.TRAIN: "train",
@@ -157,19 +159,19 @@ def build_feature_descriptions(model_config):
         feature_description = {
             'y': tf.io.FixedLenFeature([], tf.float32),
             'z': tf.io.FixedLenFeature([], tf.float32),
-            'one_hot_fields': tf.io.FixedLenFeature([len(spec["one_hot_fields"])], tf.int64)
+            'one_hot_fields': tf.io.FixedLenFeature([len(local_spec["one_hot_fields"])], tf.int64)
         }
-        for mul_fields in spec["multi_hot_fields"]:
+        for mul_fields in local_spec["multi_hot_fields"]:
             feature_description[mul_fields] = tf.io.FixedLenFeature(
-                [spec.get(f"{key_map.get(mode_type)}_max_length").get(mul_fields)],
+                [local_spec.get(f"{key_map.get(mode_type)}_max_length").get(mul_fields)],
                 tf.int64)
-        for mul_fields in spec["special_fields"]:
+        for mul_fields in local_spec["special_fields"]:
             feature_description[mul_fields] = tf.io.FixedLenFeature(
-                [spec.get(f"{key_map.get(mode_type)}_max_length").get(mul_fields)],
+                [local_spec.get(f"{key_map.get(mode_type)}_max_length").get(mul_fields)],
                 tf.int64)
-        feature_descriptions[mode_type] = feature_description
+        local_feature_descriptions[mode_type] = feature_description
 
-    return spec, feature_descriptions
+    return local_spec, local_feature_descriptions
 
 
 def setup_logger(model_config, model_name):
@@ -271,10 +273,10 @@ def build_optimizer(loss: tf.Tensor, model_cfg: object) -> tf.Operation:
 def main(model_cfg, model_fn, logger, dump_func):
     if dump_func == "prob":
         dump_pred_func = dump_pred_prob
-        predict_keys="prob"
+        predict_keys = "prob"
     elif dump_func == "multi":
         dump_pred_func = dump_pred_multi
-        predict_keys=["ctr", "cvr", "ctcvr"]
+        predict_keys = ["ctr", "cvr", "ctcvr"]
     else:
         raise ValueError(f"Unsupported dump_func: {dump_func}. Choose from ['prob', 'multi']")
 
@@ -359,6 +361,4 @@ def main(model_cfg, model_fn, logger, dump_func):
         raise ValueError("task_type should be 'train', 'eval', 'infer', 'profiling_train' or 'profiling_infer'")
 
 
-model_conf = tf.app.flags.FLAGS
-tf.app.flags.DEFINE_string("data_dir", "../data/aliccp/cast50_padded/", "data dir")
-spec, feature_descriptions = build_feature_descriptions(model_conf)
+spec, feature_descriptions = build_feature_descriptions()
