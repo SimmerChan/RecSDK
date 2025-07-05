@@ -35,9 +35,7 @@ def define_flags():
     tf.app.flags.DEFINE_string("model_dir", f"../checkpoint/aliccp/{MODEL_NAME}/", "code check point dir")
     tf.app.flags.DEFINE_string("servable_model_dir", f"../model/serving/{MODEL_NAME}/",
                                "export servable code for TensorFlow Serving")
-    tf.app.flags.DEFINE_string("task_type", "train", "task type")
     tf.app.flags.DEFINE_boolean("clear_existing_model", True, "clear existing code or not")
-    tf.app.flags.DEFINE_integer("max_seq_len", 50, "max length of sequence")
     tf.app.flags.DEFINE_integer("task_num", 2, "task num")
     tf.app.flags.DEFINE_string("exp_per_task", '3,3', "number of experts per task")
     tf.app.flags.DEFINE_integer("shared_num", 2, "number of shared experts")

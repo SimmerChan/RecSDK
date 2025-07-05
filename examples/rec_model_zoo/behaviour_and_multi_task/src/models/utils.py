@@ -30,6 +30,10 @@ import pytz
 import tensorflow as tf
 from npu_bridge.npu_init import NPUEstimator, NPURunConfig
 
+tf.app.flags.DEFINE_string("data_dir", "../data/aliccp/cast50_padded/", "data dir")
+tf.app.flags.DEFINE_string("task_type", "train", "task type")
+tf.app.flags.DEFINE_integer("max_seq_len", 50, "max length of sequence")
+
 
 def get_third_nearest_checkpoint(path):
     """
@@ -144,7 +148,6 @@ def embedding_lookup_sparse_fake(params: tf.Tensor, ids: tf.Tensor, combiner: st
 
 def build_feature_descriptions():
     model_config = tf.app.flags.FLAGS
-    tf.app.flags.DEFINE_string("data_dir", "../data/aliccp/cast50_padded/", "data dir")
     spec_json_path = os.path.join(model_config.data_dir, "spec.json")
     local_spec = json_file_load("spec", spec_json_path)
 

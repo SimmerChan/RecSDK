@@ -32,14 +32,12 @@ def define_flags():
     tf.app.flags.DEFINE_string("model_dir", f"../checkpoint/aliccp/{MODEL_NAME}/", "code check point dir")
     tf.app.flags.DEFINE_string("servable_model_dir", f"../model/serving/{MODEL_NAME}/",
                                "export servable code for TensorFlow Serving")
-    tf.app.flags.DEFINE_string("task_type", "train", "task type")
     tf.app.flags.DEFINE_boolean("clear_existing_model", True, "clear existing code or not")
     tf.app.flags.DEFINE_integer("attention_dim", 4 * 4, "")
     tf.app.flags.DEFINE_integer("num_heads", 4, "")
     tf.app.flags.DEFINE_boolean("reuse_hash", True, "")
     tf.app.flags.DEFINE_integer("hash_bits", 32, "")
     tf.app.flags.DEFINE_integer("topk", 16, "")
-    tf.app.flags.DEFINE_integer("max_seq_len", 50, "")
     tf.app.flags.DEFINE_string("log_level", "DEBUG", "log level {DEBUG, INFO, WARNING, ERROR, CRITICAL}")
     return model_conf
 
