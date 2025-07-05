@@ -30,83 +30,23 @@ index 9582f844..c2cfa6b0 100644
          keywords=[
              "pytorch",
 diff --git a/torchrec/__init__.py b/torchrec/__init__.py
-index 29258f6f..b7940a1c 100644
+index 29258f6f..07f37d41 100644
 --- a/torchrec/__init__.py
 +++ b/torchrec/__init__.py
-@@ -1,36 +1,46 @@
--#!/usr/bin/env python3
--# Copyright (c) Meta Platforms, Inc. and affiliates.
--# All rights reserved.
--#
--# This source code is licensed under the BSD-style license found in the
--# LICENSE file in the root directory of this source tree.
+@@ -6,7 +6,8 @@
+ # LICENSE file in the root directory of this source tree.
+ 
+ # pyre-strict
 -
--# pyre-strict
--
--import torchrec.distributed  # noqa
--import torchrec.quant  # noqa
--from torchrec.fx import tracer  # noqa
--from torchrec.modules.embedding_configs import (  # noqa
--    DataType,
--    EmbeddingBagConfig,
--    EmbeddingConfig,
--    PoolingType,
--)
--from torchrec.modules.embedding_modules import (  # noqa
--    EmbeddingBagCollection,
--    EmbeddingBagCollectionInterface,
--    EmbeddingCollection,
--)  # noqa
--from torchrec.sparse.jagged_tensor import (  # noqa
--    JaggedTensor,
--    KeyedJaggedTensor,
--    KeyedTensor,
--)
--from torchrec.streamable import Multistreamable, Pipelineable  # noqa
--
--try:
--    # pyre-ignore[21]
--    # @manual=//torchrec/fb:version
--    from .version import __version__, github_version  # noqa
--except ImportError:
--    pass
-+#!/usr/bin/env python3
-+# Copyright (c) Meta Platforms, Inc. and affiliates.
-+# All rights reserved.
-+#
-+# This source code is licensed under the BSD-style license found in the
-+# LICENSE file in the root directory of this source tree.
-+
-+# pyre-strict
 +import enum
 +from fbgemm_gpu import split_table_batched_embeddings_ops_training
-+import torchrec.distributed  # noqa
-+import torchrec.quant  # noqa
-+from torchrec.fx import tracer  # noqa
-+from torchrec.modules.embedding_configs import (  # noqa
-+    DataType,
-+    EmbeddingBagConfig,
-+    EmbeddingConfig,
-+    PoolingType,
-+)
-+from torchrec.modules.embedding_modules import (  # noqa
-+    EmbeddingBagCollection,
-+    EmbeddingBagCollectionInterface,
-+    EmbeddingCollection,
-+)  # noqa
-+from torchrec.sparse.jagged_tensor import (  # noqa
-+    JaggedTensor,
-+    KeyedJaggedTensor,
-+    KeyedTensor,
-+)
-+from torchrec.streamable import Multistreamable, Pipelineable  # noqa
-+
-+try:
-+    # pyre-ignore[21]
-+    # @manual=//torchrec/fb:version
-+    from .version import __version__, github_version  # noqa
-+except ImportError:
-+    pass
+ import torchrec.distributed  # noqa
+ import torchrec.quant  # noqa
+ from torchrec.fx import tracer  # noqa
+@@ -34,3 +35,12 @@ try:
+     from .version import __version__, github_version  # noqa
+ except ImportError:
+     pass
 +
 +
 +class ComputeDevice(enum.IntEnum):
@@ -248,7 +188,7 @@ index 43eeda32..e1575133 100644
                      EmbeddingComputeKernel.FUSED_UVM.value,
                      EmbeddingComputeKernel.FUSED_UVM_CACHING.value,
 diff --git a/torchrec/distributed/model_parallel.py b/torchrec/distributed/model_parallel.py
-index 5cbd2429..f0ace70b 100644
+index 5cbd2429..32126f2d 100644
 --- a/torchrec/distributed/model_parallel.py
 +++ b/torchrec/distributed/model_parallel.py
 @@ -48,6 +48,7 @@ from torchrec.distributed.utils import (
@@ -259,10 +199,30 @@ index 5cbd2429..f0ace70b 100644
  
  try:
      torch.ops.load_library("//deeplearning/fbgemm/fbgemm_gpu:sparse_ops")
-@@ -233,6 +234,18 @@ class DistributedModelParallel(nn.Module, FusedOptimizerModule):
-         init_parameters: bool = True,
-         data_parallel_wrapper: Optional[DataParallelWrapper] = None,
-     ) -> None:
+@@ -236,6 +237,8 @@ class DistributedModelParallel(nn.Module, FusedOptimizerModule):
+         super().__init__()
+         torch._C._log_api_usage_once(f"torchrec.distributed.{self.__class__.__name__}")
+ 
++        self.__param_check__(module, env, device, plan, sharders, init_data_parallel, init_parameters, data_parallel_wrapper)
++
+         self.init_parameters = init_parameters
+ 
+         self._ddp_wrapped: bool = False
+@@ -283,6 +286,28 @@ class DistributedModelParallel(nn.Module, FusedOptimizerModule):
+ 
+         if init_data_parallel:
+             self.init_data_parallel()
++    def __param_check__(
++        self,
++        module: nn.Module,
++        env: Optional[ShardingEnv] = None,
++        device: Optional[torch.device] = None,
++        plan: Optional[ShardingPlan] = None,
++        sharders: Optional[List[ModuleSharder[torch.nn.Module]]] = None,
++        init_data_parallel: bool = True,
++        init_parameters: bool = True,
++        data_parallel_wrapper: Optional[DataParallelWrapper] = None,
++    ) -> None:
 +        check(module is not None and isinstance(module, nn.Module), "module should be nn.Module")
 +        check(device == torch.device("npu"), "device should be npu")
 +        check(plan is not None and isinstance(plan, ShardingPlan), "device should be npu")
@@ -274,10 +234,9 @@ index 5cbd2429..f0ace70b 100644
 +        check(init_data_parallel == True, "init_data_parallel should be True")
 +        check(init_parameters == True, "init_parameters should be True")
 +        check(data_parallel_wrapper is None, "data_parallel_wrapper should be None")
-+
-         super().__init__()
-         torch._C._log_api_usage_once(f"torchrec.distributed.{self.__class__.__name__}")
  
+     @property
+     def module(self) -> nn.Module:
 diff --git a/torchrec/distributed/planner/constants.py b/torchrec/distributed/planner/constants.py
 index 7dd86b06..43b0a37a 100644
 --- a/torchrec/distributed/planner/constants.py
@@ -497,23 +456,535 @@ index 4bb0a4f4..67aaccb1 100644
  class PlannerErrorType(Enum):
      """
 diff --git a/torchrec/distributed/planner/utils.py b/torchrec/distributed/planner/utils.py
-index 5d0a03a2..770f3c14 100644
+index 5d0a03a2..7681029a 100644
 --- a/torchrec/distributed/planner/utils.py
 +++ b/torchrec/distributed/planner/utils.py
-@@ -48,7 +48,7 @@ def placement(
-     """
- 
-     param_device = compute_device
+@@ -1,263 +1,263 @@
+-#!/usr/bin/env python3
+-# Copyright (c) Meta Platforms, Inc. and affiliates.
+-# All rights reserved.
+-#
+-# This source code is licensed under the BSD-style license found in the
+-# LICENSE file in the root directory of this source tree.
+-
+-# pyre-strict
+-
+-import math
+-import operator
+-from functools import reduce
+-from typing import Any, cast, Dict, Iterable, List, Optional, Tuple, Type, Union
+-
+-import torch
+-from torchrec.distributed.planner.types import Perf, ShardingOption, Storage
+-from torchrec.distributed.types import ShardingType
+-
+-
+-# pyre-ignore[2]
+-def sharder_name(t: Type[Any]) -> str:
+-    return t.__module__ + "." + t.__name__
+-
+-
+-def bytes_to_gb(num_bytes: int) -> float:
+-    return float(num_bytes / (1024 * 1024 * 1024))
+-
+-
+-def bytes_to_mb(num_bytes: Union[float, int]) -> float:
+-    return float(num_bytes / (1024 * 1024))
+-
+-
+-def gb_to_bytes(gb: float) -> int:
+-    return int(gb * 1024 * 1024 * 1024)
+-
+-
+-def prod(iterable: Iterable[int]) -> int:
+-    return reduce(operator.mul, iterable, 1)
+-
+-
+-def placement(
+-    compute_device: str,
+-    rank: int,
+-    local_size: int,
+-) -> str:
+-    """
+-    Returns placement, formatted as string
+-    """
+-
+-    param_device = compute_device
 -    if compute_device in {"cuda", "mtia"}:
-+    if compute_device in {"cuda", "mtia", "npu"}:
-         param_device = torch.device(compute_device, rank % local_size)
-     return f"rank:{rank}/{param_device}"
- 
-@@ -260,4 +260,4 @@ class LuusJaakolaSearch:
- 
-     def best(self) -> Tuple[float, float]:
-         "Return the best position so far, and its associated cost."
+-        param_device = torch.device(compute_device, rank % local_size)
+-    return f"rank:{rank}/{param_device}"
+-
+-
+-def storage_repr_in_gb(storage: Optional[Storage]) -> str:
+-    if storage is None:
+-        return ""
+-    return (
+-        f"Storage(hbm = {round(bytes_to_gb(storage.hbm), 3)} GB, "
+-        f"ddr = {round(bytes_to_gb(storage.ddr), 3)} GB)"
+-    )
+-
+-
+-def reset_shard_rank(proposal: List[ShardingOption]) -> None:
+-    for sharding_option in proposal:
+-        for shard in sharding_option.shards:
+-            shard.rank = None
+-
+-
+-def _find_imbalance_tables(
+-    sharding_options: List[ShardingOption], target_imbalance: str = "perf"
+-) -> List[ShardingOption]:
+-    """
+-    Find the tables that are causing the imbalance, and return their names.
+-    """
+-    rank_to_target_stats: Dict[int, float] = {}
+-
+-    # populate rank_to_target_stats
+-    for sharding_option in sharding_options:
+-        for shard in sharding_option.shards:
+-            rank = cast(int, shard.rank)
+-            if rank not in rank_to_target_stats:
+-                rank_to_target_stats[rank] = 0
+-
+-            if target_imbalance == "perf":
+-                rank_to_target_stats[rank] += cast(Perf, shard.perf).total
+-            elif target_imbalance == "hbm":
+-                rank_to_target_stats[rank] += cast(Storage, shard.storage).hbm
+-            else:
+-                raise ValueError(f"Unknown target imbalance {target_imbalance}")
+-
+-    if len(rank_to_target_stats.values()) <= 1:
+-        # world_size is 1
+-        return []
+-
+-    max_value = max(rank_to_target_stats.values())
+-    max_value_ranks = {
+-        rank for rank, value in rank_to_target_stats.items() if value == max_value
+-    }
+-
+-    # find tables
+-    tables_in_max_value_ranks: List[ShardingOption] = []
+-    for sharding_option in sharding_options:
+-        sharding_option_ranks = [shard.rank for shard in sharding_option.shards]
+-        if set(
+-            sharding_option_ranks
+-        ) >= max_value_ranks and sharding_option.sharding_type not in [
+-            ShardingType.DATA_PARALLEL.value,
+-            ShardingType.ROW_WISE.value,
+-        ]:
+-            tables_in_max_value_ranks.append(sharding_option)
+-
+-    if target_imbalance == "perf":
+-        # sort tables by total perf from largest to smallest
+-        tables_in_max_value_ranks.sort(
+-            key=lambda sharding_option: sharding_option.shards[0].perf.total,
+-            reverse=True,
+-        )
+-    elif target_imbalance == "hbm":
+-        # sort tables by hbm from largest to smallest
+-        tables_in_max_value_ranks.sort(
+-            key=lambda sharding_option: sharding_option.shards[0].storage.hbm,
+-            reverse=True,
+-        )
+-    else:
+-        raise ValueError(f"Unknown target imbalance {target_imbalance}")
+-
+-    return tables_in_max_value_ranks
+-
+-
+-class BinarySearchPredicate:
+-    """Generates values of X between A & B to invoke on an external predicate F(X) to
+-    discover the largest X for which F(X) is true. Uses binary search to minimize the
+-    number of invocations of F. Assumes F is a step function, i.e. if F(X) is false,
+-    there is no point trying F(X+1)."""
+-
+-    def __init__(self, A: int, B: int, tolerance: int) -> None:
+-        """A = lower boundary (inclusive)
+-        B = upper boundary (inclusive)
+-        tolerance = stop search early if remaining search range is less than tolerance
+-        """
+-        self.left = A
+-        self.right = B
+-        self.tolerance = tolerance
+-        self.first = True
+-
+-    def next(self, prior_result: bool) -> Optional[int]:
+-        """next() returns the next value to probe, given the result of the prior probe.
+-        The first time next() is invoked the prior_result is ignored. Returns None if
+-        entire range explored or threshold reached."""
+-        if self.right - self.left < self.tolerance:
+-            return None
+-
+-        mid = self._mid()
+-        if self.first:
+-            self.first = False
+-            return mid
+-
+-        if prior_result:
+-            self.left = mid + 1
+-        else:
+-            self.right = mid - 1
+-        if self.right - self.left < self.tolerance:
+-            return None
+-
+-        return self._mid()
+-
+-    def _mid(self) -> int:
+-        return self.left + ((self.right - self.left) // 2)
+-
+-
+-class LuusJaakolaSearch:
+-    """Implements a clamped variant of Luus Jaakola search.
+-
+-    See https://en.wikipedia.org/wiki/Luus-Jaakola.
+-    """
+-
+-    def __init__(
+-        self,
+-        A: float,
+-        B: float,
+-        max_iterations: int,
+-        seed: int = 42,
+-        left_cost: Optional[float] = None,
+-    ) -> None:
+-        self.left = A
+-        self.right = B
+-        self.iteration = -1
+-        self.max_iterations = max_iterations
+-
+-        self.gen = torch.Generator()
+-        self.gen.manual_seed(seed)
+-
+-        self.x: float = self.uniform(self.left, self.right)
+-        self.fx: float = 0.0
+-        self.y: float = math.nan
+-        self.fleft: Optional[float] = left_cost
+-        self.fright: Optional[float] = None
+-        self.d: float = self.right - self.left
+-
+-    def shrink_right(self, B: float) -> None:
+-        "Shrink right boundary given [B,infinity) -> infinity"
+-        self.right = B
+-        self.fright = math.inf
+-        self.d = self.right - self.left
+-        self.x = self.clamp(self.x)
+-
+-    def clamp(self, x: float) -> float:
+-        "Clamp x into range [left, right]"
+-        if x < self.left:
+-            return self.left
+-        if x > self.right:
+-            return self.right
+-        return x
+-
+-    def uniform(self, A: float, B: float) -> float:
+-        "Return a random uniform position in range [A,B]."
+-        u = torch.rand(1, generator=self.gen, device="cpu").item()
+-        return A + (B - A) * u
+-
+-    def next(self, fy: float) -> Optional[float]:
+-        """Return the next probe point 'y' to evaluate, given the previous result.
+-
+-        The first time around fy is ignored. Subsequent invocations should provide the
+-        result of evaluating the function being minimized, i.e. f(y).
+-
+-        Returns None when the maximum number of iterations has been reached.
+-        """
+-        self.iteration += 1
+-        if self.iteration == 0:
+-            return self.x
+-        elif self.iteration == 1:
+-            self.fx = fy
+-        elif self.iteration == self.max_iterations:
+-            return None
+-        elif fy <= self.fx:
+-            self.x = self.y
+-            self.fx = fy
+-            self.d = 0.95 * self.d
+-
+-        if self.y == self.left:
+-            self.fleft = fy
+-        elif self.y == self.right:
+-            self.fright = fy
+-
+-        while True:
+-            a = self.uniform(-self.d, self.d)
+-            y = self.clamp(self.x + a)
+-            # Unlike standard Luus-Jaakola, we don't want to explore outside of our bounds.
+-            # Clamping can cause us to explore the boundary multiple times, so we
+-            # remember if we already know the boundary cost and request a new sample if
+-            # we do.
+-            if y == self.left and self.fleft is not None:
+-                continue
+-            if y == self.right and self.fright is not None:
+-                continue
+-            self.y = y
+-            return self.y
+-
+-    def best(self) -> Tuple[float, float]:
+-        "Return the best position so far, and its associated cost."
 -        return self.x, self.fx
++#!/usr/bin/env python3
++# Copyright (c) Meta Platforms, Inc. and affiliates.
++# All rights reserved.
++#
++# This source code is licensed under the BSD-style license found in the
++# LICENSE file in the root directory of this source tree.
++
++# pyre-strict
++
++import math
++import operator
++from functools import reduce
++from typing import Any, cast, Dict, Iterable, List, Optional, Tuple, Type, Union
++
++import torch
++from torchrec.distributed.planner.types import Perf, ShardingOption, Storage
++from torchrec.distributed.types import ShardingType
++
++
++# pyre-ignore[2]
++def sharder_name(t: Type[Any]) -> str:
++    return t.__module__ + "." + t.__name__
++
++
++def bytes_to_gb(num_bytes: int) -> float:
++    return float(num_bytes / (1024 * 1024 * 1024))
++
++
++def bytes_to_mb(num_bytes: Union[float, int]) -> float:
++    return float(num_bytes / (1024 * 1024))
++
++
++def gb_to_bytes(gb: float) -> int:
++    return int(gb * 1024 * 1024 * 1024)
++
++
++def prod(iterable: Iterable[int]) -> int:
++    return reduce(operator.mul, iterable, 1)
++
++
++def placement(
++    compute_device: str,
++    rank: int,
++    local_size: int,
++) -> str:
++    """
++    Returns placement, formatted as string
++    """
++
++    param_device = compute_device
++    if compute_device in {"cuda", "mtia", "npu"}:
++        param_device = torch.device(compute_device, rank % local_size)
++    return f"rank:{rank}/{param_device}"
++
++
++def storage_repr_in_gb(storage: Optional[Storage]) -> str:
++    if storage is None:
++        return ""
++    return (
++        f"Storage(hbm = {round(bytes_to_gb(storage.hbm), 3)} GB, "
++        f"ddr = {round(bytes_to_gb(storage.ddr), 3)} GB)"
++    )
++
++
++def reset_shard_rank(proposal: List[ShardingOption]) -> None:
++    for sharding_option in proposal:
++        for shard in sharding_option.shards:
++            shard.rank = None
++
++
++def _find_imbalance_tables(
++    sharding_options: List[ShardingOption], target_imbalance: str = "perf"
++) -> List[ShardingOption]:
++    """
++    Find the tables that are causing the imbalance, and return their names.
++    """
++    rank_to_target_stats: Dict[int, float] = {}
++
++    # populate rank_to_target_stats
++    for sharding_option in sharding_options:
++        for shard in sharding_option.shards:
++            rank = cast(int, shard.rank)
++            if rank not in rank_to_target_stats:
++                rank_to_target_stats[rank] = 0
++
++            if target_imbalance == "perf":
++                rank_to_target_stats[rank] += cast(Perf, shard.perf).total
++            elif target_imbalance == "hbm":
++                rank_to_target_stats[rank] += cast(Storage, shard.storage).hbm
++            else:
++                raise ValueError(f"Unknown target imbalance {target_imbalance}")
++
++    if len(rank_to_target_stats.values()) <= 1:
++        # world_size is 1
++        return []
++
++    max_value = max(rank_to_target_stats.values())
++    max_value_ranks = {
++        rank for rank, value in rank_to_target_stats.items() if value == max_value
++    }
++
++    # find tables
++    tables_in_max_value_ranks: List[ShardingOption] = []
++    for sharding_option in sharding_options:
++        sharding_option_ranks = [shard.rank for shard in sharding_option.shards]
++        if set(
++            sharding_option_ranks
++        ) >= max_value_ranks and sharding_option.sharding_type not in [
++            ShardingType.DATA_PARALLEL.value,
++            ShardingType.ROW_WISE.value,
++        ]:
++            tables_in_max_value_ranks.append(sharding_option)
++
++    if target_imbalance == "perf":
++        # sort tables by total perf from largest to smallest
++        tables_in_max_value_ranks.sort(
++            key=lambda sharding_option: sharding_option.shards[0].perf.total,
++            reverse=True,
++        )
++    elif target_imbalance == "hbm":
++        # sort tables by hbm from largest to smallest
++        tables_in_max_value_ranks.sort(
++            key=lambda sharding_option: sharding_option.shards[0].storage.hbm,
++            reverse=True,
++        )
++    else:
++        raise ValueError(f"Unknown target imbalance {target_imbalance}")
++
++    return tables_in_max_value_ranks
++
++
++class BinarySearchPredicate:
++    """Generates values of X between A & B to invoke on an external predicate F(X) to
++    discover the largest X for which F(X) is true. Uses binary search to minimize the
++    number of invocations of F. Assumes F is a step function, i.e. if F(X) is false,
++    there is no point trying F(X+1)."""
++
++    def __init__(self, A: int, B: int, tolerance: int) -> None:
++        """A = lower boundary (inclusive)
++        B = upper boundary (inclusive)
++        tolerance = stop search early if remaining search range is less than tolerance
++        """
++        self.left = A
++        self.right = B
++        self.tolerance = tolerance
++        self.first = True
++
++    def next(self, prior_result: bool) -> Optional[int]:
++        """next() returns the next value to probe, given the result of the prior probe.
++        The first time next() is invoked the prior_result is ignored. Returns None if
++        entire range explored or threshold reached."""
++        if self.right - self.left < self.tolerance:
++            return None
++
++        mid = self._mid()
++        if self.first:
++            self.first = False
++            return mid
++
++        if prior_result:
++            self.left = mid + 1
++        else:
++            self.right = mid - 1
++        if self.right - self.left < self.tolerance:
++            return None
++
++        return self._mid()
++
++    def _mid(self) -> int:
++        return self.left + ((self.right - self.left) // 2)
++
++
++class LuusJaakolaSearch:
++    """Implements a clamped variant of Luus Jaakola search.
++
++    See https://en.wikipedia.org/wiki/Luus-Jaakola.
++    """
++
++    def __init__(
++        self,
++        A: float,
++        B: float,
++        max_iterations: int,
++        seed: int = 42,
++        left_cost: Optional[float] = None,
++    ) -> None:
++        self.left = A
++        self.right = B
++        self.iteration = -1
++        self.max_iterations = max_iterations
++
++        self.gen = torch.Generator()
++        self.gen.manual_seed(seed)
++
++        self.x: float = self.uniform(self.left, self.right)
++        self.fx: float = 0.0
++        self.y: float = math.nan
++        self.fleft: Optional[float] = left_cost
++        self.fright: Optional[float] = None
++        self.d: float = self.right - self.left
++
++    def shrink_right(self, B: float) -> None:
++        "Shrink right boundary given [B,infinity) -> infinity"
++        self.right = B
++        self.fright = math.inf
++        self.d = self.right - self.left
++        self.x = self.clamp(self.x)
++
++    def clamp(self, x: float) -> float:
++        "Clamp x into range [left, right]"
++        if x < self.left:
++            return self.left
++        if x > self.right:
++            return self.right
++        return x
++
++    def uniform(self, A: float, B: float) -> float:
++        "Return a random uniform position in range [A,B]."
++        u = torch.rand(1, generator=self.gen, device="cpu").item()
++        return A + (B - A) * u
++
++    def next(self, fy: float) -> Optional[float]:
++        """Return the next probe point 'y' to evaluate, given the previous result.
++
++        The first time around fy is ignored. Subsequent invocations should provide the
++        result of evaluating the function being minimized, i.e. f(y).
++
++        Returns None when the maximum number of iterations has been reached.
++        """
++        self.iteration += 1
++        if self.iteration == 0:
++            return self.x
++        elif self.iteration == 1:
++            self.fx = fy
++        elif self.iteration == self.max_iterations:
++            return None
++        elif fy <= self.fx:
++            self.x = self.y
++            self.fx = fy
++            self.d = 0.95 * self.d
++
++        if self.y == self.left:
++            self.fleft = fy
++        elif self.y == self.right:
++            self.fright = fy
++
++        while True:
++            a = self.uniform(-self.d, self.d)
++            y = self.clamp(self.x + a)
++            # Unlike standard Luus-Jaakola, we don't want to explore outside of our bounds.
++            # Clamping can cause us to explore the boundary multiple times, so we
++            # remember if we already know the boundary cost and request a new sample if
++            # we do.
++            if y == self.left and self.fleft is not None:
++                continue
++            if y == self.right and self.fright is not None:
++                continue
++            self.y = y
++            return self.y
++
++    def best(self) -> Tuple[float, float]:
++        "Return the best position so far, and its associated cost."
 +        return self.x, self.fx
 \ No newline at end of file
 diff --git a/torchrec/distributed/sharding_plan.py b/torchrec/distributed/sharding_plan.py
@@ -626,14 +1097,1121 @@ index 8085c415..e55a7d03 100644
      def from_process_group(cls, pg: dist.ProcessGroup) -> "ShardingEnv":
          """
 diff --git a/torchrec/distributed/utils.py b/torchrec/distributed/utils.py
-index 9e19a736..8add180f 100644
+index 9e19a736..1767643d 100644
 --- a/torchrec/distributed/utils.py
 +++ b/torchrec/distributed/utils.py
-@@ -553,4 +553,4 @@ def create_global_tensor_shape_stride_from_metadata(
-             row_dim += parameter_sharding.sharding_spec.shards[0].shard_sizes[0]
-         size = torch.Size([row_dim, col_dim])
-     # pyre-ignore[7]
+@@ -1,556 +1,556 @@
+-#!/usr/bin/env python3
+-# Copyright (c) Meta Platforms, Inc. and affiliates.
+-# All rights reserved.
+-#
+-# This source code is licensed under the BSD-style license found in the
+-# LICENSE file in the root directory of this source tree.
+-
+-# pyre-strict
+-
+-import copy
+-import logging
+-import pdb  # noqa
+-import sys
+-
+-from collections import OrderedDict
+-from contextlib import AbstractContextManager, nullcontext
+-from dataclasses import asdict
+-from typing import Any, Dict, List, Optional, Set, Tuple, Type, TypeVar, Union
+-
+-import torch
+-from fbgemm_gpu.split_embedding_configs import EmbOptimType
+-from torch import nn
+-from torch.autograd.profiler import record_function
+-from torchrec import optim as trec_optim
+-from torchrec.distributed.embedding_types import EmbeddingComputeKernel
+-from torchrec.distributed.types import (
+-    DataType,
+-    EmbeddingEvent,
+-    ParameterSharding,
+-    ShardedModule,
+-    ShardingType,
+-)
+-from torchrec.modules.embedding_configs import data_type_to_sparse_type
+-from torchrec.types import CopyMixIn
+-
+-logger: logging.Logger = logging.getLogger(__name__)
+-_T = TypeVar("_T")
+-
+-"""
+-torch.package safe functions from pyre_extensions. However, pyre_extensions is
+-not safe to use in code that will be torch.packaged, as it requires sys for
+-version checks
+-"""
+-
+-
+-def none_throws(optional: Optional[_T], message: str = "Unexpected `None`") -> _T:
+-    """Convert an optional to its value. Raises an `AssertionError` if the
+-    value is `None`"""
+-    if optional is None:
+-        raise AssertionError(message)
+-    return optional
+-
+-
+-def append_prefix(prefix: str, name: str) -> str:
+-    """
+-    Appends provided prefix to provided name.
+-    """
+-
+-    if prefix != "" and name != "":
+-        return prefix + "." + name
+-    else:
+-        return prefix + name
+-
+-
+-def filter_state_dict(
+-    state_dict: "OrderedDict[str, torch.Tensor]", name: str
+-) -> "OrderedDict[str, torch.Tensor]":
+-    """
+-    Filters state dict for keys that start with provided name.
+-    Strips provided name from beginning of key in the resulting state dict.
+-
+-    Args:
+-        state_dict (OrderedDict[str, torch.Tensor]): input state dict to filter.
+-        name (str): name to filter from state dict keys.
+-
+-    Returns:
+-        OrderedDict[str, torch.Tensor]: filtered state dict.
+-    """
+-
+-    filtered_state_dict = OrderedDict()
+-    for key, value in state_dict.items():
+-        if key.startswith(name + "."):
+-            # + 1 to length is to remove the '.' after the key
+-            filtered_state_dict[key[len(name) + 1 :]] = value
+-    return filtered_state_dict
+-
+-
+-def add_prefix_to_state_dict(state_dict: Dict[str, Any], prefix: str) -> None:
+-    """
+-    Adds prefix to all keys in state dict, in place.
+-
+-    Args:
+-        state_dict (Dict[str, Any]): input state dict to update.
+-        prefix (str): name to filter from state dict keys.
+-
+-    Returns:
+-        None.
+-    """
+-    keys = sorted(state_dict.keys())
+-    for key in keys:
+-        state_dict[prefix + key] = state_dict.pop(key)
+-
+-    if "_metadata" in state_dict:
+-        metadata = state_dict["_metadata"]
+-        for key in list(metadata.keys()):
+-            if len(key) == 0:
+-                continue
+-            metadata[prefix + key] = metadata.pop(key)
+-
+-
+-def _get_unsharded_module_names_helper(
+-    model: torch.nn.Module,
+-    path: str,
+-    unsharded_module_names: Set[str],
+-) -> bool:
+-    sharded_children = set()
+-    for name, child in model.named_children():
+-        curr_path = path + name
+-        if isinstance(child, ShardedModule):
+-            sharded_children.add(name)
+-        else:
+-            child_sharded = _get_unsharded_module_names_helper(
+-                child,
+-                curr_path + ".",
+-                unsharded_module_names,
+-            )
+-            if child_sharded:
+-                sharded_children.add(name)
+-
+-    if len(sharded_children) > 0:
+-        for name, _ in model.named_children():
+-            if name not in sharded_children:
+-                unsharded_module_names.add(path + name)
+-
+-    return len(sharded_children) > 0
+-
+-
+-def get_unsharded_module_names(model: torch.nn.Module) -> List[str]:
+-    """
+-    Retrieves names of top level modules that do not contain any sharded sub-modules.
+-
+-    Args:
+-        model (torch.nn.Module): model to retrieve unsharded module names from.
+-
+-    Returns:
+-        List[str]: list of names of modules that don't have sharded sub-modules.
+-    """
+-
+-    unsharded_module_names: Set[str] = set()
+-    _get_unsharded_module_names_helper(
+-        model,
+-        "",
+-        unsharded_module_names,
+-    )
+-    return list(unsharded_module_names)
+-
+-
+-class sharded_model_copy:
+-    """
+-    Allows copying of DistributedModelParallel module to a target device.
+-
+-    Example::
+-
+-        # Copying model to CPU.
+-
+-        m = DistributedModelParallel(m)
+-        with sharded_model_copy("cpu"):
+-            m_cpu = copy.deepcopy(m)
+-    """
+-
+-    def __init__(self, device: Optional[Union[str, int, torch.device]]) -> None:
+-        self.device = device
+-
+-    def __enter__(self) -> None:
+-        # pyre-ignore [16]
+-        self.t_copy_save_ = torch.Tensor.__deepcopy__
+-        # pyre-ignore [16]
+-        self.p_copy_save_ = torch.nn.Parameter.__deepcopy__
+-
+-        device = self.device
+-
+-        # pyre-ignore [2, 3, 53]
+-        def _tensor_copy(tensor, memo):
+-            if tensor.device != device:
+-                return tensor.detach().to(device)
+-            else:
+-                return tensor.detach().clone()
+-
+-        # pyre-ignore [2, 3]
+-        def _no_copy(obj, memo):
+-            return obj
+-
+-        _copy_or_not = _tensor_copy if self.device is not None else _no_copy
+-
+-        # pyre-ignore [2, 3, 53]
+-        def _param_copy(param, memo):
+-            return torch.nn.Parameter(
+-                _copy_or_not(param, memo), requires_grad=param.requires_grad
+-            )
+-
+-        torch.Tensor.__deepcopy__ = _copy_or_not
+-        torch.nn.Parameter.__deepcopy__ = _param_copy
+-        # pyre-fixme[16]: `Type` has no attribute `__deepcopy__`.
+-        torch._C._distributed_c10d.ProcessGroupNCCL.__deepcopy__ = _no_copy
+-        # pyre-fixme[16]: `Type` has no attribute `__deepcopy__`.
+-        torch._C._distributed_c10d.ProcessGroupGloo.__deepcopy__ = _no_copy
+-        # pyre-fixme[16]: `Type` has no attribute `__deepcopy__`.
+-        torch._C._distributed_c10d.Work.__deepcopy__ = _no_copy
+-        # pyre-ignore [16]
+-        torch.cuda.streams.Stream.__deepcopy__ = _no_copy
+-
+-    # pyre-ignore [2]
+-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+-        # pyre-ignore [16]
+-        torch.Tensor.__deepcopy__ = self.t_copy_save_
+-        # pyre-ignore [16]
+-        torch.nn.Parameter.__deepcopy__ = self.p_copy_save_
+-        # pyre-fixme[16]: `Type` has no attribute `__deepcopy__`.
+-        torch._C._distributed_c10d.ProcessGroupNCCL.__deepcopy__ = None
+-        # pyre-fixme[16]: `Type` has no attribute `__deepcopy__`.
+-        torch._C._distributed_c10d.ProcessGroupGloo.__deepcopy__ = None
+-        # pyre-fixme[16]: `Type` has no attribute `__deepcopy__`.
+-        torch._C._distributed_c10d.Work.__deepcopy__ = None
+-        # pyre-ignore [16]
+-        torch.cuda.streams.Stream.__deepcopy__ = None
+-
+-
+-def copy_to_device(
+-    module: nn.Module,
+-    current_device: torch.device,
+-    to_device: torch.device,
+-) -> nn.Module:
+-
+-    with sharded_model_copy(device=None):
+-        copy_module = copy.deepcopy(module)
+-
+-    # Copy only weights with matching device.
+-    def _copy_if_device_match(tensor: torch.Tensor) -> torch.Tensor:
+-        if tensor.device == current_device:
+-            return tensor.to(to_device)
+-        return tensor
+-
+-    # if this is a sharded module, customize the copy
+-    if isinstance(copy_module, CopyMixIn):
+-        return copy_module.copy(to_device)
+-    copied_param = {
+-        name: torch.nn.Parameter(
+-            _copy_if_device_match(param.data), requires_grad=param.requires_grad
+-        )
+-        for name, param in copy_module.named_parameters(recurse=False)
+-    }
+-    copied_buffer = {
+-        name: _copy_if_device_match(buffer)
+-        for name, buffer in copy_module.named_buffers(recurse=False)
+-    }
+-    for name, param in copied_param.items():
+-        m = copy_module
+-        if "." in name:
+-            continue
+-        m.register_parameter(name, param)
+-    for name, buffer in copied_buffer.items():
+-        m = copy_module
+-        if "." in name:
+-            continue
+-        m.register_buffer(name, buffer)
+-    for child_name, child in copy_module.named_children():
+-        if not any([isinstance(submodule, CopyMixIn) for submodule in child.modules()]):
+-            child_copy = child._apply(_copy_if_device_match)
+-        else:
+-            child_copy = copy_to_device(child, current_device, to_device)
+-        copy_module.register_module(child_name, child_copy)
+-    return copy_module
+-
+-
+-class CopyableMixin(nn.Module):
+-    """
+-    Allows copying of module to a target device.
+-
+-    Example::
+-
+-        class MyModule(CopyableMixin):
+-            ...
+-
+-    Args:
+-        device : torch.device to copy to
+-
+-    Returns
+-        nn.Module on new device
+-    """
+-
+-    def copy(
+-        self,
+-        device: torch.device,
+-    ) -> nn.Module:
+-        return copy_to_device(
+-            self,
+-            current_device=torch.device("cpu"),
+-            to_device=device,
+-        )
+-
+-
+-def optimizer_type_to_emb_opt_type(
+-    optimizer_class: Type[torch.optim.Optimizer],
+-) -> Optional[EmbOptimType]:
+-    # TODO add more optimizers to be in parity with ones provided by FBGEMM
+-    # TODO kwargs accepted by fbgemm and and canonical optimizers are different
+-    # may need to add special handling for them
+-    lookup = {
+-        torch.optim.SGD: EmbOptimType.EXACT_SGD,
+-        torch.optim.Adagrad: EmbOptimType.EXACT_ADAGRAD,
+-        torch.optim.Adam: EmbOptimType.ADAM,
+-        # below are torchrec wrappers over these optims.
+-        # they accept an **unused kwargs portion, that let us set FBGEMM specific args such as
+-        # max gradient, etc
+-        trec_optim.SGD: EmbOptimType.EXACT_SGD,
+-        trec_optim.LarsSGD: EmbOptimType.LARS_SGD,
+-        trec_optim.LAMB: EmbOptimType.LAMB,
+-        trec_optim.PartialRowWiseLAMB: EmbOptimType.PARTIAL_ROWWISE_LAMB,
+-        trec_optim.Adam: EmbOptimType.ADAM,
+-        trec_optim.PartialRowWiseAdam: EmbOptimType.PARTIAL_ROWWISE_ADAM,
+-        trec_optim.Adagrad: EmbOptimType.EXACT_ADAGRAD,
+-        trec_optim.RowWiseAdagrad: EmbOptimType.EXACT_ROWWISE_ADAGRAD,
+-    }
+-    if optimizer_class not in lookup:
+-        raise ValueError(f"Cannot cast {optimizer_class} to an EmbOptimType")
+-    return lookup[optimizer_class]
+-
+-
+-def merge_fused_params(
+-    fused_params: Optional[Dict[str, Any]] = None,
+-    param_fused_params: Optional[Dict[str, Any]] = None,
+-) -> Dict[str, Any]:
+-    """
+-    Configure the fused_params including cache_precision if the value is not preset.
+-
+-    Values set in table_level_fused_params take precidence over the global fused_params
+-
+-    Args:
+-        fused_params (Optional[Dict[str, Any]]): the original fused_params
+-        grouped_fused_params
+-
+-    Returns:
+-        [Dict[str, Any]]: a non-null configured fused_params dictionary to be
+-        used to configure the embedding lookup kernel
+-    """
+-
+-    if fused_params is None:
+-        fused_params = {}
+-    if param_fused_params is None:
+-        param_fused_params = {}
+-    if "lr" in param_fused_params:
+-        param_fused_params["learning_rate"] = param_fused_params.pop("lr")
+-
+-    _fused_params = copy.deepcopy(fused_params)
+-    _fused_params.update(param_fused_params)
+-    return _fused_params
+-
+-
+-def add_params_from_parameter_sharding(
+-    fused_params: Optional[Dict[str, Any]],
+-    parameter_sharding: ParameterSharding,
+-) -> Dict[str, Any]:
+-    """
+-    Extract params from parameter sharding and then add them to fused_params.
+-
+-    Params from parameter sharding will override the ones in fused_params if they
+-    exist already.
+-
+-    Args:
+-        fused_params (Optional[Dict[str, Any]]): the existing fused_params
+-        parameter_sharding (ParameterSharding): the parameter sharding to use
+-
+-    Returns:
+-        [Dict[str, Any]]: the fused_params dictionary with params from parameter
+-        sharding added.
+-
+-    """
+-    if fused_params is None:
+-        fused_params = {}
+-
+-    # update fused_params using params from parameter_sharding
+-    # this will take precidence over the fused_params provided from sharders
+-    if parameter_sharding.cache_params is not None:
+-        cache_params = parameter_sharding.cache_params
+-        if cache_params.algorithm is not None:
+-            fused_params["cache_algorithm"] = cache_params.algorithm
+-        if cache_params.load_factor is not None:
+-            fused_params["cache_load_factor"] = cache_params.load_factor
+-        if cache_params.reserved_memory is not None:
+-            fused_params["cache_reserved_memory"] = cache_params.reserved_memory
+-        if cache_params.precision is not None:
+-            fused_params["cache_precision"] = cache_params.precision
+-        if cache_params.prefetch_pipeline is not None:
+-            fused_params["prefetch_pipeline"] = cache_params.prefetch_pipeline
+-        if cache_params.multipass_prefetch_config is not None:
+-            fused_params["multipass_prefetch_config"] = (
+-                cache_params.multipass_prefetch_config
+-            )
+-
+-    if parameter_sharding.enforce_hbm is not None:
+-        fused_params["enforce_hbm"] = parameter_sharding.enforce_hbm
+-
+-    if parameter_sharding.stochastic_rounding is not None:
+-        fused_params["stochastic_rounding"] = parameter_sharding.stochastic_rounding
+-
+-    if parameter_sharding.bounds_check_mode is not None:
+-        fused_params["bounds_check_mode"] = parameter_sharding.bounds_check_mode
+-
+-    if parameter_sharding.output_dtype is not None:
+-        fused_params["output_dtype"] = parameter_sharding.output_dtype
+-
+-    if (
+-        parameter_sharding.compute_kernel in {EmbeddingComputeKernel.KEY_VALUE.value}
+-        and parameter_sharding.key_value_params is not None
+-    ):
+-        kv_params = parameter_sharding.key_value_params
+-        key_value_params_dict = asdict(kv_params)
+-        key_value_params_dict = {
+-            k: v for k, v in key_value_params_dict.items() if v is not None
+-        }
+-        if kv_params.stats_reporter_config:
+-            key_value_params_dict["stats_reporter_config"] = (
+-                kv_params.stats_reporter_config
+-            )
+-        fused_params.update(key_value_params_dict)
+-
+-    # print warning if sharding_type is data_parallel or kernel is dense
+-    if parameter_sharding.sharding_type == ShardingType.DATA_PARALLEL.value:
+-        logger.warning(
+-            f"Sharding Type is {parameter_sharding.sharding_type}, "
+-            "caching params will be ignored"
+-        )
+-    elif parameter_sharding.compute_kernel == EmbeddingComputeKernel.DENSE.value:
+-        logger.warning(
+-            f"Compute Kernel is {parameter_sharding.compute_kernel}, "
+-            "caching params will be ignored"
+-        )
+-
+-    return fused_params
+-
+-
+-def convert_to_fbgemm_types(fused_params: Dict[str, Any]) -> Dict[str, Any]:
+-    if "cache_precision" in fused_params:
+-        if isinstance(fused_params["cache_precision"], DataType):
+-            fused_params["cache_precision"] = data_type_to_sparse_type(
+-                fused_params["cache_precision"]
+-            )
+-
+-    if "weights_precision" in fused_params:
+-        if isinstance(fused_params["weights_precision"], DataType):
+-            fused_params["weights_precision"] = data_type_to_sparse_type(
+-                fused_params["weights_precision"]
+-            )
+-
+-    if "output_dtype" in fused_params:
+-        if isinstance(fused_params["output_dtype"], DataType):
+-            fused_params["output_dtype"] = data_type_to_sparse_type(
+-                fused_params["output_dtype"]
+-            )
+-
+-    return fused_params
+-
+-
+-def init_parameters(module: nn.Module, device: torch.device) -> None:
+-    with torch.no_grad():
+-        has_meta_param = any(t.is_meta for t in module.parameters())
+-        not_on_target_device = any(t.device != device for t in module.parameters())
+-        if not_on_target_device:
+-            module.to_empty(device=device) if has_meta_param else module.to(device)
+-
+-            def maybe_reset_parameters(m: nn.Module) -> None:
+-                if hasattr(m, "reset_parameters"):
+-                    # pyre-fixme[29]: `Union[Module, Tensor]` is not a function.
+-                    m.reset_parameters()
+-
+-            module.apply(maybe_reset_parameters)
+-
+-
+-def maybe_annotate_embedding_event(
+-    event: EmbeddingEvent,
+-    module_fqn: Optional[str],
+-    sharding_type: Optional[str],
+-    # pyre-fixme[24]: Generic type `AbstractContextManager` expects 2 type parameters,
+-    #  received 1.
+-) -> AbstractContextManager[None]:
+-    if module_fqn and sharding_type:
+-        annotation = f"[{event.value}]_[{module_fqn}]_[{sharding_type}]"
+-        return record_function(annotation)
+-    else:
+-        return nullcontext()
+-
+-
+-class ForkedPdb(pdb.Pdb):
+-    """A Pdb subclass that may be used from a forked multiprocessing child.
+-    Useful in debugging multiprocessed code
+-
+-    Example::
+-
+-        from torchrec.multiprocessing_utils import ForkedPdb
+-
+-        if dist.get_rank() == 0:
+-            ForkedPdb().set_trace()
+-        dist.barrier()
+-    """
+-
+-    # pyre-ignore
+-    def interaction(self, *args, **kwargs) -> None:
+-        _stdin = sys.stdin
+-        try:
+-            sys.stdin = open("/dev/stdin")  # noqa
+-            pdb.Pdb.interaction(self, *args, **kwargs)
+-        finally:
+-            sys.stdin = _stdin
+-
+-
+-def create_global_tensor_shape_stride_from_metadata(
+-    parameter_sharding: ParameterSharding, devices_per_node: Optional[int] = None
+-) -> Tuple[torch.Size, Tuple[int, int]]:
+-    """
+-    Create a global tensor shape and stride from shard metadata.
+-
+-    Returns:
+-        torch.Size: global tensor shape.
+-        tuple: global tensor stride.
+-    """
+-    size = None
+-    if parameter_sharding.sharding_type == ShardingType.COLUMN_WISE.value:
+-        # pyre-ignore[16]
+-        row_dim = parameter_sharding.sharding_spec.shards[0].shard_sizes[0]
+-        col_dim = 0
+-        for shard in parameter_sharding.sharding_spec.shards:
+-            col_dim += shard.shard_sizes[1]
+-        size = torch.Size([row_dim, col_dim])
+-    elif (
+-        parameter_sharding.sharding_type == ShardingType.ROW_WISE.value
+-        or parameter_sharding.sharding_type == ShardingType.TABLE_ROW_WISE.value
+-    ):
+-        row_dim = 0
+-        col_dim = parameter_sharding.sharding_spec.shards[0].shard_sizes[1]
+-        for shard in parameter_sharding.sharding_spec.shards:
+-            row_dim += shard.shard_sizes[0]
+-        size = torch.Size([row_dim, col_dim])
+-    elif parameter_sharding.sharding_type == ShardingType.TABLE_WISE.value:
+-        size = torch.Size(parameter_sharding.sharding_spec.shards[0].shard_sizes)
+-    elif parameter_sharding.sharding_type == ShardingType.GRID_SHARD.value:
+-        # we need node group size to appropriately calculate global shape from shard
+-        assert devices_per_node is not None
+-        row_dim, col_dim = 0, 0
+-        num_cw_shards = len(parameter_sharding.sharding_spec.shards) // devices_per_node
+-        for _ in range(num_cw_shards):
+-            col_dim += parameter_sharding.sharding_spec.shards[0].shard_sizes[1]
+-        for _ in range(devices_per_node):
+-            row_dim += parameter_sharding.sharding_spec.shards[0].shard_sizes[0]
+-        size = torch.Size([row_dim, col_dim])
+-    # pyre-ignore[7]
 -    return size, (size[1], 1) if size else (torch.Size([0, 0]), (0, 1))
++#!/usr/bin/env python3
++# Copyright (c) Meta Platforms, Inc. and affiliates.
++# All rights reserved.
++#
++# This source code is licensed under the BSD-style license found in the
++# LICENSE file in the root directory of this source tree.
++
++# pyre-strict
++
++import copy
++import logging
++import pdb  # noqa
++import sys
++
++from collections import OrderedDict
++from contextlib import AbstractContextManager, nullcontext
++from dataclasses import asdict
++from typing import Any, Dict, List, Optional, Set, Tuple, Type, TypeVar, Union
++
++import torch
++from fbgemm_gpu.split_embedding_configs import EmbOptimType
++from torch import nn
++from torch.autograd.profiler import record_function
++from torchrec import optim as trec_optim
++from torchrec.distributed.embedding_types import EmbeddingComputeKernel
++from torchrec.distributed.types import (
++    DataType,
++    EmbeddingEvent,
++    ParameterSharding,
++    ShardedModule,
++    ShardingType,
++)
++from torchrec.modules.embedding_configs import data_type_to_sparse_type
++from torchrec.types import CopyMixIn
++
++logger: logging.Logger = logging.getLogger(__name__)
++_T = TypeVar("_T")
++
++"""
++torch.package safe functions from pyre_extensions. However, pyre_extensions is
++not safe to use in code that will be torch.packaged, as it requires sys for
++version checks
++"""
++
++
++def none_throws(optional: Optional[_T], message: str = "Unexpected `None`") -> _T:
++    """Convert an optional to its value. Raises an `AssertionError` if the
++    value is `None`"""
++    if optional is None:
++        raise AssertionError(message)
++    return optional
++
++
++def append_prefix(prefix: str, name: str) -> str:
++    """
++    Appends provided prefix to provided name.
++    """
++
++    if prefix != "" and name != "":
++        return prefix + "." + name
++    else:
++        return prefix + name
++
++
++def filter_state_dict(
++    state_dict: "OrderedDict[str, torch.Tensor]", name: str
++) -> "OrderedDict[str, torch.Tensor]":
++    """
++    Filters state dict for keys that start with provided name.
++    Strips provided name from beginning of key in the resulting state dict.
++
++    Args:
++        state_dict (OrderedDict[str, torch.Tensor]): input state dict to filter.
++        name (str): name to filter from state dict keys.
++
++    Returns:
++        OrderedDict[str, torch.Tensor]: filtered state dict.
++    """
++
++    filtered_state_dict = OrderedDict()
++    for key, value in state_dict.items():
++        if key.startswith(name + "."):
++            # + 1 to length is to remove the '.' after the key
++            filtered_state_dict[key[len(name) + 1 :]] = value
++    return filtered_state_dict
++
++
++def add_prefix_to_state_dict(state_dict: Dict[str, Any], prefix: str) -> None:
++    """
++    Adds prefix to all keys in state dict, in place.
++
++    Args:
++        state_dict (Dict[str, Any]): input state dict to update.
++        prefix (str): name to filter from state dict keys.
++
++    Returns:
++        None.
++    """
++    keys = sorted(state_dict.keys())
++    for key in keys:
++        state_dict[prefix + key] = state_dict.pop(key)
++
++    if "_metadata" in state_dict:
++        metadata = state_dict["_metadata"]
++        for key in list(metadata.keys()):
++            if len(key) == 0:
++                continue
++            metadata[prefix + key] = metadata.pop(key)
++
++
++def _get_unsharded_module_names_helper(
++    model: torch.nn.Module,
++    path: str,
++    unsharded_module_names: Set[str],
++) -> bool:
++    sharded_children = set()
++    for name, child in model.named_children():
++        curr_path = path + name
++        if isinstance(child, ShardedModule):
++            sharded_children.add(name)
++        else:
++            child_sharded = _get_unsharded_module_names_helper(
++                child,
++                curr_path + ".",
++                unsharded_module_names,
++            )
++            if child_sharded:
++                sharded_children.add(name)
++
++    if len(sharded_children) > 0:
++        for name, _ in model.named_children():
++            if name not in sharded_children:
++                unsharded_module_names.add(path + name)
++
++    return len(sharded_children) > 0
++
++
++def get_unsharded_module_names(model: torch.nn.Module) -> List[str]:
++    """
++    Retrieves names of top level modules that do not contain any sharded sub-modules.
++
++    Args:
++        model (torch.nn.Module): model to retrieve unsharded module names from.
++
++    Returns:
++        List[str]: list of names of modules that don't have sharded sub-modules.
++    """
++
++    unsharded_module_names: Set[str] = set()
++    _get_unsharded_module_names_helper(
++        model,
++        "",
++        unsharded_module_names,
++    )
++    return list(unsharded_module_names)
++
++
++class sharded_model_copy:
++    """
++    Allows copying of DistributedModelParallel module to a target device.
++
++    Example::
++
++        # Copying model to CPU.
++
++        m = DistributedModelParallel(m)
++        with sharded_model_copy("cpu"):
++            m_cpu = copy.deepcopy(m)
++    """
++
++    def __init__(self, device: Optional[Union[str, int, torch.device]]) -> None:
++        self.device = device
++
++    def __enter__(self) -> None:
++        # pyre-ignore [16]
++        self.t_copy_save_ = torch.Tensor.__deepcopy__
++        # pyre-ignore [16]
++        self.p_copy_save_ = torch.nn.Parameter.__deepcopy__
++
++        device = self.device
++
++        # pyre-ignore [2, 3, 53]
++        def _tensor_copy(tensor, memo):
++            if tensor.device != device:
++                return tensor.detach().to(device)
++            else:
++                return tensor.detach().clone()
++
++        # pyre-ignore [2, 3]
++        def _no_copy(obj, memo):
++            return obj
++
++        _copy_or_not = _tensor_copy if self.device is not None else _no_copy
++
++        # pyre-ignore [2, 3, 53]
++        def _param_copy(param, memo):
++            return torch.nn.Parameter(
++                _copy_or_not(param, memo), requires_grad=param.requires_grad
++            )
++
++        torch.Tensor.__deepcopy__ = _copy_or_not
++        torch.nn.Parameter.__deepcopy__ = _param_copy
++        # pyre-fixme[16]: `Type` has no attribute `__deepcopy__`.
++        torch._C._distributed_c10d.ProcessGroupNCCL.__deepcopy__ = _no_copy
++        # pyre-fixme[16]: `Type` has no attribute `__deepcopy__`.
++        torch._C._distributed_c10d.ProcessGroupGloo.__deepcopy__ = _no_copy
++        # pyre-fixme[16]: `Type` has no attribute `__deepcopy__`.
++        torch._C._distributed_c10d.Work.__deepcopy__ = _no_copy
++        # pyre-ignore [16]
++        torch.cuda.streams.Stream.__deepcopy__ = _no_copy
++
++    # pyre-ignore [2]
++    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
++        # pyre-ignore [16]
++        torch.Tensor.__deepcopy__ = self.t_copy_save_
++        # pyre-ignore [16]
++        torch.nn.Parameter.__deepcopy__ = self.p_copy_save_
++        # pyre-fixme[16]: `Type` has no attribute `__deepcopy__`.
++        torch._C._distributed_c10d.ProcessGroupNCCL.__deepcopy__ = None
++        # pyre-fixme[16]: `Type` has no attribute `__deepcopy__`.
++        torch._C._distributed_c10d.ProcessGroupGloo.__deepcopy__ = None
++        # pyre-fixme[16]: `Type` has no attribute `__deepcopy__`.
++        torch._C._distributed_c10d.Work.__deepcopy__ = None
++        # pyre-ignore [16]
++        torch.cuda.streams.Stream.__deepcopy__ = None
++
++
++def copy_to_device(
++    module: nn.Module,
++    current_device: torch.device,
++    to_device: torch.device,
++) -> nn.Module:
++
++    with sharded_model_copy(device=None):
++        copy_module = copy.deepcopy(module)
++
++    # Copy only weights with matching device.
++    def _copy_if_device_match(tensor: torch.Tensor) -> torch.Tensor:
++        if tensor.device == current_device:
++            return tensor.to(to_device)
++        return tensor
++
++    # if this is a sharded module, customize the copy
++    if isinstance(copy_module, CopyMixIn):
++        return copy_module.copy(to_device)
++    copied_param = {
++        name: torch.nn.Parameter(
++            _copy_if_device_match(param.data), requires_grad=param.requires_grad
++        )
++        for name, param in copy_module.named_parameters(recurse=False)
++    }
++    copied_buffer = {
++        name: _copy_if_device_match(buffer)
++        for name, buffer in copy_module.named_buffers(recurse=False)
++    }
++    for name, param in copied_param.items():
++        m = copy_module
++        if "." in name:
++            continue
++        m.register_parameter(name, param)
++    for name, buffer in copied_buffer.items():
++        m = copy_module
++        if "." in name:
++            continue
++        m.register_buffer(name, buffer)
++    for child_name, child in copy_module.named_children():
++        if not any([isinstance(submodule, CopyMixIn) for submodule in child.modules()]):
++            child_copy = child._apply(_copy_if_device_match)
++        else:
++            child_copy = copy_to_device(child, current_device, to_device)
++        copy_module.register_module(child_name, child_copy)
++    return copy_module
++
++
++class CopyableMixin(nn.Module):
++    """
++    Allows copying of module to a target device.
++
++    Example::
++
++        class MyModule(CopyableMixin):
++            ...
++
++    Args:
++        device : torch.device to copy to
++
++    Returns
++        nn.Module on new device
++    """
++
++    def copy(
++        self,
++        device: torch.device,
++    ) -> nn.Module:
++        return copy_to_device(
++            self,
++            current_device=torch.device("cpu"),
++            to_device=device,
++        )
++
++
++def optimizer_type_to_emb_opt_type(
++    optimizer_class: Type[torch.optim.Optimizer],
++) -> Optional[EmbOptimType]:
++    # TODO add more optimizers to be in parity with ones provided by FBGEMM
++    # TODO kwargs accepted by fbgemm and and canonical optimizers are different
++    # may need to add special handling for them
++    lookup = {
++        torch.optim.SGD: EmbOptimType.EXACT_SGD,
++        torch.optim.Adagrad: EmbOptimType.EXACT_ADAGRAD,
++        torch.optim.Adam: EmbOptimType.ADAM,
++        # below are torchrec wrappers over these optims.
++        # they accept an **unused kwargs portion, that let us set FBGEMM specific args such as
++        # max gradient, etc
++        trec_optim.SGD: EmbOptimType.EXACT_SGD,
++        trec_optim.LarsSGD: EmbOptimType.LARS_SGD,
++        trec_optim.LAMB: EmbOptimType.LAMB,
++        trec_optim.PartialRowWiseLAMB: EmbOptimType.PARTIAL_ROWWISE_LAMB,
++        trec_optim.Adam: EmbOptimType.ADAM,
++        trec_optim.PartialRowWiseAdam: EmbOptimType.PARTIAL_ROWWISE_ADAM,
++        trec_optim.Adagrad: EmbOptimType.EXACT_ADAGRAD,
++        trec_optim.RowWiseAdagrad: EmbOptimType.EXACT_ROWWISE_ADAGRAD,
++    }
++    if optimizer_class not in lookup:
++        raise ValueError(f"Cannot cast {optimizer_class} to an EmbOptimType")
++    return lookup[optimizer_class]
++
++
++def merge_fused_params(
++    fused_params: Optional[Dict[str, Any]] = None,
++    param_fused_params: Optional[Dict[str, Any]] = None,
++) -> Dict[str, Any]:
++    """
++    Configure the fused_params including cache_precision if the value is not preset.
++
++    Values set in table_level_fused_params take precidence over the global fused_params
++
++    Args:
++        fused_params (Optional[Dict[str, Any]]): the original fused_params
++        grouped_fused_params
++
++    Returns:
++        [Dict[str, Any]]: a non-null configured fused_params dictionary to be
++        used to configure the embedding lookup kernel
++    """
++
++    if fused_params is None:
++        fused_params = {}
++    if param_fused_params is None:
++        param_fused_params = {}
++    if "lr" in param_fused_params:
++        param_fused_params["learning_rate"] = param_fused_params.pop("lr")
++
++    _fused_params = copy.deepcopy(fused_params)
++    _fused_params.update(param_fused_params)
++    return _fused_params
++
++
++def add_params_from_parameter_sharding(
++    fused_params: Optional[Dict[str, Any]],
++    parameter_sharding: ParameterSharding,
++) -> Dict[str, Any]:
++    """
++    Extract params from parameter sharding and then add them to fused_params.
++
++    Params from parameter sharding will override the ones in fused_params if they
++    exist already.
++
++    Args:
++        fused_params (Optional[Dict[str, Any]]): the existing fused_params
++        parameter_sharding (ParameterSharding): the parameter sharding to use
++
++    Returns:
++        [Dict[str, Any]]: the fused_params dictionary with params from parameter
++        sharding added.
++
++    """
++    if fused_params is None:
++        fused_params = {}
++
++    # update fused_params using params from parameter_sharding
++    # this will take precidence over the fused_params provided from sharders
++    if parameter_sharding.cache_params is not None:
++        cache_params = parameter_sharding.cache_params
++        if cache_params.algorithm is not None:
++            fused_params["cache_algorithm"] = cache_params.algorithm
++        if cache_params.load_factor is not None:
++            fused_params["cache_load_factor"] = cache_params.load_factor
++        if cache_params.reserved_memory is not None:
++            fused_params["cache_reserved_memory"] = cache_params.reserved_memory
++        if cache_params.precision is not None:
++            fused_params["cache_precision"] = cache_params.precision
++        if cache_params.prefetch_pipeline is not None:
++            fused_params["prefetch_pipeline"] = cache_params.prefetch_pipeline
++        if cache_params.multipass_prefetch_config is not None:
++            fused_params["multipass_prefetch_config"] = (
++                cache_params.multipass_prefetch_config
++            )
++
++    if parameter_sharding.enforce_hbm is not None:
++        fused_params["enforce_hbm"] = parameter_sharding.enforce_hbm
++
++    if parameter_sharding.stochastic_rounding is not None:
++        fused_params["stochastic_rounding"] = parameter_sharding.stochastic_rounding
++
++    if parameter_sharding.bounds_check_mode is not None:
++        fused_params["bounds_check_mode"] = parameter_sharding.bounds_check_mode
++
++    if parameter_sharding.output_dtype is not None:
++        fused_params["output_dtype"] = parameter_sharding.output_dtype
++
++    if (
++        parameter_sharding.compute_kernel in {EmbeddingComputeKernel.KEY_VALUE.value}
++        and parameter_sharding.key_value_params is not None
++    ):
++        kv_params = parameter_sharding.key_value_params
++        key_value_params_dict = asdict(kv_params)
++        key_value_params_dict = {
++            k: v for k, v in key_value_params_dict.items() if v is not None
++        }
++        if kv_params.stats_reporter_config:
++            key_value_params_dict["stats_reporter_config"] = (
++                kv_params.stats_reporter_config
++            )
++        fused_params.update(key_value_params_dict)
++
++    # print warning if sharding_type is data_parallel or kernel is dense
++    if parameter_sharding.sharding_type == ShardingType.DATA_PARALLEL.value:
++        logger.warning(
++            f"Sharding Type is {parameter_sharding.sharding_type}, "
++            "caching params will be ignored"
++        )
++    elif parameter_sharding.compute_kernel == EmbeddingComputeKernel.DENSE.value:
++        logger.warning(
++            f"Compute Kernel is {parameter_sharding.compute_kernel}, "
++            "caching params will be ignored"
++        )
++
++    return fused_params
++
++
++def convert_to_fbgemm_types(fused_params: Dict[str, Any]) -> Dict[str, Any]:
++    if "cache_precision" in fused_params:
++        if isinstance(fused_params["cache_precision"], DataType):
++            fused_params["cache_precision"] = data_type_to_sparse_type(
++                fused_params["cache_precision"]
++            )
++
++    if "weights_precision" in fused_params:
++        if isinstance(fused_params["weights_precision"], DataType):
++            fused_params["weights_precision"] = data_type_to_sparse_type(
++                fused_params["weights_precision"]
++            )
++
++    if "output_dtype" in fused_params:
++        if isinstance(fused_params["output_dtype"], DataType):
++            fused_params["output_dtype"] = data_type_to_sparse_type(
++                fused_params["output_dtype"]
++            )
++
++    return fused_params
++
++
++def init_parameters(module: nn.Module, device: torch.device) -> None:
++    with torch.no_grad():
++        has_meta_param = any(t.is_meta for t in module.parameters())
++        not_on_target_device = any(t.device != device for t in module.parameters())
++        if not_on_target_device:
++            module.to_empty(device=device) if has_meta_param else module.to(device)
++
++            def maybe_reset_parameters(m: nn.Module) -> None:
++                if hasattr(m, "reset_parameters"):
++                    # pyre-fixme[29]: `Union[Module, Tensor]` is not a function.
++                    m.reset_parameters()
++
++            module.apply(maybe_reset_parameters)
++
++
++def maybe_annotate_embedding_event(
++    event: EmbeddingEvent,
++    module_fqn: Optional[str],
++    sharding_type: Optional[str],
++    # pyre-fixme[24]: Generic type `AbstractContextManager` expects 2 type parameters,
++    #  received 1.
++) -> AbstractContextManager[None]:
++    if module_fqn and sharding_type:
++        annotation = f"[{event.value}]_[{module_fqn}]_[{sharding_type}]"
++        return record_function(annotation)
++    else:
++        return nullcontext()
++
++
++class ForkedPdb(pdb.Pdb):
++    """A Pdb subclass that may be used from a forked multiprocessing child.
++    Useful in debugging multiprocessed code
++
++    Example::
++
++        from torchrec.multiprocessing_utils import ForkedPdb
++
++        if dist.get_rank() == 0:
++            ForkedPdb().set_trace()
++        dist.barrier()
++    """
++
++    # pyre-ignore
++    def interaction(self, *args, **kwargs) -> None:
++        _stdin = sys.stdin
++        try:
++            sys.stdin = open("/dev/stdin")  # noqa
++            pdb.Pdb.interaction(self, *args, **kwargs)
++        finally:
++            sys.stdin = _stdin
++
++
++def create_global_tensor_shape_stride_from_metadata(
++    parameter_sharding: ParameterSharding, devices_per_node: Optional[int] = None
++) -> Tuple[torch.Size, Tuple[int, int]]:
++    """
++    Create a global tensor shape and stride from shard metadata.
++
++    Returns:
++        torch.Size: global tensor shape.
++        tuple: global tensor stride.
++    """
++    size = None
++    if parameter_sharding.sharding_type == ShardingType.COLUMN_WISE.value:
++        # pyre-ignore[16]
++        row_dim = parameter_sharding.sharding_spec.shards[0].shard_sizes[0]
++        col_dim = 0
++        for shard in parameter_sharding.sharding_spec.shards:
++            col_dim += shard.shard_sizes[1]
++        size = torch.Size([row_dim, col_dim])
++    elif (
++        parameter_sharding.sharding_type == ShardingType.ROW_WISE.value
++        or parameter_sharding.sharding_type == ShardingType.TABLE_ROW_WISE.value
++    ):
++        row_dim = 0
++        col_dim = parameter_sharding.sharding_spec.shards[0].shard_sizes[1]
++        for shard in parameter_sharding.sharding_spec.shards:
++            row_dim += shard.shard_sizes[0]
++        size = torch.Size([row_dim, col_dim])
++    elif parameter_sharding.sharding_type == ShardingType.TABLE_WISE.value:
++        size = torch.Size(parameter_sharding.sharding_spec.shards[0].shard_sizes)
++    elif parameter_sharding.sharding_type == ShardingType.GRID_SHARD.value:
++        # we need node group size to appropriately calculate global shape from shard
++        assert devices_per_node is not None
++        row_dim, col_dim = 0, 0
++        num_cw_shards = len(parameter_sharding.sharding_spec.shards) // devices_per_node
++        for _ in range(num_cw_shards):
++            col_dim += parameter_sharding.sharding_spec.shards[0].shard_sizes[1]
++        for _ in range(devices_per_node):
++            row_dim += parameter_sharding.sharding_spec.shards[0].shard_sizes[0]
++        size = torch.Size([row_dim, col_dim])
++    # pyre-ignore[7]
 +    return size, (size[1], 1) if size else (torch.Size([0, 0]), (0, 1))
 \ No newline at end of file
 diff --git a/torchrec/optim/apply_optimizer_in_backward.py b/torchrec/optim/apply_optimizer_in_backward.py
@@ -720,7 +2298,7 @@ index 10ffcdb2..3e199497 100644
          if hasattr(param, "_in_backward_optimizers") == include:
              yield fqn, param
 diff --git a/torchrec/sparse/jagged_tensor.py b/torchrec/sparse/jagged_tensor.py
-index 33665883..39394ae7 100644
+index 33665883..dd9b2035 100644
 --- a/torchrec/sparse/jagged_tensor.py
 +++ b/torchrec/sparse/jagged_tensor.py
 @@ -28,6 +28,7 @@ from torchrec.pt2.checks import (
