@@ -173,16 +173,6 @@ class EmbCacheHashTable(torch.nn.Module):
         return values
 
 
-def _convert_2_cache_embedding_config(tables: List[EmbCacheEmbeddingConfig | EmbeddingConfig]):
-    for i, ori_config in enumerate(tables):
-        if isinstance(ori_config, EmbCacheEmbeddingConfig):
-            continue
-        emb_cache_config = EmbCacheEmbeddingConfig(embedding_dim=ori_config.embedding_dim,
-                                                   num_embeddings=ori_config.num_embeddings)
-        emb_cache_config.__dict__.update(ori_config.__dict__)
-        tables[i] = emb_cache_config
-
-
 class EmbCacheEmbeddingCollection(EmbeddingCollection):
     def __init__(
         self,
@@ -197,7 +187,7 @@ class EmbCacheEmbeddingCollection(EmbeddingCollection):
         super().__init__(tables, device, need_indices)
         torch._C._log_api_usage_once(f"torchrec.modules.{self.__class__.__name__}")
         self.embeddings: nn.ModuleDict = nn.ModuleDict()
-        _convert_2_cache_embedding_config(tables)
+        self._convert_2_cache_embedding_config(tables)
         self._embedding_configs = tables
         self._embedding_dim: int = -1
         self._need_indices: bool = need_indices
@@ -631,6 +621,16 @@ class EmbCacheShardedEmbeddingCollection(ShardedEmbeddingCollection):
                 modules.append(emb_module._emb_module)
             batched_embedding_kernels.append(modules)
         return batched_embedding_kernels
+
+    @staticmethod
+    def _convert_2_cache_embedding_config(tables: List[EmbCacheEmbeddingConfig | EmbeddingConfig]):
+        for i, ori_config in enumerate(tables):
+            if isinstance(ori_config, EmbCacheEmbeddingConfig):
+                continue
+            emb_cache_config = EmbCacheEmbeddingConfig(embedding_dim=ori_config.embedding_dim,
+                                                       num_embeddings=ori_config.num_embeddings)
+            emb_cache_config.__dict__.update(ori_config.__dict__)
+            tables[i] = emb_cache_config
 
     def _create_embcache_mgr(self) -> EmbcacheManager:
         emb_configs = []
