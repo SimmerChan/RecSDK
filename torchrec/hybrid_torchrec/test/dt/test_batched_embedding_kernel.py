@@ -82,7 +82,7 @@ class TestHybridSplitTableBatchedEmbeddingBagsCodegen(unittest.TestCase):
             device=torch.device("meta")
         )
         tbe.iter = torch.Tensor([0])
-        assert(tbe(self.indices,
+        assert( tbe(self.indices,
                    self.offsets,
                    self.hash_indices,
                    self.unique_indices,
