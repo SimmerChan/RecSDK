@@ -292,13 +292,13 @@ class EmbCacheEmbeddingCollection(EmbeddingCollection):
 
 def _build_admit_and_evict_config(cache_ec_config: EmbCacheEmbeddingConfig):
     aaec_py = cache_ec_config.admit_and_evict_config
+    logging.info("admit_and_evict_config info:%s", aaec_py)
     aaec = AdmitAndEvictConfig(
         admit_threshold=aaec_py.admit_threshold,
         not_admitted_default_value=aaec_py.not_admitted_default_value,
         evict_threshold=aaec_py.evict_threshold,
         evict_step_interval=aaec_py.evict_step_interval,
     )
-    logging.info("admit_and_evict_config info:%s", aaec_py)
     return aaec
 
 
