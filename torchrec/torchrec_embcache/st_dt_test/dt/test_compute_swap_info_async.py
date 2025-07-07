@@ -138,7 +138,7 @@ def execute(rank, config):
     device = config.get("device", "npu")
     sharding_type = config.get("sharding_type", "row_wise")
     optim = OPTIM_REGISTRY.get(config.get("optim", "Adagrad"), Adagrad)
-    feature_names_lst = config["feature_names_lst"]
+    feature_names_list = config["feature_names_list"]
     instances = config.get("instances", 1)
     pool_type = getattr(torchrec.PoolingType, pool_type)
     collection_type = config["collection_type"]
@@ -146,7 +146,7 @@ def execute(rank, config):
         embedding_dims=embedding_dims,
         num_embeddings=num_embeddings,
         pool_type=pool_type,
-        feature_names_lst=feature_names_lst,
+        feature_names_list=feature_names_list,
         init_fn=create_weight_init(init_fn),
         collection_type=collection_type,
     )
@@ -155,10 +155,10 @@ def execute(rank, config):
     if dataset_class is BoundOutOfRangeRecDataset:
         for i in range(table_num):
             generated_ids.append([])
-            for _ in range(len(feature_names_lst[i])):
+            for _ in range(len(feature_names_list[i])):
                 generated_ids[i].append(list(range(num_embeddings[i] + OVER_COUNT)))
                 random.shuffle(generated_ids[i][-1])
-    dataset = dataset_class(100, lookup_lens, num_embeddings, table_num, feature_names_lst, generated_ids)
+    dataset = dataset_class(100, lookup_lens, num_embeddings, table_num, feature_names_list, generated_ids)
     data_loader = DataLoader(
         dataset,
         batch_size=None,
@@ -167,16 +167,16 @@ def execute(rank, config):
         num_workers=1,
     )
 
-    test_model = TestModel(rank, world_size, device, instances, feature_names_lst, batch_num, collection_type)
+    test_model = TestModel(rank, world_size, device, instances, feature_names_list, batch_num, collection_type)
     test_model.init_ddp_model(embedding_config, sharding_type, optim, lookup_lens)
     iter_ = iter(data_loader)
-    module_lst = getattr(test_model.module, collection_type)
+    module_list = getattr(test_model.module, collection_type)
     context = EmbCacheTrainPipelineContext(index=0, version=1)
 
     loop_stop = False
     swap_info_dicts = []
     for loop in range(100):
-        for i, module in enumerate(module_lst):
+        for i, module in enumerate(module_list):
             name = f"module.{i}"
             ctx = module.create_context()
             features = next(iter_).sparse_features
@@ -189,7 +189,7 @@ def execute(rank, config):
             for name, request in zip(names, awaitable.wait()):
                 context.input_dist_splits_requests[name] = AwaitableAdapter(request)
 
-        for i, module in enumerate(module_lst):
+        for i, module in enumerate(module_list):
             name = f"module.{i}"
             awaitable = context.input_dist_splits_requests[name]
             kjt_list = awaitable.wait()

@@ -23,6 +23,7 @@ from parse_configs import load_all_configs
 from torch.autograd.profiler import record_function
 from torch.optim import Adam, Adagrad
 from torchrec_embcache.distributed.sharding.rw_sharding import EmbCacheRwSparseFeaturesDistAwaitable
+from torchrec_embcache.distributed.utils import get_embedding_optim_num
 
 from torchrec.distributed.embedding_sharding import (
     FusedKJTListSplitsAwaitable, 
@@ -30,7 +31,6 @@ from torchrec.distributed.embedding_sharding import (
     KJTSplitsAllToAllMeta
 )
 from torchrec.distributed.train_pipeline.utils import TrainPipelineContext
-from torchrec_embcache.distributed.utils import get_embedding_optim_num
 
 
 OVER_COUNT = 10
@@ -101,7 +101,7 @@ def check_config(config):
     # 查表的大小，lookup_lens*embedding_dim*len(feature_names)
     dtype_size = 4 # default fp32
     lookup_size = 0
-    for embedding_dim, feature_names in zip(config["embedding_dims"], config["feature_names_lst"]):
+    for embedding_dim, feature_names in zip(config["embedding_dims"], config["feature_names_list"]):
         lookup_size += embedding_dim * len(feature_names)
     total_size = (table_size + lookup_size) * dtype_size / (1024 * 1024)  # Convert to MB
     max_size = int(os.getenv("MAX_TABLE_SIZE_MB", 65536))

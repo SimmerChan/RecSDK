@@ -113,7 +113,7 @@ def execute(rank, config):
     device = config.get("device", "npu")
     sharding_type = config.get("sharding_type", "row_wise")
     optim = OPTIM_REGISTRY.get(config.get("optim", "Adagrad"), Adagrad)
-    feature_names_lst = config["feature_names_lst"]
+    feature_names_list = config["feature_names_list"]
     instances = config.get("instances", 1)
     pool_type = getattr(torchrec.PoolingType, pool_type)
     collection_type = config["collection_type"]
@@ -121,7 +121,7 @@ def execute(rank, config):
         embedding_dims=embedding_dims,
         num_embeddings=num_embeddings,
         pool_type=pool_type,
-        feature_names_lst=feature_names_lst,
+        feature_names_list=feature_names_list,
         init_fn=create_weight_init(init_fn),
         collection_type=collection_type,
     )
@@ -130,10 +130,10 @@ def execute(rank, config):
     if dataset_class is BoundOutOfRangeRecDataset:
         for i in range(table_num):
             generated_ids.append([])
-            for _ in range(len(feature_names_lst[i])):
+            for _ in range(len(feature_names_list[i])):
                 generated_ids[i].append(list(range(num_embeddings[i] + OVER_COUNT)))
                 random.shuffle(generated_ids[i][-1])
-    dataset = dataset_class(batch_num, lookup_lens, num_embeddings, table_num, feature_names_lst, generated_ids)
+    dataset = dataset_class(batch_num, lookup_lens, num_embeddings, table_num, feature_names_list, generated_ids)
     data_loader = DataLoader(
         dataset,
         batch_size=None,
@@ -143,7 +143,7 @@ def execute(rank, config):
     )
 
     test_model = TestModel(
-        rank, world_size, device, instances, feature_names_lst, batch_num, collection_type= collection_type
+        rank, world_size, device, instances, feature_names_list, batch_num, collection_type=collection_type
     )
     test_model.init_ddp_model(embedding_config, sharding_type, optim, lookup_lens)
     test_results = test_model.test_pipe_loss(data_loader)
