@@ -300,9 +300,6 @@ class EmbCacheEmbeddingCollection(EmbeddingCollection):
         return table_num_embeddings
 
 
-
-
-
 class EmbCacheShardedEmbeddingCollection(ShardedEmbeddingCollection):
     def __init__(
         self,
