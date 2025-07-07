@@ -254,6 +254,16 @@ class EmbCacheEmbeddingCollection(EmbeddingCollection):
         )
         self._feature_names: List[List[str]] = [table.feature_names for table in tables]
 
+    @staticmethod
+    def _convert_2_cache_embedding_config(tables: List[EmbCacheEmbeddingConfig | EmbeddingConfig]):
+        for i, ori_config in enumerate(tables):
+            if isinstance(ori_config, EmbCacheEmbeddingConfig):
+                continue
+            emb_cache_config = EmbCacheEmbeddingConfig(embedding_dim=ori_config.embedding_dim,
+                                                       num_embeddings=ori_config.num_embeddings)
+            emb_cache_config.__dict__.update(ori_config.__dict__)
+            tables[i] = emb_cache_config
+
     def _calculate_caches(
         self,
         tables: List[EmbeddingConfig],
@@ -290,16 +300,7 @@ class EmbCacheEmbeddingCollection(EmbeddingCollection):
         return table_num_embeddings
 
 
-def _build_admit_and_evict_config(cache_ec_config: EmbCacheEmbeddingConfig):
-    aaec_py = cache_ec_config.admit_and_evict_config
-    logging.info("admit_and_evict_config info:%s", aaec_py)
-    aaec = AdmitAndEvictConfig(
-        admit_threshold=aaec_py.admit_threshold,
-        not_admitted_default_value=aaec_py.not_admitted_default_value,
-        evict_threshold=aaec_py.evict_threshold,
-        evict_step_interval=aaec_py.evict_step_interval,
-    )
-    return aaec
+
 
 
 class EmbCacheShardedEmbeddingCollection(ShardedEmbeddingCollection):
@@ -623,14 +624,16 @@ class EmbCacheShardedEmbeddingCollection(ShardedEmbeddingCollection):
         return batched_embedding_kernels
 
     @staticmethod
-    def _convert_2_cache_embedding_config(tables: List[EmbCacheEmbeddingConfig | EmbeddingConfig]):
-        for i, ori_config in enumerate(tables):
-            if isinstance(ori_config, EmbCacheEmbeddingConfig):
-                continue
-            emb_cache_config = EmbCacheEmbeddingConfig(embedding_dim=ori_config.embedding_dim,
-                                                       num_embeddings=ori_config.num_embeddings)
-            emb_cache_config.__dict__.update(ori_config.__dict__)
-            tables[i] = emb_cache_config
+    def _build_admit_and_evict_config(cache_ec_config: EmbCacheEmbeddingConfig):
+        aaec_py = cache_ec_config.admit_and_evict_config
+        logging.info("admit_and_evict_config info:%s", aaec_py)
+        aaec = AdmitAndEvictConfig(
+            admit_threshold=aaec_py.admit_threshold,
+            not_admitted_default_value=aaec_py.not_admitted_default_value,
+            evict_threshold=aaec_py.evict_threshold,
+            evict_step_interval=aaec_py.evict_step_interval,
+        )
+        return aaec
 
     def _create_embcache_mgr(self) -> EmbcacheManager:
         emb_configs = []
@@ -671,7 +674,7 @@ class EmbCacheShardedEmbeddingCollection(ShardedEmbeddingCollection):
                         weight_init_max=embedding_config.get_weight_init_max(),
                         weight_init_mean=emb_original_config.weight_init_mean,
                         weight_init_stddev=emb_original_config.weight_init_stddev,
-                        admit_and_evict_config=_build_admit_and_evict_config(emb_original_config),
+                        admit_and_evict_config=self._build_admit_and_evict_config(emb_original_config),
                     )
                 )
         return EmbcacheManager(emb_configs)

@@ -156,9 +156,6 @@ class EmbCacheHashTable(torch.nn.Module):
         return values
 
 
-
-
-
 class EmbCacheEmbeddingBagCollection(EmbeddingBagCollection):
     """
     EmbeddingBagCollection represents a collection of pooled embeddings (`EmbeddingBags`).
@@ -243,7 +240,7 @@ class EmbCacheEmbeddingBagCollection(EmbeddingBagCollection):
         embcache_size_on_device_mem = int(os.getenv("EMBCACHE_SIZE_ON_DEVICE_MEM", "17179869184"))
         logger.debug("======  embcache_size_on_device_mem: %s", embcache_size_on_device_mem)
 
-        cache_num_embeddings = self._caculate_caches(
+        cache_num_embeddings = self._calculate_caches(
             tables, embcache_size_on_device_mem, multi_hot_sizes, batch_size, world_size
         )
         logger.debug("table_num_embeddings: %s", cache_num_embeddings)
@@ -281,7 +278,17 @@ class EmbCacheEmbeddingBagCollection(EmbeddingBagCollection):
         self._feature_names: List[List[str]] = [table.feature_names for table in tables]
         self.reset_parameters()
 
-    def _caculate_caches(
+    @staticmethod
+    def _convert_2_cache_embedding_bag_config(tables: List[EmbCacheEmbeddingBagConfig | EmbeddingBagConfig]):
+        for i, ori_config in enumerate(tables):
+            if isinstance(ori_config, EmbCacheEmbeddingBagConfig):
+                continue
+            emb_cache_config = EmbCacheEmbeddingBagConfig(embedding_dim=ori_config.embedding_dim,
+                                                          num_embeddings=ori_config.num_embeddings)
+            emb_cache_config.__dict__.update(ori_config.__dict__)
+            tables[i] = emb_cache_config
+
+    def _calculate_caches(
         self,
         tables: List[EmbeddingBagConfig],
         max_device_mem_for_vectors: int,
@@ -575,15 +582,7 @@ class EmbCacheShardedEmbeddingBagCollection(ShardedEmbeddingBagCollection):
             batched_embedding_kernels.append(modules)
         return batched_embedding_kernels
 
-    @staticmethod
-    def _convert_2_cache_embedding_bag_config(tables: List[EmbCacheEmbeddingBagConfig | EmbeddingBagConfig]):
-        for i, ori_config in enumerate(tables):
-            if isinstance(ori_config, EmbCacheEmbeddingBagConfig):
-                continue
-            emb_cache_config = EmbCacheEmbeddingBagConfig(embedding_dim=ori_config.embedding_dim,
-                                                          num_embeddings=ori_config.num_embeddings)
-            emb_cache_config.__dict__.update(ori_config.__dict__)
-            tables[i] = emb_cache_config
+
 
     def _create_embcache_mgr(self) -> EmbcacheManager:
         emb_configs = []
