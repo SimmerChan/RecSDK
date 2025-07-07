@@ -318,9 +318,7 @@ def compare_list(list1, list2):
     return True
 
 
-def are_features_equal(obj1, obj2):
-    attributes_to_compare = ["update_embs", "update_momentums1", "update_momentums2"]
-
+def are_features_equal(obj1, obj2, attributes_to_compare):
     for attr in attributes_to_compare:
         value1 = getattr(obj1, attr, None)
         value2 = getattr(obj2, attr, None)
@@ -329,7 +327,7 @@ def are_features_equal(obj1, obj2):
             logging.error(f"Attribute '{attr}' not found in one of the objects.")
             return False
         elif isinstance(value1, list):
-            if not compare_lists(value1, value2):
+            if not compare_list(value1, value2):
                 logging.debug("Lists are not equal: %s != %s", value1, value2)
                 return False
         elif isinstance(value1, torch.Tensor):
