@@ -2,21 +2,24 @@
 # -*- coding: utf-8 -*-
 
 import os
-import stat
 import glob
-import json
 import random
 import shutil
-import logging
 from datetime import datetime
 from functools import partial
 from typing import Dict, Tuple
 
-import pytz
 import tensorflow as tf
 from npu_bridge.npu_init import NPUEstimator, NPURunConfig
 
-from utils import get_third_nearest_checkpoint, dump_pred_multi
+from utils import (
+    get_third_nearest_checkpoint,
+    json_file_load,
+    dump_pred_multi,
+    embedding_lookup_sparse_fake,
+    build_feature_descriptions,
+    setup_logger
+)
 
 tf.compat.v1.enable_control_flow_v2()
 tf.compat.v1.enable_resource_variables()
@@ -82,22 +85,6 @@ def parse_example(mode_type: str, example: tf.Tensor) -> Tuple[Dict[str, tf.Tens
     return input_dict, target
 
 
-def json_file_load(json_name: str, json_path: str) -> dict:
-    """
-    Load a JSON file from the specified path.
-    """
-    flags = os.O_RDONLY
-    modes = stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH
-    try:
-        with os.fdopen(os.open(json_path, flags, modes), "r") as fp:
-            json_re = json.load(fp)
-    except FileNotFoundError as e:
-        raise FileNotFoundError(f"{json_name} file not found: {e}") from e
-    except Exception as e:
-        raise RuntimeError(f"Error loading {json_name} file: {e}") from e
-
-    return json_re
-
 
 def input_fn(filenames: list, mode_type: str, batch_size: int = 32, num_epochs: int = 1,
              perform_shuffle: bool = False) -> tuple:
@@ -120,39 +107,6 @@ def input_fn(filenames: list, mode_type: str, batch_size: int = 32, num_epochs: 
     batch_features, batch_labels = iterator.get_next()
 
     return batch_features, batch_labels
-
-
-def embedding_lookup_sparse_fake(params: tf.Tensor, ids: tf.Tensor, combiner: str = None,
-                                 name: str = None) -> tf.Tensor:
-    """
-    Perform sparse embedding lookup and combine the results.
-
-    Args:
-        params (tf.Tensor): The embedding parameters.
-        ids (tf.Tensor): The sparse IDs to lookup.
-        combiner (str, optional): The combiner method ('sum' or 'mean'). Defaults to None.
-        name (str, optional): The name for the operation. Defaults to None.
-
-    Returns:
-        tf.Tensor: The combined embedding results.
-
-    Raises:
-        ValueError: If the combiner is not 'sum' or 'mean'.
-    """
-
-    # Create a dense mask where valid IDs are marked as 1.0 and invalid IDs as 0.0
-    dense_mask = tf.expand_dims(tf.cast(ids >= 0, tf.float32), axis=-1)
-
-    # Replace invalid IDs (-1) with zeros
-    ids = tf.where(tf.equal(ids, -1), tf.zeros_like(ids), ids)
-    embedding = tf.nn.embedding_lookup(params, ids, name=name + "_dense_lookup") * dense_mask
-    summed_embedding = tf.reduce_sum(embedding, axis=1)
-    if combiner == "sum":
-        return summed_embedding
-    elif combiner == "mean":
-        return summed_embedding / tf.reduce_sum(dense_mask, axis=1)
-    else:
-        raise ValueError("combiner only supports 'sum' or 'mean'")
 
 
 def build_embedding_layer(features: dict, spec: dict, model_cfg: object) -> tf.Tensor:
@@ -538,58 +492,10 @@ def main(model_cfg):
 
 
 if __name__ == "__main__":
-
     model_config = define_flags()
-    logger = logging.getLogger()
-    log_level = getattr(logging, model_config.log_level.upper(), logging.DEBUG)
-    logger.setLevel(log_level)
-    console_hand = logging.StreamHandler()
-    formatter = logging.Formatter("%(levelname)s - %(asctime)s: %(message)s")
-    console_hand.setLevel(log_level)
-    console_hand.setFormatter(formatter)
-    logger.addHandler(console_hand)
-    # Define the timezone for China Standard Time
-    china_tz = pytz.timezone('Asia/Shanghai')
-    logfile_na = MODEL_NAME + "_" + datetime.now(china_tz).strftime("%Y_%m_%d_%H_%M_%S") + ".log"
-    logfile_path = os.path.join("../logs/aliccp/", logfile_na)
-    fh = logging.FileHandler(logfile_path)
-    fh.setLevel(log_level)
-    fh.setFormatter(formatter)
-    logger.addHandler(fh)
+    logger, china_tz = setup_logger(model_config, MODEL_NAME)
+    spec, feature_descriptions = build_feature_descriptions(model_config)
 
     logger.info("FLAGS: " + str(model_config))
-
-    spec_json_path = os.path.join(model_config.data_dir, "spec.json")
-    spec = json_file_load("spec", spec_json_path)
-
-    feature_descriptions = {}
-    for mode in [tf.estimator.ModeKeys.TRAIN, tf.estimator.ModeKeys.EVAL, tf.estimator.ModeKeys.PREDICT]:
-        key_map = {
-            tf.estimator.ModeKeys.TRAIN: "train",
-            tf.estimator.ModeKeys.EVAL: "val",
-            tf.estimator.ModeKeys.PREDICT: "test"
-        }
-
-        feature_description = {
-            'y': tf.io.FixedLenFeature([], tf.float32),
-            'z': tf.io.FixedLenFeature([], tf.float32),
-            'one_hot_fields': tf.io.FixedLenFeature([len(spec["one_hot_fields"])], tf.int64)
-        }
-        try:
-            for mul_fields in spec.get("multi_hot_fields"):
-                feature_description[mul_fields] = tf.io.FixedLenFeature(
-                    [spec[f"{key_map[mode]}_max_length"][mul_fields]],
-                    tf.int64)
-            for mul_fields in spec["special_fields"]:
-                feature_description[mul_fields] = tf.io.FixedLenFeature(
-                    [spec[f"{key_map[mode]}_max_length"][mul_fields]],
-                    tf.int64)
-        except KeyError as e_key:
-            raise KeyError("Spec file Error, please check spec.json,  error description: {}".format(e_key)) from e_key
-        except Exception as e_info:
-            raise RuntimeError("Error loading feature description: {}".format(e_info)) from e_info
-
-        feature_descriptions[mode] = feature_description
-
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.INFO)
     tf.compat.v1.app.run(main=lambda argv: main(argv[0]), argv=[model_config])

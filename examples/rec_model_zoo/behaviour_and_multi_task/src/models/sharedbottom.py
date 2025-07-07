@@ -3,18 +3,22 @@
 
 import os
 import glob
-import json
 import random
 import shutil
-import logging
-from datetime import datetime, date, timedelta
+from datetime import date, timedelta
 from functools import partial
 
-import pytz
 import tensorflow as tf
 from npu_bridge.npu_init import NPUEstimator, NPURunConfig
 
-from utils import get_third_nearest_checkpoint, json_file_load, dump_pred_multi
+from utils import (
+    get_third_nearest_checkpoint,
+    json_file_load,
+    dump_pred_multi,
+    embedding_lookup_sparse_fake,
+    build_feature_descriptions,
+    setup_logger
+)
 
 tf.compat.v1.enable_control_flow_v2()
 tf.compat.v1.enable_resource_variables()
@@ -111,18 +115,6 @@ def build_optimizer(model_cfg) -> tf.compat.v1.train.Optimizer:
 
 def model_fn(features, labels, mode, params):
     """build Estimator model"""
-
-    def embedding_lookup_sparse_fake(params, ids, combiner=None, name=None):
-        dense_mask = tf.expand_dims(tf.cast(ids >= 0, tf.float32), axis=-1)
-        ids = tf.where(tf.equal(ids, -1), tf.zeros_like(ids), ids)
-        embedding = tf.nn.embedding_lookup(params, ids, name=name + "_dense_lookup") * dense_mask
-        summed_embedding = tf.reduce_sum(embedding, axis=1)
-        if combiner == "sum":
-            return summed_embedding
-        elif combiner == "mean":
-            return summed_embedding / tf.reduce_sum(dense_mask, axis=1)
-        else:
-            raise ValueError("combiner only supoort 'sum', 'mean'")
 
     with tf.compat.v1.variable_scope("Embedding-Layer"):
         emb_weights = {}
@@ -356,48 +348,9 @@ def main(model_cfg):
 
 if __name__ == "__main__":
     model_config = define_flags()
-    logger = logging.getLogger()
-    log_level = getattr(logging, model_config.log_level.upper(), logging.DEBUG)
-    logger.setLevel(log_level)
-    console_hand = logging.StreamHandler()
-    formatter = logging.Formatter("%(levelname)s - %(asctime)s: %(message)s")
-    console_hand.setLevel(log_level)
-    console_hand.setFormatter(formatter)
-    logger.addHandler(console_hand)
-    # Define the timezone for China Standard Time
-    china_tz = pytz.timezone('Asia/Shanghai')
-    logfile_na = MODEL_NAME + "_" + datetime.now(china_tz).strftime("%Y_%m_%d_%H_%M_%S") + ".log"
-    logfile_path = os.path.join("../logs/aliccp/", logfile_na)
-    fh = logging.FileHandler(logfile_path)
-    fh.setLevel(log_level)
-    fh.setFormatter(formatter)
-    logger.addHandler(fh)
+    logger, china_tz = setup_logger(model_config, MODEL_NAME)
+    spec, feature_descriptions = build_feature_descriptions(model_config)
 
     logger.info("FLAGS: " + str(model_config))
-
-    spec_json_path = os.path.join(model_config.data_dir, "spec.json")
-    spec = json_file_load("spec", spec_json_path)
-
-    feature_descriptions = {}
-    for mode in [tf.estimator.ModeKeys.TRAIN, tf.estimator.ModeKeys.EVAL, tf.estimator.ModeKeys.PREDICT]:
-        key_map = {
-            tf.estimator.ModeKeys.TRAIN: "train",
-            tf.estimator.ModeKeys.EVAL: "val",
-            tf.estimator.ModeKeys.PREDICT: "test"
-        }
-
-        feature_description = {
-            'y': tf.io.FixedLenFeature([], tf.float32),
-            'z': tf.io.FixedLenFeature([], tf.float32),
-            'one_hot_fields': tf.io.FixedLenFeature([len(spec["one_hot_fields"])], tf.int64)
-        }
-        for mul_fields in spec["multi_hot_fields"]:
-            feature_description[mul_fields] = tf.io.FixedLenFeature([spec[f"{key_map[mode]}_max_length"][mul_fields]],
-                                                                    tf.int64)
-        for mul_fields in spec["special_fields"]:
-            feature_description[mul_fields] = tf.io.FixedLenFeature([spec[f"{key_map[mode]}_max_length"][mul_fields]],
-                                                                    tf.int64)
-        feature_descriptions[mode] = feature_description
-
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.INFO)
     tf.compat.v1.app.run(main=lambda argv: main(argv[0]), argv=[model_config])
