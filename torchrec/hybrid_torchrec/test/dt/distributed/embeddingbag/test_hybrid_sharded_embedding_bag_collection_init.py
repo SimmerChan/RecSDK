@@ -104,5 +104,5 @@ def hybrid_sharded_embedding_bag_collection(monkeypatch):
 @patch("torchrec.tensor_types.check", return_value=None)
 @patch("torchrec.distributed.model_parallel.check", return_value=None)
 @patch("torchrec.distributed.planner.types.check", return_value=None)
-def test_hybrid_sharded_embedding_bag_collection_init():
+def test_hybrid_sharded_embedding_bag_collection_init(hybrid_sharded_embedding_bag_collection, *mock):
     assert hybrid_sharded_embedding_bag_collection
