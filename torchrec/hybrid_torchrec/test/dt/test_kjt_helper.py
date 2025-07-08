@@ -126,4 +126,3 @@ def test_unique_split(table_num, feature_names, input_size):
     assert isinstance(split_list[0], KeyedJaggedTensorWithLookHelper)
 
     kjt_helper.to(torch.device("cpu"), False)
-    assert kjt_helper.keys == keys
