@@ -214,7 +214,7 @@ def test_hybrid_sharded_embedding_bag_collection_output_dist(*mock):
 @patch("torchrec.distributed.planner.types.check", return_value=None)
 @patch("torchrec.distributed.embeddingbag.construct_output_kt",
        return_value=KeyedTensor(["feature1", "feature2"], [2, 2], torch.tensor((1, 2, 3, 4))))
-def test_hybrid_sharded_embedding_bag_collection_output_dist(*mock):
+def test_hybrid_sharded_embedding_bag_collection_compute_and_output_dist(*mock):
     ebc = hybrid_sharded_embedding_bag_collection()
 
     # Call the input_dist method
