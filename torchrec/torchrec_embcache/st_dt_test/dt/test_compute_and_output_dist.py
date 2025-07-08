@@ -201,10 +201,23 @@ def execute(rank, config):
         sparse_features[0].unique_indices = swap_info.batch_offs
         for j, sparse_feature in enumerate(sparse_features):
             sparse_features[j] = sparse_feature.to(test_model.npu_device, non_blocking=True)
-
+        for sharding_ctx in ctx.sharding_contexts:
+            if collection_type == "ebc":
+                sharding_ctx.sparse_feature_recat = None
+            if sharding_ctx.unbucketize_permute_tensor is not None:
+                sharding_ctx.unbucketize_permute_tensor = (
+                    sharding_ctx.unbucketize_permute_tensor.to(
+                        test_model.npu_device, non_blocking=True
+                    )
+                )
         module_awaitable = module.compute_and_output_dist(ctx, sparse_features)
-        jt = module_awaitable.wait()
-        jt_list.append({"value": jt.values()})
+        if collection_type == "ebc":
+            jt = module_awaitable.wait()
+            jt_list.append({"value": jt.values()})
+        else:
+            jt_dict = module_awaitable.wait()
+            for jt in jt_dict.values():
+                jt_list.append({"value": jt.values()})
 
     if not config["fname"].startswith("test_normal"):
         logging.debug("Skipping saving baseline for non-normal test: %s", config["fname"])
