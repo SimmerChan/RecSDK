@@ -229,7 +229,7 @@ def execute(rank, config):
         logging.debug("Skipping accuracy check for %s", config["fname"])
         return
 
-    save_folder = os.path.join(TEST_ROOT_DIR, "configs", MODULE_NAME, "compute_and_output_dist")
+    save_folder = os.path.join(TEST_ROOT_DIR, "configs", MODULE_NAME, "swap_out")
     if not os.path.exists(save_folder):
         os.makedirs(save_folder, exist_ok=True)
     saved_file = os.path.join(save_folder, f"rank{rank}_{config['fname']}.pt")
@@ -246,7 +246,5 @@ def execute(rank, config):
             attributes_to_compare = [
                 "swapout_embs", "swapout_momentum"
                 ]
-            assert (
-                are_features_equal(obj1, obj2, attributes_to_compare), 
+            assert are_features_equal(obj1, obj2, attributes_to_compare), \
                 "Swapout dicts are not equal: {} != {}".format(obj1, obj2)
-            )

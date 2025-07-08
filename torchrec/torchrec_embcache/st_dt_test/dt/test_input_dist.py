@@ -236,7 +236,7 @@ def execute(rank, config):
     if not config["fname"].startswith("test_normal"):
         logging.debug("Skipping baseline check for %s", config["fname"])
         return
-    save_folder = os.path.join(TEST_ROOT_DIR, "configs", MODULE_NAME, "post_input_dist")
+    save_folder = os.path.join(TEST_ROOT_DIR, "configs", MODULE_NAME, "input_dist")
     if not os.path.exists(save_folder):
         os.makedirs(save_folder, exist_ok=True)
     saved_file = os.path.join(save_folder, f"rank{rank}_{config['fname']}.pt")

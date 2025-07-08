@@ -238,7 +238,5 @@ def execute(rank, config):
         base_line = torch.load(saved_file, weights_only=False)
         for obj1, obj2 in zip(base_line, jt_list):
             attributes_to_compare = ["value"]
-            assert (
-                are_features_equal(obj1, obj2, attributes_to_compare), 
+            assert are_features_equal(obj1, obj2, attributes_to_compare), \
                 "jt values are not equal: {} != {}".format(obj1, obj2)
-            )

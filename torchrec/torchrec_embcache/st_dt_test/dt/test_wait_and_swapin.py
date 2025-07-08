@@ -228,7 +228,7 @@ def execute(rank, config):
         logging.debug("Skipping saving baseline for non-normal test: %s", config["fname"])
         return
 
-    save_folder = os.path.join(TEST_ROOT_DIR, "configs", MODULE_NAME, "compute_and_output_dist")
+    save_folder = os.path.join(TEST_ROOT_DIR, "configs", MODULE_NAME, "wait_and_swapin")
     if not os.path.exists(save_folder):
         os.makedirs(save_folder, exist_ok=True)
     saved_file = os.path.join(save_folder, f"rank{rank}_{config['fname']}.pt")
@@ -243,7 +243,5 @@ def execute(rank, config):
         base_line = torch.load(saved_file, weights_only=False)
         for obj1, obj2 in zip(base_line, update_embs_momentums_dict_list):
             attributes_to_compare = ["update_embs", "update_momentums1", "update_momentums2"]
-            assert (
-                are_features_equal(obj1, obj2, attributes_to_compare), 
+            assert are_features_equal(obj1, obj2, attributes_to_compare), \
                 "Update embs and momentums are not equal: {} != {}".format(obj1, obj2)
-            )

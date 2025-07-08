@@ -203,9 +203,9 @@ def execute(rank, config):
             swap_info_dict = {
                     "batch_offs": future.batch_offs,
                     "swapin_keys": future.swapin_keys,
-                    "swapin_offs": future.swapin_offsets,
+                    "swapin_offs": future.swapin_offs,
                     "swapout_keys": future.swapout_keys,
-                    "swapout_offs": future.swapout_offsets,
+                    "swapout_offs": future.swapout_offs,
                 }
             if loop == 0:
                 swap_info_dicts.append(swap_info_dict)
@@ -219,7 +219,7 @@ def execute(rank, config):
         logging.debug("Skipping accuracy check for %s", config["fname"])
         return
 
-    save_folder = os.path.join(TEST_ROOT_DIR, "configs", MODULE_NAME, "compute_and_output_dist")
+    save_folder = os.path.join(TEST_ROOT_DIR, "configs", MODULE_NAME, "compute_swap_info_async")
     if not os.path.exists(save_folder):
         os.makedirs(save_folder, exist_ok=True)
     saved_file = os.path.join(save_folder, f"rank{rank}_{config['fname']}.pt")
@@ -234,7 +234,5 @@ def execute(rank, config):
         base_line = torch.load(saved_file, weights_only=False)
         for obj1, obj2 in zip(base_line, swap_info_dicts):
             attributes_to_compare = ["batch_offs", "swapin_keys", "swapin_offs", "swapout_keys", "swapout_offs"]
-            assert (
-                are_features_equal(obj1, obj2, attributes_to_compare), 
+            assert are_features_equal(obj1, obj2, attributes_to_compare), \
                 "swap_info values are not equal: {} != {}".format(obj1, obj2)
-            )

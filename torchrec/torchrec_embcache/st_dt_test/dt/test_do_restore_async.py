@@ -207,7 +207,7 @@ def execute(rank, config):
             swapout_keys = future.swapout_keys
             unique_inverse = sparse_features[0].unique_inverse
             unique_offsets = sparse_features[0].unique_offsets
-            offset_per_key = sparse_features[0].offset_per_key
+            offset_per_key = sparse_features[0].offset_per_key()
             hash_indices = sparse_features[0].hash_indices
             if swapout_keys:
                 sparse_features_after_restore_future = embcache_pybind.restore_async(
@@ -231,7 +231,7 @@ def execute(rank, config):
         logging.debug("Skipping accuracy check for %s", config["fname"])
         return
 
-    save_folder = os.path.join(TEST_ROOT_DIR, "configs", MODULE_NAME, "compute_and_output_dist")
+    save_folder = os.path.join(TEST_ROOT_DIR, "configs", MODULE_NAME, "do_restore_async")
     if not os.path.exists(save_folder):
         os.makedirs(save_folder, exist_ok=True)
     saved_file = os.path.join(save_folder, f"rank{rank}_{config['fname']}.pt")

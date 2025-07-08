@@ -202,7 +202,7 @@ def execute(rank, config):
         logging.debug("Skipping saving baseline for non-normal test: %s", config["fname"])
         return
 
-    save_folder = os.path.join(TEST_ROOT_DIR, "configs", MODULE_NAME, "compute_and_output_dist")
+    save_folder = os.path.join(TEST_ROOT_DIR, "configs", MODULE_NAME, "post_input_dist")
     if not os.path.exists(save_folder):
         os.makedirs(save_folder, exist_ok=True)
     saved_file = os.path.join(save_folder, f"rank{rank}_{config['fname']}.pt")
@@ -224,7 +224,5 @@ def execute(rank, config):
                 "unique_offset", 
                 "unique_offset_host"
                 ]
-            assert (
-                are_features_equal(obj1, obj2, attributes_to_compare), 
+            assert are_features_equal(obj1, obj2, attributes_to_compare), \
                 "Features are not equal: {} != {}".format(obj1, obj2)
-            )

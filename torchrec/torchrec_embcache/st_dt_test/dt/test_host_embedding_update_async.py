@@ -237,7 +237,5 @@ def execute(rank, config):
 
     for obj1, obj2 in zip(swapout_tensor_dict_list, swapout_dict_list):
         attributes_to_compare = ["embs", "optims"]
-        assert (
-            are_features_equal(obj1, obj2, attributes_to_compare), 
+        assert are_features_equal(obj1, obj2, attributes_to_compare), \
             "swapout_tensor_dict and swapout_dict are not equal"
-        )
