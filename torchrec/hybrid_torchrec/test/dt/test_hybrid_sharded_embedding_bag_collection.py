@@ -111,7 +111,7 @@ def hybrid_sharded_embedding_bag_collection():
 
 @pytest.mark.parametrize("device", [torch.device("cuda:0"), torch.device("cpu"), "npu:0", "cpu"])
 @pytest.mark.parametrize("check_device", [["meta", "cpu"]])
-def test_device_check_func(device: Union[torch.device|str], check_device: list[str]):
+def test_device_check_func(device: Union[torch.device, str], check_device: list[str]):
     device_is_in(device, check_device)
 
 
