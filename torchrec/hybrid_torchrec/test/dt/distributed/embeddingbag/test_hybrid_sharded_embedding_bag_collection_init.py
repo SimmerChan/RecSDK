@@ -66,7 +66,7 @@ def create_planner():
     }
 
     planner = EmbeddingShardingPlanner(
-        topology=Topology(world_size=1, rank=0, pg=torch.distributed.group.WORLD),
+        topology=Topology(world_size=1, compute_device=DEVICE.type),
         constraints=constraints,
     )
     return planner
