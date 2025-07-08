@@ -13,6 +13,7 @@ import pytest
 from parameterized import parameterized
 import torch
 from torch.optim import Adam, Adagrad, SGD
+import torch.distributed as dist
 
 from fbgemm_gpu.split_embedding_configs import EmbOptimType
 from fbgemm_gpu.split_table_batched_embeddings_ops_common import (
@@ -27,6 +28,7 @@ from hybrid_torchrec.distributed.batched_embedding_kernel import (
 )
 
 from torchrec import ComputeDevice
+from torchrec.distributed.types import ShardingEnv
 
 TORCH_OPTIMIZER_TO_FBGEMM = {
     Adam: EmbOptimType.ADAM,
@@ -91,4 +93,26 @@ class TestHybridSplitTableBatchedEmbeddingBagsCodegen(unittest.TestCase):
                    self.hash_indices,
                    self.unique_indices,
                    self.unique_inverse) == NotImplemented
+
+    def test_forward_check_vbe_metadata(self):
+        with patch(f"hybrid_torchrec.hybrid_lookup_invoke.lookup_sgd") as mock_invoke:
+            mock_invoke.return_value=None
+            tbe = HybridSplitTableBatchedEmbeddingBagsCodegen(
+                self.embedding_specs_npu,
+                optimizer=EmbOptimType.EXACT_SGD,
+                pooling_mode=PoolingMode.SUM,
+                device=torch.device("meta")
+            )
+            tbe.iter = torch.Tensor([0])
+            batch_size_per_feature_rank = torch.Tensor([2, 2])
+            tbe(self.indices,
+                self.offsets,
+                self.hash_indices,
+                self.unique_indices,
+                self.unique_inverse,
+                batch_size_per_feature_rank)
+
+
+
+
     
