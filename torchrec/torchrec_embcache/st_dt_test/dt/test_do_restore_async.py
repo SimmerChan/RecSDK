@@ -206,7 +206,7 @@ def execute(rank, config):
             batch_offs = future.batch_offs
             swapout_keys = future.swapout_keys
             unique_inverse = sparse_features[0].unique_inverse
-            unique_offsets = sparse_features[0].unique_offsets
+            unique_offsets = sparse_features[0].unique_offset
             offset_per_key = sparse_features[0].offset_per_key()
             hash_indices = sparse_features[0].hash_indices
             if swapout_keys:
@@ -246,7 +246,5 @@ def execute(rank, config):
         base_line = torch.load(saved_file, weights_only=False)
         for obj1, obj2 in zip(base_line, update_hash_indices_list):
             attributes_to_compare = ["hash_indices"]
-            assert (
-                are_features_equal(obj1, obj2, attributes_to_compare), 
+            assert are_features_equal(obj1, obj2, attributes_to_compare), \
                 "hash indices are not equal: {} != {}".format(obj1, obj2)
-            )
