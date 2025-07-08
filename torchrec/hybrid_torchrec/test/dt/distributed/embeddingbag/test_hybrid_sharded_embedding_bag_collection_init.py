@@ -5,10 +5,10 @@
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
-from unittest.mock import MagicMock
+from unittest.mock import patch
 
+import pytest
 import torch
-import torchrec
 from torchrec.distributed.planner import EmbeddingShardingPlanner, Topology, ParameterConstraints
 from torchrec.distributed.types import ShardingEnv
 from torchrec.modules.embedding_configs import EmbeddingBagConfig, PoolingType
@@ -19,15 +19,7 @@ from hybrid_torchrec.distributed.embeddingbag import HybridShardedEmbeddingBagCo
 DEVICE = torch.device("cpu")
 
 
-def set_env(monkeypatch):
-    monkeypatch.setenv("MASTER_ADDR", "localhost")
-    monkeypatch.setenv("MASTER_PORT", "5678")
-
-    torchrec.distributed.planner.ParameterConstraints.__post_init__ = MagicMock(return_value=None)
-    torchrec.tensor_types.check = MagicMock(return_value=None)
-    torchrec.distributed.model_parallel.check = MagicMock(return_value=None)
-    torchrec.distributed.planner.types.check = MagicMock(return_value=None)
-
+def set_env():
     torch.distributed.init_process_group(backend="gloo", rank=0, world_size=1)
     pg = torch.distributed.group.WORLD
     env = ShardingEnv(world_size=1, rank=0, pg=pg)
@@ -72,8 +64,12 @@ def create_planner():
     return planner
 
 
-def test_hybrid_sharded_embedding_bag_collection_init(monkeypatch):
-    env, host_env = set_env(monkeypatch)
+@pytest.fixture
+def hybrid_sharded_embedding_bag_collection(monkeypatch):
+    monkeypatch.setenv("MASTER_ADDR", "localhost")
+    monkeypatch.setenv("MASTER_PORT", "5678")
+
+    env, host_env = set_env()
     module, embedding_bag_configs = create_ebc()
     planner = create_planner()
     hybrid_sharder = get_default_hybrid_sharders(host_env=host_env)
@@ -81,7 +77,6 @@ def test_hybrid_sharded_embedding_bag_collection_init(monkeypatch):
     plan = planner.collective_plan(module, hybrid_sharder, torch.distributed.GroupMember.WORLD)
     sharded_params = plan.get_plan_for_module(list(plan.plan.keys())[0])
 
-    # Initialize the HybridShardedEmbeddingBagCollection
     hybrid_sharded_ebc = HybridShardedEmbeddingBagCollection(
         module=module,
         table_name_to_parameter_sharding=sharded_params,
@@ -101,3 +96,13 @@ def test_hybrid_sharded_embedding_bag_collection_init(monkeypatch):
     assert hybrid_sharded_ebc._table_names == ["table1", "table2"]
     assert hybrid_sharded_ebc._table_name_to_config["table1"].name == "table1"
     assert hybrid_sharded_ebc._table_name_to_config["table2"].name == "table2"
+
+    return hybrid_sharded_ebc
+
+
+@patch("torchrec.distributed.planner.ParameterConstraints.__post_init__", return_value=None)
+@patch("torchrec.tensor_types.check", return_value=None)
+@patch("torchrec.distributed.model_parallel.check", return_value=None)
+@patch("torchrec.distributed.planner.types.check", return_value=None)
+def test_hybrid_sharded_embedding_bag_collection_init():
+    assert hybrid_sharded_embedding_bag_collection
