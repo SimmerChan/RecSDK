@@ -180,20 +180,19 @@ def execute(rank, config):
     fuse_input_dist_splits(context)
 
     fused_splits_awaitables_dicts = []
-    for _, fused_splits_awaitables in context.fused_splits_awaitables:
-        for fused_splits_awaitable in fused_splits_awaitables:
-            output_lengths = fused_splits_awaitable.output_lengths
-            lengths = fused_splits_awaitable.lengths
-            if fused_splits_awaitable.splits_awaitable:
-                splits_tensors = fused_splits_awaitable.splits_awaitable.wait()
-            else:
-                splits_tensors = []
-            fused_splits_awaitables_dict = {
-                "output_lengths": output_lengths,
-                "lengths": lengths,
-                "splits_tensors": splits_tensors,
-            }
-            fused_splits_awaitables_dicts.append(fused_splits_awaitables_dict)
+    for fused_splits_awaitable in context.fused_splits_awaitables:
+        output_lengths = fused_splits_awaitable.output_lengths
+        lengths = fused_splits_awaitable.lengths
+        if fused_splits_awaitable.splits_awaitable:
+            splits_tensors = fused_splits_awaitable.splits_awaitable.wait()
+        else:
+            splits_tensors = []
+        fused_splits_awaitables_dict = {
+            "output_lengths": output_lengths,
+            "lengths": lengths,
+            "splits_tensors": splits_tensors,
+        }
+        fused_splits_awaitables_dicts.append(fused_splits_awaitables_dict)
 
     if not config["fname"].startswith("test_normal"):
         logging.debug("Skipping saving baseline for non-normal test: %s", config["fname"])

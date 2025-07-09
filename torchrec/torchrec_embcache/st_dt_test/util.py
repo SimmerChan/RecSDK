@@ -320,8 +320,8 @@ def compare_list(list1, list2):
 
 def are_features_equal(obj1, obj2, attributes_to_compare):
     for attr in attributes_to_compare:
-        value1 = getattr(obj1, attr, None)
-        value2 = getattr(obj2, attr, None)
+        value1 = obj1.get(attr, None)
+        value2 = obj2.get(attr, None)
 
         if value1 is None or value2 is None:
             logging.error(f"Attribute '{attr}' not found in one of the objects.")

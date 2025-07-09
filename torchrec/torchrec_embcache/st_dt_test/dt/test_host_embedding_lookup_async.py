@@ -195,7 +195,7 @@ def execute(rank, config):
             context.module_contexts[name], 
             kjt_list
         )
-        sparse_features = post_waitable.wait()
+        sparse_features = post_waitable.get()
         swap_info_future = module.compute_swap_info_async(sparse_features)
         swap_info = swap_info_future.wait()
         swap_info.swapout_offs = swap_info.swapout_offs.to(test_model.npu_device, non_blocking=True)

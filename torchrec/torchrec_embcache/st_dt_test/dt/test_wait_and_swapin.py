@@ -197,7 +197,7 @@ def execute(rank, config):
         )
         sparse_features = post_waitable.wait()
         swap_info_future = module.compute_swap_info_async(sparse_features)
-        swap_info = swap_info_future.wait()
+        swap_info = swap_info_future.get()
         swap_info.swapout_offs = swap_info.swapout_offs.to(test_model.npu_device, non_blocking=True)
         swap_info.swapin_offs = swap_info.swapin_offs.to(test_model.npu_device, non_blocking=True)
         swapin_tensor_future = module.host_embedding_lookup_async(swap_info)
@@ -211,7 +211,7 @@ def execute(rank, config):
         _stb_eb_codegen = module.get_batched_embedding_kernels()[0][0]
         _stb_eb_codegen.scatter_update_embs(swapin_offs, swapin_embs)
         update_embs = _stb_eb_codegen.weights_dev.clone()
-        _stb_eb_codegen.scatter_update_momentums(swapin_offs, swapin_optims)
+        _stb_eb_codegen.scatter_update_momentum(swapin_offs, swapin_optims)
         update_momentums1 = torch.tensor([])
         update_momentums2 = torch.tensor([])
         update_momentums1 = _stb_eb_codegen.momentum1_dev.clone()

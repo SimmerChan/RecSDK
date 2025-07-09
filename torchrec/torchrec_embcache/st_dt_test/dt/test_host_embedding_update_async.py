@@ -209,10 +209,10 @@ def execute(rank, config):
         _stb_eb_codegen = module.get_batched_embedding_kernels()[0][0]
 
         swap_offs = swap_info.swapout_offs
-        swapout_embs = _stb_eb_codegen.gather_embs(swap_offs).to(test_model.npu_device, non_blocking=True)
+        swapout_embs = _stb_eb_codegen.gather_embs(swap_offs).to(test_model.cpu_device, non_blocking=True)
         swapout_optims = []
-        for momentum in _stb_eb_codegen.get_momentum(swap_offs):
-            swapout_optims.append(momentum.to(test_model.npu_device, non_blocking=True))
+        for momentum in _stb_eb_codegen.gather_momentum(swap_offs):
+            swapout_optims.append(momentum.to(test_model.cpu_device, non_blocking=True))
         # 未知原因，需要logging.debug或者print才能顺利用lookup进行查询，否则为全0
         logging.debug("swapout_embs: %s", swapout_embs)
         logging.debug("swapout_optims: %s", swapout_optims)

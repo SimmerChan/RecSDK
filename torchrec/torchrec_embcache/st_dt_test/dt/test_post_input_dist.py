@@ -196,7 +196,15 @@ def execute(rank, config):
             kjt_list
         )
         for feature in post_waitable.wait().features:
-            features.append(feature)
+            feature_dict = {
+                "hash_indices": feature.hash_indices, 
+                "unique_ids": feature.unique_ids,
+                "unique_indices": feature.unique_indices,
+                "unique_inverse": feature.unique_inverse,
+                "unique_offset": feature.unique_offset,
+                "unique_offset_host": feature.unique_offset_host
+            }
+            features.append(feature_dict)
 
     if not config["fname"].startswith("test_normal"):
         logging.debug("Skipping saving baseline for non-normal test: %s", config["fname"])
