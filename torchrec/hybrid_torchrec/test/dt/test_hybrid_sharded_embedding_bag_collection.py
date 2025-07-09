@@ -11,11 +11,6 @@ from unittest.mock import patch
 
 import pytest
 import torch
-from torchrec import KeyedJaggedTensor, KeyedTensor
-from torchrec.distributed.planner import EmbeddingShardingPlanner, Topology, ParameterConstraints
-from torchrec.distributed.types import ShardingEnv
-from torchrec.modules.embedding_configs import EmbeddingBagConfig, PoolingType
-from torchrec.modules.embedding_modules import EmbeddingBagCollection
 from hybrid_torchrec.distributed import get_default_hybrid_sharders
 from hybrid_torchrec.distributed.embeddingbag import (
     HybridShardedEmbeddingBagCollection,
@@ -23,6 +18,12 @@ from hybrid_torchrec.distributed.embeddingbag import (
     device_is_in,
     _pin_and_move
 )
+from torchrec import KeyedJaggedTensor, KeyedTensor
+from torchrec.distributed.planner import EmbeddingShardingPlanner, Topology, ParameterConstraints
+from torchrec.distributed.types import ShardingEnv
+from torchrec.modules.embedding_configs import EmbeddingBagConfig, PoolingType
+from torchrec.modules.embedding_modules import EmbeddingBagCollection
+
 
 DEVICE = torch.device("cpu")
 
