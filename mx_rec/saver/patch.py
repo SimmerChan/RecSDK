@@ -53,7 +53,7 @@ from mpi4py import MPI
 from mx_rec.saver.saver import Saver as SparseSaver
 from mx_rec.saver.saver import check_file_system_is_valid, should_write_data, update_model_index, \
     write_delta_export_time_ms, get_model_type_by_version, get_base_and_delta_models, read_base_delta_and_write, \
-    clear_delta_models, read_base_delta_and_write_for_ssd
+    clear_delta_models, read_base_delta_and_write_for_ssd, check_file_system_is_hdfs
 from mx_rec.util.communication.hccl_ops import get_rank_id
 from mx_rec.util.initialize import ConfigInitializer
 from mx_rec.validator.validator import para_checker_decorator, ClassValidator, StringValidator, OptionalIntValidator, \
@@ -211,6 +211,41 @@ def check_characters_is_valid(characters: str) -> bool:
     return True
 
 
+def validate_and_configure_save_params(self, save_path, latest_filename):
+    if not check_characters_is_valid(save_path):
+        raise ValueError("save_path contains invalid characters such as newline, formfeed,"
+                         " carriage return, backspace, tab, vertical tab, and delete.")
+
+    if not check_file_system_is_valid(save_path):
+        raise ValueError("the path to save belong to invalid file system, only local file system supported. ")
+
+    if not self._is_built and not context.executing_eagerly():
+        raise RuntimeError("`build()` should be called before save if defer_build==True")
+
+    if latest_filename is None:
+        latest_filename = "checkpoint"
+
+    if self._write_version != saver_pb2.SaverDef.V2:
+        tf_logging.warning("TensorFlow's V1 checkpoint format has been deprecated.")
+
+    return latest_filename
+
+
+def validate_restore_path(save_path):
+    if not check_characters_is_valid(save_path):
+        raise ValueError("save_path contains invalid characters such as newline, "
+                         "formfeed, carriage return, backspace, tab, vertical tab, and delete.")
+
+    if not check_file_system_is_valid(save_path):
+        raise ValueError(f"the path to restore belong to invalid file system, only local file system supported. ")
+
+    if save_path.find("://") == -1:
+        directory_validator = DirectoryValidator("reading_path", save_path)
+        directory_validator.check_not_soft_link()
+        directory_validator.with_blacklist(exact_compare=False)
+        directory_validator.check()
+
+
 @para_checker_decorator(check_option_list=[
     ("sess", ClassValidator, {"classes": (tf.compat.v1.Session, tf.compat.v1.train.MonitoredSession)}),
     ("save_path", StringValidator, {"min_len": 1, "max_len": _MAX_SAVE_PATH_LEN}, ["check_string_length"]),
@@ -236,21 +271,8 @@ def save(self, sess, save_path, global_step=None, latest_filename=None, meta_gra
         saved_model_type = DELTA_MODEL if save_delta else BASE_MODEL
         msg = f"Saving {saved_model_type} model by incremental checkpoint pattern."
     tf_logging.info(msg)
-    if not check_characters_is_valid(save_path):
-        raise ValueError("save_path contains invalid characters such as newline, formfeed,"
-                         " carriage return, backspace, tab, vertical tab, and delete.")
-
-    if not check_file_system_is_valid(save_path):
-        raise ValueError("the path to save belong to invalid file system, only local file system supported. ")
-
-    if not self._is_built and not context.executing_eagerly():
-        raise RuntimeError("`build()` should be called before save if defer_build==True")
-
-    if latest_filename is None:
-        latest_filename = "checkpoint"
-
-    if self._write_version != saver_pb2.SaverDef.V2:
-        tf_logging.warning("TensorFlow's V1 checkpoint format has been deprecated.")
+    
+    latest_filename = validate_and_configure_save_params(self, save_path, latest_filename)
 
     save_check(latest_filename, sess)
 
@@ -268,6 +290,9 @@ def save(self, sess, save_path, global_step=None, latest_filename=None, meta_gra
         return model_checkpoint_path
 
     # Rec SDK Patch
+    # validate save_path first, not allow soft link in path for safety reason
+    validate_save_path(save_path)
+    
     # save sparse model, only run when self.sparse_saver is not None
     if not context.executing_eagerly() and self.sparse_saver:
         self.sparse_saver.save(sess, save_path=checkpoint_file, save_delta=save_delta)
@@ -302,6 +327,18 @@ def save(self, sess, save_path, global_step=None, latest_filename=None, meta_gra
                 clear_delta_models(save_dir)
     comm.Barrier()
     return model_checkpoint_path
+
+
+def validate_save_path(save_path):
+    if check_file_system_is_hdfs(save_path):
+        return
+
+    dir_validator = DirectoryValidator("save_path", save_path)
+    try:
+        dir_validator.check_not_soft_link()
+        dir_validator.check()
+    except ValueError as err:
+        raise ValueError(f"save_path:{save_path} can't contain soft link for safety reason") from err
 
 
 @para_checker_decorator(check_option_list=[
@@ -349,18 +386,7 @@ def restore(self, sess, save_path):
 
     save_path = os.path.join(directory, base_name)
 
-    if not check_characters_is_valid(save_path):
-        raise ValueError("save_path contains invalid characters such as newline, "
-                         "formfeed, carriage return, backspace, tab, vertical tab, and delete.")
-
-    if not check_file_system_is_valid(save_path):
-        raise ValueError(f"the path to restore belong to invalid file system, only local file system supported. ")
-
-    if save_path.find("://") == -1:
-        directory_validator = DirectoryValidator("reading_path", save_path)
-        directory_validator.check_not_soft_link()
-        directory_validator.with_blacklist(exact_compare=False)
-        directory_validator.check()
+    validate_restore_path(save_path)
 
     checkpoint_prefix = compat.as_text(save_path)
     if self._is_empty:
