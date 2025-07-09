@@ -204,6 +204,8 @@ def build_model_and_optimizer(my_dim, dev_vocab_size, local_rank_size, train_inp
         grads_and_vars = [(grad, variable) for grad, variable in zip(sparse_grads, sparse_variables)]
         train_ops.append(sparse_optimizer.apply_gradients(grads_and_vars))
 
+    return model, train_ops
+
 
 def run_train_loop(sess, train_iterator, model, args, train_ops):
     sess.run(tf.global_variables_initializer())
@@ -320,7 +322,8 @@ def train():
                             "feat_ids": train_next_iter["feat_ids"],
                            }
 
-    model, train_ops = build_model_and_optimizer(my_dim, dev_vocab_size, local_rank_size, train_input_data, feature_spec_list)
+    model, train_ops = build_model_and_optimizer(my_dim, dev_vocab_size, local_rank_size, 
+                                                 train_input_data, feature_spec_list)
 
     MODIFY_GRAPH_FLAG = False
     if MODIFY_GRAPH_FLAG:
