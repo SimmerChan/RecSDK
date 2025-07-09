@@ -69,6 +69,7 @@ def model_fn(features, labels, mode, params):
 
 if __name__ == "__main__":
     model_config = define_flags()
+    model_config.model_dir = "../checkpoint/criteo/{MODEL_NAME}/"
     logger = setup_logger(model_config, MODEL_NAME)
 
     logger.info("FLAGS: " + str(model_config))

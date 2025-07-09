@@ -30,6 +30,24 @@ import tensorflow as tf
 from npu_bridge.npu_init import NPUEstimator, NPURunConfig
 
 
+def define_common_flag(model_name):
+    tf.app.flags.DEFINE_integer("feature_size", 2100000, "Number of features")
+    tf.app.flags.DEFINE_integer("field_size", 39, "Number of fields")
+    tf.app.flags.DEFINE_integer("embedding_size", 10, "Embedding size")
+    tf.app.flags.DEFINE_integer("train_size", 33003326, "Number of instances in the train set")
+    tf.app.flags.DEFINE_integer("batch_size", 4096, "Number of batch size")
+    tf.app.flags.DEFINE_float("learning_rate", 0.001, "learning rate")
+    tf.app.flags.DEFINE_string("optimizer", 'Adam', "optimizer type {Adam, Adagrad, GD, Momentum}")
+    tf.app.flags.DEFINE_string("deep_layers", '400,400,400', "deep layers")
+    tf.app.flags.DEFINE_string("data_dir", '../data/criteo/', "data dir")
+    tf.app.flags.DEFINE_string("dt_dir", '', "data dt partition")
+    tf.app.flags.DEFINE_string("model_dir", f'../checkpoint/criteo/{model_name}/', "model check point dir")
+    tf.app.flags.DEFINE_string("servable_model_dir", '', "export servable model for TensorFlow Serving")
+    tf.app.flags.DEFINE_string("task_type", 'train', "task type")
+    tf.app.flags.DEFINE_string("log_level", "DEBUG", "log level {DEBUG, INFO, WARNING, ERROR, CRITICAL}")
+    tf.app.flags.DEFINE_boolean("clear_existing_model", True, "clear existing model or not")
+
+
 # ------ Load tfrecord dataset ------
 def input_fn(filenames: List[str], batch_size: int = 32, field_size: int = 39, num_epochs: int = 1,
              perform_shuffle: bool = False) -> Tuple[Dict[str, tf.Tensor], tf.Tensor]:

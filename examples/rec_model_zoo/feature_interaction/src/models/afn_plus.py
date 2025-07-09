@@ -4,31 +4,18 @@
 import numpy as np
 import tensorflow as tf
 
-from utils import build_estimator_spec, main, setup_logger
+from utils import define_common_flag, build_estimator_spec, main, setup_logger
 
 MODEL_NAME = "AFN_plus"
 
 
 def define_flags():
     model_conf = tf.app.flags.FLAGS
-    tf.app.flags.DEFINE_integer("train_size", 33003326, "Number of instances in the train set")
-    tf.app.flags.DEFINE_float("learning_rate", 0.001, "learning rate")
-    tf.app.flags.DEFINE_integer("feature_size", 2100000, "Number of features")
-    tf.app.flags.DEFINE_integer("field_size", 39, "Number of fields")
-    tf.app.flags.DEFINE_integer("embedding_size", 10, "Embedding size")
+    define_common_flag(MODEL_NAME)
     tf.app.flags.DEFINE_integer("hidden_size", 1500, "hidden unit size")
-    tf.app.flags.DEFINE_integer("batch_size", 4096, "Number of batch size")
-    tf.app.flags.DEFINE_string("optimizer", 'Adam', "optimizer type {Adam, Adagrad, GD, Momentum}")
     tf.app.flags.DEFINE_boolean("batch_norm", True, "perform batch normaization (True or False)")
     tf.app.flags.DEFINE_float("batch_norm_decay", 0.9, "decay for the moving average(recommend trying decay=0.9)")
-    tf.app.flags.DEFINE_string("data_dir", '../data/criteo/', "data dir")
-    tf.app.flags.DEFINE_string("dt_dir", '', "data dt partition")
-    tf.app.flags.DEFINE_string("model_dir", f'../checkpoint/criteo/{MODEL_NAME}/', "model check point dir")
-    tf.app.flags.DEFINE_string("servable_model_dir", '', "export servable model for TensorFlow Serving")
-    tf.app.flags.DEFINE_string("task_type", 'train', "task type")
-    tf.app.flags.DEFINE_boolean("clear_existing_model", True, "clear existing model or not")
-    tf.app.flags.DEFINE_string("log_level", "DEBUG", "log level {DEBUG, INFO, WARNING, ERROR, CRITICAL}")
-    tf.app.flags.DEFINE_string("deep_layers", '400,400,400', "deep layers")
+
     return model_conf
 
 
