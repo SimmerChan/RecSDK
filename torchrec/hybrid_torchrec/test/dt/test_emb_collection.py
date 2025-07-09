@@ -29,6 +29,9 @@ from torch.utils.data.dataset import IterableDataset
 from hybrid_torchrec.distributed.sharding_plan import get_default_hybrid_sharders
 from hybrid_torchrec import HashEmbeddingBagCollection, HashEmbeddingBagConfig
 
+from dataset import RandomRecDataset, Batch
+from model import Model
+
 import torchrec.distributed.shard
 from torchrec import (
     EmbeddingBagConfig,
@@ -43,9 +46,6 @@ from torchrec.distributed.types import ShardingEnv
 from torchrec.optim.apply_optimizer_in_backward import apply_optimizer_in_backward
 from torchrec.streamable import Pipelineable
 from torchrec import KeyedJaggedTensor, JaggedTensor
-from dataset import RandomRecDataset, Batch
-from model import Model
-
 
 LOOP_TIMES = 8
 BATCH_NUM = 32

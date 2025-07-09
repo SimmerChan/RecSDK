@@ -91,9 +91,9 @@ class TestHybridSplitTableBatchedEmbeddingBagsCodegen(unittest.TestCase):
                    self.unique_inverse) == NotImplemented
 
     def test_forward_check_vbe_metadata(self):
-        with patch(f"hybrid_torchrec.hybrid_lookup_invoke.lookup_sgd") as mock_invoke:
+        with patch(f"hybrid_torchrec.hybrid_lookup_invoke.lookup_sgd.invoke") as mock_invoke:
             mock_result = torch.Tensor([1, 2, 3]).to(torch.float)
-            mock_invoke.return_value=mock_result
+            mock_invoke.return_value = mock_result
             tbe = HybridSplitTableBatchedEmbeddingBagsCodegen(
                 self.embedding_specs,
                 optimizer=EmbOptimType.EXACT_SGD,
@@ -101,14 +101,13 @@ class TestHybridSplitTableBatchedEmbeddingBagsCodegen(unittest.TestCase):
                 device=torch.device("meta")
             )
             tbe.iter = torch.Tensor([0])
-
-            batch_size_per_feature_rank = torch.Tensor([2, 2])
+            batch_size_per_feature_per_rank = [[2]]
             result = tbe(self.indices,
                 self.offsets,
                 self.hash_indices,
                 self.unique_indices,
                 self.unique_inverse,
-                batch_size_per_feature_rank)
+                batch_size_per_feature_per_rank=batch_size_per_feature_per_rank)
             assert torch.equal(mock_result, result)
 
 

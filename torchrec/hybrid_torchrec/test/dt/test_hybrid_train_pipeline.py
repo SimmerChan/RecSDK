@@ -61,8 +61,11 @@ def get_embedding_config(embedding_dims, num_embeddings, table_num):
         embeding_config.append(ebc_config)
     return embeding_config
 
+
 def mock_copy_to_npu(batch, context):
     return batch
+
+
 class TestHybridTrainPipelineSparseDist(unittest.TestCase):
     def setUp(self):
         self.rank = 0
@@ -166,7 +169,7 @@ class TestHybridTrainPipelineSparseDist(unittest.TestCase):
             return_loss=True,
         )
         iter_ = iter(self.data_loader)
-        pipe._fill_pipeline(iter)
+        pipe._fill_pipeline(iter_)
         assert(pipe._contexts[0][0].batch is not None)
 
     def test_hybrid_train_pipeline_context(self):
