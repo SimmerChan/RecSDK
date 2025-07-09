@@ -47,12 +47,8 @@ class TestHybridSplitTableBatchedEmbeddingBagsCodegen(unittest.TestCase):
         self.per_sample_weights = torch.Tensor([1.0, 2.0])
         self.batch_size_per_feature_per_rank = ([1, 1], [1, 1])
         tables = [[100, 32], [200, 64]]
-        self.embedding_specs_npu = [
+        self.embedding_specs = [
             (num_embeddings, embedding_dim, EmbeddingLocation.DEVICE, ComputeDevice.NPU)
-            for (num_embeddings, embedding_dim) in tables
-        ]
-        self.embedding_specs_cpu = [
-            (num_embeddings, embedding_dim, EmbeddingLocation.HOST, ComputeDevice.CPU)
             for (num_embeddings, embedding_dim) in tables
         ]
     
@@ -65,7 +61,7 @@ class TestHybridSplitTableBatchedEmbeddingBagsCodegen(unittest.TestCase):
         # 1. Mock 优化器调用
         with patch(f"hybrid_torchrec.hybrid_lookup_invoke.{mock_target}") as mock_invoke:
             tbe = HybridSplitTableBatchedEmbeddingBagsCodegen(
-                self.embedding_specs_npu,
+                self.embedding_specs,
                 optimizer=TORCH_OPTIMIZER_TO_FBGEMM[optim],
                 pooling_mode=PoolingMode.SUM,
                 device=torch.device("meta")
@@ -82,7 +78,7 @@ class TestHybridSplitTableBatchedEmbeddingBagsCodegen(unittest.TestCase):
     
     def test_forward_with_unsupported_optim(self):
         tbe = HybridSplitTableBatchedEmbeddingBagsCodegen(
-            self.embedding_specs_npu,
+            self.embedding_specs,
             optimizer=EmbOptimType.EXACT_ROWWISE_ADAGRAD,
             pooling_mode=PoolingMode.SUM,
             device=torch.device("meta")
@@ -96,21 +92,24 @@ class TestHybridSplitTableBatchedEmbeddingBagsCodegen(unittest.TestCase):
 
     def test_forward_check_vbe_metadata(self):
         with patch(f"hybrid_torchrec.hybrid_lookup_invoke.lookup_sgd") as mock_invoke:
-            mock_invoke.return_value=None
+            mock_result = torch.Tensor([1, 2, 3]).to(torch.float)
+            mock_invoke.return_value=mock_result
             tbe = HybridSplitTableBatchedEmbeddingBagsCodegen(
-                self.embedding_specs_npu,
+                self.embedding_specs,
                 optimizer=EmbOptimType.EXACT_SGD,
                 pooling_mode=PoolingMode.SUM,
                 device=torch.device("meta")
             )
             tbe.iter = torch.Tensor([0])
+
             batch_size_per_feature_rank = torch.Tensor([2, 2])
-            tbe(self.indices,
+            result = tbe(self.indices,
                 self.offsets,
                 self.hash_indices,
                 self.unique_indices,
                 self.unique_inverse,
                 batch_size_per_feature_rank)
+            assert torch.equal(mock_result, result)
 
 
 
