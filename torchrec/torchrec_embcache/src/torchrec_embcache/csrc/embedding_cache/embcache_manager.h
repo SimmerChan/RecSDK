@@ -59,7 +59,7 @@ struct SwapinTensor {
 
 class EmbcacheManager {
 public:
-    explicit EmbcacheManager(const std::vector<EmbConfig>& embConfigs);
+    explicit EmbcacheManager(const std::vector<EmbConfig>& embConfigs, bool needAccumulateOffset = true);
 
     AsyncTask<SwapInfo> ComputeSwapInfoAsync(const at::Tensor& batchKeys, const std::vector<int64_t>& offsetPerKey);
 
@@ -136,6 +136,9 @@ private:
 
     bool enableFastHashMap = false;
     int32_t optimNum;
+
+    // 计算换入换出offset时是否要累加表外偏移 当所有表dim相同且算子侧作为一个大表处理时需设置为true
+    bool needAccumulateOffset = true;
 };
 }  // namespace Embcache
 #endif  // EMBEDDING_CACHE_EMBEDDING_MANAGER_H
