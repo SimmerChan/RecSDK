@@ -186,10 +186,9 @@ def build_estimator_spec(y_list, mode, labels, params, learning_rate):
             export_outputs=export_outputs)
 
     # ------bulid loss------
-    loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=y_list[0], labels=labels))
-    if len(y_list) == 3:
-        loss += tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=y_list[1], labels=labels))
-        loss += tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=y_list[2], labels=labels))
+    loss = 0.0
+    for y in y_list:
+        loss += tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=y, labels=labels))
 
     log_loss = tf.compat.v1.losses.log_loss(labels, pred)
     auc_metric = tf.compat.v1.metrics.auc(labels, pred)
