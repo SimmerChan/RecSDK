@@ -4,7 +4,7 @@
 import numpy as np
 import tensorflow as tf
 
-from utils import build_optimizer, main, setup_logger
+from utils import build_estimator_spec, main, setup_logger
 
 MODEL_NAME = "AFN"
 
@@ -93,55 +93,13 @@ def model_fn(features, labels, mode, params):
 
     y = y_afn
 
-    pred = tf.sigmoid(y)
-
-    predictions = {"prob": pred}
-    export_outputs = {
-        tf.saved_model.DEFAULT_SERVING_SIGNATURE_DEF_KEY: tf.estimator.export.PredictOutput(
-            predictions)}
-
-    if mode == tf.estimator.ModeKeys.PREDICT:
-        return tf.estimator.EstimatorSpec(
-            mode=mode,
-            predictions=predictions,
-            export_outputs=export_outputs)
-
-    # ------bulid loss------
-    loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=y, labels=labels))
-
-    # Provide an estimator spec for `ModeKeys.EVAL`
-    log_loss = tf.compat.v1.losses.log_loss(labels, pred)
-    auc_metric = tf.compat.v1.metrics.auc(labels, pred)
-    loss_metric = tf.compat.v1.metrics.mean(log_loss)
-    eval_metric_ops = {
-        "auc": tf.compat.v1.metrics.auc(labels, pred),
-        "logloss": tf.compat.v1.metrics.mean(log_loss),
-        "stop_criterion": (auc_metric[0] - loss_metric[0], tf.group(auc_metric[1], loss_metric[1]))
-    }
-
-    # ------bulid optimizer------
-    optimizer = build_optimizer(params.optimizer, learning_rate)
-    train_op = optimizer.minimize(loss, global_step=tf.compat.v1.train.get_global_step())
-
-    # Provide an estimator spec for `ModeKeys.PREDICT`
-
-    if mode == tf.estimator.ModeKeys.EVAL:
-        return tf.estimator.EstimatorSpec(
-            mode=mode,
-            predictions=predictions,
-            loss=loss,
-            eval_metric_ops=eval_metric_ops,
-            train_op=train_op)
-
-    # Provide an estimator spec for `ModeKeys.TRAIN` modes
-    elif mode == tf.estimator.ModeKeys.TRAIN:
-        return tf.estimator.EstimatorSpec(
-            mode=mode,
-            predictions=predictions,
-            loss=loss,
-            train_op=train_op)
-    else:
-        raise ValueError("Invalid mode: {}".format(mode))
+    return build_estimator_spec(
+        y_list=[y],
+        mode=mode,
+        labels=labels,
+        params=params,
+        learning_rate=learning_rate
+    )
 
 
 def batch_norm_layer(input_tensor: tf.Tensor, is_training: bool, scope_bn: str, model_cfg: object) -> tf.Tensor:
