@@ -32,8 +32,8 @@ def generate_num_embeddings(num_embeddings_message):
 
 
 folder_path = sys.argv[1]
-with open(os.path.join(folder_path, "test_cases.jsonl")) as f:
-    for json_line in json.load(f):
+with open(os.path.join(folder_path, "test_cases.json")) as f:
+    for json_line in f.readlines():
         row = json.loads(json_line)
         test_case_name = row["test_case_name"]
         world_size = row["world_size"]
