@@ -13,6 +13,7 @@ import pytest
 import torch
 from hybrid_torchrec.distributed import get_default_hybrid_sharders
 from hybrid_torchrec.distributed.embeddingbag import (
+    HybridEmbeddingBagCollectionSharder,
     HybridShardedEmbeddingBagCollection,
     KJTList,
     device_is_in,
@@ -234,10 +235,10 @@ class TestHybridShardedEmbeddingBagCollection:
     @patch("torchrec.tensor_types.check", return_value=None)
     @patch("torchrec.distributed.model_parallel.check", return_value=None)
     @patch("torchrec.distributed.planner.types.check", return_value=None)
-    def test_load_state_dict_tensor_(self, *mock):
+    def test_load_state_dict_tensor_(*mock):
         ebc = hybrid_sharded_embedding_bag_collection()
         tensor = torch.randn(10, 10)
-        model_shards_dtensor = {"locak_tensors": [tensor], "local_offsets": [(0, 0)]}
+        model_shards_dtensor = {"local_tensors": [tensor], "local_offsets": [(0, 0)]}
         state_dict = {"table1": tensor}
         for key in state_dict.keys():
             ebc._pre_load_state_dict_with_torch_tensor(key, model_shards_dtensor, None, state_dict)
@@ -287,8 +288,8 @@ class TestHybridShardedEmbeddingBagCollection:
 
             state_dict[key] = MagicMock(spec=DTensor)
             state_dict[key].to_local.return_value = shards_wrapper
-            state_dict[key].local_shards.return_value = local_shards
-            state_dict[key].local_sizes.return_value = [val.shape]
+            shards_wrapper.local_shards.return_value = local_shards
+            shards_wrapper.local_sizes.return_value = [val.shape]
 
             len_local_shards = len(val) // cnt_local_shards
             for i in range(cnt_local_shards):
@@ -311,3 +312,8 @@ def test_pin_and_move_cpu():
     assert result.device.type == "cpu"
     assert torch.equal(result, tensor)
     assert not result.is_pinned()  # CPU上不应被pin
+
+
+@pytest.mark.parametrize("compute_device_type", ["cuda", "npu", "cpu"])
+def test_sharding_types(compute_device_type):
+    HybridEmbeddingBagCollectionSharder.sharding_types(None, compute_device_type)
