@@ -210,7 +210,7 @@ def execute(rank, config):
                 swapout_embs = _stb_eb_codegen.gather_embs(swap_offs).to(test_model.cpu_device, non_blocking=True)
                 swapout_momentum = []
                 for momentum in _stb_eb_codegen.gather_momentum(swap_offs):
-                    swapout_momentum.append(
+                    swapout_momentum.append(][\]
                         momentum.to(test_model.cpu_device, non_blocking=True)
                     )
                 swapout_dict = {
