@@ -19,7 +19,7 @@ void AddEmbCacheManager(pybind11::module_& m)
 {
     py::class_<EmbcacheManager>(m, "EmbcacheManager")
         .def(py::init<const std::vector<EmbConfig>&, bool>(), py::arg("emb_configs"),
-             py::arg("need_accumulate_offset"))
+             py::arg("need_accumulate_offset") = true)
         .def("compute_swap_info_async", &EmbcacheManager::ComputeSwapInfoAsync, py::arg("batch_keys"),
              py::arg("jagged_offs"))
         .def("save", &EmbcacheManager::Save, py::arg("path"), py::arg("rank"))
