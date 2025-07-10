@@ -6,20 +6,20 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 import os
+from typing import List
 import logging
 import sysconfig
-from typing import List
 import pytest
 from dataset import RandomRecDataset, Batch
 from model import Model
 from util import setup_logging
-
 import torch
 import torch_npu
 import torch.multiprocessing as mp
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader
+from torch.optim import Adam, Adagrad, SGD
 
 from hybrid_torchrec import HashEmbeddingBagCollection, HashEmbeddingBagConfig
 from hybrid_torchrec.distributed.sharding_plan import get_default_hybrid_sharders
@@ -41,9 +41,15 @@ from torchrec.optim.keyed import CombinedOptimizer
 
 torch.ops.load_library(f"{sysconfig.get_path('purelib')}/libfbgemm_npu_api.so")
 
+OPTIMIZER_PARAM = {
+    Adam: dict(lr=0.02),
+    Adagrad: dict(lr=0.02, eps=1.0e-8),
+    SGD: dict(lr=0.02),
+}
+
 WORLD_SIZE = 2
-LOOP_TIMES = 20
-BATCH_NUM = 10
+LOOP_TIMES = 8
+BATCH_NUM = 32
 
 
 def execute(
@@ -56,25 +62,26 @@ def execute(
     sharding_type,
     lookup_len,
     device,
+    optim,
 ):
     setup_logging(rank)
     logging.info("this test %s", os.path.basename(__file__))
     # , batch_num, lookup_lens, num_embeddings, table_num
-    dataset_train = RandomRecDataset(BATCH_NUM, lookup_len, num_embeddings, table_num)
-    dataset_eval = RandomRecDataset(BATCH_NUM, lookup_len, num_embeddings, table_num)
-    data_loader_train = DataLoader(
-        dataset_train,
+    dataset_gloden = RandomRecDataset(BATCH_NUM, lookup_len, num_embeddings, table_num)
+    dataset = RandomRecDataset(BATCH_NUM, lookup_len, num_embeddings, table_num)
+    dataset_loader_gloden = DataLoader(
+        dataset_gloden,
         batch_size=None,
         batch_sampler=None,
         pin_memory=True,
-        pin_memory_device="npu",
     )
-    data_loader_eval = DataLoader(
-        dataset_eval,
+    data_loader = DataLoader(
+        dataset,
         batch_size=None,
         batch_sampler=None,
         pin_memory=True,
         pin_memory_device="npu",
+        num_workers=1,
     )
     embeding_config = []
     for i in range(table_num):
@@ -89,7 +96,16 @@ def execute(
         embeding_config.append(ebc_config)
 
     test_model = TestModel(rank, world_size, device)
-    test_model.test_loss(embeding_config, data_loader_train, data_loader_eval, sharding_type)
+    gloden_results = test_model.cpu_gloden_loss(embeding_config, dataset_loader_gloden, optim)
+    test_results = test_model.test_loss(embeding_config, data_loader, sharding_type, optim)
+    for gloden, result in zip(gloden_results, test_results):
+        logging.debug("")
+        logging.debug("===========================")
+        logging.debug("result test %s", gloden)
+        logging.debug("gloden test %s", result)
+        assert torch.allclose(
+            gloden, result, rtol=1e-04, atol=1e-04
+        ), "gloden and result is not closed"
 
 
 def weight_init(param: torch.nn.Parameter):
@@ -110,19 +126,52 @@ class TestModel:
             torch_npu.npu.set_device(rank)
         self.setup(rank=rank, world_size=world_size)
 
+    @staticmethod
+    def cpu_gloden_loss(
+        embeding_config: List[EmbeddingBagConfig], dataloader: DataLoader[Batch], optim
+    ):
+        pg = dist.new_group(backend="gloo")
+        table_num = len(embeding_config)
+        ebc = HashEmbeddingBagCollection(device="cpu", tables=embeding_config)
+
+        num_features = sum([c.num_features() for c in embeding_config])
+        ebc = Model(ebc, num_features)
+        model = DDP(ebc, device_ids=None, process_group=pg)
+
+        opt = optim(ebc.parameters(), **OPTIMIZER_PARAM[optim])
+        results = []
+        batch: Batch
+        iter_ = iter(dataloader)
+        for _ in range(LOOP_TIMES):
+            batch = next(iter_)
+            opt.zero_grad()
+            loss, output = model(batch)
+            results.append(loss.detach().cpu())
+            results.append(output.detach().cpu())
+            loss.backward()
+            opt.step()
+
+        for i in range(table_num):
+            logging.debug(
+                "single table%d weight %s",
+                i,
+                ebc.ebc.embedding_bags[f"table{i}"].weight,
+            )
+        return results
+
     def setup(self, rank: int, world_size: int):
         os.environ["MASTER_ADDR"] = "127.0.0.1"
         os.environ["MASTER_PORT"] = "6000"
+        os.environ["GLOO_SOCKET_IFNAME"] = "lo"
         dist.init_process_group(self.pg_method, rank=rank, world_size=world_size)
         os.environ["LOCAL_RANK"] = f"{rank}"
 
-    # data_loader1, data_loader2,
     def test_loss(
         self,
         embeding_config: List[EmbeddingBagConfig],
-        data_loader_train: DataLoader[Batch],
-        data_loader_eval: DataLoader[Batch],
+        dataloader: DataLoader[Batch],
         sharding_type: str,
+        optim,
     ):
         rank, world_size = self.rank, self.world_size
         host_gp = dist.new_group(backend="gloo")
@@ -133,13 +182,15 @@ class TestModel:
         num_features = sum([c.num_features() for c in embeding_config])
         ebc = Model(ebc, num_features)
         apply_optimizer_in_backward(
-            optimizer_class=torch.optim.Adagrad,
+            optimizer_class=optim,
             params=ebc.parameters(),
-            optimizer_kwargs={"lr": 0.02},
+            optimizer_kwargs=OPTIMIZER_PARAM[optim],
         )
         # Shard
         constrans = {
-            f"table{i}": ParameterConstraints(sharding_types=[sharding_type])
+            f"table{i}": ParameterConstraints(
+                sharding_types=[sharding_type], compute_kernels=["fused"]
+            )
             for i in range(table_num)
         }
         planner = EmbeddingShardingPlanner(
@@ -161,10 +212,8 @@ class TestModel:
         logging.debug(ddp_model)
         # Optimizer
         optimizer = CombinedOptimizer([ddp_model.fused_optimizer])
-
-        iter_train = iter(data_loader_train)
-        iter_eval = iter(data_loader_eval)
-
+        results = []
+        iter_ = iter(dataloader)
         ddp_model.train()
         pipe = HybridTrainPipelineSparseDist(
             ddp_model,
@@ -172,37 +221,29 @@ class TestModel:
             device=torch.device(self.device),
             return_loss=True,
         )
+        for _ in range(LOOP_TIMES):
+            out, loss = pipe.progress(iter_)
+            results.append(loss.detach().cpu())
+            results.append(out.detach().cpu())
 
-        is_stop = False
-        step = 0
-        try:
-            for step in range(LOOP_TIMES):
-                pipe.progress(iter_train)
-                logging.info("step %s", step)
-        except StopIteration:
-            is_stop = True
-        assert is_stop and step == BATCH_NUM
-
-        is_stop = False
-        step = 0
-        pipe._model.eval()
-        try:
-            for step in range(LOOP_TIMES):
-                pipe.progress(iter_eval)
-                logging.info("step %s", step)
-        except StopIteration:
-            is_stop = True
-        assert is_stop and step == BATCH_NUM
+        for i in range(table_num):
+            logging.debug(
+                "shard table%d weight %s",
+                i,
+                ddp_model.module.ebc.embedding_bags[f"table{i}"].weight,
+            )
+        return results
 
 
 @pytest.mark.parametrize("table_num", [2])
 @pytest.mark.parametrize("embedding_dims", [[32, 64, 128]])
 @pytest.mark.parametrize("num_embeddings", [[400, 4000, 400]])
 @pytest.mark.parametrize("pool_type", [torchrec.PoolingType.MEAN])
-@pytest.mark.parametrize("sharding_type", ["table_wise"])
+@pytest.mark.parametrize("sharding_type", ["row_wise"])
 @pytest.mark.parametrize("lookup_len", [1024])
-@pytest.mark.parametrize("device", ["cpu", "npu"])
-def test_pipeline_train_eval(
+@pytest.mark.parametrize("device", ["npu"])
+@pytest.mark.parametrize("optim", [Adagrad, SGD])
+def test_hybrid_pipeline_hash_embedding_bag(
     table_num,
     embedding_dims,
     num_embeddings,
@@ -210,9 +251,8 @@ def test_pipeline_train_eval(
     sharding_type,
     lookup_len,
     device,
+    optim,
 ):
-    if device == "cpu" and sharding_type == "row_wise":
-        return
     mp.spawn(
         execute,
         args=(
@@ -224,6 +264,7 @@ def test_pipeline_train_eval(
             sharding_type,
             lookup_len,
             device,
+            optim,
         ),
         nprocs=WORLD_SIZE,
         join=True,

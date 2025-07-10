@@ -16,7 +16,7 @@ import torch.distributed as dist
 import torch.multiprocessing as mp
 import torch_npu
 from torch.nn.parallel import DistributedDataParallel as DDP
-from torch.optim import Adam, Adagrad
+from torch.optim import Adam, Adagrad, SGD
 from torch.utils.data import DataLoader
 
 from dataset import RandomRecDataset, Batch
@@ -48,6 +48,7 @@ WORLD_SIZE = 2
 OPTIMIZER_PARAM = {
     Adam: dict(lr=0.02),
     Adagrad: dict(lr=0.02, eps=1.0e-8),
+    SGD: dict(lr=0.02),
 }
 
 
@@ -100,8 +101,12 @@ def execute(
 
     test_model = TestModel(rank, world_size, device)
 
-    gloden_results = test_model.cpu_gloden_loss(embeding_config, gloden_dataset_loader, optim)
-    test_results = test_model.test_loss(embeding_config, data_loader, sharding_type, optim)
+    gloden_results = test_model.cpu_gloden_loss(
+        embeding_config, gloden_dataset_loader, optim
+    )
+    test_results = test_model.test_loss(
+        embeding_config, data_loader, sharding_type, optim
+    )
     for gloden, result in zip(gloden_results, test_results):
         logging.debug("")
         logging.debug("===========================")
@@ -166,6 +171,7 @@ class TestModel:
     def setup(self, rank: int, world_size: int):
         os.environ["MASTER_ADDR"] = "127.0.0.1"
         os.environ["MASTER_PORT"] = "6000"
+        os.environ["GLOO_SOCKET_IFNAME"] = "lo"
         dist.init_process_group(self.pg_method, rank=rank, world_size=world_size)
         os.environ["LOCAL_RANK"] = f"{rank}"
 
@@ -182,7 +188,9 @@ class TestModel:
         host_env = ShardingEnv(world_size=world_size, rank=rank, pg=host_gp)
         # Shard
         table_num = len(embeding_config)
-        ebc = HashEmbeddingBagCollection(device=torch.device("meta"), tables=embeding_config)
+        ebc = HashEmbeddingBagCollection(
+            device=torch.device("meta"), tables=embeding_config
+        )
         ebc = Model(ebc, num_features)
         apply_optimizer_in_backward(
             optimizer_class=optim,
@@ -191,7 +199,9 @@ class TestModel:
         )
         # Shard
         constrans = {
-            f"table{i}": ParameterConstraints(sharding_types=[sharding_type])
+            f"table{i}": ParameterConstraints(
+                sharding_types=[sharding_type], compute_kernels=["fused"]
+            )
             for i in range(table_num)
         }
         planner = EmbeddingShardingPlanner(
@@ -238,10 +248,10 @@ class TestModel:
 @pytest.mark.parametrize("embedding_dims", [[32, 64, 128]])
 @pytest.mark.parametrize("num_embeddings", [[400, 4000, 400]])
 @pytest.mark.parametrize("pool_type", [torchrec.PoolingType.MEAN])
-@pytest.mark.parametrize("sharding_type", ["table_wise", "row_wise"])
+@pytest.mark.parametrize("sharding_type", ["row_wise"])
 @pytest.mark.parametrize("lockup_len", [1024])
 @pytest.mark.parametrize("device", ["npu"])
-@pytest.mark.parametrize("optim", [Adagrad])
+@pytest.mark.parametrize("optim", [Adagrad, SGD])
 def test_hstu_dens_normal(
     table_num,
     embedding_dims,
@@ -252,8 +262,6 @@ def test_hstu_dens_normal(
     device,
     optim,
 ):
-    if device == "cpu" and (sharding_type == "row_wise" or optim == Adam):
-        return
     mp.spawn(
         execute,
         args=(

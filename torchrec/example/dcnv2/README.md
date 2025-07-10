@@ -4,19 +4,33 @@
 模型参考的开源链接为:https://github.com/facebookresearch/dlrm/tree/main/torchrec_dlrm/,  
 克隆源码并固定版本为:Commits on Jun 7 , 2024，提交的SHA-1 hash值（提交ID）：b631a99 
 
+## 前提条件
+需要用户构建容器基础环境，参考RecSDK/torchrec/docker/README.md
+
 ## 数据集下载
 ### 使用官网数据集
 进入[开源模型官网](https://github.com/facebookresearch/dlrm/blob/main/torchrec_dlrm/README.MD)，官网提供两种方式跑通demo：
 1. 下载原始数据处理后，提前进行mutil-hot的合成，产生4T的数据
+
 2. 下载原始数据处理后，在训练的过程中生成mutil-hot数据，使用690gb数据集
 由于1需要的条件苛刻，大部分机器很难满足条件，本次演示使用2中的条件。无host瓶颈的情况下，对性能影响较小。需要修改模型脚本代码，让host生成的数据在pin_memory上。
 ### 使用随机数据集
-如果用户仅验证功能，可以使用生成的随机数据集。
+如果用户仅验证功能，可以使用生成的随机数据集。注意会生成71G大小的数据，注意预留磁盘空间。
 ```shell
 mkdir generate_data
 cp generate_data.py generate_data
 cd generate_data
 python3 generate_data.py
+```
+生成的数据如下
+```shell
+day_0_sparse.npy
+day_0_dense.npy
+day_0_labels.npy
+...
+day_23_sparse.npy
+day_23_dense.npy
+day_23_labels.npy
 ```
 
 ## 修改脚本并运行
@@ -30,11 +44,11 @@ git apply dcnv2_recsdk_torch.patch
 
 在dlrm/torchrec_dlrm下运行如下脚本启动训练任务。`$insert_your_path_here`为数据集路径。
 
+注：以下脚本为参考shell脚本，请根据用户实际情况按需修改。
 ```shell
-export ASCEND_RT_VISIBLE_DEVICES=0,1,2,3,4,5,6,7  # 指定哪些Device对当前进程可见
-export PREPROCESSED_DATASET=$insert_your_path_here
-export TOTAL_TRAINING_SAMPLES=4195197692 ;
-export GLOBAL_BATCH_SIZE=16384;
+PREPROCESSED_DATASET=$insert_your_path_here
+TOTAL_TRAINING_SAMPLES=4195197692 ;
+GLOBAL_BATCH_SIZE=16384;
 export WORLD_SIZE=8;
 torchx run -s local_cwd dist.ddp -j 1x${WORLD_SIZE} --script dlrm_main.py -- \
     --embedding_dim 128 \
@@ -55,3 +69,6 @@ torchx run -s local_cwd dist.ddp -j 1x${WORLD_SIZE} --script dlrm_main.py -- \
     --multi_hot_distribution_type uniform \
     --multi_hot_sizes=3,2,1,2,6,1,1,1,1,7,3,8,1,6,9,5,1,1,1,12,100,27,10,3,1,1 2>&1 | tee "temp.log"
 ```
+# 结果
+运行成功后出现"AUROC over test set"字样，
+如果使用官网的数据集，最终AUROC应该为：0.797

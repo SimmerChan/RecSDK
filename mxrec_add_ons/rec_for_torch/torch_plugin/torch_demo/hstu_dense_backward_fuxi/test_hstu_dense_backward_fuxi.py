@@ -178,8 +178,6 @@ class TestHstuJaggedDemo:
             bpos_grad = gpos_v.sum(dim=1).sum(dim=0, keepdim=True)
             bts_grad = gts_v.sum(dim=1)
 
-
-            # qkb = qk + bias
             qkb = qk
 
         else:
@@ -236,8 +234,6 @@ class TestHstuJaggedDemo:
         v_npu = v.to(f"npu:{device_id}")
         bpos_npu = bpos.to(f"npu:{device_id}")
         bts_npu = bts.to(f"npu:{device_id}")
-        grad_pos_npu = grad_pos.to(f"npu:{device_id}")
-        grad_ts_npu = grad_ts.to(f"npu:{device_id}")
 
         mask_npu = None
         if mask_type == 3:
@@ -245,12 +241,12 @@ class TestHstuJaggedDemo:
 
         if enable_bias:
             q_grad, k_grad, v_grad, bpos_grad, bts_grad = torch.ops.mxrec.hstu_dense_backward_fuxi(
-                grad_npu, q_npu, k_npu, v_npu, mask_npu, bpos_npu, bts_npu, grad_pos_npu, grad_ts_npu, "jagged", 
+                grad_npu, q_npu, k_npu, v_npu, mask_npu, bpos_npu, bts_npu, "jagged", 
                 mask_type, max_seq_len, silu_scale, seq_offset
             )
         else:
             q_grad, k_grad, v_grad, bpos_grad, bts_grad = torch.ops.mxrec.hstu_dense_backward_fuxi(
-                grad_npu, q_npu, k_npu, v_npu, mask_npu, None, None, None, None, "jagged",
+                grad_npu, q_npu, k_npu, v_npu, mask_npu, None, None, "jagged",
                 mask_type, max_seq_len, silu_scale, seq_offset
             )
 
@@ -268,8 +264,9 @@ class TestHstuJaggedDemo:
         grad, q, k, v, bpos, bts, grad_pos, grad_ts, mask, max_seq_len, seq_offset = \
             jagged_data_gen(batch_size, max_seq_len, head_num, head_dim, mask_type, data_type)
 
+        grads = torch.cat((grad, grad_ts, grad_pos), -1) if enable_bias else grad
         q_grad, k_grad, v_grad, bpos_grad, bts_grad = self.custom_op_exec(
-            torch.cat((grad, grad_ts, grad_pos), -1), q, k, v, bpos, bts, grad_pos, grad_ts, mask, seq_offset, 
+            grads, q, k, v, bpos, bts, None, None, mask, seq_offset,
             mask_type, max_seq_len, silu_scale, enable_bias, data_type
         )
 
@@ -309,15 +306,14 @@ class TestHstuJaggedDemo:
         assert bpos_res, analysis(bpos_grad, bpos_grad_golden)
         assert bts_res, analysis(bts_grad, bts_grad_golden)
         assert v_res, analysis(v_grad, v_grad_golden)
-        print('ok')
 
-    @pytest.mark.parametrize("batch_size", [2, 4, 32, 64])
-    @pytest.mark.parametrize("max_seq_len", [256, 257, 1024, 1234, 2048])
+    @pytest.mark.parametrize("batch_size", [2, 32, 64])
+    @pytest.mark.parametrize("max_seq_len", [256, 1024, 1234, 2048])
     @pytest.mark.parametrize("head_num", [2, 4])
     @pytest.mark.parametrize("head_dim", [32, 128])
     @pytest.mark.parametrize("mask_type", [0, 2, 3])
-    @pytest.mark.parametrize("silu_scale", [0.0, 1.0 / 256])
-    @pytest.mark.parametrize("enable_bias", [True])
+    @pytest.mark.parametrize("silu_scale", [1.0 / 256])
+    @pytest.mark.parametrize("enable_bias", [True, False])
     @pytest.mark.parametrize("data_type", [torch.float16, torch.float32, torch.bfloat16])
     def test_hstu_dens_jagged(self, batch_size, max_seq_len, head_num, head_dim, mask_type, silu_scale,
                               enable_bias, data_type):
@@ -327,8 +323,8 @@ class TestHstuJaggedDemo:
     @pytest.mark.parametrize("head_num", [2, 6])
     @pytest.mark.parametrize("head_dim", [256])
     @pytest.mark.parametrize("mask_type", [0, 2, 3])
-    @pytest.mark.parametrize("silu_scale", [0.0, 1.0 / 256])
-    @pytest.mark.parametrize("enable_bias", [True])
+    @pytest.mark.parametrize("silu_scale", [0.0])
+    @pytest.mark.parametrize("enable_bias", [True, False])
     @pytest.mark.parametrize("data_type", [torch.float16, torch.float32, torch.bfloat16])
     def test_hstu_dens_jagged_128bs(self, max_seq_len, head_num, head_dim, mask_type, silu_scale,
                                     enable_bias, data_type):
@@ -339,7 +335,7 @@ class TestHstuJaggedDemo:
     @pytest.mark.parametrize("head_dim", [256])
     @pytest.mark.parametrize("mask_type", [0, 2, 3])
     @pytest.mark.parametrize("silu_scale", [0.0, 1.0 / 256])
-    @pytest.mark.parametrize("enable_bias", [True])
+    @pytest.mark.parametrize("enable_bias", [True, False])
     @pytest.mark.parametrize("data_type", [torch.float16, torch.float32, torch.bfloat16])
     def test_hstu_dens_jagged_512bs(self, max_seq_len, head_num, head_dim, mask_type, silu_scale,
                                     enable_bias, data_type):

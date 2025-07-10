@@ -21,11 +21,10 @@ constexpr size_t MAX_SEQ_LEN = 20480;
 constexpr uint32_t MASK_TYPE_TRIL = 0;
 constexpr uint32_t MASK_TYPE_TRIU = 1;
 constexpr uint32_t MASK_TYPE_CUSTOM = 3;
-constexpr uint32_t CONST_4 = 4;
 constexpr uint32_t CONST_3 = 3;
 constexpr uint32_t CONST_2 = 2;
 
-bool MaskCheck(int64_t maskType, uint32_t maskIsDefine)
+bool HstuBackMaskCheck(int64_t maskType)
 {
     if (maskType < MASK_TYPE_TRIL || maskType > MASK_TYPE_CUSTOM) {
         printf("maskType expect in [0, 3], but value is %d\n", maskType);
@@ -37,10 +36,6 @@ bool MaskCheck(int64_t maskType, uint32_t maskIsDefine)
         return false;
     }
 
-    if (maskType == MASK_TYPE_CUSTOM && !maskIsDefine) {
-        printf("use custome mask must have valide mask tensor \n");
-        return false;
-    }
     return true;
 }
 
@@ -52,8 +47,6 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor, at::Tensor> hstu_dens
     const c10::optional<at::Tensor> mask,
     const c10::optional<at::Tensor> biasPosition,
     const c10::optional<at::Tensor> biasTimestamp,
-    const c10::optional<at::Tensor> gradBiasPosition,
-    const c10::optional<at::Tensor> gradBiasTimestamp,
     const int64_t maskType,
     const int64_t maxSeqLen,
     const double siluScale,
@@ -91,6 +84,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor, at::Tensor> hstu_dens
     TORCH_CHECK(maxSeqLen >= MIN_SEQ_LEN && maxSeqLen <= MAX_SEQ_LEN,
                 "maxSeqLen expect in [1, 20480], but value is ", maxSeqLen);
 
+    TORCH_CHECK(HstuBackMaskCheck(maskType), "maskType check failed");
     if (static_cast<uint32_t>(maskType) == MASK_TYPE_CUSTOM) {
         TORCH_CHECK(denseMask.defined(), "use maskType:MASK_CUSTOM, but no mask given\n");
         // mask dim 2 must be equalto maxSeqLen
@@ -111,11 +105,10 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor, at::Tensor> hstu_dens
         biasPositionGradOutput = at::zeros({batchSize, headNum, maxSeqLen, maxSeqLen}, denseBiasPosition.options());
         biasTimestampGradOutput = at::zeros({batchSize, headNum, maxSeqLen, maxSeqLen}, denseBiasTimestamp.options());
     } else {
-        auto biasGradSeqLen = (maxSeqLen + 256 - 1) / 256 * 256; // get 256 bit aligned biasGrad space
-        biasPositionGradOutput = at::zeros({batchSize, headNum, biasGradSeqLen, biasGradSeqLen},
-                                           at::device(denseBiasPosition.device()).dtype(denseGrad.dtype()));
-        biasTimestampGradOutput = at::zeros({batchSize, headNum, biasGradSeqLen, biasGradSeqLen},
-                                            at::device(denseBiasTimestamp.device()).dtype(denseGrad.dtype()));
+        biasPositionGradOutput = at::zeros({batchSize, headNum, maxSeqLen, maxSeqLen},
+                                           at::device(denseGrad.device()).dtype(denseGrad.dtype()));
+        biasTimestampGradOutput = at::zeros({batchSize, headNum, maxSeqLen, maxSeqLen},
+                                            at::device(denseGrad.device()).dtype(denseGrad.dtype()));
     }
 
     const char *layout = "jagged";
@@ -158,8 +151,6 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor, at::Tensor> hstu_dens
     const c10::optional<at::Tensor> mask,
     const c10::optional<at::Tensor> biasPosition,
     const c10::optional<at::Tensor> biasTimestamp,
-    const c10::optional<at::Tensor> gradBiasPosition,
-    const c10::optional<at::Tensor> gradBiasTimestamp,
     const std::string layout,
     const int64_t maskType,
     const int64_t maxSeqLen,
@@ -172,7 +163,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor, at::Tensor> hstu_dens
                 "float16, float32 or bfloat16 tensor expected but got a tensor with dtype: ", q.scalar_type());
 
     return hstu_dense_jagged_backward_impl_npu(
-        grad, q, k, v, mask, biasPosition, biasTimestamp, gradBiasPosition, gradBiasTimestamp,
+        grad, q, k, v, mask, biasPosition, biasTimestamp,
         maskType, maxSeqLen, siluScale, seqOffset);
 }
 
@@ -180,8 +171,8 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor, at::Tensor> hstu_dens
 TORCH_LIBRARY_FRAGMENT(mxrec, m)
 {
     m.def("hstu_dense_backward_fuxi(Tensor grad, Tensor q, Tensor k, Tensor v, Tensor? mask=None, \
-        Tensor? biasPosition=None, Tensor? biasTimestamp=None, Tensor? gradBiasPosition=None, \
-        Tensor? gradBiasTimestamp=None, str layout=\"jagged\", int maskType=0, int maxSeqLen=0, float siluScale=0.0, \
+        Tensor? biasPosition=None, Tensor? biasTimestamp=None, \
+        str layout=\"jagged\", int maskType=0, int maxSeqLen=0, float siluScale=0.0, \
         int[]? seqOffset=None) -> (Tensor, Tensor, Tensor, Tensor, Tensor)");
 }
 

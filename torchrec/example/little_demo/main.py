@@ -1,6 +1,7 @@
 # coding: UTF-8
-# Copyright 2025. Huawei Technologies Co.,Ltd. All rights reserved.
-#
+# Copyright 2025. Huawei Technologies Co.,Ltd.
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -51,19 +52,44 @@ BATCH_SIZE = 32
 BATCH_NUM = 32
 
 
-def get_distribute_env():
+def set_distribute_env():
     rank = int(os.environ["LOCAL_RANK"])
-    world_size = int(os.environ["WORLD_SIZE"])
     torch.npu.set_device(rank)
-    return rank, world_size
+    os.environ["MASTER_ADDR"] = "127.0.0.1"
+    os.environ["MASTER_PORT"] = "6000"
+    os.environ["GLOO_SOCKET_IFNAME"] = "lo"
+    dist.init_process_group(backend="hccl")
+
+
+def create_ddp(test_model):
+    host_gp = dist.new_group(backend="gloo")
+    world_size = dist.get_world_size()
+    rank = dist.get_rank()
+    host_env = ShardingEnv(world_size=world_size, rank=rank, pg=host_gp)
+    hybrid_sharder = get_default_hybrid_sharders(host_env=host_env)
+    constraints = {
+        table_name: ParameterConstraints(
+            sharding_types=["row_wise"], compute_kernels=["fused"]
+        )
+        for table_name in TABLE_NAMES
+    }
+
+    planner = EmbeddingShardingPlanner(
+        topology=Topology(world_size=world_size, compute_device="npu"),
+        constraints=constraints,
+    )
+
+    plan = planner.collective_plan(test_model, hybrid_sharder, dist.GroupMember.WORLD)
+    logging.info(plan)
+    ddp_model = DistributedModelParallel(
+        test_model, device=torch.device("npu"), plan=plan, sharders=hybrid_sharder
+    )
+    return ddp_model
 
 
 def invoke_main():
-    rank, world_size = get_distribute_env()
-    device = torch.device(f"npu")
-    dist.init_process_group(backend="hccl")
-    host_gp = dist.new_group(backend="gloo")
-    host_env = ShardingEnv(world_size=world_size, rank=rank, pg=host_gp)
+    set_distribute_env()
+    device = torch.device("npu")
 
     dataset = RandomRecDataset(BATCH_SIZE, BATCH_NUM, FEAT_NAMES, ID_RANGES)
     data_loader = DataLoader(
@@ -88,24 +114,7 @@ def invoke_main():
     )
 
     # Shard
-    hybrid_sharder = get_default_hybrid_sharders(host_env=host_env)
-    constrans = {
-        table_name: ParameterConstraints(
-            sharding_types=["table_wise"], compute_kernels=["fused"]
-        )
-        for table_name in TABLE_NAMES
-    }
-
-    planner = EmbeddingShardingPlanner(
-        topology=Topology(world_size=world_size, compute_device="npu"),
-        constraints=constrans,
-    )
-
-    plan = planner.collective_plan(test_model, hybrid_sharder, dist.GroupMember.WORLD)
-    logging.info(plan)
-    ddp_model = DistributedModelParallel(
-        test_model, device=torch.device("npu"), plan=plan, sharders=hybrid_sharder
-    )
+    ddp_model = create_ddp(test_model)
 
     # Optimizer filer
     dense_optimizer = KeyedOptimizerWrapper(

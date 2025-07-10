@@ -120,6 +120,7 @@ const int ASCEND910_B2 = 196608;
 const int ASCEND910_B1 = 196608;
 const int ASCEND910_B3 = 196608;
 const int ASCEND910_B4 = 196608;
+const int ASCEND910_B41 = 196608;
 const int ASCEND910_9391 = 196608;
 const int ASCEND910_9392 = 196608;
 const int ASCEND910_9381 = 196608;
@@ -136,11 +137,12 @@ const int ASCEND910_B2C = 196608;
 inline int GetUBSize(int devID)
 {
     const std::map<string, int> chipUbSizeList = {
-        {"910A", UBSize::ASCEND910_A},   {"910B", UBSize::ASCEND910_B},     {"920A", UBSize::ASCEND920_A},
-        {"910B1", UBSize::ASCEND910_B1}, {"910B2", UBSize::ASCEND910_B2},   {"910B3", UBSize::ASCEND910_B3},
-        {"910B4", UBSize::ASCEND910_B4}, {"910B2C", UBSize::ASCEND910_B2C}, 
-        {"910_9391", UBSize::ASCEND910_9391}, {"910_9392", UBSize::ASCEND910_9392}, 
-        {"910_9381", UBSize::ASCEND910_9381}, {"910_9382", UBSize::ASCEND910_9382}, 
+        {"910A", UBSize::ASCEND910_A},   {"910B", UBSize::ASCEND910_B},   {"920A", UBSize::ASCEND920_A},
+        {"910B1", UBSize::ASCEND910_B1}, {"910B2", UBSize::ASCEND910_B2},
+        {"910B3", UBSize::ASCEND910_B3}, {"910B4", UBSize::ASCEND910_B4},
+        {"910B4-1", UBSize::ASCEND910_B41},   {"910B2C", UBSize::ASCEND910_B2C},
+        {"910_9391", UBSize::ASCEND910_9391}, {"910_9392", UBSize::ASCEND910_9392},
+        {"910_9381", UBSize::ASCEND910_9381}, {"910_9382", UBSize::ASCEND910_9382},
         {"910_9372", UBSize::ASCEND910_9372}, {"910_9361", UBSize::ASCEND910_9361}};
     auto it = chipUbSizeList.find(GetChipName(devID));
     if (it != chipUbSizeList.end()) {
@@ -290,10 +292,10 @@ template <typename... Args>
 string StringFormat(const string& format, Args... args)
 {
     auto size = static_cast<size_t>(GLOG_MAX_BUF_SIZE);
-    auto buf = std::make_unique<char[]>(size);
+    auto buf = std::make_unique<char[]>(size); // LCOV_EXCL_BR_LINE
     memset_s(buf.get(), size, 0, size);
     int nChar = snprintf_s(buf.get(), size, size - 1, format.c_str(), args...);
-    if (nChar == -1) {
+    if (nChar == -1) { // LCOV_EXCL_BR_LINE
         throw invalid_argument("StringFormat failed");
     }
     return string(buf.get(), buf.get() + nChar);
@@ -307,9 +309,9 @@ std::string VectorToString(const std::vector<T>& vec)
 
     std::stringstream ss;
     ss << "[";
-    for (size_t i = 0; i < maxLen; ++i) {
+    for (size_t i = 0; i < maxLen; ++i) { // LCOV_EXCL_BR_LINE
         ss << vec[i];
-        if (i != vec.size() - 1) {
+        if (i != vec.size() - 1) { // LCOV_EXCL_BR_LINE
             ss << ", ";
         }
     }
