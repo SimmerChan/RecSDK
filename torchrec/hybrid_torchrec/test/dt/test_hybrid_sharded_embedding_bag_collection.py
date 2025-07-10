@@ -225,10 +225,22 @@ class TestHybridShardedEmbeddingBagCollection:
     @patch("torchrec.tensor_types.check", return_value=None)
     @patch("torchrec.distributed.model_parallel.check", return_value=None)
     @patch("torchrec.distributed.planner.types.check", return_value=None)
-    def test_load_state_dict(*mock):
+    def test_load_state_dict_tensor(*mock):
         ebc = hybrid_sharded_embedding_bag_collection()
         module, _ = create_ebc()
         ebc.load_state_dict(module.state_dict(), strict=False)
+
+    @patch("torchrec.distributed.planner.ParameterConstraints.__post_init__", return_value=None)
+    @patch("torchrec.tensor_types.check", return_value=None)
+    @patch("torchrec.distributed.model_parallel.check", return_value=None)
+    @patch("torchrec.distributed.planner.types.check", return_value=None)
+    def test_load_state_dict_tensor_(self, *mock):
+        ebc = hybrid_sharded_embedding_bag_collection()
+        tensor = torch.randn(10, 10)
+        model_shards_dtensor = {"locak_tensors": [tensor], "local_offsets": [(0, 0)]}
+        state_dict = {"table1": tensor}
+        for key in state_dict.keys():
+            ebc._pre_load_state_dict_with_torch_tensor(key, model_shards_dtensor, None, state_dict)
 
     @patch("torchrec.distributed.planner.ParameterConstraints.__post_init__", return_value=None)
     @patch("torchrec.tensor_types.check", return_value=None)
@@ -283,19 +295,6 @@ class TestHybridShardedEmbeddingBagCollection:
                 local_shards.append(val[i * len_local_shards:(i + 1) * len_local_shards])
 
         ebc.load_state_dict(state_dict, strict=False)
-
-    @patch("torchrec.distributed.planner.ParameterConstraints.__post_init__", return_value=None)
-    @patch("torchrec.tensor_types.check", return_value=None)
-    @patch("torchrec.distributed.model_parallel.check", return_value=None)
-    @patch("torchrec.distributed.planner.types.check", return_value=None)
-    def test_load_state_dict_dtensor_(self, *mock):
-        ebc = hybrid_sharded_embedding_bag_collection()
-        tensor = torch.randn(10, 10)
-        model_shards_dtensor = {"locak_tensors": [tensor], "local_offsets": [(0, 0)]}
-        state_dict = {"table1": tensor}
-        for key in state_dict.keys():
-            ebc._pre_load_state_dict_with_torch_tensor(key, model_shards_dtensor, None, state_dict)
-
 
 @pytest.mark.parametrize("device", [torch.device("cuda:0"), torch.device("cpu"), "npu:0", "cpu"])
 @pytest.mark.parametrize("check_device", [["meta", "cpu"]])
