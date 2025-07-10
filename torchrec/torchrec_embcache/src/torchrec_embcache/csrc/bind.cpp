@@ -91,7 +91,9 @@ PYBIND11_MODULE(embcache_pybind, m)
         .def_readwrite("swapout_offs", &SwapInfo::swapoutOffs)
         .def_readwrite("swapin_keys", &SwapInfo::swapinKeys)
         .def_readwrite("swapin_offs", &SwapInfo::swapinOffs)
-        .def_readwrite("batch_offs", &SwapInfo::batchOffs);
+        .def_readwrite("batch_offs", &SwapInfo::batchOffs)
+        .def("get_swapin_keys_length", &SwapInfo::getSwapinKeysLength)
+        .def("get_swapout_keys_length", &SwapInfo::getSwapoutKeysLength);
 
     py::class_<SwapinTensor>(m, "SwapinTensor")
         .def(py::init<>())  // 默认构造函数
