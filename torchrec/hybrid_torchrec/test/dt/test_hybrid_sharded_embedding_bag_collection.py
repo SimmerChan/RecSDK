@@ -112,6 +112,7 @@ def hybrid_sharded_embedding_bag_collection() -> HybridShardedEmbeddingBagCollec
 
 
 class TestHybridShardedEmbeddingBagCollection:
+    @staticmethod
     @patch("torchrec.distributed.planner.ParameterConstraints.__post_init__", return_value=None)
     @patch("torchrec.tensor_types.check", return_value=None)
     @patch("torchrec.distributed.model_parallel.check", return_value=None)
@@ -119,6 +120,7 @@ class TestHybridShardedEmbeddingBagCollection:
     def test_init(*mock):
         hybrid_sharded_embedding_bag_collection()
 
+    @staticmethod
     @patch("torchrec.distributed.planner.ParameterConstraints.__post_init__", return_value=None)
     @patch("torchrec.tensor_types.check", return_value=None)
     @patch("torchrec.distributed.model_parallel.check", return_value=None)
@@ -139,6 +141,7 @@ class TestHybridShardedEmbeddingBagCollection:
         # Wait for the result
         result = awaitable.wait()
 
+    @staticmethod
     @patch("torchrec.distributed.planner.ParameterConstraints.__post_init__", return_value=None)
     @patch("torchrec.tensor_types.check", return_value=None)
     @patch("torchrec.distributed.model_parallel.check", return_value=None)
@@ -165,6 +168,7 @@ class TestHybridShardedEmbeddingBagCollection:
         # Wait for the result
         result = awaitable.wait()
 
+    @staticmethod
     @patch("torchrec.distributed.planner.ParameterConstraints.__post_init__", return_value=None)
     @patch("torchrec.tensor_types.check", return_value=None)
     @patch("torchrec.distributed.model_parallel.check", return_value=None)
@@ -190,6 +194,7 @@ class TestHybridShardedEmbeddingBagCollection:
         # Wait for the result
         result = awaitable.wait()
 
+    @staticmethod
     @patch("torchrec.distributed.planner.ParameterConstraints.__post_init__", return_value=None)
     @patch("torchrec.tensor_types.check", return_value=None)
     @patch("torchrec.distributed.model_parallel.check", return_value=None)
@@ -222,6 +227,7 @@ class TestHybridShardedEmbeddingBagCollection:
         # Wait for the result
         result = awaitable.wait()
 
+    @staticmethod
     @patch("torchrec.distributed.planner.ParameterConstraints.__post_init__", return_value=None)
     @patch("torchrec.tensor_types.check", return_value=None)
     @patch("torchrec.distributed.model_parallel.check", return_value=None)
@@ -231,6 +237,7 @@ class TestHybridShardedEmbeddingBagCollection:
         module, _ = create_ebc()
         ebc.load_state_dict(module.state_dict(), strict=False)
 
+    @staticmethod
     @patch("torchrec.distributed.planner.ParameterConstraints.__post_init__", return_value=None)
     @patch("torchrec.tensor_types.check", return_value=None)
     @patch("torchrec.distributed.model_parallel.check", return_value=None)
@@ -243,12 +250,13 @@ class TestHybridShardedEmbeddingBagCollection:
         for key in state_dict.keys():
             ebc._pre_load_state_dict_with_torch_tensor(key, model_shards_dtensor, None, state_dict)
 
+    @staticmethod
     @patch("torchrec.distributed.planner.ParameterConstraints.__post_init__", return_value=None)
     @patch("torchrec.tensor_types.check", return_value=None)
     @patch("torchrec.distributed.model_parallel.check", return_value=None)
     @patch("torchrec.distributed.planner.types.check", return_value=None)
     @pytest.mark.parametrize("cnt_local_shards", [1, 2])
-    def test_load_state_dict_sharded_tensor(self, mock1, mock2, mock3, mock4, cnt_local_shards):
+    def test_load_state_dict_sharded_tensor(mock1, mock2, mock3, mock4, cnt_local_shards):
         ebc = hybrid_sharded_embedding_bag_collection()
         module, _ = create_ebc()
 
@@ -272,12 +280,13 @@ class TestHybridShardedEmbeddingBagCollection:
 
         ebc.load_state_dict(state_dict, strict=False)
 
+    @staticmethod
     @patch("torchrec.distributed.planner.ParameterConstraints.__post_init__", return_value=None)
     @patch("torchrec.tensor_types.check", return_value=None)
     @patch("torchrec.distributed.model_parallel.check", return_value=None)
     @patch("torchrec.distributed.planner.types.check", return_value=None)
     @pytest.mark.parametrize("cnt_local_shards", [1, 2])
-    def test_load_state_dict_dtensor(self, mock1, mock2, mock3, mock4, cnt_local_shards):
+    def test_load_state_dict_dtensor(mock1, mock2, mock3, mock4, cnt_local_shards):
         ebc = hybrid_sharded_embedding_bag_collection()
         module, _ = create_ebc()
 
@@ -296,6 +305,7 @@ class TestHybridShardedEmbeddingBagCollection:
                 local_shards.append(val[i * len_local_shards:(i + 1) * len_local_shards])
 
         ebc.load_state_dict(state_dict, strict=False)
+
 
 @pytest.mark.parametrize("device", [torch.device("cuda:0"), torch.device("cpu"), "npu:0", "cpu"])
 @pytest.mark.parametrize("check_device", [["meta", "cpu"]])

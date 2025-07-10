@@ -1,14 +1,13 @@
 from unittest.mock import patch
 
 import torch
-from torchrec.sparse.jagged_tensor import KeyedJaggedTensor
 from hybrid_torchrec.distributed.sharding.post_input_dist import (
     split_keys_offset,
     do_unique_hash,
     HashMapBase,
     KeyedJaggedTensorWithLookHelper
 )
-
+from torchrec.sparse.jagged_tensor import KeyedJaggedTensor
 
 
 class MockHashMap(HashMapBase):
@@ -23,8 +22,9 @@ class MockHashMap(HashMapBase):
 
 
 class TestDoUniqueHash:
+    @staticmethod
     @patch("torch.Tensor.pin_memory", new=lambda self, *args, **kwargs: self)
-    def test_do_unique_hash_f0(self):
+    def test_do_unique_hash_f0():
         kjt = KeyedJaggedTensor(
             keys=[],
             values=torch.tensor([]),
@@ -35,8 +35,9 @@ class TestDoUniqueHash:
         assert result.unique_indices is None
         assert result.unique_inverse is None
 
+    @staticmethod
     @patch("torch.Tensor.pin_memory", new=lambda self, *args, **kwargs: self)
-    def test_do_unique_hash_f1(self):
+    def test_do_unique_hash_f1():
         kjt = KeyedJaggedTensor(
             keys=["f1"],
             values=torch.tensor([1, 1, 2]),
@@ -46,8 +47,9 @@ class TestDoUniqueHash:
         result = do_unique_hash(kjt, [1], [MockHashMap()])
         assert len(result.unique_indices) == 2  # [1, 2]
 
+    @staticmethod
     @patch("torch.Tensor.pin_memory", new=lambda self, *args, **kwargs: self)
-    def test_do_unique_hash_f2(self):
+    def test_do_unique_hash_f2():
         kjt = KeyedJaggedTensor(
             keys=["f1", "f2"],
             values=torch.tensor([1, 2, 3, 1, 2, 4]),
@@ -63,8 +65,9 @@ class TestDoUniqueHash:
         assert result.keys() == ["f1", "f2"]
         assert torch.equal(result.values(), kjt.values())
 
+    @staticmethod
     @patch("torch.Tensor.pin_memory", new=lambda self, *args, **kwargs: self)
-    def test_do_unique_hash_f3(self):
+    def test_do_unique_hash_f3():
         kjt = KeyedJaggedTensor(
             keys=["f1", "f2", "f3"],
             values=torch.tensor([1, 2, 3, 4, 5, 6, 7, 8, 9]),
@@ -76,7 +79,8 @@ class TestDoUniqueHash:
 
 
 class TestSplitKeysOffset:
-    def test_split_key_offset_f0(self):
+    @staticmethod
+    def test_split_key_offset_f0():
         kjt = KeyedJaggedTensor(
             keys=[],
             values=torch.tensor([]),
@@ -87,7 +91,8 @@ class TestSplitKeysOffset:
         expected = torch.LongTensor([0])
         assert torch.equal(result, expected)
 
-    def test_split_key_offset_f1(self):
+    @staticmethod
+    def test_split_key_offset_f1():
         kjt = KeyedJaggedTensor(
             keys=["f1"],
             values=torch.tensor([1, 2]),
@@ -98,7 +103,8 @@ class TestSplitKeysOffset:
         expected = torch.LongTensor([0, 2])
         assert torch.equal(result, expected)
 
-    def test_split_key_offset_f3(self):
+    @staticmethod
+    def test_split_key_offset_f3():
         kjt = KeyedJaggedTensor(
             keys=["f1", "f2", "f3"],
             values=torch.tensor([1, 2, 3, 4, 5, 6]),
@@ -109,7 +115,8 @@ class TestSplitKeysOffset:
         expected = torch.LongTensor([0, 2, 6])
         assert torch.equal(result, expected)
 
-    def test_split_key_offset_f4(self):
+    @staticmethod
+    def test_split_key_offset_f4():
         kjt = KeyedJaggedTensor(
             keys=["f1", "f2", "f3", "f4"],
             values=torch.tensor([1, 2, 3, 4, 5, 6, 7, 8]),
