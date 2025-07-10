@@ -205,12 +205,12 @@ def execute(rank, config):
             future = swap_info_future.get()
             swapout_keys = future.swapout_keys
             if swapout_keys:
-                swap_offs = future.swapout_offs.to(test_model.cpu_device, non_blocking=True)
+                swap_offs = future.swapout_offs.to(test_model.npu_device, non_blocking=True)
                 _stb_eb_codegen = module.get_batched_embedding_kernels()[0][0]
                 swapout_embs = _stb_eb_codegen.gather_embs(swap_offs).to(test_model.cpu_device, non_blocking=True)
                 swapout_momentum = []
                 for momentum in _stb_eb_codegen.gather_momentum(swap_offs):
-                    swapout_momentum.append(][\]
+                    swapout_momentum.append(
                         momentum.to(test_model.cpu_device, non_blocking=True)
                     )
                 swapout_dict = {
