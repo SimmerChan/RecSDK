@@ -37,8 +37,8 @@ from mx_rec.util.initialize import ConfigInitializer, init, terminate_config_ini
 from mx_rec.util.ops import import_host_pipeline_ops
 import mx_rec.util as mxrec_util
 from mx_rec.util.variable import get_dense_and_sparse_variable
-
-from config import sess_config, Config, SSD_DATA_PATH, CacheModeEnum
+from mx_rec.util.common_config import sess_config
+from config import Config, SSD_DATA_PATH, CacheModeEnum
 from model import MyModel
 from demo_logger import logger
 from optimizer import get_dense_and_sparse_optimizer

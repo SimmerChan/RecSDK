@@ -1,5 +1,5 @@
 # coding=utf-8
-# Copyright 2024. Huawei Technologies Co.,Ltd. All rights reserved.
+# Copyright 2025. Huawei Technologies Co.,Ltd. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,16 +14,18 @@
 # limitations under the License.
 # ==============================================================================
 
-import enum
 import os
+from enum import Enum
 
 import tensorflow as tf
 from tensorflow.core.protobuf.rewriter_config_pb2 import RewriterConfig
+from npu_bridge.estimator.npu.npu_config import NPURunConfig
 
+MODEL_NAME = None
 SSD_DATA_PATH = ["ssd_data"]
 
 
-class CacheModeEnum(enum.Enum):
+class CacheModeEnum(Enum):
     HBM = "HBM"
     DDR = "DDR"
     SSD = "SSD"
@@ -92,6 +94,13 @@ class LearningRateScheduler:
 
         lr_sparse = self.base_lr_sparse * lr_factor_sparse
         lr_dense = self.base_lr_dense * lr_factor_dense
+        if MODEL_NAME == "DCNv2":
+            lr_sparse = tf.cond(lr_sparse >= 0.0, lambda: lr_sparse, lambda: tf.cast(0.0, tf.float32))
+            lr_sparse = tf.math.minimum(lr_sparse, tf.cast(10.0, tf.float32))
+        elif MODEL_NAME == "DLRM":
+            lr_sparse = tf.math.maximum(lr_sparse, tf.cast(0.0, tf.float32))
+            lr_sparse = tf.math.minimum(lr_sparse, tf.cast(10.0, tf.float32))
+
         return lr_dense, lr_sparse
 
 
@@ -107,13 +116,11 @@ class Config:
         self.train_file_pattern = "train"
         self.test_file_pattern = "test"
 
-        self.batch_size = int(os.getenv("BATCH_SIZE"))
+        self.batch_size = 8192
         self.line_per_sample = 1024
-        self.train_epoch = 1
+        self.train_epoch = 3
         self.test_epoch = 1
-        self.perform_shuffle = False
-        self.use_adacons = bool(os.getenv("USE_ADACONS"))
-        self.optimizer = os.getenv("OPTIMIZER")
+        self.perform_shuffle = False      
 
         self.key_type = tf.int64
         self.label_type = tf.float32
@@ -121,31 +128,69 @@ class Config:
 
         self.feat_cnt = 26
         self.__set_emb_table_size()
-        self.loss_scale = int(os.getenv("LOSS_SCALE"))
 
         self.field_num = 26
-        self.send_count = 680000 // self.rank_size
+        self.send_count = 46000 // self.rank_size
 
         self.emb_dim = 128
         self.hashtable_threshold = 1
 
-        self.use_pipeline_test = False
+        self.USE_PIPELINE_TEST = False
+        if MODEL_NAME == "DLRM":
+            self.use_lazy_adam_optimizer = False
+            self.use_fusion_optim = False            
 
         # 动态学习率
-        global_batch_size = self.batch_size * self.rank_size
-        lr_schedule_steps = [
-            int(int(os.getenv("WARM_STEPS")) / global_batch_size),
-            int(int(os.getenv("DECAY_START_STEPS")) / global_batch_size),
-            int(int(os.getenv("DECAY_STEPS")) / global_batch_size),
+        GLOBAL_BATCH_SIZE = 8192 * 8
+        LR_SCHEDULE_STEPS = [
+            int(2750 * 55296 / GLOBAL_BATCH_SIZE),
+            int(49315 * 55296 / GLOBAL_BATCH_SIZE),
+            int(27772 * 55296 / GLOBAL_BATCH_SIZE),
         ]
         self.global_step = tf.Variable(0, trainable=False)
         _lr_scheduler = LearningRateScheduler(
-            int(os.getenv("DENSE_LR")),
-            int(os.getenv("SPARSE_LR")),
-            lr_schedule_steps[0],
-            lr_schedule_steps[1],
-            lr_schedule_steps[2],
+            28.443,
+            33.71193,
+            LR_SCHEDULE_STEPS[0],
+            LR_SCHEDULE_STEPS[1],
+            LR_SCHEDULE_STEPS[2],
         )
+
+        if MODEL_NAME ==  "DCNv2_multihot":
+            self.batch_size = int(os.getenv("BATCH_SIZE"))
+            self.train_epoch = 1
+            self.use_adacons = bool(os.getenv("USE_ADACONS"))
+            self.optimizer = os.getenv("OPTIMIZER")
+            self.loss_scale = int(os.getenv("LOSS_SCALE"))
+            self.send_count = 680000 // self.rank_size
+            GLOBAL_BATCH_SIZE = self.batch_size * self.rank_size
+            LR_SCHEDULE_STEPS = [
+                int(int(os.getenv("WARM_STEPS")) / GLOBAL_BATCH_SIZE),
+                int(int(os.getenv("DECAY_START_STEPS")) / GLOBAL_BATCH_SIZE),
+                int(int(os.getenv("DECAY_STEPS")) / GLOBAL_BATCH_SIZE),
+            ]
+            _lr_scheduler = LearningRateScheduler(
+                int(os.getenv("DENSE_LR")),
+                int(os.getenv("SPARSE_LR")),
+                LR_SCHEDULE_STEPS[0],
+                LR_SCHEDULE_STEPS[1],
+                LR_SCHEDULE_STEPS[2],
+            )
+
+        if MODEL_NAME == "WideDeep":
+            self.batch_size = 4096
+            self.line_per_sample = 1
+            self.train_epoch = 1
+            self.test_epoch = 9
+            self.emb_dim = 8
+            _lr_scheduler = LearningRateScheduler(
+                0.001,
+                0.001,
+                LR_SCHEDULE_STEPS[0],
+                LR_SCHEDULE_STEPS[1],
+                LR_SCHEDULE_STEPS[2],
+            )
+
         self.learning_rate = _lr_scheduler.calc(self.global_step)
 
     def __set_emb_table_size(self):
@@ -154,7 +199,11 @@ class Config:
             raise ValueError("please export CACHE_MODE environment variable, support:[HBM, DDR, SSD]")
 
         if self.cache_mode == CacheModeEnum.HBM.value:
-            self.dev_vocab_size = 18_000_000 * self.rank_size
+            self.dev_vocab_size = 24_000_000 * self.rank_size
+            if MODEL_NAME == "DCNv2_multihot":
+                self.dev_vocab_size = 18_000_000 * self.rank_size
+            elif MODEL_NAME == "WideDeep":
+                self.dev_vocab_size = 14_000_000 * self.rank_size
             self.host_vocab_size = 0
         elif self.cache_mode == CacheModeEnum.DDR.value:
             self.dev_vocab_size = 500_000 * self.rank_size
@@ -213,3 +262,29 @@ def sess_config(dump_data=False, dump_path="./dump_output", dump_steps="0|1|2"):
     session_config.graph_options.rewrite_options.memory_optimization = RewriterConfig.OFF
 
     return session_config
+
+
+def get_npu_run_config():
+    session_config = tf.ConfigProto(allow_soft_placement=False,
+                                    log_device_placement=False)
+
+    session_config.gpu_options.allow_growth = True
+    custom_op = session_config.graph_options.rewrite_options.custom_optimizers.add()
+    custom_op.name = "NpuOptimizer"
+    session_config.graph_options.rewrite_options.remapping = RewriterConfig.OFF
+    session_config.graph_options.rewrite_options.memory_optimization = RewriterConfig.OFF
+
+    run_config = NPURunConfig(
+        save_summary_steps=1000,
+        save_checkpoints_steps=100,
+        keep_checkpoint_max=5,
+        session_config=session_config,
+        log_step_count_steps=20,
+        precision_mode='allow_mix_precision',
+        enable_data_pre_proc=True,
+        iterations_per_loop=1,
+        jit_compile=False,
+        op_compiler_cache_mode="enable",
+        HCCL_algorithm="level0:fullmesh;level1:fullmesh"  # 可选配置：level0:pairwise;level1:pairwise
+    )
+    return run_config
