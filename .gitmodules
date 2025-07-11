@@ -1,0 +1,12 @@
+[submodule "torchrec/torchrec_embcache/src/3rdparty/googletest"]
+    path = torchrec/torchrec_embcache/src/3rdparty/googletest
+    url = https://github.com/google/googletest
+    branch = release-1.8.1
+[submodule "torchrec/torchrec_embcache/src/3rdparty/glog"]
+    path = torchrec/torchrec_embcache/src/3rdparty/glog
+    url = https://github.com/google/glog.git
+    branch = v0.7.1
+[submodule "torchrec/torchrec_embcache/src/3rdparty/securec"]
+    path = torchrec/torchrec_embcache/src/3rdparty/securec
+    url = https://gitee.com/Janisa/huawei_secure_c.git
+    branch = master
