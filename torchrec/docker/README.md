@@ -34,7 +34,6 @@ docker build -t recsdk_torch_base:v1.0-x86 -f Dockerfile --build-arg http_proxy=
 #!/bin/bash
 container_name=$1
 image_name=$2
-user_name=$3
 docker run \
 -it \
 --name ${container_name} \
@@ -43,7 +42,6 @@ docker run \
 -e ASCEND_VISIBLE_DEVICES=0-7 \
 -v /etc/ascend_install.info:/etc/ascend_install.info:ro \
 -v /usr/local/Ascend/driver:/usr/local/Ascend/driver:ro \
--v /home/${user_name}:/home/${user_name}
 ${image_name} \
 /bin/bash
 ```
