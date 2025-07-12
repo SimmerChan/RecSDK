@@ -27,6 +27,22 @@ from mx_rec.core.asc.helper import FeatureSpec
 MODEL_NAME = None
 SSD_DATA_PATH = ["ssd_data"]
 
+rank_id = int(os.getenv("RANK_ID")) if os.getenv("RANK_ID") else None
+rank_size = int(os.getenv("TRAIN_RANK_SIZE")) if os.getenv("TRAIN_RANK_SIZE") else None
+interval = int(os.getenv("INTERVAL")) if os.getenv("INTERVAL") else None
+
+try:
+    use_dynamic_expansion = bool(int(os.getenv("USE_DYNAMIC_EXPANSION", 0)))
+    use_multi_lookup = bool(int(os.getenv("USE_MULTI_LOOKUP", 0)))
+    MODIFY_GRAPH_FLAG = bool(int(os.getenv("USE_MODIFY_GRAPH", 0)))
+    USE_DP = bool(int(os.getenv("USE_DP", 0)))
+    use_faae = bool(int(os.getenv("USE_FAAE", 0)))
+    use_shm_swap = bool(int(os.getenv("USE_SHM_SWAP", 0)))
+    huge_tle_enable = bool(int(os.getenv("HUGE_TLB_ENABLE", 0)))
+except ValueError as err:
+    raise ValueError("please correctly config USE_DYNAMIC_EXPANSION or USE_MULTI_LOOKUP or USE_FAAE "
+                        "or USE_MODIFY_GRAPH or USE_SHM_SWAP or HUGE_TLB_ENABLE only 0 or 1 is supported.") from err
+
 
 class CacheModeEnum(Enum):
     HBM = "HBM"
@@ -333,3 +349,4 @@ def create_feature_spec_list(cfg, use_multi_lookup, use_timestamp=False):
     if use_timestamp:
         feature_spec_list.append(FeatureSpec("timestamp", is_timestamp=True))
     return feature_spec_list
+    

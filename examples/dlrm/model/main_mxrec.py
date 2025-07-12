@@ -36,7 +36,7 @@ from mx_rec.constants.constants import ASCEND_TIMESTAMP
 from mx_rec.util.initialize import ConfigInitializer, init, terminate_config_initializer
 import mx_rec.util as mxrec_util
 from mx_rec.util.variable import get_dense_and_sparse_variable
-import mx_rec.util.model_common
+import mx_rec.util.model_common as cm
 from mx_rec.util.model_common import(
     sess_config, Config, SSD_DATA_PATH,
     CacheModeEnum, add_timestamp_func, create_feature_spec_list
@@ -51,7 +51,7 @@ dense_hashtable_seed = 128
 sparse_hashtable_seed = 128
 shuffle_seed = 128
 random.seed(shuffle_seed)
-mx_rec.util.model_common.MODEL_NAME = "DLRM"
+cm.MODEL_NAME = "DLRM"
 
 
 def make_batch_and_iterator(config, feature_spec_list, is_training, dump_graph, is_use_faae=False):
@@ -97,7 +97,7 @@ def make_batch_and_iterator(config, feature_spec_list, is_training, dump_graph, 
     if is_use_faae:
         dataset = dataset.map(add_timestamp_func)
 
-    if not MODIFY_GRAPH_FLAG:
+    if not cm.MODIFY_GRAPH_FLAG:
         insert_fn = get_asc_insert_func(tgt_key_specs=feature_spec_list, is_training=is_training, dump_graph=dump_graph)
         dataset = dataset.map(insert_fn)
 
@@ -113,7 +113,7 @@ def model_forward(feature_list, hash_table_list, batch, is_train, modify_graph):
     logger.debug(f"In model_forward function, is_train: {is_train}, feature_list: {len(feature_list)}, "
                  f"hash_table_list: {len(hash_table_list)}")
     for feature, hash_table in zip(feature_list, hash_table_list):
-        if MODIFY_GRAPH_FLAG:
+        if cm.MODIFY_GRAPH_FLAG:
             feature = batch["sparse_feature"]
         embedding = sparse_lookup(hash_table, feature, cfg.send_count, dim=None, is_train=is_train,
                                   name="user_embedding_lookup", modify_graph=modify_graph, batch=batch,
@@ -137,7 +137,7 @@ def model_forward(feature_list, hash_table_list, batch, is_train, modify_graph):
 
 def evaluate():
     print("read_test dataset")
-    if not MODIFY_GRAPH_FLAG:
+    if not cm.MODIFY_GRAPH_FLAG:
         eval_label = eval_model.get("label")
         sess.run([eval_iterator.initializer])
     else:
@@ -173,7 +173,7 @@ def evaluate():
 
 def evaluate_fix(step):
     print("read_test dataset evaluate_fix")
-    if not MODIFY_GRAPH_FLAG:
+    if not cm.MODIFY_GRAPH_FLAG:
         sess.run([eval_iterator.initializer])
     else:
         sess.run([ConfigInitializer.get_instance().train_params_config.get_initializer(False)])
@@ -199,17 +199,17 @@ def evaluate_fix(step):
 
     label_numpy = np.array(label_list)
     pred_numpy = np.array(pred_list)
-    if not os.path.exists(os.path.abspath(".") + f"/interval_{interval}/numpy_{step}"):
-        os.makedirs(os.path.abspath(".") + f"/interval_{interval}/numpy_{step}")
+    if not os.path.exists(os.path.abspath(".") + f"/interval_{cm.interval}/numpy_{step}"):
+        os.makedirs(os.path.abspath(".") + f"/interval_{cm.interval}/numpy_{step}")
 
-    if os.path.exists(os.path.abspath(".") + f"/interval_{interval}/numpy_{step}/label_{rank_id}.npy"):
-        os.remove(os.path.abspath(".") + f"/interval_{interval}/numpy_{step}/label_{rank_id}.npy")
-    if os.path.exists(os.path.abspath(".") + f"/interval_{interval}/numpy_{step}/pred_{rank_id}.npy"):
-        os.remove(os.path.abspath(".") + f"/interval_{interval}/numpy_{step}/pred_{rank_id}.npy")
+    if os.path.exists(os.path.abspath(".") + f"/interval_{cm.interval}/numpy_{step}/label_{rank_id}.npy"):
+        os.remove(os.path.abspath(".") + f"/interval_{cm.interval}/numpy_{step}/label_{rank_id}.npy")
+    if os.path.exists(os.path.abspath(".") + f"/interval_{cm.interval}/numpy_{step}/pred_{rank_id}.npy"):
+        os.remove(os.path.abspath(".") + f"/interval_{cm.interval}/numpy_{step}/pred_{rank_id}.npy")
     if os.path.exists(f"flag_{rank_id}.txt"):
         os.remove(f"flag_{rank_id}.txt")
-    np.save(os.path.abspath(".") + f"/interval_{interval}/numpy_{step}/label_{rank_id}.npy", label_numpy)
-    np.save(os.path.abspath(".") + f"/interval_{interval}/numpy_{step}/pred_{rank_id}.npy", pred_numpy)
+    np.save(os.path.abspath(".") + f"/interval_{cm.interval}/numpy_{step}/label_{rank_id}.npy", label_numpy)
+    np.save(os.path.abspath(".") + f"/interval_{cm.interval}/numpy_{step}/pred_{rank_id}.npy", pred_numpy)
     os.mknod(f"flag_{rank_id}.txt")
     while True:
         file_exists_list = [os.path.exists(f"flag_{i}.txt") for i in range(rank_size)]
@@ -256,25 +256,13 @@ if __name__ == "__main__":
     warnings.filterwarnings("ignore")
     _clear_saved_model()
 
-    rank_id = int(os.getenv("RANK_ID")) if os.getenv("RANK_ID") else None
-    rank_size = int(os.getenv("TRAIN_RANK_SIZE")) if os.getenv("TRAIN_RANK_SIZE") else None
-    interval = int(os.getenv("INTERVAL")) if os.getenv("INTERVAL") else None
     train_steps = 10000
     eval_steps = 1360
-
-    try:
-        use_dynamic_expansion = bool(int(os.getenv("USE_DYNAMIC_EXPANSION", 0)))
-        use_multi_lookup = bool(int(os.getenv("USE_MULTI_LOOKUP", 0)))
-        MODIFY_GRAPH_FLAG = bool(int(os.getenv("USE_MODIFY_GRAPH", 0)))
-        use_faae = bool(int(os.getenv("USE_FAAE", 0)))
-    except ValueError as err:
-        raise ValueError("please correctly config USE_DYNAMIC_EXPANSION or USE_MULTI_LOOKUP or USE_FAAE "
-                         "or USE_MODIFY_GRAPH only 0 or 1 is supported.") from err
 
     use_dynamic = bool(int(os.getenv("USE_DYNAMIC", 0)))
     logger.info(f"USE_DYNAMIC:{use_dynamic}")
     init(train_steps=train_steps, eval_steps=eval_steps,
-         use_dynamic=use_dynamic, use_dynamic_expansion=use_dynamic_expansion)
+         use_dynamic=use_dynamic, use_dynamic_expansion=cm.use_dynamic_expansion)
     IF_LOAD = False
     rank_id = mxrec_util.communication.hccl_ops.get_rank_id()
     filelist = glob(f"./saved-model/sparse-model-0")
@@ -285,27 +273,27 @@ if __name__ == "__main__":
     cfg = Config()
     feature_spec_list_train = None
     feature_spec_list_eval = None
-    if use_faae:
-        feature_spec_list_train = create_feature_spec_list(cfg, use_multi_lookup, use_timestamp=True)
-        feature_spec_list_eval = create_feature_spec_list(cfg, use_multi_lookup, use_timestamp=True)
+    if cm.use_faae:
+        feature_spec_list_train = create_feature_spec_list(cfg, cm.use_multi_lookup, use_timestamp=True)
+        feature_spec_list_eval = create_feature_spec_list(cfg, cm.use_multi_lookup, use_timestamp=True)
     else:
-        feature_spec_list_train = create_feature_spec_list(cfg, use_multi_lookup, use_timestamp=False)
-        feature_spec_list_eval = create_feature_spec_list(cfg, use_multi_lookup, use_timestamp=False)
+        feature_spec_list_train = create_feature_spec_list(cfg, cm.use_multi_lookup, use_timestamp=False)
+        feature_spec_list_eval = create_feature_spec_list(cfg, cm.use_multi_lookup, use_timestamp=False)
 
     train_batch, train_iterator = make_batch_and_iterator(cfg, feature_spec_list_train, is_training=True,
-                                                          dump_graph=True, is_use_faae=use_faae)
+                                                          dump_graph=True, is_use_faae=cm.use_faae)
     eval_batch, eval_iterator = make_batch_and_iterator(cfg, feature_spec_list_eval, is_training=False,
-                                                        dump_graph=False, is_use_faae=use_faae)
+                                                        dump_graph=False, is_use_faae=cm.use_faae)
     logger.info(f"train_batch: {train_batch}")
 
-    if use_faae:
+    if cm.use_faae:
         cfg.dev_vocab_size = cfg.dev_vocab_size // 2
 
     optimizer_list = [get_dense_and_sparse_optimizer(cfg)]
 
     # note: variance_scaling_initializer only support HBM mode
     emb_initializer = tf.compat.v1.truncated_normal_initializer(stddev=0.05, seed=sparse_hashtable_seed) \
-        if cfg.cache_mode != "HBM" or use_dynamic_expansion else \
+        if cfg.cache_mode != "HBM" or cm.use_dynamic_expansion else \
         tf.compat.v1.variance_scaling_initializer(mode="fan_avg", distribution='normal', seed=sparse_hashtable_seed)
     sparse_hashtable = create_table(
         key_dtype=cfg.key_type,
@@ -314,19 +302,19 @@ if __name__ == "__main__":
         emb_initializer=emb_initializer,
         **cfg.get_emb_table_cfg()
     )
-    if use_faae:
+    if cm.use_faae:
         tf.compat.v1.add_to_collection(ASCEND_TIMESTAMP, train_batch["timestamp"])
 
-    sparse_hashtable_list = [sparse_hashtable, sparse_hashtable] if use_multi_lookup else [sparse_hashtable]
+    sparse_hashtable_list = [sparse_hashtable, sparse_hashtable] if cm.use_multi_lookup else [sparse_hashtable]
     train_model = model_forward(feature_spec_list_train, sparse_hashtable_list, train_batch,
-                                is_train=True, modify_graph=MODIFY_GRAPH_FLAG)
+                                is_train=True, modify_graph=cm.MODIFY_GRAPH_FLAG)
     eval_model = model_forward(feature_spec_list_eval, sparse_hashtable_list, eval_batch,
-                               is_train=False, modify_graph=MODIFY_GRAPH_FLAG)
+                               is_train=False, modify_graph=cm.MODIFY_GRAPH_FLAG)
 
     dense_variables, sparse_variables = get_dense_and_sparse_variable()
     trainable_varibles = []
     trainable_varibles.extend(dense_variables)
-    if use_dynamic_expansion:
+    if cm.use_dynamic_expansion:
         trainable_varibles.append(tf.compat.v1.get_collection(ASCEND_SPARSE_LOOKUP_LOCAL_EMB)[0])
     else:
         trainable_varibles.extend(sparse_variables)
@@ -345,7 +333,7 @@ if __name__ == "__main__":
         # apply gradients: update variables
         train_ops.append(dense_optimizer.apply_gradients(avg_grads))
 
-        if use_dynamic_expansion:
+        if cm.use_dynamic_expansion:
             train_address_list = tf.compat.v1.get_collection(ASCEND_SPARSE_LOOKUP_ID_OFFSET)
             # do sparse optimization by addr
             sparse_grads = list(grads[-1])  # local_embedding
@@ -366,33 +354,33 @@ if __name__ == "__main__":
         cfg.learning_rate = [cfg.learning_rate[0], cfg.learning_rate[1]]
 
     saver = tf.train.Saver()
-    if MODIFY_GRAPH_FLAG:
+    if cm.MODIFY_GRAPH_FLAG:
         modify_graph_and_start_emb_cache(dump_graph=True)
     else:
         start_asc_pipeline()
 
     hook_list = []
-    if use_faae:
+    if cm.use_faae:
         hook_evict = EvictHook(evict_enable=True, evict_time_interval=120)
         hook_list.append(hook_evict)
-        if MODIFY_GRAPH_FLAG:  # 该场景添加hook处理校验问题
+        if cm.MODIFY_GRAPH_FLAG:  # 该场景添加hook处理校验问题
             hook_list.append(GraphModifierHook(modify_graph=False))
 
     # Disable dumping data during session: set dump_data=False in sess_config:
-    if use_faae:
+    if cm.use_faae:
         sess = tf.compat.v1.train.MonitoredTrainingSession(
             hooks=hook_list,
             config=sess_config(dump_data=False)
         )
         sess.graph._unsafe_unfinalize()
-        if not MODIFY_GRAPH_FLAG:
+        if not cm.MODIFY_GRAPH_FLAG:
             sess.run(train_iterator.initializer)
         else:
             sess.run(ConfigInitializer.get_instance().train_params_config.get_initializer(True))
     else:
         sess = tf.compat.v1.Session(config=sess_config(dump_data=False))
         sess.run(tf.compat.v1.global_variables_initializer())
-        if not MODIFY_GRAPH_FLAG:
+        if not cm.MODIFY_GRAPH_FLAG:
             sess.run(train_iterator.initializer)
         else:
             sess.run(ConfigInitializer.get_instance().train_params_config.get_initializer(True))
@@ -433,7 +421,7 @@ if __name__ == "__main__":
                     f"table size:{sparse_hashtable.size()}, table capacity:{sparse_hashtable.capacity()}")
 
         if i % (train_steps // iteration_per_loop) == 0:
-            if interval is not None:
+            if cm.interval is not None:
                 test_auc, test_mean_log_loss = evaluate_fix(i * iteration_per_loop)
             else:
                 test_auc, test_mean_log_loss = evaluate()
