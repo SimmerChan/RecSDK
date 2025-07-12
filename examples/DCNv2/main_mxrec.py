@@ -25,7 +25,7 @@ from sklearn.metrics import roc_auc_score
 import numpy as np
 
 from npu_bridge.npu_init import *
-from mx_rec.core.asc.helper import FeatureSpec, get_asc_insert_func
+from mx_rec.core.asc.helper import get_asc_insert_func
 from mx_rec.core.asc.manager import start_asc_pipeline
 from mx_rec.core.embedding import create_table, sparse_lookup
 from mx_rec.core.feature_process import EvictHook
@@ -35,7 +35,10 @@ from mx_rec.util.initialize import ConfigInitializer, init, terminate_config_ini
 import mx_rec.util as mxrec_util
 from mx_rec.util.variable import get_dense_and_sparse_variable
 import mx_rec.util.model_common
-from mx_rec.util.model_common import sess_config, Config, SSD_DATA_PATH, CacheModeEnum, add_timestamp_func
+from mx_rec.util.model_common import(
+    sess_config, Config, SSD_DATA_PATH, CacheModeEnum,
+    add_timestamp_func, create_feature_spec_list
+)
 from model import MyModel
 from demo_logger import logger
 from optimizer import get_dense_and_sparse_optimizer
@@ -222,25 +225,6 @@ def evaluate_fix(step):
     return auc, mean_log_loss
 
 
-def create_feature_spec_list(use_timestamp=False):
-    access_threshold = None
-    eviction_threshold = None
-    if use_timestamp:
-        access_threshold = 1000
-        eviction_threshold = 180
-
-    feature_spec_list = [FeatureSpec("sparse_feature", table_name="sparse_embeddings", batch_size=cfg.batch_size,
-                                     access_threshold=access_threshold, eviction_threshold=eviction_threshold)]
-    if use_multi_lookup:
-        feature_spec_list.append(FeatureSpec("sparse_feature", table_name="sparse_embeddings",
-                                             batch_size=cfg.batch_size,
-                                             access_threshold=access_threshold,
-                                             eviction_threshold=eviction_threshold))
-    if use_timestamp:
-        feature_spec_list.append(FeatureSpec("timestamp", is_timestamp=True))
-    return feature_spec_list
-
-
 def _del_related_dir(del_path: str) -> None:
     if not os.path.isabs(del_path):
         del_path = os.path.join(os.getcwd(), del_path)
@@ -300,11 +284,11 @@ if __name__ == "__main__":
     feature_spec_list_train = None
     feature_spec_list_eval = None
     if use_faae:
-        feature_spec_list_train = create_feature_spec_list(use_timestamp=True)
-        feature_spec_list_eval = create_feature_spec_list(use_timestamp=True)
+        feature_spec_list_train = create_feature_spec_list(cfg, use_multi_lookup, use_timestamp=True)
+        feature_spec_list_eval = create_feature_spec_list(cfg, use_multi_lookup, use_timestamp=True)
     else:
-        feature_spec_list_train = create_feature_spec_list(use_timestamp=False)
-        feature_spec_list_eval = create_feature_spec_list(use_timestamp=False)
+        feature_spec_list_train = create_feature_spec_list(cfg, use_multi_lookup, use_timestamp=False)
+        feature_spec_list_eval = create_feature_spec_list(cfg, use_multi_lookup, use_timestamp=False)
 
     train_batch, train_iterator = make_batch_and_iterator(cfg, feature_spec_list_train, is_training=True,
                                                           dump_graph=True, is_use_faae=use_faae)
