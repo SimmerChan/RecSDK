@@ -15,7 +15,9 @@
 # ==============================================================================
 
 import os
+import shutil
 from enum import Enum
+from glob import glob
 
 import tensorflow as tf
 from tensorflow.core.protobuf.rewriter_config_pb2 import RewriterConfig
@@ -349,4 +351,29 @@ def create_feature_spec_list(cfg, use_multi_lookup, use_timestamp=False):
     if use_timestamp:
         feature_spec_list.append(FeatureSpec("timestamp", is_timestamp=True))
     return feature_spec_list
-    
+
+
+def clear_saved_model(logger) -> None:
+    def _del_related_dir(del_path: str) -> None:
+        if not os.path.isabs(del_path):
+            del_path = os.path.join(os.getcwd(), del_path)
+        dirs = glob(del_path)
+        for sub_dir in dirs:
+            shutil.rmtree(sub_dir, ignore_errors=True)
+            logger.info(f"delete dir:{sub_dir}")
+
+    _del_related_dir("/root/ascend/log/*")
+    if MODEL_NAME == "DLRM" or MODEL_NAME == "WideDeep" or MODEL_NAME == "MMOE":
+        _del_related_dir("kernel*")
+        _del_related_dir("model_dir_rank*")
+        _del_related_dir("op_cache")
+
+    if os.getenv("CACHE_MODE", "") != CacheModeEnum.SSD.value:
+        return
+    logger.info("Current cache mode is SSD, and file overwrite is not allowed in SSD mode, deleting exist directory"
+                " then create empty directory for this use case.")
+    for sub_path in SSD_DATA_PATH:
+        _del_related_dir(sub_path)
+        os.makedirs(sub_path, mode=0o550, exist_ok=True)
+        logger.info(f"Create dir:{sub_path}")
+

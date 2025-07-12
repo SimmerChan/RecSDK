@@ -16,7 +16,6 @@
 
 import os
 import random
-import shutil
 import time
 import warnings
 from glob import glob
@@ -41,8 +40,8 @@ from mx_rec.util.variable import get_dense_and_sparse_variable
 from mx_rec.util.log import logger
 import mx_rec.util.model_common as cm
 from mx_rec.util.model_common import(
-    sess_config, Config, SSD_DATA_PATH,
-    CacheModeEnum, add_timestamp_func, create_feature_spec_list
+    sess_config, Config,
+    add_timestamp_func, create_feature_spec_list, clear_saved_model
 )
 
 npu_plugin.set_device_sat_mode(0)
@@ -241,27 +240,6 @@ def evaluate_fix(step):
     return auc, mean_log_loss
 
 
-def _del_related_dir(del_path: str) -> None:
-    if not os.path.isabs(del_path):
-        del_path = os.path.join(os.getcwd(), del_path)
-    dirs = glob(del_path)
-    for sub_dir in dirs:
-        shutil.rmtree(sub_dir, ignore_errors=True)
-        logger.info(f"delete dir:{sub_dir}")
-
-
-def _clear_saved_model() -> None:
-    _del_related_dir("/root/ascend/log/*")
-    if os.getenv("CACHE_MODE", "") != CacheModeEnum.SSD.value:
-        return
-    logger.info("Current cache mode is SSD, and file overwrite is not allowed in SSD mode, deleting exist directory"
-                " then create empty directory for this use case.")
-    for sub_path in SSD_DATA_PATH:
-        _del_related_dir(sub_path)
-        os.makedirs(sub_path, mode=0o550, exist_ok=True)
-        logger.info(f"Create dir:{sub_path}")
-
-
 def cal_average_grad(grads_info: List[Tuple[tf.Tensor, tf.Variable]], device_size: int) -> List[
     Tuple[tf.Tensor, tf.Variable]]:
     """
@@ -288,12 +266,10 @@ def cal_average_grad(grads_info: List[Tuple[tf.Tensor, tf.Variable]], device_siz
     return avg_grads
 
 
-
-
 if __name__ == "__main__":
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
     warnings.filterwarnings("ignore")
-    _clear_saved_model()
+    clear_saved_model()
 
     train_steps = int(os.getenv("TRAIN_STEP"))
     eval_steps = int(os.getenv("TEST_STEP"))
