@@ -38,8 +38,8 @@ from mx_rec.util.ops import import_host_pipeline_ops
 import mx_rec.util as mxrec_util
 from mx_rec.util.variable import get_dense_and_sparse_variable
 from npu_bridge.npu_init import *
-import mx_rec.util.common_config
-from mx_rec.util.common_config import sess_config, Config, SSD_DATA_PATH, CacheModeEnum
+import mx_rec.util.model_common
+from mx_rec.util.model_common import sess_config, Config, SSD_DATA_PATH, CacheModeEnum, add_timestamp_func
 from demo_logger import logger
 from model import MyModel
 from optimizer import get_dense_and_sparse_optimizer
@@ -50,13 +50,7 @@ dense_hashtable_seed = 128
 sparse_hashtable_seed = 128
 shuffle_seed = 128
 random.seed(shuffle_seed)
-mx_rec.util.common_config.MODEL_NAME = "WideDeep"
-
-
-def add_timestamp_func(batch):
-    timestamp = import_host_pipeline_ops().return_timestamp(tf.cast(batch['label'], dtype=tf.int64))
-    batch["timestamp"] = timestamp
-    return batch
+mx_rec.util.model_common.MODEL_NAME = "WideDeep"
 
 
 def make_batch_and_iterator(config, feature_spec_list, is_training, dump_graph, is_use_faae=False, **kwargs):

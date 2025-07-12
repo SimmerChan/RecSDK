@@ -21,6 +21,8 @@ import tensorflow as tf
 from tensorflow.core.protobuf.rewriter_config_pb2 import RewriterConfig
 from npu_bridge.estimator.npu.npu_config import NPURunConfig
 
+from mx_rec.util.ops import import_host_pipeline_ops
+
 MODEL_NAME = None
 SSD_DATA_PATH = ["ssd_data"]
 
@@ -120,7 +122,7 @@ class Config:
         self.line_per_sample = 1024
         self.train_epoch = 3
         self.test_epoch = 1
-        self.perform_shuffle = False      
+        self.perform_shuffle = False
 
         self.key_type = tf.int64
         self.label_type = tf.float32
@@ -288,3 +290,10 @@ def get_npu_run_config():
         HCCL_algorithm="level0:fullmesh;level1:fullmesh"  # 可选配置：level0:pairwise;level1:pairwise
     )
     return run_config
+
+
+def add_timestamp_func(batch):
+    timestamp = import_host_pipeline_ops().return_timestamp(tf.cast(batch['label'], dtype=tf.int64))
+    # tf.constant(np.random.randint(1,1688109060,1)), tf.int64))
+    batch["timestamp"] = timestamp
+    return batch

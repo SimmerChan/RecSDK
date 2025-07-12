@@ -37,7 +37,7 @@ from mx_rec.util.initialize import ConfigInitializer, init, terminate_config_ini
 from mx_rec.util.ops import import_host_pipeline_ops
 import mx_rec.util as mxrec_util
 from mx_rec.util.variable import get_dense_and_sparse_variable
-from mx_rec.util.common_config import sess_config
+from mx_rec.util.model_common import sess_config, add_timestamp_func
 from config import Config, SSD_DATA_PATH, CacheModeEnum
 from model import MyModel
 from demo_logger import logger
@@ -50,12 +50,6 @@ DENSE_HASHTABLE_SEED = 128
 SPARSE_HASHTABLE_SEED = 128
 SHUFFLE_SEED = 128
 random.seed(SHUFFLE_SEED)
-
-
-def add_timestamp_func(batch):
-    timestamp = import_host_pipeline_ops().return_timestamp(tf.cast(batch['label'], dtype=tf.int64))
-    batch["timestamp"] = timestamp
-    return batch
 
 
 def make_batch_and_iterator(config, feature_spec_list, is_training, dump_graph, is_use_faae=False, **kwargs):
