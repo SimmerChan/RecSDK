@@ -22,8 +22,6 @@ import random
 from glob import glob
 
 import tensorflow as tf
-from sklearn.metrics import roc_auc_score
-import numpy as np
 from npu_bridge.npu_init import *
 
 from mx_rec.constants.constants import ASCEND_SPARSE_LOOKUP_LOCAL_EMB, ASCEND_SPARSE_LOOKUP_ID_OFFSET
@@ -40,7 +38,7 @@ from mx_rec.util.variable import get_dense_and_sparse_variable
 import mx_rec.util.model_common as cm
 from mx_rec.util.model_common import(
     sess_config, Config,
-    add_timestamp_func, create_feature_spec_list, clear_saved_model, evaluate
+    add_timestamp_func, create_feature_spec_list, clear_saved_model, evaluate, evaluate_fix
 )
 from demo_logger import logger
 from model import MyModel
@@ -182,61 +180,6 @@ def model_forward(model_args):
     build_model_args = BuildModel(wide_emb, deep_emb, batch["label"], is_train, dense_hashtable_seed, 0.5, False)
     model_output = my_model.build_model(build_model_args)
     return model_output
-
-
-def evaluate_fix(step):
-    print("read_test dataset evaluate_fix")
-    if not cm.MODIFY_GRAPH_FLAG:
-        sess.run([eval_iterator.initializer])
-    else:
-        sess.run([ConfigInitializer.get_instance().train_params_config.get_initializer(False)])
-    log_loss_list = []
-    pred_list = []
-    label_list = []
-    eval_current_steps = 0
-    finished = False
-    print("eval begin")
-    while not finished:
-        try:
-            eval_current_steps += 1
-            eval_loss, pred, label = sess.run([eval_model.get("loss"), eval_model.get("pred"), eval_model.get("label")])
-            log_loss_list += list(eval_loss.reshape(-1))
-            pred_list += list(pred.reshape(-1))
-            label_list += list(label.reshape(-1))
-            print(f"eval current_steps: {eval_current_steps}")
-
-            if eval_current_steps == cm.eval_steps:
-                finished = True
-        except tf.errors.OutOfRangeError:
-            finished = True
-
-    label_numpy = np.array(label_list)
-    pred_numpy = np.array(pred_list)
-    if not os.path.exists(os.path.abspath(".") + f"/interval_{cm.interval}/numpy_{step}"):
-        os.makedirs(os.path.abspath(".") + f"/interval_{cm.interval}/numpy_{step}")
-
-    if os.path.exists(os.path.abspath(".") + f"/interval_{cm.interval}/numpy_{step}/label_{rank_id}.npy"):
-        os.remove(os.path.abspath(".") + f"/interval_{cm.interval}/numpy_{step}/label_{rank_id}.npy")
-    if os.path.exists(os.path.abspath(".") + f"/interval_{cm.interval}/numpy_{step}/pred_{rank_id}.npy"):
-        os.remove(os.path.abspath(".") + f"/interval_{cm.interval}/numpy_{step}/pred_{rank_id}.npy")
-    if os.path.exists(f"flag_{rank_id}.txt"):
-        os.remove(f"flag_{rank_id}.txt")
-    np.save(os.path.abspath(".") + f"/interval_{cm.interval}/numpy_{step}/label_{rank_id}.npy", label_numpy)
-    np.save(os.path.abspath(".") + f"/interval_{cm.interval}/numpy_{step}/pred_{rank_id}.npy", pred_numpy)
-    os.mknod(f"flag_{rank_id}.txt")
-    while True:
-        file_exists_list = [os.path.exists(f"flag_{i}.txt") for i in range(rank_size)]
-        if sum(file_exists_list) == rank_size:
-            print("All saved!!!!!!!!!!")
-            break
-        else:
-            print("Waitting for saving numpy!!!!!!!!")
-            time.sleep(1)
-            continue
-
-    auc = roc_auc_score(label_list, pred_list)
-    mean_log_loss = np.mean(log_loss_list)
-    return auc, mean_log_loss
 
 
 if __name__ == "__main__":
@@ -430,7 +373,7 @@ if __name__ == "__main__":
 
         if i % (cm.train_steps // iteration_per_loop) == 0:
             if cm.interval is not None:
-                test_auc, test_mean_log_loss = evaluate_fix(i * iteration_per_loop)
+                test_auc, test_mean_log_loss = evaluate_fix(i * iteration_per_loop, logger, sess, eval_model, eval_iterator)
             else:
                 test_auc, test_mean_log_loss = evaluate(logger, sess, eval_model, eval_iterator, cfg)
             print("Test auc: {}; log_loss: {} ".format(test_auc, test_mean_log_loss))

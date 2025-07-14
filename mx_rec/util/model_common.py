@@ -418,3 +418,58 @@ def evaluate(logger, sess, eval_model, eval_iterator, cfg):
     auc = roc_auc_score(label_list, pred_list)
     mean_log_loss = np.mean(log_loss_list)
     return auc, mean_log_loss
+
+
+def evaluate_fix(step, logger, sess, eval_model, eval_iterator):
+    logger.info("read_test dataset evaluate_fix")
+    if not MODIFY_GRAPH_FLAG:
+        sess.run([eval_iterator.initializer])
+    else:
+        sess.run([ConfigInitializer.get_instance().train_params_config.get_initializer(False)])
+    log_loss_list = []
+    pred_list = []
+    label_list = []
+    eval_current_steps = 0
+    finished = False
+    logger.info("eval begin")
+    while not finished:
+        try:
+            eval_current_steps += 1
+            eval_loss, pred, label = sess.run([eval_model.get("loss"), eval_model.get("pred"), eval_model.get("label")])
+            log_loss_list += list(eval_loss.reshape(-1))
+            pred_list += list(pred.reshape(-1))
+            label_list += list(label.reshape(-1))
+            logger.info(f"eval current_steps: {eval_current_steps}")
+
+            if eval_current_steps == eval_steps:
+                finished = True
+        except tf.errors.OutOfRangeError:
+            finished = True
+
+    label_numpy = np.array(label_list)
+    pred_numpy = np.array(pred_list)
+    if not os.path.exists(os.path.abspath(".") + f"/interval_{interval}/numpy_{step}"):
+        os.makedirs(os.path.abspath(".") + f"/interval_{interval}/numpy_{step}")
+
+    if os.path.exists(os.path.abspath(".") + f"/interval_{interval}/numpy_{step}/label_{rank_id}.npy"):
+        os.remove(os.path.abspath(".") + f"/interval_{interval}/numpy_{step}/label_{rank_id}.npy")
+    if os.path.exists(os.path.abspath(".") + f"/interval_{interval}/numpy_{step}/pred_{rank_id}.npy"):
+        os.remove(os.path.abspath(".") + f"/interval_{interval}/numpy_{step}/pred_{rank_id}.npy")
+    if os.path.exists(f"flag_{rank_id}.txt"):
+        os.remove(f"flag_{rank_id}.txt")
+    np.save(os.path.abspath(".") + f"/interval_{interval}/numpy_{step}/label_{rank_id}.npy", label_numpy)
+    np.save(os.path.abspath(".") + f"/interval_{interval}/numpy_{step}/pred_{rank_id}.npy", pred_numpy)
+    os.mknod(f"flag_{rank_id}.txt")
+    while True:
+        file_exists_list = [os.path.exists(f"flag_{i}.txt") for i in range(rank_size)]
+        if sum(file_exists_list) == rank_size:
+            logger.info("All saved!!!!!!!!!!")
+            break
+        else:
+            logger.info("Waitting for saving numpy!!!!!!!!")
+            time.sleep(1)
+            continue
+
+    auc = roc_auc_score(label_list, pred_list)
+    mean_log_loss = np.mean(log_loss_list)
+    return auc, mean_log_loss
