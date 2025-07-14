@@ -15,7 +15,6 @@
 # ==============================================================================
 
 import os
-import random
 import time
 import warnings
 from glob import glob
@@ -27,7 +26,6 @@ from npu_bridge.npu_init import *
 from model import MyModel
 from optimizer import get_dense_and_sparse_optimizer
 from adacons_hooks import adacons_hooks
-from mx_rec.core.asc.helper import get_asc_insert_func
 from mx_rec.core.asc.manager import start_asc_pipeline
 from mx_rec.core.embedding import create_table, sparse_lookup
 from mx_rec.core.feature_process import EvictHook
@@ -40,77 +38,15 @@ from mx_rec.util.log import logger
 import mx_rec.util.model_common as cm
 from mx_rec.util.model_common import(
     sess_config, Config,
-    add_timestamp_func, create_feature_spec_list, clear_saved_model, evaluate, evaluate_fix
+    create_feature_spec_list, clear_saved_model, evaluate, evaluate_fix, make_batch_and_iterator
 )
 
 npu_plugin.set_device_sat_mode(0)
 
 DENSE_HASHTABLE_SEED = 128
 SPARSE_HASHTABLE_SEED = 128
-SHUFFLE_SEED = 128
-random.seed(SHUFFLE_SEED)
 os.environ['CM_WORKER_IP'] = "x.x.x.x"
 cm.MODEL_NAME = "DCNv2_multihot"
-
-
-def make_batch_and_iterator(config, feature_spec_list, is_training, dump_graph, is_use_faae=False):
-    if config.USE_PIPELINE_TEST:
-        num_parallel = 1
-    else:
-        num_parallel = 8
-
-    def extract_fn(data_record):
-        features = {
-            # Extract features using the keys set during creation
-            'label': tf.compat.v1.FixedLenFeature(shape=(config.line_per_sample,), dtype=tf.int64),
-            'sparse_feature': tf.compat.v1.FixedLenFeature(shape=(214 * config.line_per_sample,), dtype=tf.int64),
-            'dense_feature': tf.compat.v1.FixedLenFeature(shape=(13 * config.line_per_sample,), dtype=tf.float32),
-        }
-        sample = tf.compat.v1.parse_single_example(data_record, features)
-        return sample
-
-    def reshape_fn(batch):
-        batch['label'] = tf.reshape(batch['label'], [-1, 1])
-        batch['dense_feature'] = tf.reshape(batch['dense_feature'], [-1, 13])
-        batch['dense_feature'] = tf.math.log(batch['dense_feature'] + 3.0)
-        batch['sparse_feature'] = tf.reshape(batch['sparse_feature'], [-1, 214])
-        return batch
-
-    batch_size = config.batch_size // config.line_per_sample
-    num_devices = config.rank_size
-    device_index = config.rank_id
-
-    if is_training:
-        files_list = sorted(glob(os.path.join(config.data_path, config.train_file_pattern) + '/*.tfrecord'))
-        device_files = files_list[device_index::num_devices]
-    else:
-        files_list = sorted(glob(os.path.join(config.data_path, config.test_file_pattern) + '/*.tfrecord'))
-        device_files = files_list
-
-    dataset = tf.data.TFRecordDataset(device_files, num_parallel_reads=num_parallel)
-
-    if is_training:
-        dataset = dataset.shuffle(batch_size * 1000, seed=SHUFFLE_SEED)
-    if is_training:
-        dataset = dataset.repeat(config.train_epoch)
-    else:
-        dataset = dataset.repeat(config.test_epoch)
-
-    dataset = dataset.map(extract_fn, num_parallel_calls=num_parallel).batch(batch_size,
-                                                                             drop_remainder=True)
-    dataset = dataset.map(reshape_fn, num_parallel_calls=num_parallel)
-    if is_use_faae:
-        dataset = dataset.map(add_timestamp_func)
-
-    if not cm.MODIFY_GRAPH_FLAG:
-        insert_fn = get_asc_insert_func(tgt_key_specs=feature_spec_list, is_training=is_training, dump_graph=dump_graph)
-        dataset = dataset.map(insert_fn)
-
-    dataset = dataset.prefetch(100)
-
-    iterator = dataset.make_initializable_iterator()
-    batch = iterator.get_next()
-    return batch, iterator
 
 
 def model_forward(feature_list, hash_table_list, batch, is_train, modify_graph):

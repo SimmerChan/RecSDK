@@ -17,14 +17,12 @@
 import os
 import time
 import warnings
-import random
 from glob import glob
 
 import tensorflow as tf
 from npu_bridge.npu_init import *
 
 from mx_rec.constants.constants import ASCEND_SPARSE_LOOKUP_LOCAL_EMB, ASCEND_SPARSE_LOOKUP_ID_OFFSET
-from mx_rec.core.asc.helper import get_asc_insert_func
 from mx_rec.core.asc.manager import start_asc_pipeline
 from mx_rec.core.embedding import create_table, sparse_lookup
 from mx_rec.core.feature_process import EvictHook
@@ -36,7 +34,7 @@ from mx_rec.util.variable import get_dense_and_sparse_variable
 import mx_rec.util.model_common as cm
 from mx_rec.util.model_common import(
     sess_config, Config,
-    add_timestamp_func, create_feature_spec_list, clear_saved_model, evaluate, evaluate_fix
+    create_feature_spec_list, clear_saved_model, evaluate, evaluate_fix, make_batch_and_iterator
 )
 from optimizer import get_dense_and_sparse_optimizer
 from demo_logger import logger
@@ -46,63 +44,7 @@ npu_plugin.set_device_sat_mode(0)
 
 dense_hashtable_seed = 128
 sparse_hashtable_seed = 128
-shuffle_seed = 128
-random.seed(shuffle_seed)
 cm.MODEL_NAME = "DLRM"
-
-
-def make_batch_and_iterator(config, feature_spec_list, is_training, dump_graph, is_use_faae=False):
-    if config.USE_PIPELINE_TEST:
-        num_parallel = 1
-    else:
-        num_parallel = 8
-
-    def extract_fn(data_record):
-        features = {
-            # Extract features using the keys set during creation
-            'label': tf.compat.v1.FixedLenFeature(shape=(config.line_per_sample,), dtype=tf.int64),
-            'sparse_feature': tf.compat.v1.FixedLenFeature(shape=(26 * config.line_per_sample,), dtype=tf.int64),
-            'dense_feature': tf.compat.v1.FixedLenFeature(shape=(13 * config.line_per_sample,), dtype=tf.float32),
-        }
-        sample = tf.compat.v1.parse_single_example(data_record, features)
-        return sample
-
-    def reshape_fn(batch):
-        batch['label'] = tf.reshape(batch['label'], [-1, 1])
-        batch['dense_feature'] = tf.reshape(batch['dense_feature'], [-1, 13])
-        batch['dense_feature'] = tf.math.log(batch['dense_feature'] + 3.0)
-        batch['sparse_feature'] = tf.reshape(batch['sparse_feature'], [-1, 26])
-        return batch
-
-    if is_training:
-        files_list = glob(os.path.join(config.data_path, config.train_file_pattern) + '/*.tfrecord')
-    else:
-        files_list = glob(os.path.join(config.data_path, config.test_file_pattern) + '/*.tfrecord')
-    dataset = tf.data.TFRecordDataset(files_list, num_parallel_reads=num_parallel)
-    batch_size = config.batch_size // config.line_per_sample
-
-    dataset = dataset.shard(config.rank_size, config.rank_id)
-    if is_training:
-        dataset = dataset.shuffle(batch_size * 1000, seed=shuffle_seed)
-    if is_training:
-        dataset = dataset.repeat(config.train_epoch)
-    else:
-        dataset = dataset.repeat(config.test_epoch)
-    dataset = dataset.map(extract_fn, num_parallel_calls=num_parallel).batch(batch_size,
-                                                                             drop_remainder=True)
-    dataset = dataset.map(reshape_fn, num_parallel_calls=num_parallel)
-    if is_use_faae:
-        dataset = dataset.map(add_timestamp_func)
-
-    if not cm.MODIFY_GRAPH_FLAG:
-        insert_fn = get_asc_insert_func(tgt_key_specs=feature_spec_list, is_training=is_training, dump_graph=dump_graph)
-        dataset = dataset.map(insert_fn)
-
-    dataset = dataset.prefetch(100)
-
-    iterator = dataset.make_initializable_iterator()
-    batch = iterator.get_next()
-    return batch, iterator
 
 
 def model_forward(feature_list, hash_table_list, batch, is_train, modify_graph):

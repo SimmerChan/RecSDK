@@ -15,6 +15,7 @@
 # ==============================================================================
 
 import os
+import random
 import shutil
 import time
 from enum import Enum
@@ -26,14 +27,19 @@ import numpy as np
 from tensorflow.core.protobuf.rewriter_config_pb2 import RewriterConfig
 from npu_bridge.estimator.npu.npu_config import NPURunConfig
 
+from mx_rec.core.asc.helper import FeatureSpec, get_asc_insert_func
 from mx_rec.util.ops import import_host_pipeline_ops
-from mx_rec.core.asc.helper import FeatureSpec
 from mx_rec.util.initialize import ConfigInitializer
+from mx_rec.constants.constants import LIBREC_EOS_OPS_SO
 
 MODEL_NAME = None
 SSD_DATA_PATH = ["ssd_data"]
+SHUFFLE_SEED = 128
+random.seed(SHUFFLE_SEED)
+
 train_steps = 0
 eval_steps = 0
+max_train_steps = 0
 
 rank_id = int(os.getenv("RANK_ID")) if os.getenv("RANK_ID") else None
 rank_size = int(os.getenv("TRAIN_RANK_SIZE")) if os.getenv("TRAIN_RANK_SIZE") else None
@@ -473,3 +479,105 @@ def evaluate_fix(step, logger, sess, eval_model, eval_iterator):
     auc = roc_auc_score(label_list, pred_list)
     mean_log_loss = np.mean(log_loss_list)
     return auc, mean_log_loss
+
+
+def make_batch_and_iterator(config, feature_spec_list, is_training, dump_graph, is_use_faae=False):
+    if config.USE_PIPELINE_TEST:
+        num_parallel = 1
+    else:
+        num_parallel = 8
+
+    def extract_fn(data_record):
+        features = {
+            # Extract features using the keys set during creation
+            'label': tf.compat.v1.FixedLenFeature(shape=(config.line_per_sample,), dtype=tf.int64),
+            'sparse_feature': tf.compat.v1.FixedLenFeature(shape=(26 * config.line_per_sample,), dtype=tf.int64),
+            'dense_feature': tf.compat.v1.FixedLenFeature(shape=(13 * config.line_per_sample,), dtype=tf.float32),
+        }
+        if MODEL_NAME == "DCNv2_multihot":
+            features = {
+                'label': tf.compat.v1.FixedLenFeature(shape=(config.line_per_sample,), dtype=tf.int64),
+                'sparse_feature': tf.compat.v1.FixedLenFeature(shape=(214 * config.line_per_sample,), dtype=tf.int64),
+                'dense_feature': tf.compat.v1.FixedLenFeature(shape=(13 * config.line_per_sample,), dtype=tf.float32),
+            }
+        if MODEL_NAME == "WideDeep":
+            features = {
+                'label': tf.compat.v1.FixedLenFeature(shape=(config.line_per_sample,), dtype=tf.int64),
+                'sparse_feature': tf.compat.v1.FixedLenFeature(shape=(26 * config.line_per_sample,), dtype=tf.int64),
+                'dense_feature': tf.compat.v1.FixedLenFeature(shape=(13 * config.line_per_sample,), dtype=tf.int64),
+            }
+        if MODEL_NAME == "MMOE":
+            features = {
+                'label': tf.compat.v1.FixedLenFeature(shape=(2 * config.line_per_sample,), dtype=tf.int64),
+                'sparse_feature': tf.compat.v1.FixedLenFeature(shape=(29 * config.line_per_sample,), dtype=tf.int64),
+                'dense_feature': tf.compat.v1.FixedLenFeature(shape=(11 * config.line_per_sample,), dtype=tf.float32),
+            }
+        sample = tf.compat.v1.parse_single_example(data_record, features)
+        return sample
+
+    batch_size = config.batch_size // config.line_per_sample
+    num_devices = config.rank_size
+    device_index = config.rank_id
+    
+    if is_training:
+        files_list = glob(os.path.join(config.data_path, config.train_file_pattern) + '/*.tfrecord')
+        device_files = files_list[device_index::num_devices]
+    else:
+        files_list = glob(os.path.join(config.data_path, config.test_file_pattern) + '/*.tfrecord')
+        device_files = files_list
+
+    dataset = tf.data.TFRecordDataset(files_list, num_parallel_reads=num_parallel)
+    dataset = dataset.shard(config.rank_size, config.rank_id)
+    if MODEL_NAME == "DCNv2_multihot":
+        dataset = tf.data.TFRecordDataset(device_files, num_parallel_reads=num_parallel)
+
+    if is_training:
+        dataset = dataset.shuffle(batch_size * 1000, seed=SHUFFLE_SEED)
+        dataset = dataset.repeat(config.train_epoch)
+    else:
+        dataset = dataset.repeat(config.test_epoch)
+    dataset = dataset.map(extract_fn, num_parallel_calls=num_parallel).batch(batch_size,
+                                                                             drop_remainder=True)
+    dataset = dataset.map(reshape_fn, num_parallel_calls=num_parallel)
+    if MODEL_NAME == "WideDeep":
+        dataset = dataset.map(map_fn, num_parallel_calls=num_parallel)
+    if is_use_faae:
+        dataset = dataset.map(add_timestamp_func)
+
+    if not MODIFY_GRAPH_FLAG:
+        librec = import_host_pipeline_ops(LIBREC_EOS_OPS_SO)
+        channel_id = 0 if is_training else 1
+        if MODEL_NAME == "WideDeep":
+            dataset = dataset.eos_map(librec, channel_id, max_train_steps, eval_steps)
+        if MODEL_NAME == "MMOE":
+            dataset = dataset.eos_map(librec, channel_id, -1, eval_steps)
+        insert_fn = get_asc_insert_func(tgt_key_specs=feature_spec_list, is_training=is_training, dump_graph=dump_graph)
+        dataset = dataset.map(insert_fn)
+
+    dataset = dataset.prefetch(100)
+
+    iterator = dataset.make_initializable_iterator()
+    batch = iterator.get_next()
+    return batch, iterator
+
+
+def reshape_fn(batch):
+    batch['label'] = tf.reshape(batch['label'], [-1, 1])
+    batch['dense_feature'] = tf.reshape(batch['dense_feature'], [-1, 13])
+    batch['sparse_feature'] = tf.reshape(batch['sparse_feature'], [-1, 26])
+    if MODEL_NAME == "DCNv2_multihot":
+        batch['dense_feature'] = tf.math.log(batch['dense_feature'] + 3.0)
+        batch['sparse_feature'] = tf.reshape(batch['sparse_feature'], [-1, 214])        
+    if MODEL_NAME == "WideDeep":
+        batch['dense_feature'] = tf.math.log(batch['dense_feature'] + 3.0)
+    if MODEL_NAME == "MMOE":
+        batch['label'] = tf.reshape(batch['label'], [-1, 2])
+        batch['dense_feature'] = tf.reshape(batch['dense_feature'], [-1, 11])
+        batch['sparse_feature'] = tf.reshape(batch['sparse_feature'], [-1, 29])        
+    return batch
+
+
+def map_fn(batch):
+    new_batch = batch
+    new_batch['sparse_feature'] = tf.concat([batch['dense_feature'], batch['sparse_feature']], axis=1)
+    return new_batch

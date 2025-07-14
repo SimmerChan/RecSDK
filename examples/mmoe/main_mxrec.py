@@ -17,8 +17,6 @@
 import os
 import time
 import warnings
-import random
-from glob import glob
 
 import tensorflow as tf
 from sklearn.metrics import roc_auc_score
@@ -26,19 +24,17 @@ import numpy as np
 from npu_bridge.npu_init import *
 
 from mx_rec.constants.constants import ASCEND_SPARSE_LOOKUP_LOCAL_EMB, ASCEND_SPARSE_LOOKUP_ID_OFFSET
-from mx_rec.core.asc.helper import get_asc_insert_func
 from mx_rec.core.asc.manager import start_asc_pipeline
 from mx_rec.core.embedding import create_table, sparse_lookup
 from mx_rec.core.feature_process import EvictHook
 from mx_rec.graph.modifier import modify_graph_and_start_emb_cache, GraphModifierHook
-from mx_rec.constants.constants import ASCEND_TIMESTAMP, LIBREC_EOS_OPS_SO
+from mx_rec.constants.constants import ASCEND_TIMESTAMP
 from mx_rec.util.initialize import ConfigInitializer, init, terminate_config_initializer
-from mx_rec.util.ops import import_host_pipeline_ops
 import mx_rec.util as mxrec_util
 from mx_rec.util.variable import get_dense_and_sparse_variable
 import mx_rec.util.model_common as cm
 from mx_rec.util.model_common import(
-    sess_config, add_timestamp_func, create_feature_spec_list, clear_saved_model, evaluate_fix
+    sess_config, create_feature_spec_list, clear_saved_model, evaluate_fix, make_batch_and_iterator
 )
 from config import Config
 from model import MyModel
@@ -49,66 +45,7 @@ npu_plugin.set_device_sat_mode(0)
 
 DENSE_HASHTABLE_SEED = 128
 SPARSE_HASHTABLE_SEED = 128
-SHUFFLE_SEED = 128
-random.seed(SHUFFLE_SEED)
 cm.MODEL_NAME = "MMOE"
-
-
-def make_batch_and_iterator(config, feature_spec_list, is_training, dump_graph, is_use_faae=False, **kwargs):
-    if config.USE_PIPELINE_TEST:
-        num_parallel = 1
-    else:
-        num_parallel = 8
-
-    def extract_fn(data_record):
-        features = {
-            # Extract features using the keys set during creation
-            'label': tf.compat.v1.FixedLenFeature(shape=(2 * config.line_per_sample,), dtype=tf.int64),
-            'sparse_feature': tf.compat.v1.FixedLenFeature(shape=(29 * config.line_per_sample,), dtype=tf.int64),
-            'dense_feature': tf.compat.v1.FixedLenFeature(shape=(11 * config.line_per_sample,), dtype=tf.float32),
-        }
-        sample = tf.compat.v1.parse_single_example(data_record, features)
-        return sample
-
-    def reshape_fn(batch):
-        batch['label'] = tf.reshape(batch['label'], [-1, 2])
-        batch['dense_feature'] = tf.reshape(batch['dense_feature'], [-1, 11])
-        batch['sparse_feature'] = tf.reshape(batch['sparse_feature'], [-1, 29])
-        return batch
-
-    if is_training:
-        files_list = glob(os.path.join(config.data_path, config.train_file_pattern) + '/*.tfrecord')
-    else:
-        files_list = glob(os.path.join(config.data_path, config.test_file_pattern) + '/*.tfrecord')
-    dataset = tf.data.TFRecordDataset(files_list, num_parallel_reads=num_parallel)
-    batch_size = config.batch_size // config.line_per_sample
-
-    dataset = dataset.shard(config.rank_size, config.rank_id)
-    if is_training:
-        dataset = dataset.shuffle(batch_size * 1000, seed=SHUFFLE_SEED)
-    if is_training:
-        dataset = dataset.repeat(config.train_epoch)
-    else:
-        dataset = dataset.repeat(config.test_epoch)
-    dataset = dataset.map(extract_fn, num_parallel_calls=num_parallel).batch(batch_size,
-                                                                             drop_remainder=True)
-    dataset = dataset.map(reshape_fn, num_parallel_calls=num_parallel)
-    if is_use_faae:
-        dataset = dataset.map(add_timestamp_func)
-
-    if not cm.MODIFY_GRAPH_FLAG:
-        # Enable EOSDataset manually.
-        librec = import_host_pipeline_ops(LIBREC_EOS_OPS_SO)
-        channel_id = 0 if is_training else 1
-        dataset = dataset.eos_map(librec, channel_id, -1, kwargs.get("max_eval_steps", cm.eval_steps))
-        insert_fn = get_asc_insert_func(tgt_key_specs=feature_spec_list, is_training=is_training, dump_graph=dump_graph)
-        dataset = dataset.map(insert_fn)
-
-    dataset = dataset.prefetch(100)
-
-    iterator = dataset.make_initializable_iterator()
-    batch = iterator.get_next()
-    return batch, iterator
 
 
 def model_forward(feature_list, hash_table_list, batch, is_train, modify_graph):
@@ -211,11 +148,9 @@ if __name__ == "__main__":
         feature_spec_list_eval = create_feature_spec_list(cfg, cm.use_multi_lookup, use_timestamp=False)
 
     train_batch, train_iterator = make_batch_and_iterator(cfg, feature_spec_list_train, is_training=True,
-                                                          dump_graph=True, is_use_faae=cm.use_faae, 
-                                                          max_eval_steps=cm.eval_steps)
+                                                          dump_graph=True, is_use_faae=cm.use_faae)
     eval_batch, eval_iterator = make_batch_and_iterator(cfg, feature_spec_list_eval, is_training=False,
-                                                        dump_graph=False, is_use_faae=cm.use_faae, 
-                                                        max_eval_steps=cm.eval_steps)
+                                                        dump_graph=False, is_use_faae=cm.use_faae)
     logger.info(f"train_batch: {train_batch}")
 
     if cm.use_faae:
