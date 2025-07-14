@@ -46,6 +46,7 @@ npu_plugin.set_device_sat_mode(0)
 DENSE_HASHTABLE_SEED = 128
 SPARSE_HASHTABLE_SEED = 128
 cm.MODEL_NAME = "MMOE"
+cm.logger = logger
 
 
 def model_forward(feature_list, hash_table_list, batch, is_train, modify_graph):
@@ -283,7 +284,7 @@ if __name__ == "__main__":
 
         if i % (cm.train_steps // iteration_per_loop) == 0:
             if cm.interval is not None:
-                test_auc_income, test_auc_mat, test_mean_log_loss = evaluate_fix(i * iteration_per_loop, logger, sess, eval_model, eval_iterator)
+                test_auc_income, test_auc_mat, test_mean_log_loss = evaluate_fix(i * iteration_per_loop, sess, eval_model, eval_iterator)
             else:
                 test_auc_income, test_auc_mat, test_mean_log_loss = evaluate()
             print("Test auc income: {};Test auc mat: {} ;log_loss: {} ".format(test_auc_income, 

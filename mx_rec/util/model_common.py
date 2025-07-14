@@ -27,15 +27,16 @@ import numpy as np
 from tensorflow.core.protobuf.rewriter_config_pb2 import RewriterConfig
 from npu_bridge.estimator.npu.npu_config import NPURunConfig
 
+from mx_rec.constants.constants import LIBREC_EOS_OPS_SO
 from mx_rec.core.asc.helper import FeatureSpec, get_asc_insert_func
 from mx_rec.util.ops import import_host_pipeline_ops
 from mx_rec.util.initialize import ConfigInitializer
-from mx_rec.constants.constants import LIBREC_EOS_OPS_SO
 
 MODEL_NAME = None
 SSD_DATA_PATH = ["ssd_data"]
 SHUFFLE_SEED = 128
 random.seed(SHUFFLE_SEED)
+logger = None
 
 train_steps = 0
 eval_steps = 0
@@ -365,7 +366,7 @@ def create_feature_spec_list(cfg, use_multi_lookup, use_timestamp=False):
     return feature_spec_list
 
 
-def clear_saved_model(logger) -> None:
+def clear_saved_model() -> None:
     def _del_related_dir(del_path: str) -> None:
         if not os.path.isabs(del_path):
             del_path = os.path.join(os.getcwd(), del_path)
@@ -390,7 +391,7 @@ def clear_saved_model(logger) -> None:
         logger.info(f"Create dir:{sub_path}")
 
 
-def evaluate(logger, sess, eval_model, eval_iterator, cfg):
+def evaluate(sess, eval_model, eval_iterator, cfg):
     logger.info("read_test dataset")
     if not MODIFY_GRAPH_FLAG:
         eval_label = eval_model.get("label")
@@ -426,7 +427,7 @@ def evaluate(logger, sess, eval_model, eval_iterator, cfg):
     return auc, mean_log_loss
 
 
-def evaluate_fix(step, logger, sess, eval_model, eval_iterator):
+def evaluate_fix(step, sess, eval_model, eval_iterator):
     logger.info("read_test dataset evaluate_fix")
     if not MODIFY_GRAPH_FLAG:
         sess.run([eval_iterator.initializer])
