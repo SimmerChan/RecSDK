@@ -16,18 +16,24 @@
 
 import os
 import shutil
+import time
 from enum import Enum
 from glob import glob
+from sklearn.metrics import roc_auc_score
 
 import tensorflow as tf
+import numpy as np
 from tensorflow.core.protobuf.rewriter_config_pb2 import RewriterConfig
 from npu_bridge.estimator.npu.npu_config import NPURunConfig
 
 from mx_rec.util.ops import import_host_pipeline_ops
 from mx_rec.core.asc.helper import FeatureSpec
+from mx_rec.util.initialize import ConfigInitializer
 
 MODEL_NAME = None
 SSD_DATA_PATH = ["ssd_data"]
+train_steps = 0
+eval_steps = 0
 
 rank_id = int(os.getenv("RANK_ID")) if os.getenv("RANK_ID") else None
 rank_size = int(os.getenv("TRAIN_RANK_SIZE")) if os.getenv("TRAIN_RANK_SIZE") else None
@@ -377,3 +383,38 @@ def clear_saved_model(logger) -> None:
         os.makedirs(sub_path, mode=0o550, exist_ok=True)
         logger.info(f"Create dir:{sub_path}")
 
+
+def evaluate(logger, sess, eval_model, eval_iterator, cfg):
+    logger.info("read_test dataset")
+    if not MODIFY_GRAPH_FLAG:
+        eval_label = eval_model.get("label")
+        sess.run([eval_iterator.initializer])
+    else:
+        # 在sess run模式下，若还是使用原来batch中的label去sess run，则会出现getnext超时报错，需要使用新数据集中的batch
+        eval_label = ConfigInitializer.get_instance().train_params_config.get_target_batch(False).get("label")
+        sess.run([ConfigInitializer.get_instance().train_params_config.get_initializer(False)])
+    log_loss_list = []
+    pred_list = []
+    label_list = []
+    eval_current_steps = 0
+    finished = False
+    logger.info("eval begin")
+
+    while not finished:
+        try:
+            eval_current_steps += 1
+            eval_start = time.time()
+            eval_loss, pred, label = sess.run([eval_model.get("loss"), eval_model.get("pred"), eval_label])
+            eval_cost = time.time() - eval_start
+            eval_qps = (1 / eval_cost) * rank_size * cfg.batch_size
+            log_loss_list += list(eval_loss.reshape(-1))
+            pred_list += list(pred.reshape(-1))
+            label_list += list(label.reshape(-1))
+            logger.info(f"eval current_steps: {eval_current_steps}, qps: {eval_qps}")
+            if eval_current_steps == eval_steps:
+                finished = True
+        except tf.errors.OutOfRangeError:
+            finished = True
+    auc = roc_auc_score(label_list, pred_list)
+    mean_log_loss = np.mean(log_loss_list)
+    return auc, mean_log_loss

@@ -41,7 +41,7 @@ from mx_rec.util.log import logger
 import mx_rec.util.model_common as cm
 from mx_rec.util.model_common import(
     sess_config, Config,
-    add_timestamp_func, create_feature_spec_list, clear_saved_model
+    add_timestamp_func, create_feature_spec_list, clear_saved_model, evaluate
 )
 
 npu_plugin.set_device_sat_mode(0)
@@ -149,42 +149,6 @@ def model_forward(feature_list, hash_table_list, batch, is_train, modify_graph):
     return model_output
 
 
-def evaluate():
-    logger.info("read_test dataset")
-    if not cm.MODIFY_GRAPH_FLAG:
-        eval_label = eval_model.get("label")
-        sess.run([eval_iterator.initializer])
-    else:
-        # 在sess run模式下，若还是使用原来batch中的label去sess run，则会出现getnext超时报错，需要使用新数据集中的batch
-        eval_label = ConfigInitializer.get_instance().train_params_config.get_target_batch(False).get("label")
-        sess.run([ConfigInitializer.get_instance().train_params_config.get_initializer(False)])
-    log_loss_list = []
-    pred_list = []
-    label_list = []
-    eval_current_steps = 0
-    finished = False
-    logger.info("eval begin")
-
-    while not finished:
-        try:
-            eval_current_steps += 1
-            eval_start = time.time()
-            eval_loss, pred, label = sess.run([eval_model.get("loss"), eval_model.get("pred"), eval_label])
-            eval_cost = time.time() - eval_start
-            eval_qps = (1 / eval_cost) * rank_size * cfg.batch_size
-            log_loss_list += list(eval_loss.reshape(-1))
-            pred_list += list(pred.reshape(-1))
-            label_list += list(label.reshape(-1))
-            logger.info(f"eval current_steps: {eval_current_steps}, qps: {eval_qps}")
-            if eval_current_steps == eval_steps:
-                finished = True
-        except tf.errors.OutOfRangeError:
-            finished = True
-    auc = roc_auc_score(label_list, pred_list)
-    mean_log_loss = np.mean(log_loss_list)
-    return auc, mean_log_loss
-
-
 def evaluate_fix(step):
     logger.info("read_test dataset evaluate_fix")
     if not cm.MODIFY_GRAPH_FLAG:
@@ -206,7 +170,7 @@ def evaluate_fix(step):
             label_list += list(label.reshape(-1))
             logger.info(f"eval current_steps: {eval_current_steps}")
 
-            if eval_current_steps == eval_steps:
+            if eval_current_steps == cm.eval_steps:
                 finished = True
         except tf.errors.OutOfRangeError:
             finished = True
@@ -271,12 +235,12 @@ if __name__ == "__main__":
     warnings.filterwarnings("ignore")
     clear_saved_model()
 
-    train_steps = int(os.getenv("TRAIN_STEP"))
-    eval_steps = int(os.getenv("TEST_STEP"))
+    cm.train_steps = int(os.getenv("TRAIN_STEP"))
+    cm.eval_steps = int(os.getenv("TEST_STEP"))
 
     use_dynamic = bool(int(os.getenv("USE_DYNAMIC", 0)))
     logger.info(f"USE_DYNAMIC: {use_dynamic}")
-    init(train_steps=train_steps, eval_steps=eval_steps,
+    init(train_steps=cm.train_steps, eval_steps=cm.eval_steps,
          use_dynamic=use_dynamic, use_dynamic_expansion=cm.use_dynamic_expansion)
     IF_LOAD = False
     rank_id = mxrec_util.communication.hccl_ops.get_rank_id()
@@ -431,11 +395,11 @@ if __name__ == "__main__":
         logger.info(f"training at step:{i * iteration_per_loop}, table[{sparse_hashtable.table_name}], "
                     f"table size:{sparse_hashtable.size()}, table capacity:{sparse_hashtable.capacity()}")
 
-        if i % (train_steps // iteration_per_loop) == 0:
+        if i % (cm.train_steps // iteration_per_loop) == 0:
             if cm.interval is not None:
                 test_auc, test_mean_log_loss = evaluate_fix(i * iteration_per_loop)
             else:
-                test_auc, test_mean_log_loss = evaluate()
+                test_auc, test_mean_log_loss = evaluate(logger, sess, eval_model, eval_iterator, cfg)
             logger.info("Test auc: {}; log_loss: {} ".format(test_auc, test_mean_log_loss))
             best_auc = max(best_auc, test_auc)
             logger.info(f"training step: {i * iteration_per_loop}, best auc: {best_auc}")

@@ -100,7 +100,7 @@ def make_batch_and_iterator(config, feature_spec_list, is_training, dump_graph, 
         # Enable EOSDataset manually.
         librec = import_host_pipeline_ops(LIBREC_EOS_OPS_SO)
         channel_id = 0 if is_training else 1
-        dataset = dataset.eos_map(librec, channel_id, -1, kwargs.get("max_eval_steps", eval_steps))
+        dataset = dataset.eos_map(librec, channel_id, -1, kwargs.get("max_eval_steps", cm.eval_steps))
         insert_fn = get_asc_insert_func(tgt_key_specs=feature_spec_list, is_training=is_training, dump_graph=dump_graph)
         dataset = dataset.map(insert_fn)
 
@@ -176,7 +176,7 @@ def evaluate():
         label_income_list += list(label[:, 0].reshape(-1))
         label_mat_list += list(label[:, 1].reshape(-1))
         print(f"eval current_steps: {eval_current_steps}, qps: {qps_eval}")
-        if eval_current_steps == eval_steps:
+        if eval_current_steps == cm.eval_steps:
             finished = True
         
     auc_income = roc_auc_score(label_income_list, pred_income_list)
@@ -206,7 +206,7 @@ def evaluate_fix(step):
             label_list += list(label.reshape(-1))
             print(f"eval current_steps: {eval_current_steps}")
 
-            if eval_current_steps == eval_steps:
+            if eval_current_steps == cm.eval_steps:
                 finished = True
         except tf.errors.OutOfRangeError:
             finished = True
@@ -245,12 +245,13 @@ if __name__ == "__main__":
     warnings.filterwarnings("ignore")
     clear_saved_model()
 
+    cm.train_steps = 1000
+    cm.eval_steps = 1500
+
     cfg = Config()
-    train_steps = 1000
-    eval_steps = 1500
     use_dynamic = bool(int(os.getenv("USE_DYNAMIC", 0)))
     logger.info(f"USE_DYNAMIC:{use_dynamic}")
-    init(train_steps=train_steps, eval_steps=eval_steps,
+    init(train_steps=cm.train_steps, eval_steps=cm.eval_steps,
          use_dynamic=use_dynamic, use_dynamic_expansion=cm.use_dynamic_expansion)
     
     rank_id = mxrec_util.communication.hccl_ops.get_rank_id()
@@ -266,10 +267,10 @@ if __name__ == "__main__":
 
     train_batch, train_iterator = make_batch_and_iterator(cfg, feature_spec_list_train, is_training=True,
                                                           dump_graph=True, is_use_faae=cm.use_faae, 
-                                                          max_eval_steps=eval_steps)
+                                                          max_eval_steps=cm.eval_steps)
     eval_batch, eval_iterator = make_batch_and_iterator(cfg, feature_spec_list_eval, is_training=False,
                                                         dump_graph=False, is_use_faae=cm.use_faae, 
-                                                        max_eval_steps=eval_steps)
+                                                        max_eval_steps=cm.eval_steps)
     logger.info(f"train_batch: {train_batch}")
 
     if cm.use_faae:
@@ -400,11 +401,11 @@ if __name__ == "__main__":
         logger.info(f"training at step:{i * iteration_per_loop}, table[{sparse_hashtable.table_name}], "
                     f"table size:{sparse_hashtable.size()}, table capacity:{sparse_hashtable.capacity()}")
 
-        if i % (train_steps // iteration_per_loop) == 0:
+        if i % (cm.train_steps // iteration_per_loop) == 0:
             if cm.interval is not None:
                 test_auc_income, test_auc_mat, test_mean_log_loss = evaluate_fix(i * iteration_per_loop)
             else:
-                test_auc_income, test_auc_mat, test_mean_log_loss = evaluate()
+                test_auc_income, test_auc_mat, test_mean_log_loss = evaluate(logger, sess, eval_model, eval_iterator, cfg)
             print("Test auc income: {};Test auc mat: {} ;log_loss: {} ".format(test_auc_income, 
                                                                                test_auc_mat, test_mean_log_loss))
             best_auc_income = max(best_auc_income, test_auc_income)
