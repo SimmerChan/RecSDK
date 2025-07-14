@@ -487,33 +487,7 @@ def make_batch_and_iterator(config, feature_spec_list, is_training, dump_graph, 
     else:
         num_parallel = 8
 
-    def extract_fn(data_record):
-        features = {
-            # Extract features using the keys set during creation
-            'label': tf.compat.v1.FixedLenFeature(shape=(config.line_per_sample,), dtype=tf.int64),
-            'sparse_feature': tf.compat.v1.FixedLenFeature(shape=(26 * config.line_per_sample,), dtype=tf.int64),
-            'dense_feature': tf.compat.v1.FixedLenFeature(shape=(13 * config.line_per_sample,), dtype=tf.float32),
-        }
-        if MODEL_NAME == "DCNv2_multihot":
-            features = {
-                'label': tf.compat.v1.FixedLenFeature(shape=(config.line_per_sample,), dtype=tf.int64),
-                'sparse_feature': tf.compat.v1.FixedLenFeature(shape=(214 * config.line_per_sample,), dtype=tf.int64),
-                'dense_feature': tf.compat.v1.FixedLenFeature(shape=(13 * config.line_per_sample,), dtype=tf.float32),
-            }
-        if MODEL_NAME == "WideDeep":
-            features = {
-                'label': tf.compat.v1.FixedLenFeature(shape=(config.line_per_sample,), dtype=tf.int64),
-                'sparse_feature': tf.compat.v1.FixedLenFeature(shape=(26 * config.line_per_sample,), dtype=tf.int64),
-                'dense_feature': tf.compat.v1.FixedLenFeature(shape=(13 * config.line_per_sample,), dtype=tf.int64),
-            }
-        if MODEL_NAME == "MMOE":
-            features = {
-                'label': tf.compat.v1.FixedLenFeature(shape=(2 * config.line_per_sample,), dtype=tf.int64),
-                'sparse_feature': tf.compat.v1.FixedLenFeature(shape=(29 * config.line_per_sample,), dtype=tf.int64),
-                'dense_feature': tf.compat.v1.FixedLenFeature(shape=(11 * config.line_per_sample,), dtype=tf.float32),
-            }
-        sample = tf.compat.v1.parse_single_example(data_record, features)
-        return sample
+    extract_fn = get_extract_fn(config)
 
     batch_size = config.batch_size // config.line_per_sample
     num_devices = config.rank_size
@@ -559,6 +533,38 @@ def make_batch_and_iterator(config, feature_spec_list, is_training, dump_graph, 
     iterator = dataset.make_initializable_iterator()
     batch = iterator.get_next()
     return batch, iterator
+
+
+def get_extract_fn(config):
+    def extract_fn(data_record):
+        features = {
+            # Extract features using the keys set during creation
+            'label': tf.compat.v1.FixedLenFeature(shape=(config.line_per_sample,), dtype=tf.int64),
+            'sparse_feature': tf.compat.v1.FixedLenFeature(shape=(26 * config.line_per_sample,), dtype=tf.int64),
+            'dense_feature': tf.compat.v1.FixedLenFeature(shape=(13 * config.line_per_sample,), dtype=tf.float32),
+        }
+        if MODEL_NAME == "DCNv2_multihot":
+            features = {
+                'label': tf.compat.v1.FixedLenFeature(shape=(config.line_per_sample,), dtype=tf.int64),
+                'sparse_feature': tf.compat.v1.FixedLenFeature(shape=(214 * config.line_per_sample,), dtype=tf.int64),
+                'dense_feature': tf.compat.v1.FixedLenFeature(shape=(13 * config.line_per_sample,), dtype=tf.float32),
+            }
+        if MODEL_NAME == "WideDeep":
+            features = {
+                'label': tf.compat.v1.FixedLenFeature(shape=(config.line_per_sample,), dtype=tf.int64),
+                'sparse_feature': tf.compat.v1.FixedLenFeature(shape=(26 * config.line_per_sample,), dtype=tf.int64),
+                'dense_feature': tf.compat.v1.FixedLenFeature(shape=(13 * config.line_per_sample,), dtype=tf.int64),
+            }
+        if MODEL_NAME == "MMOE":
+            features = {
+                'label': tf.compat.v1.FixedLenFeature(shape=(2 * config.line_per_sample,), dtype=tf.int64),
+                'sparse_feature': tf.compat.v1.FixedLenFeature(shape=(29 * config.line_per_sample,), dtype=tf.int64),
+                'dense_feature': tf.compat.v1.FixedLenFeature(shape=(11 * config.line_per_sample,), dtype=tf.float32),
+            }
+        sample = tf.compat.v1.parse_single_example(data_record, features)
+        return sample
+    
+    return extract_fn
 
 
 def reshape_fn(batch):
