@@ -552,10 +552,6 @@ def create_feature_spec_list(cfg, use_timestamp=False):
                         access_threshold=access_threshold, eviction_threshold=eviction_threshold)
         ]
     if use_multi_lookup:
-        feature_spec_list.append(FeatureSpec("sparse_feature", table_name="sparse_embeddings",
-                                             batch_size=cfg.batch_size,
-                                             access_threshold=access_threshold,
-                                             eviction_threshold=eviction_threshold))
         if MODEL_NAME == "WideDeep":
             feature_spec_list.extend([FeatureSpec("sparse_feature", table_name="wide_embeddings",
                                                   batch_size=cfg.batch_size,
@@ -565,6 +561,11 @@ def create_feature_spec_list(cfg, use_timestamp=False):
                                                   batch_size=cfg.batch_size,
                                                   access_threshold=access_threshold,
                                                   eviction_threshold=eviction_threshold)])
+        else:
+            feature_spec_list.append(FeatureSpec("sparse_feature", table_name="sparse_embeddings",
+                                                 batch_size=cfg.batch_size,
+                                                 access_threshold=access_threshold,
+                                                 eviction_threshold=eviction_threshold))
     if use_timestamp:
         feature_spec_list.append(FeatureSpec("timestamp", is_timestamp=True))
     return feature_spec_list
