@@ -35,8 +35,8 @@ from mx_rec.util.initialize import ConfigInitializer, init
 import mx_rec.util as mxrec_util
 from mx_rec.util.variable import get_dense_and_sparse_variable
 from mx_rec.util.log import logger
-import mx_rec.util.model_common as cm
-from mx_rec.util.model_common import (
+import examples.model_common as cm
+from examples.model_common import (
     sess_config, Config,
     create_feature_spec_list, clear_saved_model, evaluate, evaluate_fix, make_batch_and_iterator
 )

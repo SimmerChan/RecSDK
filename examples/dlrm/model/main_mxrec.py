@@ -31,8 +31,8 @@ from mx_rec.constants.constants import ASCEND_TIMESTAMP
 from mx_rec.util.initialize import ConfigInitializer, init, terminate_config_initializer
 import mx_rec.util as mxrec_util
 from mx_rec.util.variable import get_dense_and_sparse_variable
-import mx_rec.util.model_common as cm
-from mx_rec.util.model_common import (
+import examples.model_common as cm
+from examples.model_common import (
     sess_config, Config,
     create_feature_spec_list, clear_saved_model, evaluate, evaluate_fix, make_batch_and_iterator
 )
