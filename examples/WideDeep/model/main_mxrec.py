@@ -33,7 +33,7 @@ from mx_rec.util.initialize import ConfigInitializer, init, terminate_config_ini
 import mx_rec.util as mxrec_util
 from mx_rec.util.variable import get_dense_and_sparse_variable
 import mx_rec.util.model_common as cm
-from mx_rec.util.model_common import(
+from mx_rec.util.model_common import (
     sess_config, Config,
     create_feature_spec_list, clear_saved_model, evaluate, evaluate_fix, make_batch_and_iterator
 )
@@ -136,11 +136,11 @@ if __name__ == "__main__":
     feature_spec_list_train = None
     feature_spec_list_eval = None
     if cm.use_faae:
-        feature_spec_list_train = create_feature_spec_list(cfg, cm.use_multi_lookup, use_timestamp=True)
-        feature_spec_list_eval = create_feature_spec_list(cfg, cm.use_multi_lookup, use_timestamp=True)
+        feature_spec_list_train = create_feature_spec_list(cfg, use_timestamp=True)
+        feature_spec_list_eval = create_feature_spec_list(cfg, use_timestamp=True)
     else:
-        feature_spec_list_train = create_feature_spec_list(cfg, cm.use_multi_lookup, use_timestamp=False)
-        feature_spec_list_eval = create_feature_spec_list(cfg, cm.use_multi_lookup, use_timestamp=False)
+        feature_spec_list_train = create_feature_spec_list(cfg, use_timestamp=False)
+        feature_spec_list_eval = create_feature_spec_list(cfg, use_timestamp=False)
 
     train_batch, train_iterator = make_batch_and_iterator(cfg, feature_spec_list_train, is_training=True,
                                                           dump_graph=True, is_use_faae=cm.use_faae)

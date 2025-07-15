@@ -56,7 +56,7 @@ try:
     huge_tle_enable = bool(int(os.getenv("HUGE_TLB_ENABLE", 0)))
 except ValueError as err:
     raise ValueError("please correctly config USE_DYNAMIC_EXPANSION or USE_MULTI_LOOKUP or USE_FAAE "
-                        "or USE_MODIFY_GRAPH or USE_SHM_SWAP or HUGE_TLB_ENABLE only 0 or 1 is supported.") from err
+                     "or USE_MODIFY_GRAPH or USE_SHM_SWAP or HUGE_TLB_ENABLE only 0 or 1 is supported.") from err
 
 
 class CacheModeEnum(Enum):
@@ -190,7 +190,7 @@ class Config:
             LR_SCHEDULE_STEPS[2],
         )
 
-        if MODEL_NAME ==  "DCNv2_multihot":
+        if MODEL_NAME == "DCNv2_multihot":
             self.batch_size = int(os.getenv("BATCH_SIZE"))
             self.train_epoch = 1
             self.use_adacons = bool(os.getenv("USE_ADACONS"))
@@ -331,64 +331,117 @@ def add_timestamp_func(batch):
     return batch
 
 
-def create_feature_spec_list(cfg, use_multi_lookup, use_timestamp=False):
-    access_threshold = None
-    eviction_threshold = None
-    if use_timestamp:
-        access_threshold = 1000
-        eviction_threshold = 180
+def make_batch_and_iterator(config, feature_spec_list, is_training, dump_graph, is_use_faae=False):
+    if config.USE_PIPELINE_TEST:
+        num_parallel = 1
+    else:
+        num_parallel = 8
 
-    feature_spec_list = [FeatureSpec("sparse_feature", table_name="sparse_embeddings", batch_size=cfg.batch_size,
-                                     access_threshold=access_threshold, eviction_threshold=eviction_threshold)]
+    extract_fn = get_extract_fn(config)
+
+    batch_size = config.batch_size // config.line_per_sample
+    num_devices = config.rank_size
+    device_index = config.rank_id
+    
+    if is_training:
+        files_list = glob(os.path.join(config.data_path, config.train_file_pattern) + '/*.tfrecord')
+        device_files = files_list[device_index::num_devices]
+    else:
+        files_list = glob(os.path.join(config.data_path, config.test_file_pattern) + '/*.tfrecord')
+        device_files = files_list
+
+    dataset = tf.data.TFRecordDataset(files_list, num_parallel_reads=num_parallel)
+    dataset = dataset.shard(config.rank_size, config.rank_id)
+    if MODEL_NAME == "DCNv2_multihot":
+        dataset = tf.data.TFRecordDataset(device_files, num_parallel_reads=num_parallel)
+
+    if is_training:
+        dataset = dataset.shuffle(batch_size * 1000, seed=SHUFFLE_SEED)
+        dataset = dataset.repeat(config.train_epoch)
+    else:
+        dataset = dataset.repeat(config.test_epoch)
+    dataset = dataset.map(extract_fn, num_parallel_calls=num_parallel).batch(batch_size, drop_remainder=True)
+    dataset = dataset.map(reshape_fn, num_parallel_calls=num_parallel)
     if MODEL_NAME == "WideDeep":
-        feature_spec_list = [
-                        FeatureSpec("sparse_feature", table_name="wide_embeddings", batch_size=cfg.batch_size,
-                                        access_threshold=access_threshold, eviction_threshold=eviction_threshold),
-                        FeatureSpec("sparse_feature", table_name="deep_embeddings", batch_size=cfg.batch_size,
-                                        access_threshold=access_threshold, eviction_threshold=eviction_threshold)
-        ]
-    if use_multi_lookup:
-        feature_spec_list.append(FeatureSpec("sparse_feature", table_name="sparse_embeddings",
-                                             batch_size=cfg.batch_size,
-                                             access_threshold=access_threshold,
-                                             eviction_threshold=eviction_threshold))
+        dataset = dataset.map(map_fn, num_parallel_calls=num_parallel)
+    if is_use_faae:
+        dataset = dataset.map(add_timestamp_func)
+
+    if not MODIFY_GRAPH_FLAG:
+        librec = import_host_pipeline_ops(LIBREC_EOS_OPS_SO)
+        channel_id = 0 if is_training else 1
         if MODEL_NAME == "WideDeep":
-            feature_spec_list.extend([FeatureSpec("sparse_feature", table_name="wide_embeddings",
-                                                batch_size=cfg.batch_size,
-                                                access_threshold=access_threshold,
-                                                eviction_threshold=eviction_threshold),
-                                    FeatureSpec("sparse_feature", table_name="deep_embeddings",
-                                                batch_size=cfg.batch_size,
-                                                access_threshold=access_threshold,
-                                                eviction_threshold=eviction_threshold)])
-    if use_timestamp:
-        feature_spec_list.append(FeatureSpec("timestamp", is_timestamp=True))
-    return feature_spec_list
+            dataset = dataset.eos_map(librec, channel_id, max_train_steps, eval_steps)
+        if MODEL_NAME == "MMOE":
+            dataset = dataset.eos_map(librec, channel_id, -1, eval_steps)
+        insert_fn = get_asc_insert_func(tgt_key_specs=feature_spec_list, is_training=is_training, dump_graph=dump_graph)
+        dataset = dataset.map(insert_fn)
+
+    dataset = dataset.prefetch(100)
+
+    iterator = dataset.make_initializable_iterator()
+    batch = iterator.get_next()
+    return batch, iterator
 
 
-def clear_saved_model() -> None:
-    def _del_related_dir(del_path: str) -> None:
-        if not os.path.isabs(del_path):
-            del_path = os.path.join(os.getcwd(), del_path)
-        dirs = glob(del_path)
-        for sub_dir in dirs:
-            shutil.rmtree(sub_dir, ignore_errors=True)
-            logger.info(f"delete dir:{sub_dir}")
+def get_extract_fn(config):
+    def extract_fn(data_record):
+        features = {
+            # Extract features using the keys set during creation
+            'label': tf.compat.v1.FixedLenFeature(shape=(config.line_per_sample,), dtype=tf.int64),
+            'sparse_feature': tf.compat.v1.FixedLenFeature(shape=(26 * config.line_per_sample,), dtype=tf.int64),
+            'dense_feature': tf.compat.v1.FixedLenFeature(shape=(13 * config.line_per_sample,), dtype=tf.float32),
+        }
+        if MODEL_NAME == "DCNv2_multihot":
+            features = {
+                'label': tf.compat.v1.FixedLenFeature(shape=(config.line_per_sample,), dtype=tf.int64),
+                'sparse_feature': tf.compat.v1.FixedLenFeature(shape=(214 * config.line_per_sample,), dtype=tf.int64),
+                'dense_feature': tf.compat.v1.FixedLenFeature(shape=(13 * config.line_per_sample,), dtype=tf.float32),
+            }
+        if MODEL_NAME == "WideDeep":
+            features = {
+                'label': tf.compat.v1.FixedLenFeature(shape=(config.line_per_sample,), dtype=tf.int64),
+                'sparse_feature': tf.compat.v1.FixedLenFeature(shape=(26 * config.line_per_sample,), dtype=tf.int64),
+                'dense_feature': tf.compat.v1.FixedLenFeature(shape=(13 * config.line_per_sample,), dtype=tf.int64),
+            }
+        if MODEL_NAME == "MMOE":
+            features = {
+                'label': tf.compat.v1.FixedLenFeature(shape=(2 * config.line_per_sample,), dtype=tf.int64),
+                'sparse_feature': tf.compat.v1.FixedLenFeature(shape=(29 * config.line_per_sample,), dtype=tf.int64),
+                'dense_feature': tf.compat.v1.FixedLenFeature(shape=(11 * config.line_per_sample,), dtype=tf.float32),
+            }
+        sample = tf.compat.v1.parse_single_example(data_record, features)
+        return sample
+    
+    return extract_fn
 
-    _del_related_dir("/root/ascend/log/*")
-    if MODEL_NAME == "DLRM" or MODEL_NAME == "WideDeep" or MODEL_NAME == "MMOE":
-        _del_related_dir("kernel*")
-        _del_related_dir("model_dir_rank*")
-        _del_related_dir("op_cache")
 
-    if os.getenv("CACHE_MODE", "") != CacheModeEnum.SSD.value:
-        return
-    logger.info("Current cache mode is SSD, and file overwrite is not allowed in SSD mode, deleting exist directory"
-                " then create empty directory for this use case.")
-    for sub_path in SSD_DATA_PATH:
-        _del_related_dir(sub_path)
-        os.makedirs(sub_path, mode=0o550, exist_ok=True)
-        logger.info(f"Create dir:{sub_path}")
+def reshape_fn(batch):
+    if MODEL_NAME == "DCNv2" or MODEL_NAME == "DLRM":
+        batch['label'] = tf.reshape(batch['label'], [-1, 1])
+        batch['dense_feature'] = tf.reshape(batch['dense_feature'], [-1, 13])
+        batch['dense_feature'] = tf.math.log(batch['dense_feature'] + 3.0)
+        batch['sparse_feature'] = tf.reshape(batch['sparse_feature'], [-1, 26])
+    if MODEL_NAME == "DCNv2_multihot":
+        batch['label'] = tf.reshape(batch['label'], [-1, 1])
+        batch['dense_feature'] = tf.reshape(batch['dense_feature'], [-1, 13])
+        batch['dense_feature'] = tf.math.log(batch['dense_feature'] + 3.0)
+        batch['sparse_feature'] = tf.reshape(batch['sparse_feature'], [-1, 214])
+    if MODEL_NAME == "MMOE":
+        batch['label'] = tf.reshape(batch['label'], [-1, 2])
+        batch['dense_feature'] = tf.reshape(batch['dense_feature'], [-1, 11])
+        batch['sparse_feature'] = tf.reshape(batch['sparse_feature'], [-1, 29])
+    if MODEL_NAME == "WideDeep":
+        batch['label'] = tf.reshape(batch['label'], [-1, 1])
+        batch['dense_feature'] = tf.reshape(batch['dense_feature'], [-1, 13])
+        batch['sparse_feature'] = tf.reshape(batch['sparse_feature'], [-1, 26])
+    return batch
+
+
+def map_fn(batch):
+    new_batch = batch
+    new_batch['sparse_feature'] = tf.concat([batch['dense_feature'], batch['sparse_feature']], axis=1)
+    return new_batch
 
 
 def evaluate(sess, eval_model, eval_iterator, cfg):
@@ -482,109 +535,61 @@ def evaluate_fix(step, sess, eval_model, eval_iterator):
     return auc, mean_log_loss
 
 
-def make_batch_and_iterator(config, feature_spec_list, is_training, dump_graph, is_use_faae=False):
-    if config.USE_PIPELINE_TEST:
-        num_parallel = 1
-    else:
-        num_parallel = 8
+def create_feature_spec_list(cfg, use_timestamp=False):
+    access_threshold = None
+    eviction_threshold = None
+    if use_timestamp:
+        access_threshold = 1000
+        eviction_threshold = 180
 
-    extract_fn = get_extract_fn(config)
-
-    batch_size = config.batch_size // config.line_per_sample
-    num_devices = config.rank_size
-    device_index = config.rank_id
-    
-    if is_training:
-        files_list = glob(os.path.join(config.data_path, config.train_file_pattern) + '/*.tfrecord')
-        device_files = files_list[device_index::num_devices]
-    else:
-        files_list = glob(os.path.join(config.data_path, config.test_file_pattern) + '/*.tfrecord')
-        device_files = files_list
-
-    dataset = tf.data.TFRecordDataset(files_list, num_parallel_reads=num_parallel)
-    dataset = dataset.shard(config.rank_size, config.rank_id)
-    if MODEL_NAME == "DCNv2_multihot":
-        dataset = tf.data.TFRecordDataset(device_files, num_parallel_reads=num_parallel)
-
-    if is_training:
-        dataset = dataset.shuffle(batch_size * 1000, seed=SHUFFLE_SEED)
-        dataset = dataset.repeat(config.train_epoch)
-    else:
-        dataset = dataset.repeat(config.test_epoch)
-    dataset = dataset.map(extract_fn, num_parallel_calls=num_parallel).batch(batch_size,
-                                                                             drop_remainder=True)
-    dataset = dataset.map(reshape_fn, num_parallel_calls=num_parallel)
+    feature_spec_list = [FeatureSpec("sparse_feature", table_name="sparse_embeddings", batch_size=cfg.batch_size,
+                                     access_threshold=access_threshold, eviction_threshold=eviction_threshold)]
     if MODEL_NAME == "WideDeep":
-        dataset = dataset.map(map_fn, num_parallel_calls=num_parallel)
-    if is_use_faae:
-        dataset = dataset.map(add_timestamp_func)
-
-    if not MODIFY_GRAPH_FLAG:
-        librec = import_host_pipeline_ops(LIBREC_EOS_OPS_SO)
-        channel_id = 0 if is_training else 1
+        feature_spec_list = [
+            FeatureSpec("sparse_feature", table_name="wide_embeddings", batch_size=cfg.batch_size,
+                        access_threshold=access_threshold, eviction_threshold=eviction_threshold),
+            FeatureSpec("sparse_feature", table_name="deep_embeddings", batch_size=cfg.batch_size,
+                        access_threshold=access_threshold, eviction_threshold=eviction_threshold)
+        ]
+    if use_multi_lookup:
+        feature_spec_list.append(FeatureSpec("sparse_feature", table_name="sparse_embeddings",
+                                             batch_size=cfg.batch_size,
+                                             access_threshold=access_threshold,
+                                             eviction_threshold=eviction_threshold))
         if MODEL_NAME == "WideDeep":
-            dataset = dataset.eos_map(librec, channel_id, max_train_steps, eval_steps)
-        if MODEL_NAME == "MMOE":
-            dataset = dataset.eos_map(librec, channel_id, -1, eval_steps)
-        insert_fn = get_asc_insert_func(tgt_key_specs=feature_spec_list, is_training=is_training, dump_graph=dump_graph)
-        dataset = dataset.map(insert_fn)
-
-    dataset = dataset.prefetch(100)
-
-    iterator = dataset.make_initializable_iterator()
-    batch = iterator.get_next()
-    return batch, iterator
-
-
-def get_extract_fn(config):
-    def extract_fn(data_record):
-        features = {
-            # Extract features using the keys set during creation
-            'label': tf.compat.v1.FixedLenFeature(shape=(config.line_per_sample,), dtype=tf.int64),
-            'sparse_feature': tf.compat.v1.FixedLenFeature(shape=(26 * config.line_per_sample,), dtype=tf.int64),
-            'dense_feature': tf.compat.v1.FixedLenFeature(shape=(13 * config.line_per_sample,), dtype=tf.float32),
-        }
-        if MODEL_NAME == "DCNv2_multihot":
-            features = {
-                'label': tf.compat.v1.FixedLenFeature(shape=(config.line_per_sample,), dtype=tf.int64),
-                'sparse_feature': tf.compat.v1.FixedLenFeature(shape=(214 * config.line_per_sample,), dtype=tf.int64),
-                'dense_feature': tf.compat.v1.FixedLenFeature(shape=(13 * config.line_per_sample,), dtype=tf.float32),
-            }
-        if MODEL_NAME == "WideDeep":
-            features = {
-                'label': tf.compat.v1.FixedLenFeature(shape=(config.line_per_sample,), dtype=tf.int64),
-                'sparse_feature': tf.compat.v1.FixedLenFeature(shape=(26 * config.line_per_sample,), dtype=tf.int64),
-                'dense_feature': tf.compat.v1.FixedLenFeature(shape=(13 * config.line_per_sample,), dtype=tf.int64),
-            }
-        if MODEL_NAME == "MMOE":
-            features = {
-                'label': tf.compat.v1.FixedLenFeature(shape=(2 * config.line_per_sample,), dtype=tf.int64),
-                'sparse_feature': tf.compat.v1.FixedLenFeature(shape=(29 * config.line_per_sample,), dtype=tf.int64),
-                'dense_feature': tf.compat.v1.FixedLenFeature(shape=(11 * config.line_per_sample,), dtype=tf.float32),
-            }
-        sample = tf.compat.v1.parse_single_example(data_record, features)
-        return sample
-    
-    return extract_fn
+            feature_spec_list.extend([FeatureSpec("sparse_feature", table_name="wide_embeddings",
+                                                  batch_size=cfg.batch_size,
+                                                  access_threshold=access_threshold,
+                                                  eviction_threshold=eviction_threshold),
+                                      FeatureSpec("sparse_feature", table_name="deep_embeddings",
+                                                  batch_size=cfg.batch_size,
+                                                  access_threshold=access_threshold,
+                                                  eviction_threshold=eviction_threshold)])
+    if use_timestamp:
+        feature_spec_list.append(FeatureSpec("timestamp", is_timestamp=True))
+    return feature_spec_list
 
 
-def reshape_fn(batch):
-    batch['label'] = tf.reshape(batch['label'], [-1, 1])
-    batch['dense_feature'] = tf.reshape(batch['dense_feature'], [-1, 13])
-    batch['sparse_feature'] = tf.reshape(batch['sparse_feature'], [-1, 26])
-    if MODEL_NAME == "DCNv2_multihot":
-        batch['dense_feature'] = tf.math.log(batch['dense_feature'] + 3.0)
-        batch['sparse_feature'] = tf.reshape(batch['sparse_feature'], [-1, 214])        
-    if MODEL_NAME == "WideDeep":
-        batch['dense_feature'] = tf.math.log(batch['dense_feature'] + 3.0)
-    if MODEL_NAME == "MMOE":
-        batch['label'] = tf.reshape(batch['label'], [-1, 2])
-        batch['dense_feature'] = tf.reshape(batch['dense_feature'], [-1, 11])
-        batch['sparse_feature'] = tf.reshape(batch['sparse_feature'], [-1, 29])        
-    return batch
+def clear_saved_model() -> None:
+    def _del_related_dir(del_path: str) -> None:
+        if not os.path.isabs(del_path):
+            del_path = os.path.join(os.getcwd(), del_path)
+        dirs = glob(del_path)
+        for sub_dir in dirs:
+            shutil.rmtree(sub_dir, ignore_errors=True)
+            logger.info(f"delete dir:{sub_dir}")
 
+    _del_related_dir("/root/ascend/log/*")
+    if MODEL_NAME == "DLRM" or MODEL_NAME == "WideDeep" or MODEL_NAME == "MMOE":
+        _del_related_dir("kernel*")
+        _del_related_dir("model_dir_rank*")
+        _del_related_dir("op_cache")
 
-def map_fn(batch):
-    new_batch = batch
-    new_batch['sparse_feature'] = tf.concat([batch['dense_feature'], batch['sparse_feature']], axis=1)
-    return new_batch
+    if os.getenv("CACHE_MODE", "") != CacheModeEnum.SSD.value:
+        return
+    logger.info("Current cache mode is SSD, and file overwrite is not allowed in SSD mode, deleting exist directory"
+                " then create empty directory for this use case.")
+    for sub_path in SSD_DATA_PATH:
+        _del_related_dir(sub_path)
+        os.makedirs(sub_path, mode=0o550, exist_ok=True)
+        logger.info(f"Create dir:{sub_path}")

@@ -23,6 +23,7 @@ from sklearn.metrics import roc_auc_score
 import numpy as np
 from npu_bridge.npu_init import *
 
+from config import Config
 from mx_rec.constants.constants import ASCEND_SPARSE_LOOKUP_LOCAL_EMB, ASCEND_SPARSE_LOOKUP_ID_OFFSET
 from mx_rec.core.asc.manager import start_asc_pipeline
 from mx_rec.core.embedding import create_table, sparse_lookup
@@ -33,10 +34,9 @@ from mx_rec.util.initialize import ConfigInitializer, init, terminate_config_ini
 import mx_rec.util as mxrec_util
 from mx_rec.util.variable import get_dense_and_sparse_variable
 import mx_rec.util.model_common as cm
-from mx_rec.util.model_common import(
+from mx_rec.util.model_common import (
     sess_config, create_feature_spec_list, clear_saved_model, evaluate_fix, make_batch_and_iterator
 )
-from config import Config
 from model import MyModel
 from demo_logger import logger
 from optimizer import get_dense_and_sparse_optimizer
@@ -142,11 +142,11 @@ if __name__ == "__main__":
     feature_spec_list_train = None
     feature_spec_list_eval = None
     if cm.use_faae:
-        feature_spec_list_train = create_feature_spec_list(cfg, cm.use_multi_lookup, use_timestamp=True)
-        feature_spec_list_eval = create_feature_spec_list(cfg, cm.use_multi_lookup, use_timestamp=True)
+        feature_spec_list_train = create_feature_spec_list(cfg, use_timestamp=True)
+        feature_spec_list_eval = create_feature_spec_list(cfg, use_timestamp=True)
     else:
-        feature_spec_list_train = create_feature_spec_list(cfg, cm.use_multi_lookup, use_timestamp=False)
-        feature_spec_list_eval = create_feature_spec_list(cfg, cm.use_multi_lookup, use_timestamp=False)
+        feature_spec_list_train = create_feature_spec_list(cfg, use_timestamp=False)
+        feature_spec_list_eval = create_feature_spec_list(cfg, use_timestamp=False)
 
     train_batch, train_iterator = make_batch_and_iterator(cfg, feature_spec_list_train, is_training=True,
                                                           dump_graph=True, is_use_faae=cm.use_faae)
@@ -284,7 +284,8 @@ if __name__ == "__main__":
 
         if i % (cm.train_steps // iteration_per_loop) == 0:
             if cm.interval is not None:
-                test_auc_income, test_auc_mat, test_mean_log_loss = evaluate_fix(i * iteration_per_loop, sess, eval_model, eval_iterator)
+                test_auc_income, test_auc_mat, test_mean_log_loss = evaluate_fix(i * iteration_per_loop, sess,
+                                                                                 eval_model, eval_iterator)
             else:
                 test_auc_income, test_auc_mat, test_mean_log_loss = evaluate()
             print("Test auc income: {};Test auc mat: {} ;log_loss: {} ".format(test_auc_income, 
