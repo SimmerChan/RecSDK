@@ -28,6 +28,7 @@ constexpr int SWAP_INFO_TUPLE_INDEX1 = 1;
 constexpr int SWAP_INFO_TUPLE_INDEX2 = 2;
 constexpr int SWAP_INFO_TUPLE_INDEX3 = 3;
 constexpr int SWAP_INFO_TUPLE_INDEX4 = 4;
+constexpr size_t TABLE_NAME_LENGTH = 100;
 constexpr size_t READ_AND_WRITE_SIZE_PEER_TIME = 32768;
 
 const std::string RANK_STR_PATH = "/rank";
@@ -48,6 +49,26 @@ struct SwapInfo {
     std::vector<std::vector<int64_t>> swapinKeys;
     at::Tensor swapinOffs;
     at::Tensor batchOffs;
+    std::vector<int64_t> swapinKeysLength;
+    std::vector<int64_t> swapoutKeysLength;
+    const std::vector<int64_t>& getSwapinKeysLength()
+    {
+        if (swapinKeysLength.empty()) {
+            for (const auto& keys : swapinKeys) {
+                swapinKeysLength.emplace_back(keys.size());
+            }
+        }
+        return swapinKeysLength;
+    }
+    const std::vector<int64_t>& getSwapoutKeysLength()
+    {
+        if (swapoutKeysLength.empty()) {
+            for (const auto& keys : swapoutKeys) {
+                swapoutKeysLength.emplace_back(keys.size());
+            }
+        }
+        return swapoutKeysLength;
+    }
 };
 
 struct SwapinTensor {
@@ -58,7 +79,7 @@ struct SwapinTensor {
 
 class EmbcacheManager {
 public:
-    explicit EmbcacheManager(const std::vector<EmbConfig>& embConfigs);
+    explicit EmbcacheManager(const std::vector<EmbConfig>& embConfigs, bool needAccumulateOffset = true);
 
     AsyncTask<SwapInfo> ComputeSwapInfoAsync(const at::Tensor& batchKeys, const std::vector<int64_t>& offsetPerKey);
 
@@ -80,6 +101,8 @@ public:
 
     void StatisticsKeyCount(const at::Tensor& batchKeys, const torch::Tensor& offset, const at::Tensor& batchKeyCounts,
                             int64_t tableIndex);
+
+    void RecordEmbeddingUpdateTimes();
 
     /**
      * 读取指定文件。 示例：save_dir/sparse/table1/rank0/key/slice.data
@@ -129,10 +152,13 @@ private:
     std::vector<FeatureFilter> featureFilters;
 
     uint64_t swapCount = 0;       // ComputeSwapInfo 执行次数
-    uint64_t embLookupCount = 0;  // EmbeddingLookup 执行次数
+    uint64_t embUpdateCount = 0;  // EmbeddingUpdate 执行次数
 
     bool enableFastHashMap = false;
     int32_t optimNum;
+
+    // 计算换入换出offset时是否要累加表外偏移. 逻辑上作为一个大表处理时设置为true，否则false
+    bool needAccumulateOffset = true;
 };
 }  // namespace Embcache
 #endif  // EMBEDDING_CACHE_EMBEDDING_MANAGER_H

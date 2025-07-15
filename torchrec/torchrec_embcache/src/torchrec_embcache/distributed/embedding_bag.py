@@ -23,6 +23,7 @@ from embcache_pybind import (
     AdmitAndEvictConfig,
     AsyncSwapInfo,
     AsyncSwapinTensor,
+    InitializerType as CppInitType,
     SwapInfo,
     SwapinTensor,
 )
@@ -39,7 +40,7 @@ from hybrid_torchrec.distributed.sharding.post_input_dist import (
 from hybrid_torchrec.sparse.jagged_tensor_with_looup_helper import (
     KeyedJaggedTensorWithLookHelper,
 )
-
+from torchrec_embcache.distributed.configs import EmbCacheEmbeddingBagConfig
 from torchrec_embcache.distributed.sharding.rw_sharding import (
     EmbCacheRwPooledEmbeddingSharding,
 )
@@ -130,7 +131,7 @@ class EmbCacheHashTable(torch.nn.Module):
     def __init__(self, config: EmbeddingBagConfig, device: torch.device):
         super().__init__()
         self.config = config
-        self.ids2slot_dict = IdsMapper(self.config.num_embeddings)
+        self.ids2slot_dict = IdsMapper(self.config.num_embeddings, only_device_memory=False)
         self.vector_table = torch.nn.EmbeddingBag(
             self.config.num_embeddings,
             self.config.embedding_dim,
@@ -219,6 +220,7 @@ class EmbCacheEmbeddingBagCollection(EmbeddingBagCollection):
         batch_size: int,
         multi_hot_sizes: List[int], 
         is_weighted: bool = False,
+        need_accumulate_offset: bool = True,
         device: Optional[torch.device] = None,
         embedding_optimizer_cls: Type[torch.optim.Optimizer] = torch.optim.Adagrad,
     ) -> None:
@@ -226,6 +228,8 @@ class EmbCacheEmbeddingBagCollection(EmbeddingBagCollection):
         torch._C._log_api_usage_once(f"torchrec.modules.{self.__class__.__name__}")
         self._is_weighted = is_weighted
         self.embedding_bags: nn.ModuleDict = nn.ModuleDict()
+        self.need_accumulate_offset: bool = need_accumulate_offset
+        self._convert_2_cache_embedding_bag_config(tables)
         self._embedding_bag_configs = tables
         self._lengths_per_embedding: List[int] = []
         self._device: torch.device = (
@@ -238,7 +242,7 @@ class EmbCacheEmbeddingBagCollection(EmbeddingBagCollection):
         embcache_size_on_device_mem = int(os.getenv("EMBCACHE_SIZE_ON_DEVICE_MEM", "17179869184"))
         logger.debug("======  embcache_size_on_device_mem: %s", embcache_size_on_device_mem)
 
-        cache_num_embeddings = self._caculate_caches(
+        cache_num_embeddings = self._calculate_caches(
             tables, embcache_size_on_device_mem, multi_hot_sizes, batch_size, world_size
         )
         logger.debug("table_num_embeddings: %s", cache_num_embeddings)
@@ -276,7 +280,17 @@ class EmbCacheEmbeddingBagCollection(EmbeddingBagCollection):
         self._feature_names: List[List[str]] = [table.feature_names for table in tables]
         self.reset_parameters()
 
-    def _caculate_caches(
+    @staticmethod
+    def _convert_2_cache_embedding_bag_config(tables: List[EmbCacheEmbeddingBagConfig | EmbeddingBagConfig]):
+        for i, ori_config in enumerate(tables):
+            if isinstance(ori_config, EmbCacheEmbeddingBagConfig):
+                continue
+            emb_cache_config = EmbCacheEmbeddingBagConfig(embedding_dim=ori_config.embedding_dim,
+                                                          num_embeddings=ori_config.num_embeddings)
+            emb_cache_config.__dict__.update(ori_config.__dict__)
+            tables[i] = emb_cache_config
+
+    def _calculate_caches(
         self,
         tables: List[EmbeddingBagConfig],
         max_device_mem_for_vectors: int,
@@ -475,7 +489,7 @@ class EmbCacheShardedEmbeddingBagCollection(ShardedEmbeddingBagCollection):
         self._memcpy_stream: Optional[torch_npu.npu.streams.Stream] = (
             torch_npu.npu.Stream(priority=-1)
         )
-        self._embcache_mgr = self._create_embcache_mgr()
+        self._embcache_mgr = self._create_embcache_mgr(module.need_accumulate_offset)
 
     @property
     def embcache_mgr(self):
@@ -553,6 +567,9 @@ class EmbCacheShardedEmbeddingBagCollection(ShardedEmbeddingBagCollection):
             swap_info, swapout_embs, swapout_optims
         )
 
+    def record_host_emb_update_times(self):
+        self._embcache_mgr.record_embedding_update_times()
+
     def host_embedding_lookup_async(self, swap_info: SwapInfo) -> AsyncSwapinTensor:
         return self._embcache_mgr.embedding_lookup_async(swap_info)
 
@@ -567,11 +584,15 @@ class EmbCacheShardedEmbeddingBagCollection(ShardedEmbeddingBagCollection):
             batched_embedding_kernels.append(modules)
         return batched_embedding_kernels
 
-    def _create_embcache_mgr(self) -> EmbcacheManager:
+
+
+    def _create_embcache_mgr(self, need_accumulate_offset: bool) -> EmbcacheManager:
         emb_configs = []
         for _, sharding_infos in self.sharding_type_to_sharding_infos.items():
             for sharding_info in sharding_infos:
                 embedding_config = sharding_info.embedding_config
+                emb_original_config = self._table_name_to_config[embedding_config.name]
+                cpp_initializer_type = getattr(CppInitType, emb_original_config.initializer_type.name)
                 optim_num = 0
                 if (
                     sharding_info.fused_params["optimizer"]
@@ -603,12 +624,14 @@ class EmbCacheShardedEmbeddingBagCollection(ShardedEmbeddingBagCollection):
 
                 emb_configs.append(
                     EmbConfig(
-                        table_name=embedding_config.name,
+                        table_name=embedding_config.name, initializer_type=cpp_initializer_type,
                         emb_dim=embedding_config.embedding_dim,
                         optim_num=optim_num,
                         cache_size=local_shard_size,
                         weight_init_min=embedding_config.get_weight_init_min(),
                         weight_init_max=embedding_config.get_weight_init_max(),
+                        weight_init_mean=emb_original_config.weight_init_mean,
+                        weight_init_stddev=emb_original_config.weight_init_stddev,
                     )
                 )
-        return EmbcacheManager(emb_configs)
+        return EmbcacheManager(emb_configs, need_accumulate_offset)
