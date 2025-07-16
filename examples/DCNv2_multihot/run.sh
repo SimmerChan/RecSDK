@@ -28,7 +28,7 @@ num_server=1
 local_rank_size=16
 num_process=$((num_server * local_rank_size))
 export TRAIN_RANK_SIZE=$num_process
-project_root=$(cd ../../ && pwd)
+project_root=$(cd "$cur_path/../../" && pwd)
 
 ################# 参数配置 ######################
 export BATCH_SIZE=8192
