@@ -27,7 +27,7 @@ num_server=1
 local_rank_size=8
 num_process=$((num_server * local_rank_size))
 export TRAIN_RANK_SIZE=$num_process
-project_root=$(cd "$cur_path/../../../" && pwd)
+project_root=$(cd "$cur_path/../../.." && pwd)
 
 ################# 参数配置 ######################
 export USE_DYNAMIC=0            # 0：静态shape；1：动态shape
