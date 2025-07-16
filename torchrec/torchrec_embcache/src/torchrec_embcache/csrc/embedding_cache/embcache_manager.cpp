@@ -413,7 +413,6 @@ void EmbcacheManager::SwapInEmbAndOptimizer(SwapInfo& swapInfo, const SwapinTens
     const auto* jaggedOffsPtr = jaggedOffs.data_ptr<int64_t>();
     const auto& keysLengthPreSum = swapInfo.GetSwapinKeysLengthPreSum();
     const auto& tbConfigs = this->embConfigs;
-    auto loopSize = static_cast<int64_t>(tbConfigs.size());
     const std::vector<int32_t>& curTableIndices = tableIndices.empty() ? embTableIndies_ : tableIndices;
     // swap in to device
     for (size_t i = 0; i < curTableIndices.size(); ++i) {
