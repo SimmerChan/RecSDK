@@ -348,6 +348,7 @@ class HybridSplitTableBatchedEmbeddingBagsCodegen(
             result.append(self.momentum2_dev)
         return result
 
+
 class HybridBatchedFusedEmbeddingBag(
     BaseBatchedEmbeddingBag[torch.Tensor], FusedOptimizerModule
 ):
