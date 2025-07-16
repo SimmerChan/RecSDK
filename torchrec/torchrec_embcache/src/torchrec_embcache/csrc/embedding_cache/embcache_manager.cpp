@@ -360,8 +360,9 @@ std::tuple<at::Tensor, std::vector<at::Tensor>> EmbcacheManager::GetDeviceSwapOu
     const std::vector<int64_t>& keysLengthPreSum = swapInfo.GetSwapoutKeysLengthPreSum();
     auto floatPinnedOpt = at::TensorOptions().dtype(at::kFloat).device(weightsDevs[0].device());
     std::vector<int64_t> outEmbPreSumByDim(embConfigs.size() + 1, 0);
-    for (size_t i = 0; i < tableIndices.size(); ++i) {
-        auto tableIndex = tableIndices[i];
+    const std::vector<int32_t>& curTableIndices = tableIndices.empty() ? embTableIndies_ : tableIndices;
+    for (size_t i = 0; i < curTableIndices.size(); ++i) {
+        auto tableIndex = curTableIndices[i];
         outEmbPreSumByDim[i + 1] = keysLengthPreSum[i] * embConfigs[tableIndex].embDim;
     }
     int64_t outEmbShapeFlatSize = outEmbPreSumByDim[outEmbPreSumByDim.size() - 1];
@@ -375,13 +376,13 @@ std::tuple<at::Tensor, std::vector<at::Tensor>> EmbcacheManager::GetDeviceSwapOu
     }
 
     // dispatch swap out
-    for (size_t i = 0; i < tableIndices.size(); ++i) {
+    for (size_t i = 0; i < curTableIndices.size(); ++i) {
         at::Tensor indices = swapoutOffs.slice(0, keysLengthPreSum[i], keysLengthPreSum[i + 1]);
         if (keysLengthPreSum[i] == 0 && keysLengthPreSum[i + 1] == 0) {
             // Current table don't need swap out, skip.
             continue;
         }
-        auto tableIdx = tableIndices[i];
+        auto tableIdx = curTableIndices[i];
         auto tableDim = embConfigs[tableIdx].embDim;
         auto optimizerNum = embConfigs[tableIdx].optimNum;
         at::Tensor outEmbedding = outEmbTensor.slice(0, outEmbPreSumByDim[i], outEmbPreSumByDim[i + 1]);
@@ -413,12 +414,13 @@ void EmbcacheManager::SwapInEmbAndOptimizer(SwapInfo& swapInfo, const SwapinTens
     const auto& keysLengthPreSum = swapInfo.GetSwapinKeysLengthPreSum();
     const auto& tbConfigs = this->embConfigs;
     auto loopSize = static_cast<int64_t>(tbConfigs.size());
+    const std::vector<int32_t>& curTableIndices = tableIndices.empty() ? embTableIndies_ : tableIndices;
     // swap in to device
-    for (int64_t i = 0; i < tableIndices.size(); ++i) {
+    for (size_t i = 0; i < curTableIndices.size(); ++i) {
         if (jaggedOffsPtr[i] == 0 && jaggedOffsPtr[i + 1] == 0) {
             continue;
         }
-        auto tableIdx = tableIndices[i];
+        auto tableIdx = curTableIndices[i];
         auto tableDim = embConfigs[tableIdx].embDim;
         auto optimizerNum = embConfigs[tableIdx].optimNum;
         at::Tensor swapInIndices = swapInOffsTensor.slice(0, keysLengthPreSum[i], keysLengthPreSum[i + 1]);
