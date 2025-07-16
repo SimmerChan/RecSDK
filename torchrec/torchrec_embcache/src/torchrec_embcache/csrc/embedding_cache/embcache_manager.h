@@ -100,11 +100,13 @@ public:
 
     std::tuple<at::Tensor, std::vector<at::Tensor>> GetDeviceSwapOutData(SwapInfo& swapInfo,
         const at::Tensor& swapoutOffs, const std::vector<at::Tensor>& weightsDevs,
-        const std::vector<at::Tensor>& momentum1Devs, const std::vector<at::Tensor>& momentum2Devs);
+        const std::vector<at::Tensor>& momentum1Devs, const std::vector<at::Tensor>& momentum2Devs,
+        const std::vector<int32_t>& tableIndices);
 
     void SwapInEmbAndOptimizer(SwapInfo& swapInfo, const SwapinTensor& swapInTensor,
         const at::Tensor& swapInOffsTensor, std::vector<at::Tensor>& weightsDevs,
-        std::vector<at::Tensor>& momentum1Devs, std::vector<at::Tensor>& momentum2Devs);
+        std::vector<at::Tensor>& momentum1Devs, std::vector<at::Tensor>& momentum2Devs,
+        const std::vector<int32_t>& tableIndices);
 
     void Save(const std::string path, const int rank);
 
