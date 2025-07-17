@@ -358,21 +358,21 @@ std::tuple<at::Tensor, std::vector<at::Tensor>> EmbcacheManager::GetDeviceSwapOu
     const std::vector<int32_t>& tableIndices)
 {
     const std::vector<int64_t>& keysLengthPreSum = swapInfo.GetSwapoutKeysLengthPreSum();
-    auto floatPinnedOpt = at::TensorOptions().dtype(at::kFloat).device(weightsDevs[0].device());
     std::vector<int64_t> outEmbPreSumByDim(embConfigs.size() + 1, 0);
     const std::vector<int32_t>& curTableIndices = tableIndices.empty() ? embTableIndies_ : tableIndices;
-    for (size_t i = 0; i < curTableIndices.size(); ++i) {
-        auto tableIndex = curTableIndices[i];
-        outEmbPreSumByDim[i + 1] = keysLengthPreSum[i] * embConfigs[tableIndex].embDim;
+    for (size_t i = 0; i < swapInfo.swapoutKeys.size(); ++i) {
+        auto keysSize = swapInfo.swapoutKeys[i].size();
+        auto tableIdx = curTableIndices[i];
+        outEmbPreSumByDim[i + 1] = outEmbPreSumByDim[i] + keysSize * embConfigs[tableIdx].embDim;
     }
     int64_t outEmbShapeFlatSize = outEmbPreSumByDim[outEmbPreSumByDim.size() - 1];
 
     // output emb and optimizer tensor
-    at::Tensor outEmbTensor = at::empty({outEmbShapeFlatSize}, floatPinnedOpt);
+    at::Tensor outEmbTensor = at::empty({outEmbShapeFlatSize}, weightsDevs[0].options());
     int64_t outOptimizerShapeFlat = embConfigs[0].optimNum == 0 ? 0 : outEmbShapeFlatSize;
     std::vector<at::Tensor> outOptimizers(embConfigs[0].optimNum);
     for (int32_t i = 0; i < embConfigs[0].optimNum; ++i) {
-        outOptimizers[i] = at::empty({outOptimizerShapeFlat}, floatPinnedOpt);
+        outOptimizers[i] = at::empty({outOptimizerShapeFlat}, weightsDevs[0].options());
     }
 
     // dispatch swap out
