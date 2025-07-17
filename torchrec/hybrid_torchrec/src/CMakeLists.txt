@@ -1,9 +1,7 @@
 cmake_minimum_required(VERSION 3.18 FATAL_ERROR)
 project(feature_map)
 
-set(Torch_DIR "/usr/local/python3.11.0/lib/python3.11/site-packages/torch/share/cmake/Torch/")
 find_package(Torch REQUIRED)
-
 find_package(OpenMP REQUIRED)
 
 set(CXX_FLAGS
