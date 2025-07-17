@@ -36,12 +36,12 @@ void AddEmbCacheManager(pybind11::module_& m)
              py::arg("batch_key_counts"), py::arg("table_index"))
         .def("record_embedding_update_times", &EmbcacheManager::RecordEmbeddingUpdateTimes)
         .def("get_device_swap_out_data", &EmbcacheManager::GetDeviceSwapOutData,
-            py::arg("swap_info"), py::arg("swapout_offs"), py::arg("weights_devs"), py::arg("momentum1_devs"),
-            py::arg("momentum2_devs"), py::arg("table_indices") = std::vector<int32_t>{})
+             py::arg("swap_info"), py::arg("swapout_offs"), py::arg("weights_devs"), py::arg("momentum1_devs"),
+             py::arg("momentum2_devs"), py::arg("table_indices") = std::vector<int32_t>{})
         .def("swap_in_emb_and_optimizer", &EmbcacheManager::SwapInEmbAndOptimizer,
-            py::arg("swap_info"), py::arg("swap_in_tensor"), py::arg("swap_in_offs_tensor"),
-            py::arg("weights_devs"), py::arg("momentum1_devs"), py::arg("momentum2_devs"),
-            py::arg("table_indices") = std::vector<int32_t>{});
+             py::arg("swap_info"), py::arg("swap_in_tensor"), py::arg("swap_in_offs_tensor"),
+             py::arg("weights_devs"), py::arg("momentum1_devs"), py::arg("momentum2_devs"),
+             py::arg("table_indices") = std::vector<int32_t>{});
 }
 
 void AddInitializerType(pybind11::module_& m)
