@@ -389,13 +389,11 @@ std::tuple<at::Tensor, std::vector<at::Tensor>> EmbcacheManager::GetDeviceSwapOu
         torch::index_select_out(outEmbedding, weightsDevs[tableIdx].view({-1, tableDim}), 0, indices);
         if (optimizerNum > 0) {
             at::Tensor outMomentum1 = outOptimizers[0].slice(0, outEmbPreSumByDim[i], outEmbPreSumByDim[i + 1]);
-            torch::index_select_out(outMomentum1, momentum1Devs[tableIdx].view({-1, tableDim}), 0,
-                indices);
+            torch::index_select_out(outMomentum1, momentum1Devs[tableIdx].view({-1, tableDim}), 0, indices);
         }
         if (optimizerNum > 1) {
             at::Tensor outMomentum2 = outOptimizers[1].slice(0, outEmbPreSumByDim[i], outEmbPreSumByDim[i + 1]);
-            torch::index_select_out(outMomentum2, momentum2Devs[tableIdx].view({-1, tableDim}), 0,
-                indices);
+            torch::index_select_out(outMomentum2, momentum2Devs[tableIdx].view({-1, tableDim}), 0, indices);
         }
     }
 
@@ -430,13 +428,13 @@ void EmbcacheManager::SwapInEmbAndOptimizer(SwapInfo& swapInfo, const SwapinTens
             at::Tensor swapInMomentum1 = swapInOptimizers[0]
                                              .slice(0, jaggedOffsPtr[i], jaggedOffsPtr[i + 1])
                                              .view({-1, tableDim});
-            momentum1Devs[tableIdx].reshape({-1, tableDim}).index_put_({swapInIndices}, swapInMomentum1);
+            momentum1Devs[tableIdx].view({-1, tableDim}).index_put_({swapInIndices}, swapInMomentum1);
         }
         if (optimizerNum > 1) {
             at::Tensor swapInMomentum2 = swapInOptimizers[1]
                                              .slice(0, jaggedOffsPtr[i], jaggedOffsPtr[i + 1])
                                              .view({-1, tableDim});
-            momentum2Devs[tableIdx].reshape({-1, tableDim}).index_put_({swapInIndices}, swapInMomentum2);
+            momentum2Devs[tableIdx].view({-1, tableDim}).index_put_({swapInIndices}, swapInMomentum2);
         }
     }
 }
