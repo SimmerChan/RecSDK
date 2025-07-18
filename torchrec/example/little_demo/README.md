@@ -118,44 +118,18 @@ for i in range(10):
 
 ## 运行脚本
 
-### 安装依赖
+### 单机运行
+```bash
+WORLD_SIZE=1 RANK=0 python main.py
+```
 
-使用`torchx`运行demo
-
+### 多机运行
+使用`torchx`运行分布式程序，缺少`torchx`需要执行下面命令安装:
 ```bash
 pip install torchx
 ```
-
-### [可选]单机运行修改部分代码
-
-`main.py`中55~61行：
-
-```python
-def set_distribute_env():
-    rank = int(os.environ["LOCAL_RANK"])
-    torch.npu.set_device(rank)
-    os.environ["MASTER_ADDR"] = "127.0.0.1"
-    os.environ["MASTER_PORT"] = "6000"
-    os.environ["GLOO_SOCKET_IFNAME"] = "lo"
-    dist.init_process_group(backend="hccl")
-```
-
-修改为：
-
-```python
-def set_distribute_env():
-    rank = int(os.environ["LOCAL_RANK"])
-    torch.npu.set_device(rank)
-    os.environ["MASTER_ADDR"] = "127.0.0.1"
-    os.environ["MASTER_PORT"] = "6000"
-    os.environ["GLOO_SOCKET_IFNAME"] = "lo"
-    dist.init_process_group(backend="hccl", init_method="file://tmp/shared_file", rank=0, world_size=1)
-```
-
-### 启动脚本
-
-```shell
+运行脚本启动训练：
+```bash
 bash bash.sh
 ```
-
 成功后出现demo done字样。
