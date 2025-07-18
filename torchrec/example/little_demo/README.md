@@ -11,7 +11,7 @@
 ```python
 @dataclass
 class Batch(Pipelineable):
-    ......
+    ...
 ```
 2. 定义Dataset
 
