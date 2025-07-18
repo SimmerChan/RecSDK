@@ -62,13 +62,13 @@ apply_optimizer_in_backward(
 创建sharder，并使用EmbeddingShardingPlanner创建分表计划，将模型、分表计划和sharder传入DistributedModelParallel中获得分布式模型。注意当前支持row-wise和fused模式。完整代码参考main.py。
 ```python
     hybrid_sharder = get_default_hybrid_sharders(host_env)
-    constraints = {...}
-    planner = EmbeddingShardingPlanner(...)
-    plan = planner.collective_plan(...)
-    logging.info(plan)
-    ddp_model = DistributedModelParallel(
-        test_model, device=torch.device("npu"), plan=plan, sharders=hybrid_sharder
-    )
+constraints = {...}
+planner = EmbeddingShardingPlanner(...)
+plan = planner.collective_plan(...)
+logging.info(plan)
+ddp_model = DistributedModelParallel(
+    test_model, device=torch.device("npu"), plan=plan, sharders=hybrid_sharder
+)
 ```
 
 7. 整合优化器
@@ -76,10 +76,10 @@ apply_optimizer_in_backward(
 分离dense和sparse的参数，并组合成一个新的优化器。完整代码参考main.py。
 ```python
     dense_optimizer = KeyedOptimizerWrapper(
-        dict(in_backward_optimizer_filter(ddp_model.named_parameters())),
-        lambda params: torch.optim.Adagrad(params, lr=0.1),
-    )
-    optimizer = CombinedOptimizer([ddp_model.fused_optimizer, dense_optimizer])
+    dict(in_backward_optimizer_filter(ddp_model.named_parameters())),
+    lambda params: torch.optim.Adagrad(params, lr=0.1),
+)
+optimizer = CombinedOptimizer([ddp_model.fused_optimizer, dense_optimizer])
 ```
 8. 创建pipeline
 
@@ -100,6 +100,36 @@ for i in range(10):
 
 
 ## 运行脚本
+
+### 安装依赖
+使用`torchx`运行demo
+```bash
+pip install torchx
+```
+
+### [可选]单机运行修改部分代码
+`main.py`中55~61行：
+```python
+def set_distribute_env():
+    rank = int(os.environ["LOCAL_RANK"])
+    torch.npu.set_device(rank)
+    os.environ["MASTER_ADDR"] = "127.0.0.1"
+    os.environ["MASTER_PORT"] = "6000"
+    os.environ["GLOO_SOCKET_IFNAME"] = "lo"
+    dist.init_process_group(backend="hccl")
+```
+修改为：
+```python
+def set_distribute_env():
+    rank = int(os.environ["LOCAL_RANK"])
+    torch.npu.set_device(rank)
+    os.environ["MASTER_ADDR"] = "127.0.0.1"
+    os.environ["MASTER_PORT"] = "6000"
+    os.environ["GLOO_SOCKET_IFNAME"] = "lo"
+    dist.init_process_group(backend="hccl", init_method="file://tmp/shared_file", rank=0, world_size=1)
+```
+
+### 启动脚本
 ```shell
 bash bash.sh
 ```
