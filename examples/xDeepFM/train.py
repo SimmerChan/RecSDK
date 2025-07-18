@@ -138,22 +138,18 @@ def cache_data(hparams, filename, flag):
     if not os.path.exists(util.LOCK_FILE):
         open(util.LOCK_FILE, 'w').close()
 
-    with open(util.LOCK_FILE, 'w') as lock_fh:
-        portalocker.lock(lock_fh, portalocker.LOCK_EX)
-        try:
-            if not os.path.isfile(cached_name):
-                hparams.logger.info('has not cached file, begin cached...')
-                start_time = time.time()
-                sample_num, impression_id_list = cache_obj.write_tfrecord(filename, cached_name, hparams)
-                util.print_time("caced file used time", start_time)
-                hparams.logger.info("data sample num:{0}".format(sample_num))
-                with open(sample_num_path, 'w') as f:
-                    f.write(str(sample_num) + '\n')
-                with open(impression_id_path, 'w') as f:
-                    for impression_id in impression_id_list:
-                        f.write(str(impression_id) + '\n')
-        finally:
-            portalocker.unlock(lock_fh)
+    with portalocker.Lock(util.LOCK_FILE, 'w', flags=portalocker.LOCK_EX) as lock_fh:
+        if not os.path.isfile(cached_name):
+            hparams.logger.info('has not cached file, begin cached...')
+            start_time = time.time()
+            sample_num, impression_id_list = cache_obj.write_tfrecord(filename, cached_name, hparams)
+            util.print_time("caced file used time", start_time)
+            hparams.logger.info("data sample num:{0}".format(sample_num))
+            with open(sample_num_path, 'w') as f:
+                f.write(str(sample_num) + '\n')
+            with open(impression_id_path, 'w') as f:
+                for impression_id in impression_id_list:
+                    f.write(str(impression_id) + '\n')
 
 
 def train(hparams, scope=None, target_session=""):

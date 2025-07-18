@@ -37,13 +37,9 @@ def make_dir_with_lock(dirname):
     if not os.path.exists(LOCK_FILE):
         open(LOCK_FILE, 'w').close()
 
-    with open(LOCK_FILE, 'w') as lock_fh:
-        portalocker.lock(lock_fh, portalocker.LOCK_EX)
-        try:
-            if not os.path.exists(dirname):
-                os.mkdir(dirname)
-        finally:
-            portalocker.unlock(lock_fh)
+    with portalocker.Lock(LOCK_FILE, 'w', flags=portalocker.LOCK_EX) as lock_fh:
+        if not os.path.exists(dirname):
+            os.mkdir(dirname)
 
 
 def check_and_mkdir():
