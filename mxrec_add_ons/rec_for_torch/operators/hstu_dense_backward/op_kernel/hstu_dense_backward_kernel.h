@@ -105,7 +105,6 @@ public:
             uint8_t enAtomic = 1;
             this->qGradMatmul.template IterateAll<false>(this->qGradAccumTemp[out], enAtomic, false, true);
         }
-        
     }
 
     __aicore__ inline void DoKGradMatmul(int64_t taskId)

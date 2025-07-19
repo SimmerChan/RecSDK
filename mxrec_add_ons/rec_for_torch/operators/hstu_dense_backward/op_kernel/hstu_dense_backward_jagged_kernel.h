@@ -71,7 +71,6 @@ public:
         } else {
             this->CopyQGradToOutput();
         }
-        
     }
 
     __aicore__ inline void PreInit()
@@ -207,7 +206,6 @@ public:
             computeTaskInfo[curTaskId].kGradLeftOffset =
                 (taskId % MID_USE_TIMES) * this->blockHeight * this->blockHeight;
         }
-        
 
         if (isCol) {
             computeTaskInfo[curTaskId].vGradRightOffset =

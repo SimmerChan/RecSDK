@@ -311,7 +311,6 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> hstu_dense_jagged_bac
     } else {
         return std::make_tuple(qGradOutput, kGradOutput, vGradOutput, at::Tensor());
     }
-    
 }
 
 std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> hstu_dense_backward_impl_npu(

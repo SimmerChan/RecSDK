@@ -189,7 +189,6 @@ ge::graphStatus GetJaggedBasicShapeInfo(gert::TilingContext *context, HstuDenseB
     OPS_CHECK(gradShape.GetDimNum() != JAGGED_GRAD_DIM_NUM,
                 OPS_LOG_E("", "hstu jagged backward only support input with dim %d\n", JAGGED_GRAD_DIM_NUM),
                 return ge::GRAPH_FAILED);
-    
 
     int64_t seqLen = gradShape.GetDim(INDEX_T::INDEX_0);
     int64_t headNum = gradShape.GetDim(INDEX_T::INDEX_1);
