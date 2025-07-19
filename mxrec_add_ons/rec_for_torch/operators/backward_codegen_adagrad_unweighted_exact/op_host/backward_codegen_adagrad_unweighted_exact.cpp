@@ -58,11 +58,10 @@ constexpr int ITER_INDEX = 15;
 // tilling key index
 constexpr int NORMAL_ADAGRAD = 1;
 constexpr int UNIQUE_ADAGRAD = 2;
-constexpr int NORMAL_ADAM = 3;
-constexpr int UNIQUE_ADAM = 4;
-constexpr int NORMAL_SGD = 5;
-constexpr int UNIQUE_SGD = 6;
-
+constexpr int NORMAL_ADAM = 4;
+constexpr int UNIQUE_ADAM = 5;
+constexpr int NORMAL_SGD = 7;
+constexpr int UNIQUE_SGD = 8;
 // optimize type
 constexpr int ADAGRAD = 1;
 constexpr int ADAM = 2;
@@ -105,7 +104,32 @@ static ge::graphStatus NormalAdamTilingFunc(gert::TilingContext* context,
     tilingData.set_beta1pow(_beta1);
     tilingData.set_beta2pow(_beta2);
     tilingData.set_iter(iter);
+}
 
+static ge::graphStatus UniqueTilingKey(gert::TilingContext* context, const int &optimType)
+{
+    if (optimType == ADAM) {
+        NormalAdamTilingFunc(context, tilingData);
+        context->SetTilingKey(UNIQUE_ADAM);
+    } else if (optimType == ADAGRAD) {
+        context->SetTilingKey(UNIQUE_ADAGRAD);
+    } else {
+        printf("Unsupported optimtype!\n");
+        return ge::FAILED;
+    }
+    return UniqueTilingFunc(context, tilingData);
+}
+
+static ge::graphStatus NormalTilingKey(gert::TilingContext* context, const int &optimType)
+{
+    if (optimType == ADAM) {
+        NormalAdamTilingFunc(context, tilingData);
+        context->SetTilingKey(NORMAL_ADAM);
+    } else if (optimType == ADAGRAD) {
+        context->SetTilingKey(NORMAL_ADAGRAD);
+    } else if (optimType == SGD) {
+        context->SetTilingKey(NORMAL_SGD);
+    }
     return ge::GRAPH_SUCCESS;
 }
 
@@ -150,18 +174,16 @@ static ge::graphStatus ShapeTilingFunc(gert::TilingContext* context,
 
     int optimType = *context->GetAttrs()->GetInt(OPTIM_TYPE_INDEX);
     auto uniqueId = context->GetOptionalInputTensor(UNIQUE_ID_INDEX);
-    if (optimType == SGD) {
-        context->SetTilingKey(NORMAL_SGD);
-    } else if (optimType == ADAM) {
-        ret = NormalAdamTilingFunc(context, tilingData);
-        context->SetTilingKey(NORMAL_ADAM);
-    } else if (optimType == ADAGRAD) {
-        context->SetTilingKey(NORMAL_ADAGRAD);
-    } else {
-        OPS_LOG_E("Tiling Debug", "OptimType shape is not supported.");
-        return ge::GRAPH_FAILED;
-    }
 
+    if (uniqueId != nullptr) {
+        uniqueTilingFunc(context, tilingData);
+        ret = UniqueTilingKey(context, optimType);
+    } else {
+       ret = NormalTilingKey(context, optimType);
+    }
+    if (optimType == ADAM) {
+        NormalAdamTilingFunc(context, tilingData);
+    }
     if (ret != ge::GRAPH_SUCCESS) {
         return ret;
     }
