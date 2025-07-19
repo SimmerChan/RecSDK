@@ -24,7 +24,7 @@ See the License for the specific language governing permissions and
 namespace optiling {
 static ge::graphStatus TilingCommonFunc(gert::TilingContext *context, HstuDenseBackwardTilingData &tiling)
 {
-    int64_t batchSize = tiling.get_BatchSize();
+    int64_t batchSize = tiling.get_batchSize();
     int64_t headNum = tiling.get_headNum();
     int64_t headDim = tiling.get_headDim();
     int64_t blockHeight = tiling.get_blockHeight();

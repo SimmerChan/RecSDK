@@ -17,7 +17,6 @@ See the License for the specific language governing permissions and
 #include <vector>
 #include <numeric>
 
-#include "hstu_dense_backward_tiling_common.h"
 #include "register/op_def_registry.h"
 
 #include "hstu_dense_backward_jagged_tiling.h"
@@ -196,7 +195,7 @@ ge::graphStatus GetJaggedBasicShapeInfo(gert::TilingContext *context, HstuDenseB
     int64_t headNum = gradShape.GetDim(INDEX_T::INDEX_1);
     int64_t headDim = gradShape.GetDim(INDEX_T::INDEX_2);
     int64_t biasGradSeqLen = 0;
-    auto attnBiasGradShape = context->GetOutputShape(INDEX_T::INDEX_3)
+    auto attnBiasGradShape = context->GetOutputShape(INDEX_T::INDEX_3);
     if (attnBiasGradShape != nullptr) {
         biasGradSeqLen = attnBiasGradShape->GetStorageShape().GetDim(INDEX_T::INDEX_2);
         OPS_CHECK(biasGradSeqLen < maxSeqLen,

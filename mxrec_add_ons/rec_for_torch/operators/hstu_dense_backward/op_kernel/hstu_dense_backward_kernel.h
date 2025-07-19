@@ -616,21 +616,21 @@ public:
 
                     int64_t curOffset = (this->headNum * seqOffset[batchIdx] * this->headDim) + (headIdx * totalLen) +
                         (totalLen - remain);
-                    LocalTensor<float> input = this->queueVecScoreQK.AllocTensor<float>();
+                    LocalTensor<float> input = this->queueVecScoreQK.template AllocTensor<float>();
                     DataCopy<float>(input, this->qGradAccumTemp[curOffset], thisLen);
-                    this->queueVecScoreQK.EnQue(input);
+                    this->queueVecScoreQK.template EnQue(input);
 
-                    LocalTensor<float> newInput = this->queueVecScoreQK.DeQue<float>();
-                    LocalTensor<qType> output = this->queueOutputTemp.AllocTensor<qType>();
+                    LocalTensor<float> newInput = this->queueVecScoreQK.template DeQue<float>();
+                    LocalTensor<qType> output = this->queueOutputTemp.template AllocTensor<qType>();
                     if (std::is_same<qType, float>::value) {
                         DataCopy(output.template ReinterpretCast<float>(), newInput, thisLen);
                     } else {
                         Cast(output, newInput, RoundMode::CAST_RINT, thisLen);
                     }
-                    this->queueOutputTemp.EnQue(output);
-                    this->queueVecScoreQK.FreeTensor(newInput);
+                    this->queueOutputTemp.template EnQue(output);
+                    this->queueVecScoreQK.template FreeTensor(newInput);
 
-                    LocalTensor<qType> newOutput = this->queueOutputTemp.DeQue<qType>();
+                    LocalTensor<qType> newOutput = this->queueOutputTemp.template DeQue<qType>();
 
                     uint16_t blockCount = thisLen / this->headDim;
                     uint16_t blockLen = this->headDim * sizeof(qType) / DATA_ALIGN_BYTES;
@@ -640,7 +640,7 @@ public:
                     int64_t curOutOffset = seqOffset[batchIdx] * this->headNum * this->headDim +
                         headIdx * this->headDim + (totalLen - remain) * this->headNum;
                     DataCopy<qType>(this->qGrad[curOutOffset], newOutput, copyParams);
-                    this->queueOutputTemp.FreeTensor(newOutput);
+                    this->queueOutputTemp.template FreeTensor(newOutput);
 
                     remain = remain - thisLen;
                 }
