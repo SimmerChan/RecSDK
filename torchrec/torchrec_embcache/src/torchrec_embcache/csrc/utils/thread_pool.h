@@ -89,7 +89,8 @@ private:
     std::atomic<bool> stopped_;
 };
 
-inline uint64_t GetEmbMemoryPoolThreadNum() {
+inline uint64_t GetEmbMemoryPoolThreadNum()
+{
     uint64_t embMemoryPoolThreadNum = EmbMemPoolConfigConstants::refillThreadNum;
     char* threadNumStr = getenv("EMB_MEMORY_POOL_THREAD_NUM");
     if (threadNumStr) {
@@ -98,12 +99,14 @@ inline uint64_t GetEmbMemoryPoolThreadNum() {
     return embMemoryPoolThreadNum;
 }
 
-inline ThreadPool& GetEmbMemoryPool(){
+inline ThreadPool& GetEmbMemoryPool()
+{
     static ThreadPool instance(GetEmbMemoryPoolThreadNum());
     return instance;
 }
 
-inline ThreadPool& GetAsyncTaskPool() {
+inline ThreadPool& GetAsyncTaskPool()
+{
     static ThreadPool instance(10);
     return instance;
 }
