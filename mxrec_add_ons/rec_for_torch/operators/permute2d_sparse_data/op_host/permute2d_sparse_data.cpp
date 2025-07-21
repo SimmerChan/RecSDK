@@ -116,8 +116,8 @@ namespace optiling {
         // set data dim
         int64_t permuteDim0 = permuteShape.GetDim(0);
         tiling.set_permuteDim0(permuteDim0);
-//        int64_t lengthsT = lengthsShape.GetDim(0);
-        tiling.set_lengthsT(permuteDim0);
+        int64_t lengthsT = permuteDim0;
+        tiling.set_lengthsT(lengthsT);
         int64_t lengthsB = lengthsShape.GetDim(1);
         tiling.set_lengthsB(lengthsB);
         int64_t valuesDim = valuesShape.GetDim(0);
