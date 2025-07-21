@@ -49,25 +49,33 @@ struct SwapInfo {
     std::vector<std::vector<int64_t>> swapinKeys;
     at::Tensor swapinOffs;
     at::Tensor batchOffs;
-    std::vector<int64_t> swapinKeysLength;
-    std::vector<int64_t> swapoutKeysLength;
-    const std::vector<int64_t>& getSwapinKeysLength()
+    std::vector<int64_t> swapinKeysLengthPreSum;
+    std::vector<int64_t> swapoutKeysLengthPreSum;
+
+    const std::vector<int64_t>& GetSwapinKeysLengthPreSum()
     {
-        if (swapinKeysLength.empty()) {
+        if (swapinKeysLengthPreSum.empty()) {
+            uint64_t preSum = 0;
+            swapinKeysLengthPreSum.emplace_back(preSum);
             for (const auto& keys : swapinKeys) {
-                swapinKeysLength.emplace_back(keys.size());
+                preSum += keys.size();
+                swapinKeysLengthPreSum.emplace_back(preSum);
             }
         }
-        return swapinKeysLength;
+        return swapinKeysLengthPreSum;
     }
-    const std::vector<int64_t>& getSwapoutKeysLength()
+
+    const std::vector<int64_t>& GetSwapoutKeysLengthPreSum()
     {
-        if (swapoutKeysLength.empty()) {
+        if (swapoutKeysLengthPreSum.empty()) {
+            uint64_t preSum = 0;
+            swapoutKeysLengthPreSum.emplace_back(preSum);
             for (const auto& keys : swapoutKeys) {
-                swapoutKeysLength.emplace_back(keys.size());
+                preSum += keys.size();
+                swapoutKeysLengthPreSum.emplace_back(preSum);
             }
         }
-        return swapoutKeysLength;
+        return swapoutKeysLengthPreSum;
     }
 };
 
@@ -81,12 +89,24 @@ class EmbcacheManager {
 public:
     explicit EmbcacheManager(const std::vector<EmbConfig>& embConfigs, bool needAccumulateOffset = true);
 
-    AsyncTask<SwapInfo> ComputeSwapInfoAsync(const at::Tensor& batchKeys, const std::vector<int64_t>& offsetPerKey);
+    AsyncTask<SwapInfo> ComputeSwapInfoAsync(const at::Tensor& batchKeys, const std::vector<int64_t>& offsetPerKey,
+                                             const std::vector<int32_t>& tableIndices);
 
-    AsyncTask<SwapinTensor> EmbeddingLookupAsync(const SwapInfo& swapInfo);
+    AsyncTask<SwapinTensor> EmbeddingLookupAsync(const SwapInfo& swapInfo, const std::vector<int32_t>& tableIndices);
 
     AsyncTask<void> EmbeddingUpdateAsync(const SwapInfo& swapInfo, const at::Tensor& swapoutEmbs,
-                                         const std::vector<at::Tensor>& swapoutOptims);
+                                         const std::vector<at::Tensor>& swapoutOptims,
+                                         const std::vector<int32_t>& tableIndices);
+
+    std::tuple<at::Tensor, std::vector<at::Tensor>> GetDeviceSwapOutData(SwapInfo& swapInfo,
+        const at::Tensor& swapoutOffs, const std::vector<at::Tensor>& weightsDevs,
+        const std::vector<at::Tensor>& momentum1Devs, const std::vector<at::Tensor>& momentum2Devs,
+        const std::vector<int32_t>& tableIndices);
+
+    void SwapInEmbAndOptimizer(SwapInfo& swapInfo, const SwapinTensor& swapInTensor,
+        const at::Tensor& swapInOffsTensor, std::vector<at::Tensor>& weightsDevs,
+        std::vector<at::Tensor>& momentum1Devs, std::vector<at::Tensor>& momentum2Devs,
+        const std::vector<int32_t>& tableIndices);
 
     void Save(const std::string path, const int rank);
 
@@ -97,7 +117,7 @@ public:
     void EvictFeatures();
 
     void RecordTimestamp(const at::Tensor& batchKeys, const std::vector<int64_t>& offsetPerKey,
-                         const at::Tensor& timestamps);
+                         const at::Tensor& timestamps, const std::vector<int32_t>& tableIndices);
 
     void StatisticsKeyCount(const at::Tensor& batchKeys, const torch::Tensor& offset, const at::Tensor& batchKeyCounts,
                             int64_t tableIndex);
@@ -121,12 +141,14 @@ public:
                             const std::string& loadItemName, int32_t embDim);
 
 private:
-    SwapInfo ComputeSwapInfo(const at::Tensor& batchKeys, const std::vector<int64_t>& offsetPerKey);
+    SwapInfo ComputeSwapInfo(const at::Tensor& batchKeys, const std::vector<int64_t>& offsetPerKey,
+                             const std::vector<int32_t>& tableIndices);
 
-    SwapinTensor EmbeddingLookup(const std::vector<std::vector<int64_t>>& swapinKeys);
+    SwapinTensor EmbeddingLookup(const std::vector<std::vector<int64_t>>& swapinKeys,
+                                 const std::vector<int32_t>& tableIndices);
 
     void EmbeddingUpdate(const std::vector<std::vector<int64_t>>& swapoutKeys, const at::Tensor& swapoutEmbs,
-                         const std::vector<at::Tensor>& swapoutOptims);
+                         const std::vector<at::Tensor>& swapoutOptims, const std::vector<int32_t>& tableIndices);
 
     bool EnableFastHashMap();
     std::ofstream OpenFile(std::string path);
@@ -146,6 +168,7 @@ private:
 
 private:
     int32_t embNum;
+    std::vector<int32_t> embTableIndies_;
     std::vector<EmbConfig> embConfigs;
     std::vector<SwapManager> swapManagers;
     std::vector<std::unique_ptr<EmbTable>> embeddingTables;

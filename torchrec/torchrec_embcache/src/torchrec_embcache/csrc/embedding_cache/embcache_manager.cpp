@@ -7,13 +7,15 @@
  */
 #include "embcache_manager.h"
 
-#include <c10/util/Exception.h>
 #include <exception>
 #include <fstream>
 #include <filesystem>
-#include <glog/logging.h>
 #include <sstream>
 #include <vector>
+
+#include <c10/util/Exception.h>
+#include <glog/logging.h>
+#include <ATen/Parallel.h>
 
 #include "glogger.h"
 
@@ -41,6 +43,7 @@ EmbcacheManager::EmbcacheManager(const std::vector<EmbConfig>& embConfigs, bool 
     for (int32_t i = 0; i < embNum; i++) {
         LOG(INFO) << "The tableName:" << embConfigs[i].tableName << ", table index:" << i
                   << ", cacheSize is:" << embConfigs[i].cacheSize;
+        embTableIndies_.push_back(i);
         int64_t memStartOffset = embConfigs[i].admitAndEvictConfig.IsAdmitEnabled() ? 1 : 0;
         swapManagers.emplace_back(embConfigs[i].cacheSize, memStartOffset);
 
@@ -81,12 +84,16 @@ bool EmbcacheManager::EnableFastHashMap()
     return false;
 }
 
-SwapInfo EmbcacheManager::ComputeSwapInfo(const at::Tensor& batchKeys, const std::vector<int64_t>& offsetPerKey)
+SwapInfo EmbcacheManager::ComputeSwapInfo(const at::Tensor& batchKeys, const std::vector<int64_t>& offsetPerKey,
+                                          const std::vector<int32_t>& tableIndices)
 {
     TimeCost getSwapInfoTC;
 
     TORCH_CHECK(batchKeys.is_contiguous(), "batchKeys must be contiguous")
     TORCH_CHECK(batchKeys.dtype() == torch::kInt64, "batchKeys must be of type int64_t")
+    const std::vector<int32_t>& curTableIndices = tableIndices.empty() ? embTableIndies_ : tableIndices;
+    TORCH_CHECK(curTableIndices.size() + 1 == offsetPerKey.size(),
+                "tableIndices size+1 must be equal to offsetPerKey size");
 
     auto* keyPtr = batchKeys.data_ptr<int64_t>();
     int64_t keyNum = batchKeys.numel();
@@ -96,14 +103,15 @@ SwapInfo EmbcacheManager::ComputeSwapInfo(const at::Tensor& batchKeys, const std
     std::vector<int64_t> swapinOffs;
     std::vector<int64_t> batchOffs;
     SwapInfo swapInfo;
-    for (int64_t i = 0; i < embNum; i++) {
-        if (embConfigs[i].admitAndEvictConfig.IsAdmitEnabled()) {
-            featureFilters[i].CountFilter(keyPtr, offsetPerKey[i], offsetPerKey[i + 1]);
+    for (int64_t i = 0; i < curTableIndices.size(); i++) {
+        int64_t idx = curTableIndices[i];
+        if (embConfigs[idx].admitAndEvictConfig.IsAdmitEnabled()) {
+            featureFilters[idx].CountFilter(keyPtr, offsetPerKey[i], offsetPerKey[i + 1]);
         }
 
         // 取出每个表的 key
         std::vector<int64_t> batchKeysVec(keyPtr + offsetPerKey[i], keyPtr + offsetPerKey[i + 1]);
-        auto tp = swapManagers[i].ComputeSwapInfo(batchKeysVec);
+        auto tp = swapManagers[idx].ComputeSwapInfo(batchKeysVec);
 
         std::vector<int64_t>& swapoutKeysi = std::get<SWAP_INFO_TUPLE_INDEX0>(tp);
         std::vector<int64_t>& swapoutOffsi = std::get<SWAP_INFO_TUPLE_INDEX1>(tp);
@@ -118,7 +126,7 @@ SwapInfo EmbcacheManager::ComputeSwapInfo(const at::Tensor& batchKeys, const std
             for (auto& off : swapinOffsi) {
                 off += offPreSum;
             }
-            offPreSum += embConfigs[i].cacheSize;
+            offPreSum += embConfigs[idx].cacheSize;
         }
 
         swapInfo.swapoutKeys.emplace_back(std::move(swapoutKeysi));
@@ -146,12 +154,16 @@ SwapInfo EmbcacheManager::ComputeSwapInfo(const at::Tensor& batchKeys, const std
 }
 
 AsyncTask<SwapInfo> EmbcacheManager::ComputeSwapInfoAsync(const at::Tensor& batchKeys,
-                                                          const std::vector<int64_t>& offsetPerKey)
+                                                          const std::vector<int64_t>& offsetPerKey,
+                                                          const std::vector<int32_t>& tableIndices)
 {
-    return AsyncTask<SwapInfo>([this, batchKeys, offsetPerKey]() { return ComputeSwapInfo(batchKeys, offsetPerKey); });
+    return AsyncTask<SwapInfo>([this, batchKeys, offsetPerKey, tableIndices]() {
+        return ComputeSwapInfo(batchKeys, offsetPerKey, tableIndices);
+    });
 }
 
-SwapinTensor EmbcacheManager::EmbeddingLookup(const std::vector<std::vector<int64_t>>& swapinKeys)
+SwapinTensor EmbcacheManager::EmbeddingLookup(const std::vector<std::vector<int64_t>>& swapinKeys,
+                                              const std::vector<int32_t>& tableIndices)
 {
     TimeCost embeddingLookupTC;
 
@@ -171,27 +183,37 @@ SwapinTensor EmbcacheManager::EmbeddingLookup(const std::vector<std::vector<int6
     for (int32_t i = 0; i < optimNum; i++) {
         swapinTensor.swapinOptims.emplace_back(at::empty({embsSize}, floatPinnedOpt));
     }
+
+    const std::vector<int32_t>& curTableIndices = tableIndices.empty() ? embTableIndies_ : tableIndices;
+    TORCH_CHECK(curTableIndices.size() == swapinKeys.size(),
+                "tableIndices size must be equal to swapinKeys size");
+
     std::vector<float*> swapinOptimsPtr(optimNum);
     for (uint64_t i = 0; i < swapinKeys.size(); i++) {
         for (int32_t j = 0; j < optimNum; j++) {
             swapinOptimsPtr[j] = swapinTensor.swapinOptims[j].data_ptr<float>() + jaggedOffsPtr[i];
         }
 
-        embeddingTables[i]->FindOrInsert(swapinKeys[i], swapinTensor.swapinEmbs.data_ptr<float>() + jaggedOffsPtr[i],
-                                         swapinOptimsPtr);
+        int32_t idx = curTableIndices[i];
+        embeddingTables[idx]->FindOrInsert(swapinKeys[i], swapinTensor.swapinEmbs.data_ptr<float>() + jaggedOffsPtr[i],
+                                           swapinOptimsPtr);
     }
 
     LOG(INFO) << "The embeddingLookupTC(ms):" << embeddingLookupTC.ElapsedMS();
     return swapinTensor;
 }
 
-AsyncTask<SwapinTensor> EmbcacheManager::EmbeddingLookupAsync(const SwapInfo& swapInfo)
+AsyncTask<SwapinTensor> EmbcacheManager::EmbeddingLookupAsync(const SwapInfo& swapInfo,
+                                                              const std::vector<int32_t>& tableIndices)
 {
-    return AsyncTask<SwapinTensor>([this, swapinKeys = swapInfo.swapinKeys]() { return EmbeddingLookup(swapinKeys); });
+    return AsyncTask<SwapinTensor>([this, swapinKeys = swapInfo.swapinKeys, tableIndices]() {
+        return EmbeddingLookup(swapinKeys, tableIndices);
+    });
 }
 
 void EmbcacheManager::EmbeddingUpdate(const std::vector<std::vector<int64_t>>& swapoutKeys,
-                                      const at::Tensor& swapoutEmbs, const std::vector<at::Tensor>& swapoutOptims)
+                                      const at::Tensor& swapoutEmbs, const std::vector<at::Tensor>& swapoutOptims,
+                                      const std::vector<int32_t>& tableIndices)
 {
     TimeCost embeddingUpdateTC;
     for (auto& embedConfig : embConfigs) {
@@ -203,6 +225,10 @@ void EmbcacheManager::EmbeddingUpdate(const std::vector<std::vector<int64_t>>& s
     }
     TORCH_CHECK(swapoutEmbs.dtype() == torch::kFloat32)
 
+    const std::vector<int32_t>& curTableIndices = tableIndices.empty() ? embTableIndies_ : tableIndices;
+    TORCH_CHECK(curTableIndices.size() == swapoutKeys.size(),
+                "tableIndices size must be equal to swapoutKeys size");
+
     auto* swapoutEmbsPtr = swapoutEmbs.data_ptr<float>();
     int64_t jaggedOff = 0;
     std::vector<float*> swapoutOptimPtrs(swapoutOptims.size());
@@ -211,8 +237,9 @@ void EmbcacheManager::EmbeddingUpdate(const std::vector<std::vector<int64_t>>& s
             swapoutOptimPtrs[j] = swapoutOptims[j].data_ptr<float>() + jaggedOff;
         }
 
-        embeddingTables[i]->InsertOrAssign(swapoutKeys[i], swapoutEmbsPtr + jaggedOff, swapoutOptimPtrs);
-        jaggedOff += swapoutKeys[i].size() * embConfigs[i].embDim;
+        int32_t idx = curTableIndices[i];
+        embeddingTables[idx]->InsertOrAssign(swapoutKeys[i], swapoutEmbsPtr + jaggedOff, swapoutOptimPtrs);
+        jaggedOff += swapoutKeys[i].size() * embConfigs[idx].embDim;
     }
 
     LOG(INFO) << "The embeddingUpdateTC(ms):" << embeddingUpdateTC.ElapsedMS();
@@ -226,15 +253,20 @@ void EmbcacheManager::EmbeddingUpdate(const std::vector<std::vector<int64_t>>& s
 // input dist 之前，调用 RecordTimestamp. 后面淘汰时，要判断key是否在当前卡， 当前只能记录到当前卡上原始batch中的key
 // timestamp
 void EmbcacheManager::RecordTimestamp(const at::Tensor& batchKeys, const std::vector<int64_t>& offsetPerKey,
-                                      const at::Tensor& timestamps)
+                                      const at::Tensor& timestamps, const std::vector<int32_t>& tableIndices)
 {
     LOG(INFO) << "Start invoke mgmt RecordTimestamp";
     TimeCost recordTimestampTC;
     const auto* keyPtr = batchKeys.data_ptr<int64_t>();
     const auto* timestampsPtr = timestamps.data_ptr<int64_t>();
+    const std::vector<int32_t>& curTableIndices = tableIndices.empty() ? embTableIndies_ : tableIndices;
+    TORCH_CHECK(curTableIndices.size() + 1 == offsetPerKey.size(),
+                "tableIndices size+1 must be equal to offsetPerKey size");
+
     for (int64_t i = 0; i < embNum; ++i) {
-        if (embConfigs[i].admitAndEvictConfig.IsEvictEnabled()) {
-            featureFilters[i].RecordTimestamp(keyPtr, offsetPerKey[i], offsetPerKey[i + 1], timestampsPtr);
+        int32_t idx = curTableIndices[i];
+        if (embConfigs[idx].admitAndEvictConfig.IsEvictEnabled()) {
+            featureFilters[idx].RecordTimestamp(keyPtr, offsetPerKey[i], offsetPerKey[i + 1], timestampsPtr);
         }
     }
     LOG(INFO) << "The recordTimestampTC(ms):" << recordTimestampTC.ElapsedMS();
@@ -273,10 +305,11 @@ void EmbcacheManager::RecordEmbeddingUpdateTimes()
 }
 
 AsyncTask<void> EmbcacheManager::EmbeddingUpdateAsync(const SwapInfo& swapInfo, const at::Tensor& swapoutEmbs,
-                                                      const std::vector<at::Tensor>& swapoutOptims)
+                                                      const std::vector<at::Tensor>& swapoutOptims,
+                                                      const std::vector<int32_t>& tableIndices)
 {
-    return AsyncTask<void>([this, swapoutKeys = swapInfo.swapoutKeys, swapoutEmbs, swapoutOptims]() {
-        EmbeddingUpdate(swapoutKeys, swapoutEmbs, swapoutOptims);
+    return AsyncTask<void>([this, swapoutKeys = swapInfo.swapoutKeys, swapoutEmbs, swapoutOptims, tableIndices]() {
+        EmbeddingUpdate(swapoutKeys, swapoutEmbs, swapoutOptims, tableIndices);
     });
 }
 
@@ -316,6 +349,93 @@ void EmbcacheManager::Embedding2Host(const at::Tensor& weightsDev, const std::ve
         jaggedOff += embConfigs[embIndex].cacheSize * embConfigs[embIndex].embDim;
         LOG(INFO) << "Embedding2Host, embIndex:" << embIndex << ", update key size:" << keys.size()
                   << ", jaggedOff:" << jaggedOff << ", currentTableOffset:" << currentTableOffset;
+    }
+}
+
+std::tuple<at::Tensor, std::vector<at::Tensor>> EmbcacheManager::GetDeviceSwapOutData(SwapInfo& swapInfo,
+    const at::Tensor& swapoutOffs, const std::vector<at::Tensor>& weightsDevs,
+    const std::vector<at::Tensor>& momentum1Devs, const std::vector<at::Tensor>& momentum2Devs,
+    const std::vector<int32_t>& tableIndices)
+{
+    const std::vector<int64_t>& keysLengthPreSum = swapInfo.GetSwapoutKeysLengthPreSum();
+    std::vector<int64_t> outEmbPreSumByDim(embConfigs.size() + 1, 0);
+    const std::vector<int32_t>& curTableIndices = tableIndices.empty() ? embTableIndies_ : tableIndices;
+    for (size_t i = 0; i < swapInfo.swapoutKeys.size(); ++i) {
+        auto keysSize = swapInfo.swapoutKeys[i].size();
+        auto tableIdx = curTableIndices[i];
+        outEmbPreSumByDim[i + 1] = outEmbPreSumByDim[i] + keysSize * embConfigs[tableIdx].embDim;
+    }
+    int64_t outEmbShapeFlatSize = outEmbPreSumByDim[outEmbPreSumByDim.size() - 1];
+
+    // output emb and optimizer tensor
+    at::Tensor outEmbTensor = at::empty({outEmbShapeFlatSize}, weightsDevs[0].options());
+    int64_t outOptimizerShapeFlat = embConfigs[0].optimNum == 0 ? 0 : outEmbShapeFlatSize;
+    std::vector<at::Tensor> outOptimizers(embConfigs[0].optimNum);
+    for (int32_t i = 0; i < embConfigs[0].optimNum; ++i) {
+        outOptimizers[i] = at::empty({outOptimizerShapeFlat}, weightsDevs[0].options());
+    }
+
+    // dispatch swap out
+    for (size_t i = 0; i < curTableIndices.size(); ++i) {
+        at::Tensor indices = swapoutOffs.slice(0, keysLengthPreSum[i], keysLengthPreSum[i + 1]);
+        if (keysLengthPreSum[i] == 0 && keysLengthPreSum[i + 1] == 0) {
+            // Current table don't need swap out, skip.
+            continue;
+        }
+        auto tableIdx = curTableIndices[i];
+        auto tableDim = embConfigs[tableIdx].embDim;
+        auto optimizerNum = embConfigs[tableIdx].optimNum;
+        at::Tensor outEmbedding = outEmbTensor.slice(0, outEmbPreSumByDim[i], outEmbPreSumByDim[i + 1]);
+        torch::index_select_out(outEmbedding, weightsDevs[tableIdx].view({-1, tableDim}), 0, indices);
+        if (optimizerNum > 0) {
+            at::Tensor outMomentum1 = outOptimizers[0].slice(0, outEmbPreSumByDim[i], outEmbPreSumByDim[i + 1]);
+            torch::index_select_out(outMomentum1, momentum1Devs[tableIdx].view({-1, tableDim}), 0, indices);
+        }
+        if (optimizerNum > 1) {
+            at::Tensor outMomentum2 = outOptimizers[1].slice(0, outEmbPreSumByDim[i], outEmbPreSumByDim[i + 1]);
+            torch::index_select_out(outMomentum2, momentum2Devs[tableIdx].view({-1, tableDim}), 0, indices);
+        }
+    }
+
+    return {outEmbTensor, outOptimizers};
+}
+
+void EmbcacheManager::SwapInEmbAndOptimizer(SwapInfo& swapInfo, const SwapinTensor& swapInTensor,
+    const at::Tensor& swapInOffsTensor, std::vector<at::Tensor>& weightsDevs,
+    std::vector<at::Tensor>& momentum1Devs, std::vector<at::Tensor>& momentum2Devs,
+    const std::vector<int32_t>& tableIndices)
+{
+    const auto& swapInEmbeddings = swapInTensor.swapinEmbs;
+    const auto& swapInOptimizers = swapInTensor.swapinOptims;
+    const auto& jaggedOffs = swapInTensor.jaggedOffs;
+    const auto* jaggedOffsPtr = jaggedOffs.data_ptr<int64_t>();
+    const auto& keysLengthPreSum = swapInfo.GetSwapinKeysLengthPreSum();
+    const auto& tbConfigs = this->embConfigs;
+    const std::vector<int32_t>& curTableIndices = tableIndices.empty() ? embTableIndies_ : tableIndices;
+    // swap in to device
+    for (size_t i = 0; i < curTableIndices.size(); ++i) {
+        if (jaggedOffsPtr[i] == 0 && jaggedOffsPtr[i + 1] == 0) {
+            continue;
+        }
+        auto tableIdx = curTableIndices[i];
+        auto tableDim = embConfigs[tableIdx].embDim;
+        auto optimizerNum = embConfigs[tableIdx].optimNum;
+        at::Tensor swapInIndices = swapInOffsTensor.slice(0, keysLengthPreSum[i], keysLengthPreSum[i + 1]);
+        at::Tensor swapInEmb = swapInEmbeddings.slice(0, jaggedOffsPtr[i], jaggedOffsPtr[i + 1])
+                                   .view({-1, tableDim});
+        weightsDevs[tableIdx].view({-1, tableDim}).index_put_({swapInIndices}, swapInEmb);
+        if (optimizerNum > 0) {
+            at::Tensor swapInMomentum1 = swapInOptimizers[0]
+                                             .slice(0, jaggedOffsPtr[i], jaggedOffsPtr[i + 1])
+                                             .view({-1, tableDim});
+            momentum1Devs[tableIdx].view({-1, tableDim}).index_put_({swapInIndices}, swapInMomentum1);
+        }
+        if (optimizerNum > 1) {
+            at::Tensor swapInMomentum2 = swapInOptimizers[1]
+                                             .slice(0, jaggedOffsPtr[i], jaggedOffsPtr[i + 1])
+                                             .view({-1, tableDim});
+            momentum2Devs[tableIdx].view({-1, tableDim}).index_put_({swapInIndices}, swapInMomentum2);
+        }
     }
 }
 
