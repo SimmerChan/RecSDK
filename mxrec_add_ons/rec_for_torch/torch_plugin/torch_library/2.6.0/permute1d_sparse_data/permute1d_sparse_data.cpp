@@ -14,33 +14,12 @@
 using namespace at;
 using namespace std;
 
-// permute1d_sparse_data算子NPU实现
-tuple<Tensor, Tensor, c10::optional<Tensor>> permute1d_sparse_data_impl_npu(
-    const Tensor &permute,
-    const Tensor &lengths,
-    const Tensor &values,
-    const c10::optional<Tensor> &weights,
-    const c10::optional<int64_t> &permuted_lengths_sum)
-{
-	 // 输入校验
-    validate_permute1d_sparse_data_inputs(permute, lengths, values, weights, permuted_lengths_sum);
+void check_tensor_non_empty(const Tensor &tensor, const std::string &name) {
+    TORCH_CHECK(tensor.defined(), name, " tensor must be non-empty");
+}
 
-	auto permuteConti = permute.contiguous();
-    auto lengthsConti = lengths.contiguous().view({-1, 1});
-    auto valuesConti = values.contiguous();
-    // weight暂不支持
-    at::Tensor weightsConti = at::empty({1}, lengths.options());
-
-    const auto T = lengths.size(0);
-
-    at::Tensor outLengths = at::empty({T}, lengthsConti.options());
-    at::Tensor outValues = at::empty({valuesConti.size(0)}, valuesConti.options());
-    at::Tensor outWeights = at::empty({1}, weightsConti.options());
-
-    EXEC_NPU_CMD(aclnnPermute2dSparseData, permuteConti, lengthsConti, valuesConti, weightsConti, T,
-                 outLengths, outValues, outWeights);
-
-    return make_tuple(outLengths, outValues, at::Tensor());
+void check_tensor_dim(const Tensor &tensor, int64_t expected_dim, const std::string &name) {
+    TORCH_CHECK(tensor.dim() == expected_dim, name, " must be ", expected_dim, "D");
 }
 
 void validate_permute1d_sparse_data_inputs(
@@ -81,12 +60,33 @@ void validate_permute1d_sparse_data_inputs(
     }
 }
 
-void check_tensor_non_empty(const Tensor &tensor, const std::string &name) {
-    TORCH_CHECK(tensor.defined(), name, " tensor must be non-empty");
-}
+// permute1d_sparse_data算子NPU实现
+tuple<Tensor, Tensor, c10::optional<Tensor>> permute1d_sparse_data_impl_npu(
+    const Tensor &permute,
+    const Tensor &lengths,
+    const Tensor &values,
+    const c10::optional<Tensor> &weights,
+    const c10::optional<int64_t> &permuted_lengths_sum)
+{
+	 // 输入校验
+    validate_permute1d_sparse_data_inputs(permute, lengths, values, weights, permuted_lengths_sum);
 
-void check_tensor_dim(const Tensor &tensor, int64_t expected_dim, const std::string &name) {
-    TORCH_CHECK(tensor.dim() == expected_dim, name, " must be ", expected_dim, "D");
+	auto permuteConti = permute.contiguous();
+    auto lengthsConti = lengths.contiguous().view({-1, 1});
+    auto valuesConti = values.contiguous();
+    // weight暂不支持
+    at::Tensor weightsConti = at::empty({1}, lengths.options());
+
+    const auto T = lengths.size(0);
+
+    at::Tensor outLengths = at::empty({T}, lengthsConti.options());
+    at::Tensor outValues = at::empty({valuesConti.size(0)}, valuesConti.options());
+    at::Tensor outWeights = at::empty({1}, weightsConti.options());
+
+    EXEC_NPU_CMD(aclnnPermute2dSparseData, permuteConti, lengthsConti, valuesConti, weightsConti, T,
+                 outLengths, outValues, outWeights);
+
+    return make_tuple(outLengths, outValues, at::Tensor());
 }
 
 // 在NPU命名空间里面注册permute_1D_sparse_data
