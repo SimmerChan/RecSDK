@@ -30,7 +30,7 @@ public:
         if (threads == 0) {
             threads = 1;
         }
-        for size_t i = 0; i < threads; ++i) {
+        for (size_t i = 0; i < threads; ++i) {
             workers_.emplace_back([this] {
                 while (true) {
                     std::function<void()> task;

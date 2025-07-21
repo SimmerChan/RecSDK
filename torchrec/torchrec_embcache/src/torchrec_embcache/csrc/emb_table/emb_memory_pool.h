@@ -33,10 +33,10 @@ using EmExpandMemUint = struct EmExpandMemoryUint {
 
 class EmbMemoryPool {
 public:
-    EmbMemoryPool(const EmbConfig& embConfig, uint64_t bufferSize, uint64_t hostVocabSize, uint32_t refillThreadNum, uint32_t refillThreadNum)
+    EmbMemoryPool(const EmbConfig& embConfig, uint64_t bufferSize, uint64_t hostVocabSize)
         : embConfig(embConfig),
           maxBufferSize(bufferSize),
-          totalLeftVocabSize(hostVocabSize),
+          totalLeftVocabSize(hostVocabSize)
     {
         itemSize = (embConfig.optimNum + 1) * embConfig.embDim * sizeof(float);
         maxExpandSize = maxBufferSize * itemSize;
