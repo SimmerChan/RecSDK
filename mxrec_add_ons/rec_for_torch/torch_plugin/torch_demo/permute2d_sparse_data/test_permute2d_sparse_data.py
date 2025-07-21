@@ -63,12 +63,13 @@ def get_result_npu(permute, lengths, values):
 @pytest.mark.parametrize("ltype", lengths_type)
 @pytest.mark.parametrize("vtype", values_type)
 @pytest.mark.parametrize("permute_dim", np.random.randint(2, 30, 4).tolist())
+@pytest.mark.parametrize("extra_permute_dim", [0, 3, 8])
 @pytest.mark.parametrize("lengths", [2048, 20480, 204800])
-def test_permute2d_sparse_data(permute_dim, lengths, ltype, vtype):
+def test_permute2d_sparse_data(permute_dim, extra_permute_dim, lengths, ltype, vtype):
     input_permute = np.arange(permute_dim).astype(np.int32)
     np.random.shuffle(input_permute)
-    input_lengths = np.ones((permute_dim, lengths), dtype=ltype)
-    input_values = np.arange(0, permute_dim * lengths).astype(vtype)
+    input_lengths = np.ones((permute_dim + extra_permute_dim, lengths), dtype=ltype)
+    input_values = np.arange(0, (permute_dim + extra_permute_dim) * lengths).astype(vtype)
 
     golden = get_result(input_permute, input_lengths, input_values)
     result = get_result_npu(input_permute, input_lengths, input_values)

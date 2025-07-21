@@ -33,8 +33,8 @@ tuple<Tensor, Tensor, c10::optional<Tensor>> permute2d_sparse_data_impl_npu(
     const auto T = lengths.size(0);
     const auto B = lengths.size(1);
 
-    at::Tensor outLengths = at::empty({T, B}, lengthsConti.options());
-    at::Tensor outValues = at::empty({valuesConti.size(0)}, valuesConti.options());
+    at::Tensor outLengths = lengthsConti.clone();
+    at::Tensor outValues = valuesConti.clone();
     at::Tensor outWeights = at::empty({1}, weightsConti.options());
 
     EXEC_NPU_CMD(aclnnPermute2dSparseData, permuteConti, lengthsConti, valuesConti, weightsConti, T,
