@@ -176,7 +176,7 @@ public:
     __aicore__ inline void ComputeGrad()
     {
         if (poolMode == NONE_POOL) {
-                ComputeGradEC();
+            ComputeGradEC();
         } else {
             ComputeGradEBC();
         }
@@ -192,7 +192,7 @@ public:
         int64_t thisLen = 0;
         int64_t offsetOfThisTable = 0;
         for (int64_t i = 1; i <= weightsOffsetsDim0; i++) {
-            Scheduler(hashSizeCumsumGT[i] - lastIndices, offsetOfThisTable, thisLen);
+            Scheduler(indiceSizeCumsumGT.GetValue(i) - lastIndices, offsetOfThisTable, thisLen);
             int64_t startIndices = offsetOfThisTable + lastIndices; // 上一张表的偏移+table_i的偏移
 
             if (thisLen <= 0) {
@@ -216,7 +216,7 @@ public:
                 startIndices += thisLen;
                 thisLen = remain;
             }
-            lastIndices = tables[i];
+            lastIndices = indiceSizeCumsumGT.GetValue(i);
         }
     }
 

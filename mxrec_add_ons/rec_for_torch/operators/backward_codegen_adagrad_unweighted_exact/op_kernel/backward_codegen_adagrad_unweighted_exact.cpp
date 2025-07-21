@@ -41,6 +41,7 @@ extern "C" __global__ __aicore__ void backward_codegen_adagrad_unweighted_exact(
                                                                                 GM_ADDR hashIndices, GM_ADDR uniqueId,
                                                                                 GM_ADDR uniqueHashSize,
                                                                                 GM_ADDR uniqueInverse,
+                                                                                GM_ADDR indiceSizeCumsum,
                                                                                 GM_ADDR out,
                                                                                 GM_ADDR momentum1DevOut,
                                                                                 GM_ADDR momentum2DevOut,
@@ -51,23 +52,21 @@ extern "C" __global__ __aicore__ void backward_codegen_adagrad_unweighted_exact(
     BackwardCodegenUnweightedExact::Args args{
         gradOutput, devWeights,      weightsPlacements, weightsOffsets, dOffsets,  hashSizeCumsum, indices,
         offsets,    momentum1Dev,    momentum2Dev,      hashIndices,    uniqueId,  uniqueHashSize, uniqueInverse,
-        out,        momentum1DevOut, momentum2DevOut,   weightsDevOut,  workspace, tiling};
+        indiceSizeCumsum, out,        momentum1DevOut, momentum2DevOut,   weightsDevOut,  workspace, tiling};
     if (TILING_KEY_IS(1)) {  // NORMAL_ADAGRAD
-        BackwardCodegenAdagradUnweightedExact::BackwardCodegenAdagradUnweightedExactKernel<float> kernel;
+        BackwardCodegenAdagradUnweightedExact::BackwardCodegenAdagradUnweightedExactKernel kernel;
         kernel.Compute(args);
     } else if (TILING_KEY_IS(2)) {  // NORMAL_ADAM
-        BackwardCodegenAdamUnweightedExact::BackwardCodegenAdamUnweightedExactKernel<float> kernel;
+        BackwardCodegenAdamUnweightedExact::BackwardCodegenAdamUnweightedExactKernel kernel;
         kernel.Compute(args);
     } else if (TILING_KEY_IS(3)) {  // NORMAL_SGD
-        BackwardCodegenSgdUnweightedExact::BackwardCodegenSgdUnweightedExactKernel<float> kernel;
+        BackwardCodegenSgdUnweightedExact::BackwardCodegenSgdUnweightedExactKernel kernel;
         kernel.Compute(args);
     } else if (TILING_KEY_IS(4)) {
-        BackwardCodegenUnweightedExactAdagradUnique::BackwardCodegenAdagradUnweightedExactKernelUnique \
-            <float> kernel;
+        BackwardCodegenUnweightedExactAdagradUnique::BackwardCodegenAdagradUnweightedExactKernelUnique kernel;
         kernel.Compute(args);
     } else if (TILING_KEY_IS(5)) {
-        BackwardCodegenUnweightedAdamExactUnique::BackwardCodegenAdamUnweightedExactKernelUnique \
-            <float> kernel;
+        BackwardCodegenUnweightedAdamExactUnique::BackwardCodegenAdamUnweightedExactKernelUnique kernel;
         kernel.Compute(args);
     }
 }

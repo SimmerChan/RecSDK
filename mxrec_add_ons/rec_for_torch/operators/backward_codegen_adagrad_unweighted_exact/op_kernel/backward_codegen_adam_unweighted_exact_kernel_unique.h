@@ -42,7 +42,6 @@ public:
         iter = tilingData.iter;
         beta1pow = tilingData.beta1pow;
         beta2pow = tilingData.beta2pow;
-        beta2sqrt = tilingData.beta2sqrt;
         indicesNumOneBlock = blockLen / numOfOut / maxD;
         if (indicesNumOneBlock >= MAX_ARGS_PIPE_LEN) {
             indicesNumOneBlock = MAX_ARGS_PIPE_LEN;
@@ -87,14 +86,14 @@ public:
         Add<float>(outLt[thisMoment2Index], outLt[thisMoment2Index], outLt[thisGradIndex], totalLen);
 
         // v_bias_corr = v / (1 - beta1 ** hyperparams['t'])
-        Muls<float>(outLt[thisMoment1Index], outLt[thisMoment1Index], beta1pow, totalLen);
+        Muls<float>(inputLt[thisMoment1Index], outLt[thisMoment1Index], beta1pow, totalLen);
         // s_bias_corr = s / (1 - beta2 ** hyperparams['t'])
-        Muls<float>(outLt[thisMoment2Index], outLt[thisMoment2Index], beta2pow, totalLen);
+        Muls<float>(inputLt[thisMoment2Index], outLt[thisMoment2Index], beta2pow, totalLen);
 
         // p[:] -= hyperparams['lr'] * v_bias_corr / (torch.sqrt(s_bias_corr) + eps)
-        Sqrt<float>(outLt[thisMoment2Index], outLt[thisMoment2Index], totalLen);
-        Adds<float>(outLt[thisMoment2Index], outLt[thisMoment2Index], eps, totalLen);
-        Div<float>(outLt[thisGradIndex], outLt[thisMoment1Index], outLt[thisMoment2Index], totalLen);
+        Sqrt<float>(inputLt[thisMoment2Index], inputLt[thisMoment2Index], totalLen);
+        Adds<float>(inputLt[thisMoment2Index], inputLt[thisMoment2Index], eps, totalLen);
+        Div<float>(outLt[thisGradIndex], inputLt[thisMoment1Index], inputLt[thisMoment2Index], totalLen);
         Muls<float>(outLt[thisGradIndex], outLt[thisGradIndex], minusLearningRate, totalLen);
     }
 
@@ -202,7 +201,6 @@ private:
     float beta1pow;
     float beta2pow;
     float stepSize;
-    float beta2sqrt;
     int64_t iter;
     int numOfOut = 3;
     int indicesNumOneBlock;

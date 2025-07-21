@@ -57,11 +57,10 @@ constexpr int ITER_INDEX = 15;
 
 // tilling key index
 constexpr int NORMAL_ADAGRAD = 1;
-constexpr int UNIQUE_ADAGRAD = 2;
-constexpr int NORMAL_ADAM = 4;
+constexpr int UNIQUE_ADAGRAD = 4;
+constexpr int NORMAL_ADAM = 2;
 constexpr int UNIQUE_ADAM = 5;
-constexpr int NORMAL_SGD = 7;
-constexpr int UNIQUE_SGD = 8;
+constexpr int NORMAL_SGD = 3;
 // optimize type
 constexpr int ADAGRAD = 1;
 constexpr int ADAM = 2;
@@ -104,6 +103,7 @@ static ge::graphStatus NormalAdamTilingFunc(gert::TilingContext* context,
     tilingData.set_beta1pow(_beta1);
     tilingData.set_beta2pow(_beta2);
     tilingData.set_iter(iter);
+    return ge::GRAPH_SUCCESS;
 }
 
 static ge::graphStatus UniqueTilingKey(gert::TilingContext* context, const int &optimType)
@@ -181,9 +181,7 @@ static ge::graphStatus ShapeTilingFunc(gert::TilingContext* context,
     } else {
        ret = NormalTilingKey(context, optimType);
     }
-    if (optimType == ADAM) {
-        NormalAdamTilingFunc(context, tilingData);
-    }
+
     if (ret != ge::GRAPH_SUCCESS) {
         return ret;
     }
@@ -384,6 +382,11 @@ public:
             .Format({ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND});
         this->Input("unique_inverse")
+            .ParamType(OPTIONAL)
+            .DataType({ge::DT_INT64})
+            .Format({ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND});
+        this->Input("indice_size_cumsum")
             .ParamType(OPTIONAL)
             .DataType({ge::DT_INT64})
             .Format({ge::FORMAT_ND})
