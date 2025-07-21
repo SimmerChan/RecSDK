@@ -202,7 +202,7 @@ ge::graphStatus GetJaggedBasicShapeInfo(gert::TilingContext *context, HstuDenseB
             return ge::GRAPH_FAILED);
     } else {
         biasGradSeqLen = AlignUp(maxSeqLen, static_cast<int64_t>(256));  // 无bias场景seqLen按256对齐
-        OPS_CHECK(biasGradSeqLen == 0, OPS_LOG_E("", "attnBiasGrad get seqLen error\n"), return ge::GRAPH_FAILED);
+        OPS_CHECK((biasGradSeqLen == 0), OPS_LOG_E("", "attnBiasGrad get seqLen error\n"), return ge::GRAPH_FAILED);
     }
 
     tiling.set_seqLen(seqLen);
