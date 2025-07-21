@@ -19,10 +19,7 @@ BeforePutFuncState EmbMemoryPool::GetNewValueToBeInserted(uint64_t& value, uint3
 {
     for (uint32_t i = 0; i < maxRetry; i++) {
         if (BufferBin.pop(value)) {
-            GetEmbMemoryPool().enqueue([this]
-            {
-                Produce();
-            });
+            GetEmbMemoryPool().enqueue([this] { Produce(); });
             return BeforePutFuncState::BEFORE_SUCCESS;
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
