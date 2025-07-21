@@ -40,14 +40,14 @@ static ge::graphStatus SetTypeTiling(gert::TilingContext* context, Permute2dSpar
     OPS_LOG_E_IF_NULL("value", context->GetInputTensor(VALUES_INDEX), return ge::GRAPH_FAILED);
     // permute: InputTensor(0), support int32
     int64_t permuteDataType = 0;
-    ge::DataType permuteDataTypeGe = context->GetInputTensor(0)->GetDataType();
+    ge::DataType permuteDataTypeGe = context->GetInputTensor(PERMUTE_INDEX)->GetDataType();
     if (permuteDataTypeGe == ge::DataType::DT_INT32) {
         permuteDataType = DATA_TYPE_INT32;
     }
 
     // lengths: InputTensor(1), support int64、int32
     int64_t lengthsDataType = 0;
-    ge::DataType lengthsDataTypeGe = context->GetInputTensor(1)->GetDataType();
+    ge::DataType lengthsDataTypeGe = context->GetInputTensor(LENGTH_INDEX)->GetDataType();
     if (lengthsDataTypeGe == ge::DataType::DT_INT64) {
         lengthsDataType = DATA_TYPE_INT64;
     } else {
@@ -56,7 +56,7 @@ static ge::graphStatus SetTypeTiling(gert::TilingContext* context, Permute2dSpar
 
     // value: InputTensor(2), support int64、int32、fp32
     int64_t valueDataType = 0;
-    ge::DataType dataType = context->GetInputTensor(2)->GetDataType();
+    ge::DataType dataType = context->GetInputTensor(VALUES_INDEX)->GetDataType();
     if (dataType == ge::DataType::DT_INT32) {
         valueDataType = DATA_TYPE_INT32;
     } else if (dataType == ge::DataType::DT_INT64) {
@@ -81,9 +81,9 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     Permute2dSparseDataTilingData tiling;
     auto ascendPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
 
-    auto permuteShape = context->GetInputShape(0)->GetStorageShape();
-    auto lengthsShape = context->GetInputShape(1)->GetStorageShape();
-    auto valuesShape = context->GetInputShape(2)->GetStorageShape();
+    auto permuteShape = context->GetInputShape(PERMUTE_INDEX)->GetStorageShape();
+    auto lengthsShape = context->GetInputShape(LENGTH_INDEX)->GetStorageShape();
+    auto valuesShape = context->GetInputShape(VALUES_INDEX)->GetStorageShape();
 
     // set ub
     uint64_t ubCanUsed;
@@ -151,8 +151,8 @@ static ge::graphStatus InferShape(gert::InferShapeContext* context)
     const gert::Shape* lengthsShape = context->GetInputShape(optiling::LENGTH_INDEX);
     const gert::Shape* valuesShape = context->GetInputShape(optiling::VALUES_INDEX);
 
-    gert::Shape* outPermutedLengths = context->GetOutputShape(0);
-    gert::Shape* outPermutedValues = context->GetOutputShape(1);
+    gert::Shape* outPermutedLengths = context->GetOutputShape(optiling::PERMUTE_INDEX);
+    gert::Shape* outPermutedValues = context->GetOutputShape(optiling::LENGTH_INDEX);
 
     OPS_LOG_E_IF_NULL("permuteShape", permuteShape, return ge::GRAPH_FAILED);
     OPS_LOG_E_IF_NULL("lengthsShape", lengthsShape, return ge::GRAPH_FAILED);
