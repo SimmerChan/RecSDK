@@ -41,8 +41,8 @@ void validate_permute1d_sparse_data_inputs(
 
 	// weights是optional的，只有has_value时才检查
 	if (weights.has_value()) {
-		check_tensor_non_empty(weights, "weights");
-		check_tensor_dim(weights, 1, "weights");
+		check_tensor_non_empty(*weights, "weights");
+		check_tensor_dim(*weights, 1, "weights");
 	}
 
     // ============= 长度一致性检查 =============
