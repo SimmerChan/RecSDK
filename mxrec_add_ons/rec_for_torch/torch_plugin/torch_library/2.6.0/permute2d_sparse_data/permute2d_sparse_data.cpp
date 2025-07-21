@@ -37,12 +37,11 @@ tuple<Tensor, Tensor, c10::optional<Tensor>> permute2d_sparse_data_impl_npu(
     if (permute.size(0) == lengths.size(0)) {
         outValuesLen = valuesConti.size(0);
     } else if (permute.size(0) > lengths.size(0)) {
-        throw std::runtime_error(
-            "permute.size(0) must be less than or equal to lengths.size(0). "
-            "Got permute.size(0): " + std::to_string(permute.size(0)) +
-            ", lengths.size(0): " + std::to_string(lengths.size(0)));
-    } else if (permuted_lengths_sum && permuted_lengths_sum > 0) {
-        outValuesLen = permuted_lengths_sum;
+        throw std::runtime_error("permute.size(0) must be less than or equal to lengths.size(0). "
+                                 "Got permute.size(0): " + std::to_string(permute.size(0)) +
+                                 ", lengths.size(0): " + std::to_string(lengths.size(0)));
+    } else if (permuted_lengths_sum.has_value() && permuted_lengths_sum.has_value() > 0) {
+        outValuesLen = static_cast<int>(permuted_lengths_sum.value());
     } else {
         outValuesLen = lengthsConti.narrow(0, 0, T).sum().item<int>();
     }
@@ -60,10 +59,10 @@ tuple<Tensor, Tensor, c10::optional<Tensor>> permute2d_sparse_data_impl_npu(
 TORCH_LIBRARY(mxrec, m)
 {
     m.def("permute_2D_sparse_data(Tensor permute, "
-                                 "Tensor lengths, "
-                                 "Tensor values, "
-                                 "Tensor? weights=None, "
-                                 "SymInt? permuted_lengths_sum=None) -> (Tensor, Tensor, Tensor?)");
+          "                       Tensor lengths, "
+          "                       Tensor values, "
+          "                       Tensor? weights=None, "
+          "                       SymInt? permuted_lengths_sum=None) -> (Tensor, Tensor, Tensor?)");
 }
 
 TORCH_LIBRARY_IMPL(mxrec, PrivateUse1, m)
