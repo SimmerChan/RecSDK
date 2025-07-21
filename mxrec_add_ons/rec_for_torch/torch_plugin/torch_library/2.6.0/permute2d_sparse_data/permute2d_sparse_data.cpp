@@ -43,7 +43,7 @@ tuple<Tensor, Tensor, c10::optional<Tensor>> permute2d_sparse_data_impl_npu(
     return make_tuple(outLengths, outValues, at::Tensor());
 }
 
-TORCH_LIBRARY(mxrec, m)
+TORCH_LIBRARY_FRAGMENT(mxrec, m)
 {
     m.def("permute_2D_sparse_data(Tensor permute, "
                                  "Tensor lengths, "

@@ -90,7 +90,7 @@ void check_tensor_dim(const Tensor &tensor, int64_t expected_dim, const std::str
 }
 
 // 在NPU命名空间里面注册permute_1D_sparse_data
-TORCH_LIBRARY(mxrec, m)
+TORCH_LIBRARY_FRAGMENT(mxrec, m)
 {
     m.def("permute_1D_sparse_data(Tensor permute, "
                                  "Tensor lengths, "
