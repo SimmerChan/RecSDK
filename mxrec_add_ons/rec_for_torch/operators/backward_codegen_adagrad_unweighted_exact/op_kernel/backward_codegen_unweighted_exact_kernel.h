@@ -182,7 +182,6 @@ public:
         momentum1DevOutGT.SetGlobalBuffer((__gm__ float*)momentum1DevOut, outDim0);
         weightsDevOutGT.SetGlobalBuffer((__gm__ float*)weightsDevOut, outDim0);
         hashSizeCumsumGT.SetGlobalBuffer((__gm__ int64_t*)hashSizeCumsum, weightsOffsetsDim0 + 1);
-        indiceSizeCumsumGT.SetGlobalBuffer((__gm__ int64_t*)indiceSizeCumsum, weightsOffsetsDim0 + 1);
 
         totalHashSize = hashSizeCumsumGT.GetValue(weightsOffsetsDim0);
         workspaceGT.SetGlobalBuffer((__gm__ int8_t*)workspace, totalHashSize);

@@ -70,6 +70,7 @@ public:
         uniqueHashSize = args.uniqueHashSize;
         
         uniqueHashDim0 = tilingData.uniqueHashDim0;
+        indiceSizeCumsum = tilingData.indiceSizeCumsum;
         
         uniqueHashSizeGT.SetGlobalBuffer((__gm__ int64_t*)uniqueHashSize, uniqueHashDim0);
         uniqueInverseGT.SetGlobalBuffer((__gm__ int64_t*)uniqueInverse, indicesDim0);
@@ -80,6 +81,8 @@ public:
         // len(uniqueId) = uniqueHash[-1]
         uniqueIdDim0 = uniqueHashSizeGT.GetValue(uniqueHashDim0 - 1);
         uniqueIdGT.SetGlobalBuffer((__gm__ int64_t*)uniqueId, uniqueIdDim0);
+
+        indiceSizeCumsumGT.SetGlobalBuffer((__gm__ int64_t*)indiceSizeCumsum, weightsOffsetsDim0 + 1);
 
         pipe.InitBuffer(queIndices, 1, MAX_ARGS_PIPE_LEN * sizeof(int64_t));
     }
@@ -268,6 +271,7 @@ public:
     GM_ADDR uniqueId;
     GM_ADDR uniqueHashSize;
     GM_ADDR uniqueInverse;
+    GM_ADDR indiceSizeCumsum;
     int64_t uniqueIdDim0;
     int64_t uniqueHashDim0;
  
@@ -276,6 +280,7 @@ public:
     GlobalTensor<int64_t> uniqueIdGT;
     GlobalTensor<int64_t> uniqueHashSizeGT;
     GlobalTensor<int64_t> uniqueInverseGT;
+    GlobalTensor<int64_t> indiceSizeCumsumGT;
     GlobalTensor<int64_t> indicesGT;
     GlobalTensor<int64_t> offsetsGT;
     GlobalTensor<int32_t> dOffsetsGT;

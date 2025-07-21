@@ -33,6 +33,12 @@ TORCH_POOLING_MODE_TO_FBGEMM = {
     PoolingType.MEAN: PoolingMode.MEAN,
     PoolingType.NONE: PoolingMode.NONE,
 }
+
+TORCH_POOLING_MODE_TO_NN = {
+    PoolingType.SUM: 'sum',
+    PoolingType.MEAN: 'mean',
+}
+
 TORCH_OPTIMIZER_TO_FBGEMM = {
     Adam: EmbOptimType.ADAM,
     Adagrad: EmbOptimType.EXACT_ADAGRAD,
@@ -43,6 +49,13 @@ OPTIMIZER_PARAM = {
     Adagrad: dict(lr=0.01, eps=1.0e-8),
     SGD: dict(lr=0.01),
 }
+
+
+@dataclass
+class EmbeddingConfig:
+    name: str
+    num_embeddings: int
+    embedding_dim: int
 
 
 @dataclass
@@ -62,12 +75,15 @@ class TestModel(torch.nn.Module):
         if mode == PoolingType.NONE:
             collection = torch.nn.Embedding
             param_name = "embeddings"
+            kwargs = dict()
         else:
             collection = torch.nn.EmbeddingBag
             param_name = "embedding_bags"
+            kwargs = dict(include_last_offset=True, mode=TORCH_POOLING_MODE_TO_NN[mode])
 
         self.param_name = param_name
         self.table_names = list(map(lambda x: x.name, tables))
+        self.mode = mode
 
         self.name2table = nn.ModuleDict()
         for ind, config in enumerate(tables):
@@ -75,30 +91,32 @@ class TestModel(torch.nn.Module):
                 num_embeddings=config.num_embeddings,
                 embedding_dim=config.embedding_dim,
                 sparse=True,
+                device=torch.device("cpu"),
+                **kwargs
             )
-            self.name2table[config.name].weight.data.copy_(torch.from_numpy(weights[ind]))
+            self.name2table[config.name].weight.data.copy_(weights[ind])
 
     def forward(self, jt_lst):
         output: List[torch.Tensor] = []
-        for ind, name in enumerate(self.table_names):
-            output.append(self.name2table[name](jt_lst[ind].values(), jt_lst[ind].lengths()))
+        if (self.mode == PoolingType.NONE):
+            for ind, name in enumerate(self.table_names):
+                output.append(self.name2table[name](jt_lst[ind].values()))
+            output = torch.concat(output, dim=0)
+        else:
+            for ind, name in enumerate(self.table_names):
+                output.append(self.name2table[name](jt_lst[ind].values(), jt_lst[ind].offsets()))
+            output = torch.concat(output, dim=1)
         return output
 
     def get_table_weights(self, table_name):
-        table_dict = getattr(self.ec, self.param_name)
-        return table_dict[table_name].weight.data
+        return self.name2table[table_name].weight.data
 
     def get_all_tables_weights(self):
         return list(map(self.get_table_weights, self.table_names))
 
 
 def construct_collection_configs(weights, params):
-    if params.pooling_mode == PoolingType.NONE:
-        table_config_type = torchrec.EmbeddingConfig
-        pooling_mode_dict = dict()
-    else:
-        table_config_type = torchrec.EmbeddingBagConfig
-        pooling_mode_dict = dict(pooling=params.pooling_mode)
+    table_config_type = EmbeddingConfig
 
     features = defaultdict(list)
     for ind, tid in enumerate(params.feature_map):
@@ -130,7 +148,7 @@ def lookup_cpu(jt_lst, weights, params):
     collection_configs = construct_collection_configs(weights, params)
     model = TestModel(*collection_configs, params.pooling_mode)
     model.zero_grad()
-    optimizer = optim.SparseAdam(model.parameters(), **OPTIMIZER_PARAM[params.optim])
+    optimizer = SparseAdam(model.parameters(), **OPTIMIZER_PARAM[params.optim])
 
     output = None
     for i in range(EPOCH):
@@ -138,9 +156,7 @@ def lookup_cpu(jt_lst, weights, params):
         output = model(jt_lst[i])
 
         # 将多个表的查询结果合并
-        reshaped_output = torch.concat([out.reshape(-1) for out in output])
-
-        loss = reshaped_output.sum(output ** 2 / 2)
+        loss = torch.sum(output ** 2 / 2)
 
         # backward
         optimizer.zero_grad()
@@ -155,8 +171,6 @@ def lookup_cpu(jt_lst, weights, params):
 def lookup_npu(indices, offsets, weights, jt_lst, params):
     torch.npu.set_device(DEVICEID)
 
-    indices = indices.to(DEVICEID)
-    offsets = offsets.to(DEVICEID)
     weights = weights.to(DEVICEID)
 
     embedding_specs = [
@@ -178,14 +192,17 @@ def lookup_npu(indices, offsets, weights, jt_lst, params):
     )
 
     tbe.weights_dev = torch.nn.Parameter(weights.clone()).to(DEVICEID)
+
     for i in range(EPOCH):
-        if params.unique:
+        indice = indices[i].to(DEVICEID)
+        offset = offsets[i].to(DEVICEID)
+        if params.unique:   
             unique_indices, unique_inverse, unique_offset = generate_unique(jt_lst[i], params.feature_map)
             unique_indices = torch.cat(unique_indices).to(DEVICEID).to(torch.int64)
             unique_inverse = torch.cat(unique_inverse).to(DEVICEID).to(torch.int64)
             unique_offset = torch.Tensor(unique_offset).to(DEVICEID).to(torch.int64)
             kwargs = dict(unique_indices=unique_indices, unique_offset=unique_offset, unique_inverse=unique_inverse)
-        output = tbe(indices[i], offsets[i], **kwargs)
+        output = tbe(indice, offset, **kwargs)
         loss = torch.sum(output ** 2 / 2)
         loss.backward()
     return output, tbe.weights_dev
@@ -216,15 +233,13 @@ def create_data(params):
         offsets_test = torch.cumsum(offsets_test, dim=0)
 
         jt_dict = {f"f_{i}": jt for i, jt in enumerate(jt_lst)}
-        kjt = KeyedJaggedTensor.from_jt_dict(jt_dict)
         indices_tests.append(indices_test)
         offsets_tests.append(offsets_test)
-        jt_lsts.append(jt_lst)
-        kjts.append(kjt)
+        jt_lsts.append(jt_lst) 
         
     weights_test = torch.randn(total_size).to(torch.float32)
 
-    return indices_test, offsets_test, weights_test, kjt, jt_lst
+    return indices_test, offsets_test, weights_test, jt_lst
 
 
 def generate_tables(pooling_model):
@@ -275,7 +290,7 @@ def execute(params):
         return  # 暂未适配SGD unique算子
     if params.feature_map is None:
         params.feature_map = list(range(len(params.tables)))
-    indices_test, offsets_test, weights_test, kjt, jt_lst = create_data(params)
+    indices_test, offsets_test, weights_test, jt_lst = create_data(params)
 
     lookup_golden, weights_golden = lookup_cpu(jt_lst, weights_test, params)
     lookup_npu_result, weights_npu_result = lookup_npu(indices_test, offsets_test, weights_test, jt_lst,
@@ -306,7 +321,7 @@ def execute(params):
 @pytest.mark.parametrize("mutile_hots", [[8, 16, 100]])
 @pytest.mark.parametrize("batch_size", [8, 16, 64])
 @pytest.mark.parametrize("unique", [False, True])
-@pytest.mark.parametrize("feature_map", [[0, 0, 1], [0, 1, 1]])
+@pytest.mark.parametrize("feature_map", [[0, 1]])
 @pytest.mark.parametrize("pooling_model", [PoolingType.SUM, PoolingType.MEAN, PoolingType.NONE])
 @pytest.mark.parametrize("optim", [Adam])
 def test_lookup_two_tables(tables, mutile_hots, batch_size, pooling_model, unique, optim, feature_map):

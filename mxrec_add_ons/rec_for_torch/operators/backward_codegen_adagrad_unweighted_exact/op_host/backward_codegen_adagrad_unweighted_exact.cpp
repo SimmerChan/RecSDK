@@ -109,7 +109,6 @@ static ge::graphStatus NormalAdamTilingFunc(gert::TilingContext* context,
 static ge::graphStatus UniqueTilingKey(gert::TilingContext* context, const int &optimType)
 {
     if (optimType == ADAM) {
-        NormalAdamTilingFunc(context, tilingData);
         context->SetTilingKey(UNIQUE_ADAM);
     } else if (optimType == ADAGRAD) {
         context->SetTilingKey(UNIQUE_ADAGRAD);
@@ -117,13 +116,12 @@ static ge::graphStatus UniqueTilingKey(gert::TilingContext* context, const int &
         printf("Unsupported optimtype!\n");
         return ge::FAILED;
     }
-    return UniqueTilingFunc(context, tilingData);
+    return ge::GRAPH_SUCCESS;
 }
 
 static ge::graphStatus NormalTilingKey(gert::TilingContext* context, const int &optimType)
 {
     if (optimType == ADAM) {
-        NormalAdamTilingFunc(context, tilingData);
         context->SetTilingKey(NORMAL_ADAM);
     } else if (optimType == ADAGRAD) {
         context->SetTilingKey(NORMAL_ADAGRAD);
@@ -176,12 +174,15 @@ static ge::graphStatus ShapeTilingFunc(gert::TilingContext* context,
     auto uniqueId = context->GetOptionalInputTensor(UNIQUE_ID_INDEX);
 
     if (uniqueId != nullptr) {
-        uniqueTilingFunc(context, tilingData);
+        UniqueTilingFunc(context, tilingData);
         ret = UniqueTilingKey(context, optimType);
     } else {
        ret = NormalTilingKey(context, optimType);
     }
 
+    if (optimType == ADAM) {
+        NormalAdamTilingFunc(context, tilingData);
+    }
     if (ret != ge::GRAPH_SUCCESS) {
         return ret;
     }
