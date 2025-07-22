@@ -60,6 +60,7 @@ LCAL（Low Latency Collective Acceleration Library）
 - **说明**:
   - `0`: 不开启确定性计算模式，使用标准AllUss算法
   - `1`: 开启确定性计算模式，使用AllUssDeterministic算法
+  - `other value`: 其他无效值，默认不开启确定性计算
 - **设置方法**:
   ```bash
   export LCCL_DETERMINISTIC=1  # 开启确定性计算
