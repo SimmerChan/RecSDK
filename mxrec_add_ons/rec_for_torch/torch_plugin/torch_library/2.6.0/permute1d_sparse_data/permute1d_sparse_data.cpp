@@ -39,22 +39,19 @@ void validate_permute1d_sparse_data_inputs(
     check_tensor_dim(lengths, 1, "lengths");
     check_tensor_dim(values, 1, "values");
 
-    // weights是optional的，只有has_value时才检查
-    if (weights.has_value()) {
-        check_tensor_non_empty(*weights, "weights");
-        check_tensor_dim(*weights, 1, "weights");
-    }
-
     // ============= 长度一致性检查 =============
     const auto permute_len = permute.size(0);
     const auto lengths_len = lengths.size(0);
     const auto values_len = values.size(0);
-    const auto weights_len = weights->size(0);
 
     TORCH_CHECK(permute_len == lengths_len,
         "permute (length=", permute_len, ") and lengths (length=", lengths_len, ") must match!");
 
+    // weights是optional的，只有has_value时才检查
     if (weights.has_value()) {
+        check_tensor_non_empty(*weights, "weights");
+        check_tensor_dim(*weights, 1, "weights");
+        const auto weights_len = weights->size(0);
         TORCH_CHECK(weights_len == values_len,
             "weights and values length mismatch: ", weights_len, " vs ", values_len);
     }
