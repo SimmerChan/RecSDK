@@ -27,8 +27,10 @@ tuple<Tensor, Tensor, c10::optional<Tensor>> permute2d_sparse_data_impl_npu(
     auto permuteConti = permute.contiguous();
     auto lengthsConti = lengths.contiguous();
     auto valuesConti = values.contiguous();
-    // weight暂不支持
     at::Tensor weightsConti = at::empty({1}, lengths.options());
+    if (weights.has_value()) {
+        weightsConti = weights.value().contiguous();
+    }
 
     const auto T = permute.size(0);
     const auto B = lengths.size(1);
@@ -40,7 +42,7 @@ tuple<Tensor, Tensor, c10::optional<Tensor>> permute2d_sparse_data_impl_npu(
         throw std::runtime_error("permute.size(0) must be less than or equal to lengths.size(0). "
                                  "Got permute.size(0): " + std::to_string(permute.size(0)) +
                                  ", lengths.size(0): " + std::to_string(lengths.size(0)));
-    } else if (permuted_lengths_sum.has_value() && permuted_lengths_sum.has_value() > 0) {
+    } else if (permuted_lengths_sum.has_value() && permuted_lengths_sum.value() > 0) {
         outValuesLen = static_cast<int>(permuted_lengths_sum.value());
     } else {
         outValuesLen = lengthsConti.narrow(0, 0, T).sum().item<int>();
@@ -48,7 +50,7 @@ tuple<Tensor, Tensor, c10::optional<Tensor>> permute2d_sparse_data_impl_npu(
 
     at::Tensor outLengths = at::empty({T, B}, lengthsConti.options());
     at::Tensor outValues = at::empty({outValuesLen}, valuesConti.options());
-    at::Tensor outWeights = at::empty({1}, weightsConti.options());
+    at::Tensor outWeights = at::empty({outValuesLen}, weightsConti.options());
 
     EXEC_NPU_CMD(aclnnPermute2dSparseData, permuteConti, lengthsConti, valuesConti, weightsConti, T,
                  outLengths, outValues, outWeights);

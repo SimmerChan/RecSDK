@@ -27,54 +27,71 @@ torch.ops.load_library(f"{sysconfig.get_path('purelib')}/libfbgemm_npu_api.so")
 
 lengths_type = [np.int64, np.int32]
 values_type = [np.int64, np.int32, np.float32]
+weights_type = [None, np.int64, np.int32, np.float32]
 
 
-def get_result(permute, lengths, values):
+def get_result(permute, lengths, values, weights, permuted_lengths_sum):
     input_permute_torch = torch.from_numpy(permute)
     input_lengths_torch = torch.from_numpy(lengths)
     input_values_torch = torch.from_numpy(values)
+    input_weights_torch = torch.from_numpy(weights)
 
     (permuted_lengths, permuted_values, permuted_weights) = (
         torch.ops.fbgemm.permute_2D_sparse_data(
             input_permute_torch,
             input_lengths_torch,
             input_values_torch,
+            input_weights_torch,
+            permuted_lengths_sum
         )
     )
 
-    return permuted_lengths.cpu(), permuted_values.cpu()
+    return permuted_lengths.cpu(), permuted_values.cpu(), permuted_weights.cpu()
 
 
-def get_result_npu(permute, lengths, values, permuted_lengths_sum=-1):
+def get_result_npu(permute, lengths, values, weights, permuted_lengths_sum=-1):
     torch.npu.set_device(DEVICE)
     input_permute_torch = torch.from_numpy(permute).to(DEVICE)
     input_lengths_torch = torch.from_numpy(lengths).to(DEVICE)
     input_values_torch = torch.from_numpy(values).to(DEVICE)
+    input_weights_torch = torch.from_numpy(weights).to(DEVICE)
 
     (permuted_lengths, permuted_values, permuted_weights) = (
         torch.ops.fbgemm.permute_2D_sparse_data(
-            input_permute_torch, input_lengths_torch, input_values_torch, None, permuted_lengths_sum
+            input_permute_torch,
+            input_lengths_torch,
+            input_values_torch,
+            input_weights_torch,
+            permuted_lengths_sum
         )
     )
     torch.npu.synchronize()
-    return permuted_lengths.cpu(), permuted_values.cpu()
+    return permuted_lengths.cpu(), permuted_values.cpu(), permuted_weights.cpu()
 
 
 @pytest.mark.parametrize("ltype", lengths_type)
 @pytest.mark.parametrize("vtype", values_type)
+@pytest.mark.parametrize("wtype", weights_type)
 @pytest.mark.parametrize("permute_dim", np.random.randint(2, 30, 4).tolist())
 @pytest.mark.parametrize("extra_permute_dim", [0, 3, 8])
-@pytest.mark.parametrize("permuted_lengths_sum", [None, -1, 0, 1])
+@pytest.mark.parametrize("permuted_lengths_sum", [True, False])
 @pytest.mark.parametrize("lengths", [2048, 20480, 204800])
-def test_permute2d_sparse_data(permute_dim, extra_permute_dim, lengths, ltype, vtype, permuted_lengths_sum):
-    input_permute = np.arange(permute_dim).astype(np.int32)
-    np.random.shuffle(input_permute)
-    input_lengths = np.ones((permute_dim + extra_permute_dim, lengths), dtype=ltype)
-    input_values = np.arange(0, (permute_dim + extra_permute_dim) * lengths).astype(vtype)
-    permuted_lengths_sum = permuted_lengths_sum if permuted_lengths_sum != 1 else input_lengths[:permute_dim].sum()
+def test_permute2d_sparse_data(ltype,
+                               vtype,
+                               wtype,
+                               permute_dim,
+                               extra_permute_dim,
+                               permuted_lengths_sum,
+                               lengths):
+    permute = np.arange(permute_dim).astype(np.int32)
+    np.random.shuffle(permute)
+    lengths = np.ones((permute_dim + extra_permute_dim, lengths), dtype=ltype)
+    values = np.arange(0, (permute_dim + extra_permute_dim) * lengths).astype(vtype)
+    weights = None if wtype is None else np.arange(0, (permute_dim + extra_permute_dim) * lengths).astype(wtype)
+    permuted_lengths_sum = lengths[:permute_dim].sum() if permuted_lengths_sum else None
 
-    golden = get_result(input_permute, input_lengths, input_values)
-    result = get_result_npu(input_permute, input_lengths, input_values, permuted_lengths_sum)
+    golden = get_result(permute, lengths, values, weights, permuted_lengths_sum)
+    result = get_result_npu(permute, lengths, values, weights, permuted_lengths_sum)
 
-    assert torch.allclose(golden[0], result[0], atol=1e-5)
-    assert torch.allclose(golden[1], result[1], atol=1e-5)
+    for gt, pred in zip(golden, result):
+        assert torch.allclose(gt, pred, atol=1e-5)

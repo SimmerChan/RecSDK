@@ -42,6 +42,7 @@ struct Args {
     GM_ADDR tiling;
 };
 
+template <typename LType, typename VType, typename WType>
 class Permute2dSparseDataKernel {
 public:
     __aicore__ inline Permute2dSparseDataKernel(Args args)
@@ -55,10 +56,6 @@ public:
         lengthsB = tilingData.lengthsB;
         valuesDim = tilingData.valuesDim;
 
-        valueDataType = tilingData.valueDataType;
-        permuteDataType = tilingData.permuteDataType;
-        lengthsDataType = tilingData.lengthsDataType;
-
         totalBatch = tilingData.totalBatch;
         baseBatchLen = tilingData.baseBatchLen;
         tailSplitIndex = tilingData.tailSplitIndex;
@@ -69,6 +66,8 @@ public:
         lengths = args.lengths;
         values = args.values;
         weights = args.weights;
+
+        enableWeights = args.enableWeights;
 
         outLengths = args.out_lengths;
         outIndices = args.out_indices;
@@ -84,13 +83,17 @@ public:
             tOffsetOfThisCore = tailSplitIndex * (baseBatchLen + 1) + (GetBlockIdx() - tailSplitIndex) * baseBatchLen;
         }
 
-        permuteGT.SetGlobalBuffer(permute, permuteDim0 * permuteDataType);
-        lengthsGT.SetGlobalBuffer(lengths, lengthsT * lengthsB * lengthsDataType);
-        valuesGT.SetGlobalBuffer(values, valuesDim * valueDataType);
+        permuteGT.SetGlobalBuffer(permute, permuteDim0 * sizeof(int32_t));
+        lengthsGT.SetGlobalBuffer(lengths, lengthsT * lengthsB * sizeof(LType));
+        valuesGT.SetGlobalBuffer(values, valuesDim * sizeof(VType));
 
-        outLengthsGT.SetGlobalBuffer(outLengths, lengthsT * lengthsB * lengthsDataType);
-        outIndicesGT.SetGlobalBuffer(outIndices, valuesDim * valueDataType);
+        outLengthsGT.SetGlobalBuffer(outLengths, lengthsT * lengthsB * sizeof(LType));
+        outIndicesGT.SetGlobalBuffer(outIndices, valuesDim * sizeof(VType));
 
+        if (enableWeights) {
+            weightsGT.SetGlobalBuffer(weights, valuesDim * sizeof(WType));
+            outWeightsGT.SetGlobalBuffer(outWeights, valuesDim * sizeof(WType));
+        }
         // Init pipe
         pipe.InitBuffer(inQueueX, USE_QUEUE_NUM, ubCanUsed / USE_QUEUE_NUM);
         blockLen = ubCanUsed / USE_QUEUE_NUM;
@@ -139,25 +142,15 @@ public:
         offsetPtr = (__gm__ int64_t*)workspace;
         GlobalTensor<int64_t> offsetGT;
         offsetGT.SetGlobalBuffer((__gm__ int64_t*)offsetPtr, (lengthsT + 1) * UB_ALIGN * UB_ALIGN);
-        if (lengthsDataType == DATA_TYPE_INT64) {
-            __gm__ int64_t* lengthsPtr = (__gm__ int64_t*)lengths;
-            for (int64_t i = tOffsetOfThisCore; i < lenOfThisCore + tOffsetOfThisCore; i++) {
-                int64_t offsetT = 0;
-                for (int64_t j = 0; j < lengthsB; j++) {
-                    offsetT += *(lengthsPtr  + i * lengthsB + j);
-                }
-                offsetGT.SetValue(i * UB_ALIGN, offsetT);
+        __gm__ LType* lengthsPtr = (__gm__ LType*)lengths;
+        for (int64_t i = tOffsetOfThisCore; i < lenOfThisCore + tOffsetOfThisCore; i++) {
+            int64_t offsetT = 0;
+            for (int64_t j = 0; j < lengthsB; j++) {
+                offsetT += *(lengthsPtr  + i * lengthsB + j);
             }
-        } else {
-            __gm__ int32_t* lengthsPtr = (__gm__ int32_t*)lengths;
-            for (int64_t i = tOffsetOfThisCore; i < lenOfThisCore + tOffsetOfThisCore; i++) {
-                int64_t offsetT = 0;
-                for (int64_t j = 0; j < lengthsB; j++) {
-                    offsetT += *(lengthsPtr  + i * lengthsB + j);
-                }
-                offsetGT.SetValue(i * UB_ALIGN, offsetT);
-            }
+            offsetGT.SetValue(i * UB_ALIGN, offsetT);
         }
+
         AscendC::DataCacheCleanAndInvalid<int64_t, AscendC::CacheLine::ENTIRE_DATA_CACHE,
                 AscendC::DcciDst::CACHELINE_OUT>(offsetGT);
     }
@@ -169,11 +162,11 @@ public:
             int64_t ToffsetThisIndex = *(permutePtr + i);
             int64_t ToffsetNextIndex = *(permutePtr + i) + 1;
 
-            int64_t lengthsStartIndex = ToffsetThisIndex * lengthsB * lengthsDataType;
-            int64_t lengthsEndIndex = ToffsetNextIndex * lengthsB * lengthsDataType;
+            int64_t lengthsStartIndex = ToffsetThisIndex * lengthsB * sizeof(LType);
+            int64_t lengthsEndIndex = ToffsetNextIndex * lengthsB * sizeof(LType);
 
-            int64_t outStartIndex = i * lengthsB * lengthsDataType;
-            int64_t outEndIndex = (i + 1) * lengthsB * lengthsDataType;
+            int64_t outStartIndex = i * lengthsB * sizeof(LType);
+            int64_t outEndIndex = (i + 1) * lengthsB * sizeof(LType);
             int64_t totalLen = lengthsEndIndex - lengthsStartIndex;
             int64_t remainLen = totalLen;
             while (remainLen > 0) {
@@ -245,6 +238,54 @@ public:
         }
     }
 
+    __aicore__ void PermuteWeights()
+    {
+        int64_t outWeightOffset = 0;
+        int64_t currentT = 0;
+        for (int64_t i = 0; i < permuteDim0; i++) {
+            currentT = *(permutePtr + i);
+            int64_t tLen = *(totalOffsetPtr + (currentT + 1) * UB_ALIGN) - *(totalOffsetPtr + currentT * UB_ALIGN);
+            int64_t baseCoreLen = tLen / coreNum;
+            int64_t tailLen = tLen % coreNum;
+
+            // calculate current core permute weights offset
+            if (GetBlockIdx() < tailLen) {
+                weightLenOfThisCore = baseCoreLen + 1;
+                offsetOfThisCore = GetBlockIdx() * (baseCoreLen + 1);
+            } else {
+                weightLenOfThisCore = baseCoreLen;
+                offsetOfThisCore = tailLen * (baseCoreLen + 1) + (GetBlockIdx() - tailLen) * baseCoreLen;
+            }
+
+            int64_t startIndex = *(totalOffsetPtr + currentT * UB_ALIGN);
+            int64_t endIndex = *(totalOffsetPtr + (currentT + 1) * UB_ALIGN);
+
+            int64_t weightsStartIndex = (startIndex + offsetOfThisCore) * sizeof(WType);
+            int64_t outWeightStartIndex = (outWeightOffset + offsetOfThisCore) * sizeof(WType);
+
+            int64_t remainLen =  weightLenOfThisCore * sizeof(WType);
+            while (remainLen > 0) {
+                int64_t thisLen = blockLen;
+                if (remainLen < blockLen) {
+                    thisLen = remainLen;
+                }
+                LocalTensor<uint8_t> inputTensor = inQueueX.AllocTensor<uint8_t>();
+
+                CpGm2Local(inputTensor, weightsGT[weightsStartIndex], thisLen);
+                inQueueX.EnQue(inputTensor);
+                LocalTensor<uint8_t> outPutTensor = inQueueX.DeQue<uint8_t>();
+
+                CpLocal2Gm(outWeightsGT[outWeightStartIndex], outPutTensor, thisLen);
+
+                outWeightStartIndex += thisLen;
+                weightsStartIndex += thisLen;
+                inQueueX.FreeTensor(outPutTensor);
+                remainLen = remainLen - thisLen;
+            }
+            outWeightOffset += tLen;
+        }
+    }
+
     __aicore__ void Compute()
     {
         CalculateOffsets();
@@ -264,6 +305,9 @@ public:
         }
         PermuteLengths();
         PermuteValues();
+        if (enableWeights) {
+            PermuteWeights();
+        }
     }
 
 private:
@@ -282,11 +326,7 @@ private:
     int64_t lengthsT;
     int64_t lengthsB;
     int64_t valuesDim;
-
-    // DataType
-    int64_t valueDataType;
-    int64_t permuteDataType;
-    int64_t lengthsDataType;
+    bool enableWeights;
 
     // Tiling
     int64_t totalBatch;
@@ -304,6 +344,7 @@ private:
 
     // ThisCoreLen for B
     int64_t valueLenOfThisCore;
+    int64_t weightLenOfThisCore;
     int64_t offsetOfThisCore;
 
     // Tpipe
@@ -314,8 +355,10 @@ private:
     GlobalTensor<uint8_t> permuteGT;
     GlobalTensor<uint8_t> lengthsGT;
     GlobalTensor<uint8_t> valuesGT;
+    GlobalTensor<uint8_t> weightsGT;
     GlobalTensor<uint8_t> outLengthsGT;
     GlobalTensor<uint8_t> outIndicesGT;
+    GlobalTensor<uint8_t> outWeightsGT;
 
     __gm__ int64_t* offsetPtr;
     __gm__ int32_t* permutePtr;
