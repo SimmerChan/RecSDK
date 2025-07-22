@@ -18,6 +18,7 @@
 #include "lccl_all_uss_tiling.h"
 
 #include "register/op_def_registry.h"
+#include "ops_log.h"
 
 static int g_magic = 10;
 static int g_blockDim = 32;
@@ -52,7 +53,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
         } else if (envValue == "1") {
             deterministic = 1;
         } else {
-            OPS_LOG_W(context->getNodeName(),
+            OPS_LOG_W(context->GetNodeName(),
                       "LCCL_DETERMINISTIC environment variable must be 0 or 1, got '%s'. Using default value 0.",
                       envDeterministic);
             deterministic = 0;
