@@ -143,7 +143,7 @@ def cache_data(hparams, filename, flag):
             hparams.logger.info('has not cached file, begin cached...')
             start_time = time.time()
             sample_num, impression_id_list = cache_obj.write_tfrecord(filename, cached_name, hparams)
-            util.print_time("caced file used time", start_time)
+            util.print_time("cache file used time", start_time)
             hparams.logger.info("data sample num:{0}".format(sample_num))
             with open(sample_num_path, 'w') as f:
                 f.write(str(sample_num) + '\n')
