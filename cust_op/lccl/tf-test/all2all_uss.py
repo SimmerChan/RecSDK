@@ -95,7 +95,7 @@ class WideDeep:
         return self.alluss_result
 
 
-def verify_result(real_result:np.array, golden:np.array):
+def verify_result(real_result: np.array, golden: np.array):
     loss = 1e-4
     minimum = 10e-10
     
