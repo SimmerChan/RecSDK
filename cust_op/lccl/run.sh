@@ -39,9 +39,8 @@ sed -i 's/--nomd5/--nomd5 --nocrc/g' ./cmake/makeself.cmake
 sed -i 's:"/usr/local/Ascend/latest":"/usr/local/Ascend/ascend-toolkit/latest":g' CMakePresets.json
 sed -i 's:"customize":"lccl":g' CMakePresets.json
 
-
+cp -r ../../../mxrec_add_ons/rec_for_torch/operators/common ./op_host/
 if [ -f "op_host/CMakeLists.txt" ]; then
-    sed -i '1i\# Add custom include path for ops_log.h\ninclude_directories(../../../../mxrec_add_ons/rec_for_torch/operators/common)\n' op_host/CMakeLists.txt
     sed -i "1 i include(../../../../mxrec_add_ons/rec_for_torch/operators/cmake/func.cmake)" ./op_host/CMakeLists.txt
 
     line1=$(awk '/tartet_compile_definitions(cust_optiling PRIVATE OP_TILING_LIB)/{print NR}' ./op_host/CMakeLists.txt)
