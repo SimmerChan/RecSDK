@@ -299,7 +299,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> hstu_dense_jagged_bac
     if (denseAttnBias.defined()) {
         attnBiasGradOutput = at::empty_like(denseAttnBias);
     } else {
-        attnBiasGradOutput = at::Tensor().contiguous();
+        attnBiasGradOutput = at::Tensor();
     }
 
     const char *layout = "jagged";

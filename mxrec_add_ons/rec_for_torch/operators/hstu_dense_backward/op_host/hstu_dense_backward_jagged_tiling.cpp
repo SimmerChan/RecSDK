@@ -201,7 +201,7 @@ ge::graphStatus GetJaggedBasicShapeInfo(gert::TilingContext *context, HstuDenseB
             OPS_LOG_E("", "attnBiasGrad get seqLen less than maxSeqLen\n"),
             return ge::GRAPH_FAILED);
     } else {
-        biasGradSeqLen = AlignUp(maxSeqLen, static_cast<int64_t>(256));  // 无bias场景seqLen按256对齐
+        biasGradSeqLen = AlignUp(maxSeqLen, static_cast<int64_t>(BLOCK_256));
         OPS_CHECK((biasGradSeqLen == 0), OPS_LOG_E("", "attnBiasGrad get seqLen error\n"), return ge::GRAPH_FAILED);
     }
 
