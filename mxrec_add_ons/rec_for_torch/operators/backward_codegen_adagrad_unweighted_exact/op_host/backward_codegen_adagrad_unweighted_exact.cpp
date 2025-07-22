@@ -96,12 +96,15 @@ static ge::graphStatus NormalAdamTilingFunc(gert::TilingContext* context,
               return ge::GRAPH_FAILED);
 
     float _beta1 = 1 / (1 - pow(beta1, iter));
-    float _beta2 = 1 / (1 - pow(beta2, iter));
+    float _beta2 = (1 - pow(beta2, iter));
+    float _beta2sqrt = sqrt(_beta2);
+    _beta2 = 1 / _beta2;
 
     tilingData.set_beta1(beta1);
     tilingData.set_beta2(beta2);
     tilingData.set_beta1pow(_beta1);
     tilingData.set_beta2pow(_beta2);
+    tilingData.set_beta2sqrt(_beta2sqrt);
     tilingData.set_iter(iter);
     return ge::GRAPH_SUCCESS;
 }
@@ -113,8 +116,8 @@ static ge::graphStatus UniqueTilingKey(gert::TilingContext* context, const int &
     } else if (optimType == ADAGRAD) {
         context->SetTilingKey(UNIQUE_ADAGRAD);
     } else {
-        printf("Unsupported optimtype!\n");
-        return ge::FAILED;
+        OPS_LOG_E("Unsupported optimtype!"),
+        return ge::GRAPH_FAILED;
     }
     return ge::GRAPH_SUCCESS;
 }

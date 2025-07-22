@@ -72,7 +72,7 @@ public:
         float minusLearningRate = -learning_rate;
         thisMoment1Index = totalLen * M1_INDEX;
         thisMoment2Index = totalLen * M2_INDEX;
-        stepSize = minusLearningRate / beta1pow;
+        stepSize = minusLearningRate * beta2sqrt;
 
         // v[:] = beta1 * v + (1 - beta1) * p.grad
         Muls<float>(outLt[thisMoment1Index], inputLt[thisMoment1Index], beta1, totalLen);
@@ -85,16 +85,11 @@ public:
         Muls<float>(outLt[thisGradIndex], outLt[thisGradIndex], oneMinusBeta2, totalLen);
         Add<float>(outLt[thisMoment2Index], outLt[thisMoment2Index], outLt[thisGradIndex], totalLen);
 
-        // v_bias_corr = v / (1 - beta1 ** hyperparams['t'])
-        Muls<float>(inputLt[thisMoment1Index], outLt[thisMoment1Index], beta1pow, totalLen);
-        // s_bias_corr = s / (1 - beta2 ** hyperparams['t'])
-        Muls<float>(inputLt[thisMoment2Index], outLt[thisMoment2Index], beta2pow, totalLen);
-
-        // p[:] -= hyperparams['lr'] * v_bias_corr / (torch.sqrt(s_bias_corr) + eps)
-        Sqrt<float>(inputLt[thisMoment2Index], inputLt[thisMoment2Index], totalLen);
+        // p[:] -= stepSize * v / (torch.sqrt(s) + eps)
+        Sqrt<float>(inputLt[thisMoment2Index], outLt[thisMoment2Index], totalLen);
         Adds<float>(inputLt[thisMoment2Index], inputLt[thisMoment2Index], eps, totalLen);
-        Div<float>(outLt[thisGradIndex], inputLt[thisMoment1Index], inputLt[thisMoment2Index], totalLen);
-        Muls<float>(outLt[thisGradIndex], outLt[thisGradIndex], minusLearningRate, totalLen);
+        Div<float>(outLt[thisGradIndex], outLt[thisMoment1Index], inputLt[thisMoment2Index], totalLen);
+        Muls<float>(outLt[thisGradIndex], outLt[thisGradIndex], stepSize, totalLen);
     }
 
     __aicore__ inline void CopyInNormal(int *updateArgs, int thisLen, int embedDim)

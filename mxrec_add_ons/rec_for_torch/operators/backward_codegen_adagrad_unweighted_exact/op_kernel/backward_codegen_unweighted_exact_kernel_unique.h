@@ -197,7 +197,7 @@ public:
         for (int64_t i = 1; i <= weightsOffsetsDim0; i++) {
             Scheduler(indiceSizeCumsumGT.GetValue(i) - lastIndices, offsetOfThisTable, thisLen);
             int64_t startIndices = offsetOfThisTable + lastIndices; // 上一张表的偏移+table_i的偏移
-
+            lastIndices = indiceSizeCumsumGT.GetValue(i);
             if (thisLen <= 0) {
                 continue;
             }
@@ -219,7 +219,6 @@ public:
                 startIndices += thisLen;
                 thisLen = remain;
             }
-            lastIndices = indiceSizeCumsumGT.GetValue(i);
         }
     }
 
