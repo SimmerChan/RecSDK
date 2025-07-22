@@ -41,8 +41,8 @@ sed -i 's:"customize":"lccl":g' CMakePresets.json
 
 
 if [ -f "op_host/CMakeLists.txt" ]; then
-    sed -i '1i\# Add custom include path for ops_log.h\ninclude_directories(../../mxrec_add_ons/rec_for_torch/operators/common)\n' op_host/CMakeLists.txt
-    sed -i "1 i include(../../mxrec_add_ons/rec_for_torch/operators/cmake/func.cmake)" ./op_host/CMakeLists.txt
+    sed -i '1i\# Add custom include path for ops_log.h\ninclude_directories(../../../../mxrec_add_ons/rec_for_torch/operators/common)\n' op_host/CMakeLists.txt
+    sed -i "1 i include(../../../../mxrec_add_ons/rec_for_torch/operators/cmake/func.cmake)" ./op_host/CMakeLists.txt
 
     line1=$(awk '/tartet_compile_definitions(cust_optiling PRIVATE OP_TILING_LIB)/{print NR}' ./op_host/CMakeLists.txt)
     sed -i "${line1}s/OP_TILING_LIB/OP_TILING_LIB LOG_CPP/g" ./op_host/CMakeLists.txt
