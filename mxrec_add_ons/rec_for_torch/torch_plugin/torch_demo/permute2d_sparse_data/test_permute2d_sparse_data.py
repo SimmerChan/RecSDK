@@ -25,44 +25,26 @@ import numpy as np
 DEVICE = "npu:7"
 torch.ops.load_library(f"{sysconfig.get_path('purelib')}/libfbgemm_npu_api.so")
 
-def get_result(permute, lengths, values, weights, permuted_lengths_sum):
-    input_permute_torch = torch.from_numpy(permute)
-    input_lengths_torch = torch.from_numpy(lengths)
-    input_values_torch = torch.from_numpy(values)
-    input_weights_torch = torch.from_numpy(weights)
+def get_result(permute, lengths, values, weights, permuted_lengths_sum, device: str = 'cpu'):
+    tensors = {
+        'permute': torch.from_numpy(permute),
+        'lengths': torch.from_numpy(lengths),
+        'values': torch.from_numpy(values),
+        'weights': torch.from_numpy(weights) if weights is not None else None
+    }
 
-    (permuted_lengths, permuted_values, permuted_weights) = (
-        torch.ops.fbgemm.permute_2D_sparse_data(
-            input_permute_torch,
-            input_lengths_torch,
-            input_values_torch,
-            input_weights_torch,
-            permuted_lengths_sum
-        )
+    if device and device.startswith('npu'):
+        torch.npu.set_device(device)
+        tensors = {k: v.to(device) if v is not None else None for k, v in tensors.items()}
+
+    results = torch.ops.fbgemm.permute_2D_sparse_data(
+        permuted_lengths_sum=permuted_lengths_sum, **tensors
     )
 
-    return permuted_lengths.cpu(), permuted_values.cpu(), permuted_weights.cpu()
+    if device:
+        torch.npu.synchronize()
 
-
-def get_result_npu(permute, lengths, values, weights, permuted_lengths_sum=None):
-    torch.npu.set_device(DEVICE)
-    input_permute_torch = torch.from_numpy(permute).to(DEVICE)
-    input_lengths_torch = torch.from_numpy(lengths).to(DEVICE)
-    input_values_torch = torch.from_numpy(values).to(DEVICE)
-    input_weights_torch = torch.from_numpy(weights).to(DEVICE)
-
-    (permuted_lengths, permuted_values, permuted_weights) = (
-        torch.ops.fbgemm.permute_2D_sparse_data(
-            input_permute_torch,
-            input_lengths_torch,
-            input_values_torch,
-            input_weights_torch,
-            permuted_lengths_sum
-        )
-    )
-    torch.npu.synchronize()
-    return permuted_lengths.cpu(), permuted_values.cpu(), permuted_weights.cpu()
-
+    return tuple(r.cpu() if isinstance(r, torch.Tensor) else r for r in results)
 
 @pytest.mark.parametrize("ltype", [np.int64, np.int32])
 @pytest.mark.parametrize("vtype", [np.int64, np.int32, np.float32])
@@ -71,13 +53,7 @@ def get_result_npu(permute, lengths, values, weights, permuted_lengths_sum=None)
 @pytest.mark.parametrize("extra_permute_dim", [0, 3, 8])
 @pytest.mark.parametrize("permuted_lengths_sum", [True, False])
 @pytest.mark.parametrize("lengths", [2048, 20480, 204800])
-def test_permute2d_sparse_data(ltype,
-                               vtype,
-                               wtype,
-                               permute_dim,
-                               extra_permute_dim,
-                               permuted_lengths_sum,
-                               lengths):
+def test_permute2d_sparse_data(ltype, vtype, wtype, permute_dim, extra_permute_dim, permuted_lengths_sum, lengths):
     permute = np.arange(permute_dim, dtype=np.int32)
     np.random.shuffle(permute)
     values = np.arange(0, (permute_dim + extra_permute_dim) * lengths, dtype=vtype)
@@ -86,7 +62,7 @@ def test_permute2d_sparse_data(ltype,
     permuted_lengths_sum = lengths[:permute_dim].sum() if permuted_lengths_sum else None
 
     golden = get_result(permute, lengths, values, weights, permuted_lengths_sum)
-    result = get_result_npu(permute, lengths, values, weights, permuted_lengths_sum)
+    result = get_result(permute, lengths, values, weights, permuted_lengths_sum, DEVICE)
 
     for gt, pred in zip(golden, result):
         assert type(gt) is type(pred)

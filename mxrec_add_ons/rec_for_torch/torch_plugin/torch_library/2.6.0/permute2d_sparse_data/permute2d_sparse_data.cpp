@@ -27,7 +27,7 @@ tuple<Tensor, Tensor, c10::optional<Tensor>> permute2d_sparse_data_impl_npu(
     auto permuteConti = permute.contiguous();
     auto lengthsConti = lengths.contiguous();
     auto valuesConti = values.contiguous();
-    auto weightsConti = weigths.value_or(at::Tensor()).contiguous();
+    auto weightsConti = weights.value_or(at::Tensor()).contiguous();
 
     const auto T = permute.size(0);
     const auto B = lengths.size(1);

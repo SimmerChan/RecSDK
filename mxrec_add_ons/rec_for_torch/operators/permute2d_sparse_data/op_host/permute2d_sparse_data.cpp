@@ -50,10 +50,13 @@ namespace optiling {
 
         auto ascendPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
 
-        auto permuteShape = context->GetInputShape(PERMUTE_INDEX)->GetStorageShape();
-        auto lengthsShape = context->GetInputShape(LENGTH_INDEX)->GetStorageShape();
-        auto valuesShape = context->GetInputShape(VALUES_INDEX)->GetStorageShape();
-        auto weightsShape = context->GetInputShape(WEIGHTS_INDEX)->GetStorageShape();
+        gert::Shape permuteShape = context->GetInputShape(PERMUTE_INDEX)->GetStorageShape();
+        gert::Shape lengthsShape = context->GetInputShape(LENGTH_INDEX)->GetStorageShape();
+        gert::Shape valuesShape = context->GetInputShape(VALUES_INDEX)->GetStorageShape();
+        gert::Shape weightsShape;
+        if (enableWeights) {
+            weightsShape = context->GetInputShape(WEIGHTS_INDEX)->GetStorageShape();
+        }
 
         // shape check
         if ((permuteShape.GetDimNum() != 1) || (lengthsShape.GetDimNum() != SUPPORT_EMBEDDING_DIM_NUM) ||
