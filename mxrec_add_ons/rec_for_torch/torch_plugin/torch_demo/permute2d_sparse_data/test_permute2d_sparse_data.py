@@ -25,11 +25,6 @@ import numpy as np
 DEVICE = "npu:7"
 torch.ops.load_library(f"{sysconfig.get_path('purelib')}/libfbgemm_npu_api.so")
 
-lengths_type = [np.int64, np.int32]
-values_type = [np.int64, np.int32, np.float32]
-weights_type = [None, np.int64, np.int32, np.float32]
-
-
 def get_result(permute, lengths, values, weights, permuted_lengths_sum):
     input_permute_torch = torch.from_numpy(permute)
     input_lengths_torch = torch.from_numpy(lengths)
@@ -69,9 +64,9 @@ def get_result_npu(permute, lengths, values, weights, permuted_lengths_sum=None)
     return permuted_lengths.cpu(), permuted_values.cpu(), permuted_weights.cpu()
 
 
-@pytest.mark.parametrize("ltype", lengths_type)
-@pytest.mark.parametrize("vtype", values_type)
-@pytest.mark.parametrize("wtype", weights_type)
+@pytest.mark.parametrize("ltype", [np.int64, np.int32])
+@pytest.mark.parametrize("vtype", [np.int64, np.int32, np.float32])
+@pytest.mark.parametrize("wtype", [None, np.float32])
 @pytest.mark.parametrize("permute_dim", np.random.randint(2, 30, 4).tolist())
 @pytest.mark.parametrize("extra_permute_dim", [0, 3, 8])
 @pytest.mark.parametrize("permuted_lengths_sum", [True, False])

@@ -150,38 +150,31 @@ public:
         this->Input("permute")
             .ParamType(REQUIRED)
             .DataTypeList({ge::DT_INT32})
-            .Format({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND});
+            .FormatList({ge::FORMAT_ND});
         this->Input("lengths")
             .ParamType(REQUIRED)
             .DataTypeList({ge::DT_INT64, ge::DT_INT32})
-            .Format({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND});
+            .FormatList({ge::FORMAT_ND});
         this->Input("values")
             .ParamType(REQUIRED)
             .DataTypeList({ge::DT_INT64, ge::DT_INT32, ge::DT_FLOAT})
-            .Format({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND});
+            .FormatList({ge::FORMAT_ND});
         this->Input("weights")
             .ParamType(OPTIONAL)
-            .DataTypeList({ge::DT_INT64, ge::DT_INT32, ge::DT_FLOAT})
-            .Format({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND});
+            .DataTypeList({ge::DT_FLOAT})
+            .FormatList({ge::FORMAT_ND});
         this->Output("permuted_lengths")
             .ParamType(REQUIRED)
             .DataTypeList({ge::DT_INT64, ge::DT_INT32})
-            .Format({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND});
+            .FormatList({ge::FORMAT_ND});
         this->Output("permuted_values")
             .ParamType(REQUIRED)
             .DataTypeList({ge::DT_INT64, ge::DT_INT32, ge::DT_FLOAT})
-            .Format({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND});
+            .FormatList({ge::FORMAT_ND});
         this->Output("permuted_weights")
             .ParamType(OPTIONAL)
-            .DataTypeList({ge::DT_INT64, ge::DT_INT32, ge::DT_FLOAT})
-            .Format({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})
-            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND});
+            .DataTypeList({ge::DT_FLOAT})
+            .FormatList({ge::FORMAT_ND});
 
         this->Attr("permuted_sum").Int(0);
 

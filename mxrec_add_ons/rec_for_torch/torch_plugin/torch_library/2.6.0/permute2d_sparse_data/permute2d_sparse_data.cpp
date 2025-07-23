@@ -27,10 +27,7 @@ tuple<Tensor, Tensor, c10::optional<Tensor>> permute2d_sparse_data_impl_npu(
     auto permuteConti = permute.contiguous();
     auto lengthsConti = lengths.contiguous();
     auto valuesConti = values.contiguous();
-    at::Tensor weightsConti = at::empty({1}, lengths.options());
-    if (weights.has_value()) {
-        weightsConti = weights.value().contiguous();
-    }
+    auto weightsConti = weigths.value_or(at::Tensor()).contiguous();
 
     const auto T = permute.size(0);
     const auto B = lengths.size(1);
@@ -50,10 +47,7 @@ tuple<Tensor, Tensor, c10::optional<Tensor>> permute2d_sparse_data_impl_npu(
 
     at::Tensor outLengths = at::empty({T, B}, lengthsConti.options());
     at::Tensor outValues = at::empty({outValuesLen}, valuesConti.options());
-    at::Tensor outWeights = at::Tensor();
-    if (weights.has_value()) {
-        outWeights = at::empty({outValuesLen}, weightsConti.options());
-    }
+    at::Tensor outWeights = weights.has_value() ? at::empty({outValuesLen}, weightsConti.options()) : at::Tensor();
     EXEC_NPU_CMD(aclnnPermute2dSparseData, permuteConti, lengthsConti, valuesConti, weightsConti, outValuesLen,
                  outLengths, outValues, outWeights);
 

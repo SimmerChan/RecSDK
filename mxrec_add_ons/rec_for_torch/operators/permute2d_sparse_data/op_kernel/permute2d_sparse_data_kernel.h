@@ -42,7 +42,7 @@ struct Args {
     GM_ADDR tiling;
 };
 
-template <typename LType, typename VType, typename WType>
+template <typename LType, typename VType>
 class Permute2dSparseDataKernel {
 public:
     __aicore__ inline Permute2dSparseDataKernel(Args args)
@@ -91,8 +91,8 @@ public:
         outIndicesGT.SetGlobalBuffer(outIndices, valuesDim * sizeof(VType));
 
         if (enableWeights) {
-            weightsGT.SetGlobalBuffer(weights, valuesDim * sizeof(WType));
-            outWeightsGT.SetGlobalBuffer(outWeights, valuesDim * sizeof(WType));
+            weightsGT.SetGlobalBuffer(weights, valuesDim * sizeof(float));
+            outWeightsGT.SetGlobalBuffer(outWeights, valuesDim * sizeof(float));
         }
         // Init pipe
         pipe.InitBuffer(inQueueX, USE_QUEUE_NUM, ubCanUsed / USE_QUEUE_NUM);
@@ -260,10 +260,10 @@ public:
             int64_t startIndex = *(totalOffsetPtr + currentT * UB_ALIGN);
             int64_t endIndex = *(totalOffsetPtr + (currentT + 1) * UB_ALIGN);
 
-            int64_t weightsStartIndex = (startIndex + offsetOfThisCore) * sizeof(WType);
-            int64_t outWeightStartIndex = (outWeightOffset + offsetOfThisCore) * sizeof(WType);
+            int64_t weightsStartIndex = (startIndex + offsetOfThisCore) * sizeof(float);
+            int64_t outWeightStartIndex = (outWeightOffset + offsetOfThisCore) * sizeof(float);
 
-            int64_t remainLen =  weightLenOfThisCore * sizeof(WType);
+            int64_t remainLen =  weightLenOfThisCore * sizeof(float);
             while (remainLen > 0) {
                 int64_t thisLen = blockLen;
                 if (remainLen < blockLen) {
