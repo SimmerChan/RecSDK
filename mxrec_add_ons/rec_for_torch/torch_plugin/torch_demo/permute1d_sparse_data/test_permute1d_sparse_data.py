@@ -14,16 +14,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-import sysconfig
 
+import sysconfig
+import time
 import pytest
 import torch
 import torch_npu
 import fbgemm_gpu
 
+# 定义用到的卡和so位置
 DEVICE = "npu:7"
 torch.ops.load_library(f"{sysconfig.get_path('purelib')}/libfbgemm_npu_api.so")
 
+# 定义参数数据类型列表
 lengths_type = [torch.int64, torch.int32, torch.int64, torch.int32]
 values_type = [torch.int64, torch.int32, torch.float32, torch.float32]
 
@@ -45,28 +48,43 @@ def create_values_tensor(cnt, dtype):
     return input_values
 
 
+# CPU调用permute_1D_sparse_data算子
 def get_result(permute, lengths, values):
+    start = time.perf_counter_ns()
     (permuted_lengths, permuted_values, permuted_weights) = (
         torch.ops.fbgemm.permute_1D_sparse_data(permute, lengths, values)
     )
+    cpu_time = (time.perf_counter_ns() - start) / 1e6 # 转为毫秒
+    return (permuted_lengths.cpu(), permuted_values.cpu()), cpu_time
 
-    return permuted_lengths.cpu(), permuted_values.cpu()
 
-
+# NPU调用permute_1D_sparse_data算子
 def get_result_npu(permute, lengths, values):
     torch.npu.set_device(DEVICE)
     input_permute_torch = permute.to(DEVICE)
     input_lengths_torch = lengths.to(DEVICE)
     input_values_torch = values.to(DEVICE)
 
+    # 关键预热步骤（消除首次运行开销）
+    for _ in range(3): # 预热3次
+        _ = torch.ops.fbgemm.permute_1D_sparse_data(input_permute_torch, input_lengths_torch, input_values_torch)
+
     torch.npu.synchronize()
+    # NPU计时需要同步事件
+    start_event = torch.npu.Event(enable_timing=True)
+    end_event = torch.npu.Event(enable_timing=True)
+
+    start_event.record()
     (permuted_lengths, permuted_values, permuted_weights) = (
         torch.ops.fbgemm.permute_1D_sparse_data(
             input_permute_torch, input_lengths_torch, input_values_torch,
         )
     )
+    end_event.record()
     torch.npu.synchronize()
-    return permuted_lengths.cpu(), permuted_values.cpu()
+
+    npu_time = start_event.elapsed_time(end_event) # 单位毫秒
+    return (permuted_lengths.cpu(), permuted_values.cpu()), npu_time
 
 
 @pytest.mark.parametrize("type_list", zip(lengths_type, values_type))
@@ -78,8 +96,11 @@ def test_permute1d_sparse_data(type_list, permute_len, max_lengths):
     input_lengths = create_lengths_tensor(permute_len, dtype=ltype, max_value=max_lengths)
     input_values = create_values_tensor(sum(input_lengths), dtype=vtype)
 
-    golden = get_result(input_permute, input_lengths, input_values)
-    result = get_result_npu(input_permute, input_lengths, input_values)
+    golden, cpu_time = get_result(input_permute, input_lengths, input_values)
+    result, npu_time = get_result_npu(input_permute, input_lengths, input_values)
 
     assert torch.allclose(golden[0], result[0], atol=1e-5)
     assert torch.allclose(golden[1], result[1], atol=1e-5)
+
+    print(f"\n[Perf] len={permute_len}, max_len={max_lengths}, types=({ltype},{vtype})")
+    print(f"CPU: {cpu_time:.3f} ms | NPU: {npu_time:.3f} ms | Speedup: {cpu_time / npu_time:.2f}x")
