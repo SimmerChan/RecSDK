@@ -67,7 +67,7 @@ public:
         values = args.values;
         weights = args.weights;
 
-        enableWeights = args.enableWeights;
+        enableWeights = tilingData.enableWeights;
 
         outLengths = args.out_lengths;
         outIndices = args.out_indices;
@@ -212,10 +212,10 @@ public:
             int64_t startIndex = *(totalOffsetPtr + currentT * UB_ALIGN);
             int64_t endIndex = *(totalOffsetPtr + (currentT + 1) * UB_ALIGN);
 
-            int64_t valuesStartIndex = (startIndex + offsetOfThisCore) * valueDataType;
-            int64_t outValueStartIndex = (outValueOffset + offsetOfThisCore) * valueDataType;
+            int64_t valuesStartIndex = (startIndex + offsetOfThisCore) * sizeof(VType);
+            int64_t outValueStartIndex = (outValueOffset + offsetOfThisCore) * sizeof(VType);
 
-            int64_t remainLen =  valueLenOfThisCore * valueDataType;
+            int64_t remainLen =  valueLenOfThisCore * sizeof(VType);
             while (remainLen > 0) {
                 int64_t thisLen = blockLen;
                 if (remainLen < blockLen) {

@@ -76,6 +76,13 @@ namespace optiling {
         int64_t valuesDim = valuesShape.GetDim(0);
         tiling.set_valuesDim(valuesDim);
 
+        // set coreNUm
+        size_t coreNum = ascendPlatform.GetCoreNumAiv();
+        if (coreNum == 0) {
+            return ge::GRAPH_FAILED;
+        }
+        tiling.set_coreNum(coreNum);
+
         // tiling core
         int64_t totalBatch = permuteDim0;
         tiling.set_totalBatch(totalBatch);
@@ -89,13 +96,6 @@ namespace optiling {
         ascendPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubCanUsed);
         ubCanUsed = (ubCanUsed - RESERVER_UB_SIZE) / UB_ALIGN / NUM_QUEUE * UB_ALIGN * NUM_QUEUE;
         tiling.set_ubCanUsed(ubCanUsed);
-
-        // set coreNUm
-        size_t coreNum = ascendPlatform.GetCoreNumAiv();
-        if (coreNum == 0) {
-            return ge::GRAPH_FAILED;
-        }
-        tiling.set_coreNum(coreNum);
 
         // apply workspace
         size_t* currentWorkspace = context->GetWorkspaceSizes(1);

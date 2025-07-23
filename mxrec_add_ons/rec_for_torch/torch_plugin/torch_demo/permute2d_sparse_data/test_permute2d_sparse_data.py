@@ -49,7 +49,7 @@ def get_result(permute, lengths, values, weights, permuted_lengths_sum):
     return permuted_lengths.cpu(), permuted_values.cpu(), permuted_weights.cpu()
 
 
-def get_result_npu(permute, lengths, values, weights, permuted_lengths_sum=-1):
+def get_result_npu(permute, lengths, values, weights, permuted_lengths_sum=None):
     torch.npu.set_device(DEVICE)
     input_permute_torch = torch.from_numpy(permute).to(DEVICE)
     input_lengths_torch = torch.from_numpy(lengths).to(DEVICE)
@@ -83,15 +83,17 @@ def test_permute2d_sparse_data(ltype,
                                extra_permute_dim,
                                permuted_lengths_sum,
                                lengths):
-    permute = np.arange(permute_dim).astype(np.int32)
+    permute = np.arange(permute_dim, dtype=np.int32)
     np.random.shuffle(permute)
+    values = np.arange(0, (permute_dim + extra_permute_dim) * lengths, dtype=vtype)
+    weights = np.arange(0, (permute_dim + extra_permute_dim) * lengths, dtype=wtype) if wtype else None
     lengths = np.ones((permute_dim + extra_permute_dim, lengths), dtype=ltype)
-    values = np.arange(0, (permute_dim + extra_permute_dim) * lengths).astype(vtype)
-    weights = None if wtype is None else np.arange(0, (permute_dim + extra_permute_dim) * lengths).astype(wtype)
     permuted_lengths_sum = lengths[:permute_dim].sum() if permuted_lengths_sum else None
 
     golden = get_result(permute, lengths, values, weights, permuted_lengths_sum)
     result = get_result_npu(permute, lengths, values, weights, permuted_lengths_sum)
 
     for gt, pred in zip(golden, result):
-        assert torch.allclose(gt, pred, atol=1e-5)
+        assert type(gt) is type(pred)
+        if isinstance(gt, torch.Tensor) and isinstance(pred, torch.Tensor):
+            assert torch.allclose(gt, pred, atol=1e-5)

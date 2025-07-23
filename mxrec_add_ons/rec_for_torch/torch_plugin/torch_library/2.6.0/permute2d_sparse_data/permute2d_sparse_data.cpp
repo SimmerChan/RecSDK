@@ -50,12 +50,14 @@ tuple<Tensor, Tensor, c10::optional<Tensor>> permute2d_sparse_data_impl_npu(
 
     at::Tensor outLengths = at::empty({T, B}, lengthsConti.options());
     at::Tensor outValues = at::empty({outValuesLen}, valuesConti.options());
-    at::Tensor outWeights = at::empty({outValuesLen}, weightsConti.options());
-
-    EXEC_NPU_CMD(aclnnPermute2dSparseData, permuteConti, lengthsConti, valuesConti, weightsConti, T,
+    at::Tensor outWeights = at::Tensor();
+    if (weights.has_value()) {
+        outWeights = at::empty({outValuesLen}, weightsConti.options());
+    }
+    EXEC_NPU_CMD(aclnnPermute2dSparseData, permuteConti, lengthsConti, valuesConti, weightsConti, outValuesLen,
                  outLengths, outValues, outWeights);
 
-    return make_tuple(outLengths, outValues, at::Tensor());
+    return make_tuple(outLengths, outValues, outWeights);
 }
 
 TORCH_LIBRARY(mxrec, m)
