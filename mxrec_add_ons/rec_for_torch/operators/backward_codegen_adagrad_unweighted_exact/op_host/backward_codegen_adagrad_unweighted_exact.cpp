@@ -177,21 +177,6 @@ static ge::graphStatus ShapeTilingFunc(gert::TilingContext* context,
     int optimType = *context->GetAttrs()->GetInt(OPTIM_TYPE_INDEX);
     auto uniqueId = context->GetOptionalInputTensor(UNIQUE_ID_INDEX);
 
-    if (uniqueId != nullptr) {
-        UniqueTilingFunc(context, tilingData);
-        ret = UniqueTilingKey(context, optimType);
-    } else {
-        ret = NormalTilingKey(context, optimType);
-    }
-
-    if (ret != ge::GRAPH_SUCCESS) {
-        return ret;
-    }
-
-    if (optimType == ADAM) {
-        NormalAdamTilingFunc(context, tilingData);
-    }
-
     tilingData.set_gradOutputDim0(gradOutputDim0);
     tilingData.set_gradOutputDim1(gradOutputDim1);
     tilingData.set_devWeightsDim0(devWeightsDim0);
@@ -203,7 +188,17 @@ static ge::graphStatus ShapeTilingFunc(gert::TilingContext* context,
     tilingData.set_bytesOfDataType(bytesOfDataType);
     tilingData.set_offsetDataType(offsetDataType);
 
-    return ret;
+    if (optimType == ADAM) {
+        NormalAdamTilingFunc(context, tilingData);
+    }
+    if (uniqueId != nullptr) {
+        ret = UniqueTilingFunc(context, tilingData);
+        if (ret != ge::GRAPH_SUCCESS) {
+            return ret;
+        }
+        return UniqueTilingKey(context, optimType);
+    }
+    return NormalTilingKey(context, optimType);
 }
 
 static ge::graphStatus TilingFunc(gert::TilingContext* context)
