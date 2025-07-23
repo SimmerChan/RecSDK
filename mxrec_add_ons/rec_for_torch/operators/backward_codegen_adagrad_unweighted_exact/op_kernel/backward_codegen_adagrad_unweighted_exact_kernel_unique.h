@@ -19,7 +19,7 @@ using namespace BackwardCodegenUnweightedExactUnique;
 
 namespace BackwardCodegenUnweightedExactAdagradUnique {
 
-class BackwardCodegenAdagradUnweightedExactKernelUnique : public BackwardCodegenUnweightedExactKernelUnique{
+class BackwardCodegenAdagradUnweightedExactKernelUnique : public BackwardCodegenUnweightedExactKernelUnique {
 public:
     __aicore__ inline BackwardCodegenAdagradUnweightedExactKernelUnique() {}
 

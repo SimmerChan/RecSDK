@@ -95,9 +95,10 @@ static ge::graphStatus NormalAdamTilingFunc(gert::TilingContext* context,
               OPS_LOG_E("Tiling Debug", "beta2 can not be 1.0."),
               return ge::GRAPH_FAILED);
 
-    float _beta1 = 1 / (1 - pow(beta1, iter));
+    float _beta1 = (1 - pow(beta1, iter));
     float _beta2 = (1 - pow(beta2, iter));
-    float _beta2sqrt = sqrt(_beta2);
+    float _beta2sqrt = sqrt(_beta2) / _beta1;
+    _beta1 = 1 / _beta1;
     _beta2 = 1 / _beta2;
 
     tilingData.set_beta1(beta1);
@@ -116,7 +117,7 @@ static ge::graphStatus UniqueTilingKey(gert::TilingContext* context, const int &
     } else if (optimType == ADAGRAD) {
         context->SetTilingKey(UNIQUE_ADAGRAD);
     } else {
-        OPS_LOG_E("Unsupported optimtype!"),
+        OPS_LOG_E("Tiling Debug", "Unsupported optimtype!");
         return ge::GRAPH_FAILED;
     }
     return ge::GRAPH_SUCCESS;
@@ -180,15 +181,17 @@ static ge::graphStatus ShapeTilingFunc(gert::TilingContext* context,
         UniqueTilingFunc(context, tilingData);
         ret = UniqueTilingKey(context, optimType);
     } else {
-       ret = NormalTilingKey(context, optimType);
+        ret = NormalTilingKey(context, optimType);
+    }
+    
+    if (ret != ge::GRAPH_SUCCESS) {
+        return ret;
     }
 
     if (optimType == ADAM) {
         NormalAdamTilingFunc(context, tilingData);
     }
-    if (ret != ge::GRAPH_SUCCESS) {
-        return ret;
-    }
+
 
     tilingData.set_gradOutputDim0(gradOutputDim0);
     tilingData.set_gradOutputDim1(gradOutputDim1);

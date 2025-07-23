@@ -25,7 +25,7 @@ using namespace AscendC;
 using namespace BackwardCodegenUnweightedExact;
 using namespace BackwardCodegenUnweightedExactUnique;
 namespace BackwardCodegenUnweightedAdamExactUnique {
-
+constexpr int NUM_OUTPUTS = 3; // grad, momentum1, momentum2
 class BackwardCodegenAdamUnweightedExactKernelUnique : public BackwardCodegenUnweightedExactKernelUnique {
 public:
     __aicore__ inline BackwardCodegenAdamUnweightedExactKernelUnique() {}
@@ -42,6 +42,9 @@ public:
         iter = tilingData.iter;
         beta1pow = tilingData.beta1pow;
         beta2pow = tilingData.beta2pow;
+        beta2sqrt = tilingData.beta2sqrt;
+        numOfOut = NUM_OUTPUTS;
+
         indicesNumOneBlock = blockLen / numOfOut / maxD;
         if (indicesNumOneBlock >= MAX_ARGS_PIPE_LEN) {
             indicesNumOneBlock = MAX_ARGS_PIPE_LEN;
@@ -195,9 +198,10 @@ private:
     float beta2;
     float beta1pow;
     float beta2pow;
+    float beta2sqrt;
     float stepSize;
     int64_t iter;
-    int numOfOut = 3;
+    int numOfOut;
     int indicesNumOneBlock;
 
     int64_t thisMoment1Index;

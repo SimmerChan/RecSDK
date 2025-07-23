@@ -68,9 +68,9 @@ public:
         uniqueId = args.uniqueId;
         uniqueInverse = args.uniqueInverse;
         uniqueHashSize = args.uniqueHashSize;
+        indiceSizeCumsum = args.indiceSizeCumsum;
         
         uniqueHashDim0 = tilingData.uniqueHashDim0;
-        indiceSizeCumsum = tilingData.indiceSizeCumsum;
         
         uniqueHashSizeGT.SetGlobalBuffer((__gm__ int64_t*)uniqueHashSize, uniqueHashDim0);
         uniqueInverseGT.SetGlobalBuffer((__gm__ int64_t*)uniqueInverse, indicesDim0);

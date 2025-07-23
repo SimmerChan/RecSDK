@@ -170,11 +170,7 @@ public:
         for (int64_t i = 0; i < cnt; i++) {
             UpdateArgs theArgs = updateArgs[i];
             int64_t thisGradIndex = i * maxD * numOfOut + outIndex;
-            int64_t thisMoment1Index = i * maxD * numOfOut + outIndex1;
-            int64_t thisMoment2Index = i * maxD * numOfOut + outIndex2;
             DataCopy(weightsDevOutGT[theArgs.thisOutOffset], outLt[thisGradIndex], theArgs.embedDim);
-            DataCopy(momentum1DevOutGT[theArgs.thisOutOffset], outLt[thisMoment1Index], theArgs.embedDim);
-            DataCopy(momentum2DevOutGT[theArgs.thisOutOffset], outLt[thisMoment2Index], theArgs.embedDim);
         }
         SetAtomicNone();
 

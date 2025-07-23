@@ -148,7 +148,7 @@ def construct_collection_configs(weights, params):
 
 def lookup_cpu(jt_lst, weights, params):
     collection_configs = construct_collection_configs(weights, params)
-    model = TestModel(*collection_configs, params.pooling_mode)
+    model = TestModel(*collection_configs, params.pooling_mode, params.feature_map)
     model.zero_grad()
     optimizer = params.optim(model.parameters(), **OPTIMIZER_PARAM[params.optim])
 
@@ -240,7 +240,7 @@ def create_data(params):
         
     weights_test = torch.randn(total_size).to(torch.float32)
 
-    return indices_tests, offsets_tests, weights_tests, jt_lsts
+    return indices_tests, offsets_tests, weights_test, jt_lsts
 
 
 def generate_tables(pooling_model):
