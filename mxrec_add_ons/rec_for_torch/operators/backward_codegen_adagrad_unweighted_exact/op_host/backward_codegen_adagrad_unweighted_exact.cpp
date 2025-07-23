@@ -183,7 +183,7 @@ static ge::graphStatus ShapeTilingFunc(gert::TilingContext* context,
     } else {
         ret = NormalTilingKey(context, optimType);
     }
-    
+
     if (ret != ge::GRAPH_SUCCESS) {
         return ret;
     }
@@ -191,7 +191,6 @@ static ge::graphStatus ShapeTilingFunc(gert::TilingContext* context,
     if (optimType == ADAM) {
         NormalAdamTilingFunc(context, tilingData);
     }
-
 
     tilingData.set_gradOutputDim0(gradOutputDim0);
     tilingData.set_gradOutputDim1(gradOutputDim1);

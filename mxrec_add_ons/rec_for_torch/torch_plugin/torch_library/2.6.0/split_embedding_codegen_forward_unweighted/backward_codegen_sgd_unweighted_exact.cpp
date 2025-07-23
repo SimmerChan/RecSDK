@@ -315,8 +315,7 @@ at::Tensor split_embedding_backward_codegen_sgd_unweighted_exact_npu(const Tenso
         unique_offsets, unique_inverse, _unused, t_max_D, total_hash_size_bits, pooling_mode, BT_block_size,
         max_segment_length_per_warp, stochastic_rounding, info_B_num_bits, info_B_mask_int64,
         use_uniq_cache_locations, use_homogeneous_placements, optim_type, beta, learning_rate, beta, beta, iter,
-        output, _unused, _unused, dev_weights
-    );
+        output, _unused, _unused, dev_weights);
 
     return at::Tensor();
 }

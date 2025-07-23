@@ -25,7 +25,7 @@ from torchrec import JaggedTensor, KeyedJaggedTensor, PoolingType, ComputeDevice
 
 logging.getLogger().setLevel(logging.INFO)
 DEVICEID = "npu:0"
-EPOCH = 8
+EPOCH = 4
 
 torch.ops.load_library(f"{sysconfig.get_path('purelib')}/libfbgemm_npu_api.so")
 
@@ -71,28 +71,28 @@ class LookupParams:
 
 
 class TestModel(torch.nn.Module):
-    def __init__(self, weights, tables, mode, feature_map):
+    def __init__(self, weights, tables, params):
         super().__init__()
-        if mode == PoolingType.NONE:
+        if params.pooling_mode == PoolingType.NONE:
             collection = torch.nn.Embedding
             param_name = "embeddings"
             kwargs = dict()
         else:
             collection = torch.nn.EmbeddingBag
             param_name = "embedding_bags"
-            kwargs = dict(include_last_offset=True, mode=TORCH_POOLING_MODE_TO_NN[mode])
+            kwargs = dict(include_last_offset=True, mode=TORCH_POOLING_MODE_TO_NN[params.pooling_mode])
 
         self.param_name = param_name
         self.table_names = list(map(lambda x: x.name, tables))
-        self.mode = mode
-        self.feature_map = feature_map
+        self.mode = params.pooling_mode
+        self.feature_map = params.feature_map
 
         self.name2table = nn.ModuleDict()
         for ind, config in enumerate(tables):
             self.name2table[config.name] = collection(
                 num_embeddings=config.num_embeddings,
                 embedding_dim=config.embedding_dim,
-                sparse=True,
+                sparse=False if params.optim == SGD else True,
                 device=torch.device("cpu"),
                 **kwargs
             )
@@ -148,7 +148,7 @@ def construct_collection_configs(weights, params):
 
 def lookup_cpu(jt_lst, weights, params):
     collection_configs = construct_collection_configs(weights, params)
-    model = TestModel(*collection_configs, params.pooling_mode, params.feature_map)
+    model = TestModel(*collection_configs, params)
     model.zero_grad()
     optimizer = params.optim(model.parameters(), **OPTIMIZER_PARAM[params.optim])
 
