@@ -59,6 +59,7 @@ def get_result_npu(permute, lengths, values):
     input_lengths_torch = lengths.to(DEVICE)
     input_values_torch = values.to(DEVICE)
 
+    torch.npu.synchronize()
     (permuted_lengths, permuted_values, permuted_weights) = (
         torch.ops.fbgemm.permute_1D_sparse_data(
             input_permute_torch, input_lengths_torch, input_values_torch,
