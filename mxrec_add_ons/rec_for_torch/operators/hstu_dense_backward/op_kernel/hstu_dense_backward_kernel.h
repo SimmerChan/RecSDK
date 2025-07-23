@@ -600,49 +600,55 @@ public:
         }
     }
 
+    __aicore__ inline void DoCopyBlockQGrad(int64_t batchIdx, int64_t headIdx, int64_t curSeqLen,
+        const uint32_t *seqOffset)
+    {
+        int64_t totalLen = curSeqLen * this->headDim;
+        int64_t remain = totalLen;
+        int64_t thisLen = this->vecOnceDataNum;
+        while (remain > 0) {
+            if (thisLen > remain) {
+                thisLen = remain;
+            }
+
+            int64_t curOffset = (this->headNum * seqOffset[batchIdx] * this->headDim) + (headIdx * totalLen) +
+                (totalLen - remain);
+            LocalTensor<float> input = this->queueVecScoreQK.template AllocTensor<float>();
+            DataCopy<float>(input, this->qGradAccumTemp[curOffset], thisLen);
+            this->queueVecScoreQK.template EnQue(input);
+
+            LocalTensor<float> newInput = this->queueVecScoreQK.template DeQue<float>();
+            LocalTensor<qType> output = this->queueOutputTemp.template AllocTensor<qType>();
+            if (std::is_same<qType, float>::value) {
+                DataCopy(output.template ReinterpretCast<float>(), newInput, thisLen);
+            } else {
+                Cast(output, newInput, RoundMode::CAST_RINT, thisLen);
+            }
+            this->queueOutputTemp.template EnQue(output);
+            this->queueVecScoreQK.template FreeTensor(newInput);
+
+            LocalTensor<qType> newOutput = this->queueOutputTemp.template DeQue<qType>();
+
+            uint16_t blockCount = thisLen / this->headDim;
+            uint16_t blockLen = this->headDim * sizeof(qType) / DATA_ALIGN_BYTES;
+            uint16_t dstStride = (this->headNum - 1) * this->headDim * sizeof(qType) / DATA_ALIGN_BYTES;
+            DataCopyParams copyParams{blockCount, blockLen, 0, dstStride};
+
+            int64_t curOutOffset = seqOffset[batchIdx] * this->headNum * this->headDim +
+                headIdx * this->headDim + (totalLen - remain) * this->headNum;
+            DataCopy<qType>(this->qGrad[curOutOffset], newOutput, copyParams);
+            this->queueOutputTemp.template FreeTensor(newOutput);
+
+            remain = remain - thisLen;
+        }
+    }
+
     __aicore__ inline void DoCopyQGrad(const uint32_t *seqOffset)
     {
         for (int64_t batchIdx = 0; batchIdx < this->batchSize; batchIdx++) {
             int64_t curSeqLen = static_cast<int64_t>(seqOffset[batchIdx + 1] - seqOffset[batchIdx]);
             for (int64_t headIdx = 0; headIdx < this->headNum; headIdx++) {
-                int64_t totalLen = curSeqLen * this->headDim;
-                int64_t remain = totalLen;
-                int64_t thisLen = this->vecOnceDataNum;
-                while (remain > 0) {
-                    if (thisLen > remain) {
-                        thisLen = remain;
-                    }
-
-                    int64_t curOffset = (this->headNum * seqOffset[batchIdx] * this->headDim) + (headIdx * totalLen) +
-                        (totalLen - remain);
-                    LocalTensor<float> input = this->queueVecScoreQK.template AllocTensor<float>();
-                    DataCopy<float>(input, this->qGradAccumTemp[curOffset], thisLen);
-                    this->queueVecScoreQK.template EnQue(input);
-
-                    LocalTensor<float> newInput = this->queueVecScoreQK.template DeQue<float>();
-                    LocalTensor<qType> output = this->queueOutputTemp.template AllocTensor<qType>();
-                    if (std::is_same<qType, float>::value) {
-                        DataCopy(output.template ReinterpretCast<float>(), newInput, thisLen);
-                    } else {
-                        Cast(output, newInput, RoundMode::CAST_RINT, thisLen);
-                    }
-                    this->queueOutputTemp.template EnQue(output);
-                    this->queueVecScoreQK.template FreeTensor(newInput);
-
-                    LocalTensor<qType> newOutput = this->queueOutputTemp.template DeQue<qType>();
-
-                    uint16_t blockCount = thisLen / this->headDim;
-                    uint16_t blockLen = this->headDim * sizeof(qType) / DATA_ALIGN_BYTES;
-                    uint16_t dstStride = (this->headNum - 1) * this->headDim * sizeof(qType) / DATA_ALIGN_BYTES;
-                    DataCopyParams copyParams{blockCount, blockLen, 0, dstStride};
-
-                    int64_t curOutOffset = seqOffset[batchIdx] * this->headNum * this->headDim +
-                        headIdx * this->headDim + (totalLen - remain) * this->headNum;
-                    DataCopy<qType>(this->qGrad[curOutOffset], newOutput, copyParams);
-                    this->queueOutputTemp.template FreeTensor(newOutput);
-
-                    remain = remain - thisLen;
-                }
+                DoCopyBlockQGrad(batchIdx, headIdx, curSeqLen, seqOffset);
             }
         }
     }
