@@ -190,7 +190,7 @@ public:
         }
     }
 
-    __aicore__ void PermuteData(GlobalTensor<uint8_t> srcGT, GlobalTensor<uint8_t> dstGT, uint8_t datasize)
+    __aicore__ void PermuteData(GlobalTensor<uint8_t> dstGT, GlobalTensor<uint8_t> srcGT, uint8_t datasize)
     {
         int64_t outValueOffset = 0;
         int64_t currentT = 0;
@@ -256,9 +256,9 @@ public:
                 offsetGt.GetValue((i - 1) * UB_ALIGN);
         }
         PermuteLengths();
-        PermuteData(valuesGT, outIndicesGT, sizeof(VType));
+        PermuteData(outIndicesGT, valuesGT, sizeof(VType));
         if (enableWeights) {
-            PermuteData(weightsGT, outWeightsGT, sizeof(float));
+            PermuteData(outWeightsGT, weightsGT, sizeof(float));
         }
     }
 
