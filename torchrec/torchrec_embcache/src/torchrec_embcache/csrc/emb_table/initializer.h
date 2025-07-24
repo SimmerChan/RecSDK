@@ -106,7 +106,10 @@ public:
         RandomVPool& staticPool = staticPoolMap.find(cfg.embDim)->second;
         std::uniform_int_distribution<int> uDistribution(0, cfg.initializerRadomPoolSize - 1);
         int randIndex = uDistribution(engine);
-        memcpy_s(embeddingAddr, staticPool[randIndex].data(), cfg.embDim * sizeof(float));
+        auto ret = memcpy_s(embeddingAddr, staticPool[randIndex].data(), cfg.embDim * sizeof(float));
+        if (ret != EOK) {
+            throw std::runtime_error("memset_s failed when init optimizer data.");
+        }
     }
 };
 
