@@ -76,7 +76,6 @@ void EmbMemoryPool::Produce()
         Initializer::InitEmbeddingWeightsLimitPool(reinterpret_cast<float*>(newAddr), embConfig);
     }
     
-
     // init optimizer
     auto ret = memset_s(reinterpret_cast<float*>(newAddr) + embConfig.embDim,
                         embConfig.optimNum * embConfig.embDim * sizeof(float),
