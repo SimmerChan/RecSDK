@@ -6,6 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 #include <any>
+#include <cstdint>
 #include <vector>
 
 #include <pybind11/pybind11.h>
@@ -58,12 +59,15 @@ void AddEmbConfigModule(pybind11::module_& m)
     pybind11::class_<EmbConfig>(m, "EmbConfig")
         .def(py::init<>())
         .def(pybind11::init<const std::string&, InitializerType, int32_t, int32_t, int64_t,
-                            float, float, float, float, AdmitAndEvictConfig>(),
+                            float, float, float, float, AdmitAndEvictConfig>(), int32_t,
              py::arg("table_name"), py::arg("initializer_type"),
              py::arg("emb_dim"), py::arg("optim_num"), py::arg("cache_size"),
              py::arg("weight_init_min"), py::arg("weight_init_max"),
              py::arg("weight_init_mean"), py::arg("weight_init_stddev"),
-             py::arg("admit_and_evict_config") = AdmitAndEvictConfig())
+             py::arg("admit_and_evict_config") = AdmitAndEvictConfig(),
+             py::arg("initializer_radom_pool") = -1,
+             py::arg("seed") = 0
+          )
         .def_readwrite("table_name", &EmbConfig::tableName)
         .def_readwrite("initializer_type", &EmbConfig::initializerType)
         .def_readwrite("emb_dim", &EmbConfig::embDim)

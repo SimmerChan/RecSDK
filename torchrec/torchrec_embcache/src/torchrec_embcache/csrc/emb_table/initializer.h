@@ -17,7 +17,6 @@
 #include "common/common.h"
 
 namespace Embcache {
-constexpr int GENERATE_RANDOM_POOL = 100;
 struct WeightInitParam {
     float mean;
     float stddev;
@@ -86,9 +85,11 @@ public:
                                    unsigned int seed = std::random_device{}())
     {
         static std::vector<std::vector<float>> staticPool;
+        static std::default_random_engine engine;
         if (staticPool.empty()) {
-            staticPool = std::vector<std::vector<float>>(GENERATE_RANDOM_POOL, std::vector<float>(cfg.embDim));
-            for(size_t i = 0; i < GENERATE_RANDOM_POOL; i++) {
+            engine.seed(seed);
+            staticPool = std::vector<std::vector<float>>(cfg.initializerRadomPool, std::vector<float>(cfg.embDim));
+            for(size_t i = 0; i < cfg.initializerRadomPool; i++) {
                 if (cfg.initializerType == InitializerType::LINEAR) {
                     Initializer::GenLinear(staticPool[i].data(), cfg.embDim, cfg.weightInitMin, cfg.weightInitMax);
                 } else if (cfg.initializerType == InitializerType::TRUNCATED_NORMAL) {
@@ -100,13 +101,10 @@ public:
                 }
             }
         } else {
-            std::default_random_engine engine;
-            engine.seed(seed);
-            std::uniform_int_distribution<int> uDistribution(0, GENERATE_RANDOM_POOL);
+            std::uniform_int_distribution<int> uDistribution(0, cfg.initializerRadomPool-1);
             int randIndex = uDistribution(engine);
-            std::memcpy(embeddingAddr, staticPool[randIndex], cfg.embDim);
+            std::memcpy(embeddingAddr, staticPool[randIndex].data(), cfg.embDim*sizeof(float));
         }
- 
     }
 };
 
