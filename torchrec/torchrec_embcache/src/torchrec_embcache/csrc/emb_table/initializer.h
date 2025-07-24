@@ -8,7 +8,9 @@
 #ifndef EMBEDDING_CACHE_EMB_TABLE_INITIALIZER_H
 #define EMBEDDING_CACHE_EMB_TABLE_INITIALIZER_H
 
+#include <c10/util/flat_hash_map.h>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <random>
 #include <algorithm>
@@ -16,6 +18,7 @@
 
 #include "common/common.h"
 
+using RandomVPool = std::vector<std::vector<float>>;
 namespace Embcache {
 struct WeightInitParam {
     float mean;
@@ -81,15 +84,14 @@ public:
         }
     }
 
-    static void InitEmbeddingWeightsLimitPool(float* embeddingAddr, const EmbConfig& cfg,
-                                   unsigned int seed = std::random_device{}())
+    static void InitEmbeddingWeightsLimitPool(float* embeddingAddr, const EmbConfig& cfg)
     {
-        static std::vector<std::vector<float>> staticPool;
+        static ska::flat_hash_map<int32_t, RandomVPool> staticPoolMap;
         static std::default_random_engine engine;
-        if (staticPool.empty()) {
+        if (staticPoolMap.find(cfg.embDim)==staticPoolMap.end()) {
             engine.seed(abs(cfg.seed));
-            staticPool = std::vector<std::vector<float>>(cfg.initializerRadomPoolSize, std::vector<float>(cfg.embDim));
-            for(size_t i = 0; i < cfg.initializerRadomPoolSize; i++) {
+            RandomVPool staticPool = std::vector<std::vector<float>>(cfg.initializerRadomPoolSize, std::vector<float>(cfg.embDim));
+            for(int i = 0; i < cfg.initializerRadomPoolSize; i++) {
                 if (cfg.initializerType == InitializerType::LINEAR) {
                     Initializer::GenLinear(staticPool[i].data(), cfg.embDim, cfg.weightInitMin, cfg.weightInitMax);
                 } else if (cfg.initializerType == InitializerType::TRUNCATED_NORMAL) {
@@ -100,7 +102,9 @@ public:
                     Initializer::GenUniform(staticPool[i].data(), cfg.embDim, cfg.weightInitMin, cfg.weightInitMax);
                 }
             }
-        } 
+            staticPoolMap.emplace(cfg.embDim,staticPool);
+        }
+        RandomVPool& staticPool = staticPoolMap.find(cfg.embDim)->second;
         std::uniform_int_distribution<int> uDistribution(0, cfg.initializerRadomPoolSize-1);
         int randIndex = uDistribution(engine);
         std::memcpy(embeddingAddr, staticPool[randIndex].data(), cfg.embDim*sizeof(float));
