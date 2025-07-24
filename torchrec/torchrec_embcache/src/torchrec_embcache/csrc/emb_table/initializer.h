@@ -100,11 +100,10 @@ public:
                     Initializer::GenUniform(staticPool[i].data(), cfg.embDim, cfg.weightInitMin, cfg.weightInitMax);
                 }
             }
-        } else {
-            std::uniform_int_distribution<int> uDistribution(0, cfg.initializerRadomPoolSize-1);
-            int randIndex = uDistribution(engine);
-            std::memcpy(embeddingAddr, staticPool[randIndex].data(), cfg.embDim*sizeof(float));
-        }
+        } 
+        std::uniform_int_distribution<int> uDistribution(0, cfg.initializerRadomPoolSize-1);
+        int randIndex = uDistribution(engine);
+        std::memcpy(embeddingAddr, staticPool[randIndex].data(), cfg.embDim*sizeof(float));
     }
 };
 
