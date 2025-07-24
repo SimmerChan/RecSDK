@@ -87,9 +87,9 @@ public:
         static std::vector<std::vector<float>> staticPool;
         static std::default_random_engine engine;
         if (staticPool.empty()) {
-            engine.seed(seed);
-            staticPool = std::vector<std::vector<float>>(cfg.initializerRadomPool, std::vector<float>(cfg.embDim));
-            for(size_t i = 0; i < cfg.initializerRadomPool; i++) {
+            engine.seed(abs(cfg.seed));
+            staticPool = std::vector<std::vector<float>>(cfg.initializerRadomPoolSize, std::vector<float>(cfg.embDim));
+            for(size_t i = 0; i < cfg.initializerRadomPoolSize; i++) {
                 if (cfg.initializerType == InitializerType::LINEAR) {
                     Initializer::GenLinear(staticPool[i].data(), cfg.embDim, cfg.weightInitMin, cfg.weightInitMax);
                 } else if (cfg.initializerType == InitializerType::TRUNCATED_NORMAL) {
@@ -101,7 +101,7 @@ public:
                 }
             }
         } else {
-            std::uniform_int_distribution<int> uDistribution(0, cfg.initializerRadomPool-1);
+            std::uniform_int_distribution<int> uDistribution(0, cfg.initializerRadomPoolSize-1);
             int randIndex = uDistribution(engine);
             std::memcpy(embeddingAddr, staticPool[randIndex].data(), cfg.embDim*sizeof(float));
         }
