@@ -14,7 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+import itertools
 import sysconfig
+from typing import Iterable, Callable
 
 import pytest
 import torch
@@ -25,42 +27,63 @@ import numpy as np
 DEVICE = "npu:7"
 torch.ops.load_library(f"{sysconfig.get_path('purelib')}/libfbgemm_npu_api.so")
 
+PTYPE = [np.int32]
+LTYPE = [np.int64, np.int32]
+VTYPE = [np.int64, np.int32, np.float32]
+WTYPE = [None, np.float32]
+TYPE_LIST = itertools.product(PTYPE, LTYPE, VTYPE, WTYPE)
 
-def get_result(permute, lengths, values, weights, permuted_lengths_sum, device: str = 'cpu'):
-    tensors = {
-        'permute': torch.from_numpy(permute),
-        'lengths': torch.from_numpy(lengths),
-        'values': torch.from_numpy(values),
-        'weights': torch.from_numpy(weights) if isinstance(weights, torch.Tensor) else None
-    }
+T = np.random.randint(2, 30, 4)
+EXTRA_T = [0, 3, 8]
+B = [2048, 20480, 204800]
+SHAPE_LIST = itertools.product(T, EXTRA_T, B)
+
+def tensors_apply(data: Iterable, func: Callable):
+    return (func(value) if isinstance(value, torch.Tensor) else value for value in data)
+
+
+def get_result(tensors: dict, device: str = 'cpu'):
+    tensors = dict(tensors_apply(tensors.items(), lambda x, y: (x, torch.from_numpy(y))))
 
     if device and device.startswith('npu'):
         torch.npu.set_device(device)
-        tensors = {k: v.to(device) if isinstance(v, torch.Tensor) else None for k, v in tensors.items()}
+        tensors = dict(tensors_apply(tensors.items(), lambda x, y: (x, y.to(device))))
 
-    results = torch.ops.fbgemm.permute_2D_sparse_data(
-        permuted_lengths_sum=permuted_lengths_sum, **tensors
-    )
-    return tuple(result.cpu() if isinstance(result, torch.Tensor) else result for result in results)
+    results = torch.ops.fbgemm.permute_2D_sparse_data(**tensors)
+    return tuple(tensors_apply(results, lambda x: x.cpu()))
 
 
-@pytest.mark.parametrize("ltype", [np.int64, np.int32])
-@pytest.mark.parametrize("vtype", [np.int64, np.int32, np.float32])
-@pytest.mark.parametrize("wtype", [None, np.float32])
-@pytest.mark.parametrize("permute_dim", np.random.randint(2, 30, 4).tolist())
-@pytest.mark.parametrize("extra_permute_dim", [0, 3, 8])
-@pytest.mark.parametrize("permuted_lengths_sum", [True, False])
-@pytest.mark.parametrize("lengths", [2048, 20480, 204800])
-def test_permute2d_sparse_data(ltype, vtype, wtype, permute_dim, extra_permute_dim, permuted_lengths_sum, lengths):
-    permute = np.arange(permute_dim, dtype=np.int32)
+@pytest.mark.parametrize("types", TYPE_LIST)
+@pytest.mark.parametrize("shapes", SHAPE_LIST)
+@pytest.mark.parametrize("enable_permuted_sum", [True, False])
+def test_permute2d_sparse_data(types, shapes, enable_permuted_sum):
+    """
+    Params:
+        permute: (T) dtype=int32
+        lenghts: (T + T', B) dtype=ltype
+                 L = lengths[:T].sum()
+        values: (L) dtype=vtype
+        weights: (L) dtype=fp32
+    """
+    ptype, ltype, vtype, wtype = types
+    t, extra_t, b = shapes
+
+    permute = np.arange(t, dtype=ptype)
     np.random.shuffle(permute)
-    values = np.arange(0, (permute_dim + extra_permute_dim) * lengths, dtype=vtype)
-    weights = np.arange(0, (permute_dim + extra_permute_dim) * lengths, dtype=wtype) if wtype else None
-    lengths = np.ones((permute_dim + extra_permute_dim, lengths), dtype=ltype)
-    permuted_lengths_sum = lengths[:permute_dim].sum() if permuted_lengths_sum else None
+    lengths = np.ones((t + extra_t, b), dtype=ltype)
+    values = np.arange(0, (t + extra_t) * b, dtype=vtype)
+    weights = np.arange(0, (t + extra_t) * b, dtype=wtype) if wtype else None
+    permuted_lengths_sum = lengths[:t].sum() if enable_permuted_sum else None
+    params = {
+        'permute': permute,
+        'lengths': lengths,
+        'values': values,
+        'weights': weights,
+        'permuted_lengths_sum': permuted_lengths_sum
+    }
 
-    golden = get_result(permute, lengths, values, weights, permuted_lengths_sum)
-    result = get_result(permute, lengths, values, weights, permuted_lengths_sum, DEVICE)
+    golden = get_result(params)
+    result = get_result(params, DEVICE)
 
     for gt, pred in zip(golden, result):
         assert type(gt) is type(pred)
