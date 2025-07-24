@@ -59,7 +59,6 @@ public:
         }
 
         std::mt19937 gen(seed);
-        
         std::normal_distribution<float> distrib(weightParam.mean, weightParam.stddev);
 
         std::generate(array, array + size, [&]() {
@@ -76,8 +75,7 @@ public:
         if (cfg.initializerType == InitializerType::LINEAR) {
             Initializer::GenLinear(embeddingAddr, cfg.embDim, cfg.weightInitMin, cfg.weightInitMax);
         } else if (cfg.initializerType == InitializerType::TRUNCATED_NORMAL) {
-            WeightInitParam param = {cfg.weightInitMean, cfg.weightInitStddev,
-                                     cfg.weightInitMin, cfg.weightInitMax};
+            WeightInitParam param = {cfg.weightInitMean, cfg.weightInitStddev, cfg.weightInitMin, cfg.weightInitMax};
             Initializer::GenTruncatedNormal(embeddingAddr, cfg.embDim, param);
         } else {
             Initializer::GenUniform(embeddingAddr, cfg.embDim, cfg.weightInitMin, cfg.weightInitMax);
@@ -88,26 +86,27 @@ public:
     {
         static ska::flat_hash_map<int32_t, RandomVPool> staticPoolMap;
         static std::default_random_engine engine;
-        if (staticPoolMap.find(cfg.embDim)==staticPoolMap.end()) {
+        if (staticPoolMap.find(cfg.embDim) == staticPoolMap.end()) {
             engine.seed(abs(cfg.seed));
-            RandomVPool staticPool = std::vector<std::vector<float>>(cfg.initializerRadomPoolSize, std::vector<float>(cfg.embDim));
-            for(int i = 0; i < cfg.initializerRadomPoolSize; i++) {
+            RandomVPool staticPool =
+                std::vector<std::vector<float>>(cfg.initializerRadomPoolSize, std::vector<float>(cfg.embDim));
+            for (int i = 0; i < cfg.initializerRadomPoolSize; i++) {
                 if (cfg.initializerType == InitializerType::LINEAR) {
                     Initializer::GenLinear(staticPool[i].data(), cfg.embDim, cfg.weightInitMin, cfg.weightInitMax);
                 } else if (cfg.initializerType == InitializerType::TRUNCATED_NORMAL) {
-                    WeightInitParam param = {cfg.weightInitMean, cfg.weightInitStddev,
-                                            cfg.weightInitMin, cfg.weightInitMax};
+                    WeightInitParam param = {cfg.weightInitMean, cfg.weightInitStddev, cfg.weightInitMin,
+                                             cfg.weightInitMax};
                     Initializer::GenTruncatedNormal(staticPool[i].data(), cfg.embDim, param);
                 } else {
                     Initializer::GenUniform(staticPool[i].data(), cfg.embDim, cfg.weightInitMin, cfg.weightInitMax);
                 }
             }
-            staticPoolMap.emplace(cfg.embDim,staticPool);
+            staticPoolMap.emplace(cfg.embDim, staticPool);
         }
         RandomVPool& staticPool = staticPoolMap.find(cfg.embDim)->second;
-        std::uniform_int_distribution<int> uDistribution(0, cfg.initializerRadomPoolSize-1);
+        std::uniform_int_distribution<int> uDistribution(0, cfg.initializerRadomPoolSize - 1);
         int randIndex = uDistribution(engine);
-        memcpy_s(embeddingAddr, staticPool[randIndex].data(), cfg.embDim*sizeof(float));
+        memcpy_s(embeddingAddr, staticPool[randIndex].data(), cfg.embDim * sizeof(float));
     }
 };
 
