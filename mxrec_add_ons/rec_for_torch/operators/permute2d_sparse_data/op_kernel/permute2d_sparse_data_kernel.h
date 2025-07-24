@@ -190,7 +190,7 @@ public:
         }
     }
 
-    __aicore__ void PermuteValues()
+    __aicore__ void PermuteData(GlobalTensor<uint8_t> srcGT, GlobalTensor<uint8_t> dstGT, uint8_t datasize)
     {
         int64_t outValueOffset = 0;
         int64_t currentT = 0;
@@ -212,10 +212,10 @@ public:
             int64_t startIndex = *(totalOffsetPtr + currentT * UB_ALIGN);
             int64_t endIndex = *(totalOffsetPtr + (currentT + 1) * UB_ALIGN);
 
-            int64_t valuesStartIndex = (startIndex + offsetOfThisCore) * sizeof(VType);
-            int64_t outValueStartIndex = (outValueOffset + offsetOfThisCore) * sizeof(VType);
+            int64_t valuesStartIndex = (startIndex + offsetOfThisCore) * datasize;
+            int64_t outValueStartIndex = (outValueOffset + offsetOfThisCore) * datasize;
 
-            int64_t remainLen =  valueLenOfThisCore * sizeof(VType);
+            int64_t remainLen =  valueLenOfThisCore * datasize;
             while (remainLen > 0) {
                 int64_t thisLen = blockLen;
                 if (remainLen < blockLen) {
@@ -223,66 +223,18 @@ public:
                 }
                 LocalTensor<uint8_t> inputTensor = inQueueX.AllocTensor<uint8_t>();
 
-                CpGm2Local(inputTensor, valuesGT[valuesStartIndex], thisLen);
+                CpGm2Local(inputTensor, srcGT[valuesStartIndex], thisLen);
                 inQueueX.EnQue(inputTensor);
                 LocalTensor<uint8_t> outPutTensor = inQueueX.DeQue<uint8_t>();
 
-                CpLocal2Gm(outIndicesGT[outValueStartIndex], outPutTensor, thisLen);
+                CpLocal2Gm(dstGT[outValueStartIndex], outPutTensor, thisLen);
 
                 outValueStartIndex += thisLen;
                 valuesStartIndex += thisLen;
                 inQueueX.FreeTensor(outPutTensor);
                 remainLen = remainLen - thisLen;
             }
-            outValueOffset+=tLen;
-        }
-    }
-
-    __aicore__ void PermuteWeights()
-    {
-        int64_t outWeightOffset = 0;
-        int64_t currentT = 0;
-        for (int64_t i = 0; i < permuteDim0; i++) {
-            currentT = *(permutePtr + i);
-            int64_t tLen = *(totalOffsetPtr + (currentT + 1) * UB_ALIGN) - *(totalOffsetPtr + currentT * UB_ALIGN);
-            int64_t baseCoreLen = tLen / coreNum;
-            int64_t tailLen = tLen % coreNum;
-
-            // calculate current core permute weights offset
-            if (GetBlockIdx() < tailLen) {
-                weightLenOfThisCore = baseCoreLen + 1;
-                offsetOfThisCore = GetBlockIdx() * (baseCoreLen + 1);
-            } else {
-                weightLenOfThisCore = baseCoreLen;
-                offsetOfThisCore = tailLen * (baseCoreLen + 1) + (GetBlockIdx() - tailLen) * baseCoreLen;
-            }
-
-            int64_t startIndex = *(totalOffsetPtr + currentT * UB_ALIGN);
-            int64_t endIndex = *(totalOffsetPtr + (currentT + 1) * UB_ALIGN);
-
-            int64_t weightsStartIndex = (startIndex + offsetOfThisCore) * sizeof(float);
-            int64_t outWeightStartIndex = (outWeightOffset + offsetOfThisCore) * sizeof(float);
-
-            int64_t remainLen =  weightLenOfThisCore * sizeof(float);
-            while (remainLen > 0) {
-                int64_t thisLen = blockLen;
-                if (remainLen < blockLen) {
-                    thisLen = remainLen;
-                }
-                LocalTensor<uint8_t> inputTensor = inQueueX.AllocTensor<uint8_t>();
-
-                CpGm2Local(inputTensor, weightsGT[weightsStartIndex], thisLen);
-                inQueueX.EnQue(inputTensor);
-                LocalTensor<uint8_t> outPutTensor = inQueueX.DeQue<uint8_t>();
-
-                CpLocal2Gm(outWeightsGT[outWeightStartIndex], outPutTensor, thisLen);
-
-                outWeightStartIndex += thisLen;
-                weightsStartIndex += thisLen;
-                inQueueX.FreeTensor(outPutTensor);
-                remainLen = remainLen - thisLen;
-            }
-            outWeightOffset += tLen;
+            outValueOffset += tLen;
         }
     }
 
@@ -304,9 +256,9 @@ public:
                 offsetGt.GetValue((i - 1) * UB_ALIGN);
         }
         PermuteLengths();
-        PermuteValues();
+        PermuteData(valuesGT, outIndicesGT, sizeof(VType));
         if (enableWeights) {
-            PermuteWeights();
+            PermuteData(weightsGT, outWeightsGT, sizeof(float));
         }
     }
 

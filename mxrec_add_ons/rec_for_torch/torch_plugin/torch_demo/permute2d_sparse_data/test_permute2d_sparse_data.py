@@ -25,26 +25,24 @@ import numpy as np
 DEVICE = "npu:7"
 torch.ops.load_library(f"{sysconfig.get_path('purelib')}/libfbgemm_npu_api.so")
 
+
 def get_result(permute, lengths, values, weights, permuted_lengths_sum, device: str = 'cpu'):
     tensors = {
         'permute': torch.from_numpy(permute),
         'lengths': torch.from_numpy(lengths),
         'values': torch.from_numpy(values),
-        'weights': torch.from_numpy(weights) if weights is not None else None
+        'weights': torch.from_numpy(weights) if isinstance(weights, torch.Tensor) else None
     }
 
     if device and device.startswith('npu'):
         torch.npu.set_device(device)
-        tensors = {k: v.to(device) if v is not None else None for k, v in tensors.items()}
+        tensors = {k: v.to(device) if isinstance(v, torch.Tensor) else None for k, v in tensors.items()}
 
     results = torch.ops.fbgemm.permute_2D_sparse_data(
         permuted_lengths_sum=permuted_lengths_sum, **tensors
     )
+    return tuple(result.cpu() if isinstance(result, torch.Tensor) else result for result in results)
 
-    if device:
-        torch.npu.synchronize()
-
-    return tuple(r.cpu() if isinstance(r, torch.Tensor) else r for r in results)
 
 @pytest.mark.parametrize("ltype", [np.int64, np.int32])
 @pytest.mark.parametrize("vtype", [np.int64, np.int32, np.float32])
