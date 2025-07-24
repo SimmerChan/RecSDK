@@ -8,13 +8,16 @@
 #ifndef EMBEDDING_CACHE_EMB_TABLE_INITIALIZER_H
 #define EMBEDDING_CACHE_EMB_TABLE_INITIALIZER_H
 
+#include <cstddef>
+#include <cstring>
 #include <random>
 #include <algorithm>
+#include <vector>
 
 #include "common/common.h"
 
 namespace Embcache {
-
+constexpr int GENERATE_RANDOM_POOL = 100;
 struct WeightInitParam {
     float mean;
     float stddev;
@@ -54,6 +57,7 @@ public:
         }
 
         std::mt19937 gen(seed);
+        
         std::normal_distribution<float> distrib(weightParam.mean, weightParam.stddev);
 
         std::generate(array, array + size, [&]() {
@@ -76,6 +80,33 @@ public:
         } else {
             Initializer::GenUniform(embeddingAddr, cfg.embDim, cfg.weightInitMin, cfg.weightInitMax);
         }
+    }
+
+    static void InitEmbeddingWeightsLimitPool(float* embeddingAddr, const EmbConfig& cfg,
+                                   unsigned int seed = std::random_device{}())
+    {
+        static std::vector<std::vector<float>> staticPool;
+        if (staticPool.empty()) {
+            staticPool = std::vector<std::vector<float>>(GENERATE_RANDOM_POOL, std::vector<float>(cfg.embDim));
+            for(size_t i = 0; i < GENERATE_RANDOM_POOL; i++) {
+                if (cfg.initializerType == InitializerType::LINEAR) {
+                    Initializer::GenLinear(staticPool[i].data(), cfg.embDim, cfg.weightInitMin, cfg.weightInitMax);
+                } else if (cfg.initializerType == InitializerType::TRUNCATED_NORMAL) {
+                    WeightInitParam param = {cfg.weightInitMean, cfg.weightInitStddev,
+                                            cfg.weightInitMin, cfg.weightInitMax};
+                    Initializer::GenTruncatedNormal(staticPool[i].data(), cfg.embDim, param);
+                } else {
+                    Initializer::GenUniform(staticPool[i].data(), cfg.embDim, cfg.weightInitMin, cfg.weightInitMax);
+                }
+            }
+        } else {
+            std::default_random_engine engine;
+            engine.seed(seed);
+            std::uniform_int_distribution<int> uDistribution(0, GENERATE_RANDOM_POOL);
+            int randIndex = uDistribution(engine);
+            std::memcpy(embeddingAddr, staticPool[randIndex], cfg.embDim);
+        }
+ 
     }
 };
 
