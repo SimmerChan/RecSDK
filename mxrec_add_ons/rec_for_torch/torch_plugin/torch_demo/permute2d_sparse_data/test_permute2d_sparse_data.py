@@ -38,19 +38,16 @@ EXTRA_T = [0, 3, 8]
 B = [2048, 20480, 204800]
 SHAPE_LIST = itertools.product(T, EXTRA_T, B)
 
-def tensors_apply(data: Iterable, func: Callable):
-    return (func(value) if isinstance(value, torch.Tensor) else value for value in data)
-
 
 def get_result(tensors: dict, device: str = 'cpu'):
-    tensors = dict(tensors_apply(tensors.items(), lambda x, y: (x, torch.from_numpy(y))))
+    tensors = {k: torch.from_numpy(v) if isinstance(v, np.ndarray) else v for k, v in tensors.items()}
 
     if device and device.startswith('npu'):
         torch.npu.set_device(device)
-        tensors = dict(tensors_apply(tensors.items(), lambda x, y: (x, y.to(device))))
+        tensors = {k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in tensors.items()}
 
     results = torch.ops.fbgemm.permute_2D_sparse_data(**tensors)
-    return tuple(tensors_apply(results, lambda x: x.cpu()))
+    return [x.cpu() if isinstance(x, torch.Tensor) else x for x in results]
 
 
 @pytest.mark.parametrize("types", TYPE_LIST)
