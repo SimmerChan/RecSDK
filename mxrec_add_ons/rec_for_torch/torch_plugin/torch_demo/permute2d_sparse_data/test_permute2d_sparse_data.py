@@ -16,7 +16,6 @@
 # ==============================================================================
 import itertools
 import sysconfig
-from typing import Iterable, Callable
 
 import pytest
 import torch

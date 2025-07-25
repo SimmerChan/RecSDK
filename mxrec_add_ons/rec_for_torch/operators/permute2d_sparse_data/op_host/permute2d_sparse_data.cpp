@@ -36,11 +36,11 @@ namespace optiling {
     static ge::graphStatus TilingFunc(gert::TilingContext* context)
     {
         Permute2dSparseDataTilingData tiling;
+        OPS_LOG_E_IF_NULL("context", context, return ge::GRAPH_FAILED);
 
         bool enableWeights = (context->GetOptionalInputTensor(WEIGHTS_INDEX) != nullptr);
         tiling.set_enableWeights(enableWeights);
 
-        OPS_LOG_E_IF_NULL("context", context, return ge::GRAPH_FAILED);
         OPS_LOG_E_IF_NULL("permuteShape", context->GetInputShape(PERMUTE_INDEX), return ge::GRAPH_FAILED);
         OPS_LOG_E_IF_NULL("lengthsShape", context->GetInputShape(LENGTH_INDEX), return ge::GRAPH_FAILED);
         OPS_LOG_E_IF_NULL("valuesShape", context->GetInputShape(VALUES_INDEX), return ge::GRAPH_FAILED);
