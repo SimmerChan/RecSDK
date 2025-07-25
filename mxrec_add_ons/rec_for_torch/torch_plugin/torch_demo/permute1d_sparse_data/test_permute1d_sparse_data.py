@@ -14,16 +14,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-import sysconfig
 
+import sysconfig
 import pytest
 import torch
 import torch_npu
 import fbgemm_gpu
 
+# 定义用到的卡和so位置
 DEVICE = "npu:7"
 torch.ops.load_library(f"{sysconfig.get_path('purelib')}/libfbgemm_npu_api.so")
 
+# 定义参数数据类型列表
 lengths_type = [torch.int64, torch.int32, torch.int64, torch.int32]
 values_type = [torch.int64, torch.int32, torch.float32, torch.float32]
 
@@ -45,6 +47,7 @@ def create_values_tensor(cnt, dtype):
     return input_values
 
 
+# CPU调用permute_1D_sparse_data算子
 def get_result(permute, lengths, values):
     (permuted_lengths, permuted_values, permuted_weights) = (
         torch.ops.fbgemm.permute_1D_sparse_data(permute, lengths, values)
@@ -52,7 +55,7 @@ def get_result(permute, lengths, values):
 
     return permuted_lengths.cpu(), permuted_values.cpu()
 
-
+# NPU调用permute_1D_sparse_data算子
 def get_result_npu(permute, lengths, values):
     torch.npu.set_device(DEVICE)
     input_permute_torch = permute.to(DEVICE)
