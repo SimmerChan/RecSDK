@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <vector>
 
+#include "securec.h"
 #include "common/common.h"
 
 using RandomVPool = std::vector<std::vector<float>>;
@@ -107,7 +108,7 @@ public:
         std::uniform_int_distribution<int> uDistribution(0, cfg.initializerRadomPoolSize - 1);
         int randIndex = uDistribution(engine);
         auto ret = memcpy_s(embeddingAddr, cfg.embDim * sizeof(float), staticPool[randIndex].data(), cfg.embDim * sizeof(float));
-        if (ret != EOK) {
+        if (ret != 0) {
             throw std::runtime_error("memset_s failed when init optimizer data.");
         }
     }
