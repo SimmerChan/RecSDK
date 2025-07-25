@@ -14,11 +14,13 @@
 using namespace at;
 using namespace std;
 
-void check_tensor_non_empty(const Tensor &tensor, const std::string &name) {
+void check_tensor_non_empty(const Tensor &tensor, const std::string &name)
+{
     TORCH_CHECK(tensor.defined(), name, " tensor must be non-empty");
 }
 
-void check_tensor_dim(const Tensor &tensor, int64_t expected_dim, const std::string &name) {
+void check_tensor_dim(const Tensor &tensor, int64_t expected_dim, const std::string &name)
+{
     TORCH_CHECK(tensor.dim() == expected_dim, name, " must be ", expected_dim, "D");
 }
 
