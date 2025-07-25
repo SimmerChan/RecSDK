@@ -22,7 +22,7 @@ import torch_npu
 import fbgemm_gpu
 
 # 定义用到的卡和so位置
-DEVICE = "npu:7"
+DEVICE = "npu:0"
 torch.ops.load_library(f"{sysconfig.get_path('purelib')}/libfbgemm_npu_api.so")
 
 # 定义参数数据类型列表
