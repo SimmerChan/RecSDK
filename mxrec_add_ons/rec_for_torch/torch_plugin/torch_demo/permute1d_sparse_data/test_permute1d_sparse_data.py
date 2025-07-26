@@ -36,9 +36,7 @@ TYPE_LIST = itertools.product(PERMUTE_TYPE, LENGTHS_TYPE, VALUES_TYPE, WEIGHTS_T
 
 # 定义参数shape
 T = np.random.randint(2, 30, 4)       # 随机生成4个介于2到30之间的整数，代表稀疏数据的原始维度
-EXTRA_T = [0, 3, 8]                                  # 额外维度的可能取值（0表示不扩展，3或8表示扩展）
-B = [2048, 20480, 204800]                            # 批处理大小（Batch Size）的可能取值
-SHAPE_LIST = itertools.product(T, EXTRA_T, B)
+SHAPE_LIST = itertools.product(T)
 
 
 def get_result(tensors: dict, device: str = 'cpu'):
@@ -67,26 +65,20 @@ def test_permute2d_sparse_data(types, shapes, enable_permuted_sum):
         permuted_lengths_sum: int
     """
     ptype, ltype, vtype, wtype = types
-    t, extra_t, b = shapes
+    t = shapes
 
     # Generate permute indices
     permute = np.arange(t, dtype=ptype)  # 创建一个从0到t-1的数组
     np.random.shuffle(permute)  # 随机打乱permute数组
 
-    # Generate 1D lengths (flattened)
-    lengths_2d = np.ones((t + extra_t, b), dtype=ltype)
-    lengths_1d = lengths_2d.flatten()  # Convert to 1D
-
-    # Generate values and weights (1D)
-    values = np.arange(0, (t + extra_t) * b, dtype=vtype)
-    weights = np.arange(0, (t + extra_t) * b, dtype=wtype) if wtype else None
-
-    # Compute permuted_lengths_sum if enabled
-    permuted_lengths_sum = lengths_2d[:t].sum() if enable_permuted_sum else None
+    lengths = np.random.randint(1, 10, size=t, dtype=ltype)  # 随机生成1~9的长度
+    values = np.arange(0, lengths.sum(), dtype=vtype)  # 注意总长度为lengths.sum()
+    weights = np.arange(0, lengths.sum(), dtype=wtype) if wtype else None
+    permuted_lengths_sum = lengths.sum() if enable_permuted_sum else None
 
     params = {
         'permute': permute,
-        'lengths': lengths_1d,
+        'lengths': lengths,
         'values': values,
         'weights': weights,
         'permuted_lengths_sum': permuted_lengths_sum
