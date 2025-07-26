@@ -14,76 +14,88 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-
+import itertools
 import sysconfig
+
 import pytest
 import torch
 import torch_npu
 import fbgemm_gpu
+import numpy as np
 
-# 定义用到的卡和so位置
+# 定义用到的卡以及so库的位置
 DEVICE = "npu:0"
 torch.ops.load_library(f"{sysconfig.get_path('purelib')}/libfbgemm_npu_api.so")
 
-# 定义参数数据类型列表
-lengths_type = [torch.int64, torch.int32, torch.int64, torch.int32]
-values_type = [torch.int64, torch.int32, torch.float32, torch.float32]
+# 定义参数数据类型
+PERMUTE_TYPE = [np.int32]
+LENGTHS_TYPE = [np.int64, np.int32]
+VALUES_TYPE = [np.int64, np.int32, np.float32]
+WEIGHTS_TYPE = [None, np.float32]                    # weights为可选参数
+TYPE_LIST = itertools.product(PERMUTE_TYPE, LENGTHS_TYPE, VALUES_TYPE, WEIGHTS_TYPE)
+
+# 定义参数shape
+T = np.random.randint(2, 30, 4)       # 随机生成4个介于2到30之间的整数，代表稀疏数据的原始维度
+EXTRA_T = [0, 3, 8]                                  # 额外维度的可能取值（0表示不扩展，3或8表示扩展）
+B = [2048, 20480, 204800]                            # 批处理大小（Batch Size）的可能取值
+SHAPE_LIST = itertools.product(T, EXTRA_T, B)
 
 
-def create_permute_tensor(cnt):
-    return torch.arange(cnt, dtype=torch.int32)[torch.randperm(cnt)]
+def get_result(tensors: dict, device: str = 'cpu'):
+    tensors = {k: torch.from_numpy(v) if isinstance(v, np.ndarray) else v for k, v in tensors.items()}
+
+    # 根据device类型进行npu转换
+    if device and device.startswith('npu'):
+        torch.npu.set_device(device)
+        tensors = {k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in tensors.items()}
+
+    results = torch.ops.fbgemm.permute_1D_sparse_data(**tensors)
+    return [x.cpu() if isinstance(x, torch.Tensor) else x for x in results]
 
 
-def create_lengths_tensor(cnt, dtype, max_value=10):
-    return torch.randint(1, max_value, size=[cnt], dtype=dtype)
+@pytest.mark.parametrize("types", TYPE_LIST)
+@pytest.mark.parametrize("shapes", SHAPE_LIST)
+@pytest.mark.parametrize("enable_permuted_sum", [True, False])
+def test_permute2d_sparse_data(types, shapes, enable_permuted_sum):
+    """
+    Params:
+        permute: (T) dtype=int32
+        lengths: (T) dtype=ltype
+                L = lengths.sum()
+        values: (L) dtype=vtype
+        weights: (L) dtype=fp32
+        permuted_lengths_sum: int
+    """
+    ptype, ltype, vtype, wtype = types
+    t, extra_t, b = shapes
 
+    # Generate permute indices
+    permute = np.arange(t, dtype=ptype)  # 创建一个从0到t-1的数组
+    np.random.shuffle(permute)  # 随机打乱permute数组
 
-def create_values_tensor(cnt, dtype):
-    values_construct_param = dict(size=[cnt], dtype=dtype)
-    if dtype.is_floating_point:
-        input_values = torch.rand(**values_construct_param)
-    else:
-        input_values = torch.randint(-10, 10, **values_construct_param)
-    return input_values
+    # Generate 1D lengths (flattened)
+    lengths_2d = np.ones((t + extra_t, b), dtype=ltype)
+    lengths_1d = lengths_2d.flatten()  # Convert to 1D
 
+    # Generate values and weights (1D)
+    values = np.arange(0, (t + extra_t) * b, dtype=vtype)
+    weights = np.arange(0, (t + extra_t) * b, dtype=wtype) if wtype else None
 
-# CPU调用permute_1D_sparse_data算子
-def get_result(permute, lengths, values):
-    (permuted_lengths, permuted_values, permuted_weights) = (
-        torch.ops.fbgemm.permute_1D_sparse_data(permute, lengths, values)
-    )
+    # Compute permuted_lengths_sum if enabled
+    permuted_lengths_sum = lengths_2d[:t].sum() if enable_permuted_sum else None
 
-    return permuted_lengths.cpu(), permuted_values.cpu()
+    params = {
+        'permute': permute,
+        'lengths': lengths_1d,
+        'values': values,
+        'weights': weights,
+        'permuted_lengths_sum': permuted_lengths_sum
+    }
 
+    golden = get_result(params)
+    result = get_result(params, DEVICE)
 
-# NPU调用permute_1D_sparse_data算子
-def get_result_npu(permute, lengths, values):
-    torch.npu.set_device(DEVICE)
-    input_permute_torch = permute.to(DEVICE)
-    input_lengths_torch = lengths.to(DEVICE)
-    input_values_torch = values.to(DEVICE)
-
-    torch.npu.synchronize()
-    (permuted_lengths, permuted_values, permuted_weights) = (
-        torch.ops.fbgemm.permute_1D_sparse_data(
-            input_permute_torch, input_lengths_torch, input_values_torch,
-        )
-    )
-    torch.npu.synchronize()
-    return permuted_lengths.cpu(), permuted_values.cpu()
-
-
-@pytest.mark.parametrize("type_list", zip(lengths_type, values_type))
-@pytest.mark.parametrize("permute_len", [2, 3, 5, 16, 64, 256, 1024])
-@pytest.mark.parametrize("max_lengths", [2048, 20480, 204800])
-def test_permute1d_sparse_data(type_list, permute_len, max_lengths):
-    ltype, vtype = type_list
-    input_permute = create_permute_tensor(permute_len)
-    input_lengths = create_lengths_tensor(permute_len, dtype=ltype, max_value=max_lengths)
-    input_values = create_values_tensor(sum(input_lengths), dtype=vtype)
-
-    golden = get_result(input_permute, input_lengths, input_values)
-    result = get_result_npu(input_permute, input_lengths, input_values)
-
-    assert torch.allclose(golden[0], result[0], atol=1e-5)
-    assert torch.allclose(golden[1], result[1], atol=1e-5)
+    for gt, pred in zip(golden, result):
+        assert type(gt) is type(pred)
+        if isinstance(gt, torch.Tensor) and isinstance(pred, torch.Tensor):
+            assert torch.allclose(gt, pred, atol=1e-5)
