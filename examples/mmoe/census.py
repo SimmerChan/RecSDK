@@ -24,6 +24,9 @@ import pandas as pd
 import numpy as np
 import tensorflow as tf
 
+from mx_rec.saver.saver import validate_read_file
+from mx_rec.saver.patch import validate_save_path
+
 # All column names of census dataset
 COLUMN_NAMES = [
         'age', 'class_worker', 'det_ind_code', 'det_occ_code', 'education',
@@ -108,6 +111,8 @@ def get_fea_map(fea_map_path: str = None, split_file_list: List = None) -> Dict[
         fea_map_path = os.path.join(os.path.dirname(split_file_list[0]), "fea_map.pkl")
     if os.path.exists(fea_map_path) and fea_map_path[-4:] == 'json':
         with open(fea_map_path, 'rb') as f:
+            # check file is valid
+            validate_read_file(fea_map_path)
             fea_map = json.load(f)
         return fea_map
     fea_map = {}
@@ -121,8 +126,10 @@ def get_fea_map(fea_map_path: str = None, split_file_list: List = None) -> Dict[
                 fea_map.setdefault(fea_column, {})
                 if fea_map.get(fea_column).get(fea_value) is None:
                     fea_map.get(fea_column).update({fea_value: len(fea_map.get(fea_column))})
-            
-    fea_map_path = os.path.join(os.path.dirname(split_file_list[0]), "fea_map.pkl")
+
+    fea_map_dir = os.path.dirname(split_file_list[0])
+    validate_save_path(fea_map_dir)
+    fea_map_path = os.path.join(fea_map_dir, "fea_map.pkl")
 
     modes = 0o640
     flags = os.O_WRONLY | os.O_TRUNC | os.O_CREAT
