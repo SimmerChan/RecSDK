@@ -32,14 +32,14 @@ PERMUTE_TYPE = [np.int32]
 LENGTHS_TYPE = [np.int64, np.int32]
 VALUES_TYPE = [np.int64, np.int32, np.float32]
 WEIGHTS_TYPE = [None, np.float32]                    # weights为可选参数
-TYPE_LIST = itertools.product(PERMUTE_TYPE, LENGTHS_TYPE, VALUES_TYPE, WEIGHTS_TYPE)
+TYPE_LIST = list(itertools.product(PERMUTE_TYPE, LENGTHS_TYPE, VALUES_TYPE, WEIGHTS_TYPE))
 
 # 定义参数shape
 # permute, lengths shape为[T]
 # extra_t用于测试permute和lengths不等长的情况，lengths[T + extra_T]
 T = np.random.randint(2, 30, 4)       # 随机生成4个介于2到30之间的整数，代表稀疏数据的原始维度
 EXTRA_T = [0, 3, 8]
-SHAPE_LIST = itertools.product(T, EXTRA_T)
+SHAPE_LIST = list(itertools.product(T, EXTRA_T))
 
 
 def get_result(tensors: dict, device: str = 'cpu'):
@@ -92,3 +92,32 @@ def test_permute1d_sparse_data(types, shapes, enable_permuted_sum):
         assert type(gt) is type(pred)
         if isinstance(gt, torch.Tensor) and isinstance(pred, torch.Tensor):
             assert torch.allclose(gt, pred, atol=1e-5)
+
+
+@pytest.mark.parametrize("types", TYPE_LIST)
+@pytest.mark.parametrize("shapes", SHAPE_LIST)
+def test_longer_permute(types, shapes):
+    ptype, ltype, vtype, wtype = types
+    t, extra_t = shapes
+
+    # 显式检查输入有效性
+    if extra_t <= 0:
+        return
+
+    permute = np.arange(t + extra_t, dtype=ptype)
+    np.random.shuffle(permute)
+    lengths = np.ones(t, dtype=ltype)
+    values = np.arange(0, t, dtype=vtype)
+    weights = np.arange(0, t, dtype=wtype) if wtype else None
+
+    params = {
+        'permute': permute,
+        'lengths': lengths,
+        'values': values,
+        'weights': weights,
+        'permuted_lengths_sum': None
+    }
+
+    with pytest.raises(RuntimeError):
+        result = get_result(params, DEVICE)
+        assert result is not None
