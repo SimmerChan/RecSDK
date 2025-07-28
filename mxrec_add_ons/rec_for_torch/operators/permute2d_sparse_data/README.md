@@ -68,12 +68,13 @@ c) 算子约束说明：
 
 ## 算子逻辑
 ```
-import numpy as np
+import torch
+import fbgemm_gpu
 def permute2d_sparse_data(permute, lengths, values):
     (permuted_lengths, permuted_values, permuted_weights) = (
         torch.ops.fbgemm.permute_2D_sparse_data(permute, lengths, values)
     )
 
-    return permuted_lengths, permuted_values
+    return permuted_lengths, permuted_values, permuted_weights
 
 ```
