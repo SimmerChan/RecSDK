@@ -93,7 +93,7 @@ tuple<Tensor, Tensor, c10::optional<Tensor>> permute1d_sparse_data_impl_npu(
     EXEC_NPU_CMD(aclnnPermute2dSparseData, permuteConti, lengthsConti, valuesConti, weightsConti, outValuesLen,
         outLengths, outValues, outWeights);
 
-    return make_tuple(outLengths, outValues, at::Tensor());
+    return make_tuple(outLengths, outValues, outWeights);
 }
 
 // 在NPU命名空间里面注册permute_1D_sparse_data
