@@ -48,14 +48,14 @@ source /usr/local/Ascend/ascend-toolkit/set_env.sh
 a) 算子的主要功能是实现fbgemm的permute2d_sparse_data, 实现了对二维稀疏数据进行重排。
 b) 算子参数说明：
 
-* permute: 重排的顺序参数tensor；
-* lengths: 待重排长度参数；
-* values: 待重排值参数；
-* weights: 暂不支持使用
-* permute_sum: 暂不支持使用
+* permute: 重排的顺序参数tensor;
+* lengths: 待重排长度参数;
+* values: 待重排值参数;
+* weights: 可选待重排值参数，与values操作完全相同;
+* permute_sum: values/weights有效长度;
 * permuted_lengths: 输出， 重排后长度tensor;
-* permuted_values: 输出，重排后值tensor;
-* permuted_weights: 输出， 暂不支持
+* permuted_values: 输出，重排后的values;
+* permuted_weights: 输出，重排后的weights;
 
 c) 算子约束说明：
 
