@@ -57,7 +57,7 @@ def get_result(tensors: dict, device: str = 'cpu'):
 @pytest.mark.parametrize("types", TYPE_LIST)
 @pytest.mark.parametrize("shapes", SHAPE_LIST)
 @pytest.mark.parametrize("enable_permuted_sum", [True, False])
-def test_permute2d_sparse_data(types, shapes, enable_permuted_sum):
+def test_permute1d_sparse_data(types, shapes, enable_permuted_sum):
     """
     Params:
         permute: (T) dtype=int32
