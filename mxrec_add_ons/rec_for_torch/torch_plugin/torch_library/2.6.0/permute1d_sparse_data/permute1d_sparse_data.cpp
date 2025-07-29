@@ -16,7 +16,8 @@ using namespace std;
 
 void check_tensor_non_empty(const Tensor &tensor, const std::string &name)
 {
-    TORCH_CHECK(tensor.defined(), name, " tensor must be non-empty");
+    TORCH_CHECK(tensor.defined(), name, " tensor must be defined");
+    TORCH_CHECK(tensor.numel() > 0, name, " tensor must be non-empty");
 }
 
 void check_tensor_dim(const Tensor &tensor, int64_t expected_dim, const std::string &name)
