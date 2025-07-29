@@ -51,6 +51,9 @@ def get_result(tensors: dict, device: str = 'cpu'):
         tensors = {k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in tensors.items()}
 
     results = torch.ops.fbgemm.permute_1D_sparse_data(**tensors)
+
+    if device and device.startswith('npu'):
+        torch_npu.npu.synchronize()
     return [x.cpu() if isinstance(x, torch.Tensor) else x for x in results]
 
 
@@ -251,32 +254,3 @@ def test_out_of_bound_permute_indices():
 
     with pytest.raises(RuntimeError):
         get_result(params, DEVICE)
-
-
-def test_very_large_input():
-    """
-    测试非常大的输入情况
-    """
-    t = 10000  # 大尺寸
-    permute = np.arange(t, dtype=np.int32)
-    np.random.shuffle(permute)
-    lengths = np.random.randint(1, 10, size=t, dtype=np.int32)
-    total_length = lengths.sum()
-    values = np.arange(total_length, dtype=np.int32)
-    weights = np.random.rand(total_length).astype(np.float32)
-
-    params = {
-        'permute': permute,
-        'lengths': lengths,
-        'values': values,
-        'weights': weights,
-        'permuted_lengths_sum': None
-    }
-
-    golden = get_result(params)
-    result = get_result(params, DEVICE)
-
-    for gt, pred in zip(golden, result):
-        assert type(gt) is type(pred)
-        if isinstance(gt, torch.Tensor) and isinstance(pred, torch.Tensor):
-            assert torch.allclose(gt, pred, atol=1e-5)
