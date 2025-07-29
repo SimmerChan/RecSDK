@@ -172,7 +172,8 @@ def test_empty_input():
     }
 
     with pytest.raises(RuntimeError):
-        get_result(params, DEVICE)
+        result = get_result(params, DEVICE)
+        assert result is not None
 
 
 def test_invalid_weights_length():
@@ -189,7 +190,8 @@ def test_invalid_weights_length():
     }
 
     with pytest.raises(RuntimeError):
-        get_result(params, DEVICE)
+        result = get_result(params, DEVICE)
+        assert result is not None
 
 
 def test_2d_input():
@@ -206,7 +208,8 @@ def test_2d_input():
     }
 
     with pytest.raises(RuntimeError):
-        get_result(params, DEVICE)
+        result = get_result(params, DEVICE)
+        assert result is not None
 
 
 def test_large_permuted_lengths_sum():
