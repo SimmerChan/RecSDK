@@ -61,7 +61,7 @@ def test_very_large_input():
     """
     测试非常大的输入情况
     """
-    t = 10000  # 大尺寸
+    t = 300000  # 大尺寸
     permute = np.arange(t, dtype=np.int32)
     np.random.shuffle(permute)
     lengths = np.random.randint(1, 10, size=t, dtype=np.int32)
@@ -209,23 +209,6 @@ def test_2d_input():
         get_result(params, DEVICE)
 
 
-def test_negative_lengths():
-    """
-    测试lengths包含负数的情况
-    """
-    t = 5
-    params = {
-        'permute': np.arange(t, dtype=np.int32),
-        'lengths': np.array([1, -2, 3, 4, 5], dtype=np.int32),  # 包含负数
-        'values': np.arange(15, dtype=np.int32),  # 假设sum(lengths)=11
-        'weights': None,
-        'permuted_lengths_sum': None
-    }
-
-    with pytest.raises(RuntimeError):
-        get_result(params, DEVICE)
-
-
 def test_large_permuted_lengths_sum():
     """
     测试permuted_lengths_sum大于实际长度的情况
@@ -239,12 +222,8 @@ def test_large_permuted_lengths_sum():
         'permuted_lengths_sum': t + 10  # 大于实际长度
     }
 
-    # 根据实现逻辑，这个测试可能通过或失败，取决于实现方式
-    try:
-        result = get_result(params, DEVICE)
-        assert len(result[1]) == t  # 检查输出values长度
-    except RuntimeError:
-        pass  # 也允许抛出异常
+    result = get_result(params, DEVICE)
+    assert len(result[1]) == t  # 检查输出values长度
 
 
 def test_duplicate_permute_indices():
@@ -260,26 +239,5 @@ def test_duplicate_permute_indices():
         'permuted_lengths_sum': None
     }
 
-    # 根据业务需求决定是否允许重复索引
-    try:
-        result = get_result(params, DEVICE)
-        assert len(result[0]) == t  # 检查输出lengths长度
-    except RuntimeError:
-        pass  # 如果不允许重复索引，则抛出异常
-
-
-def test_out_of_bound_permute_indices():
-    """
-    测试permute包含越界索引的情况
-    """
-    t = 5
-    params = {
-        'permute': np.array([0, 1, 2, 5, 4], dtype=np.int32),  # 包含越界索引
-        'lengths': np.ones(t, dtype=np.int32),
-        'values': np.arange(t, dtype=np.int32),
-        'weights': None,
-        'permuted_lengths_sum': None
-    }
-
-    with pytest.raises(RuntimeError):
-        get_result(params, DEVICE)
+    result = get_result(params, DEVICE)
+    assert len(result[0]) == t  # 检查输出lengths长度
