@@ -57,6 +57,35 @@ def get_result(tensors: dict, device: str = 'cpu'):
     return [x.cpu() if isinstance(x, torch.Tensor) else x for x in results]
 
 
+def test_very_large_input():
+    """
+    测试非常大的输入情况
+    """
+    t = 10000  # 大尺寸
+    permute = np.arange(t, dtype=np.int32)
+    np.random.shuffle(permute)
+    lengths = np.random.randint(1, 10, size=t, dtype=np.int32)
+    total_length = lengths.sum()
+    values = np.arange(total_length, dtype=np.int32)
+    weights = np.random.rand(total_length).astype(np.float32)
+
+    params = {
+        'permute': permute,
+        'lengths': lengths,
+        'values': values,
+        'weights': weights,
+        'permuted_lengths_sum': None
+    }
+
+    golden = get_result(params)
+    result = get_result(params, DEVICE)
+
+    for gt, pred in zip(golden, result):
+        assert type(gt) is type(pred)
+        if isinstance(gt, torch.Tensor) and isinstance(pred, torch.Tensor):
+            assert torch.allclose(gt, pred, atol=1e-5)
+
+
 @pytest.mark.parametrize("types", TYPE_LIST)
 @pytest.mark.parametrize("shapes", SHAPE_LIST)
 @pytest.mark.parametrize("enable_permuted_sum", [True, False])
