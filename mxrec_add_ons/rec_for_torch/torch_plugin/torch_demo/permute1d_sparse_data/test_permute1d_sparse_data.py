@@ -194,7 +194,7 @@ def test_invalid_weights_length():
 
 def test_2d_input():
     """
-    测试输入为2D的情况(应该报错)
+    测试输入为2D的情况
     """
     t = 5
     params = {
