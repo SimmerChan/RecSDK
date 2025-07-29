@@ -59,6 +59,7 @@ def get_result(tensors: dict, device: str = 'cpu'):
 @pytest.mark.parametrize("enable_permuted_sum", [True, False])
 def test_permute1d_sparse_data(types, shapes, enable_permuted_sum):
     """
+    测试正常情况下的permute1d_sparse_data算子功能
     Params:
         permute: (T) dtype=int32
         lengths: (T + T') dtype=ltype
@@ -97,6 +98,9 @@ def test_permute1d_sparse_data(types, shapes, enable_permuted_sum):
 @pytest.mark.parametrize("types", TYPE_LIST)
 @pytest.mark.parametrize("shapes", SHAPE_LIST)
 def test_longer_permute(types, shapes):
+    """
+    测试permute长度大于lengths的情况，应该抛出异常
+    """
     ptype, ltype, vtype, wtype = types
     t, extra_t = shapes
 
@@ -121,3 +125,158 @@ def test_longer_permute(types, shapes):
     with pytest.raises(RuntimeError):
         result = get_result(params, DEVICE)
         assert result is not None
+
+
+def test_empty_input():
+    """
+    测试空输入的情况
+    """
+    params = {
+        'permute': np.array([], dtype=np.int32),
+        'lengths': np.array([], dtype=np.int32),
+        'values': np.array([], dtype=np.int32),
+        'weights': None,
+        'permuted_lengths_sum': None
+    }
+
+    with pytest.raises(RuntimeError):
+        get_result(params, DEVICE)
+
+
+def test_invalid_weights_length():
+    """
+    测试weights长度与values不匹配的情况
+    """
+    t = 5
+    params = {
+        'permute': np.arange(t, dtype=np.int32),
+        'lengths': np.ones(t, dtype=np.int32),
+        'values': np.arange(t, dtype=np.int32),
+        'weights': np.arange(t + 1, dtype=np.float32),  # 长度不匹配
+        'permuted_lengths_sum': None
+    }
+
+    with pytest.raises(RuntimeError):
+        get_result(params, DEVICE)
+
+
+def test_2d_input():
+    """
+    测试输入为2D的情况(应该报错)
+    """
+    t = 5
+    params = {
+        'permute': np.arange(t, dtype=np.int32).reshape(1, -1),  # 2D permute
+        'lengths': np.ones(t, dtype=np.int32),
+        'values': np.arange(t, dtype=np.int32),
+        'weights': None,
+        'permuted_lengths_sum': None
+    }
+
+    with pytest.raises(RuntimeError):
+        get_result(params, DEVICE)
+
+
+def test_negative_lengths():
+    """
+    测试lengths包含负数的情况
+    """
+    t = 5
+    params = {
+        'permute': np.arange(t, dtype=np.int32),
+        'lengths': np.array([1, -2, 3, 4, 5], dtype=np.int32),  # 包含负数
+        'values': np.arange(15, dtype=np.int32),  # 假设sum(lengths)=11
+        'weights': None,
+        'permuted_lengths_sum': None
+    }
+
+    with pytest.raises(RuntimeError):
+        get_result(params, DEVICE)
+
+
+def test_large_permuted_lengths_sum():
+    """
+    测试permuted_lengths_sum大于实际长度的情况
+    """
+    t = 5
+    params = {
+        'permute': np.arange(t, dtype=np.int32),
+        'lengths': np.ones(t, dtype=np.int32),
+        'values': np.arange(t, dtype=np.int32),
+        'weights': None,
+        'permuted_lengths_sum': t + 10  # 大于实际长度
+    }
+
+    # 根据实现逻辑，这个测试可能通过或失败，取决于实现方式
+    try:
+        result = get_result(params, DEVICE)
+        assert len(result[1]) == t  # 检查输出values长度
+    except RuntimeError:
+        pass  # 也允许抛出异常
+
+
+def test_duplicate_permute_indices():
+    """
+    测试permute包含重复索引的情况
+    """
+    t = 5
+    params = {
+        'permute': np.array([0, 1, 1, 3, 4], dtype=np.int32),  # 包含重复索引
+        'lengths': np.ones(t, dtype=np.int32),
+        'values': np.arange(t, dtype=np.int32),
+        'weights': None,
+        'permuted_lengths_sum': None
+    }
+
+    # 根据业务需求决定是否允许重复索引
+    try:
+        result = get_result(params, DEVICE)
+        assert len(result[0]) == t  # 检查输出lengths长度
+    except RuntimeError:
+        pass  # 如果不允许重复索引，则抛出异常
+
+
+def test_out_of_bound_permute_indices():
+    """
+    测试permute包含越界索引的情况
+    """
+    t = 5
+    params = {
+        'permute': np.array([0, 1, 2, 5, 4], dtype=np.int32),  # 包含越界索引
+        'lengths': np.ones(t, dtype=np.int32),
+        'values': np.arange(t, dtype=np.int32),
+        'weights': None,
+        'permuted_lengths_sum': None
+    }
+
+    with pytest.raises(RuntimeError):
+        get_result(params, DEVICE)
+
+
+def test_very_large_input():
+    """
+    测试非常大的输入情况
+    """
+    t = 10000  # 大尺寸
+    permute = np.arange(t, dtype=np.int32)
+    np.random.shuffle(permute)
+    lengths = np.random.randint(1, 10, size=t, dtype=np.int32)
+    total_length = lengths.sum()
+    values = np.arange(total_length, dtype=np.int32)
+    weights = np.random.rand(total_length).astype(np.float32)
+
+    params = {
+        'permute': permute,
+        'lengths': lengths,
+        'values': values,
+        'weights': weights,
+        'permuted_lengths_sum': None
+    }
+
+    golden = get_result(params)
+    result = get_result(params, DEVICE)
+
+    for gt, pred in zip(golden, result):
+        assert type(gt) is type(pred)
+        if isinstance(gt, torch.Tensor) and isinstance(pred, torch.Tensor):
+            assert torch.allclose(gt, pred, atol=1e-5)
