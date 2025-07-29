@@ -70,6 +70,7 @@ c) 算子约束说明：
 * permute为1维tensor，lengths为二维tensor，且permute的第一维长度小于等于lengths的第一维长度;
 * 未指定permute_sum时，values/weights长度为lengths中所有数据长度之和;
 * 指定permute_sum时，values/weights长度为permute_sum;
+* weights和values长度相同;
 * 算子参数均会在NPU显存中存放，请根据显存大小合理设置参数长度。
 
 ## 算子逻辑
