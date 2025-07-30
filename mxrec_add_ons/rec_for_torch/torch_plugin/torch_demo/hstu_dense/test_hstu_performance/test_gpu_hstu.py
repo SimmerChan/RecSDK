@@ -824,8 +824,8 @@ def main():
     df_res.loc[select_mask, "gpu_bw_time"] = mean(bwd_time_list[1:])
     df_res.to_csv(result_csv, index=False)
 
-    logger.info(f"Forward gpu time = {mean(fwd_time_list[1:])}ms")
-    logger.info(f"Backward gpu time = {mean(bwd_time_list[1:])}ms") 
+    logger.info(f"Forward gpu time = {mean(fwd_time_list[1:])} ms")
+    logger.info(f"Backward gpu time = {mean(bwd_time_list[1:])} ms") 
         
 
 if __name__ == "__main__":
