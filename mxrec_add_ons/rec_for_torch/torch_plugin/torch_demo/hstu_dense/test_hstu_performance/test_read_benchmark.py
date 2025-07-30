@@ -92,8 +92,8 @@ hstu_required_params = {
     "alpha": float,
     "has_rab": bool,
     "has_drab": bool,
-    "window_size": int,
-    "run_benchmark": bool,
+    "window_size": tuple,
+    "run_benchmark": int,
     "dtype": torch.dtype,
     "full_batch": bool,
     "is_delta_q": bool
@@ -110,7 +110,6 @@ def read_and_validate_parameters(index_to_find, csv_file_path=benchmark_csv):
             else:
                 try:
                     value = ast.literal_eval(value)
-                    return required_type(value)
                 except ValueError:
                     pass
         try:
@@ -133,10 +132,10 @@ def read_and_validate_parameters(index_to_find, csv_file_path=benchmark_csv):
     
     params = row.iloc[0].to_dict()
 
-    for key, value in params.items():
-        params[key] = convert_value(value, hstu_required_params[key])
+    for key, reuquired_type in hstu_required_params.items():
+        params[key] = convert_value(params[key], reuquired_type)
 
-    params["image_name"] = f"{index_to_find}_{df.shape.item()}"
+    params["image_name"] = f"{index_to_find}_{df.shape_info.item()}"
     logger.info(f"{index_to_find}: {params}")
     
     return params
@@ -157,7 +156,7 @@ def init_result_csv_index(index_to_find):
         return
     
     new_row = pd.DataFrame([benchmark_row], columns=column_left, index=[index_to_find])
-    df_res = pd.concat([df_res], new_row)
+    df_res = pd.concat([df_res, new_row])
     df_res.to_csv(result_csv, index=False)
     logger.info(f"Create index {index_to_find} in {result_csv}")    
 
@@ -167,4 +166,4 @@ if __name__ == "__main__":
     df, params = read_and_validate_parameters(index_to_find)
     init_result_csv_index(index_to_find)
     df_res = pd.read_csv(result_csv)
-    logger.info(f"{df_res.loc[df_res['index'] == index_to_find]}")
+    logger.info(df_res)
