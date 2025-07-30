@@ -42,11 +42,22 @@ def read_data_from_path(save_dir, device='cpu'):
     k = torch.load(os.path.join(save_dir, "k.pth"), map_location=device)
     v = torch.load(os.path.join(save_dir, "v.pth"), map_location=device)
     bias = torch.load(os.path.join(save_dir, "bias.pth"), map_location=device)
-    seq_offset =  torch.load(os.path.join(save_dir, "seq_offset.pth"), map_location=device)
-    mask = torch.load(os.path.join(save_dir, "invalid_attn_max.pth"), map_location=device)
-    max_seq_len = torch.load(os.path.join(save_dir, "input_max_length.pth"), map_location=device)
+    seq_offset =  torch.load(os.path.join(save_dir, "offset.pth"), map_location=device)
+    mask = torch.load(os.path.join(save_dir, "invalid_attn_mask.pth"), map_location=device)
+    max_seq_len = torch.load(os.path.join(save_dir, "input_max_length.pth"), map_location=device).item()
     alpha = torch.load(os.path.join(save_dir, "alpha.pth"), map_location=device)
     data_type = torch.load(os.path.join(save_dir, "data_type.pth"), map_location=device)
+    logger.info(f"grad_shape: {grad.size()} grad_type:{grad.dtype}")
+    logger.info(f"q_shape: {q.size()} q_type:{q.dtype}")
+    logger.info(f"k_shape: {k.size()} k_type:{k.dtype}")
+    logger.info(f"v_shape: {v.size()} v_type:{v.dtype}")
+    logger.info(f"bias_shape: {bias.size()} bias_type:{bias.dtype}")
+    logger.info(f"seq_offset_shape: {seq_offset.size()} seq_offset_type:{seq_offset.dtype}")
+    logger.info(f"invalid_attn_mask_shape: {mask.size()} mask_type:{mask.dtype}")
+    logger.info(f"imax_seq_len:{max_seq_len}")
+    logger.info(f"alpha:{alpha}")
+    logger.info(f"data_type:{data_type}")
+
 
     return grad, q, k, v, bias, mask, max_seq_len, seq_offset, q.shape[2], q.shape[1], data_type, alpha
 
