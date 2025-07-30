@@ -32,7 +32,6 @@ if __name__ == "__main__":
 
     init_result_csv_index(args.index)
     df_res = pd.read_csv(result_csv)
-    df_res['index'] == args.index = df_res['index'] == args.index
     if df_res.loc[df_res['index'] == args.index, "npu_fw_time"].notna().all() and \
         df_res.loc[df_res['index'] == args.index, "npu_bw_time"].notna().all():
         logger.info(f"Benchmark with index {args.index} is already done. Exit.")
@@ -56,5 +55,5 @@ if __name__ == "__main__":
 
     df_res.to_csv(result_csv, index=False)
     
-    logger.info(f"Forward time {df_res.loc[df_res['index'] == args.index, "npu_fw_time"]} ms")
-    logger.info(f"Backward time {df_res.loc[df_res['index'] == args.index, "npu_bw_time"]} ms")
+    logger.info(f"Forward time {df_res.loc[df_res['index'] == args.index, 'npu_fw_time']} ms")
+    logger.info(f"Backward time {df_res.loc[df_res['index'] == args.index, 'npu_bw_time']} ms")
