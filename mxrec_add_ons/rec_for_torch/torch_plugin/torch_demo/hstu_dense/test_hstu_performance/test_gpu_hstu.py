@@ -45,11 +45,11 @@ from test_read_benchmark import logger, read_and_validate_parameters, DATASETS, 
 
 PERFORMANCE = False
 if PERFORMANCE:
-    g_iteration = 100
+    g_iterations = 100
     g_profiler_step_start = 20
     loop = 3
 else:
-    g_iteration = 1
+    g_iterations = 1
     g_profiler_step_start = 0
     loop = 3
 
@@ -215,6 +215,7 @@ def gen_seq(length, mean_value, max_value, total_sum=None):
         other_values = np.ceil(random_ratios * remaining_sum)
         max_value = total_sum - sum(other_values)
         sequence = np.append(other_values, max_value)
+        return sequence
     else:
         logger.info(f"gen_seq with total_sum {total_sum}")
         if length == 1:
@@ -227,6 +228,7 @@ def gen_seq(length, mean_value, max_value, total_sum=None):
         sequence = [mean_value] * (length -2)
         sequence.extend([max_value, min_val])
         return np.array(sequence)
+
 
 
 def generate_input(
@@ -250,23 +252,16 @@ def generate_input(
     has_context = max_context_len > 0
     has_target = max_target_len > 0
     target_group_size > 1
+    num_contexts_all = gen_seq(batch_size, 673, max_context_len + max_seq_len_k + max_target_len, total_len)
+    num_contexts_all = torch.from_numpy(num_contexts_all).to("cuda").int()
     # Generate lengths for context
     if max_context_len > 0:
-        if full_batch:
-            num_contexts = (
-                torch.ones(
-                    (batch_size,), device=torch.device("cuda"), dtype=torch.int32
-                )
-                * max_context_len
+        num_contexts = (
+            torch.ones(
+                (batch_size,), device=torch.device("cuda"), dtype=torch.int32
             )
-        else:
-            num_contexts = torch.randint(
-                0,
-                max_context_len + 1,
-                size=(batch_size,),
-                dtype=torch.int32,
-                device=torch.device("cuda"),
-            )
+            * max_context_len
+        )
     else:
         num_contexts = torch.zeros(
             (batch_size,), dtype=torch.int32, device=torch.device("cuda")
@@ -277,7 +272,7 @@ def generate_input(
     seq_offsets_c[1:] = torch.cumsum(num_contexts, dim=0)
 
     # Generate lengths for historial qkv
-    if full_batch:
+    if full_batch or (full_batch is False and max_seq_len_k == 0):
         lengths_k = (
             torch.ones((batch_size,), device=torch.device("cuda"), dtype=torch.int32)
             * max_seq_len_k
@@ -301,13 +296,7 @@ def generate_input(
                 * max_target_len
             )
         else:
-            num_targets = torch.randint(
-                0,
-                max_target_len + 1,
-                size=(batch_size,),
-                dtype=torch.int32,
-                device=torch.device("cuda"),
-            )
+            num_targets = num_contexts_all - num_contexts
     else:
         num_targets = torch.zeros(
             (batch_size,), dtype=torch.int32, device=torch.device("cuda")
@@ -384,19 +373,20 @@ def generate_input(
         .uniform_(-1, 1)
         .requires_grad_()
     ).to(dtype)
-
-    rab = torch.empty(
-        (
-            batch_size,
-            heads if heads_rab is None else heads_rab,
-            max_context_len + max_seq_len_k + max_target_len,
-            max_context_len + max_seq_len_k + max_target_len,
-        ),
-        dtype=dtype_init,
-        device=torch.device("cuda"),
-    ).uniform_(-1, 1)
+    rab = None
     if has_drab:
+        rab = torch.empty(
+            (
+                batch_size,
+                heads if heads_rab is None else heads_rab,
+                max_context_len + max_seq_len_k + max_target_len,
+                max_context_len + max_seq_len_k + max_target_len,
+            ),
+            dtype=dtype_init,
+            device=torch.device("cuda"),
+        ).uniform_(-1, 1)
         rab = rab.requires_grad_()
+
     if window_size[0] == -1 and window_size[1] == -1:
         attn_mask = None
     else:
@@ -534,7 +524,7 @@ def test_fused_attn(
     full_batch: bool,
     is_delta_q: bool,
     image_name: str,
-) -> None:
+):
     has_context = max_context_len > 0
     has_target = max_target_len > 0
     group_target = target_group_size > 1
@@ -574,7 +564,7 @@ def test_fused_attn(
             0b10,
             0b11
         ] # 0b01 is run hstu benchmark and 0b10 is run torch benchmark, 0b11 is run both and compare precision
-        iterations = g_iteration
+        iterations = g_iterations
         profiler_step_start = g_profiler_step_start
 
         
@@ -597,10 +587,22 @@ def test_fused_attn(
             is_delta_q=is_delta_q,
         )
         
-        L_q, L_k, num_contexts, seq_offsets_q, seq_offsets_k, num_targets, q, k, v, rab, attn_mask, grad= input_data
-
+        (L_q, L_k, num_contexts, seq_offsets_q, seq_offsets_k, num_targets, q, k, v, rab, attn_mask, grad) = input_data
         
-
+        logger.info(f"max_seq_len_q: {max_seq_len_q}, max_seq_len_k: {max_seq_len_k}, max_target_len: {max_target_len}")
+        logger.info(f"q.shape: {q.shape}, k.shape: {k.shape}, v.shape: {v.shape}")
+        logger.info(f"grad.shape: {grad.shape}")
+        logger.info(f"attn_mask.shape: {attn_mask.shape}")
+        logger.info(f"seq_offsets_q: {seq_offsets_q.shape}")
+        logger.info(f"seq_offsets_k: {seq_offsets_k.shape}")
+        logger.info(f"total_max_seq_len_q: {max_seq_len_q + max_context_len + max_target_len}")
+        logger.info(f"total_max_seq_len_k: {max_seq_len_k + max_context_len + max_target_len}")
+        logger.info(f"num_contexts: {num_contexts.shape if (has_context and run_benchmark & 0b01) else None}")
+        logger.info(f"num_targets: {num_targets.shape if (has_target and run_benchmark & 0b01) else None}")
+        logger.info(f"target_group_size: {target_group_size}")
+        logger.info(f"alpha: {alpha}")
+        logger.info(f"rab.shape {rab.shape if has_rab else None}")
+        logger.info(f"is_delta_q: {is_delta_q}")
 
 
         fwd_event_start = torch.cuda.Event(enable_timing=True)
@@ -629,7 +631,6 @@ def test_fused_attn(
                     is_delta_q=is_delta_q,
                 )
             if run_benchmark & 0b10:
-                assert run_benchmark == 1
                 out_torch = _hstu_attention_maybe_from_cache(
                     num_heads=heads,
                     attention_dim=attn_dim,
@@ -697,7 +698,7 @@ def test_fused_attn(
 
         save_dir = DATASETS
         prefix = "gpu_"
-        save_data(attn_mask, dk_hstu, dq_hstu, dtype, dv_hstu, out_hstu, grad, grad, k, max_context_len, max_seq_len_q,
+        save_data(attn_mask, dk_hstu, dq_hstu, dtype, dv_hstu, out_hstu, grad, k, max_context_len, max_seq_len_q,
             max_target_len, num_contexts, num_targets, prefix, q, rab, alpha, save_dir, seq_offsets_q, v, image_name)       
 
 
@@ -705,7 +706,7 @@ def test_fused_attn(
 
 def save_mask(matrix, title='matrix'):
     cmap = mcolors.LinearSegmentedColormap.from_list(
-        'CustomMap', [(1,1,1), (0.8, 0.902, 0.8)], N=256
+        "CustomMap", [(1,1,1), (0.8, 0.902, 0.8)], N=256
     )
 
     MAX_PIXELS = 65536
@@ -717,23 +718,23 @@ def save_mask(matrix, title='matrix'):
     width_pixels = width_inches * DPI
     height_pixels = height_inches * DPI
 
-    if width_inches > MAX_PIXELS or height_inches > MAX_PIXELS:
-        scale_facor = min(MAX_PIXELS / width_pixels, MAX_PIXELS / height_pixels)
-        width_inches *= scale_facor
-        height_inches *= scale_facor
+    if width_pixels > MAX_PIXELS or height_pixels > MAX_PIXELS:
+        scale_factor = min(MAX_PIXELS / width_pixels, MAX_PIXELS / height_pixels)
+        width_inches *= scale_factor
+        height_inches *= scale_factor
     
     fig, ax = plt.subplot(figsize=(width_inches, height_inches))
 
     img = ax.imshow(matrix, cmap = cmap, origin = 'lower', vmin=0, vmax=1, interpolation="nearest")
 
-    ax.xais.set_ticks_postion('top')
-    ax.yais.set_ticks_postion('left')
+    ax.xaxis.set_ticks_position('top')
+    ax.yaxis.set_ticks_position('left')
     ax.invert_yaxis()
 
     plt.colorbar(img)
     plt.title(title)
-    plt.xlabel("seq_len")
-    plt.ylabel("seq_len")
+    plt.xlabel('seq_len')
+    plt.ylabel('seq_len')
     plt.savefig(f"{title}.png", bbox_inches='tight', dpi=DPI)
     plt.close(fig)
 
@@ -753,7 +754,7 @@ def save_data(attn_mask, dk_hstu, dq_hstu, dtype, dv_hstu, out_hstu, grad, g, k,
     torch.save(alpha, os.path.join(save_dir, "alpha.pth"))
     torch.save(attn_mask, os.path.join(save_dir, "invalid_attn_mask.pth"))
     torch.save(torch.tensor(max_context_len + max_seq_len_q + max_target_len), \
-               os.path.join(save_dir, "max_context_len.pth"))
+               os.path.join(save_dir, "input_max_length.pth"))
     torch.save(seq_offsets_q, os.path.join(save_dir, "offset.pth"))
     torch.save(dtype, os.path.join(save_dir, "data_type.pth"))
     torch.save(max_context_len, os.path.join(save_dir, "max_context_len.pth"))
@@ -762,13 +763,13 @@ def save_data(attn_mask, dk_hstu, dq_hstu, dtype, dv_hstu, out_hstu, grad, g, k,
     torch.save(num_contexts, os.path.join(save_dir, "num_contexts.pth"))
     torch.save(num_targets, os.path.join(save_dir, "num_targets.pth"))
     
-    logger.info(f"prefix: {[prefix]}")
+    logger.info(f"prefix: {prefix}")
     
 
-    torch.save(out_hstu.to("cpu"), os.path.join(save_dir, "grad.pth"))
-    torch.save(dq_hstu.to("cpu"), os.path.join(save_dir, "grad.pth"))
-    torch.save(dk_hstu.to("cpu"), os.path.join(save_dir, "grad.pth"))
-    torch.save(dv_hstu.to("cpu"), os.path.join(save_dir, "grad.pth"))
+    torch.save(out_hstu.to("cpu"), os.path.join(save_dir, f"{prefix}out.pth"))
+    torch.save(dq_hstu.to("cpu"), os.path.join(save_dir, f"{prefix}q.pth"))
+    torch.save(dk_hstu.to("cpu"), os.path.join(save_dir, f"{prefix}k.pth"))
+    torch.save(dv_hstu.to("cpu"), os.path.join(save_dir, f"{prefix}v.pth"))
     
     if len(attn_mask.shape) == 2:
         save_matrix = attn_mask.to("cpu")
@@ -779,7 +780,7 @@ def save_data(attn_mask, dk_hstu, dq_hstu, dtype, dv_hstu, out_hstu, grad, g, k,
     
     save_mask(save_matrix, os.path.join(save_dir, image_name))
     
-    with open(os.path.join(save_dir, "complete.flag"), "w") as f:
+    with open(os.path.join(save_dir, "complete.flag"), "w"):
         pass
     logger.info("save complete")
               
@@ -788,7 +789,7 @@ def main():
     parser.add_argument("--index", type=int, default=None, help="index of the benchmark to run")
     args = parser.parse_args()
 
-    _, params = read_and_validate_parameters(args)
+    _, params = read_and_validate_parameters(args.index)
     df_res = pd.read_csv(result_csv)
     select_mask = df_res['index'] == args.index
     if df_res.loc[select_mask, 'gpu_fw_time'].notna().all() and \
