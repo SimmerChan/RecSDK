@@ -26,10 +26,7 @@ UNSUPPORTED_FILE_MODE_MASK = 0o022
 
 
 def check_file_system_is_hdfs(file_path):
-    for prefix in HDFS_FILE_PREFIX:
-        if file_path.startswith(prefix):
-            return True
-    return False
+    return any(file_path.startswith(prefix) for prefix in HDFS_FILE_PREFIX)
 
 
 def validate_read_file(read_file_path):
