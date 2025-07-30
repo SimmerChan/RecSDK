@@ -52,7 +52,7 @@ b) 算子参数说明：
 * lengths: 待重排长度参数;
 * values: 待重排值参数;
 * weights: 可选待重排值参数，与values操作完全相同;
-* permute_sum: values/weights有效长度;
+* permuted_lengths_sum: values/weights有效长度;
 * permuted_lengths: 输出， 重排后长度tensor;
 * permuted_values: 输出，重排后的values;
 * permuted_weights: 输出，重排后的weights;
@@ -67,10 +67,11 @@ c) 算子约束说明：
   * values: int64/int32/fp32
   * weights: fp32
   * permute_sum: int(标量);
-* permute为1维tensor，lengths为二维tensor，且permute的第一维长度小于等于lengths的第一维长度;
-* 未指定permute_sum时，values/weights长度为lengths中所有数据长度之和;
-* 指定permute_sum时，values/weights长度为permute_sum;
-* weights和values长度相同;
+* permute为1维tensor，lengths为二维tensor，且permute的第一维长度小于等于lengths的第一维长度;  
+同时permute中的每个值均满足: >= 0 且 < `lengths.shape[0]`
+* 未指定permuted_lengths_sum时，values/weights长度为lengths中所有数据长度之和;
+* 指定permuted_lengths_sum时，values/weights长度为permuted_lengths_sum;
+* weights和values长度相同，均等于`lengths.sum()`;
 * 算子参数均会在NPU显存中存放，请根据显存大小合理设置参数长度。
 
 ## 算子逻辑
