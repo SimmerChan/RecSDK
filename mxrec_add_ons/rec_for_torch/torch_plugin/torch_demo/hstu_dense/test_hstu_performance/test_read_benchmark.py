@@ -123,7 +123,7 @@ def read_and_validate_parameters(index_to_find, csv_file_path=benchmark_csv):
         logger.error(f"An error occurred: {e}")
         return None
     
-    df = df.loc[df["index" == index_to_find]]
+    df = df.loc[df["index"] == index_to_find]
     row = df[list(hstu_required_params.keys())]
 
     if row.empty:
