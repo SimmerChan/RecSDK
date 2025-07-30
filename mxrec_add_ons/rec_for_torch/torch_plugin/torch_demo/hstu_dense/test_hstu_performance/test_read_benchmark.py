@@ -132,8 +132,8 @@ def read_and_validate_parameters(index_to_find, csv_file_path=benchmark_csv):
     
     params = row.iloc[0].to_dict()
 
-    for key, reuquired_type in hstu_required_params.items():
-        params[key] = convert_value(params[key], reuquired_type)
+    for key, required_type in hstu_required_params.items():
+        params[key] = convert_value(params[key], required_type)
 
     params["image_name"] = f"{index_to_find}_{df.shape_info.item()}"
     logger.info(f"{index_to_find}: {params}")
