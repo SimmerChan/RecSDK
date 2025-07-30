@@ -599,8 +599,10 @@ def test_fused_attn(
         logger.info(f"num_contexts: {num_contexts.shape if (has_context and run_benchmark & 0b01) else None}")
         logger.info(f"num_targets: {num_targets.shape if (has_target and run_benchmark & 0b01) else None}")
         logger.info(f"target_group_size: {target_group_size}")
+        logger.info(f"window_size: {window_size}")
         logger.info(f"alpha: {alpha}")
         logger.info(f"rab.shape {rab.shape if has_rab else None}")
+        logger.info(f"has_drab: {has_drab}")
         logger.info(f"is_delta_q: {is_delta_q}")
 
 
