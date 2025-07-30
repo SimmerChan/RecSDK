@@ -29,7 +29,7 @@ at::Tensor dense_to_jagged_forward_npu(const at::Tensor& dense,
     auto dense_contin = dense.contiguous();
 
     // 从offsets计算预期的total_L
-    int64_t expected_total_L = offsets.back().back().item<int64_t>();
+    int64_t expected_total_L = offsets.back()[-1].item<int64_t>();
 
     // 校验输入的total_L
     if (total_L.has_value()) {
