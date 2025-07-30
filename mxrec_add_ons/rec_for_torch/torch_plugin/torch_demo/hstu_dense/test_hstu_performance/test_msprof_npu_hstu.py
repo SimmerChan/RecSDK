@@ -51,8 +51,8 @@ if __name__ == "__main__":
     forward_row = df_op_stati[df_op_stati["OP Type"] == "HstuDenseForward"]
     backward_row = df_op_stati[df_op_stati["OP Type"] == "HstuDenseBackward"]
     
-    df_res.loc[res_mask, "npu_fw_time"] = forward_row["Avg time(us)"].squeeze() / 1000
-    df_res.loc[res_mask, "npu_bw_time"] = backward_row["Avg time(us)"].squeeze() / 1000
+    df_res.loc[res_mask, "npu_fw_time"] = forward_row["Avg Time(us)"].squeeze() / 1000
+    df_res.loc[res_mask, "npu_bw_time"] = backward_row["Avg Time(us)"].squeeze() / 1000
 
     df_res.to_csv(result_csv, index=False)
     
