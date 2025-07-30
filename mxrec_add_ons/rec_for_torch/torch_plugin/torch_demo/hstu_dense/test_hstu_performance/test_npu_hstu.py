@@ -86,7 +86,7 @@ def _hstu_attention_maybe_from_cache(
         seq_offset = seq_offset.to(device=device).tolist()
 
         if len(invalid_attn_mask.shape) == 2:
-            invalid_attn_mask = invalid_attn_mask.repeat(len(seq_offset) - 1, num_heads, 1, )
+            invalid_attn_mask = invalid_attn_mask.repeat(len(seq_offset) - 1, num_heads, 1, 1)
         if len(invalid_attn_mask.shape) == 4 and invalid_attn_mask.shape[1] == 1:
             invalid_attn_mask = invalid_attn_mask.repeat(1, num_heads, 1, 1)
 
