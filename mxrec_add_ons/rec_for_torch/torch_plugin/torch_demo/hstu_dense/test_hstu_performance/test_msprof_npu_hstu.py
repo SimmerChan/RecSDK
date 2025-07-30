@@ -27,7 +27,7 @@ from test_read_benchmark import logger, read_and_validate_parameters, result_csv
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Read CSV file and run a specific index benchmark")
-    parser.add_argument("--index", type=int, default=None, help="index of the benchmark to run")
+    parser.add_argument("--index", type=int, required=True, help="index of the benchmark to run")
     args = parser.parse_args()
 
     init_result_csv_index(args.index)
