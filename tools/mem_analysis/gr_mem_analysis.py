@@ -92,9 +92,10 @@ B = 1000000000
 bf16 = 2
 fp32 = 4
 
+
 @dataclass
 class ModelConfig:
-    """模型训练和稀疏嵌入的配置参数"""
+    """模型训练和稀疏表的配置参数"""
     tp: int = 2             # 张量并行度
     dp: int = 4             # 数据并行度
     batch_size: int = 1     # 批处理大小
@@ -189,3 +190,4 @@ if __name__ == '__main__':
     logger.info("static mem: %.2f GB" % static_mem)
     logger.info("total model mem: %.2f GB" % total_model_mem)
     logger.info("reserved memory: %.2f GB" % total_reserved)
+
