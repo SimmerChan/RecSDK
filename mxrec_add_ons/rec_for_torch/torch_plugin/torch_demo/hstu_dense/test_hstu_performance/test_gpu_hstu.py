@@ -32,7 +32,6 @@ import math
 from typing import Optional, Tuple
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
-import pytest
 import torch.nn.functional as F
 from einops import rearrange
 import matplotlib.pyplot as plt
@@ -43,7 +42,7 @@ from pynvml import nvmlInit, nvmlDeviceGetCount, nvmlDeviceGetHandleByIndex, nvm
 from test_read_benchmark import logger, read_and_validate_parameters, DATASETS, result_csv, init_result_csv_index
 
 
-PERFORMANCE = False
+PERFORMANCE = True
 if PERFORMANCE:
     g_iterations = 100
     g_profiler_step_start = 20
@@ -741,12 +740,12 @@ def save_mask(matrix, title='matrix'):
     return title
 
 
-def save_data(attn_mask, dk_hstu, dq_hstu, dtype, dv_hstu, out_hstu, grad, g, k, max_context_len, max_seq_len_q,
+def save_data(attn_mask, dk_hstu, dq_hstu, dtype, dv_hstu, out_hstu, g, k, max_context_len, max_seq_len_q,
             max_target_len, num_contexts, num_targets, prefix, q, rab, alpha, save_dir, seq_offsets_q, v, image_name):
-    if not os.path.exist(save_dir):
+    if not os.path.exists(save_dir):
         os.makedirs(save_dir, exist_ok=True)
     
-    torch.save(q, os.path.join(save_dir, "grad.pth"))
+    torch.save(g, os.path.join(save_dir, "grad.pth"))
     torch.save(q, os.path.join(save_dir, "q.pth"))
     torch.save(k, os.path.join(save_dir, "k.pth"))
     torch.save(v, os.path.join(save_dir, "v.pth"))
@@ -786,10 +785,12 @@ def save_data(attn_mask, dk_hstu, dq_hstu, dtype, dv_hstu, out_hstu, grad, g, k,
               
 def main():
     parser = argparse.ArgumentParser(description="Read CSV file and run a specific index benchmark")
-    parser.add_argument("--index", type=int, default=None, help="index of the benchmark to run")
+    parser.add_argument("--index", type=int, required=True, help="index of the benchmark to run")
     args = parser.parse_args()
 
     _, params = read_and_validate_parameters(args.index)
+
+    init_result_csv_index(args.index)
     df_res = pd.read_csv(result_csv)
     select_mask = df_res['index'] == args.index
     if df_res.loc[select_mask, 'gpu_fw_time'].notna().all() and \
