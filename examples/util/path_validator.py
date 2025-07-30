@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# Copyright 2024. Huawei Technologies Co.,Ltd. All rights reserved.
+# Copyright 2025. Huawei Technologies Co.,Ltd. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,11 +24,13 @@ MAX_FILE_SIZE = 500 * 1024 * 1024 * 1024
 HDFS_FILE_PREFIX = ["viewfs://", "hdfs://"]
 UNSUPPORTED_FILE_MODE_MASK = 0o022
 
+
 def check_file_system_is_hdfs(file_path):
     for prefix in HDFS_FILE_PREFIX:
         if file_path.startswith(prefix):
             return True
     return False
+
 
 def validate_read_file(read_file_path):
     """
@@ -59,6 +61,7 @@ def validate_read_file(read_file_path):
     mode = stat.S_IMODE(stat_info.st_mode)
     if ((mode & UNSUPPORTED_FILE_MODE_MASK) != 0):
         raise ValueError(f"Current file:{read_file_path}, mode {oct(mode)} is unsupported")
+
 
 def validate_save_path(save_path):
     if check_file_system_is_hdfs(save_path):
