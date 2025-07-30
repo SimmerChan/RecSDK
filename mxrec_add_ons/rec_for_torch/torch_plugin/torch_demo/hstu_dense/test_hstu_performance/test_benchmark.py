@@ -126,15 +126,15 @@ def update_index_csv(df_res, benchmark_df, bx, precision):
 
     df_res.loc[mask_res, 'precision'] = precision
     df_res.loc[mask_res, 'npu_fw/gpu_fw'] = (
-        df_res.loc[mask_res, 'npu_fw_time'] / df_res.loc[mask_res, 'gpu_fw_time']
+        df_res.loc[mask_res, 'gpu_fw_time'] / df_res.loc[mask_res, 'npu_fw_time']
     )
     df_res.loc[mask_res, 'npu_bw/gpu_bw'] = (
-        df_res.loc[mask_res, 'npu_bw_time'] / df_res.loc[mask_res, 'gpu_bw_time']
+        df_res.loc[mask_res, 'gpu_bw_time'] / df_res.loc[mask_res, 'npu_bw_time']
     )
     
     df_res.loc[mask_res, 'npu_fw+bw/gpu_fw+bw'] = (
-         df_res.loc[mask_res, ['npu_fw_time', 'npu_bw_time']].sum(axis=1) / 
-         df_res.loc[mask_res, ['gpu_fw_time', 'gpu_bw_time']].sum(axis=1)
+         df_res.loc[mask_res, ['gpu_fw_time', 'gpu_bw_time']].sum(axis=1) / 
+         df_res.loc[mask_res, ['npu_fw_time', 'npu_bw_time']].sum(axis=1)
     )
     df_res.loc[mask_res, 'npu_fw/benchmark'] = (
         df_res.loc[mask_res, 'npu_fw_time'] / benchmark_df.loc[mask_benchmark, 'npu_fw_time']
@@ -144,9 +144,8 @@ def update_index_csv(df_res, benchmark_df, bx, precision):
     )
     df_res.loc[mask_res, 'npu_fw+bw/benchmark'] = (
         df_res.loc[mask_res, ['npu_fw_time', 'npu_bw_time']].sum(axis=1) / 
-        benchmark_df.loc[mask_benchmark, 'npu_fw+bw/gpu_fw+bw']
+        benchmark_df.loc[mask_benchmark, ['npu_fw_time', 'npu_bw_time']].sum(axis=1)
     )
-
 
 
 def main(index=None):
