@@ -45,21 +45,21 @@ def transfer_and_execute(bx):
     remote_host = config.GPU_IP
     remote_user = config.GPU_USER
     remote_password = config.GPU_PASSWORD
-    remote_dir = config.NFS_DIR
+    remote_dir = config.RECSYS_DIR
 
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     
 
     try:
-        client.connect(remote_host, username=remote_user, password=remote_password)
+        client.connect(remote_host, port=22, username=remote_user, password=remote_password)
         sftp = client.open_sftp()
         files_to_transfer = ["test_gpu_hstu.py", "test_read_benchmark.py", "config.py"]
         for file in files_to_transfer:
             sftp.put(file, os.path.join(remote_dir, file))
         sftp.close()
 
-        cmd = f"cd {config.RECSYS_DIR} && source ~/.bashrc && {config.PYTHON3} test_gpu_hstu.py --index={bx}"
+        cmd = f"cd {remote_dir} && source ~/.bashrc && {config.PYTHON3} test_gpu_hstu.py --index={bx}"
         logger.info(f"Executing remote script: {cmd}")
         stdin, stdout, stderr = client.exec_command(cmd)
         exit_status = stdout.channel.recv_exit_status()
