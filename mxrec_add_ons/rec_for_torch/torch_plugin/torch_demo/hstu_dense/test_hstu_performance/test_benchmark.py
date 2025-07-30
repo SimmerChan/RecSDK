@@ -153,6 +153,11 @@ def main(index=None):
     for bx in all_indices:
         logger.info(f"benchmark {bx} testing")
         init_result_csv_index(bx)
+        df_res = pd.read_csv(result_csv)
+        if df_res[df_res['index'] == bx].notna().all().all():
+            logger.info(f"benchmark {bx} already, pass")
+            continue
+        
         transfer_and_execute(bx)
         execute_and_process(bx)
         df_res = pd.read_csv(result_csv)
