@@ -52,7 +52,7 @@ def read_data_from_path(save_dir, device='cpu'):
     logger.info(f"k_shape: {k.size()} k_dtype:{k.dtype}")
     logger.info(f"v_shape: {v.size()} v_dtype:{v.dtype}")
     logger.info(f"bias_shape: {bias.size() if bias else None} bias_dtype:{bias.dtype if bias else None}")
-    logger.info(f"seq_offset_shape: {seq_offset.size()} seq_offset_type:{seq_offset.dtype}")
+    logger.info(f"seq_offset_shape: {seq_offset.size()} seq_offset_dtype:{seq_offset.dtype}")
     logger.info(f"mask_shape: {mask.size()} mask_dtype:{mask.dtype}")
     logger.info(f"max_seq_len:{max_seq_len}")
     logger.info(f"data_type:{data_type}")
@@ -108,9 +108,9 @@ def _hstu_attention_maybe_from_cache(
         save_dir = DATASETS
         
         torch.save(grad_output, os.path.join(save_dir, "npu_output.pth"))
-        torch.save(q_, os.path.join(save_dir, "npu_q.pth"))
-        torch.save(k_, os.path.join(save_dir, "npu_k.pth"))
-        torch.save(v_, os.path.join(save_dir, "npu_v.pth"))
+        torch.save(g_grad, os.path.join(save_dir, "npu_q.pth"))
+        torch.save(k_grad, os.path.join(save_dir, "npu_k.pth"))
+        torch.save(v_grad, os.path.join(save_dir, "npu_v.pth"))
                    
 
   
@@ -124,7 +124,8 @@ if __name__ == "__main__":
     logger.info(f"device: {device}")
     read_dir = os.path.join(config.NFS_DIR, DATASETS)
     grad, q, k, v, bias, mask, max_seq_len, seq_offset, attention_dim, num_heads, data_type, alpha = \
-        read_data_from_path(read_dir, device)
+        read_data_from_path(read_dir)
+
     _hstu_attention_maybe_from_cache(
          num_heads=num_heads, 
          attention_dim=attention_dim, 
