@@ -39,7 +39,7 @@ if __name__ == '__main__':
     
     _, params = read_and_validate_parameters(args.index)
     cmd = f'rm profnpu/ -rf ; msprof --application=\"python3 test_npu_hstu.py --index={args.index}\" --output=profnpu'
-    subprocess.run(cmd.split(' '))
+    subprocess.run(cmd, shell=True, check=True)
     
     search_dir = os.path.join(config.NFS_DIR, 'profnpu')
     csv_file = glob.glob(f'{search_dir}/PROF_*/mindstudio_profiler_output/op_stati*.csv')[0]
@@ -57,4 +57,4 @@ if __name__ == '__main__':
     
     logger.info(f"Forward time {df_res.loc[df_res['index'] == args.index, 'npu_fw_time']} ms")
     logger.info(f"Backward time {df_res.loc[df_res['index'] == args.index, 'npu_bw_time']} ms")
-    
+
