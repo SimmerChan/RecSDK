@@ -604,7 +604,7 @@ def test_fused_attn(
         logger.info(f"target_group_size: {target_group_size}")
         logger.info(f"window_size: {window_size}")
         logger.info(f"alpha: {alpha}")
-        logger.info(f"rab.shape {rab.shape if has_rab else None}")
+        logger.info(f"rab.shape: {rab.shape if has_rab else None}")
         logger.info(f"has_drab: {has_drab}")
         logger.info(f"is_delta_q: {is_delta_q}")
 
@@ -727,7 +727,7 @@ def save_mask(matrix, title='matrix'):
         width_inches *= scale_factor
         height_inches *= scale_factor
     
-    fig, ax = plt.subplot(figsize=(width_inches, height_inches))
+    fig, ax = plt.subplots(figsize=(width_inches, height_inches))
 
     img = ax.imshow(matrix, cmap = cmap, origin = 'lower', vmin=0, vmax=1, interpolation="nearest")
 
@@ -757,7 +757,7 @@ def save_data(attn_mask, dk_hstu, dq_hstu, dtype, dv_hstu, out_hstu, g, k, max_c
     torch.save(rab, os.path.join(save_dir, "bias.pth"))
     torch.save(alpha, os.path.join(save_dir, "alpha.pth"))
     torch.save(attn_mask, os.path.join(save_dir, "invalid_attn_mask.pth"))
-    torch.save(torch.tensor(max_context_len + max_seq_len_q + max_target_len), \
+    torch.save(torch.tensor(max_context_len + max_seq_len_q + max_target_len),
                os.path.join(save_dir, "input_max_length.pth"))
     torch.save(seq_offsets_q, os.path.join(save_dir, "offset.pth"))
     torch.save(dtype, os.path.join(save_dir, "data_type.pth"))
