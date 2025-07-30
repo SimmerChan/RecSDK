@@ -31,7 +31,8 @@ from mx_rec.constants.constants import LIBREC_EOS_OPS_SO
 from mx_rec.core.asc.helper import FeatureSpec, get_asc_insert_func
 from mx_rec.util.ops import import_host_pipeline_ops
 from mx_rec.util.initialize import ConfigInitializer
-from mx_rec.saver.saver import validate_read_file
+
+from examples.util.path_validator import validate_read_file
 
 MODEL_NAME = None
 SSD_DATA_PATH = ["ssd_data"]
