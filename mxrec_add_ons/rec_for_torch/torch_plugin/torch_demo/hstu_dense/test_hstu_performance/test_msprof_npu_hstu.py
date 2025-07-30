@@ -15,3 +15,44 @@
 # limitations under the License.
 # ==============================================================================
 
+import argparse
+import glob
+import subprocess
+import pandas as pd
+import os
+import config
+
+from test_read_benchmark import logger, read_and_validate_parameters, result_csv, init_result_csv_index
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Read CSV file and run a specific index benchmark")
+    parser.add_argument("--index", type=int, default=None, help="index of the benchmark to run")
+    args = parser.parse_args()
+
+    init_result_csv_index(args.index)
+    df_res = pd.read_csv(result_csv)
+    if df_res.loc[df_res['index'] == args.index, "npu_fw_time"].notna().all() and \
+        df_res.loc[df_res['index'] == args.index, "npu_bw_time"].notna().all():
+        logger.info(f"Benchmark with index {args.index} is already done. Exit.")
+        exit(0)
+    
+    _, params = read_and_validate_parameters(args.index)
+    cmd = f" rm profnpu/ -rf ; msprof --application=\"python3 test_npu_hstu.py --index={args.index}\" --output=profnpu"
+    subprocess.run(cmd.split(" "))
+    
+    search_dir = os.path.join(config.NFS_DIR, "profnpu")
+    csv_file = glob.glob(f"{search_dir}/PROF_*/mindstudio_profiler_output/op_stati*.csv")[0]
+
+    logger.info(f"profn file located at: {csv_file}")
+    df_op_stati = pd.read_csv(csv_file)
+
+    forward_row = df_op_stati[df_op_stati["OP type"] == "HstuDenseForward"]
+    backward_row = df_op_stati[df_op_stati["OP type"] == "HstuDenseBackward"]
+    
+    df_res.loc[df_res['index'] == args.index, "npu_fw_time"] = forward_row["Avg time(us)"].squeeze() / 1000
+    df_res.loc[df_res['index'] == args.index, "npu_bw_time"] = backward_row["Avg time(us)"].squeeze() / 1000
+
+    df_res.to_csv(result_csv, index=False)
+    logger.info(f"Forward time {df_res.loc[df_res['index'] == args.index, "npu_fw_time"]} ms")
+    logger.info(f"Backward time {df_res.loc[df_res['index'] == args.index, "npu_bw_time"]} ms")
