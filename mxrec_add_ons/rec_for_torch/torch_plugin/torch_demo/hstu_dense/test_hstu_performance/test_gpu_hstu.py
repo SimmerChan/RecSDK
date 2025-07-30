@@ -588,16 +588,19 @@ def test_fused_attn(
         
         (L_q, L_k, num_contexts, seq_offsets_q, seq_offsets_k, num_targets, q, k, v, rab, attn_mask, grad) = input_data
         
-        logger.info(f"max_seq_len_q: {max_seq_len_q}, max_seq_len_k: {max_seq_len_k}, max_target_len: {max_target_len}")
-        logger.info(f"q.shape: {q.shape}, k.shape: {k.shape}, v.shape: {v.shape}")
+        logger.info(f"max_context_len: {max_context_len}, max_seq_len_q: {max_seq_len_q}, "
+                    f"max_target_len: {max_target_len}")
+        logger.info(f"q.shape: {q.shape}")
+        logger.info(f"k.shape: {k.shape}")
+        logger.info(f"v.shape: {v.shape}")
         logger.info(f"grad.shape: {grad.shape}")
         logger.info(f"attn_mask.shape: {attn_mask.shape}")
-        logger.info(f"seq_offsets_q: {seq_offsets_q.shape}")
-        logger.info(f"seq_offsets_k: {seq_offsets_k.shape}")
+        logger.info(f"seq_offsets_q.shape: {seq_offsets_q.shape}")
+        logger.info(f"seq_offsets_k.shape: {seq_offsets_k.shape}")
         logger.info(f"total_max_seq_len_q: {max_seq_len_q + max_context_len + max_target_len}")
         logger.info(f"total_max_seq_len_k: {max_seq_len_k + max_context_len + max_target_len}")
-        logger.info(f"num_contexts: {num_contexts.shape if (has_context and run_benchmark & 0b01) else None}")
-        logger.info(f"num_targets: {num_targets.shape if (has_target and run_benchmark & 0b01) else None}")
+        logger.info(f"num_contexts.shape: {num_contexts.shape if (has_context and run_benchmark & 0b01) else None}")
+        logger.info(f"num_targets.shape: {num_targets.shape if (has_target and run_benchmark & 0b01) else None}")
         logger.info(f"target_group_size: {target_group_size}")
         logger.info(f"window_size: {window_size}")
         logger.info(f"alpha: {alpha}")
