@@ -78,10 +78,10 @@ def _hstu_attention_maybe_from_cache(
         n: int = invalid_attn_mask.size(-1)
         torch.npu.set_device(device)
 
-        q_ = q.reshape(-1, num_heads, attention_dim).to(device=device, dtype=data_type)
-        k_ = k.reshape(-1, num_heads, attention_dim).to(device=device, dtype=data_type)
-        v_ = v.reshape(-1, num_heads, attention_dim).to(device=device, dtype=data_type)
-        grad = grad.to(device=device, dtype=data_type)
+        q_ = q.reshape(-1, num_heads, attention_dim).to(device=device).to(data_type)
+        k_ = k.reshape(-1, num_heads, attention_dim).to(device=device).to(data_type)
+        v_ = v.reshape(-1, num_heads, attention_dim).to(device=device).to(data_type)
+        grad = grad.to(device=device).to(data_type)
 
         seq_offset = seq_offset.to(device=device).tolist()
 
@@ -92,8 +92,7 @@ def _hstu_attention_maybe_from_cache(
 
         logger.info(f"invalid_attn_mask shape: {invalid_attn_mask.shape}")
 
-        invalid_attn_mask = invalid_attn_mask.to(device=device, dtype=data_type)
-        mask_type = 3
+        invalid_attn_mask = invalid_attn_mask.to(device=device).to(data_type)
         silu_value = silu_value / n
         local_cycle_nums = 100
         for _ in range(local_cycle_nums):
