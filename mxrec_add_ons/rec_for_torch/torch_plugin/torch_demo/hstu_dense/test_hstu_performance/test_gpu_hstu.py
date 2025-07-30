@@ -813,6 +813,7 @@ def main():
     for i in range(loop):
         try:
             fwd_time, bwd_time = test_fused_attn(**params)
+            logger.info(f"iter: {i}, fwd time: {fwd_time}, bwd time: {bwd_time}")
             fwd_time_list.append(fwd_time)
             bwd_time_list.append(bwd_time)
         except Exception as e:
