@@ -55,5 +55,5 @@ if __name__ == '__main__':
 
     df_res.to_csv(result_csv, index=False)
     
-    logger.info(f'Forward time {df_res.loc[df_res['index'] == args.index, 'npu_fw_time']} ms')
-    logger.info(f'Backward time {df_res.loc[df_res['index'] == args.index, 'npu_bw_time']} ms')
+    logger.info(f"Forward time {df_res.loc[df_res['index'] == args.index, 'npu_fw_time']} ms")
+    logger.info(f"Backward time {df_res.loc[df_res['index'] == args.index, 'npu_bw_time']} ms")
