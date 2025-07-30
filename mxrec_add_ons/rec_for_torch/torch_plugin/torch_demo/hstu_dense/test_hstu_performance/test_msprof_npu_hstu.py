@@ -32,9 +32,9 @@ if __name__ == "__main__":
 
     init_result_csv_index(args.index)
     df_res = pd.read_csv(result_csv)
-    res_mask = df_res['index'] == args.index
-    if df_res.loc[res_mask, "npu_fw_time"].notna().all() and \
-        df_res.loc[res_mask, "npu_bw_time"].notna().all():
+    df_res['index'] == args.index = df_res['index'] == args.index
+    if df_res.loc[df_res['index'] == args.index, "npu_fw_time"].notna().all() and \
+        df_res.loc[df_res['index'] == args.index, "npu_bw_time"].notna().all():
         logger.info(f"Benchmark with index {args.index} is already done. Exit.")
         exit(0)
     
@@ -51,10 +51,10 @@ if __name__ == "__main__":
     forward_row = df_op_stati[df_op_stati["OP Type"] == "HstuDenseForward"]
     backward_row = df_op_stati[df_op_stati["OP Type"] == "HstuDenseBackward"]
     
-    df_res.loc[res_mask, "npu_fw_time"] = forward_row["Avg Time(us)"].squeeze() / 1000
-    df_res.loc[res_mask, "npu_bw_time"] = backward_row["Avg Time(us)"].squeeze() / 1000
+    df_res.loc[df_res['index'] == args.index, "npu_fw_time"] = forward_row["Avg Time(us)"].squeeze() / 1000
+    df_res.loc[df_res['index'] == args.index, "npu_bw_time"] = backward_row["Avg Time(us)"].squeeze() / 1000
 
     df_res.to_csv(result_csv, index=False)
     
-    logger.info(f"Forward time {df_res.loc[res_mask, "npu_fw_time"]} ms")
-    logger.info(f"Backward time {df_res.loc[res_mask, "npu_bw_time"]} ms")
+    logger.info(f"Forward time {df_res.loc[df_res['index'] == args.index, "npu_fw_time"]} ms")
+    logger.info(f"Backward time {df_res.loc[df_res['index'] == args.index, "npu_bw_time"]} ms")
