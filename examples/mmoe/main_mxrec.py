@@ -153,7 +153,6 @@ if __name__ == "__main__":
     eval_batch, eval_iterator = make_batch_and_iterator(cfg, feature_spec_list_eval, is_training=False,
                                                         dump_graph=False, is_use_faae=cm.use_faae)
     logger.info(f"train_batch: {train_batch}")
-
     if cm.use_faae:
         cfg.dev_vocab_size = cfg.dev_vocab_size // 2
 

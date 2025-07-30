@@ -59,3 +59,10 @@ def validate_read_file(read_file_path):
     mode = stat.S_IMODE(stat_info.st_mode)
     if ((mode & UNSUPPORTED_FILE_MODE_MASK) != 0):
         raise ValueError(f"Current file:{read_file_path}, mode {oct(mode)} is unsupported")
+
+def validate_save_path(save_path):
+    if check_file_system_is_hdfs(save_path):
+        return
+
+    if (os.path.abspath(save_path) != os.path.realpath(save_path)):
+        raise ValueError(f"soft link or relative path: {save_path} should not be in the path parameter")

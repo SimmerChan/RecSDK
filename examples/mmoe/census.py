@@ -27,7 +27,7 @@ import tensorflow as tf
 
 # Temporarily add root project path to ENV
 sys.path.append(os.getcwd() + '/../../')
-from examples.util.path_validator import validate_read_file
+from examples.util.path_validator import validate_read_file, validate_save_path
 
 # All column names of census dataset
 COLUMN_NAMES = [
@@ -118,6 +118,7 @@ def get_fea_map(fea_map_path: str = None, split_file_list: List = None) -> Dict[
         return fea_map
     fea_map = {}
     for file_open in split_file_list:
+        validate_read_file(file_open)
         fea_dataframe = pd.read_csv(file_open, names=COLUMN_NAMES, header=None)
         fea_unique_dataframe = dataframe_column_unique(fea_dataframe)
         
@@ -182,6 +183,7 @@ if __name__ == '__main__':
     if os.path.exists(output_path):
         shutil.rmtree(output_path)
     os.makedirs(output_path, exist_ok=True)
+    validate_save_path(output_path)
 
     # get txt_list
     file_path_dict = {'train': train_data_path, 'test': test_data_path}
@@ -191,6 +193,7 @@ if __name__ == '__main__':
     for class_usage, file_path in file_path_dict.items():
 
         # read data
+        validate_read_file(file_path)
         data_df = pd.read_csv(file_path, sep=',', header=None, names=COLUMN_NAMES)
 
         # data processing
