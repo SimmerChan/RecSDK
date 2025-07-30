@@ -26,8 +26,8 @@ import sysconfig
 
 from test_read_benchmark import logger, DATASETS
 
-torch.npu.config.allow_internal_modules = True
-torch.ops.load_library(f"{sysconfig.get_path('purelib')}/libfbgemm_npu_api")
+torch.npu.config.allow_internal_format = True
+torch.ops.load_library(f"{sysconfig.get_path('purelib')}/libfbgemm_npu_api.so")
 
 # def find_ration_in_string(input_str):
 #     separator = "+===========================+===============+====================================================+"
