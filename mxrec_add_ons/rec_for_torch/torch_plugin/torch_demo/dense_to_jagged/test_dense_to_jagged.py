@@ -22,27 +22,30 @@ import fbgemm_gpu
 import numpy as np
 import torch_npu
 import torch
+
 logging.getLogger().setLevel(logging.INFO)
 torch.ops.load_library(f"{sysconfig.get_path('purelib')}/libfbgemm_npu_api.so")
 
 
 def get_golden_result(device, denses, offsets, dense_datatype, offset_datatype):
+    # 将numpy数组转为PyTorch Tensor并转移到指定设备
     dense_torch = torch.from_numpy(denses).to(dense_datatype).to(device)
-
     offsets_torch = torch.from_numpy(offsets).to(offset_datatype).to(device)
 
+    # 计算累积偏移量
     jagged_id_offset = torch.ops.fbgemm.asynchronous_complete_cumsum(offsets_torch)
 
+    # 获取输出大小（最后一个偏移量即总元素数）
     output_size = jagged_id_offset[-1]
 
+    # 执行核心操作：稠密张量→不规则张量
     jagged_embedding = torch.ops.fbgemm.dense_to_jagged(dense_torch, [jagged_id_offset], output_size)[0]
 
-    return jagged_embedding.cpu()
+    return jagged_embedding.cpu() # 移回CPU以进行比较
 
 
 def get_result(device, denses, offsets, dense_datatype, offset_datatype):
     dense_torch = torch.from_numpy(denses).to(dense_datatype).to(device)
-
     offsets_torch = torch.from_numpy(offsets).to(offset_datatype).to(device)
 
     jagged_id_offset = torch.ops.fbgemm.asynchronous_complete_cumsum(offsets_torch)
@@ -54,15 +57,20 @@ def get_result(device, denses, offsets, dense_datatype, offset_datatype):
     return jagged_embedding.cpu()
 
 
-@pytest.mark.parametrize("dense_dim0", [128, 40])
-@pytest.mark.parametrize("dense_dim1", [210])
-@pytest.mark.parametrize("dense_dim2", [1])
-@pytest.mark.parametrize("dense_datatype", [torch.float32, torch.int64])
-@pytest.mark.parametrize("offset_datatype", [torch.int32, torch.int64])
+@pytest.mark.parametrize("dense_dim0", [128, 40])       # 测试不同batch大小
+@pytest.mark.parametrize("dense_dim1", [210])           # 固定特征维度1
+@pytest.mark.parametrize("dense_dim2", [1, 8])             # 固定特征维度2
+@pytest.mark.parametrize("dense_datatype", [torch.float32, torch.int64])  # 测试不同数据类型
+@pytest.mark.parametrize("offset_datatype", [torch.int32, torch.int64])    # 偏移量数据类型
 def test_dense_to_jagged(dense_dim0, dense_dim1, dense_dim2, dense_datatype, offset_datatype):
+    # 1. 生成随机输入数据
     denses = np.random.randn(dense_dim0, dense_dim1, dense_dim2).astype(np.float32)
-    offsets = np.random.randint(0, dense_dim1, dense_dim0)
-    gloden = get_golden_result(torch.device("cpu"), denses, offsets, dense_datatype, offset_datatype)
+    offsets = np.random.randint(0, dense_dim1, dense_dim0) # 生成随机偏移量
+
+    # 2. 分别获取CPU和NPU结果
+    golden_result = get_golden_result(torch.device("cpu"), denses, offsets, dense_datatype, offset_datatype)
     npu_result = get_result(torch.device("npu"), denses, offsets, dense_datatype, offset_datatype)
-    result_forward = torch.abs(gloden[0] - npu_result[0]) < 1e-4
-    logging.info(result_forward.all().item())
+
+    # 3. 结果比对（允许1e-4的误差）
+    result_forward = torch.abs(golden_result[0] - npu_result[0]) < 1e-4
+    logging.info(result_forward.all().item()) # 输出是否全部通过验证
