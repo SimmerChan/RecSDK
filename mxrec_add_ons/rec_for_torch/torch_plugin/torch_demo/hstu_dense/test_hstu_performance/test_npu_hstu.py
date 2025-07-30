@@ -99,7 +99,7 @@ def _hstu_attention_maybe_from_cache(
         for _ in range(local_cycle_nums):
             grad_output = torch.ops.mxrec.hstu_dense(q_, k_, v_, invalid_attn_mask, None, mask_type, n, silu_value, 
                                                      "jagged", seq_offset)
-            g_grad, k_grad, v_grad, _ = torch.ops.mxrec.hstu_dense_backward(grad, q_, k_, v_, invalid_attn_mask, None, 
+            q_grad, k_grad, v_grad, _ = torch.ops.mxrec.hstu_dense_backward(grad, q_, k_, v_, invalid_attn_mask, None, 
                                                 "jagged", mask_type, n, silu_value, seq_offset)
 
             torch.npu.synchronize()
@@ -107,8 +107,8 @@ def _hstu_attention_maybe_from_cache(
 
         save_dir = DATASETS
         
-        torch.save(grad_output, os.path.join(save_dir, "npu_output.pth"))
-        torch.save(g_grad, os.path.join(save_dir, "npu_q.pth"))
+        torch.save(grad_output, os.path.join(save_dir, "npu_out.pth"))
+        torch.save(q_grad, os.path.join(save_dir, "npu_q.pth"))
         torch.save(k_grad, os.path.join(save_dir, "npu_k.pth"))
         torch.save(v_grad, os.path.join(save_dir, "npu_v.pth"))
                    
