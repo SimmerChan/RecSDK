@@ -957,7 +957,7 @@ def _create_mean_pooling_divisor(config: MeanPoolingConfig) -> torch.Tensor:
         )
         eps = 1e-6  # used to safe guard against 0 division
         divisor = divisor + eps
-        return divisor.to("npu", non_blocking=True).detach()
+        return divisor.detach()
 
 
 def _apply_mean_pooling(
@@ -970,7 +970,7 @@ def _apply_mean_pooling(
     with record_function("## ebc apply mean pooling ##"):
         _keyed_tensor_value = keyed_tensor.values().clone()
         mean_pooled_values = (
-            _keyed_tensor_value.to("npu") / divisor
+            _keyed_tensor_value / divisor.to(keyed_tensor.device)
         )  # [batch size, num_features * embedding dim]
         return KeyedTensor(
             keys=keyed_tensor.keys(),
