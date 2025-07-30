@@ -93,6 +93,7 @@ def _hstu_attention_maybe_from_cache(
         logger.info(f"invalid_attn_mask shape: {invalid_attn_mask.shape}")
 
         invalid_attn_mask = invalid_attn_mask.to(device=device).to(data_type)
+        mask_type = 3
         silu_value = silu_value / n
         local_cycle_nums = 100
         for _ in range(local_cycle_nums):
