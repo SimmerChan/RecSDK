@@ -57,6 +57,7 @@ def transfer_and_execute(bx):
         files_to_transfer = ["test_gpu_hstu.py", "test_read_benchmark.py", "config.py"]
         for file in files_to_transfer:
             sftp.put(file, os.path.join(remote_dir, file))
+        sftp.close()
 
         cmd = f"cd {config.RECSYS_DIR} && source ~/.bashrc && {config.PYTHON3} test_gpu_hstu.py --index={bx}"
         logger.info(f"Executing remote script: {cmd}")
