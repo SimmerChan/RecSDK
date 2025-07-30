@@ -63,13 +63,13 @@ def read_data_from_path(save_dir, device='cpu'):
 
 def _hstu_attention_maybe_from_cache(
         num_heads: int,
-        attention_dim: int, 
-        linear_dim: int, 
+        attention_dim: int,
+        linear_dim: int,
         silu_value: float,
         grad: torch.Tensor,
-        q: torch.Tensor, 
-        k: torch.Tensor, 
-        v: torch.Tensor, 
+        q: torch.Tensor,
+        k: torch.Tensor,
+        v: torch.Tensor,
         invalid_attn_mask: torch.Tensor,
         seq_offset: torch.Tensor,
         data_type: torch.dtype,
