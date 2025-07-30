@@ -100,11 +100,16 @@ def compare_npu_gpu_precision(save_dir = DATASETS):
     else:
         logger.error(f"error type : {data_type}")
         return False
-    
-    out_close = torch.allclose(npu_out, gpu_out, eps, eps)
-    out_q = torch.allclose(npu_q, gpu_q, eps, eps)
-    out_k = torch.allclose(npu_k, gpu_k, eps, eps)
-    out_v = torch.allclose(npu_v, gpu_v, eps, eps)
+  
+    try:
+        out_close = torch.allclose(npu_out, gpu_out, eps, eps)
+        out_q = torch.allclose(npu_q, gpu_q, eps, eps)
+        out_k = torch.allclose(npu_k, gpu_k, eps, eps)
+        out_v = torch.allclose(npu_v, gpu_v, eps, eps)
+    except Exception as e:
+        logger.error(f"error : {e}")
+        return False
+
     logger.info(f"npu_out vs gpu_out: {out_close}")
     logger.info(f"npu_q vs gpu_q: {out_q}")
     logger.info(f"npu_k vs gpu_k: {out_k}")
@@ -157,7 +162,7 @@ def main(index=None):
         if df_res[df_res['index'] == bx].notna().all().all():
             logger.info(f"benchmark {bx} already, pass")
             continue
-        
+
         transfer_and_execute(bx)
         execute_and_process(bx)
         df_res = pd.read_csv(result_csv)
