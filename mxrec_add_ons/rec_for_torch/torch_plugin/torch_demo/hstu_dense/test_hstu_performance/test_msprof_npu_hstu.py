@@ -57,3 +57,4 @@ if __name__ == '__main__':
     
     logger.info(f"Forward time {df_res.loc[df_res['index'] == args.index, 'npu_fw_time']} ms")
     logger.info(f"Backward time {df_res.loc[df_res['index'] == args.index, 'npu_bw_time']} ms")
+    
