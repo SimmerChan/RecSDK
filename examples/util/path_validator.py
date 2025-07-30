@@ -37,6 +37,10 @@ def validate_read_file(read_file_path):
     Validate file before reading，including validating soft link, file size
     :param read_file_path: the file path to be validated
     """
+    # para type check
+    if not isinstance(read_file_path, str):
+        raise ValueError("parameter value's type is not str")
+
     # file size check
     file_stat = tf.io.gfile.stat(read_file_path)
     if not (MIN_SIZE < file_stat.length <= MAX_FILE_SIZE):
@@ -66,6 +70,10 @@ def validate_read_file(read_file_path):
 def validate_save_path(save_path):
     if check_file_system_is_hdfs(save_path):
         return
+
+    # para type check
+    if not isinstance(save_path, str):
+        raise ValueError("parameter value's type is not str")
 
     if (os.path.abspath(save_path) != os.path.realpath(save_path)):
         raise ValueError(f"soft link or relative path: {save_path} should not be in the path parameter")
