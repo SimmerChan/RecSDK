@@ -970,7 +970,7 @@ def _apply_mean_pooling(
     with record_function("## ebc apply mean pooling ##"):
         _keyed_tensor_value = keyed_tensor.values().clone()
         if (isinstance(divisor, torch.Tensor)):
-            divisor = divisor.to(keyed_tensor.device)
+            divisor = divisor.to(_keyed_tensor_value.device)
         mean_pooled_values = (
             _keyed_tensor_value / divisor
         )  # [batch size, num_features * embedding dim]
