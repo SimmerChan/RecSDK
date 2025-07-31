@@ -16,11 +16,35 @@
 # ==============================================================================
 
 import argparse
+import math
 import os
 import traceback
 from statistics import mean
+from typing import Optional, Tuple
 
+import matplotlib.colors as mcolors
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 import torch
+import torch.nn.functional as F
+from einops import rearrange
+from pynvml import (
+    nvmlDeviceGetCount,
+    nvmlDeviceGetHandleByIndex,
+    nvmlDeviceGetMemoryInfo,
+    nvmlInit,
+    nvmlShutdown,
+)
+
+
+from test_read_benchmark import (
+    DATASETS,
+    init_result_csv_index,
+    logger,
+    read_and_validate_parameters,
+    result_csv,
+)
 
 sm_major_version = torch.cuda.get_device_properties(0).major
 sm_minor_version = torch.cuda.get_device_properties(0).minor
@@ -29,19 +53,6 @@ if sm_major_version == 9 and sm_minor_version == 0:
 elif sm_major_version == 8:
     from hstu_attn import hstu_attn_varlen_func
 
-import math
-from typing import Optional, Tuple
-
-import matplotlib.colors as mcolors
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
-import torch.nn.functional as F
-from einops import rearrange
-from pynvml import (nvmlDeviceGetCount, nvmlDeviceGetHandleByIndex,
-                    nvmlDeviceGetMemoryInfo, nvmlInit, nvmlShutdown)
-from test_read_benchmark import (DATASETS, init_result_csv_index, logger,
-                                 read_and_validate_parameters, result_csv)
 
 PERFORMANCE = True
 if PERFORMANCE:
