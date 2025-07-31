@@ -145,7 +145,7 @@ def unpad_input_delta_q(padded_input, cu_seqlen_q, cu_seqlen_k, batch, seqlen):
     for i in range(batch):
         act_seqlen_q = (cu_seqlen_q[i + 1] - cu_seqlen_q[i]).item()
         act_seqlen_k = (cu_seqlen_k[i + 1] - cu_seqlen_k[i]).item()
-        output.append(padded_input[i, act_seqlen_k - act_seqlen_q : act_seqlen_k, :])
+        output.append(padded_input[i, act_seqlen_k - act_seqlen_q: act_seqlen_k, :])
     return torch.cat(output, dim=0)
 
 
@@ -202,7 +202,7 @@ def construct_mask(
                                 i,
                                 0,
                                 target_start + j * target_group_size + k,
-                                target_start : target_start + j * target_group_size,
+                                target_start: target_start + j * target_group_size,
                             ] = False
                 else:
                     for j in range(target_start, seqlen):
@@ -214,7 +214,7 @@ def construct_mask(
         window_size_1 = window_size[1] if window_size[1] > 0 else seqlen
         for i in range(seqlen):
             mask[
-                i, max(0, i - window_size_0) : min(seqlen, i + window_size_1 + 1)
+                i, max(0, i - window_size_0): min(seqlen, i + window_size_1 + 1)
             ] = True
     return mask
 
