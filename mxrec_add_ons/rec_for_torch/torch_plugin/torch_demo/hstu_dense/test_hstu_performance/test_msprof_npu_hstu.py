@@ -42,8 +42,10 @@ if __name__ == '__main__':
     subprocess.run(cmd, check=True)
     
     search_dir = os.path.join(config.NFS_DIR, 'profnpu')
-    csv_file = glob.glob(f'{search_dir}/PROF_*/mindstudio_profiler_output/op_stati*.csv')[0]
-
+    csv_files = glob.glob(f'{search_dir}/PROF_*/mindstudio_profiler_output/op_stati*.csv')
+    if len(csv_files) == 0:
+        raise Exception("Failed to generate csv file from profnpu result.")
+    csv_file = csv_files[0]
     logger.info(f'profile located at: {csv_file}')
     df_op_stati = pd.read_csv(csv_file)
 
