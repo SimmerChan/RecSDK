@@ -31,10 +31,8 @@ def execute_and_process(bx):
     logger.info(f"Executing local scirpt: {cmd}")
     try:
         result = subprocess.run(cmd.split(" "))
-        stdout_output = result.stdout.strip()
-        stderr_output = result.stderr.strip()
-        logger.info(f"stdout: {stdout_output}")
-        logger.info(f"stderr: {stderr_output}")
+        logger.info(f"stdout: {result.stdout}")
+        logger.info(f"stderr: {result.stderr}")
         return True
     except Exception as e:
         logger.error(f"Failed to execute local script: {cmd}")
@@ -50,7 +48,6 @@ def transfer_and_execute(bx):
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     
-
     try:
         client.connect(remote_host, port=22, username=remote_user, password=remote_password)
         sftp = client.open_sftp()
@@ -63,10 +60,8 @@ def transfer_and_execute(bx):
         logger.info(f"Executing remote script: {cmd}")
         stdin, stdout, stderr = client.exec_command(cmd)
         exit_status = stdout.channel.recv_exit_status()
-        stdout = stdout.read().decode("utf-8")
-        stderr = stderr.read().decode("utf-8")
-        logger.info(f"stdout: {stdout}")
-        logger.info(f"stderr: {stderr}")
+        logger.info(f"stdout: {stdout.read().decode("utf-8")}")
+        logger.info(f"stderr: {stderr.read().decode("utf-8")}")
     finally:
         logger.info("Closing connection")
         client.close()
@@ -150,19 +145,20 @@ def update_index_csv(df_res, benchmark_df, bx, precision):
 
 def main(index=None):
     benchmark_df = pd.read_csv(benchmark_csv)
-    all_indices = benchmark_df['index'].tolist()
+    all_indices = benchmark_df['index'].astype(int).tolist()
     
     if index is not None:
         all_indices = [index]
 
     for bx in all_indices:
+        
         logger.info(f"benchmark {bx} testing")
         init_result_csv_index(bx)
         df_res = pd.read_csv(result_csv)
         if df_res[df_res['index'] == bx].notna().all().all():
             logger.info(f"benchmark {bx} already, pass")
             continue
-
+        
         transfer_and_execute(bx)
         execute_and_process(bx)
         df_res = pd.read_csv(result_csv)
