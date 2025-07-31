@@ -538,7 +538,7 @@ def test_fused_attn(
     full_batch: bool,
     is_delta_q: bool,
     image_name: str,
-):
+)->Tuple[Optional[float], Optional[float]]:
     has_context = max_context_len > 0
     has_target = max_target_len > 0
     group_target = target_group_size > 1
