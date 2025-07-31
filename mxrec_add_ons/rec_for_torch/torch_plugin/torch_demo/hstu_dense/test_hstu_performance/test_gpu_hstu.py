@@ -800,8 +800,7 @@ def save_data(attn_mask, dk_hstu, dq_hstu, dtype, dv_hstu, out_hstu, g, k, max_c
     
     save_mask(save_matrix, os.path.join(save_dir, image_name))
     
-    with open(os.path.join(save_dir, "complete.flag"), "w"):
-        pass
+    torch.save(torch.tensor(1), os.path.join(save_dir, "complete.flag"))
     logger.info("save complete")
 
 
