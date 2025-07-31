@@ -24,7 +24,7 @@ import paramiko
 import pandas as pd
 import config
 from test_read_benchmark import benchmark_csv, result_csv, logger, DATASETS, init_result_csv_index
-
+from test_msprof_npu_hstu import msprof_main
 
 
 INDEX_STR = 'index'
@@ -195,7 +195,7 @@ def main(index=None):
         if not remote_success:
             continue
         
-        local_success = retry_operation(execute_and_process, "Local execution", bx)
+        local_success = retry_operation(msprof_main, "Local execution", bx)
         if not local_success:
             continue
         
