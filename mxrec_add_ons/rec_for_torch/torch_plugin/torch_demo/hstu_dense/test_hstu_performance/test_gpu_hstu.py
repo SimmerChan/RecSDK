@@ -787,7 +787,6 @@ def save_data(attn_mask, dk_hstu, dq_hstu, dtype, dv_hstu, out_hstu, g, k, max_c
     
     logger.info(f"prefix: {prefix}")
     
-
     torch.save(out_hstu.to(cpu), os.path.join(save_dir, f"{prefix}out.pth"))
     torch.save(dq_hstu.to(cpu), os.path.join(save_dir, f"{prefix}q.pth"))
     torch.save(dk_hstu.to(cpu), os.path.join(save_dir, f"{prefix}k.pth"))
