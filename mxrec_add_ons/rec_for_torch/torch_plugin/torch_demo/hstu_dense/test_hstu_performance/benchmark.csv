@@ -37,4 +37,3 @@ index,shape_info,total_len,batch_size,heads,heads_rab,max_seq_len_q,max_seq_len_
 36,Random,9624,8,8,8,1203,1203,0,0,1,128,128,1,FALSE,FALSE,"(-1, 0)",0b01,torch.bfloat16,FALSE,FALSE,jagged,0.229,0.501,0.091,0.207,TRUE,,,
 37,Random,9624,8,2,2,1203,1203,0,0,1,256,256,1,FALSE,FALSE,"(-1, 0)",0b01,torch.bfloat16,FALSE,FALSE,jagged,0.262,0.517,0.088,0.233,TRUE,,,
 38,Random,9624,8,2,2,1203,1203,0,0,1,128,128,1,FALSE,FALSE,"(-1, 0)",0b01,torch.bfloat16,FALSE,FALSE,jagged,0.137,0.329,0.085,0.135,TRUE,,,
-,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
