@@ -26,11 +26,6 @@ from test_read_benchmark import logger, DATASETS
 torch.npu.config.allow_internal_format = False
 torch.ops.load_library(f"{sysconfig.get_path('purelib')}/libfbgemm_npu_api.so")
 
-# def find_ration_in_string(input_str):
-#     separator = "+===========================+===============+====================================================+"
-#     parts = input_str.split(separator)
-
-#     npu_pattern = re.complie('r')
 
 def read_data_from_path(save_dir, device='cpu'):
     logger.info("start read...")
