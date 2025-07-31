@@ -50,9 +50,9 @@ b) 算子参数说明：
 
 * permute: 重排的顺序参数tensor;
 * lengths: 待重排长度参数;
-* values: 待重排值参数;
-* weights: 可选待重排值参数，与values操作完全相同;
-* permuted_lengths_sum: values/weights有效长度;
+* values: 待重排序的1D-tensor;
+* weights: 可选入参，待重排序的1D-tensor。与values执行相同操作;
+* permuted_lengths_sum: 可选入参，values/weights有效长度;
 * permuted_lengths: 输出， 重排后长度tensor;
 * permuted_values: 输出，重排后的values;
 * permuted_weights: 输出，重排后的weights;
@@ -62,10 +62,10 @@ c) 算子约束说明：
 * 支持的型号：Atlas A2系列产品;
 * 支持的CANN版本：8.2.RC1.alpha001及之后版本;
 * 支持的输入数据类型：
-  * permute: int32
-  * lengths: int64/int32
-  * values: int64/int32/fp32
-  * weights: fp32
+  * permute: int32;
+  * lengths: int64/int32;
+  * values: int64/int32/fp32;
+  * weights: fp32;
   * permute_sum: int(标量);
 * permute为1维tensor，lengths为二维tensor，且permute的第一维长度小于等于lengths的第一维长度;  
 同时permute中的每个值均满足: >= 0 且 < `lengths.shape[0]`
