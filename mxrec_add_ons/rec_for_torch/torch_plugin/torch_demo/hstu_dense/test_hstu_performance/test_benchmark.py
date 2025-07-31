@@ -129,8 +129,9 @@ def compare_npu_gpu_precision(save_dir=DATASETS, device='cpu'):
 
 
 def update_index_csv(df_res, benchmark_df, bx, precision):
-    mask_res = df_res['index'] == bx
-    mask_benchmark = benchmark_df['index'] == bx
+    INDEX = 'index'
+    mask_res = df_res[INDEX] == bx
+    mask_benchmark = benchmark_df[INDEX] == bx
 
     df_res.loc[mask_res, 'precision'] = precision
     df_res.loc[mask_res, 'npu_fw/gpu_fw'] = (
