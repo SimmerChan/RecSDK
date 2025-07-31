@@ -17,10 +17,11 @@
 
 import argparse
 import os
-import config
-import torch
 import sysconfig
 
+import torch
+
+import config
 from test_read_benchmark import logger, DATASETS
 
 torch.npu.config.allow_internal_format = False
