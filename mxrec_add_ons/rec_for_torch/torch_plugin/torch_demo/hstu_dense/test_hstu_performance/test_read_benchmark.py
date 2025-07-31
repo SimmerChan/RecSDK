@@ -168,7 +168,7 @@ def init_result_csv_index(index):
 
 if __name__ == "__main__":
     index_to_find = 1
-    df, params = read_and_validate_parameters(index_to_find)
+    df, bparams = read_and_validate_parameters(index_to_find)
     init_result_csv_index(index_to_find)
-    df_res = pd.read_csv(result_csv)
-    logger.info(df_res)
+    df_resg = pd.read_csv(result_csv)
+    logger.info(df_resg)
