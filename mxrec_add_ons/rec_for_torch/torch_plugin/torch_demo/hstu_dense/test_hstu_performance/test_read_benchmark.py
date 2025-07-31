@@ -105,23 +105,25 @@ hstu_required_params = {
 INDEX_STR = 'index'
 
 
-def read_and_validate_parameters(index_to_find, csv_file_path=benchmark_csv):
-    def convert_value(value, required_type):
-        if isinstance(value, str):
-            if value == "torch.float16":
-                return torch.float16
-            elif value == "torch.bfloat16":
-                return torch.bfloat16
-            else:
-                try:
-                    value = ast.literal_eval(value)
-                except ValueError:
-                    pass
-        try:
-            return required_type(value)
-        except (ValueError, TypeError):
-            return value
-           
+
+def convert_value(value, required_type):
+    if isinstance(value, str):
+        if value == "torch.float16":
+            return torch.float16
+        elif value == "torch.bfloat16":
+            return torch.bfloat16
+        else:
+            try:
+                value = ast.literal_eval(value)
+            except ValueError:
+                pass
+    try:
+        return required_type(value)
+    except (ValueError, TypeError):
+        return value
+    
+
+def read_and_validate_parameters(index_to_find, csv_file_path=benchmark_csv):      
     try: 
         df = pd.read_csv(csv_file_path, encoding="utf-8") 
     except UnicodeDecodeError as e:
