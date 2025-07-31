@@ -39,7 +39,7 @@ def execute_and_process(bx):
     logger.info(f"Executing local scirpt: {cmd}")
     try:
         result = subprocess.run(
-            cmd,
+            cmd.split(' '),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
