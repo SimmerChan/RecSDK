@@ -23,20 +23,17 @@ import pandas as pd
 import torch
 import config
 
-
-
-
-DATASETS = os.path.join(config.NFS_DIR, "datasets")
-benchmark_csv = os.path.join(config.NFS_DIR, "benchmark.csv")
-result_csv = os.path.join(config.NFS_DIR, "result.csv")
-
-
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s %(filename)s %(lineno)d [%(levelname)s] %(message)s',
     handlers=[logging.FileHandler("test_benchmark.log"), logging.StreamHandler()])
 logger = logging.getLogger(__name__)
 
+    
+INDEX_STR = 'index'
+DATASETS = os.path.join(config.NFS_DIR, "datasets")
+benchmark_csv = os.path.join(config.NFS_DIR, "benchmark.csv")
+result_csv = os.path.join(config.NFS_DIR, "result.csv")
 
 column_names = [
     "index",
@@ -97,10 +94,6 @@ hstu_required_params = {
     "full_batch": bool,
     "is_delta_q": bool
 }
-    
-
-INDEX_STR = 'index'
-
 
 
 def convert_value(value, required_type):
