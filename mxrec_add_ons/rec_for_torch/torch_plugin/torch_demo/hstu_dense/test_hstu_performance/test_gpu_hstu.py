@@ -840,6 +840,9 @@ def main():
             logger.error(traceback.format_exc())
             return
         
+    if len(fwd_time_list) < loop:
+        raise Exception(f"Failed: {len(fwd_time_list)}/{loop} iterations finished")
+    
     df_res.loc[select_mask, "gpu_fw_time"] = mean(fwd_time_list[1:])
     df_res.loc[select_mask, "gpu_bw_time"] = mean(bwd_time_list[1:])
     df_res.to_csv(result_csv, index=False)
