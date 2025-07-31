@@ -30,7 +30,13 @@ def execute_and_process(bx):
     cmd = f"python3 test_msprof_npu_hstu.py --index={bx}"
     logger.info(f"Executing local scirpt: {cmd}")
     try:
-        result = subprocess.run(cmd.split(" "))
+        result = subprocess.run(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=True
+        )
         logger.info(f"stdout: {result.stdout}")
         logger.info(f"stderr: {result.stderr}")
         return True
@@ -64,14 +70,15 @@ def transfer_and_execute(bx):
         exit_status = stdout.channel.recv_exit_status()
         logger.info(f"stdout: {stdout.read().decode('utf-8')}")
         logger.info(f"stderr: {stderr.read().decode('utf-8')}")
+        return exit_status == 0
     except Exception as e:
         logger.error(f"Failed to execute remote script: {cmd}")
         logger.error(e)
         return False
     finally:
         logger.info("Closing connection")
-        client.close()
-    return True
+        if client:
+            client.close()
 
 
 def compare_npu_gpu_precision(save_dir=DATASETS):
