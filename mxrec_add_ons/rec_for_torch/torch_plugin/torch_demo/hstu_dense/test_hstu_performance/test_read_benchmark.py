@@ -134,7 +134,7 @@ def read_and_validate_parameters(index_to_find, csv_file_path=benchmark_csv):
     row = df[list(hstu_required_params.keys())]
 
     if row.empty:
-        logger.info(f"row {index_to_find} is empty.")
+        logger.info("row %d is empty.", index_to_find)
         return None, None
     
     params = row.iloc[0].to_dict()
@@ -143,7 +143,7 @@ def read_and_validate_parameters(index_to_find, csv_file_path=benchmark_csv):
         params[key] = convert_value(params[key], required_type)
 
     params["image_name"] = f"{index_to_find}_{df.shape_info.item()}"
-    logger.info(f"{index_to_find}: {params}")
+    logger.info("%d: %s", index_to_find, params)
     
     return df, params
 
@@ -166,7 +166,7 @@ def init_result_csv_index(index_to_find):
     new_row = pd.DataFrame([benchmark_row], columns=column_left, index=[index_to_find])
     df_res = pd.concat([df_res, new_row])
     df_res.to_csv(result_csv, index=False)
-    logger.info(f"Create index {index_to_find} in {result_csv}")    
+    logger.info("Create index %d in %s", index_to_find, result_csv)    
 
 
 if __name__ == "__main__":
