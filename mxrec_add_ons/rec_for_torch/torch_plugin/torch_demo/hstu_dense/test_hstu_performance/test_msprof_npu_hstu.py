@@ -31,7 +31,7 @@ def msprof_main(index):
     if df_res.loc[df_res['index'] == index, 'npu_fw_time'].notna().all() and \
         df_res.loc[df_res['index'] == index, 'npu_bw_time'].notna().all():
         logger.info(f'Benchmark with index {index} is already done. Exit.')
-        exit(0)
+        return True
     
     _, params = read_and_validate_parameters(index)
     cmd = f'rm profnpu/ -rf ; msprof --application=\"python3 test_npu_hstu.py --index={index}\" --output=profnpu'
