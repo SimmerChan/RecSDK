@@ -538,7 +538,7 @@ def test_fused_attn(
     full_batch: bool,
     is_delta_q: bool,
     image_name: str,
-)->Tuple[Optional[float], Optional[float]]:
+) -> Tuple[Optional[float], Optional[float]]:
     has_context = max_context_len > 0
     has_target = max_target_len > 0
     group_target = target_group_size > 1
@@ -549,9 +549,8 @@ def test_fused_attn(
         )
     if has_drab and not has_rab:
         raise ValueError("has_drab is True but has_rab is False")
-    if (has_target and not is_causal) or (
-        has_target and (window_size[0] > 0 or window_size[1] > 0)
-    ):
+    cond = has_target and (window_size[0] > 0 or window_size[1] > 0)
+    if (has_target and not is_causal) or cond:
         raise ValueError(
             "has_target is True but is_causal is False or window_size is not (-1, -1)"
         )
@@ -561,7 +560,7 @@ def test_fused_attn(
         raise ValueError("is_delta_q is True but max_seq_len_q > max_seq_len_k")
     if group_target and not has_target:
         raise ValueError("group_target is True but has_target is False")
-    # TODO: find a better way to avoid these combinations
+
     if is_delta_q and has_target:
         return None, None
     if is_delta_q and has_context:
