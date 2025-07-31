@@ -12,17 +12,38 @@
 using namespace at;
 using namespace std;
 
+constexpr int EXPECTED_DIM_1D = 1;
+
+/**
+ * 检查张量是否非空
+ * @param tensor 要检查的张量
+ * @param name 张量名称(用于错误信息)
+ */
 void check_tensor_non_empty(const Tensor &tensor, const std::string &name)
 {
     TORCH_CHECK(tensor.defined(), name, " tensor must be defined");
     TORCH_CHECK(tensor.numel() > 0, name, " tensor must be non-empty");
 }
 
+/**
+ * 检查张量维度是否符合预期
+ * @param tensor 要检查的张量
+ * @param expected_dim 期望的维度
+ * @param name 张量名称(用于错误信息)
+ */
 void check_tensor_dim(const Tensor &tensor, int64_t expected_dim, const std::string &name)
 {
     TORCH_CHECK(tensor.dim() == expected_dim, name, " must be ", expected_dim, "D");
 }
 
+/**
+ * 验证permute1d_sparse_data的输入参数
+ * @param permute 排列索引张量
+ * @param lengths 长度张量
+ * @param values 值张量
+ * @param weights 可选权重张量
+ * @param permuted_lengths_sum 可选排列后长度和
+ */
 void validate_permute1d_sparse_data_inputs(
     const Tensor &permute,
     const Tensor &lengths,
@@ -36,9 +57,9 @@ void validate_permute1d_sparse_data_inputs(
     check_tensor_non_empty(values, "values");
 
     // ============= 维度检查 =============
-    check_tensor_dim(permute, 1, "permute");
-    check_tensor_dim(lengths, 1, "lengths");
-    check_tensor_dim(values, 1, "values");
+    check_tensor_dim(permute, EXPECTED_DIM_1D, "permute");
+    check_tensor_dim(lengths, EXPECTED_DIM_1D, "lengths");
+    check_tensor_dim(values, EXPECTED_DIM_1D, "values");
 
     // ============= 长度一致性检查 =============
     const auto permute_len = permute.size(0);
@@ -48,17 +69,31 @@ void validate_permute1d_sparse_data_inputs(
     TORCH_CHECK(permute_len <= lengths_len,
         "permute (length=", permute_len, ") can't longer than lengths (length=", lengths_len, ").");
 
-    // weights是optional的，只有has_value时才检查
+    // 检查weights张量(如果存在)
     if (weights.has_value()) {
         check_tensor_non_empty(*weights, "weights");
-        check_tensor_dim(*weights, 1, "weights");
+        check_tensor_dim(*weights, EXPECTED_DIM_1D, "weights");
         const auto weights_len = weights->size(0);
         TORCH_CHECK(weights_len == values_len,
             "weights and values length mismatch: ", weights_len, " vs ", values_len);
     }
+
+    // 检查permuted_lengths_sum(如果存在)
+    if (permuted_lengths_sum.has_value()) {
+        TORCH_CHECK(permuted_lengths_sum.value() >= 0,
+            "permuted_lengths_sum must be non-negative, got ", permuted_lengths_sum.value());
+    }
 }
 
-// permute1d_sparse_data算子NPU实现
+/**
+ * permute1d_sparse_data算子的NPU实现
+ * @param permute 排列索引张量
+ * @param lengths 长度张量
+ * @param values 值张量
+ * @param weights 可选权重张量
+ * @param permuted_lengths_sum 可选排列后长度和
+ * @return 元组包含(输出长度, 输出值, 输出权重)
+ */
 tuple<Tensor, Tensor, c10::optional<Tensor>> permute1d_sparse_data_impl_npu(
     const Tensor &permute,
     const Tensor &lengths,
@@ -69,6 +104,7 @@ tuple<Tensor, Tensor, c10::optional<Tensor>> permute1d_sparse_data_impl_npu(
     // 输入校验
     validate_permute1d_sparse_data_inputs(permute, lengths, values, weights, permuted_lengths_sum);
 
+    // 确保张量是连续的(减少NPU内核中的内存访问开销)
     auto permuteConti = permute.contiguous();
     auto lengthsConti = lengths.contiguous().view({-1, 1});
     auto valuesConti = values.contiguous();
@@ -76,15 +112,19 @@ tuple<Tensor, Tensor, c10::optional<Tensor>> permute1d_sparse_data_impl_npu(
 
     const auto T = permute.size(0);
 
-    int outValuesLen;
+    int outValuesLen; // 输出值的长度
     if (permute.size(0) == lengths.size(0)) {
+        // 完整排列情况，输出长度等于输入长度
         outValuesLen = valuesConti.size(0);
     } else if (permuted_lengths_sum.has_value() && permuted_lengths_sum.value() > 0) {
+        // 提供了输出长度，直接使用
         outValuesLen = static_cast<int>(permuted_lengths_sum.value());
     } else {
+        // 未提供输出长度，通过permute长度进行计算
         outValuesLen = lengthsConti.narrow(0, 0, T).sum().item<int>();
     }
 
+    // 初始化输出向量
     at::Tensor outLengths = at::empty({T}, lengthsConti.options());
     at::Tensor outValues = at::empty({outValuesLen}, valuesConti.options());
     at::Tensor outWeights = weights.has_value() ? at::empty({outValuesLen}, weightsConti.options()) : at::Tensor();

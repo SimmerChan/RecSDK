@@ -35,11 +35,11 @@ WEIGHTS_TYPE = [None, np.float32]                    # weights为可选参数
 TYPE_LIST = list(itertools.product(PERMUTE_TYPE, LENGTHS_TYPE, VALUES_TYPE, WEIGHTS_TYPE))
 
 # 定义参数shape
-# permute, lengths shape为[T]
-# extra_t用于测试permute和lengths不等长的情况，lengths[T + extra_T]
-T = np.random.randint(2, 30, 4)       # 随机生成4个介于2到30之间的整数，代表稀疏数据的原始维度
+# permute shape为[BASE_T]
+# extra_t用于测试permute和lengths不等长的情况，lengths[BASE_T + extra_T]
+BASE_T = np.random.randint(2, 30, 4)       # 随机生成4个介于2到30之间的整数，代表稀疏数据的原始维度
 EXTRA_T = [0, 3, 8]
-SHAPE_LIST = list(itertools.product(T, EXTRA_T))
+SHAPE_LIST = list(itertools.product(BASE_T, EXTRA_T))
 
 
 def get_result(tensors: dict, device: str = 'cpu'):
