@@ -757,8 +757,6 @@ def save_mask(matrix, title='matrix'):
     plt.savefig(f"{title}.png", bbox_inches='tight', dpi=DPI)
     plt.close(fig)
 
-    return title
-
 
 def save_data(attn_mask, dk_hstu, dq_hstu, dtype, dv_hstu, out_hstu, g, k, max_context_len, max_seq_len_q,
             max_target_len, num_contexts, num_targets, prefix, q, rab, alpha, save_dir, seq_offsets_q, v, image_name):
@@ -803,7 +801,7 @@ def save_data(attn_mask, dk_hstu, dq_hstu, dtype, dv_hstu, out_hstu, g, k, max_c
         pass
     logger.info("save complete")
 
-     
+
 def main():
     parser = argparse.ArgumentParser(description="Read CSV file and run a specific index benchmark")
     parser.add_argument("--index", type=int, required=True, help="index of the benchmark to run")
