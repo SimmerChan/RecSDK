@@ -237,7 +237,7 @@ def gen_seq(length, mean_value, max_value, total_sum=None):
             return np.array([max_value, total_sum - max_value])
         remaining_sum = total_sum - max_value
         mean_value = (remaining_sum - 20) // (length - 2)
-        min_val = remaining_sum - mean_value * (length -2)
+        min_val = remaining_sum - mean_value * (length - 2)
         sequence = [mean_value] * (length -2)
         sequence.extend([max_value, min_val])
         return np.array(sequence)
