@@ -122,13 +122,13 @@ def convert_value(value, required_type):
 
 def read_and_validate_parameters(index, csv_file_path=benchmark_csv):      
     try: 
-        df = pd.read_csv(csv_file_path, encoding="utf-8") 
+        df_benchmark = pd.read_csv(csv_file_path, encoding="utf-8") 
     except UnicodeDecodeError as e:
         logger.error("An error occurred: %s", e)
         return None, None
     
-    df = df.loc[df[INDEX_STR] == index]
-    row = df[list(hstu_required_params.keys())]
+    df_benchmark = df_benchmark.loc[df_benchmark[INDEX_STR] == index]
+    row = df_benchmark[list(hstu_required_params.keys())]
 
     if row.empty:
         logger.info("row %d is empty.", index)
@@ -139,10 +139,10 @@ def read_and_validate_parameters(index, csv_file_path=benchmark_csv):
     for key, required_type in hstu_required_params.items():
         params[key] = convert_value(params[key], required_type)
 
-    params["image_name"] = f"{index}_{df.shape_info.item()}"
+    params["image_name"] = f"{index}_{df_benchmark.shape_info.item()}"
     logger.info("%d: %s", index, params)
     
-    return df, params
+    return df_benchmark, params
 
 
 def init_result_csv_index(index):
