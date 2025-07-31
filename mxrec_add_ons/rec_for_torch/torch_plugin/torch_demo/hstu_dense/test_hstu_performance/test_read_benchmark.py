@@ -75,7 +75,7 @@ column_names = [
     "npu_fw/benchmark",
     "npu_bw/benchmark",
     "npu_fw+bw/benchmark"
-    ]
+]
 
 column_left = column_names[:column_names.index("format") + 1]
 
