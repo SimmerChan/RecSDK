@@ -261,40 +261,41 @@ def generate_input(
     has_drab: bool,
     is_delta_q: bool,
 ):
+    device_str = "cuda"
     has_context = max_context_len > 0
     has_target = max_target_len > 0
     target_group_size > 1
     num_contexts_all = gen_seq(batch_size, 673, max_context_len + max_seq_len_k + max_target_len, total_len)
-    num_contexts_all = torch.from_numpy(num_contexts_all).to("cuda").int()
+    num_contexts_all = torch.from_numpy(num_contexts_all).to(device_str).int()
     # Generate lengths for context
     if max_context_len > 0:
         num_contexts = (
             torch.ones(
-                (batch_size,), device=torch.device("cuda"), dtype=torch.int32
+                (batch_size,), device=torch.device(device_str), dtype=torch.int32
             )
             * max_context_len
         )
     else:
         num_contexts = torch.zeros(
-            (batch_size,), dtype=torch.int32, device=torch.device("cuda")
+            (batch_size,), dtype=torch.int32, device=torch.device(device_str)
         )
     seq_offsets_c = torch.zeros(
-        (batch_size + 1,), dtype=torch.int32, device=torch.device("cuda")
+        (batch_size + 1,), dtype=torch.int32, device=torch.device(device_str)
     )
     seq_offsets_c[1:] = torch.cumsum(num_contexts, dim=0)
 
     # Generate lengths for historial qkv
     if full_batch or (full_batch is False and max_seq_len_k == 0):
         lengths_k = (
-            torch.ones((batch_size,), device=torch.device("cuda"), dtype=torch.int32)
+            torch.ones((batch_size,), device=torch.device(device_str), dtype=torch.int32)
             * max_seq_len_k
         )
     else:
         lengths_k = torch.randint(
-            1, max_seq_len_k + 1, size=(batch_size,), device=torch.device("cuda")
+            1, max_seq_len_k + 1, size=(batch_size,), device=torch.device(device_str)
         )
     seq_offsets_k = torch.zeros(
-        (batch_size + 1,), dtype=torch.int32, device=torch.device("cuda")
+        (batch_size + 1,), dtype=torch.int32, device=torch.device(device_str)
     )
     seq_offsets_k[1:] = torch.cumsum(lengths_k, dim=0)
 
@@ -303,7 +304,7 @@ def generate_input(
         if full_batch:
             num_targets = (
                 torch.ones(
-                    (batch_size,), device=torch.device("cuda"), dtype=torch.int32
+                    (batch_size,), device=torch.device(device_str), dtype=torch.int32
                 )
                 * max_target_len
             )
@@ -311,10 +312,10 @@ def generate_input(
             num_targets = num_contexts_all - num_contexts
     else:
         num_targets = torch.zeros(
-            (batch_size,), dtype=torch.int32, device=torch.device("cuda")
+            (batch_size,), dtype=torch.int32, device=torch.device(device_str)
         )
     seq_offsets_t = torch.zeros(
-        (batch_size + 1,), dtype=torch.int32, device=torch.device("cuda")
+        (batch_size + 1,), dtype=torch.int32, device=torch.device(device_str)
     )
     seq_offsets_t[1:] = torch.cumsum(num_targets, dim=0)
 
@@ -323,24 +324,24 @@ def generate_input(
         if full_batch:
             lengths_q = (
                 torch.ones(
-                    (batch_size,), device=torch.device("cuda"), dtype=torch.int32
+                    (batch_size,), device=torch.device(device_str), dtype=torch.int32
                 )
                 * max_seq_len_q
             )
         else:
             # lengths_q[i] is an integer between 1 and min(max_seq_len_q, lengths_k[i])
             lengths_q = torch.zeros(
-                (batch_size,), device=torch.device("cuda"), dtype=torch.int32
+                (batch_size,), device=torch.device(device_str), dtype=torch.int32
             )
             for i in range(batch_size):
                 lengths_q[i] = torch.randint(
                     1,
                     min(max_seq_len_q, lengths_k[i]) + 1,
                     size=(1,),
-                    device=torch.device("cuda"),
+                    device=torch.device(device_str),
                 )
         seq_offsets_q = torch.zeros(
-            (batch_size + 1,), dtype=torch.int32, device=torch.device("cuda")
+            (batch_size + 1,), dtype=torch.int32, device=torch.device(device_str)
         )
         seq_offsets_q[1:] = torch.cumsum(lengths_q, dim=0)
     else:
@@ -348,11 +349,11 @@ def generate_input(
 
     # Lengths for whole q, kv
     seq_offsets_q_wt = torch.zeros(
-        (batch_size + 1,), dtype=torch.int32, device=torch.device("cuda")
+        (batch_size + 1,), dtype=torch.int32, device=torch.device(device_str)
     )
     seq_offsets_q_wt = seq_offsets_c + seq_offsets_q + seq_offsets_t
     seq_offsets_k_wt = torch.zeros(
-        (batch_size + 1,), dtype=torch.int32, device=torch.device("cuda")
+        (batch_size + 1,), dtype=torch.int32, device=torch.device(device_str)
     )
     seq_offsets_k_wt = seq_offsets_c + seq_offsets_k + seq_offsets_t
 
@@ -366,21 +367,21 @@ def generate_input(
     # Generate q, k, v for history + target
     q = (
         torch.empty(
-            (l_q, heads, attn_dim), dtype=dtype_init, device=torch.device("cuda")
+            (l_q, heads, attn_dim), dtype=dtype_init, device=torch.device(device_str)
         )
         .uniform_(-1, 1)
         .requires_grad_()
     ).to(dtype)
     k = (
         torch.empty(
-            (l_k, heads, attn_dim), dtype=dtype_init, device=torch.device("cuda")
+            (l_k, heads, attn_dim), dtype=dtype_init, device=torch.device(device_str)
         )
         .uniform_(-1, 1)
         .requires_grad_()
     ).to(dtype)
     v = (
         torch.empty(
-            (l_k, heads, hidden_dim), dtype=dtype_init, device=torch.device("cuda")
+            (l_k, heads, hidden_dim), dtype=dtype_init, device=torch.device(device_str)
         )
         .uniform_(-1, 1)
         .requires_grad_()
@@ -395,7 +396,7 @@ def generate_input(
                 max_context_len + max_seq_len_k + max_target_len,
             ),
             dtype=dtype_init,
-            device=torch.device("cuda"),
+            device=torch.device(device_str),
         ).uniform_(-1, 1)
         rab = rab.requires_grad_()
 
