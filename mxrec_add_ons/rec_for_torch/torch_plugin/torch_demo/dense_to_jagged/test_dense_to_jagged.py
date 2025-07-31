@@ -23,6 +23,7 @@ import numpy as np
 import torch_npu
 import torch
 
+DEVICE = "npu:0"
 logging.getLogger().setLevel(logging.INFO)
 torch.ops.load_library(f"{sysconfig.get_path('purelib')}/libfbgemm_npu_api.so")
 
@@ -71,7 +72,7 @@ def test_dense_to_jagged(dense_dim0, dense_dim1, dense_dim2, dense_datatype, off
 
     # 2. 分别获取CPU和NPU结果
     golden_result = get_golden_result(torch.device("cpu"), denses, offsets, dense_datatype, offset_datatype, use_output_size)
-    npu_result = get_result(torch.device("npu"), denses, offsets, dense_datatype, offset_datatype, use_output_size)
+    npu_result = get_result(torch.device(DEVICE), denses, offsets, dense_datatype, offset_datatype, use_output_size)
 
     # 3. 结果比对（允许1e-4的误差）
     result_forward = torch.abs(golden_result[0] - npu_result[0]) < 1e-4
