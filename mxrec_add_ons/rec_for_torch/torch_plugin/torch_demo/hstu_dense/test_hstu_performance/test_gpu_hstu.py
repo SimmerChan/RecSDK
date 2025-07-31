@@ -356,8 +356,8 @@ def generate_input(
     )
     seq_offsets_k_wt = seq_offsets_c + seq_offsets_k + seq_offsets_t
 
-    L_q = int(seq_offsets_q_wt[-1].item())
-    L_k = int(seq_offsets_k_wt[-1].item())
+    l_q = int(seq_offsets_q_wt[-1].item())
+    l_k = int(seq_offsets_k_wt[-1].item())
     if dtype == torch.float8_e4m3fn:
         dtype_init = torch.float16
     else:
@@ -366,21 +366,21 @@ def generate_input(
     # Generate q, k, v for history + target
     q = (
         torch.empty(
-            (L_q, heads, attn_dim), dtype=dtype_init, device=torch.device("cuda")
+            (l_q, heads, attn_dim), dtype=dtype_init, device=torch.device("cuda")
         )
         .uniform_(-1, 1)
         .requires_grad_()
     ).to(dtype)
     k = (
         torch.empty(
-            (L_k, heads, attn_dim), dtype=dtype_init, device=torch.device("cuda")
+            (l_k, heads, attn_dim), dtype=dtype_init, device=torch.device("cuda")
         )
         .uniform_(-1, 1)
         .requires_grad_()
     ).to(dtype)
     v = (
         torch.empty(
-            (L_k, heads, hidden_dim), dtype=dtype_init, device=torch.device("cuda")
+            (l_k, heads, hidden_dim), dtype=dtype_init, device=torch.device("cuda")
         )
         .uniform_(-1, 1)
         .requires_grad_()
@@ -417,8 +417,8 @@ def generate_input(
         )
     grad = torch.rand_like(v)
     return (
-        L_q,
-        L_k,
+        l_q,
+        l_k,
         num_contexts if has_context else None,
         seq_offsets_q_wt,
         seq_offsets_k_wt,
@@ -451,18 +451,18 @@ def _hstu_attention_maybe_from_cache(
     is_delta_q: bool = False,
 ):
     torch.backends.cuda.matmul.allow_fp16_reduced_precision_reduction = False
-    B: int = q_offsets.size(0) - 1
+    batch: int = q_offsets.size(0) - 1
     dtype_out = q.dtype
     if is_delta_q:
-        padded_q = pad_input_delta_q(q, q_offsets, k_offsets, B, seqlen_k)
+        padded_q = pad_input_delta_q(q, q_offsets, k_offsets, batch, seqlen_k)
     else:
-        padded_q = pad_input(q, q_offsets, B, seqlen_q)
-    padded_k = pad_input(k, k_offsets, B, seqlen_k)
-    padded_v = pad_input(v, k_offsets, B, seqlen_k)
+        padded_q = pad_input(q, q_offsets, batch, seqlen_q)
+    padded_k = pad_input(k, k_offsets, batch, seqlen_k)
+    padded_v = pad_input(v, k_offsets, batch, seqlen_k)
 
-    padded_q = padded_q.view(B, seqlen_k, num_heads, attention_dim)
-    padded_k = padded_k.view(B, seqlen_k, num_heads, attention_dim)
-    padded_v = padded_v.view(B, seqlen_k, num_heads, linear_dim)
+    padded_q = padded_q.view(batch, seqlen_k, num_heads, attention_dim)
+    padded_k = padded_k.view(batch, seqlen_k, num_heads, attention_dim)
+    padded_v = padded_v.view(batch, seqlen_k, num_heads, linear_dim)
     if upcast:
         padded_q, padded_k, padded_v = (
             padded_q.float(),
@@ -504,10 +504,10 @@ def _hstu_attention_maybe_from_cache(
         padded_v,
     )
 
-    attn_output = attn_output.reshape(B, seqlen_k, num_heads * linear_dim)
+    attn_output = attn_output.reshape(batch, seqlen_k, num_heads * linear_dim)
     if is_delta_q:
         attn_output = unpad_input_delta_q(
-            attn_output, q_offsets, k_offsets, B, seqlen_k
+            attn_output, q_offsets, k_offsets, batch, seqlen_k
         )
     else:
         attn_output = unpad_input(attn_output, q_offsets)
@@ -600,7 +600,7 @@ def test_fused_attn(
             is_delta_q=is_delta_q,
         )
         
-        (L_q, L_k, num_contexts, seq_offsets_q, seq_offsets_k, num_targets, q, k, v, rab, attn_mask, grad) = input_data
+        (lq, lk, num_contexts, seq_offsets_q, seq_offsets_k, num_targets, q, k, v, rab, attn_mask, grad) = input_data
         
         logger.info(f"max_context_len: {max_context_len}, max_seq_len_q: {max_seq_len_q}, "
                     f"max_target_len: {max_target_len}")
@@ -655,7 +655,7 @@ def test_fused_attn(
                     linear_dim=hidden_dim,
                     seqlen_q=max_context_len + max_seq_len_q + max_target_len,
                     seqlen_k=max_context_len + max_seq_len_k + max_target_len,
-                    q=q.view(L_q, -1),
+                    q=q.view(lq, -1),
                     k=k.view(L_k, -1),
                     v=v.view(L_k, -1),
                     q_offsets=seq_offsets_q,
@@ -728,17 +728,17 @@ def save_mask(matrix, title='matrix'):
         "CustomMap", [(1,1,1), (0.8, 0.902, 0.8)], N=256
     )
 
-    MAX_PIXELS = 65536
-    DPI = 100
+    max_pixels = 65536
+    dpi = 100
 
     width_inches = min(12, max(6, matrix.shape[1] * 0.05)) 
     height_inches = min(12, max(6, matrix.shape[0] * 0.05))
 
-    width_pixels = width_inches * DPI
-    height_pixels = height_inches * DPI
+    width_pixels = width_inches * dpi
+    height_pixels = height_inches * dpi
 
-    if width_pixels > MAX_PIXELS or height_pixels > MAX_PIXELS:
-        scale_factor = min(MAX_PIXELS / width_pixels, MAX_PIXELS / height_pixels)
+    if width_pixels > max_pixels or height_pixels > max_pixels:
+        scale_factor = min(max_pixels / width_pixels, max_pixels / height_pixels)
         width_inches *= scale_factor
         height_inches *= scale_factor
     
@@ -754,7 +754,7 @@ def save_mask(matrix, title='matrix'):
     plt.title(title)
     plt.xlabel('seq_len')
     plt.ylabel('seq_len')
-    plt.savefig(f"{title}.png", bbox_inches='tight', dpi=DPI)
+    plt.savefig(f"{title}.png", bbox_inches='tight', dpi=dpi)
     plt.close(fig)
 
 
