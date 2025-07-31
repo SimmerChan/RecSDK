@@ -17,6 +17,7 @@
 
 import os
 import stat
+
 import tensorflow as tf
 
 MIN_SIZE = 1
