@@ -39,7 +39,7 @@ if __name__ == '__main__':
     
     _, params = read_and_validate_parameters(args.index)
     cmd = f'rm profnpu/ -rf ; msprof --application=\"python3 test_npu_hstu.py --index={args.index}\" --output=profnpu'
-    subprocess.run(cmd, check=True)
+    subprocess.run(cmd.split(' '), check=True)
     
     search_dir = os.path.join(config.NFS_DIR, 'profnpu')
     csv_files = glob.glob(f'{search_dir}/PROF_*/mindstudio_profiler_output/op_stati*.csv')
