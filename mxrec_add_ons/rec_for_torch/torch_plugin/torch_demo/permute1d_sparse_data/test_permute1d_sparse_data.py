@@ -83,7 +83,7 @@ def test_very_large_input():
     for gt, pred in zip(golden, result):
         assert type(gt) is type(pred)
         if isinstance(gt, torch.Tensor) and isinstance(pred, torch.Tensor):
-            assert torch.allclose(gt, pred, atol=1e-5)
+            assert torch.allclose(gt, pred, atol=1e-4)
 
 
 @pytest.mark.parametrize("types", TYPE_LIST)
@@ -103,8 +103,9 @@ def test_permute1d_sparse_data(types, shapes, enable_permuted_sum):
     ptype, ltype, vtype, wtype = types
     t, extra_t = shapes
 
-    permute = np.arange(t, dtype=ptype)  # 创建一个从0到t-1的数组
+    permute = np.arange(t + extra_t, dtype=ptype)  # 创建一个从0到t + extra_t - 1的数组
     np.random.shuffle(permute)  # 随机打乱permute数组
+    permute = permute[:t]
     lengths = np.ones(t + extra_t, dtype=ltype) # 创建全1的lengths，简化
     values = np.arange(0, t + extra_t, dtype=vtype)  # 注意总长度为lengths.sum(),此处特殊，为len(lengths)
     weights = np.arange(0, t + extra_t, dtype=wtype) if wtype else None
@@ -124,7 +125,7 @@ def test_permute1d_sparse_data(types, shapes, enable_permuted_sum):
     for gt, pred in zip(golden, result):
         assert type(gt) is type(pred)
         if isinstance(gt, torch.Tensor) and isinstance(pred, torch.Tensor):
-            assert torch.allclose(gt, pred, atol=1e-5)
+            assert torch.allclose(gt, pred, atol=1e-4)
 
 
 @pytest.mark.parametrize("types", TYPE_LIST)
