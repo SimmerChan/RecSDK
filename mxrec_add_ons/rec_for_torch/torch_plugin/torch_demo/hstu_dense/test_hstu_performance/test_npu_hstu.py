@@ -16,12 +16,9 @@
 # ==============================================================================
 
 import argparse
-import logging
 import os
-import subprocess
 import config
 import torch
-import torch_npu
 import sysconfig
 
 from test_read_benchmark import logger, DATASETS
