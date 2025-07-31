@@ -35,7 +35,7 @@ def read_data_from_path(save_dir, device='cpu'):
     k = torch.load(os.path.join(save_dir, "k.pth"), map_location=device)
     v = torch.load(os.path.join(save_dir, "v.pth"), map_location=device)
     bias = torch.load(os.path.join(save_dir, "bias.pth"), map_location=device)
-    seq_offset =  torch.load(os.path.join(save_dir, "offset.pth"), map_location=device)
+    seq_offset = torch.load(os.path.join(save_dir, "offset.pth"), map_location=device)
     mask = torch.load(os.path.join(save_dir, "invalid_attn_mask.pth"), map_location=device)
     max_seq_len = torch.load(os.path.join(save_dir, "input_max_length.pth"), map_location=device).item()
     alpha = torch.load(os.path.join(save_dir, "alpha.pth"), map_location=device)
@@ -56,55 +56,55 @@ def read_data_from_path(save_dir, device='cpu'):
 
 
 def _hstu_attention_maybe_from_cache(
-        num_heads: int,
-        attention_dim: int,
-        linear_dim: int,
-        silu_value: float,
-        grad: torch.Tensor,
-        q: torch.Tensor,
-        k: torch.Tensor,
-        v: torch.Tensor,
-        invalid_attn_mask: torch.Tensor,
-        seq_offset: torch.Tensor,
-        data_type: torch.dtype,
-        device: str
-        ):
-        n: int = invalid_attn_mask.size(-1)
-        torch.npu.set_device(device)
+    num_heads: int,
+    attention_dim: int,
+    linear_dim: int,
+    silu_value: float,
+    grad: torch.Tensor,
+    q: torch.Tensor,
+    k: torch.Tensor,
+    v: torch.Tensor,
+    invalid_attn_mask: torch.Tensor,
+    seq_offset: torch.Tensor,
+    data_type: torch.dtype,
+    device: str
+    ):
+    n: int = invalid_attn_mask.size(-1)
+    torch.npu.set_device(device)
 
-        q_ = q.reshape(-1, num_heads, attention_dim).to(device=device).to(data_type)
-        k_ = k.reshape(-1, num_heads, attention_dim).to(device=device).to(data_type)
-        v_ = v.reshape(-1, num_heads, attention_dim).to(device=device).to(data_type)
-        grad = grad.to(device=device).to(data_type)
+    q_ = q.reshape(-1, num_heads, attention_dim).to(device=device).to(data_type)
+    k_ = k.reshape(-1, num_heads, attention_dim).to(device=device).to(data_type)
+    v_ = v.reshape(-1, num_heads, attention_dim).to(device=device).to(data_type)
+    grad = grad.to(device=device).to(data_type)
 
-        seq_offset = seq_offset.to(device=device).tolist()
+    seq_offset = seq_offset.to(device=device).tolist()
 
-        if len(invalid_attn_mask.shape) == 2:
-            invalid_attn_mask = invalid_attn_mask.repeat(len(seq_offset) - 1, num_heads, 1, 1)
-        if len(invalid_attn_mask.shape) == 4 and invalid_attn_mask.shape[1] == 1:
-            invalid_attn_mask = invalid_attn_mask.repeat(1, num_heads, 1, 1)
+    if len(invalid_attn_mask.shape) == 2:
+        invalid_attn_mask = invalid_attn_mask.repeat(len(seq_offset) - 1, num_heads, 1, 1)
+    if len(invalid_attn_mask.shape) == 4 and invalid_attn_mask.shape[1] == 1:
+        invalid_attn_mask = invalid_attn_mask.repeat(1, num_heads, 1, 1)
 
-        logger.info(f"invalid_attn_mask shape: {invalid_attn_mask.shape}")
+    logger.info(f"invalid_attn_mask shape: {invalid_attn_mask.shape}")
 
-        invalid_attn_mask = invalid_attn_mask.to(device=device).to(data_type)
-        mask_type = 3
-        silu_value = silu_value / n
-        local_cycle_nums = 100
-        for _ in range(local_cycle_nums):
-            grad_output = torch.ops.mxrec.hstu_dense(q_, k_, v_, invalid_attn_mask, None, mask_type, n, silu_value, 
-                                                     "jagged", seq_offset)
-            q_grad, k_grad, v_grad, _ = torch.ops.mxrec.hstu_dense_backward(grad, q_, k_, v_, invalid_attn_mask, None, 
-                                                "jagged", mask_type, n, silu_value, seq_offset)
+    invalid_attn_mask = invalid_attn_mask.to(device=device).to(data_type)
+    mask_type = 3
+    silu_value = silu_value / n
+    local_cycle_nums = 100
+    for _ in range(local_cycle_nums):
+        grad_output = torch.ops.mxrec.hstu_dense(q_, k_, v_, invalid_attn_mask, None, mask_type, n, silu_value, 
+                                                    "jagged", seq_offset)
+        q_grad, k_grad, v_grad, _ = torch.ops.mxrec.hstu_dense_backward(grad, q_, k_, v_, invalid_attn_mask, None, 
+                                            "jagged", mask_type, n, silu_value, seq_offset)
 
-            torch.npu.synchronize()
-            grad_output = grad_output.reshape(-1, num_heads * linear_dim)
+        torch.npu.synchronize()
+        grad_output = grad_output.reshape(-1, num_heads * linear_dim)
 
-        save_dir = DATASETS
-        
-        torch.save(grad_output, os.path.join(save_dir, "npu_out.pth"))
-        torch.save(q_grad, os.path.join(save_dir, "npu_q.pth"))
-        torch.save(k_grad, os.path.join(save_dir, "npu_k.pth"))
-        torch.save(v_grad, os.path.join(save_dir, "npu_v.pth"))
+    save_dir = DATASETS
+    
+    torch.save(grad_output, os.path.join(save_dir, "npu_out.pth"))
+    torch.save(q_grad, os.path.join(save_dir, "npu_q.pth"))
+    torch.save(k_grad, os.path.join(save_dir, "npu_k.pth"))
+    torch.save(v_grad, os.path.join(save_dir, "npu_v.pth"))
 
 
 if __name__ == "__main__":
