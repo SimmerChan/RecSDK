@@ -39,6 +39,7 @@ def execute_and_process(bx):
         logger.error(e)
         return False
 
+
 def transfer_and_execute(bx):
     remote_host = config.GPU_IP
     remote_user = config.GPU_USER
@@ -47,7 +48,8 @@ def transfer_and_execute(bx):
 
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    
+    cmd = f"cd {remote_dir} && source ~/.bashrc && {config.PYTHON3} test_gpu_hstu.py --index={bx}"
+
     try:
         client.connect(remote_host, port=22, username=remote_user, password=remote_password)
         sftp = client.open_sftp()
@@ -56,19 +58,23 @@ def transfer_and_execute(bx):
             sftp.put(file, os.path.join(remote_dir, file))
         sftp.close()
 
-        cmd = f"cd {remote_dir} && source ~/.bashrc && {config.PYTHON3} test_gpu_hstu.py --index={bx}"
+        
         logger.info(f"Executing remote script: {cmd}")
         stdin, stdout, stderr = client.exec_command(cmd)
         exit_status = stdout.channel.recv_exit_status()
         logger.info(f"stdout: {stdout.read().decode('utf-8')}")
         logger.info(f"stderr: {stderr.read().decode('utf-8')}")
+    except Exception as e:
+        logger.error(f"Failed to execute remote script: {cmd}")
+        logger.error(e)
+        return False
     finally:
         logger.info("Closing connection")
         client.close()
     return True
 
 
-def compare_npu_gpu_precision(save_dir = DATASETS):
+def compare_npu_gpu_precision(save_dir=DATASETS):
     logger.info(f"Compating npu and gpu results of {save_dir}")
     try:
         data_type = torch.load(os.path.join(save_dir, "data_type.pth"), map_location='cpu')
