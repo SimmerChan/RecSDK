@@ -149,6 +149,16 @@ def update_index_csv(df_res, benchmark_df, bx, precision):
     )
 
 
+def retry_operation(operation, operation_name, bx, max_retries=2):
+    for attempt in range(max_retries):
+        ret = operation(bx)
+        if ret:
+            return True
+        logger.warning(f"{operation_name} failed for benchmark {bx}, attempt {attempt + 1}/{max_retries}")
+    logger.error(f"{operation_name} failed for benchmark {bx} after {max_retries} retries")
+    return False
+
+
 def main(index=None):
     benchmark_df = pd.read_csv(benchmark_csv)
     benchmark_df['index'] = benchmark_df['index'].astype(int)
@@ -158,21 +168,28 @@ def main(index=None):
         all_indices = [index]
 
     for bx in all_indices:
-        
         logger.info(f"benchmark {bx} testing")
         init_result_csv_index(bx)
         df_res = pd.read_csv(result_csv)
+        
         if df_res[df_res['index'] == bx].notna().all().all():
             logger.info(f"benchmark {bx} already, pass")
             continue
         
-        transfer_and_execute(bx)
-        execute_and_process(bx)
+        remote_success = retry_operation(transfer_and_execute, "Remote execution", bx)
+        if not remote_success:
+            continue
+        
+        local_success = retry_operation(execute_and_process, "Local execution", bx)
+        if not local_success:
+            continue
+        
         df_res = pd.read_csv(result_csv)
         precision = compare_npu_gpu_precision()
         update_index_csv(df_res, benchmark_df, bx, precision)
         df_res.to_csv(result_csv, index=False)
         logger.info(f"benchmark {bx} tested")
+        
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run benchmark tests.")
