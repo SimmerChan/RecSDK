@@ -60,8 +60,8 @@ def transfer_and_execute(bx):
         logger.info(f"Executing remote script: {cmd}")
         stdin, stdout, stderr = client.exec_command(cmd)
         exit_status = stdout.channel.recv_exit_status()
-        logger.info(f"stdout: {stdout.read().decode("utf-8")}")
-        logger.info(f"stderr: {stderr.read().decode("utf-8")}")
+        logger.info(f"stdout: {stdout.read().decode('utf-8')}")
+        logger.info(f"stderr: {stderr.read().decode('utf-8')}")
     finally:
         logger.info("Closing connection")
         client.close()
