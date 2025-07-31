@@ -88,7 +88,7 @@ public:
         lengthsGT.SetGlobalBuffer(lengths, lengthsT * lengthsB * sizeof(LType));
         valuesGT.SetGlobalBuffer(values, valuesDim * sizeof(VType));
         // 使用workspace共享lengths.sum(dim=1)和offsets计算结果, 因此为两份内存
-        offsetGT.SetGlobalBuffer(workspace, 2 * (lengthsT + 1) * sizeof(VType));
+        offsetGT.SetGlobalBuffer((__gm__ int64_t*)workspace, 2 * (lengthsT + 1) * sizeof(int64_t));
 
         outLengthsGT.SetGlobalBuffer(outLengths, lengthsT * lengthsB * sizeof(LType));
         outIndicesGT.SetGlobalBuffer(outIndices, valuesOutDim * sizeof(VType));
@@ -173,17 +173,13 @@ public:
 
     __aicore__ void CalculateOffsets()
     {
-        totalOffsetPtr = (__gm__ int64_t*)workspace + (lengthsT + 1) * UB_ALIGN +
-                         GetBlockIdx() * (lengthsT + 1) * UB_ALIGN;
+        totalOffsetPtr = (__gm__ int64_t*)workspace + (lengthsT + 1);  // 第一段内存保存lengths.sum值
         *(totalOffsetPtr) = 0;
-        GlobalTensor<int64_t> offsetGt;
-        offsetGt.SetGlobalBuffer((__gm__ int64_t*)offsetPtr, (lengthsT + 1) * UB_ALIGN * UB_ALIGN);
         AscendC::DataCacheCleanAndInvalid<int64_t, AscendC::CacheLine::ENTIRE_DATA_CACHE,
                                           AscendC::DcciDst::CACHELINE_OUT>(offsetGt);
 
         for (int64_t i = 1; i < lengthsT + 1; i++) {
-            *(totalOffsetPtr + i * UB_ALIGN) = *(totalOffsetPtr + (i - 1) * UB_ALIGN) +
-                                               offsetGt.GetValue((i - 1) * UB_ALIGN);
+            *(totalOffsetPtr + i) = *(totalOffsetPtr + (i - 1)) + offsetGt.GetValue((i - 1));
         }
     }
 
