@@ -26,6 +26,9 @@ import config
 from test_read_benchmark import benchmark_csv, result_csv, logger, DATASETS, init_result_csv_index
 
 
+
+indexstr = 'index'
+
 def execute_and_process(bx):
     cmd = f"python3 test_msprof_npu_hstu.py --index={bx}"
     logger.info(f"Executing local scirpt: {cmd}")
@@ -129,9 +132,9 @@ def compare_npu_gpu_precision(save_dir=DATASETS, device='cpu'):
 
 
 def update_index_csv(df_res, benchmark_df, bx, precision):
-    INDEX = 'index'
-    mask_res = df_res[INDEX] == bx
-    mask_benchmark = benchmark_df[INDEX] == bx
+
+    mask_res = df_res[indexstr] == bx
+    mask_benchmark = benchmark_df[indexstr] == bx
 
     df_res.loc[mask_res, 'precision'] = precision
     df_res.loc[mask_res, 'npu_fw/gpu_fw'] = (
@@ -169,8 +172,8 @@ def retry_operation(operation, operation_name, bx, max_retries=2):
 
 def main(index=None):
     benchmark_df = pd.read_csv(benchmark_csv)
-    benchmark_df['index'] = benchmark_df['index'].astype(int)
-    all_indices = benchmark_df['index'].tolist()
+    benchmark_df[indexstr] = benchmark_df[indexstr].astype(int)
+    all_indices = benchmark_df[indexstr].tolist()
     
     if index is not None:
         all_indices = [index]
@@ -180,7 +183,7 @@ def main(index=None):
         init_result_csv_index(bx)
         df_res = pd.read_csv(result_csv)
         
-        if df_res[df_res['index'] == bx].notna().all().all():
+        if df_res[df_res[indexstr] == bx].notna().all().all():
             logger.info(f"benchmark {bx} already, pass")
             continue
         
