@@ -19,12 +19,9 @@
 import ast
 import logging
 import os
-import subprocess
-import argparse
 import pandas as pd
 import torch
 import config
-import paramiko
 
 
 
@@ -123,18 +120,18 @@ def convert_value(value, required_type):
         return value
     
 
-def read_and_validate_parameters(index_to_find, csv_file_path=benchmark_csv):      
+def read_and_validate_parameters(index, csv_file_path=benchmark_csv):      
     try: 
         df = pd.read_csv(csv_file_path, encoding="utf-8") 
     except UnicodeDecodeError as e:
         logger.error("An error occurred: %s", e)
         return None, None
     
-    df = df.loc[df["index"] == index_to_find]
+    df = df.loc[df[INDEX_STR] == index]
     row = df[list(hstu_required_params.keys())]
 
     if row.empty:
-        logger.info("row %d is empty.", index_to_find)
+        logger.info("row %d is empty.", index)
         return None, None
     
     params = row.iloc[0].to_dict()
@@ -142,13 +139,13 @@ def read_and_validate_parameters(index_to_find, csv_file_path=benchmark_csv):
     for key, required_type in hstu_required_params.items():
         params[key] = convert_value(params[key], required_type)
 
-    params["image_name"] = f"{index_to_find}_{df.shape_info.item()}"
-    logger.info("%d: %s", index_to_find, params)
+    params["image_name"] = f"{index}_{df.shape_info.item()}"
+    logger.info("%d: %s", index, params)
     
     return df, params
 
 
-def init_result_csv_index(index_to_find):
+def init_result_csv_index(index):
     benchmark_df = pd.read_csv(benchmark_csv)
     benchmark_df[INDEX_STR] = benchmark_df[INDEX_STR].astype(int)
     if not os.path.exists(result_csv):
@@ -156,17 +153,17 @@ def init_result_csv_index(index_to_find):
         df_res.to_csv(result_csv, index=False)
     
     df_res = pd.read_csv(result_csv)
-    benchmark_row = benchmark_df.loc[benchmark_df[INDEX_STR] == index_to_find, column_left]
+    benchmark_row = benchmark_df.loc[benchmark_df[INDEX_STR] == index, column_left]
     if benchmark_row.shape[0] > 0:
         benchmark_row = benchmark_row.iloc[0]
 
-    if index_to_find in df_res[INDEX_STR].tolist():
+    if index in df_res[INDEX_STR].tolist():
         return
     
-    new_row = pd.DataFrame([benchmark_row], columns=column_left, index=[index_to_find])
+    new_row = pd.DataFrame([benchmark_row], columns=column_left, index=[index])
     df_res = pd.concat([df_res, new_row])
     df_res.to_csv(result_csv, index=False)
-    logger.info("Create index %d in %s", index_to_find, result_csv)    
+    logger.info("Create index %d in %s", index, result_csv)    
 
 
 if __name__ == "__main__":
