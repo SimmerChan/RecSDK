@@ -17,8 +17,9 @@
 
 import argparse
 import os
-from statistics import mean
 import traceback
+from statistics import mean
+
 import torch
 
 sm_major_version = torch.cuda.get_device_properties(0).major
@@ -30,17 +31,17 @@ elif sm_major_version == 8:
 
 import math
 from typing import Optional, Tuple
-import matplotlib.pyplot as plt
+
 import matplotlib.colors as mcolors
-import torch.nn.functional as F
-from einops import rearrange
 import matplotlib.pyplot as plt
-import matplotlib.colors as colorsys
 import numpy as np
 import pandas as pd
-from pynvml import nvmlInit, nvmlDeviceGetCount, nvmlDeviceGetHandleByIndex, nvmlDeviceGetMemoryInfo, nvmlShutdown
-from test_read_benchmark import logger, read_and_validate_parameters, DATASETS, result_csv, init_result_csv_index
-
+import torch.nn.functional as F
+from einops import rearrange
+from pynvml import (nvmlDeviceGetCount, nvmlDeviceGetHandleByIndex,
+                    nvmlDeviceGetMemoryInfo, nvmlInit, nvmlShutdown)
+from test_read_benchmark import (DATASETS, init_result_csv_index, logger,
+                                 read_and_validate_parameters, result_csv)
 
 PERFORMANCE = True
 if PERFORMANCE:
