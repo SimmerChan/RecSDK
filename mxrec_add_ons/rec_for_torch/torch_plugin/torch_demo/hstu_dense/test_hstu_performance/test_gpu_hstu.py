@@ -723,7 +723,6 @@ def test_fused_attn(
     save_data(attn_mask, dk_hstu, dq_hstu, dtype, dv_hstu, out_hstu, grad, k, max_context_len, max_seq_len_q,
         max_target_len, num_contexts, num_targets, prefix, q, rab, alpha, save_dir, seq_offsets_q, v, image_name)       
 
-
     return fwd_time, bwd_time
 
 
