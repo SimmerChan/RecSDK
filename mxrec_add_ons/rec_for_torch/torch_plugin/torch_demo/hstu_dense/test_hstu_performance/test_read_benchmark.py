@@ -33,6 +33,7 @@ DATASETS = os.path.join(config.NFS_DIR, "datasets")
 benchmark_csv = os.path.join(config.NFS_DIR, "benchmark.csv")
 result_csv = os.path.join(config.NFS_DIR, "result.csv")
 
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s %(filename)s %(lineno)d [%(levelname)s] %(message)s',
@@ -73,7 +74,8 @@ column_names = [
     "npu_fw+bw/gpu_fw+bw",
     "npu_fw/benchmark",
     "npu_bw/benchmark",
-    "npu_fw+bw/benchmark"]
+    "npu_fw+bw/benchmark"
+    ]
 
 column_left = column_names[:column_names.index("format") + 1]
 
@@ -100,6 +102,9 @@ hstu_required_params = {
 }
     
 
+INDEX_STR = 'index'
+
+
 def read_and_validate_parameters(index_to_find, csv_file_path=benchmark_csv):
     def convert_value(value, required_type):
         if isinstance(value, str):
@@ -120,15 +125,15 @@ def read_and_validate_parameters(index_to_find, csv_file_path=benchmark_csv):
     try: 
         df = pd.read_csv(csv_file_path, encoding="utf-8") 
     except UnicodeDecodeError as e:
-        logger.error(f"An error occurred: {e}")
-        return None
+        logger.error("An error occurred: %s", e)
+        return None, None
     
     df = df.loc[df["index"] == index_to_find]
     row = df[list(hstu_required_params.keys())]
 
     if row.empty:
         logger.info(f"row {index_to_find} is empty.")
-        return None
+        return None, None
     
     params = row.iloc[0].to_dict()
 
@@ -143,17 +148,17 @@ def read_and_validate_parameters(index_to_find, csv_file_path=benchmark_csv):
 
 def init_result_csv_index(index_to_find):
     benchmark_df = pd.read_csv(benchmark_csv)
-    benchmark_df['index'] = benchmark_df['index'].astype(int)
+    benchmark_df[INDEX_STR] = benchmark_df[INDEX_STR].astype(int)
     if not os.path.exists(result_csv):
         df_res = pd.DataFrame(columns=column_names)
         df_res.to_csv(result_csv, index=False)
     
     df_res = pd.read_csv(result_csv)
-    benchmark_row = benchmark_df.loc[benchmark_df['index'] == index_to_find, column_left]
+    benchmark_row = benchmark_df.loc[benchmark_df[INDEX_STR] == index_to_find, column_left]
     if benchmark_row.shape[0] > 0:
         benchmark_row = benchmark_row.iloc[0]
 
-    if index_to_find in df_res['index'].tolist():
+    if index_to_find in df_res[INDEX_STR].tolist():
         return
     
     new_row = pd.DataFrame([benchmark_row], columns=column_left, index=[index_to_find])
