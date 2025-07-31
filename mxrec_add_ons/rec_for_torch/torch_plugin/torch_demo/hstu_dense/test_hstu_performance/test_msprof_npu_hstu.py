@@ -15,11 +15,11 @@
 # limitations under the License.
 # ==============================================================================
 
+import os
 import argparse
 import glob
 import subprocess
 import pandas as pd
-import os
 
 import config
 from test_read_benchmark import logger, read_and_validate_parameters, result_csv, init_result_csv_index
