@@ -715,7 +715,7 @@ def test_fused_attn(
             logger.info(f"cpu_q vs gpu_q: {q_close}")
             logger.info(f"cpu_k vs gpu_k: {k_close}")
             logger.info(f"cpu_v vs gpu_v: {v_close}")
-            logger.info("all pass: {}".format(out_close and q_close and k_close and v_close))
+            logger.info(f"all pass: {(out_close and q_close and k_close and v_close)}")
 
         save_dir = DATASETS
         prefix = "gpu_"
