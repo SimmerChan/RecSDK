@@ -572,159 +572,159 @@ def test_fused_attn(
         return None, None
 
     torch.cuda.synchronize()
-    if run_benchmark is not None:
-        if run_benchmark not in [
-            0b01,
-            0b10,
-            0b11
-        ]: # 0b01 is run hstu benchmark and 0b10 is run torch benchmark, 0b11 is run both and compare precision
-            raise ValueError(
-                "run_benchmark should be in [0b01, 0b10, 0b11]"
+
+    if run_benchmark not in [
+        0b01,
+        0b10,
+        0b11
+    ]: # 0b01 is run hstu benchmark and 0b10 is run torch benchmark, 0b11 is run both and compare precision
+        raise ValueError(
+            "run_benchmark should be in [0b01, 0b10, 0b11]"
+        )
+    
+    iterations = g_iterations
+    profiler_step_start = g_profiler_step_start
+
+    input_data = generate_input(
+        total_len=total_len,
+        batch_size=batch_size,
+        heads=heads,
+        heads_rab=heads_rab,
+        max_seq_len_q=max_seq_len_q,
+        max_seq_len_k=max_seq_len_k,
+        max_context_len=max_context_len,
+        max_target_len=max_target_len,
+        target_group_size=target_group_size,
+        attn_dim=attn_dim,
+        hidden_dim=hidden_dim,
+        window_size=window_size,
+        dtype=dtype,
+        full_batch=full_batch,
+        has_drab=has_drab,
+        is_delta_q=is_delta_q,
+    )
+    
+    (lq, lk, num_contexts, seq_offsets_q, seq_offsets_k, num_targets, q, k, v, rab, attn_mask, grad) = input_data
+    
+    logger.info(f"max_context_len: {max_context_len}, max_seq_len_q: {max_seq_len_q}, "
+                f"max_target_len: {max_target_len}")
+    logger.info(f"q.shape: {q.shape}")
+    logger.info(f"k.shape: {k.shape}")
+    logger.info(f"v.shape: {v.shape}")
+    logger.info(f"grad.shape: {grad.shape}")
+    logger.info(f"attn_mask.shape: {attn_mask.shape}")
+    logger.info(f"seq_offsets_q.shape: {seq_offsets_q.shape}")
+    logger.info(f"seq_offsets_k.shape: {seq_offsets_k.shape}")
+    logger.info(f"total_max_seq_len_q: {max_seq_len_q + max_context_len + max_target_len}")
+    logger.info(f"total_max_seq_len_k: {max_seq_len_k + max_context_len + max_target_len}")
+    logger.info(f"num_contexts.shape: {num_contexts.shape if (has_context and run_benchmark & 0b01) else None}")
+    logger.info(f"num_targets.shape: {num_targets.shape if (has_target and run_benchmark & 0b01) else None}")
+    logger.info(f"target_group_size: {target_group_size}")
+    logger.info(f"window_size: {window_size}")
+    logger.info(f"alpha: {alpha}")
+    logger.info(f"rab.shape: {rab.shape if has_rab else None}")
+    logger.info(f"has_drab: {has_drab}")
+    logger.info(f"is_delta_q: {is_delta_q}")
+
+
+    fwd_event_start = torch.cuda.Event(enable_timing=True)
+    fwd_event_stop = torch.cuda.Event(enable_timing=True)
+    torch.cuda.synchronize()
+    for i in range(iterations):
+        if i == profiler_step_start:
+            fwd_event_start.record()
+        
+        if run_benchmark & 0b01:
+            out_hstu = hstu_attn_varlen_func(
+                q=q,
+                k=k,
+                v=v,
+                seq_offsets_q=seq_offsets_q,
+                seq_offsets_k=seq_offsets_k,
+                max_seqlen_q=max_context_len + max_seq_len_q + max_target_len,
+                max_seqlen_k=max_context_len + max_seq_len_k + max_target_len,
+                num_contexts=num_contexts if has_context else None,
+                num_targets=num_targets if has_target else None,
+                target_group_size=target_group_size,
+                window_size=window_size,
+                alpha=alpha,
+                rab=rab if has_rab else None,
+                has_drab=has_drab,
+                is_delta_q=is_delta_q,
             )
-        iterations = g_iterations
-        profiler_step_start = g_profiler_step_start
-
-        
-        input_data = generate_input(
-            total_len=total_len,
-            batch_size=batch_size,
-            heads=heads,
-            heads_rab=heads_rab,
-            max_seq_len_q=max_seq_len_q,
-            max_seq_len_k=max_seq_len_k,
-            max_context_len=max_context_len,
-            max_target_len=max_target_len,
-            target_group_size=target_group_size,
-            attn_dim=attn_dim,
-            hidden_dim=hidden_dim,
-            window_size=window_size,
-            dtype=dtype,
-            full_batch=full_batch,
-            has_drab=has_drab,
-            is_delta_q=is_delta_q,
-        )
-        
-        (lq, lk, num_contexts, seq_offsets_q, seq_offsets_k, num_targets, q, k, v, rab, attn_mask, grad) = input_data
-        
-        logger.info(f"max_context_len: {max_context_len}, max_seq_len_q: {max_seq_len_q}, "
-                    f"max_target_len: {max_target_len}")
-        logger.info(f"q.shape: {q.shape}")
-        logger.info(f"k.shape: {k.shape}")
-        logger.info(f"v.shape: {v.shape}")
-        logger.info(f"grad.shape: {grad.shape}")
-        logger.info(f"attn_mask.shape: {attn_mask.shape}")
-        logger.info(f"seq_offsets_q.shape: {seq_offsets_q.shape}")
-        logger.info(f"seq_offsets_k.shape: {seq_offsets_k.shape}")
-        logger.info(f"total_max_seq_len_q: {max_seq_len_q + max_context_len + max_target_len}")
-        logger.info(f"total_max_seq_len_k: {max_seq_len_k + max_context_len + max_target_len}")
-        logger.info(f"num_contexts.shape: {num_contexts.shape if (has_context and run_benchmark & 0b01) else None}")
-        logger.info(f"num_targets.shape: {num_targets.shape if (has_target and run_benchmark & 0b01) else None}")
-        logger.info(f"target_group_size: {target_group_size}")
-        logger.info(f"window_size: {window_size}")
-        logger.info(f"alpha: {alpha}")
-        logger.info(f"rab.shape: {rab.shape if has_rab else None}")
-        logger.info(f"has_drab: {has_drab}")
-        logger.info(f"is_delta_q: {is_delta_q}")
+        if run_benchmark & 0b10:
+            out_torch = _hstu_attention_maybe_from_cache(
+                num_heads=heads,
+                attention_dim=attn_dim,
+                linear_dim=hidden_dim,
+                seqlen_q=max_context_len + max_seq_len_q + max_target_len,
+                seqlen_k=max_context_len + max_seq_len_k + max_target_len,
+                q=q.view(lq, -1),
+                k=k.view(lk, -1),
+                v=v.view(lk, -1),
+                q_offsets=seq_offsets_q,
+                k_offsets=seq_offsets_k,
+                rab=rab if has_rab else None,
+                invalid_attn_mask=attn_mask.to(torch.float32)
+                if attn_mask is not None
+                else None,
+                alpha=alpha,
+                upcast=False,
+                reorder_op=True,
+                is_delta_q=is_delta_q,
+            )
+            out_torch = out_torch.reshape(-1, heads, attn_dim)
+    fwd_event_stop.record()
+    torch.cuda.synchronize()
+    fwd_time = fwd_event_start.elapsed_time(fwd_event_stop) / (
+        iterations - profiler_step_start
+    )
 
 
-        fwd_event_start = torch.cuda.Event(enable_timing=True)
-        fwd_event_stop = torch.cuda.Event(enable_timing=True)
-        torch.cuda.synchronize()
-        for i in range(iterations):
-            if i == profiler_step_start:
-                fwd_event_start.record()
-           
-            if run_benchmark & 0b01:
-                out_hstu = hstu_attn_varlen_func(
-                    q=q,
-                    k=k,
-                    v=v,
-                    seq_offsets_q=seq_offsets_q,
-                    seq_offsets_k=seq_offsets_k,
-                    max_seqlen_q=max_context_len + max_seq_len_q + max_target_len,
-                    max_seqlen_k=max_context_len + max_seq_len_k + max_target_len,
-                    num_contexts=num_contexts if has_context else None,
-                    num_targets=num_targets if has_target else None,
-                    target_group_size=target_group_size,
-                    window_size=window_size,
-                    alpha=alpha,
-                    rab=rab if has_rab else None,
-                    has_drab=has_drab,
-                    is_delta_q=is_delta_q,
-                )
-            if run_benchmark & 0b10:
-                out_torch = _hstu_attention_maybe_from_cache(
-                    num_heads=heads,
-                    attention_dim=attn_dim,
-                    linear_dim=hidden_dim,
-                    seqlen_q=max_context_len + max_seq_len_q + max_target_len,
-                    seqlen_k=max_context_len + max_seq_len_k + max_target_len,
-                    q=q.view(lq, -1),
-                    k=k.view(lk, -1),
-                    v=v.view(lk, -1),
-                    q_offsets=seq_offsets_q,
-                    k_offsets=seq_offsets_k,
-                    rab=rab if has_rab else None,
-                    invalid_attn_mask=attn_mask.to(torch.float32)
-                    if attn_mask is not None
-                    else None,
-                    alpha=alpha,
-                    upcast=False,
-                    reorder_op=True,
-                    is_delta_q=is_delta_q,
-                )
-                out_torch = out_torch.reshape(-1, heads, attn_dim)
-        fwd_event_stop.record()
-        torch.cuda.synchronize()
-        fwd_time = fwd_event_start.elapsed_time(fwd_event_stop) / (
-            iterations - profiler_step_start
-        )
+    bwd_event_start = torch.cuda.Event(enable_timing=True)
+    bwd_event_stop = torch.cuda.Event(enable_timing=True)
+    torch.cuda.synchronize()
+    for i in range(iterations):
+        if i == profiler_step_start:
+            bwd_event_start.record()
+
+        autograd_input = (q, k, v, rab) if has_rab else (q, k, v)
+        if run_benchmark & 0b01:
+            dq_hstu, dk_hstu, dv_hstu = torch.autograd.grad(out_hstu, autograd_input, grad, retain_graph=True)
+        if run_benchmark & 0b10:
+            dq_torch, dk_torch, dv_torch = torch.autograd.grad(out_torch, autograd_input, grad, retain_graph=True)
+    bwd_event_stop.record()
+    torch.cuda.synchronize()
+    bwd_time = bwd_event_start.elapsed_time(bwd_event_stop) / (
+        iterations - profiler_step_start
+    )
+
+    if run_benchmark & 0b11 == 0b11:
+        if dtype == torch.bfloat16:
+            eps = 1e-2
+        elif dtype == torch.float16:
+            eps = 1e-3
+        else:
+            eps = 1e-4
+    
+        out_close = torch.allclose(out_hstu, out_torch, eps, eps)
+        q_close = torch.allclose(dq_hstu, dq_torch, eps, eps)
+        k_close = torch.allclose(dk_hstu, dk_torch, eps, eps)
+        v_close = torch.allclose(dv_hstu, dv_torch, eps, eps)
+
+        logger.info(f"cpu_out vs gpu_out: {out_close}")
+        logger.info(f"cpu_q vs gpu_q: {q_close}")
+        logger.info(f"cpu_k vs gpu_k: {k_close}")
+        logger.info(f"cpu_v vs gpu_v: {v_close}")
+        logger.info(f"all pass: {(out_close and q_close and k_close and v_close)}")
+
+    save_dir = DATASETS
+    prefix = "gpu_"
+    save_data(attn_mask, dk_hstu, dq_hstu, dtype, dv_hstu, out_hstu, grad, k, max_context_len, max_seq_len_q,
+        max_target_len, num_contexts, num_targets, prefix, q, rab, alpha, save_dir, seq_offsets_q, v, image_name)       
 
 
-        bwd_event_start = torch.cuda.Event(enable_timing=True)
-        bwd_event_stop = torch.cuda.Event(enable_timing=True)
-        torch.cuda.synchronize()
-        for i in range(iterations):
-            if i == profiler_step_start:
-                bwd_event_start.record()
-
-            autograd_input = (q, k, v, rab) if has_rab else (q, k, v)
-            if run_benchmark & 0b01:
-                dq_hstu, dk_hstu, dv_hstu = torch.autograd.grad(out_hstu, autograd_input, grad, retain_graph=True)
-            if run_benchmark & 0b10:
-                dq_torch, dk_torch, dv_torch = torch.autograd.grad(out_torch, autograd_input, grad, retain_graph=True)
-        bwd_event_stop.record()
-        torch.cuda.synchronize()
-        bwd_time = bwd_event_start.elapsed_time(bwd_event_stop) / (
-            iterations - profiler_step_start
-        )
-
-        if run_benchmark & 0b11 == 0b11:
-            if dtype == torch.bfloat16:
-                eps = 1e-2
-            elif dtype == torch.float16:
-                eps = 1e-3
-            else:
-                eps = 1e-4
-        
-            out_close = torch.allclose(out_hstu, out_torch, eps, eps)
-            q_close = torch.allclose(dq_hstu, dq_torch, eps, eps)
-            k_close = torch.allclose(dk_hstu, dk_torch, eps, eps)
-            v_close = torch.allclose(dv_hstu, dv_torch, eps, eps)
-
-            logger.info(f"cpu_out vs gpu_out: {out_close}")
-            logger.info(f"cpu_q vs gpu_q: {q_close}")
-            logger.info(f"cpu_k vs gpu_k: {k_close}")
-            logger.info(f"cpu_v vs gpu_v: {v_close}")
-            logger.info(f"all pass: {(out_close and q_close and k_close and v_close)}")
-
-        save_dir = DATASETS
-        prefix = "gpu_"
-        save_data(attn_mask, dk_hstu, dq_hstu, dtype, dv_hstu, out_hstu, grad, k, max_context_len, max_seq_len_q,
-            max_target_len, num_contexts, num_targets, prefix, q, rab, alpha, save_dir, seq_offsets_q, v, image_name)       
-
-
-        return fwd_time, bwd_time
+    return fwd_time, bwd_time
 
 
 def save_mask(matrix, title='matrix'):
