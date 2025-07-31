@@ -81,22 +81,22 @@ def transfer_and_execute(bx):
             client.close()
 
 
-def compare_npu_gpu_precision(save_dir=DATASETS):
+def compare_npu_gpu_precision(save_dir=DATASETS, device='cpu'):
     logger.info(f"Compating npu and gpu results of {save_dir}")
     try:
-        data_type = torch.load(os.path.join(save_dir, "data_type.pth"), map_location='cpu')
-        npu_out = torch.load(os.path.join(save_dir, "npu_out.pth"), map_location='cpu').to(dtype=data_type)
-        gpu_out = torch.load(os.path.join(save_dir, "gpu_out.pth"), map_location='cpu').to(dtype=data_type)
+        data_type = torch.load(os.path.join(save_dir, "data_type.pth"), map_location=device)
+        npu_out = torch.load(os.path.join(save_dir, "npu_out.pth"), map_location=device).to(dtype=data_type)
+        gpu_out = torch.load(os.path.join(save_dir, "gpu_out.pth"), map_location=device).to(dtype=data_type)
         gpu_out = gpu_out.view(gpu_out.shape[0], -1)
 
-        npu_q = torch.load(os.path.join(save_dir, "npu_q.pth"), map_location='cpu').to(dtype=data_type)
-        gpu_q = torch.load(os.path.join(save_dir, "gpu_q.pth"), map_location='cpu').to(dtype=data_type)
+        npu_q = torch.load(os.path.join(save_dir, "npu_q.pth"), map_location=device).to(dtype=data_type)
+        gpu_q = torch.load(os.path.join(save_dir, "gpu_q.pth"), map_location=device).to(dtype=data_type)
 
-        npu_k = torch.load(os.path.join(save_dir, "npu_k.pth"), map_location='cpu').to(dtype=data_type)
-        gpu_k = torch.load(os.path.join(save_dir, "gpu_k.pth"), map_location='cpu').to(dtype=data_type)
+        npu_k = torch.load(os.path.join(save_dir, "npu_k.pth"), map_location=device).to(dtype=data_type)
+        gpu_k = torch.load(os.path.join(save_dir, "gpu_k.pth"), map_location=device).to(dtype=data_type)
 
-        npu_v = torch.load(os.path.join(save_dir, "npu_v.pth"), map_location='cpu').to(dtype=data_type)
-        gpu_v = torch.load(os.path.join(save_dir, "gpu_v.pth"), map_location='cpu').to(dtype=data_type)
+        npu_v = torch.load(os.path.join(save_dir, "npu_v.pth"), map_location=device).to(dtype=data_type)
+        gpu_v = torch.load(os.path.join(save_dir, "gpu_v.pth"), map_location=device).to(dtype=data_type)
    
     except Exception as e:
         logger.error(f"error : {e}")
