@@ -28,6 +28,10 @@ from test_read_benchmark import benchmark_csv, result_csv, logger, DATASETS, ini
 
 
 INDEX_STR = 'index'
+GPU_FW_TIME = 'gpu_fw_time'
+NPU_FW_TIME = 'npu_fw_time'
+NPU_BW_TIME = 'npu_bw_time'
+GPU_BW_TIME = 'gpu_bw_time'
 
 
 def execute_and_process(bx):
@@ -133,31 +137,30 @@ def compare_npu_gpu_precision(save_dir=DATASETS, device='cpu'):
 
 
 def update_index_csv(df_res, benchmark_df, bx, precision):
-
     mask_res = df_res[INDEX_STR] == bx
     mask_benchmark = benchmark_df[INDEX_STR] == bx
 
     df_res.loc[mask_res, 'precision'] = precision
     df_res.loc[mask_res, 'npu_fw/gpu_fw'] = (
-        df_res.loc[mask_res, 'gpu_fw_time'] / df_res.loc[mask_res, 'npu_fw_time']
+        df_res.loc[mask_res, GPU_FW_TIME] / df_res.loc[mask_res, NPU_FW_TIME]
     )
     df_res.loc[mask_res, 'npu_bw/gpu_bw'] = (
-        df_res.loc[mask_res, 'gpu_bw_time'] / df_res.loc[mask_res, 'npu_bw_time']
+        df_res.loc[mask_res, GPU_BW_TIME] / df_res.loc[mask_res, NPU_BW_TIME]
     )
     
     df_res.loc[mask_res, 'npu_fw+bw/gpu_fw+bw'] = (
-         df_res.loc[mask_res, ['gpu_fw_time', 'gpu_bw_time']].sum(axis=1) / 
-         df_res.loc[mask_res, ['npu_fw_time', 'npu_bw_time']].sum(axis=1)
+         df_res.loc[mask_res, [GPU_FW_TIME, GPU_BW_TIME]].sum(axis=1) / 
+         df_res.loc[mask_res, [NPU_FW_TIME, NPU_BW_TIME]].sum(axis=1)
     )
     df_res.loc[mask_res, 'npu_fw/benchmark'] = (
-        benchmark_df.loc[mask_benchmark, 'npu_fw_time'] / df_res.loc[mask_res, 'npu_fw_time']
+        benchmark_df.loc[mask_benchmark, NPU_FW_TIME] / df_res.loc[mask_res, NPU_FW_TIME]
     )
     df_res.loc[mask_res, 'npu_bw/benchmark'] = (
-      benchmark_df.loc[mask_benchmark, 'npu_bw_time'] / df_res.loc[mask_res, 'npu_bw_time']
+      benchmark_df.loc[mask_benchmark, NPU_BW_TIME] / df_res.loc[mask_res, NPU_BW_TIME]
     )
     df_res.loc[mask_res, 'npu_fw+bw/benchmark'] = (
-        benchmark_df.loc[mask_benchmark, ['npu_fw_time', 'npu_bw_time']].sum(axis=1) /
-        df_res.loc[mask_res, ['npu_fw_time', 'npu_bw_time']].sum(axis=1)
+        benchmark_df.loc[mask_benchmark, [NPU_FW_TIME, NPU_BW_TIME]].sum(axis=1) /
+        df_res.loc[mask_res, [NPU_FW_TIME, NPU_BW_TIME]].sum(axis=1)
     )
 
 
