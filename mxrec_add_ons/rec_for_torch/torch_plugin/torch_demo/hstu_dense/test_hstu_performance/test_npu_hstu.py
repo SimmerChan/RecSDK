@@ -113,8 +113,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     devicex = 0
-    device = f"npu:{devicex}"
-    logger.info(f"device: {device}")
+    deviceg = f"npu:{devicex}"
+    logger.info(f"device: {deviceg}")
     read_dir = os.path.join(config.NFS_DIR, DATASETS)
 
     (
@@ -136,5 +136,5 @@ if __name__ == "__main__":
         invalid_attn_mask=mask_data,
         seq_offset=seq_offset_data,
         data_type=data_type_data,
-        device=device
+        device=deviceg
     )
