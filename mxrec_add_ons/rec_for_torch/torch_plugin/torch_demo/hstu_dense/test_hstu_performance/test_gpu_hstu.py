@@ -767,6 +767,7 @@ def save_data(attn_mask, dk_hstu, dq_hstu, dtype, dv_hstu, out_hstu, g, k, max_c
     if not os.path.exists(save_dir):
         os.makedirs(save_dir, exist_ok=True)
     
+    cpu = 'cpu'
     torch.save(g, os.path.join(save_dir, "grad.pth"))
     torch.save(q, os.path.join(save_dir, "q.pth"))
     torch.save(k, os.path.join(save_dir, "k.pth"))
@@ -787,17 +788,17 @@ def save_data(attn_mask, dk_hstu, dq_hstu, dtype, dv_hstu, out_hstu, g, k, max_c
     logger.info(f"prefix: {prefix}")
     
 
-    torch.save(out_hstu.to("cpu"), os.path.join(save_dir, f"{prefix}out.pth"))
-    torch.save(dq_hstu.to("cpu"), os.path.join(save_dir, f"{prefix}q.pth"))
-    torch.save(dk_hstu.to("cpu"), os.path.join(save_dir, f"{prefix}k.pth"))
-    torch.save(dv_hstu.to("cpu"), os.path.join(save_dir, f"{prefix}v.pth"))
+    torch.save(out_hstu.to(cpu), os.path.join(save_dir, f"{prefix}out.pth"))
+    torch.save(dq_hstu.to(cpu), os.path.join(save_dir, f"{prefix}q.pth"))
+    torch.save(dk_hstu.to(cpu), os.path.join(save_dir, f"{prefix}k.pth"))
+    torch.save(dv_hstu.to(cpu), os.path.join(save_dir, f"{prefix}v.pth"))
     
     if len(attn_mask.shape) == 2:
-        save_matrix = attn_mask.to("cpu")
+        save_matrix = attn_mask.to(cpu)
     elif len(attn_mask.shape) == 3:
-        save_matrix = attn_mask.to("cpu")[0]
+        save_matrix = attn_mask.to(cpu)[0]
     elif len(attn_mask.shape) == 4:
-        save_matrix = attn_mask.to("cpu")[0, 0]
+        save_matrix = attn_mask.to(cpu)[0, 0]
     
     save_mask(save_matrix, os.path.join(save_dir, image_name))
     
