@@ -143,6 +143,7 @@ def read_and_validate_parameters(index_to_find, csv_file_path=benchmark_csv):
 
 def init_result_csv_index(index_to_find):
     benchmark_df = pd.read_csv(benchmark_csv)
+    benchmark_df['index'] = benchmark_df['index'].astype(int)
     if not os.path.exists(result_csv):
         df_res = pd.DataFrame(columns=column_names)
         df_res.to_csv(result_csv, index=False)

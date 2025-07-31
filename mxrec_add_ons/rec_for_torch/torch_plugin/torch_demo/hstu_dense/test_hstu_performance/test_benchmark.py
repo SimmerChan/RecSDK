@@ -145,7 +145,8 @@ def update_index_csv(df_res, benchmark_df, bx, precision):
 
 def main(index=None):
     benchmark_df = pd.read_csv(benchmark_csv)
-    all_indices = benchmark_df['index'].astype(int).tolist()
+    benchmark_df['index'] = benchmark_df['index'].astype(int)
+    all_indices = benchmark_df['index'].tolist()
     
     if index is not None:
         all_indices = [index]
