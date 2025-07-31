@@ -64,6 +64,7 @@ else:
     g_profiler_step_start = 0
     loop = 3
 
+
 def get_gpu_memory_info():
     nvmlInit()
     device_count = nvmlDeviceGetCount()
@@ -74,6 +75,7 @@ def get_gpu_memory_info():
         memory_info.append((i, info.total, info.used))
     nvmlShutdown()
     return memory_info
+
 
 def auto_select_gpu():
     memory_info = get_gpu_memory_info()
@@ -88,8 +90,8 @@ def auto_select_gpu():
 
 gdevice = auto_select_gpu()
 logger.info(f"Selected GPU device index: {gdevice}")
-
 torch.cuda.set_device(gdevice)
+
 
 def pad_input(unpadded_input, cu_seqlen, batch, seqlen):
     indices = []
@@ -239,7 +241,6 @@ def gen_seq(length, mean_value, max_value, total_sum=None):
         sequence = [mean_value] * (length -2)
         sequence.extend([max_value, min_val])
         return np.array(sequence)
-
 
 
 def generate_input(
@@ -429,6 +430,7 @@ def generate_input(
         attn_mask,
         grad
     )
+
 
 def _hstu_attention_maybe_from_cache(
     num_heads: int,
@@ -720,6 +722,7 @@ def test_fused_attn(
 
         return fwd_time, bwd_time
 
+
 def save_mask(matrix, title='matrix'):
     cmap = mcolors.LinearSegmentedColormap.from_list(
         "CustomMap", [(1,1,1), (0.8, 0.902, 0.8)], N=256
@@ -799,7 +802,8 @@ def save_data(attn_mask, dk_hstu, dq_hstu, dtype, dv_hstu, out_hstu, g, k, max_c
     with open(os.path.join(save_dir, "complete.flag"), "w"):
         pass
     logger.info("save complete")
-              
+
+     
 def main():
     parser = argparse.ArgumentParser(description="Read CSV file and run a specific index benchmark")
     parser.add_argument("--index", type=int, required=True, help="index of the benchmark to run")
