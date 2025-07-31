@@ -116,20 +116,25 @@ if __name__ == "__main__":
     device = f"npu:{devicex}"
     logger.info(f"device: {device}")
     read_dir = os.path.join(config.NFS_DIR, DATASETS)
-    grad, q, k, v, bias, mask, max_seq_len, seq_offset, attention_dim, num_heads, data_type, alpha = \
-        read_data_from_path(read_dir)
+
+    (
+        grad_data, q_data, k_data, v_data, bias_data, mask_data, 
+        max_seq_len_data, seq_offset_data, attention_dim_data, 
+        num_heads_data, data_type_data, alpha_data
+    ) = read_data_from_path(read_dir)
+
 
     _hstu_attention_maybe_from_cache(
-         num_heads=num_heads, 
-         attention_dim=attention_dim, 
-         linear_dim=attention_dim, 
-         silu_value=alpha,
-         grad=grad,
-         q=q, 
-         k=k, 
-         v=v, 
-         invalid_attn_mask=mask,
-         seq_offset=seq_offset,
-         data_type=data_type,
-         device=device
+        num_heads=num_heads_data, 
+        attention_dim=attention_dim_data, 
+        linear_dim=attention_dim_data, 
+        silu_value=alpha_data,
+        grad=grad_data,
+        q=q_data, 
+        k=k_data, 
+        v=v_data, 
+        invalid_attn_mask=mask_data,
+        seq_offset=seq_offset_data,
+        data_type=data_type_data,
+        device=device
     )
