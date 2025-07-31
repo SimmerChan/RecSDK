@@ -563,13 +563,13 @@ def test_fused_attn(
         raise ValueError("group_target is True but has_target is False")
     # TODO: find a better way to avoid these combinations
     if is_delta_q and has_target:
-        return
+        return None, None
     if is_delta_q and has_context:
-        return
+        return None, None
     if not is_causal and has_context:
-        return
+        return None, None
     if (window_size[0] > 0 or window_size[1] > 0) and has_context:
-        return
+        return None, None
 
     torch.cuda.synchronize()
     if run_benchmark is not None:
@@ -830,6 +830,8 @@ def main():
     for i in range(loop):
         try:
             fwd_time, bwd_time = test_fused_attn(**params)
+            if fwd_time is None and bwd_time is None:
+                continue
             logger.info(f"iter: {i}, fwd time: {fwd_time}, bwd time: {bwd_time}")
             fwd_time_list.append(fwd_time)
             bwd_time_list.append(bwd_time)
