@@ -176,10 +176,10 @@ public:
         totalOffsetPtr = (__gm__ int64_t*)workspace + (lengthsT + 1);  // 第一段内存保存lengths.sum值
         *(totalOffsetPtr) = 0;
         AscendC::DataCacheCleanAndInvalid<int64_t, AscendC::CacheLine::ENTIRE_DATA_CACHE,
-                                          AscendC::DcciDst::CACHELINE_OUT>(offsetGt);
+                                          AscendC::DcciDst::CACHELINE_OUT>(offsetGT);
 
         for (int64_t i = 1; i < lengthsT + 1; i++) {
-            *(totalOffsetPtr + i) = *(totalOffsetPtr + (i - 1)) + offsetGt.GetValue((i - 1));
+            *(totalOffsetPtr + i) = *(totalOffsetPtr + (i - 1)) + offsetGT.GetValue((i - 1));
         }
     }
 
