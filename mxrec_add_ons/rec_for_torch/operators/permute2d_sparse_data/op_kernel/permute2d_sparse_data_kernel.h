@@ -148,19 +148,21 @@ public:
         // 计算分核信息, 当前core计算lengths[T, B]中的哪几行之和
         int64_t rows;
         int64_t start;
+        int64_t tailIndex = (lengthsT % coreNum);
 
-        if (GetBlockIdx() < (lengthsT % coreNum)) {
+        if (GetBlockIdx() < tailIndex) {
             rows = lengthsT / coreNum + 1;
             start = GetBlockIdx() * rows;
         } else {
             rows = lengthsT / coreNum;
-            start = tailSplitIndex * (rows + 1) + (GetBlockIdx() - tailSplitIndex) * rows;
+            start = tailIndex * (rows + 1) + (GetBlockIdx() - tailIndex) * rows;
         }
         // 暂不考虑lengthsT过长情况, 默认UB可以装下lengthsT * sizeof(int64_t)
         for (int64_t i = start; i < start + rows; i++) {
             int64_t lineSum = 0;
+            int64_t offset = i * lengthsB;
             for (int64_t j = 0; j < lengthsB; j++) {
-                lineSum += *(lengthsPtr + i * lengthsB + j);
+                lineSum += *(lengthsPtr + offset + j);
             }
             lengthsUb.SetValue(i - start, lineSum);
         }
@@ -186,16 +188,13 @@ public:
     __aicore__ void PermuteLengths()
     {
         permutePtr = (__gm__ int32_t*)permute;
+        int64_t totalLen = lengthsB;
+
         for (int64_t i = tOffsetOfThisCore; i < lenOfThisCore + tOffsetOfThisCore; i++) {
             int64_t ToffsetThisIndex = *(permutePtr + i);
-            int64_t ToffsetNextIndex = *(permutePtr + i) + 1;
-
             int64_t lengthsStartIndex = ToffsetThisIndex * lengthsB * sizeof(LType);
-            int64_t lengthsEndIndex = ToffsetNextIndex * lengthsB * sizeof(LType);
-
             int64_t outStartIndex = i * lengthsB * sizeof(LType);
-            int64_t outEndIndex = (i + 1) * lengthsB * sizeof(LType);
-            int64_t totalLen = lengthsEndIndex - lengthsStartIndex;
+
             int64_t remainLen = totalLen;
             while (remainLen > 0) {
                 int64_t thisLen = blockLen;

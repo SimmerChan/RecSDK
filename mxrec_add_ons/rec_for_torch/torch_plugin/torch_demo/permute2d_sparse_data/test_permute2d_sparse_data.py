@@ -15,6 +15,7 @@
 # limitations under the License.
 # ==============================================================================
 import itertools
+import random
 import sysconfig
 
 import pytest
@@ -33,7 +34,7 @@ WTYPE = [None, np.float32]
 TYPE_LIST = list(itertools.product(PTYPE, LTYPE, VTYPE, WTYPE))
 
 T = np.random.randint(2, 30, 4)
-EXTRA_T = [0, 3, 8]
+EXTRA_T = [True, False]
 B = [2048, 20480, 204800]
 SHAPE_LIST = list(itertools.product(T, EXTRA_T, B))
 
@@ -63,6 +64,7 @@ def test_permute2d_sparse_data(types, shapes, enable_permuted_sum):
     """
     ptype, ltype, vtype, wtype = types
     t, extra_t, b = shapes
+    extra_t = random.randint(1, t) if extra_t else 0
 
     permute = np.arange(t + extra_t, dtype=ptype)
     np.random.shuffle(permute)
