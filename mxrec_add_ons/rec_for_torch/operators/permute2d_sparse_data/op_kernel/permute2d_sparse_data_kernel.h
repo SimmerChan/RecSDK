@@ -188,7 +188,7 @@ public:
     __aicore__ void PermuteLengths()
     {
         permutePtr = (__gm__ int32_t*)permute;
-        int64_t totalLen = lengthsB * sizeof(LType);
+        int64_t totalLen = lengthsB;
 
         for (int64_t i = tOffsetOfThisCore; i < lenOfThisCore + tOffsetOfThisCore; i++) {
             int64_t ToffsetThisIndex = *(permutePtr + i);
