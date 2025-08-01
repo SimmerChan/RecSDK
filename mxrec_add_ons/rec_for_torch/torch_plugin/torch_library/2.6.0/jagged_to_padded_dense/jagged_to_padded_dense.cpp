@@ -34,6 +34,7 @@ at::Tensor dense_to_jagged_forward_npu(const at::Tensor& dense,
     EXEC_NPU_CMD(aclnnDenseToJagged, dense_contin, offsets[0], totalLComputed, output);
     return output;
 };
+
 at::Tensor jagged_to_padded_dense_forward_npu(const at::Tensor& values,
                                               const tensor_list& offsets,
                                               const int64_t max_lengths,
