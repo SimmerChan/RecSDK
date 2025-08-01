@@ -179,7 +179,7 @@ public:
                                           AscendC::DcciDst::CACHELINE_OUT>(offsetGT);
 
         for (int64_t i = 1; i < lengthsT + 1; i++) {
-            *(totalOffsetPtr + i) = *(totalOffsetPtr + (i - 1)) + offsetGT.GetValue((i - 1));
+            *(totalOffsetPtr + i) = *(totalOffsetPtr + i - 1) + offsetGT.GetValue(i - 1);
         }
     }
 
