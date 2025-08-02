@@ -33,29 +33,29 @@ from test_read_benchmark import (
 def msprof_main(index):
     index_str = "index"
     try:
-        # 初始化结果CSV文件
+        # Initialize the result CSV file
         init_result_csv_index(index)
         df_res = pd.read_csv(result_csv)
 
-        # 检查是否已处理过当前index
+        # Check if the current index has already been processed
         if (
             df_res.loc[df_res[index_str] == index, "npu_fw_time"].notna().all()
             and df_res.loc[df_res[index_str] == index, "npu_bw_time"].notna().all()
         ):
-            logger.info(f"Benchmark with index {index} is already done. Exit.")
+            logger.info(f"Benchmark with index {index} is already done. Exiting.")
             return True
 
-        # 读取并验证参数
+        # Read and validate parameters
         _, params = read_and_validate_parameters(index)
 
-        # 执行msprof命令
+        # Execute the msprof command
         cmd = f'rm -rf profnpu/ ; msprof --application="python3 test_npu_hstu.py --index={index}" --output=profnpu'
         ret = os.system(cmd)
         if ret != 0:
             logger.error(f"Command execution failed (ret={ret}): {cmd}")
             return False
 
-        # 查找生成的CSV文件
+        # Locate the generated CSV file
         search_dir = os.path.join(os.path.realpath(config.NFS_DIR), "profnpu")
         csv_files = glob.glob(
             f"{search_dir}/PROF_*/mindstudio_profiler_output/op_stati*.csv"
@@ -67,14 +67,14 @@ def msprof_main(index):
         csv_file = csv_files[0]
         logger.info(f"Profile located at: {csv_file}")
 
-        # 读取CSV文件
+        # Read the CSV file
         df_op_stati = pd.read_csv(csv_file)
 
-        # 提取Forward和Backward数据
+        # Extract Forward and Backward data
         forward_row = df_op_stati[df_op_stati["OP Type"] == "HstuDenseForward"]
         backward_row = df_op_stati[df_op_stati["OP Type"] == "HstuDenseBackward"]
 
-        # 检查数据是否存在
+        # Check if the data exists
         if forward_row.empty or backward_row.empty:
             missing_ops = []
             if forward_row.empty:
@@ -84,7 +84,7 @@ def msprof_main(index):
             logger.error(f"Missing OP types in CSV: {', '.join(missing_ops)}")
             return False
 
-        # 更新结果DataFrame
+        # Update the result DataFrame
         df_res.loc[df_res[index_str] == index, "npu_fw_time"] = (
             forward_row["Avg Time(us)"].squeeze() / 1000
         )
@@ -92,10 +92,10 @@ def msprof_main(index):
             backward_row["Avg Time(us)"].squeeze() / 1000
         )
 
-        # 保存结果
+        # Save the results
         df_res.to_csv(result_csv, index=False)
 
-        # 记录日志
+        # Log the results
         logger.info(
             f"Forward time: {df_res.loc[df_res[index_str] == index, 'npu_fw_time'].values[0]} ms"
         )
