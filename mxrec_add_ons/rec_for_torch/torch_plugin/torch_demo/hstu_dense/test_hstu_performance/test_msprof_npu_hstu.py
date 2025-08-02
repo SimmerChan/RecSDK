@@ -31,7 +31,7 @@ from test_read_benchmark import (
 
 
 def msprof_main(index):
-    INDEX_STR = "index"
+    index_str = "index"
     try:
         # 初始化结果CSV文件
         init_result_csv_index(index)
@@ -39,8 +39,8 @@ def msprof_main(index):
 
         # 检查是否已处理过当前index
         if (
-            df_res.loc[df_res[INDEX_STR] == index, "npu_fw_time"].notna().all()
-            and df_res.loc[df_res[INDEX_STR] == index, "npu_bw_time"].notna().all()
+            df_res.loc[df_res[index_str] == index, "npu_fw_time"].notna().all()
+            and df_res.loc[df_res[index_str] == index, "npu_bw_time"].notna().all()
         ):
             logger.info(f"Benchmark with index {index} is already done. Exit.")
             return True
@@ -85,10 +85,10 @@ def msprof_main(index):
             return False
 
         # 更新结果DataFrame
-        df_res.loc[df_res[INDEX_STR] == index, "npu_fw_time"] = (
+        df_res.loc[df_res[index_str] == index, "npu_fw_time"] = (
             forward_row["Avg Time(us)"].squeeze() / 1000
         )
-        df_res.loc[df_res[INDEX_STR] == index, "npu_bw_time"] = (
+        df_res.loc[df_res[index_str] == index, "npu_bw_time"] = (
             backward_row["Avg Time(us)"].squeeze() / 1000
         )
 
@@ -97,10 +97,10 @@ def msprof_main(index):
 
         # 记录日志
         logger.info(
-            f"Forward time: {df_res.loc[df_res[INDEX_STR] == index, 'npu_fw_time'].values[0]} ms"
+            f"Forward time: {df_res.loc[df_res[index_str] == index, 'npu_fw_time'].values[0]} ms"
         )
         logger.info(
-            f"Backward time: {df_res.loc[df_res[INDEX_STR] == index, 'npu_bw_time'].values[0]} ms"
+            f"Backward time: {df_res.loc[df_res[index_str] == index, 'npu_bw_time'].values[0]} ms"
         )
 
         return True
@@ -127,4 +127,5 @@ if __name__ == "__main__":
         "--index", type=int, required=True, help="index of the benchmark to run"
     )
     args = parser.parse_args()
-    msprof_main(args.index)
+    if msprof_main(args.index):
+        logger.info("success")
