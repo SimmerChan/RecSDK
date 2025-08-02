@@ -150,7 +150,6 @@ def execute_remote_linux_cmd(client, cmd, timeout=600):
         except Exception as e:
             logger.info(e)
             
-
     # Build output results
     full_output = "".join(output_buffer)
     full_error = "".join(error_buffer)
