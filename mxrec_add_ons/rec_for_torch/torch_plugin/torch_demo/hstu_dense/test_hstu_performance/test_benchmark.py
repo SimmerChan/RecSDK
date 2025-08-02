@@ -151,8 +151,10 @@ def execute_remote_linux_cmd(client, cmd, timeout=600):
             logger.info(e)
             
     # Build output results
-    full_output = "".join(output_buffer)
-    full_error = "".join(error_buffer)
+    decoded_output = [item.decode('utf-8') if isinstance(item, bytes) else item for item in output_buffer]
+    decoded_error = [item.decode('utf-8') if isinstance(item, bytes) else item for item in error_buffer]
+    full_output = "".join(decoded_output)
+    full_error = "".join(decoded_error)
 
     # Log results (limit log length)
     logger.info(f"Command [{cmd}] exited with status: {exit_status}")

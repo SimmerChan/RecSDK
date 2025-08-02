@@ -119,20 +119,24 @@ if __name__ == "__main__":
 
     _, param_ben = read_and_validate_parameters(args.index)
     param = load_params(DATASETS)
-
-    grad_data = param["grad"]
-    q_data = param["q"]
-    k_data = param["k"]
-    v_data = param["v"]
-    bias_data = param["rab"]
-    mask_data = param["attn_mask"]
-    max_seq_len_data = param["num_contexts"]
-    seq_offset_data = param["seq_offsets_q_wt"]
-    num_heads_data = v_data.shape[1]
-    data_type_data = param_ben['dtype']
-    alpha_data = param["alpha"]
-    attention_dim_data = q_data.shape[2]
-    linear_dim_data = v_data.shape[2]
+    try:
+        grad_data = param["grad"]
+        q_data = param["q"]
+        k_data = param["k"]
+        v_data = param["v"]
+        bias_data = param["rab"]
+        mask_data = param["attn_mask"]
+        max_seq_len_data = param["num_contexts"]
+        seq_offset_data = param["seq_offsets_q_wt"]
+        num_heads_data = v_data.shape[1]
+        data_type_data = param_ben['dtype']
+        alpha_data = param["alpha"]
+        attention_dim_data = q_data.shape[2]
+        linear_dim_data = v_data.shape[2]
+    except KeyError as e:
+        logger.error(e)
+        exit(1)
+       
 
     _hstu_attention_maybe_from_cache(
         num_heads=num_heads_data,
