@@ -289,8 +289,8 @@ def construct_mask(
 
 def gen_seq(length, max_value, total_sum):
     if max_value * length < total_sum:
-        raise ValueError("total_sum error %d", total_sum)
-    logger.info(f"gen_seq with total_sum {total_sum}")
+        raise ValueError("total_sum error %d" % total_sum)
+    logger.info("gen_seq with total_sum %d", total_sum)
     if length == 1:
         return np.array([total_sum])
     if length == 2:
@@ -645,7 +645,7 @@ def save_params(save_dir=DATASETS, **kwargs):
     paths = _get_save_paths(save_dir)
 
     # Save parameters with logging
-    logger.info("\n" + "=" * 50)
+    logger.info("\n%s", "=" * 50)
     logger.info("[SAVE] Target directory: %s", save_dir)
     for name, path in paths.items():
         if name in kwargs:
@@ -691,7 +691,7 @@ def load_params(save_dir=DATASETS, device="cpu") -> Dict[str, object]:
         raise FileNotFoundError("Invalid parameter directory: %s" % save_dir)
 
     # Load parameters with logging (lazy interpolation)
-    logger.info("\n" + "=" * 50)
+    logger.info("\n%s", "=" * 50)
     logger.info("[LOAD] Source directory: %s", save_dir)
     params = {}
     for name, path in paths.items():
