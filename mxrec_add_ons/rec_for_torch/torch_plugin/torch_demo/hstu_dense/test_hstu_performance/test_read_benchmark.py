@@ -16,6 +16,7 @@
 # ==============================================================================
 
 
+import argparse
 import ast
 import logging
 import math
@@ -711,10 +712,18 @@ def create_and_save_params(bx):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Read CSV file and run a specific index benchmark"
+    )
+    parser.add_argument(
+        "--index", type=int, required=True, help="index of the benchmark to run"
+    )
+    args = parser.parse_args()
     benchmark_df = pd.read_csv(benchmark_csv)
     benchmark_df[INDEX_STR] = benchmark_df[INDEX_STR].astype(int)
     all_indices = benchmark_df[INDEX_STR].tolist()
-
+    if args.index:
+        all_indices = [args.index]
     for bx in all_indices:
         create_and_save_params(bx)
         # Load example
