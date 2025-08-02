@@ -10,8 +10,9 @@ cd recsys-examples/corelib/hstu
 git checkout v25.05
 make install
 ```
+配置服务器端的sftp server服务
 
-# 3. 配置NFS共享路径, 配置服务器端的sftp_server服务
+# 3. 配置NFS共享路径
 
 # 4. NPU算子编译
 

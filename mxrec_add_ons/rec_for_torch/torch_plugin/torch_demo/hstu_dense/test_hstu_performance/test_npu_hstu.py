@@ -22,7 +22,7 @@ import sysconfig
 import torch
 
 import config
-from test_read_benchmark import logger, DATASETS, load_params
+from test_read_benchmark import logger, DATASETS, load_params, read_and_validate_parameters
 
 torch.npu.config.allow_internal_format = False
 torch.ops.load_library(f"{sysconfig.get_path('purelib')}/libfbgemm_npu_api.so")
@@ -117,6 +117,7 @@ if __name__ == "__main__":
     logger.info(f"device: {deviceg}")
     read_dir = os.path.join(os.path.realpath(config.NFS_DIR), DATASETS)
 
+    _, param_ben = read_and_validate_parameters(args.index)
     param = load_params(DATASETS)
 
     grad_data = param["grad"]
@@ -127,11 +128,11 @@ if __name__ == "__main__":
     mask_data = param["attn_mask"]
     max_seq_len_data = param["num_contexts"]
     seq_offset_data = param["seq_offsets_q_wt"]
-    num_heads_data = param["num_targets"]
-    data_type_data = param["data_type"]
+    num_heads_data = v_data.shape[1]
+    data_type_data = param_ben['dtype']
     alpha_data = param["alpha"]
-    attention_dim_data = q_data.shape[1]
-    linear_dim_data = v_data.shape[1]
+    attention_dim_data = q_data.shape[2]
+    linear_dim_data = v_data.shape[2]
 
     _hstu_attention_maybe_from_cache(
         num_heads=num_heads_data,

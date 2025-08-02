@@ -17,11 +17,14 @@
 
 
 import argparse
+import time
 import getpass
 import os
 import subprocess
 from typing import Optional
-import select
+import socket
+from select import select
+
 
 import torch
 import paramiko
@@ -77,61 +80,82 @@ def get_remote_password() -> Optional[str]:
         logger.error(f"Password retrieval failed: {str(e)}")
         return None
 
-
 def execute_remote_linux_cmd(client, cmd, timeout=600):
-    """安全执行Linux远程命令的完整方案"""
+    """安全执行Linux远程命令的完整方案（支持超时控制、完整输出捕获）"""
     stdin, stdout, stderr = None, None, None
+    exit_status = -1
+    output_buffer = []
+    error_buffer = []
+    
     try:
-        # 执行命令
-        stdin, stdout, stderr = client.exec_command(cmd)
-        exit_status = None
-        output, error = "", ""
-
-        # 使用 select 处理多流（避免阻塞）
-        while True:
-            # 检测命令是否执行完毕
-            if stdout.channel.exit_status_ready():
-                exit_status = stdout.channel.recv_exit_status()
-                break
-
-            # 非阻塞读取输出和错误流
-            rlist, _, _ = select.select([stdout, stderr], [], [], timeout)
-            if not rlist:  # 超时处理
-                logger.error(f"Command timeout: {cmd}")
-                break
-
-            for stream in rlist:
-                if stream is stdout:
-                    output += stream.read().decode("utf-8", errors="ignore")
-                elif stream is stderr:
-                    error += stream.read().decode("utf-8", errors="ignore")
-
-        # 记录结果
-        logger.info(f"Exit status: {exit_status}")
-        if output:
-            logger.info(f"stdout: {output[:1000]}...")  # 限制日志长度
-        if error:
-            logger.error(f"stderr: {error[:1000]}...")
-
-        return exit_status == 0
-
+        # 创建执行通道（设置超时防止网络阻塞）
+        transport = client.get_transport()
+        channel = transport.open_session(timeout=timeout)
+        channel.settimeout(timeout)
+        
+        # 执行命令（非阻塞模式）
+        channel.exec_command(cmd)
+        stdin = channel.makefile_stdin('wb')
+        stdout = channel.makefile('r')
+        stderr = channel.makefile_stderr('r')
+        
+        # 使用select进行高效I/O多路复用
+        start_time = time.time()
+        while not channel.exit_status_ready():
+            # 超时检查
+            if time.time() - start_time > timeout:
+                raise socket.timeout(f"Command timeout after {timeout}s: {cmd}")
+                
+            # 等待可读事件（0.5秒轮询间隔）
+            rlist, _, _ = select([channel], [], [], 0.5)
+            if not rlist:
+                continue
+                
+            # 优先读取错误流（避免缓冲区填满导致阻塞）
+            while channel.recv_stderr_ready():
+                error_buffer.append(stderr.read(4096))
+                
+            while channel.recv_ready():
+                output_buffer.append(stdout.read(4096))
+                
+        # 获取最终退出状态
+        exit_status = channel.recv_exit_status()
+        
+        # 读取所有剩余输出
+        output_buffer.append(stdout.read())
+        error_buffer.append(stderr.read())
+        
+    except socket.timeout as te:
+        logger.error(f"Command execution timed out: {te}")
+        # 尝试终止远程进程（发送SIGTERM）
+        if 'channel' in locals():
+            channel.close()
+        return False
     except Exception as e:
-        logger.error(f"Failed to execute remote script: {cmd}")
-        logger.error(e)
+        logger.error(f"SSH command execution failed: {e}", exc_info=True)
         return False
     finally:
-        # 安全关闭连接
+        # 安全关闭通道（不关闭底层client连接）
+        for stream in [stdin, stdout, stderr]:
+            try:
+                if stream: stream.close()
+            except: pass
         try:
-            if stdin:
-                stdin.close()
-            if stdout:
-                stdout.close()
-            if stderr:
-                stderr.close()
-            if client:
-                client.close()
-        except Exception as close_error:
-            logger.error(f"SSH close error: {close_error}")
+            if 'channel' in locals(): channel.close()
+        except: pass
+
+    # 构建输出结果
+    full_output = ''.join(output_buffer)
+    full_error = ''.join(error_buffer)
+    
+    # 记录结果（限制日志长度）
+    logger.info(f"Command [{cmd}] exited with status: {exit_status}")
+    if full_output:
+        logger.debug(f"stdout: {full_output[:2000]}{'...' if len(full_output)>2000 else ''}")
+    if full_error:
+        logger.warning(f"stderr: {full_error[:2000]}{'...' if len(full_error)>2000 else ''}")
+    
+    return exit_status == 0
 
 
 def transfer_and_execute(bx):
@@ -168,13 +192,14 @@ def transfer_and_execute(bx):
                 client.close()
         except Exception as close_error:
             logger.error(f"SSH close error: {close_error}")
+        logger.info(f"Exit remote script: {cmd}")
 
 
 def compare_npu_gpu_precision(save_dir=DATASETS, device="cpu"):
     logger.info(f"Compating npu and gpu results of {save_dir}")
     try:
         data_type = torch.load(
-            os.path.join(save_dir, "data_type.pth"), map_location=device
+            os.path.join(save_dir, "dtype.pth"), map_location=device
         )
         npu_out = torch.load(
             os.path.join(save_dir, "npu_out.pth"), map_location=device
@@ -288,7 +313,7 @@ def main(index=None):
     for bx in all_indices:
         logger.info(f"benchmark {bx} testing")
         init_result_csv_index(bx)
-        create_and_save_params(bx)
+        
         df_res = pd.read_csv(result_csv)
 
         if (
@@ -298,6 +323,7 @@ def main(index=None):
             logger.info(f"benchmark {bx} already, pass")
             continue
 
+        create_and_save_params(bx)
         remote_success = retry_operation(transfer_and_execute, "Remote execution", bx)
         if not remote_success:
             continue
