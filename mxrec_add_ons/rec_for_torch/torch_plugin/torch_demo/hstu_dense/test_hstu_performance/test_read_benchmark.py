@@ -718,4 +718,4 @@ if __name__ == "__main__":
     for bx in all_indices:
         create_and_save_params(bx)
         # Load example
-        loaded = load_params(r"saved_params")
+        loaded = load_params()
