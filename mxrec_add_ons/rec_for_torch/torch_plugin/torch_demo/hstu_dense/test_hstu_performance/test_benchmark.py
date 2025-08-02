@@ -143,16 +143,22 @@ def execute_remote_linux_cmd(client, cmd, timeout=600):
                     stream.close()
             except Exception as e:
                 logger.info(e)
-                
+
         try:
             if "channel" in locals():
                 channel.close()
         except Exception as e:
             logger.info(e)
-            
+
     # Build output results
-    decoded_output = [item.decode('utf-8') if isinstance(item, bytes) else item for item in output_buffer]
-    decoded_error = [item.decode('utf-8') if isinstance(item, bytes) else item for item in error_buffer]
+    decoded_output = [
+        item.decode("utf-8") if isinstance(item, bytes) else item
+        for item in output_buffer
+    ]
+    decoded_error = [
+        item.decode("utf-8") if isinstance(item, bytes) else item
+        for item in error_buffer
+    ]
     full_output = "".join(decoded_output)
     full_error = "".join(decoded_error)
 

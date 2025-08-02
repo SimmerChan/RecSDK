@@ -346,31 +346,42 @@ def adjust_ratio(total_sum, max_context_len, max_seq_len_k, max_target_len):
     if valid_denominator == 0:
         raise ValueError("valid_denominator cannot be 0")
 
-    logger.debug("Distributing remaining sum %d with valid denominator %d", 
-                remaining_sum, valid_denominator)
+    logger.debug(
+        "Distributing remaining sum %d with valid denominator %d",
+        remaining_sum,
+        valid_denominator,
+    )
 
     try:
         # Distribute remaining sum proportionally
         if max_context_len > 0 and valid_denominator != 0:
-            total_content += int(round(remaining_sum * max_context_len / valid_denominator))
+            total_content += int(
+                round(remaining_sum * max_context_len / valid_denominator)
+            )
 
         if max_seq_len_k > 0 and valid_denominator != 0:
             total_k += int(round(remaining_sum * max_seq_len_k / valid_denominator))
 
         if max_target_len > 0 and valid_denominator != 0:
-            total_target += int(round(remaining_sum * max_target_len / valid_denominator))
+            total_target += int(
+                round(remaining_sum * max_target_len / valid_denominator)
+            )
     except ZeroDivisionError as e:
         logger.info(e)
         raise e
-    
+
     # Handle rounding errors
     diff = total_sum - (total_content + total_k + total_target)
     if diff != 0:
         logger.debug("Adjusting for rounding difference of %d", diff)
         total_target += diff  # Default adjustment to target
 
-    logger.info("Final distribution: total_k=%d, total_content=%d, total_target=%d",
-               total_k, total_content, total_target)
+    logger.info(
+        "Final distribution: total_k=%d, total_content=%d, total_target=%d",
+        total_k,
+        total_content,
+        total_target,
+    )
     return total_k, total_content, total_target
 
 
@@ -627,7 +638,7 @@ def save_params(save_dir=DATASETS, **kwargs):
     Save all parameters to specified directory (Windows path safe)
     Usage: save_params(r"c:\zengxiong\saved", l_q=tensor1, attn_mask=matrix, image_name="mask.png")
     """
-    # Normalize path 
+    # Normalize path
     save_dir = os.path.normpath(save_dir)
     os.makedirs(save_dir, exist_ok=True)
 
@@ -653,7 +664,10 @@ def save_params(save_dir=DATASETS, **kwargs):
             param = kwargs[name]
             log_msg = "%s: " % name.ljust(15)
             if torch.is_tensor(param):
-                log_msg += "shape=%s | dtype=%s" % (str(param.shape).ljust(18), param.dtype)
+                log_msg += "shape=%s | dtype=%s" % (
+                    str(param.shape).ljust(18),
+                    param.dtype,
+                )
             else:
                 log_msg += str(param)
             logger.info("%s → %s", log_msg, path)
