@@ -341,7 +341,7 @@ def test_fused_attn(
             if isinstance(param["grad"], torch.Tensor)
             else param["grad"]
         )
-    except Exception as e:
+    except KeyError as e:
         logger.info(e)
         raise e
 
