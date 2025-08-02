@@ -749,7 +749,7 @@ if __name__ == "__main__":
     all_indices = benchmark_df[INDEX_STR].tolist()
     if args.index:
         all_indices = [args.index]
-    for bx in all_indices:
-        create_and_save_params(bx)
+    for bxx in all_indices:
+        create_and_save_params(bxx)
         # Load example
         loaded = load_params()
