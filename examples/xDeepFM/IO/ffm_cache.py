@@ -1,10 +1,12 @@
 """define FfmCache class for cache the format dataset"""
+import os
 from npu_bridge.npu_init import *
 from IO.base_cache import BaseCache
 import tensorflow as tf
 import numpy as np
 from collections import defaultdict
 import utils.util as util
+from examples.util.path_validator import validate_read_file, validate_save_path
 
 __all__ = ["FfmCache"]
 
@@ -17,6 +19,7 @@ class FfmCache(BaseCache):
         features = []
         impression_id = []
         cnt = 0
+        validate_read_file(file)
         with open(file, 'r') as rd:
             while True:
                 line = rd.readline().strip(' ')
@@ -104,6 +107,9 @@ class FfmCache(BaseCache):
     def write_tfrecord(self, infile, outfile, hparams):
         sample_num = 0
         FEATURE_COUNT = hparams.FEATURE_COUNT
+        abs_path = os.path.abspath(outfile)
+        path, filename = os.path.split(abs_path)
+        validate_save_path(path)
         writer = tf.python_io.TFRecordWriter(outfile)
         feature_cnt = defaultdict(lambda: 0)
         impression_id_list = []
@@ -155,7 +161,8 @@ class FfmCache(BaseCache):
                 writer.write(serialized)
         except:
             raise ValueError('train data format must be libffm, for example 1 2:1:0.1 2:3:0.2 3:4:0.4')
-        writer.close()
+        finally:
+            writer.close()
         sort_feature_cnt = sorted(feature_cnt.items(), key=lambda x: x[0])
         with open(util.FEAT_COUNT_FILE, 'w') as f:
             for item in sort_feature_cnt:
