@@ -145,76 +145,76 @@ def convert_value(value, required_type):
 
 def read_and_validate_parameters(index, csv_file_path=benchmark_csv):
     try:
-        # 尝试读取CSV文件
+        # Try to read CSV file
         df_benchmark = pd.read_csv(csv_file_path, encoding="utf-8")
 
-        # 检查索引是否存在
+        # Check if index column exists
         if INDEX_STR not in df_benchmark.columns:
-            logger.error("CSV文件中缺少索引列: %s", INDEX_STR)
+            logger.error("Missing index column in CSV: %s", INDEX_STR)
             return None, None
 
-        # 过滤指定索引的行
+        # Filter rows by index
         df_benchmark = df_benchmark.loc[df_benchmark[INDEX_STR] == index]
         if df_benchmark.empty:
-            logger.info("索引 %d 对应的行为空", index)
+            logger.info("No data found for index %d", index)
             return None, None
 
-        # 提取所需参数
+        # Extract required parameters
         try:
             row = df_benchmark[list(hstu_required_params.keys())]
         except KeyError as e:
-            logger.error("CSV文件中缺少必要列: %s", e)
+            logger.error("Missing required columns in CSV: %s", e)
             return None, None
 
-        # 转换为字典并验证类型
+        # Convert to dict and validate types
         params = row.iloc[0].to_dict()
         for key, required_type in hstu_required_params.items():
             try:
                 params[key] = convert_value(params[key], required_type)
             except (ValueError, TypeError) as e:
-                logger.error("参数 %s 类型转换失败: %s", key, e)
+                logger.error("Type conversion failed for parameter %s: %s", key, e)
                 return None, None
 
-        logger.info("索引 %d 的参数: %s", index, params)
+        logger.info("Parameters for index %d: %s", index, params)
         return df_benchmark, params
 
     except Exception as e:
-        logger.error("错误: %s", e)
+        logger.error("Error: %s", e, exc_info=True)  # Added exc_info for stack trace
         return None, None
 
 
 def init_result_csv_index(index):
     try:
-        # 读取基准CSV文件并确保索引列为整数类型
+        # Read benchmark CSV and ensure index column is integer type
         benchmark_df = pd.read_csv(benchmark_csv)
         benchmark_df[INDEX_STR] = benchmark_df[INDEX_STR].astype(int)
 
-        # 如果结果文件不存在则创建空文件
+        # Create empty result file if not exists
         if not os.path.exists(result_csv):
             pd.DataFrame(columns=column_names).to_csv(result_csv, index=False)
 
-        # 读取结果文件
+        # Read result file
         df_res = pd.read_csv(result_csv)
 
-        # 检查索引是否存在于基准数据中
+        # Check if index exists in benchmark data
         benchmark_row = benchmark_df.loc[benchmark_df[INDEX_STR] == index, column_left]
-        if benchmark_row.empty:  # 明确处理空情况
-            logger.warning(f"索引 {index} 不存在于基准文件中，跳过添加操作")
-            raise ValueError(f"row {index} not in {benchmark_csv}")
+        if benchmark_row.empty:  # Explicit empty case handling
+            logger.warning("Index %d not found in benchmark file, skipping", index)
+            raise ValueError("Row %d not found in %s" % (index, benchmark_csv))
 
-        # 检查索引是否已存在于结果文件中
+        # Check if index already exists in result file
         if index in df_res[INDEX_STR].values:
             return
 
-        # 添加新行并保存
+        # Add new row and save
         new_row = pd.DataFrame([benchmark_row.iloc[0]], columns=column_left)
         df_res = pd.concat([df_res, new_row], ignore_index=True)
         df_res.to_csv(result_csv, index=False)
-        logger.info(f"成功添加索引 {index} 到结果文件 {result_csv}")
+        logger.info("Successfully added index %d to result file %s", index, result_csv)
 
     except Exception as e:
-        logger.error(f"初始化结果文件时发生错误: {str(e)}")
-        raise e
+        logger.error("Error initializing result file: %s", str(e), exc_info=True)
+        raise
 
 
 def construct_mask(
@@ -307,28 +307,34 @@ def gen_seq(length, max_value, total_sum):
 
 
 def adjust_ratio(total_sum, max_context_len, max_seq_len_k, max_target_len):
-    # 初始化结果变量
+    """Adjust ratio distribution based on given parameters."""
+    # Initialize result variables
     total_content, total_k, total_target = 0, 0, 0
 
-    # 检查分母是否为0
+    # Check denominator
     denominator = max_context_len + max_seq_len_k + max_target_len
     if denominator == 0:
-        return 0, 0, 0  # 所有比例项为0时直接返回0
+        logger.debug("All max lengths are 0, returning zeros")
+        return 0, 0, 0  # Return zeros if all inputs are zero
 
-    # 检查每个分子是否为0
+    # Handle zero cases
     if max_context_len == 0:
         total_content = 0
+        logger.debug("max_context_len is 0, setting total_content to 0")
     if max_seq_len_k == 0:
         total_k = 0
+        logger.debug("max_seq_len_k is 0, setting total_k to 0")
     if max_target_len == 0:
         total_target = 0
+        logger.debug("max_target_len is 0, setting total_target to 0")
 
-    # 计算剩余需要分配的总和
+    # Calculate remaining sum to distribute
     remaining_sum = total_sum - (total_content + total_k + total_target)
     if remaining_sum == 0:
-        return total_content, total_k, total_target  # 无需分配剩余值
+        logger.debug("No remaining sum to distribute")
+        return total_content, total_k, total_target
 
-    # 计算剩余项的有效分母（排除分子为0的项）
+    # Calculate valid denominator (excluding zero terms)
     valid_denominator = 0
     if max_context_len > 0:
         valid_denominator += max_context_len
@@ -337,19 +343,31 @@ def adjust_ratio(total_sum, max_context_len, max_seq_len_k, max_target_len):
     if max_target_len > 0:
         valid_denominator += max_target_len
 
-    # 按剩余比例分配
+    logger.debug("Distributing remaining sum %d with valid denominator %d", 
+                remaining_sum, valid_denominator)
+
+    # Distribute remaining sum proportionally
     if max_context_len > 0:
         total_content += int(round(remaining_sum * max_context_len / valid_denominator))
+        logger.debug("Added %d to total_content", 
+                    int(round(remaining_sum * max_context_len / valid_denominator)))
     if max_seq_len_k > 0:
         total_k += int(round(remaining_sum * max_seq_len_k / valid_denominator))
+        logger.debug("Added %d to total_k", 
+                    int(round(remaining_sum * max_seq_len_k / valid_denominator)))
     if max_target_len > 0:
         total_target += int(round(remaining_sum * max_target_len / valid_denominator))
+        logger.debug("Added %d to total_target", 
+                    int(round(remaining_sum * max_target_len / valid_denominator)))
 
-    # 处理四舍五入导致的误差（强制修正总和）
+    # Handle rounding errors
     diff = total_sum - (total_content + total_k + total_target)
     if diff != 0:
-        total_target += diff  # 默认将差值调整到target（可根据需求修改）
+        logger.debug("Adjusting for rounding difference of %d", diff)
+        total_target += diff  # Default adjustment to target
 
+    logger.info("Final distribution: total_k=%d, total_content=%d, total_target=%d",
+               total_k, total_content, total_target)
     return total_k, total_content, total_target
 
 
