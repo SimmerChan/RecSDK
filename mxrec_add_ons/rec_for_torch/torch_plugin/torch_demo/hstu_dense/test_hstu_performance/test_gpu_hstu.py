@@ -477,8 +477,9 @@ def read_param():
         return tuple(result)
         
     except KeyError as e:
-        logger.error(_error_messages[_error_key].format(e))
-        raise KeyError(_error_messages[_error_key].format(e))
+        error_msg = _error_messages[_error_key].format(e)
+        logger.error(error_msg, exc_info=True)  
+        raise
 
 
 def main():
