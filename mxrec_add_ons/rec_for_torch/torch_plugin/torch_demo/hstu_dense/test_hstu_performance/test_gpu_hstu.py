@@ -301,49 +301,7 @@ def test_fused_attn(
     iterations = g_iterations
     profiler_step_start = g_profiler_step_start
 
-    param = load_params(DATASETS)
-    try:
-        lq = param["l_q"].cuda() if isinstance(param["l_q"], torch.Tensor) else param["l_q"]
-        lk = param["l_k"].cuda() if isinstance(param["l_k"], torch.Tensor) else param["l_k"]
-        num_contexts = (
-            param["num_contexts"].cuda()
-            if isinstance(param["num_contexts"], torch.Tensor)
-            else param["num_contexts"]
-        )
-        seq_offsets_q = (
-            param["seq_offsets_q_wt"].cuda()
-            if isinstance(param["seq_offsets_q_wt"], torch.Tensor)
-            else param["seq_offsets_q_wt"]
-        )
-        seq_offsets_k = (
-            param["seq_offsets_k_wt"].cuda()
-            if isinstance(param["seq_offsets_k_wt"], torch.Tensor)
-            else param["seq_offsets_k_wt"]
-        )
-        num_targets = (
-            param["num_targets"].cuda()
-            if isinstance(param["num_targets"], torch.Tensor)
-            else param["num_targets"]
-        )
-        q = param["q"].cuda() if isinstance(param["q"], torch.Tensor) else param["q"]
-        k = param["k"].cuda() if isinstance(param["k"], torch.Tensor) else param["k"]
-        v = param["v"].cuda() if isinstance(param["v"], torch.Tensor) else param["v"]
-        rab = (
-            param["rab"].cuda() if isinstance(param["rab"], torch.Tensor) else param["rab"]
-        )
-        attn_mask = (
-            param["attn_mask"].cuda()
-            if isinstance(param["attn_mask"], torch.Tensor)
-            else param["attn_mask"]
-        )
-        grad = (
-            param["grad"].cuda()
-            if isinstance(param["grad"], torch.Tensor)
-            else param["grad"]
-        )
-    except KeyError as e:
-        logger.info(e)
-        raise e
+    lq, lk, num_contexts, seq_offsets_q, seq_offsets_k, num_targets, q, k, v, rab, attn_mask, grad = read_param()
 
     logger.info(
         f"max_context_len: {max_context_len}, max_seq_len_q: {max_seq_len_q}, "
@@ -480,6 +438,40 @@ def test_fused_attn(
     torch.save(dv_hstu.to(cpu), os.path.join(save_dir, f"{prefix}v.pth"))
 
     return fwd_time, bwd_time
+
+
+def read_param():
+    """Load parameters and automatically convert to CUDA tensors"""
+    param = load_params(DATASETS)
+    
+    # Parameter mapping (variable_name: field_name_in_data)
+    PARAM_MAP = {
+        'length_q': 'l_q',
+        'length_k': 'l_k',
+        'num_contexts': 'num_contexts',
+        'seq_offsets_q': 'seq_offsets_q_wt',
+        'seq_offsets_k': 'seq_offsets_k_wt',
+        'num_targets': 'num_targets',
+        'query': 'q',
+        'key': 'k',
+        'value': 'v',
+        'relative_attention_bias': 'rab',
+        'attention_mask': 'attn_mask',
+        'gradient': 'grad'
+    }
+
+    result = {}
+    try:
+        for var_name, field_name in PARAM_MAP.items():
+            param_value = param[field_name]
+            result[var_name] = param_value.cuda() if isinstance(param_value, torch.Tensor) else param_value
+            
+    except KeyError as e:
+        logger.error(f"Missing required parameter: {e}")
+        raise
+
+    # Return as tuple while maintaining original order
+    return tuple(result.values())
 
 
 def main():
