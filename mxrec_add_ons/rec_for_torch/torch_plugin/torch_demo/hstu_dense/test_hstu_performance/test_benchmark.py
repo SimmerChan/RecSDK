@@ -34,6 +34,7 @@ from test_read_benchmark import (
     logger,
     DATASETS,
     init_result_csv_index,
+    create_and_save_params
 )
 from test_msprof_npu_hstu import msprof_main
 
@@ -287,6 +288,7 @@ def main(index=None):
     for bx in all_indices:
         logger.info(f"benchmark {bx} testing")
         init_result_csv_index(bx)
+        create_and_save_params(bx)
         df_res = pd.read_csv(result_csv)
 
         if (

@@ -711,7 +711,6 @@ def create_and_save_params(bx):
 
 
 if __name__ == "__main__":
-
     benchmark_df = pd.read_csv(benchmark_csv)
     benchmark_df[INDEX_STR] = benchmark_df[INDEX_STR].astype(int)
     all_indices = benchmark_df[INDEX_STR].tolist()
