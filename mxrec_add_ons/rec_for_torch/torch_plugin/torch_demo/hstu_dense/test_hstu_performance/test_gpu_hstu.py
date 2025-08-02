@@ -442,20 +442,20 @@ def test_fused_attn(
 
 def read_param():
     """Load parameters and automatically convert to CUDA tensors if needed."""
-    # Parameter definitions (name, field_name) in original order
+    # Parameter field names in original order
     params_def = [
-        ("length_q", "l_q"),
-        ("length_k", "l_k"),
-        ("num_contexts", "num_contexts"),
-        ("seq_offsets_q", "seq_offsets_q_wt"),
-        ("seq_offsets_k", "seq_offsets_k_wt"),
-        ("num_targets", "num_targets"),
-        ("query", "q"),
-        ("key", "k"),
-        ("value", "v"),
-        ("relative_attention_bias", "rab"),
-        ("attention_mask", "attn_mask"),
-        ("gradient", "grad")
+        "l_q",          # length_q
+        "l_k",          # length_k
+        "num_contexts", # num_contexts
+        "seq_offsets_q_wt",  # seq_offsets_q
+        "seq_offsets_k_wt",  # seq_offsets_k
+        "num_targets",   # num_targets
+        "q",            # query
+        "k",            # key
+        "v",            # value
+        "rab",          # relative_attention_bias
+        "attn_mask",    # attention_mask
+        "grad"          # gradient
     ]
 
     # Error messages
@@ -469,7 +469,7 @@ def read_param():
     result = []
 
     try:
-        for var_name, field_name in params_def:
+        for field_name in params_def:
             param_value = param[field_name]
             result.append(
                 param_value.cuda() if isinstance(param_value, torch.Tensor) else param_value
