@@ -713,13 +713,14 @@ def load_params(save_dir=DATASETS, device="cpu") -> Dict[str, object]:
 
 def create_and_save_params(bx):
     df, bparams = read_and_validate_parameters(bx)
-    bparams["image_name"] = f"{bx}_{df.shape_info.item()}"
+    image_name = "image_name"
+    bparams[image_name] = f"{bx}_{df.shape_info.item()}"
     init_result_csv_index(bx)
     df_resg = pd.read_csv(result_csv)
     logger.info(df_resg[df_resg[INDEX_STR] == bx])
     gene_param_dict = {k: bparams[k] for k in generate_params}
     iparams = generate_input(**gene_param_dict)
-    iparams["image_name"] = bparams["image_name"]
+    iparams[image_name] = bparams[image_name]
 
     extra_params = [
         "dtype",
