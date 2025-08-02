@@ -348,20 +348,20 @@ def adjust_ratio(total_sum, max_context_len, max_seq_len_k, max_target_len):
 
     logger.debug("Distributing remaining sum %d with valid denominator %d", 
                 remaining_sum, valid_denominator)
-
-    # Distribute remaining sum proportionally
-    if max_context_len > 0:
-        total_content += int(round(remaining_sum * max_context_len / valid_denominator))
-        logger.debug("Added %d to total_content", 
-                    int(round(remaining_sum * max_context_len / valid_denominator)))
-    if max_seq_len_k > 0:
-        total_k += int(round(remaining_sum * max_seq_len_k / valid_denominator))
-        logger.debug("Added %d to total_k", 
-                    int(round(remaining_sum * max_seq_len_k / valid_denominator)))
-    if max_target_len > 0:
-        total_target += int(round(remaining_sum * max_target_len / valid_denominator))
-        logger.debug("Added %d to total_target", 
-                    int(round(remaining_sum * max_target_len / valid_denominator)))
+    if valid_denominator != 0:
+        # Distribute remaining sum proportionally
+        if max_context_len > 0:
+            total_content += int(round(remaining_sum * max_context_len / valid_denominator))
+            logger.debug("Added %d to total_content", 
+                        int(round(remaining_sum * max_context_len / valid_denominator)))
+        if max_seq_len_k > 0:
+            total_k += int(round(remaining_sum * max_seq_len_k / valid_denominator))
+            logger.debug("Added %d to total_k", 
+                        int(round(remaining_sum * max_seq_len_k / valid_denominator)))
+        if max_target_len > 0:
+            total_target += int(round(remaining_sum * max_target_len / valid_denominator))
+            logger.debug("Added %d to total_target", 
+                        int(round(remaining_sum * max_target_len / valid_denominator)))
 
     # Handle rounding errors
     diff = total_sum - (total_content + total_k + total_target)
@@ -396,7 +396,7 @@ def generate_input(
     has_context = max_context_len > 0
     has_target = max_target_len > 0
     target_group_size > 1
-    logger.info(f"generate with total_len {total_len}")
+    logger.info("generate with total_len %d", total_len)
     total_k, total_content, total_target = adjust_ratio(
         total_len, max_context_len, max_seq_len_k, max_target_len
     )
@@ -627,7 +627,7 @@ def save_params(save_dir=DATASETS, **kwargs):
     Save all parameters to specified directory (Windows path safe)
     Usage: save_params(r"c:\zengxiong\saved", l_q=tensor1, attn_mask=matrix, image_name="mask.png")
     """
-    # Normalize path
+    # Normalize path 
     save_dir = os.path.normpath(save_dir)
     os.makedirs(save_dir, exist_ok=True)
 
@@ -638,25 +638,25 @@ def save_params(save_dir=DATASETS, **kwargs):
         if required and name not in kwargs
     ]
     if missing:
-        logger.error(f"Missing required parameters: {missing}")
-        raise ValueError(f"Required parameters missing: {', '.join(missing)}")
+        logger.error("Missing required parameters: %s", ", ".join(missing))
+        raise ValueError("Required parameters missing: %s" % ", ".join(missing))
 
     # Get all save paths
     paths = _get_save_paths(save_dir)
 
     # Save parameters with logging
     logger.info("\n" + "=" * 50)
-    logger.info(f"[SAVE] Target directory: {save_dir}")
+    logger.info("[SAVE] Target directory: %s", save_dir)
     for name, path in paths.items():
         if name in kwargs:
             torch.save(kwargs[name], path)
             param = kwargs[name]
-            log_msg = f"{name.ljust(15)}: "
+            log_msg = "%s: " % name.ljust(15)
             if torch.is_tensor(param):
-                log_msg += f"shape={str(param.shape).ljust(18)} | dtype={param.dtype}"
+                log_msg += "shape=%s | dtype=%s" % (str(param.shape).ljust(18), param.dtype)
             else:
                 log_msg += str(param)
-            logger.info(log_msg + f" → {path}")
+            logger.info("%s → %s", log_msg, path)
 
     # Save attention matrix image if provided
     if "attn_mask" in kwargs and "image_name" in kwargs:
@@ -674,7 +674,7 @@ def save_params(save_dir=DATASETS, **kwargs):
     # Create completion flag
     flag_path = os.path.join(save_dir, "complete.flag")
     torch.save(torch.tensor(1), flag_path)
-    logger.info("=" * 50 + "\n[SUCCESS] All parameters saved\n" + "=" * 50)
+    logger.info("%s\n[SUCCESS] All parameters saved\n%s", "=" * 50, "=" * 50)
 
 
 def load_params(save_dir=DATASETS, device="cpu") -> Dict[str, object]:
@@ -687,24 +687,27 @@ def load_params(save_dir=DATASETS, device="cpu") -> Dict[str, object]:
 
     # Validate directory integrity
     if not os.path.exists(paths["l_q"]):
-        logger.error(f"Invalid parameter directory: {save_dir}")
-        raise FileNotFoundError(f"Invalid parameter directory: {save_dir}")
+        logger.error("Invalid parameter directory: %s", save_dir)
+        raise FileNotFoundError("Invalid parameter directory: %s" % save_dir)
 
-    # Load parameters with logging
+    # Load parameters with logging (lazy interpolation)
     logger.info("\n" + "=" * 50)
-    logger.info(f"[LOAD] Source directory: {save_dir}")
+    logger.info("[LOAD] Source directory: %s", save_dir)
     params = {}
     for name, path in paths.items():
         if os.path.exists(path):
             params[name] = torch.load(path, map_location=device)
-            log_msg = f"{name.ljust(15)}: "
+            log_msg = "%s: " % name.ljust(15)
             if torch.is_tensor(params[name]):
-                log_msg += f"shape={str(params[name].shape).ljust(18)} | dtype={params[name].dtype}"
+                log_msg += "shape=%s | dtype=%s" % (
+                    str(params[name].shape).ljust(18),
+                    params[name].dtype,
+                )
             else:
                 log_msg += str(params[name])
-            logger.info(log_msg + f" ← {path}")
+            logger.info("%s ← %s", log_msg, path)
 
-    logger.info("=" * 50 + "\n[SUCCESS] All parameters loaded\n" + "=" * 50)
+    logger.info("%s\n[SUCCESS] All parameters loaded\n%s", "=" * 50, "=" * 50)
     return params
 
 
