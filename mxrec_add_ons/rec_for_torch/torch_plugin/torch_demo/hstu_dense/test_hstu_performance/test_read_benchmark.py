@@ -343,6 +343,9 @@ def adjust_ratio(total_sum, max_context_len, max_seq_len_k, max_target_len):
     if max_target_len > 0:
         valid_denominator += max_target_len
 
+    if valid_denominator == 0:
+        raise ValueError("valid_denominator cannot be 0")
+
     logger.debug("Distributing remaining sum %d with valid denominator %d", 
                 remaining_sum, valid_denominator)
 
