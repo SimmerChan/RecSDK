@@ -692,7 +692,7 @@ def create_and_save_params(bx):
     bparams["image_name"] = f"{bx}_{df.shape_info.item()}"
     init_result_csv_index(bx)
     df_resg = pd.read_csv(result_csv)
-    logger.info(df_resg)
+    logger.info(df_resg[df_resg[INDEX_STR] == bx])
     gene_param_dict = {k: bparams[k] for k in generate_params}
     iparams = generate_input(**gene_param_dict)
     iparams["image_name"] = bparams["image_name"]
