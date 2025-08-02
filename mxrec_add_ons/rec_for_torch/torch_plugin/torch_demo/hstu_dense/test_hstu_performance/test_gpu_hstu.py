@@ -302,44 +302,48 @@ def test_fused_attn(
     profiler_step_start = g_profiler_step_start
 
     param = load_params(DATASETS)
-    lq = param["l_q"].cuda() if isinstance(param["l_q"], torch.Tensor) else param["l_q"]
-    lk = param["l_k"].cuda() if isinstance(param["l_k"], torch.Tensor) else param["l_k"]
-    num_contexts = (
-        param["num_contexts"].cuda()
-        if isinstance(param["num_contexts"], torch.Tensor)
-        else param["num_contexts"]
-    )
-    seq_offsets_q = (
-        param["seq_offsets_q_wt"].cuda()
-        if isinstance(param["seq_offsets_q_wt"], torch.Tensor)
-        else param["seq_offsets_q_wt"]
-    )
-    seq_offsets_k = (
-        param["seq_offsets_k_wt"].cuda()
-        if isinstance(param["seq_offsets_k_wt"], torch.Tensor)
-        else param["seq_offsets_k_wt"]
-    )
-    num_targets = (
-        param["num_targets"].cuda()
-        if isinstance(param["num_targets"], torch.Tensor)
-        else param["num_targets"]
-    )
-    q = param["q"].cuda() if isinstance(param["q"], torch.Tensor) else param["q"]
-    k = param["k"].cuda() if isinstance(param["k"], torch.Tensor) else param["k"]
-    v = param["v"].cuda() if isinstance(param["v"], torch.Tensor) else param["v"]
-    rab = (
-        param["rab"].cuda() if isinstance(param["rab"], torch.Tensor) else param["rab"]
-    )
-    attn_mask = (
-        param["attn_mask"].cuda()
-        if isinstance(param["attn_mask"], torch.Tensor)
-        else param["attn_mask"]
-    )
-    grad = (
-        param["grad"].cuda()
-        if isinstance(param["grad"], torch.Tensor)
-        else param["grad"]
-    )
+    try:
+        lq = param["l_q"].cuda() if isinstance(param["l_q"], torch.Tensor) else param["l_q"]
+        lk = param["l_k"].cuda() if isinstance(param["l_k"], torch.Tensor) else param["l_k"]
+        num_contexts = (
+            param["num_contexts"].cuda()
+            if isinstance(param["num_contexts"], torch.Tensor)
+            else param["num_contexts"]
+        )
+        seq_offsets_q = (
+            param["seq_offsets_q_wt"].cuda()
+            if isinstance(param["seq_offsets_q_wt"], torch.Tensor)
+            else param["seq_offsets_q_wt"]
+        )
+        seq_offsets_k = (
+            param["seq_offsets_k_wt"].cuda()
+            if isinstance(param["seq_offsets_k_wt"], torch.Tensor)
+            else param["seq_offsets_k_wt"]
+        )
+        num_targets = (
+            param["num_targets"].cuda()
+            if isinstance(param["num_targets"], torch.Tensor)
+            else param["num_targets"]
+        )
+        q = param["q"].cuda() if isinstance(param["q"], torch.Tensor) else param["q"]
+        k = param["k"].cuda() if isinstance(param["k"], torch.Tensor) else param["k"]
+        v = param["v"].cuda() if isinstance(param["v"], torch.Tensor) else param["v"]
+        rab = (
+            param["rab"].cuda() if isinstance(param["rab"], torch.Tensor) else param["rab"]
+        )
+        attn_mask = (
+            param["attn_mask"].cuda()
+            if isinstance(param["attn_mask"], torch.Tensor)
+            else param["attn_mask"]
+        )
+        grad = (
+            param["grad"].cuda()
+            if isinstance(param["grad"], torch.Tensor)
+            else param["grad"]
+        )
+    except Exception as e:
+        logger.info(e)
+        raise e
 
     logger.info(
         f"max_context_len: {max_context_len}, max_seq_len_q: {max_seq_len_q}, "
