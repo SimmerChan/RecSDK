@@ -15,109 +15,207 @@
 # limitations under the License.
 # ==============================================================================
 
- 
+
 import argparse
+import getpass
 import os
 import subprocess
+from typing import Optional
+import select
+
 import torch
 import paramiko
 import pandas as pd
+
 import config
-from test_read_benchmark import benchmark_csv, result_csv, logger, DATASETS, init_result_csv_index
+from test_read_benchmark import (
+    benchmark_csv,
+    result_csv,
+    logger,
+    DATASETS,
+    init_result_csv_index,
+)
 from test_msprof_npu_hstu import msprof_main
 
 
-INDEX_STR = 'index'
-GPU_FW_TIME = 'gpu_fw_time'
-NPU_FW_TIME = 'npu_fw_time'
-NPU_BW_TIME = 'npu_bw_time'
-GPU_BW_TIME = 'gpu_bw_time'
+INDEX_STR = "index"
+GPU_FW_TIME = "gpu_fw_time"
+NPU_FW_TIME = "npu_fw_time"
+NPU_BW_TIME = "npu_bw_time"
+GPU_BW_TIME = "gpu_bw_time"
 
 
-def execute_and_process(bx):
-    cmd = f"python3 test_msprof_npu_hstu.py --index={bx}"
-    logger.info(f"Executing local scirpt: {cmd}")
+_remote_password_cache = None
+
+
+def get_remote_password() -> Optional[str]:
+    """Securely retrieves and caches the GPU server password (single input, reusable for the session).
+
+    Returns:
+        Optional[str]: The password if successfully retrieved, None otherwise.
+    """
+    global _remote_password_cache
+
+    if _remote_password_cache is not None:
+        return _remote_password_cache
+
     try:
-        result = subprocess.run(
-            cmd.split(' '),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            check=True
+        # Interactive input (hidden)
+        logger.info("\n[Security Notice] Password input will not display characters.")
+        password = getpass.getpass(
+            prompt="Enter GPU server password (valid for this session): "
         )
-        logger.info(f"stdout: {result.stdout}")
-        logger.info(f"stderr: {result.stderr}")
-        return True
+        if password.strip():
+            _remote_password_cache = password
+            return _remote_password_cache
+        else:
+            logger.error("Password cannot be empty.")
+            return None
+
     except Exception as e:
-        logger.error(f"Failed to execute local script: {cmd}")
+        logger.error(f"Password retrieval failed: {str(e)}")
+        return None
+
+
+def execute_remote_linux_cmd(client, cmd, timeout=600):
+    """安全执行Linux远程命令的完整方案"""
+    stdin, stdout, stderr = None, None, None
+    try:
+        # 执行命令
+        stdin, stdout, stderr = client.exec_command(cmd)
+        exit_status = None
+        output, error = "", ""
+
+        # 使用 select 处理多流（避免阻塞）
+        while True:
+            # 检测命令是否执行完毕
+            if stdout.channel.exit_status_ready():
+                exit_status = stdout.channel.recv_exit_status()
+                break
+
+            # 非阻塞读取输出和错误流
+            rlist, _, _ = select.select([stdout, stderr], [], [], timeout)
+            if not rlist:  # 超时处理
+                logger.error(f"Command timeout: {cmd}")
+                break
+
+            for stream in rlist:
+                if stream is stdout:
+                    output += stream.read().decode("utf-8", errors="ignore")
+                elif stream is stderr:
+                    error += stream.read().decode("utf-8", errors="ignore")
+
+        # 记录结果
+        logger.info(f"Exit status: {exit_status}")
+        if output:
+            logger.info(f"stdout: {output[:1000]}...")  # 限制日志长度
+        if error:
+            logger.error(f"stderr: {error[:1000]}...")
+
+        return exit_status == 0
+
+    except Exception as e:
+        logger.error(f"Failed to execute remote script: {cmd}")
         logger.error(e)
         return False
+    finally:
+        # 安全关闭连接
+        try:
+            if stdin:
+                stdin.close()
+            if stdout:
+                stdout.close()
+            if stderr:
+                stderr.close()
+            if client:
+                client.close()
+        except Exception as close_error:
+            logger.error(f"SSH close error: {close_error}")
 
 
 def transfer_and_execute(bx):
+    if not isinstance(bx, int):
+        raise ValueError(f"input must be an integer but got {bx}")
     remote_host = config.GPU_IP
     remote_user = config.GPU_USER
-    remote_password = config.GPU_PASSWORD
-    remote_dir = config.RECSYS_DIR
-
+    remote_password = get_remote_password()
+    remote_dir = os.path.realpath(config.RECSYS_DIR)
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    cmd = f"cd {remote_dir} && source ~/.bashrc && {config.PYTHON3} test_gpu_hstu.py --index={bx}"
+    cmd = f"cd {remote_dir} && {os.path.realpath(config.PYTHON3)} test_gpu_hstu.py --index={bx}"
 
     try:
-        client.connect(remote_host, port=22, username=remote_user, password=remote_password)
+        client.connect(
+            remote_host, port=22, username=remote_user, password=remote_password
+        )
         sftp = client.open_sftp()
         files_to_transfer = ["test_gpu_hstu.py", "test_read_benchmark.py", "config.py"]
         for file in files_to_transfer:
             sftp.put(file, os.path.join(remote_dir, file))
         sftp.close()
 
-        
         logger.info(f"Executing remote script: {cmd}")
-        stdin, stdout, stderr = client.exec_command(cmd)
-        exit_status = stdout.channel.recv_exit_status()
-        logger.info(f"stdout: {stdout.read().decode('utf-8')}")
-        logger.info(f"stderr: {stderr.read().decode('utf-8')}")
-        return exit_status == 0
+        return execute_remote_linux_cmd(client, cmd)
     except Exception as e:
         logger.error(f"Failed to execute remote script: {cmd}")
         logger.error(e)
         return False
     finally:
-        logger.info("Closing connection")
-        if client:
-            client.close()
+        # 安全关闭连接
+        try:
+            if client:
+                client.close()
+        except Exception as close_error:
+            logger.error(f"SSH close error: {close_error}")
 
 
-def compare_npu_gpu_precision(save_dir=DATASETS, device='cpu'):
+def compare_npu_gpu_precision(save_dir=DATASETS, device="cpu"):
     logger.info(f"Compating npu and gpu results of {save_dir}")
     try:
-        data_type = torch.load(os.path.join(save_dir, "data_type.pth"), map_location=device)
-        npu_out = torch.load(os.path.join(save_dir, "npu_out.pth"), map_location=device).to(dtype=data_type)
-        gpu_out = torch.load(os.path.join(save_dir, "gpu_out.pth"), map_location=device).to(dtype=data_type)
+        data_type = torch.load(
+            os.path.join(save_dir, "data_type.pth"), map_location=device
+        )
+        npu_out = torch.load(
+            os.path.join(save_dir, "npu_out.pth"), map_location=device
+        ).to(dtype=data_type)
+        gpu_out = torch.load(
+            os.path.join(save_dir, "gpu_out.pth"), map_location=device
+        ).to(dtype=data_type)
         gpu_out = gpu_out.view(gpu_out.shape[0], -1)
 
-        npu_q = torch.load(os.path.join(save_dir, "npu_q.pth"), map_location=device).to(dtype=data_type)
-        gpu_q = torch.load(os.path.join(save_dir, "gpu_q.pth"), map_location=device).to(dtype=data_type)
+        npu_q = torch.load(os.path.join(save_dir, "npu_q.pth"), map_location=device).to(
+            dtype=data_type
+        )
+        gpu_q = torch.load(os.path.join(save_dir, "gpu_q.pth"), map_location=device).to(
+            dtype=data_type
+        )
 
-        npu_k = torch.load(os.path.join(save_dir, "npu_k.pth"), map_location=device).to(dtype=data_type)
-        gpu_k = torch.load(os.path.join(save_dir, "gpu_k.pth"), map_location=device).to(dtype=data_type)
+        npu_k = torch.load(os.path.join(save_dir, "npu_k.pth"), map_location=device).to(
+            dtype=data_type
+        )
+        gpu_k = torch.load(os.path.join(save_dir, "gpu_k.pth"), map_location=device).to(
+            dtype=data_type
+        )
 
-        npu_v = torch.load(os.path.join(save_dir, "npu_v.pth"), map_location=device).to(dtype=data_type)
-        gpu_v = torch.load(os.path.join(save_dir, "gpu_v.pth"), map_location=device).to(dtype=data_type)
-   
+        npu_v = torch.load(os.path.join(save_dir, "npu_v.pth"), map_location=device).to(
+            dtype=data_type
+        )
+        gpu_v = torch.load(os.path.join(save_dir, "gpu_v.pth"), map_location=device).to(
+            dtype=data_type
+        )
+
     except Exception as e:
         logger.error(f"error : {e}")
         return False
-        
+
     if data_type == torch.bfloat16:
         eps = 1e-2
     elif data_type == torch.float16:
-        eps = 1e-3  
+        eps = 1e-3
     else:
         logger.error(f"error type : {data_type}")
         return False
-  
+
     try:
         out_close = torch.allclose(npu_out, gpu_out, eps, eps)
         out_q = torch.allclose(npu_q, gpu_q, eps, eps)
@@ -140,28 +238,28 @@ def update_index_csv(df_res, benchmark_df, bx, precision):
     mask_res = df_res[INDEX_STR] == bx
     mask_benchmark = benchmark_df[INDEX_STR] == bx
 
-    df_res.loc[mask_res, 'precision'] = precision
-    df_res.loc[mask_res, 'npu_fw/gpu_fw'] = (
+    df_res.loc[mask_res, "precision"] = precision
+    df_res.loc[mask_res, "npu_fw/gpu_fw"] = (
         df_res.loc[mask_res, GPU_FW_TIME] / df_res.loc[mask_res, NPU_FW_TIME]
     )
-    df_res.loc[mask_res, 'npu_bw/gpu_bw'] = (
+    df_res.loc[mask_res, "npu_bw/gpu_bw"] = (
         df_res.loc[mask_res, GPU_BW_TIME] / df_res.loc[mask_res, NPU_BW_TIME]
     )
-    
-    df_res.loc[mask_res, 'npu_fw+bw/gpu_fw+bw'] = (
-         df_res.loc[mask_res, [GPU_FW_TIME, GPU_BW_TIME]].sum(axis=1) / 
-         df_res.loc[mask_res, [NPU_FW_TIME, NPU_BW_TIME]].sum(axis=1)
+
+    df_res.loc[mask_res, "npu_fw+bw/gpu_fw+bw"] = df_res.loc[
+        mask_res, [GPU_FW_TIME, GPU_BW_TIME]
+    ].sum(axis=1) / df_res.loc[mask_res, [NPU_FW_TIME, NPU_BW_TIME]].sum(axis=1)
+    df_res.loc[mask_res, "npu_fw/benchmark"] = (
+        benchmark_df.loc[mask_benchmark, NPU_FW_TIME]
+        / df_res.loc[mask_res, NPU_FW_TIME]
     )
-    df_res.loc[mask_res, 'npu_fw/benchmark'] = (
-        benchmark_df.loc[mask_benchmark, NPU_FW_TIME] / df_res.loc[mask_res, NPU_FW_TIME]
+    df_res.loc[mask_res, "npu_bw/benchmark"] = (
+        benchmark_df.loc[mask_benchmark, NPU_BW_TIME]
+        / df_res.loc[mask_res, NPU_BW_TIME]
     )
-    df_res.loc[mask_res, 'npu_bw/benchmark'] = (
-      benchmark_df.loc[mask_benchmark, NPU_BW_TIME] / df_res.loc[mask_res, NPU_BW_TIME]
-    )
-    df_res.loc[mask_res, 'npu_fw+bw/benchmark'] = (
-        benchmark_df.loc[mask_benchmark, [NPU_FW_TIME, NPU_BW_TIME]].sum(axis=1) /
-        df_res.loc[mask_res, [NPU_FW_TIME, NPU_BW_TIME]].sum(axis=1)
-    )
+    df_res.loc[mask_res, "npu_fw+bw/benchmark"] = benchmark_df.loc[
+        mask_benchmark, [NPU_FW_TIME, NPU_BW_TIME]
+    ].sum(axis=1) / df_res.loc[mask_res, [NPU_FW_TIME, NPU_BW_TIME]].sum(axis=1)
 
 
 def retry_operation(operation, operation_name, bx, max_retries=2):
@@ -169,8 +267,12 @@ def retry_operation(operation, operation_name, bx, max_retries=2):
         ret = operation(bx)
         if ret:
             return True
-        logger.warning(f"{operation_name} failed for benchmark {bx}, attempt {attempt + 1}/{max_retries}")
-    logger.error(f"{operation_name} failed for benchmark {bx} after {max_retries} retries")
+        logger.warning(
+            f"{operation_name} failed for benchmark {bx}, attempt {attempt + 1}/{max_retries}"
+        )
+    logger.error(
+        f"{operation_name} failed for benchmark {bx} after {max_retries} retries"
+    )
     return False
 
 
@@ -178,7 +280,7 @@ def main(index=None):
     benchmark_df = pd.read_csv(benchmark_csv)
     benchmark_df[INDEX_STR] = benchmark_df[INDEX_STR].astype(int)
     all_indices = benchmark_df[INDEX_STR].tolist()
-    
+
     if index is not None:
         all_indices = [index]
 
@@ -186,28 +288,31 @@ def main(index=None):
         logger.info(f"benchmark {bx} testing")
         init_result_csv_index(bx)
         df_res = pd.read_csv(result_csv)
-        
-        if df_res[df_res[INDEX_STR] == bx].notna().all().all():
+
+        if (
+            bx in df_res[INDEX_STR].values
+            and df_res[df_res[INDEX_STR] == bx].notna().all().all()
+        ):
             logger.info(f"benchmark {bx} already, pass")
             continue
-        
+
         remote_success = retry_operation(transfer_and_execute, "Remote execution", bx)
         if not remote_success:
             continue
-        
+
         local_success = retry_operation(msprof_main, "Local execution", bx)
         if not local_success:
             continue
-        
+
         df_res = pd.read_csv(result_csv)
         precision = compare_npu_gpu_precision()
         update_index_csv(df_res, benchmark_df, bx, precision)
         df_res.to_csv(result_csv, index=False)
         logger.info(f"benchmark {bx} tested")
-        
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run benchmark tests.")
-    parser.add_argument('--index', type=int, help="benchmark to run. Default run all.")
+    parser.add_argument("--index", type=int, help="benchmark to run. Default run all.")
     args = parser.parse_args()
     main(args.index)

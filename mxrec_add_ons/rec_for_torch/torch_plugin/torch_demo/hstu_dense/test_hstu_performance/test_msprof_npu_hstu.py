@@ -21,47 +21,110 @@ import glob
 import subprocess
 import pandas as pd
 
-import config
-from test_read_benchmark import logger, read_and_validate_parameters, result_csv, init_result_csv_index
+import mxrec_add_ons.rec_for_torch.torch_plugin.torch_demo.hstu_dense.test_hstu_performance.config as config
+from test_read_benchmark import (
+    logger,
+    read_and_validate_parameters,
+    result_csv,
+    init_result_csv_index,
+)
 
 
 def msprof_main(index):
-    init_result_csv_index(index)
-    df_res = pd.read_csv(result_csv)
-    if df_res.loc[df_res['index'] == index, 'npu_fw_time'].notna().all() and \
-        df_res.loc[df_res['index'] == index, 'npu_bw_time'].notna().all():
-        logger.info(f'Benchmark with index {index} is already done. Exit.')
+    INDEX_STR = "index"
+    try:
+        # 初始化结果CSV文件
+        init_result_csv_index(index)
+        df_res = pd.read_csv(result_csv)
+
+        # 检查是否已处理过当前index
+        if (
+            df_res.loc[df_res[INDEX_STR] == index, "npu_fw_time"].notna().all()
+            and df_res.loc[df_res[INDEX_STR] == index, "npu_bw_time"].notna().all()
+        ):
+            logger.info(f"Benchmark with index {index} is already done. Exit.")
+            return True
+
+        # 读取并验证参数
+        _, params = read_and_validate_parameters(index)
+
+        # 执行msprof命令
+        cmd = f'rm -rf profnpu/ ; msprof --application="python3 test_npu_hstu.py --index={index}" --output=profnpu'
+        ret = os.system(cmd)
+        if ret != 0:
+            logger.error(f"Command execution failed (ret={ret}): {cmd}")
+            return False
+
+        # 查找生成的CSV文件
+        search_dir = os.path.join(os.path.realpath(config.NFS_DIR), "profnpu")
+        csv_files = glob.glob(
+            f"{search_dir}/PROF_*/mindstudio_profiler_output/op_stati*.csv"
+        )
+        if len(csv_files) == 0:
+            logger.error(f"MSProf run failed. No CSV file found in {search_dir}.")
+            return False
+
+        csv_file = csv_files[0]
+        logger.info(f"Profile located at: {csv_file}")
+
+        # 读取CSV文件
+        df_op_stati = pd.read_csv(csv_file)
+
+        # 提取Forward和Backward数据
+        forward_row = df_op_stati[df_op_stati["OP Type"] == "HstuDenseForward"]
+        backward_row = df_op_stati[df_op_stati["OP Type"] == "HstuDenseBackward"]
+
+        # 检查数据是否存在
+        if forward_row.empty or backward_row.empty:
+            missing_ops = []
+            if forward_row.empty:
+                missing_ops.append("HstuDenseForward")
+            if backward_row.empty:
+                missing_ops.append("HstuDenseBackward")
+            logger.error(f"Missing OP types in CSV: {', '.join(missing_ops)}")
+            return False
+
+        # 更新结果DataFrame
+        df_res.loc[df_res[INDEX_STR] == index, "npu_fw_time"] = (
+            forward_row["Avg Time(us)"].squeeze() / 1000
+        )
+        df_res.loc[df_res[INDEX_STR] == index, "npu_bw_time"] = (
+            backward_row["Avg Time(us)"].squeeze() / 1000
+        )
+
+        # 保存结果
+        df_res.to_csv(result_csv, index=False)
+
+        # 记录日志
+        logger.info(
+            f"Forward time: {df_res.loc[df_res[INDEX_STR] == index, 'npu_fw_time'].values[0]} ms"
+        )
+        logger.info(
+            f"Backward time: {df_res.loc[df_res[INDEX_STR] == index, 'npu_bw_time'].values[0]} ms"
+        )
+
         return True
-    
-    _, params = read_and_validate_parameters(index)
-    cmd = f'rm profnpu/ -rf ; msprof --application=\"python3 test_npu_hstu.py --index={index}\" --output=profnpu'
-    os.system(cmd)
-    
-    search_dir = os.path.join(config.NFS_DIR, 'profnpu')
-    csv_files = glob.glob(f'{search_dir}/PROF_*/mindstudio_profiler_output/op_stati*.csv')
-    if len(csv_files) == 0:
-        logger.error(f'MSProf run failed. Please run {cmd} again.')
+
+    except FileNotFoundError as e:
+        logger.error(f"File not found: {e}")
         return False
-    csv_file = csv_files[0]
-    logger.info(f'profile located at: {csv_file}')
-    df_op_stati = pd.read_csv(csv_file)
-
-    forward_row = df_op_stati[df_op_stati['OP Type'] == 'HstuDenseForward']
-    backward_row = df_op_stati[df_op_stati['OP Type'] == 'HstuDenseBackward']
-    
-    df_res.loc[df_res['index'] == index, 'npu_fw_time'] = forward_row['Avg Time(us)'].squeeze() / 1000
-    df_res.loc[df_res['index'] == index, 'npu_bw_time'] = backward_row['Avg Time(us)'].squeeze() / 1000
-
-    df_res.to_csv(result_csv, index=False)
-    
-    logger.info(f"Forward time {df_res.loc[df_res['index'] == index, 'npu_fw_time']} ms")
-    logger.info(f"Backward time {df_res.loc[df_res['index'] == index, 'npu_bw_time']} ms")
-
-    return True
+    except pd.errors.EmptyDataError as e:
+        logger.error(f"Empty CSV file or invalid data: {e}")
+        return False
+    except KeyError as e:
+        logger.error(f"Missing required column in DataFrame: {e}")
+        return False
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}")
+        return False
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Read CSV file and run a specific index benchmark')
-    parser.add_argument('--index', type=int, required=True, help='index of the benchmark to run')
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Read CSV file and run a specific index benchmark"
+    )
+    parser.add_argument(
+        "--index", type=int, required=True, help="index of the benchmark to run"
+    )
     args = parser.parse_args()
     msprof_main(args.index)

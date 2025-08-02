@@ -21,38 +21,11 @@ import sysconfig
 
 import torch
 
-import config
-from test_read_benchmark import logger, DATASETS
+import mxrec_add_ons.rec_for_torch.torch_plugin.torch_demo.hstu_dense.test_hstu_performance.config as config
+from test_read_benchmark import logger, DATASETS, load_params
 
 torch.npu.config.allow_internal_format = False
 torch.ops.load_library(f"{sysconfig.get_path('purelib')}/libfbgemm_npu_api.so")
-
-
-def read_data_from_path(save_dir, device='cpu'):
-    logger.info("start read...")
-    grad = torch.load(os.path.join(save_dir, "grad.pth"), map_location=device)
-    q = torch.load(os.path.join(save_dir, "q.pth"), map_location=device)
-    k = torch.load(os.path.join(save_dir, "k.pth"), map_location=device)
-    v = torch.load(os.path.join(save_dir, "v.pth"), map_location=device)
-    bias = torch.load(os.path.join(save_dir, "bias.pth"), map_location=device)
-    seq_offset = torch.load(os.path.join(save_dir, "offset.pth"), map_location=device)
-    mask = torch.load(os.path.join(save_dir, "invalid_attn_mask.pth"), map_location=device)
-    max_seq_len = torch.load(os.path.join(save_dir, "input_max_length.pth"), map_location=device).item()
-    alpha = torch.load(os.path.join(save_dir, "alpha.pth"), map_location=device)
-    data_type = torch.load(os.path.join(save_dir, "data_type.pth"))
-    logger.info(f"grad_shape: {grad.size()} grad_dtype:{grad.dtype}")
-    logger.info(f"q_shape: {q.size()} q_dtype:{q.dtype}")
-    logger.info(f"k_shape: {k.size()} k_dtype:{k.dtype}")
-    logger.info(f"v_shape: {v.size()} v_dtype:{v.dtype}")
-    logger.info(f"bias_shape: {bias.size() if bias else None} bias_dtype:{bias.dtype if bias else None}")
-    logger.info(f"seq_offset_shape: {seq_offset.size()} seq_offset_dtype:{seq_offset.dtype}")
-    logger.info(f"mask_shape: {mask.size()} mask_dtype:{mask.dtype}")
-    logger.info(f"max_seq_len:{max_seq_len}")
-    logger.info(f"data_type:{data_type}")
-    logger.info(f"alpha:{alpha}")
-
-
-    return grad, q, k, v, bias, mask, max_seq_len, seq_offset, q.shape[2], q.shape[1], data_type, alpha
 
 
 def _hstu_attention_maybe_from_cache(
@@ -67,8 +40,8 @@ def _hstu_attention_maybe_from_cache(
     invalid_attn_mask: torch.Tensor,
     seq_offset: torch.Tensor,
     data_type: torch.dtype,
-    device: str
-    ):
+    device: str,
+):
     n: int = invalid_attn_mask.size(-1)
     torch.npu.set_device(device)
 
@@ -80,7 +53,9 @@ def _hstu_attention_maybe_from_cache(
     seq_offset = seq_offset.to(device=device).tolist()
 
     if len(invalid_attn_mask.shape) == 2:
-        invalid_attn_mask = invalid_attn_mask.repeat(len(seq_offset) - 1, num_heads, 1, 1)
+        invalid_attn_mask = invalid_attn_mask.repeat(
+            len(seq_offset) - 1, num_heads, 1, 1
+        )
     if len(invalid_attn_mask.shape) == 4 and invalid_attn_mask.shape[1] == 1:
         invalid_attn_mask = invalid_attn_mask.repeat(1, num_heads, 1, 1)
 
@@ -91,16 +66,37 @@ def _hstu_attention_maybe_from_cache(
     silu_value = silu_value / n
     local_cycle_nums = 100
     for _ in range(local_cycle_nums):
-        grad_output = torch.ops.mxrec.hstu_dense(q_, k_, v_, invalid_attn_mask, None, mask_type, n, silu_value, 
-                                                    "jagged", seq_offset)
-        q_grad, k_grad, v_grad, _ = torch.ops.mxrec.hstu_dense_backward(grad, q_, k_, v_, invalid_attn_mask, None, 
-                                            "jagged", mask_type, n, silu_value, seq_offset)
+        grad_output = torch.ops.mxrec.hstu_dense(
+            q_,
+            k_,
+            v_,
+            invalid_attn_mask,
+            None,
+            mask_type,
+            n,
+            silu_value,
+            "jagged",
+            seq_offset,
+        )
+        q_grad, k_grad, v_grad, _ = torch.ops.mxrec.hstu_dense_backward(
+            grad,
+            q_,
+            k_,
+            v_,
+            invalid_attn_mask,
+            None,
+            "jagged",
+            mask_type,
+            n,
+            silu_value,
+            seq_offset,
+        )
 
         torch.npu.synchronize()
         grad_output = grad_output.reshape(-1, num_heads * linear_dim)
 
     save_dir = DATASETS
-    
+
     torch.save(grad_output, os.path.join(save_dir, "npu_out.pth"))
     torch.save(q_grad, os.path.join(save_dir, "npu_q.pth"))
     torch.save(k_grad, os.path.join(save_dir, "npu_k.pth"))
@@ -108,33 +104,46 @@ def _hstu_attention_maybe_from_cache(
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Read CSV file and run a specific index benchmark")
-    parser.add_argument("--index", type=int, required=True, help="index of the benchmark to run")
+    parser = argparse.ArgumentParser(
+        description="Read CSV file and run a specific index benchmark"
+    )
+    parser.add_argument(
+        "--index", type=int, required=True, help="index of the benchmark to run"
+    )
     args = parser.parse_args()
-    
+
     devicex = 0
     deviceg = f"npu:{devicex}"
     logger.info(f"device: {deviceg}")
-    read_dir = os.path.join(config.NFS_DIR, DATASETS)
+    read_dir = os.path.join(os.path.realpath(config.NFS_DIR), DATASETS)
 
-    (
-        grad_data, q_data, k_data, v_data, bias_data, mask_data, 
-        max_seq_len_data, seq_offset_data, attention_dim_data, 
-        num_heads_data, data_type_data, alpha_data
-    ) = read_data_from_path(read_dir)
+    param = load_params(DATASETS)
 
+    grad_data = param["grad"]
+    q_data = param["q"]
+    k_data = param["k"]
+    v_data = param["v"]
+    bias_data = param["rab"]
+    mask_data = param["attn_mask"]
+    max_seq_len_data = param["num_contexts"]
+    seq_offset_data = param["seq_offsets_q_wt"]
+    num_heads_data = param["num_targets"]
+    data_type_data = param["data_type"]
+    alpha_data = param["alpha"]
+    attention_dim_data = q_data.shape[1]
+    linear_dim_data = v_data.shape[1]
 
     _hstu_attention_maybe_from_cache(
-        num_heads=num_heads_data, 
-        attention_dim=attention_dim_data, 
-        linear_dim=attention_dim_data, 
+        num_heads=num_heads_data,
+        attention_dim=attention_dim_data,
+        linear_dim=linear_dim_data,
         silu_value=alpha_data,
         grad=grad_data,
-        q=q_data, 
-        k=k_data, 
-        v=v_data, 
+        q=q_data,
+        k=k_data,
+        v=v_data,
         invalid_attn_mask=mask_data,
         seq_offset=seq_offset_data,
         data_type=data_type_data,
-        device=deviceg
+        device=deviceg,
     )
