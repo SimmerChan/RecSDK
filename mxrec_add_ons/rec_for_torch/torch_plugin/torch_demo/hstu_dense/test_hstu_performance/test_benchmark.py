@@ -141,13 +141,15 @@ def execute_remote_linux_cmd(client, cmd, timeout=600):
             try:
                 if stream:
                     stream.close()
-            except:
-                pass
+            except Exception as e:
+                logger.info(e)
+                
         try:
             if "channel" in locals():
                 channel.close()
-        except:
-            pass
+        except Exception as e:
+            logger.info(e)
+            
 
     # Build output results
     full_output = "".join(output_buffer)
