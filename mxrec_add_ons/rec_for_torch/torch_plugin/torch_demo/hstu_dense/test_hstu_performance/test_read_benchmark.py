@@ -186,8 +186,8 @@ def read_and_validate_parameters(index, csv_file_path=benchmark_csv):
 def init_result_csv_index(index):
     try:
         # Read benchmark CSV and ensure index column is integer type
-        benchmark_df = pd.read_csv(benchmark_csv)
-        benchmark_df[INDEX_STR] = benchmark_df[INDEX_STR].astype(int)
+        ben_df = pd.read_csv(benchmark_csv)
+        ben_df[INDEX_STR] = ben_df[INDEX_STR].astype(int)
 
         # Create empty result file if not exists
         if not os.path.exists(result_csv):
@@ -197,7 +197,7 @@ def init_result_csv_index(index):
         df_res = pd.read_csv(result_csv)
 
         # Check if index exists in benchmark data
-        benchmark_row = benchmark_df.loc[benchmark_df[INDEX_STR] == index, column_left]
+        benchmark_row = ben_df.loc[ben_df[INDEX_STR] == index, column_left]
         if benchmark_row.empty:  # Explicit empty case handling
             logger.warning("Index %d not found in benchmark file, skipping", index)
             raise ValueError("Row %d not found in %s" % (index, benchmark_csv))
