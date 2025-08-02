@@ -350,8 +350,7 @@ def adjust_ratio(total_sum, max_context_len, max_seq_len_k, max_target_len):
                 remaining_sum, valid_denominator)
 
     try:
-
-    # Distribute remaining sum proportionally
+        # Distribute remaining sum proportionally
         if max_context_len > 0 and valid_denominator != 0:
             total_content += int(round(remaining_sum * max_context_len / valid_denominator))
 
