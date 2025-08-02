@@ -441,37 +441,44 @@ def test_fused_attn(
 
 
 def read_param():
-    """Load parameters and automatically convert to CUDA tensors"""
-    param = load_params(DATASETS)
-    
-    # Parameter mapping (variable_name: field_name_in_data)
-    param_map = {
-        'length_q': 'l_q',
-        'length_k': 'l_k',
-        'num_contexts': 'num_contexts',
-        'seq_offsets_q': 'seq_offsets_q_wt',
-        'seq_offsets_k': 'seq_offsets_k_wt',
-        'num_targets': 'num_targets',
-        'query': 'q',
-        'key': 'k',
-        'value': 'v',
-        'relative_attention_bias': 'rab',
-        'attention_mask': 'attn_mask',
-        'gradient': 'grad'
+    """Load parameters and automatically convert to CUDA tensors if needed."""
+    # Parameter definitions (name, field_name) in original order
+    params_def = [
+        ("length_q", "l_q"),
+        ("length_k", "l_k"),
+        ("num_contexts", "num_contexts"),
+        ("seq_offsets_q", "seq_offsets_q_wt"),
+        ("seq_offsets_k", "seq_offsets_k_wt"),
+        ("num_targets", "num_targets"),
+        ("query", "q"),
+        ("key", "k"),
+        ("value", "v"),
+        ("relative_attention_bias", "rab"),
+        ("attention_mask", "attn_mask"),
+        ("gradient", "grad")
+    ]
+
+    # Error messages
+    _error_key = "key_error"
+    _error_messages = {
+        _error_key: "Missing parameter: {}",
+        "cuda_transfer_failed": "CUDA transfer failed"
     }
 
-    result = {}
-    try:
-        for var_name, field_name in param_map.items():
-            param_value = param[field_name]
-            result[var_name] = param_value.cuda() if isinstance(param_value, torch.Tensor) else param_value
-            
-    except KeyError as e:
-        logger.error(f"Missing required parameter: {e}")
-        raise
+    param = load_params(DATASETS)
+    result = []
 
-    # Return as tuple while maintaining original order
-    return tuple(result.values())
+    try:
+        for var_name, field_name in params_def:
+            param_value = param[field_name]
+            result.append(
+                param_value.cuda() if isinstance(param_value, torch.Tensor) else param_value
+            )
+        return tuple(result)
+        
+    except KeyError as e:
+        logger.error(_error_messages[_error_key].format(e))
+        raise KeyError(_error_messages[_error_key].format(e))
 
 
 def main():
