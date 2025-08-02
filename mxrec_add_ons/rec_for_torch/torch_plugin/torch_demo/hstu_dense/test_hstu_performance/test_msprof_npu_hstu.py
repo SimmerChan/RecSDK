@@ -21,7 +21,7 @@ import glob
 import subprocess
 import pandas as pd
 
-import mxrec_add_ons.rec_for_torch.torch_plugin.torch_demo.hstu_dense.test_hstu_performance.config as config
+import config
 from test_read_benchmark import (
     logger,
     read_and_validate_parameters,
