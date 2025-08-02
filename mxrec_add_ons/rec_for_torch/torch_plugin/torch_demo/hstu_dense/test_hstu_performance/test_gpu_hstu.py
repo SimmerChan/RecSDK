@@ -445,7 +445,7 @@ def read_param():
     param = load_params(DATASETS)
     
     # Parameter mapping (variable_name: field_name_in_data)
-    PARAM_MAP = {
+    param_map = {
         'length_q': 'l_q',
         'length_k': 'l_k',
         'num_contexts': 'num_contexts',
@@ -462,7 +462,7 @@ def read_param():
 
     result = {}
     try:
-        for var_name, field_name in PARAM_MAP.items():
+        for var_name, field_name in param_map.items():
             param_value = param[field_name]
             result[var_name] = param_value.cuda() if isinstance(param_value, torch.Tensor) else param_value
             
