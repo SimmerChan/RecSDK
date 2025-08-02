@@ -37,7 +37,7 @@ from test_read_benchmark import (
     logger,
     DATASETS,
     init_result_csv_index,
-    create_and_save_params
+    create_and_save_params,
 )
 from test_msprof_npu_hstu import msprof_main
 
@@ -80,81 +80,90 @@ def get_remote_password() -> Optional[str]:
         logger.error(f"Password retrieval failed: {str(e)}")
         return None
 
+
 def execute_remote_linux_cmd(client, cmd, timeout=600):
-    """安全执行Linux远程命令的完整方案（支持超时控制、完整输出捕获）"""
+    """Secure execution of Linux remote commands (supports timeout control and complete output capture)"""
     stdin, stdout, stderr = None, None, None
     exit_status = -1
     output_buffer = []
     error_buffer = []
-    
+
     try:
-        # 创建执行通道（设置超时防止网络阻塞）
+        # Create execution channel (set timeout to prevent network blocking)
         transport = client.get_transport()
         channel = transport.open_session(timeout=timeout)
         channel.settimeout(timeout)
-        
-        # 执行命令（非阻塞模式）
+
+        # Execute command (non-blocking mode)
         channel.exec_command(cmd)
-        stdin = channel.makefile_stdin('wb')
-        stdout = channel.makefile('r')
-        stderr = channel.makefile_stderr('r')
-        
-        # 使用select进行高效I/O多路复用
+        stdin = channel.makefile_stdin("wb")
+        stdout = channel.makefile("r")
+        stderr = channel.makefile_stderr("r")
+
+        # Use select for efficient I/O multiplexing
         start_time = time.time()
         while not channel.exit_status_ready():
-            # 超时检查
+            # Timeout check
             if time.time() - start_time > timeout:
                 raise socket.timeout(f"Command timeout after {timeout}s: {cmd}")
-                
-            # 等待可读事件（0.5秒轮询间隔）
+
+            # Wait for readable events (0.5s polling interval)
             rlist, _, _ = select([channel], [], [], 0.5)
             if not rlist:
                 continue
-                
-            # 优先读取错误流（避免缓冲区填满导致阻塞）
+
+            # Prioritize reading error stream (avoid buffer overflow)
             while channel.recv_stderr_ready():
                 error_buffer.append(stderr.read(4096))
-                
+
             while channel.recv_ready():
                 output_buffer.append(stdout.read(4096))
-                
-        # 获取最终退出状态
+
+        # Get final exit status
         exit_status = channel.recv_exit_status()
-        
-        # 读取所有剩余输出
+
+        # Read all remaining output
         output_buffer.append(stdout.read())
         error_buffer.append(stderr.read())
-        
+
     except socket.timeout as te:
         logger.error(f"Command execution timed out: {te}")
-        # 尝试终止远程进程（发送SIGTERM）
-        if 'channel' in locals():
+        # Attempt to terminate remote process (send SIGTERM)
+        if "channel" in locals():
             channel.close()
         return False
     except Exception as e:
         logger.error(f"SSH command execution failed: {e}", exc_info=True)
         return False
     finally:
-        # 安全关闭通道（不关闭底层client连接）
+        # Safely close channels (without closing underlying client connection)
         for stream in [stdin, stdout, stderr]:
             try:
-                if stream: stream.close()
-            except: pass
+                if stream:
+                    stream.close()
+            except:
+                pass
         try:
-            if 'channel' in locals(): channel.close()
-        except: pass
+            if "channel" in locals():
+                channel.close()
+        except:
+            pass
 
-    # 构建输出结果
-    full_output = ''.join(output_buffer)
-    full_error = ''.join(error_buffer)
-    
-    # 记录结果（限制日志长度）
+    # Build output results
+    full_output = "".join(output_buffer)
+    full_error = "".join(error_buffer)
+
+    # Log results (limit log length)
     logger.info(f"Command [{cmd}] exited with status: {exit_status}")
     if full_output:
-        logger.debug(f"stdout: {full_output[:2000]}{'...' if len(full_output)>2000 else ''}")
+        logger.debug(
+            f"stdout: {full_output[:2000]}{'...' if len(full_output)>2000 else ''}"
+        )
     if full_error:
-        logger.warning(f"stderr: {full_error[:2000]}{'...' if len(full_error)>2000 else ''}")
-    
+        logger.warning(
+            f"stderr: {full_error[:2000]}{'...' if len(full_error)>2000 else ''}"
+        )
+
     return exit_status == 0
 
 
@@ -198,9 +207,7 @@ def transfer_and_execute(bx):
 def compare_npu_gpu_precision(save_dir=DATASETS, device="cpu"):
     logger.info(f"Compating npu and gpu results of {save_dir}")
     try:
-        data_type = torch.load(
-            os.path.join(save_dir, "dtype.pth"), map_location=device
-        )
+        data_type = torch.load(os.path.join(save_dir, "dtype.pth"), map_location=device)
         npu_out = torch.load(
             os.path.join(save_dir, "npu_out.pth"), map_location=device
         ).to(dtype=data_type)
@@ -313,7 +320,7 @@ def main(index=None):
     for bx in all_indices:
         logger.info(f"benchmark {bx} testing")
         init_result_csv_index(bx)
-        
+
         df_res = pd.read_csv(result_csv)
 
         if (
