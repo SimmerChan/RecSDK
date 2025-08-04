@@ -634,7 +634,6 @@ PARAM_META = {
 
 
 def _get_save_paths(save_dir: str) -> Dict[str, str]:
-    """Generate parameter save paths dictionary (Windows path safe)"""
     return {
         name: os.path.normpath(os.path.join(save_dir, f"{name}.pth"))
         for name in PARAM_META
@@ -643,10 +642,6 @@ def _get_save_paths(save_dir: str) -> Dict[str, str]:
 
 
 def save_params(save_dir=DATASETS, **kwargs):
-    """
-    Save all parameters to specified directory (Windows path safe)
-    Usage: save_params(r"c:\zengxiong\saved", l_q=tensor1, attn_mask=matrix, image_name="mask.png")
-    """
     # Normalize path
     save_dir = os.path.normpath(save_dir)
     os.makedirs(save_dir, exist_ok=True)
@@ -663,7 +658,7 @@ def save_params(save_dir=DATASETS, **kwargs):
 
     # Get all save paths
     paths = _get_save_paths(save_dir)
-    image_name = image_name
+    image_name = "image_name"
     paths[image_name] = os.path.join(save_dir, kwargs.get(image_name, "image_mask"))
     # Save parameters with logging
     logger.info("\n%s", "=" * 50)
@@ -702,10 +697,6 @@ def save_params(save_dir=DATASETS, **kwargs):
 
 
 def load_params(save_dir=DATASETS, device="cpu") -> Dict[str, object]:
-    """
-    Load all parameters from directory (Windows path safe)
-    Returns: Parameter dictionary {'l_q': tensor1, 'attn_mask': tensor2, ...}
-    """
     save_dir = os.path.normpath(save_dir)
     paths = _get_save_paths(save_dir)
 
