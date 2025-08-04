@@ -342,18 +342,18 @@ def adjust_ratio(total_sum, max_context_len, max_seq_len_k, max_target_len):
     if valid_denominator == 0:
         raise ValueError("valid_denominator cannot be 0")
 
-    logger.debug( "Distributing remaining sum %d with valid denominator %d", remaining_sum, valid_denominator, )
+    logger.debug( "Distributing remaining sum %d with valid denominator %d", remaining_sum, valid_denominator)
 
     try:
         # Distribute remaining sum proportionally
         if max_context_len > 0 and valid_denominator != 0:
-            total_content += int( round(remaining_sum * max_context_len / valid_denominator) )
+            total_content += int(round(remaining_sum * max_context_len / valid_denominator))
 
         if max_seq_len_k > 0 and valid_denominator != 0:
             total_k += int(round(remaining_sum * max_seq_len_k / valid_denominator))
 
         if max_target_len > 0 and valid_denominator != 0:
-            total_target += int( round(remaining_sum * max_target_len / valid_denominator) )
+            total_target += int(round(remaining_sum * max_target_len / valid_denominator))
     except ZeroDivisionError as e:
         logger.info(e)
         raise e
