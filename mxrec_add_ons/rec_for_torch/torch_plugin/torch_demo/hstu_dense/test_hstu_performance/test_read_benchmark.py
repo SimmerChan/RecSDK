@@ -269,7 +269,7 @@ def construct_mask(
                                 i,
                                 0,
                                 target_start + j * target_group_size + k,
-                                target_start : target_start + j * target_group_size,
+                                target_start: target_start + j * target_group_size,
                             ] = False
                 else:
                     for j in range(target_start, seqlen):
@@ -280,7 +280,7 @@ def construct_mask(
         window_size_0 = window_size[0] if window_size[0] > 0 else seqlen
         window_size_1 = window_size[1] if window_size[1] > 0 else seqlen
         for i in range(seqlen):
-            mask[i, max(0, i - window_size_0) : min(seqlen, i + window_size_1 + 1)] = (
+            mask[i, max(0, i - window_size_0): min(seqlen, i + window_size_1 + 1)] = (
                 True
             )
     return mask
