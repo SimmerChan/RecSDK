@@ -1,0 +1,5 @@
+pandas
+numpy
+matplotlib
+paramiko==3.5.1
+torch==2.6.0
