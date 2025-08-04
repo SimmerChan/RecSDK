@@ -629,9 +629,8 @@ PARAM_META = {
     "max_seq_len_q": ("Config", True, "Max query sequence length"),
     "max_target_len": ("Config", True, "Max target length"),
     "alpha": ("Config", True, "silu scale tensor"),
-    # Optional parameters
-    "image_name": ("Optional", False, "Attention matrix image filename"),
 }
+
 
 
 def _get_save_paths(save_dir: str) -> Dict[str, str]:
@@ -664,7 +663,7 @@ def save_params(save_dir=DATASETS, **kwargs):
 
     # Get all save paths
     paths = _get_save_paths(save_dir)
-
+    paths["image_name"] = os.path.join(save_dir, kwargs.get("image_name", "image_mask"))
     # Save parameters with logging
     logger.info("\n%s", "=" * 50)
     logger.info("[SAVE] Target directory: %s", save_dir)
