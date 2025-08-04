@@ -84,9 +84,9 @@ namespace optiling {
 
         // set coreNUm
         size_t coreNum = ascendPlatform.GetCoreNumAiv();
-        if (coreNum == 0) {
-            return ge::GRAPH_FAILED;
-        }
+        OPS_CHECK(coreNum == 0,
+                  OPS_LOG_E("Tiling Debug", "Core num is 0."),
+                  return ge::GRAPH_FAILED);
         tiling.set_coreNum(coreNum);
 
         // tiling core
@@ -130,8 +130,8 @@ static ge::graphStatus InferShape(gert::InferShapeContext* context)
     const gert::Shape* lengthsShape = context->GetInputShape(optiling::LENGTH_INDEX);
     const gert::Shape* valuesShape = context->GetInputShape(optiling::VALUES_INDEX);
 
-    gert::Shape* outPermutedLengths = context->GetOutputShape(0);
-    gert::Shape* outPermutedValues = context->GetOutputShape(1);
+    gert::Shape* outPermutedLengths = context->GetOutputShape(optiling::PERMUTE_INDEX);
+    gert::Shape* outPermutedValues = context->GetOutputShape(optiling::LENGTH_INDEX);
 
     OPS_LOG_E_IF_NULL("permuteShape", permuteShape, return ge::GRAPH_FAILED);
     OPS_LOG_E_IF_NULL("lengthsShape", lengthsShape, return ge::GRAPH_FAILED);
