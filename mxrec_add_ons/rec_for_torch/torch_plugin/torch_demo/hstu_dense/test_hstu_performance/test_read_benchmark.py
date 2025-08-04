@@ -342,7 +342,7 @@ def adjust_ratio(total_sum, max_context_len, max_seq_len_k, max_target_len):
     if valid_denominator == 0:
         raise ValueError("valid_denominator cannot be 0")
 
-    logger.debug( "Distributing remaining sum %d with valid denominator %d", remaining_sum, valid_denominator)
+    logger.debug("Distributing remaining sum %d with valid denominator %d", remaining_sum, valid_denominator)
 
     try:
         # Distribute remaining sum proportionally
@@ -364,7 +364,7 @@ def adjust_ratio(total_sum, max_context_len, max_seq_len_k, max_target_len):
         logger.debug("Adjusting for rounding difference of %d", diff)
         total_target += diff  # Default adjustment to target
 
-    logger.info( "Final distribution: total_k=%d, total_content=%d, total_target=%d", \
+    logger.info("Final distribution: total_k=%d, total_content=%d, total_target=%d", \
                 total_k, total_content, total_target
     return total_k, total_content, total_target
 
