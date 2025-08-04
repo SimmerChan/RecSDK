@@ -357,7 +357,7 @@ def main(index=None):
         logger.info(f"benchmark {bx} tested")
 
     if len(failed) != 0:
-        logger.error("index %s failed!", ", ".join(failed))
+        logger.error("index %s failed!", ", ".join(str(x) for x in failed))
     else:
         logger.info("All successed!")
 
