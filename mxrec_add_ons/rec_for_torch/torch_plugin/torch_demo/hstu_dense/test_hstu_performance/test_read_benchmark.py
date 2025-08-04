@@ -308,47 +308,55 @@ def gen_seq(length, max_value, total_sum):
 def adjust_ratio(total_sum, max_context_len, max_seq_len_k, max_target_len):
     """Adjust ratio distribution based on given parameters."""
     # Initialize result variables
-    total_content = total_k = total_target = 0
+    total_content, total_k, total_target = 0, 0, 0
 
-    # Early return if all max lengths are zero
-    if all(v == 0 for v in (max_context_len, max_seq_len_k, max_target_len)):
+    # Check denominator
+    denominator = max_context_len + max_seq_len_k + max_target_len
+    if denominator == 0:
         logger.debug("All max lengths are 0, returning zeros")
-        return 0, 0, 0
+        return 0, 0, 0  # Return zeros if all inputs are zero
 
-    # Preprocess zero-value parameters
-    zero_params = {
-        "max_context_len": max_context_len,
-        "max_seq_len_k": max_seq_len_k,
-        "max_target_len": max_target_len
-    }
-    for param, value in zero_params.items():
-        if value == 0:
-            logger.debug("%s is 0, setting corresponding total to 0", param)
-            locals()[f"total_{param.split('_')[-1]}"] = 0  # Dynamically set total_*
+    # Handle zero cases
+    if max_context_len == 0:
+        total_content = 0
+    if max_seq_len_k == 0:
+        total_k = 0
+    if max_target_len == 0:
+        total_target = 0
 
     # Calculate remaining sum to distribute
     remaining_sum = total_sum - (total_content + total_k + total_target)
-    if remaining_sum <= 0:
+    if remaining_sum == 0:
         logger.debug("No remaining sum to distribute")
         return total_content, total_k, total_target
 
-    # Compute valid denominator (exclude zero terms)
-    valid_denominator = sum(
-        val for val in (max_context_len, max_seq_len_k, max_target_len) if val > 0
-    )
+    # Calculate valid denominator (excluding zero terms)
+    valid_denominator = 0
+    if max_context_len > 0:
+        valid_denominator += max_context_len
+    if max_seq_len_k > 0:
+        valid_denominator += max_seq_len_k
+    if max_target_len > 0:
+        valid_denominator += max_target_len
+
     if valid_denominator == 0:
         raise ValueError("valid_denominator cannot be 0")
 
-    # Core proportional distribution logic
-    distribution = {
-        "content": max_context_len,
-        "k": max_seq_len_k,
-        "target": max_target_len
-    }
-    for key, length in distribution.items():
-        if length > 0:
-            allocated = int(round(remaining_sum * length / valid_denominator))
-            locals()[f"total_{key}"] += allocated  # Dynamically update total_*
+    logger.debug("Distributing remaining sum %d with valid denominator %d", remaining_sum, valid_denominator)
+
+    try:
+        # Distribute remaining sum proportionally
+        if max_context_len > 0 and valid_denominator != 0:
+            total_content += int(round(remaining_sum * max_context_len / valid_denominator))
+
+        if max_seq_len_k > 0 and valid_denominator != 0:
+            total_k += int(round(remaining_sum * max_seq_len_k / valid_denominator))
+
+        if max_target_len > 0 and valid_denominator != 0:
+            total_target += int(round(remaining_sum * max_target_len / valid_denominator))
+    except ZeroDivisionError as e:
+        logger.info(e)
+        raise e
 
     # Handle rounding errors
     diff = total_sum - (total_content + total_k + total_target)
@@ -356,10 +364,8 @@ def adjust_ratio(total_sum, max_context_len, max_seq_len_k, max_target_len):
         logger.debug("Adjusting for rounding difference of %d", diff)
         total_target += diff  # Default adjustment to target
 
-    logger.info(
-        "Final distribution: total_k=%d, total_content=%d, total_target=%d",
-        total_k, total_content, total_target
-    )
+    logger.info("Final distribution: total_k=%d, total_content=%d, total_target=%d", \
+                total_k, total_content, total_target)
     return total_k, total_content, total_target
 
 
