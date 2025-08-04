@@ -324,7 +324,7 @@ def main(index=None):
 
     if index is not None:
         all_indices = [index]
-
+    failed = []
     for bx in all_indices:
         logger.info(f"benchmark {bx} testing")
         init_result_csv_index(bx)
@@ -341,10 +341,12 @@ def main(index=None):
         create_and_save_params(bx)
         remote_success = retry_operation(transfer_and_execute, "Remote execution", bx)
         if not remote_success:
+            failed.append(bx)
             continue
 
         local_success = retry_operation(msprof_main, "Local execution", bx)
         if not local_success:
+            failed.append(bx)
             continue
 
         df_res = pd.read_csv(result_csv)
@@ -353,6 +355,10 @@ def main(index=None):
         df_res.to_csv(result_csv, index=False)
         logger.info(f"benchmark {bx} tested")
 
+    if len(failed) != 0:
+        logger.error("index %s failed!", ", ".join(failed))
+    else:
+        logger.info("All successed!")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run benchmark tests.")
