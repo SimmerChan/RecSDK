@@ -288,7 +288,7 @@ def update_index_csv(df_res, benchmark_df, bx, precision):
     )
 
     df_res.loc[mask_res, "npu_fw+bw/gpu_fw+bw"] = df_res.loc[
-        mask_res, [GPU_FW_TIME, GPU_BW_TIME].item()
+        mask_res, [GPU_FW_TIME, GPU_BW_TIME]
     ].sum(axis=1) / df_res.loc[mask_res, [NPU_FW_TIME, NPU_BW_TIME]].sum(axis=1)
     df_res.loc[mask_res, "npu_fw/benchmark"] = (
         benchmark_df.loc[mask_benchmark, NPU_FW_TIME].item()
