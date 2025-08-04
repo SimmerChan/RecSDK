@@ -663,7 +663,8 @@ def save_params(save_dir=DATASETS, **kwargs):
 
     # Get all save paths
     paths = _get_save_paths(save_dir)
-    paths["image_name"] = os.path.join(save_dir, kwargs.get("image_name", "image_mask"))
+    image_name = image_name
+    paths[image_name] = os.path.join(save_dir, kwargs.get(image_name, "image_mask"))
     # Save parameters with logging
     logger.info("\n%s", "=" * 50)
     logger.info("[SAVE] Target directory: %s", save_dir)
@@ -682,7 +683,7 @@ def save_params(save_dir=DATASETS, **kwargs):
             logger.info("%s → %s", log_msg, path)
 
     # Save attention matrix image if provided
-    if "attn_mask" in kwargs and "image_name" in kwargs:
+    if "attn_mask" in kwargs and image_name in kwargs:
         mask = kwargs["attn_mask"]
         if mask.dim() == 4:
             save_matrix = mask[0, 0].cpu()
@@ -691,7 +692,7 @@ def save_params(save_dir=DATASETS, **kwargs):
         else:
             save_matrix = mask.cpu()
 
-        img_path = os.path.join(save_dir, kwargs["image_name"])
+        img_path = os.path.join(save_dir, kwargs[image_name])
         save_mask(save_matrix, img_path)
 
     # Create completion flag
