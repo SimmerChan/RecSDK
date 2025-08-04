@@ -660,7 +660,7 @@ def save_params(save_dir=DATASETS, **kwargs):
                 )
             else:
                 log_msg += str(param)
-            logger.info("%s → %s", log_msg, path)
+            logger.info("%s -> %s", log_msg, path)
 
     # Save attention matrix image if provided
     if "attn_mask" in kwargs and image_name in kwargs:
@@ -705,7 +705,7 @@ def load_params(save_dir=DATASETS, device="cpu") -> Dict[str, object]:
                 )
             else:
                 log_msg += str(params[name])
-            logger.info("%s ← %s", log_msg, path)
+            logger.info("%s <- %s", log_msg, path)
 
     logger.info("%s\n[SUCCESS] All parameters loaded\n%s", "=" * 50, "=" * 50)
     return params
