@@ -37,7 +37,6 @@ from pynvml import (
     nvmlShutdown,
 )
 
-
 from test_read_benchmark import (
     DATASETS,
     init_result_csv_index,
