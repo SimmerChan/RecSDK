@@ -365,7 +365,7 @@ def adjust_ratio(total_sum, max_context_len, max_seq_len_k, max_target_len):
         total_target += diff  # Default adjustment to target
 
     logger.info( "Final distribution: total_k=%d, total_content=%d, total_target=%d", \
-                total_k, total_content, total_target, )
+                total_k, total_content, total_target
     return total_k, total_content, total_target
 
 
