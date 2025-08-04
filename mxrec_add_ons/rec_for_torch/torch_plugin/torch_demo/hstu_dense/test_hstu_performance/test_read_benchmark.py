@@ -592,6 +592,7 @@ def save_mask(matrix, title="matrix"):
     plt.ylabel("seq_len")
     plt.savefig(f"{title}.png", bbox_inches="tight", dpi=dpi)
     plt.close(fig)
+    logger.info(f"save {title}.png")
 
 
 PARAM_META = {
@@ -644,7 +645,6 @@ def save_params(save_dir=DATASETS, **kwargs):
     # Get all save paths
     paths = _get_save_paths(save_dir)
     image_name = "image_name"
-    paths[image_name] = os.path.join(save_dir, kwargs.get(image_name, "image_mask"))
     # Save parameters with logging
     logger.info("\n%s", "=" * 50)
     logger.info("[SAVE] Target directory: %s", save_dir)
