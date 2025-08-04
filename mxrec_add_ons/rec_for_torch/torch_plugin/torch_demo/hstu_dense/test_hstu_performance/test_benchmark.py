@@ -288,19 +288,20 @@ def update_index_csv(df_res, benchmark_df, bx, precision):
     )
 
     df_res.loc[mask_res, "npu_fw+bw/gpu_fw+bw"] = df_res.loc[
-        mask_res, [GPU_FW_TIME, GPU_BW_TIME]
+        mask_res, [GPU_FW_TIME, GPU_BW_TIME].item()
     ].sum(axis=1) / df_res.loc[mask_res, [NPU_FW_TIME, NPU_BW_TIME]].sum(axis=1)
     df_res.loc[mask_res, "npu_fw/benchmark"] = (
-        benchmark_df.loc[mask_benchmark, NPU_FW_TIME]
-        / df_res.loc[mask_res, NPU_FW_TIME]
+        benchmark_df.loc[mask_benchmark, NPU_FW_TIME].item()
+        / df_res.loc[mask_res, NPU_FW_TIME].item()
     )
     df_res.loc[mask_res, "npu_bw/benchmark"] = (
-        benchmark_df.loc[mask_benchmark, NPU_BW_TIME]
-        / df_res.loc[mask_res, NPU_BW_TIME]
+        benchmark_df.loc[mask_benchmark, NPU_BW_TIME].item()
+        / df_res.loc[mask_res, NPU_BW_TIME].item()
     )
     df_res.loc[mask_res, "npu_fw+bw/benchmark"] = benchmark_df.loc[
         mask_benchmark, [NPU_FW_TIME, NPU_BW_TIME]
-    ].sum(axis=1) / df_res.loc[mask_res, [NPU_FW_TIME, NPU_BW_TIME]].sum(axis=1)
+    ].sum(axis=1).item() / df_res.loc[mask_res, [NPU_FW_TIME, NPU_BW_TIME]].sum(axis=1).item()
+
 
 
 def retry_operation(operation, operation_name, bx, max_retries=2):
