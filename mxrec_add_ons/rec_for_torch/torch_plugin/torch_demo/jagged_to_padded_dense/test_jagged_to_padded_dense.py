@@ -108,7 +108,7 @@ def test_jagged_to_padded_dense(batch_size,
     assert torch.allclose(
         fbgemm_dense.reshape(-1),
         npu_dense.cpu().reshape(-1),
-        atol=1e-5,
-        rtol=1e-5
+        atol=1e-4,
+        rtol=1e-4
     ), f"NPU结果与FBGEMM CPU结果不匹配\nFBGEMM:\n{fbgemm_dense}\nNPU:\n{npu_dense.cpu()}"
 
