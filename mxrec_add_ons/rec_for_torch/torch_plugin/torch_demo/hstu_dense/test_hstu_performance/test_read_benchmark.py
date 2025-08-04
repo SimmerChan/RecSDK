@@ -319,13 +319,10 @@ def adjust_ratio(total_sum, max_context_len, max_seq_len_k, max_target_len):
     # Handle zero cases
     if max_context_len == 0:
         total_content = 0
-        logger.debug("max_context_len is 0, setting total_content to 0")
     if max_seq_len_k == 0:
         total_k = 0
-        logger.debug("max_seq_len_k is 0, setting total_k to 0")
     if max_target_len == 0:
         total_target = 0
-        logger.debug("max_target_len is 0, setting total_target to 0")
 
     # Calculate remaining sum to distribute
     remaining_sum = total_sum - (total_content + total_k + total_target)
@@ -345,26 +342,18 @@ def adjust_ratio(total_sum, max_context_len, max_seq_len_k, max_target_len):
     if valid_denominator == 0:
         raise ValueError("valid_denominator cannot be 0")
 
-    logger.debug(
-        "Distributing remaining sum %d with valid denominator %d",
-        remaining_sum,
-        valid_denominator,
-    )
+    logger.debug( "Distributing remaining sum %d with valid denominator %d", remaining_sum, valid_denominator, )
 
     try:
         # Distribute remaining sum proportionally
         if max_context_len > 0 and valid_denominator != 0:
-            total_content += int(
-                round(remaining_sum * max_context_len / valid_denominator)
-            )
+            total_content += int( round(remaining_sum * max_context_len / valid_denominator) )
 
         if max_seq_len_k > 0 and valid_denominator != 0:
             total_k += int(round(remaining_sum * max_seq_len_k / valid_denominator))
 
         if max_target_len > 0 and valid_denominator != 0:
-            total_target += int(
-                round(remaining_sum * max_target_len / valid_denominator)
-            )
+            total_target += int( round(remaining_sum * max_target_len / valid_denominator) )
     except ZeroDivisionError as e:
         logger.info(e)
         raise e
@@ -375,12 +364,8 @@ def adjust_ratio(total_sum, max_context_len, max_seq_len_k, max_target_len):
         logger.debug("Adjusting for rounding difference of %d", diff)
         total_target += diff  # Default adjustment to target
 
-    logger.info(
-        "Final distribution: total_k=%d, total_content=%d, total_target=%d",
-        total_k,
-        total_content,
-        total_target,
-    )
+    logger.info( "Final distribution: total_k=%d, total_content=%d, total_target=%d", \
+                total_k, total_content, total_target, )
     return total_k, total_content, total_target
 
 
