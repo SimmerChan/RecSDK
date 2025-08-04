@@ -269,7 +269,7 @@ def construct_mask(
                                 i,
                                 0,
                                 target_start + j * target_group_size + k,
-                                target_start : target_start + j * target_group_size,
+                                target_start: target_start + j * target_group_size,
                             ] = False
                 else:
                     for j in range(target_start, seqlen):
@@ -280,7 +280,7 @@ def construct_mask(
         window_size_0 = window_size[0] if window_size[0] > 0 else seqlen
         window_size_1 = window_size[1] if window_size[1] > 0 else seqlen
         for i in range(seqlen):
-            mask[i, max(0, i - window_size_0) : min(seqlen, i + window_size_1 + 1)] = (
+            mask[i, max(0, i - window_size_0): min(seqlen, i + window_size_1 + 1)] = (
                 True
             )
     return mask
@@ -592,6 +592,7 @@ def save_mask(matrix, title="matrix"):
     plt.ylabel("seq_len")
     plt.savefig(f"{title}.png", bbox_inches="tight", dpi=dpi)
     plt.close(fig)
+    logger.info(f"save {title}.png")
 
 
 PARAM_META = {
@@ -644,7 +645,6 @@ def save_params(save_dir=DATASETS, **kwargs):
     # Get all save paths
     paths = _get_save_paths(save_dir)
     image_name = "image_name"
-    paths[image_name] = os.path.join(save_dir, kwargs.get(image_name, "image_mask"))
     # Save parameters with logging
     logger.info("\n%s", "=" * 50)
     logger.info("[SAVE] Target directory: %s", save_dir)
@@ -660,7 +660,7 @@ def save_params(save_dir=DATASETS, **kwargs):
                 )
             else:
                 log_msg += str(param)
-            logger.info("%s → %s", log_msg, path)
+            logger.info("%s -> %s", log_msg, path)
 
     # Save attention matrix image if provided
     if "attn_mask" in kwargs and image_name in kwargs:
@@ -705,7 +705,7 @@ def load_params(save_dir=DATASETS, device="cpu") -> Dict[str, object]:
                 )
             else:
                 log_msg += str(params[name])
-            logger.info("%s ← %s", log_msg, path)
+            logger.info("%s <- %s", log_msg, path)
 
     logger.info("%s\n[SUCCESS] All parameters loaded\n%s", "=" * 50, "=" * 50)
     return params
