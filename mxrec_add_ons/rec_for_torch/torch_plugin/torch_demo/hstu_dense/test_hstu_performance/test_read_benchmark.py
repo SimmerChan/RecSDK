@@ -407,20 +407,31 @@ def generate_input(
     has_context = max_context_len > 0
     has_target = max_target_len > 0
     target_group_size > 1
+    
+    # Modification Note: Original random length generation caused uncontrolled total length,
+    # leading to unstable computational load. Now using proportional allocation based on total_len.
     logger.info("generate with total_len %d", total_len)
+    
+    # Allocate total length proportionally according to max_seq_len_k/max_context_len/max_target_len
     total_k, total_content, total_target = adjust_ratio(
         total_len, max_context_len, max_seq_len_k, max_target_len
     )
+    
+    # Generate key sequence lengths (proportionally allocated)
     lengths_k = (
         torch.from_numpy(gen_seq(batch_size, max_seq_len_k, total_k))
         .to(device_str)
         .int()
     )
+    
+    # Generate context sequence lengths (proportionally allocated)
     num_contexts = (
         torch.from_numpy(gen_seq(batch_size, max_context_len, total_content))
         .to(device_str)
         .int()
     )
+    
+    # Generate target sequence lengths (proportionally allocated)
     num_targets = (
         torch.from_numpy(gen_seq(batch_size, max_target_len, total_target))
         .to(device_str)
