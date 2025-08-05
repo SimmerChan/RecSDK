@@ -126,16 +126,17 @@ public:
     {
         float oneMinusBeta1 = (1 - beta1);
         float oneMinusBeta2 = (1 - beta2);
-        float minusLearningRate = -this->learning_rate;
+        float minusLearningRate = -learning_rate;
+        float stepSize = minusLearningRate * beta2sqrt;
 
-        LocalTensor<float> inputLt = this->queIn.template DeQue<float>();
-        LocalTensor<float> outLt = this->queOut.template AllocTensor<float>();
+        LocalTensor<float> inputLt = queIn.DeQue<float>();
+        LocalTensor<float> outLt = queOut.AllocTensor<float>();
 
         for (int64_t i = 0; i < cnt; i++) {
             UpdateArgs theArgs = updateArgs[i];
-            int64_t thisGradIndex = i * this->maxD * numOfOut + outIndex;
-            int64_t thisMoment1Index = i * this->maxD * numOfOut + outIndex1;
-            int64_t thisMoment2Index = i * this->maxD * numOfOut + outIndex2;
+            int64_t thisGradIndex = i * maxD * numOfOut + outIndex;
+            int64_t thisMoment1Index = i * maxD * numOfOut + outIndex1;
+            int64_t thisMoment2Index = i * maxD * numOfOut + outIndex2;
 
             // v[:] = beta1 * v + (1 - beta1) * p.grad
             Muls<float>(outLt[thisMoment1Index], inputLt[thisMoment1Index], beta1, theArgs.embedDim);
@@ -148,20 +149,15 @@ public:
             Muls<float>(outLt[thisGradIndex], outLt[thisGradIndex], oneMinusBeta2, theArgs.embedDim);
             Add<float>(outLt[thisMoment2Index], outLt[thisMoment2Index], outLt[thisGradIndex], theArgs.embedDim);
 
-            // v_bias_corr = v / (1 - beta1 ** hyperparams['t'])
-            Muls<float>(outLt[thisMoment1Index], outLt[thisMoment1Index], beta1pow, theArgs.embedDim);
-            // s_bias_corr = s / (1 - beta2 ** hyperparams['t'])
-            Muls<float>(outLt[thisMoment2Index], outLt[thisMoment2Index], beta2pow, theArgs.embedDim);
-
-            // p[:] -= hyperparams['lr'] * v_bias_corr / (torch.sqrt(s_bias_corr) + eps)
-            Sqrt<float>(outLt[thisMoment2Index], outLt[thisMoment2Index], theArgs.embedDim);
-            Adds<float>(outLt[thisMoment2Index], outLt[thisMoment2Index], this->eps, theArgs.embedDim);
-            Div<float>(outLt[thisGradIndex], outLt[thisMoment1Index], outLt[thisMoment2Index], theArgs.embedDim);
-            Muls<float>(outLt[thisGradIndex], outLt[thisGradIndex], minusLearningRate, theArgs.embedDim);
+            // p[:] -= stepSize * v / (torch.sqrt(s) + eps)
+            Sqrt<float>(inputLt[thisMoment2Index], outLt[thisMoment2Index], theArgs.embedDim);
+            Adds<float>(inputLt[thisMoment2Index], inputLt[thisMoment2Index], eps, theArgs.embedDim);
+            Div<float>(outLt[thisGradIndex], outLt[thisMoment1Index], inputLt[thisMoment2Index], theArgs.embedDim);
+            Muls<float>(outLt[thisGradIndex], outLt[thisGradIndex], stepSize, theArgs.embedDim);
         }
 
-        this->queOut.template EnQue(outLt);
-        this->queIn.template FreeTensor(inputLt);
+        queOut.EnQue(outLt);
+        queIn.FreeTensor(inputLt);
     }
 
     __aicore__ inline void DataCopyOut(UpdateArgs* updateArgs, int64_t cnt)
@@ -171,13 +167,16 @@ public:
         for (int64_t i = 0; i < cnt; i++) {
             UpdateArgs theArgs = updateArgs[i];
             int64_t thisGradIndex = i * this->maxD * numOfOut + outIndex;
+            DataCopy(this->weightsDevOutGT[theArgs.thisOutOffset], outLt[thisGradIndex], theArgs.embedDim);
+        }
+        SetAtomicNone();
+        for (int64_t i = 0; i < cnt; i++) {
+            UpdateArgs theArgs = updateArgs[i];
             int64_t thisMoment1Index = i * this->maxD * numOfOut + outIndex1;
             int64_t thisMoment2Index = i * this->maxD * numOfOut + outIndex2;
-            DataCopy(this->weightsDevOutGT[theArgs.thisOutOffset], outLt[thisGradIndex], theArgs.embedDim);
             DataCopy(this->momentum1DevOutGT[theArgs.thisOutOffset], outLt[thisMoment1Index], theArgs.embedDim);
             DataCopy(momentum2DevOutGT[theArgs.thisOutOffset], outLt[thisMoment2Index], theArgs.embedDim);
         }
-        SetAtomicNone();
         this->queOut.template FreeTensor(outLt);
     }
 
