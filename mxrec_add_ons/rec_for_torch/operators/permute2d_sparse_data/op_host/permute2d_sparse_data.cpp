@@ -66,7 +66,7 @@ namespace optiling {
         }
         if (enableWeights && (valuesShape != weightsShape || valuesShape.GetDimNum() != 1)) {
             OPS_LOG_E("", "[ERROR]values shape or weights shape is error. values.size() = %d, weights.size() = %d\n",
-                      valuesShape.GetDim(0), weights.GetDim(0));
+                      valuesShape.GetDim(0), weightsShape.GetDim(0));
             return ge::GRAPH_FAILED;
         }
 
