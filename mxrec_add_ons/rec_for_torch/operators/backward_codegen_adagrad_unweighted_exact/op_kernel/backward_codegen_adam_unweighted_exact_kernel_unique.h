@@ -89,7 +89,7 @@ public:
 
         // p[:] -= stepSize * v / (torch.sqrt(s) + eps)
         Sqrt<float>(inputLt[thisMoment2Index], outLt[thisMoment2Index], totalLen);
-        Adds<float>(inputLt[thisMoment2Index], inputLt[thisMoment2Index], eps, totalLen);
+        Adds<float>(inputLt[thisMoment2Index], inputLt[thisMoment2Index], this->eps, totalLen);
         Div<float>(outLt[thisGradIndex], outLt[thisMoment1Index], inputLt[thisMoment2Index], totalLen);
         Muls<float>(outLt[thisGradIndex], outLt[thisGradIndex], stepSize, totalLen);
     }

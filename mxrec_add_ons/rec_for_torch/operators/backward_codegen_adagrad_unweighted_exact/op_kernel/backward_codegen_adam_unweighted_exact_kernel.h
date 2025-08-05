@@ -43,6 +43,7 @@ public:
         iter = tilingData.iter;
         beta1pow = tilingData.beta1pow;
         beta2pow = tilingData.beta2pow;
+        beta2sqrt = tilingData.beta2sqrt;
 
         numOfOut = 3;  // 输出个数为3：grad, momentum1, momentum2
         indicesNumOneBlock = this->blockLen / numOfOut / this->maxD;
@@ -139,7 +140,7 @@ public:
             int64_t thisMoment2Index = i * this->maxD * numOfOut + outIndex2;
 
             // v[:] = beta1 * v + (1 - beta1) * p.grad
-            Muls<float>(outLt[thisMoment1Index], inputLt[thisMoment1Index], beta1, this->theArgs.embedDim);
+            Muls<float>(outLt[thisMoment1Index], inputLt[thisMoment1Index], beta1, theArgs.embedDim);
             Muls<float>(outLt[thisGradIndex], inputLt[thisGradIndex], oneMinusBeta1, theArgs.embedDim);
             Add<float>(outLt[thisMoment1Index], outLt[thisMoment1Index], outLt[thisGradIndex], theArgs.embedDim);
 
@@ -151,7 +152,7 @@ public:
 
             // p[:] -= stepSize * v / (torch.sqrt(s) + eps)
             Sqrt<float>(inputLt[thisMoment2Index], outLt[thisMoment2Index], theArgs.embedDim);
-            Adds<float>(inputLt[thisMoment2Index], inputLt[thisMoment2Index], eps, theArgs.embedDim);
+            Adds<float>(inputLt[thisMoment2Index], inputLt[thisMoment2Index], this->eps, theArgs.embedDim);
             Div<float>(outLt[thisGradIndex], outLt[thisMoment1Index], inputLt[thisMoment2Index], theArgs.embedDim);
             Muls<float>(outLt[thisGradIndex], outLt[thisGradIndex], stepSize, theArgs.embedDim);
         }
