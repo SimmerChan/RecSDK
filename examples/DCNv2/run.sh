@@ -50,8 +50,10 @@ export DLRM_CRITEO_DATA_PATH=${dlrm_criteo_data_path}
 export PYTHONPATH=${rec_package_path}:${so_path}:${fore_path}:${project_root}:$PYTHONPATH
 if [ "$(uname -m)" == "aarch64" ]; then
     export LD_PRELOAD=/usr/lib64/libgomp.so.1:/usr/lib64/libstdc++.so.6:/usr/local/python3.7.5/lib/python3.7/site-packages/scikit_learn.libs/libgomp-d22c30c5.so.1.0.0
+    export CPLUS_INCLUDE_PATH=/usr/local/gcc7.3.0/include/c++/7.3.0:/usr/local/gcc7.3.0/include/c++/7.3.0/aarch64-unknown-linux-gnu:$CPLUS_INCLUDE_PATH
 else
     export LD_PRELOAD=/usr/lib64/libgomp.so.1:/usr/lib64/libstdc++.so.6
+    export CPLUS_INCLUDE_PATH=/usr/local/gcc7.3.0/include/c++/7.3.0:/usr/local/gcc7.3.0/include/c++/7.3.0/x86_64-pc-linux-gnu:$CPLUS_INCLUDE_PATH
 fi
 export LD_LIBRARY_PATH=${so_path}:/usr/local/lib:$LD_LIBRARY_PATH
 
