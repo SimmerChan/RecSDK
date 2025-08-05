@@ -37,6 +37,7 @@ DENSE_DATATYPE = [torch.float32, torch.int64] # 测试不同数据类型
 OFFSET_DATATYPE = [torch.int32, torch.int64] # 偏移量数据类型
 TYPE_LIST = list(itertools.product(DENSE_DATATYPE, OFFSET_DATATYPE))
 
+
 def get_golden_result(device, denses, offsets, types, use_output_size):
     dense_datatype, offset_datatype = types
     dense_torch = torch.from_numpy(denses).to(dense_datatype).to(device)

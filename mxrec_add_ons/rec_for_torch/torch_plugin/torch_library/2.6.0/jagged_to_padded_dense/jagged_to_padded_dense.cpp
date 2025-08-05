@@ -41,21 +41,15 @@ at::Tensor jagged_to_padded_dense_forward_npu_v1(const at::Tensor& values,
                                                  const double padding_value)
 {
     TORCH_CHECK(values.dim() == 2,
-        "values must be a 2D tensor, but got ", values.dim(), "D tensor"
-    );
+        "values must be a 2D tensor, but got ", values.dim(), "D tensor");
     TORCH_CHECK(offsets.size() == 1,
-        "offsets must contain exactly 1 tensor, but got ", offsets.size(), " tensors"
-    );
+        "offsets must contain exactly 1 tensor, but got ", offsets.size(), " tensors");
     const auto& offset_tensor = offsets[0];
     TORCH_CHECK(offset_tensor.defined(),
-        "offset tensor must be defined (non-null)"
-    );
+        "offset tensor must be defined (non-null)");
     TORCH_CHECK(offset_tensor.dim() == 1,
-        "offset tensor must be 1D, but got ", offset_tensor.dim(), "D"
-    );
-    TORCH_CHECK(max_lengths > 0,
-        "max_lengths must be positive, but got ", max_lengths
-    );
+        "offset tensor must be 1D, but got ", offset_tensor.dim(), "D");
+    TORCH_CHECK(max_lengths > 0, "max_lengths must be positive, but got ", max_lengths);
     const at::OptionalDeviceGuard guard(device_of(values));
     auto values_contin = values.contiguous();
     auto D = values.size(-1);
