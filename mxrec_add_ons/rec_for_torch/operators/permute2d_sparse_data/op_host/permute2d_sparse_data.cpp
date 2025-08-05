@@ -60,13 +60,13 @@ namespace optiling {
         }
 
         // shape check
-        if ((permuteShape.GetDimNum() != 1) || (lengthsShape.GetDimNum() != SUPPORT_EMBEDDING_DIM_NUM) ||
-            (permuteShape.GetDim(0) > lengthsShape.GetDim(0)))  {
+        if ((permuteShape.GetDimNum() != 1) || (lengthsShape.GetDimNum() != SUPPORT_EMBEDDING_DIM_NUM))  {
             OPS_LOG_E("", "[ERROR]permute shape or lengths shape is error. ");
             return ge::GRAPH_FAILED;
         }
-        if (enableWeights && valuesShape != weightsShape) {
-            OPS_LOG_E("", "[ERROR]values shape or weights shape is error. ");
+        if (enableWeights && (valuesShape != weightsShape || valuesShape.GetDimNum() != 1)) {
+            OPS_LOG_E("", "[ERROR]values shape or weights shape is error. values.size() = %d, weights.size() = %d\n",
+                      valuesShape.GetDim(0), weights.GetDim(0));
             return ge::GRAPH_FAILED;
         }
 
