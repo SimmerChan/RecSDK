@@ -126,20 +126,20 @@ public:
     {
         float oneMinusBeta1 = (1 - beta1);
         float oneMinusBeta2 = (1 - beta2);
-        float minusLearningRate = -learning_rate;
+        float minusLearningRate = -this->learning_rate;
         float stepSize = minusLearningRate * beta2sqrt;
 
-        LocalTensor<float> inputLt = queIn.DeQue<float>();
-        LocalTensor<float> outLt = queOut.AllocTensor<float>();
+        LocalTensor<float> inputLt = this->queIn.template DeQue<float>();
+        LocalTensor<float> outLt = this->queOut.template AllocTensor<float>();
 
         for (int64_t i = 0; i < cnt; i++) {
             UpdateArgs theArgs = updateArgs[i];
-            int64_t thisGradIndex = i * maxD * numOfOut + outIndex;
-            int64_t thisMoment1Index = i * maxD * numOfOut + outIndex1;
-            int64_t thisMoment2Index = i * maxD * numOfOut + outIndex2;
+            int64_t thisGradIndex = i * this->maxD * numOfOut + outIndex;
+            int64_t thisMoment1Index = i * this->maxD * numOfOut + outIndex1;
+            int64_t thisMoment2Index = i * this->maxD * numOfOut + outIndex2;
 
             // v[:] = beta1 * v + (1 - beta1) * p.grad
-            Muls<float>(outLt[thisMoment1Index], inputLt[thisMoment1Index], beta1, theArgs.embedDim);
+            Muls<float>(outLt[thisMoment1Index], inputLt[thisMoment1Index], beta1, this->theArgs.embedDim);
             Muls<float>(outLt[thisGradIndex], inputLt[thisGradIndex], oneMinusBeta1, theArgs.embedDim);
             Add<float>(outLt[thisMoment1Index], outLt[thisMoment1Index], outLt[thisGradIndex], theArgs.embedDim);
 
@@ -156,8 +156,8 @@ public:
             Muls<float>(outLt[thisGradIndex], outLt[thisGradIndex], stepSize, theArgs.embedDim);
         }
 
-        queOut.EnQue(outLt);
-        queIn.FreeTensor(inputLt);
+        this->queOut.template EnQue(outLt);
+        this->queIn.template FreeTensor(inputLt);
     }
 
     __aicore__ inline void DataCopyOut(UpdateArgs* updateArgs, int64_t cnt)

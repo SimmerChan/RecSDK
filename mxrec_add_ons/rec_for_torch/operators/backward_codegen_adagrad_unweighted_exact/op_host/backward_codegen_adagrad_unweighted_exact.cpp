@@ -86,9 +86,9 @@ static ge::graphStatus UniqueTilingFunc(gert::TilingContext* context,
 static ge::graphStatus NormalAdamTilingFunc(const gert::RuntimeAttrs* attrs,
                                             BackwardCodegenAdagradUnweightedExactTilingData& tilingData)
 {
-    float beta1 = *context->GetAttrs()->GetFloat(BETA1_INDEX);
-    float beta2 = *context->GetAttrs()->GetFloat(BETA2_INDEX);
-    int64_t iter = *context->GetAttrs()->GetInt(ITER_INDEX);
+    float beta1 = *attrs->GetFloat(BETA1_INDEX);
+    float beta2 = *attrs->GetFloat(BETA2_INDEX);
+    int64_t iter = *attrs->GetInt(ITER_INDEX);
 
     OPS_CHECK(beta1 == 1.0,
               OPS_LOG_E("Tiling Debug", "beta1 can not be 1.0."),

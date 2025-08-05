@@ -71,7 +71,7 @@ public:
         int64_t thisGradIndex = 0;
         float oneMinusBeta1 = (1 - beta1);
         float oneMinusBeta2 = (1 - beta2);
-        float minusLearningRate = -learning_rate;
+        float minusLearningRate = -this->learning_rate;
         thisMoment1Index = totalLen * M1_INDEX;
         thisMoment2Index = totalLen * M2_INDEX;
         stepSize = minusLearningRate * beta2sqrt;
