@@ -7,7 +7,6 @@ COPY ./version.info ./
 COPY ./ascend_install.info ./
 COPY ./Ascend-cann-toolkit_*.run ./
 COPY ./Ascend-cann-kernels-*.run ./
-COPY ./torch_npu-2.6.0-cp311-cp311-*whl ./
 
 # 1.安装编译环境
 RUN source /etc/profile && dnf makecache && \
@@ -103,6 +102,7 @@ RUN pip3.11 install -U pip && \
     pip3.11 install gin-config && \
     pip3.11 install torch-2.6.0+cpu-*.whl && \
     pip3.11 install fbgemm_gpu-1.1.0+cpu-*.whl && \
+    pip3.11 install torch-npu==2.6.0.rc1 && \
     pip3.11 install tensorboard==2.18.0 && \
     pip3.11 install black && \
     pip3.11 install cmake && \
