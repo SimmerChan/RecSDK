@@ -106,8 +106,9 @@ namespace optiling {
         // apply workspace
         size_t* currentWorkspace = context->GetWorkspaceSizes(1);
         size_t systemWorkspacesSize = ascendPlatform.GetLibApiWorkSpaceSize();
-        // 使用workspace共享lengths.sum(dim=1)和offsets计算结果, 因此为两份内存
-        size_t userWorkspacesSize = 2 * (lengthsT + 1) * sizeof(int64_t);
+        // 使用workspace共享lengths.sum(dim=1) + 各core计算的offsets结果
+        // 为保证workspace同步成功需要保证首地址的32位对齐,因此乘以64
+        size_t userWorkspacesSize = (lengthsT + 1) * GM_ALIGN * (coreNum + 1);
         currentWorkspace[0] = systemWorkspacesSize + userWorkspacesSize;
 
         context->SetBlockDim(coreNum);
