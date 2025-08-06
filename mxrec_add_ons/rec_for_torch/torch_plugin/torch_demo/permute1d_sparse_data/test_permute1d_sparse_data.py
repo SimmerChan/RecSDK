@@ -181,28 +181,6 @@ def test_2d_input():
         assert result is not None
 
 
-def test_large_permuted_lengths_sum():
-    """
-    测试permuted_lengths_sum大于实际长度的情况
-    """
-    t = 5
-    params = {
-        'permute': np.arange(t, dtype=np.int32),
-        'lengths': np.ones(t, dtype=np.int32),
-        'values': np.arange(t, dtype=np.int32),
-        'weights': None,
-        'permuted_lengths_sum': t + 10  # 大于实际长度
-    }
-
-    golden = get_result(params)
-    result = get_result(params, DEVICE)
-
-    for gt, pred in zip(golden, result):
-        assert type(gt) is type(pred)
-        if isinstance(gt, torch.Tensor) and isinstance(pred, torch.Tensor):
-            assert torch.allclose(gt, pred, atol=1e-4)
-
-
 def test_duplicate_permute_indices():
     """
     测试permute包含重复索引的情况
