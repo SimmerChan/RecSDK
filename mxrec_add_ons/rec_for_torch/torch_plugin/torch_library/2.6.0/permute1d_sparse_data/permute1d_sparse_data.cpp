@@ -66,9 +66,6 @@ void validate_permute1d_sparse_data_inputs(
     const auto lengths_len = lengths.size(0);
     const auto values_len = values.size(0);
 
-    TORCH_CHECK(permute_len <= lengths_len,
-        "permute (length=", permute_len, ") can't longer than lengths (length=", lengths_len, ").");
-
     // 检查weights张量(如果存在)
     if (weights.has_value()) {
         check_tensor_non_empty(*weights, "weights");
@@ -110,7 +107,7 @@ tuple<Tensor, Tensor, c10::optional<Tensor>> permute1d_sparse_data_impl_npu(
     auto valuesConti = values.contiguous();
     auto weightsConti = weights.value_or(at::Tensor()).contiguous();
 
-    const auto T = permute.size(0);
+    const auto pLength = permute.size(0);
 
     int outValuesLen; // 输出值的长度
     if (permute.size(0) == lengths.size(0)) {
@@ -121,11 +118,11 @@ tuple<Tensor, Tensor, c10::optional<Tensor>> permute1d_sparse_data_impl_npu(
         outValuesLen = static_cast<int>(permuted_lengths_sum.value());
     } else {
         // 未提供输出长度，通过permute长度进行计算
-        outValuesLen = lengthsConti.narrow(0, 0, T).sum().item<int>();
+        outValuesLen = lengthsConti.narrow(0, 0, pLength).sum().item<int>();
     }
 
     // 初始化输出向量
-    at::Tensor outLengths = at::empty({T}, lengthsConti.options());
+    at::Tensor outLengths = at::empty({pLength}, lengthsConti.options());
     at::Tensor outValues = at::empty({outValuesLen}, valuesConti.options());
     at::Tensor outWeights = weights.has_value() ? at::empty({outValuesLen}, weightsConti.options()) : at::Tensor();
 
