@@ -10,7 +10,7 @@ RUN dnf install -y ca-certificates && \
     dnf -y install net-tools make wget unzip zlib-devel bzip2 bzip2-devel openssl-devel \
     ncurses-devel openssh-clients openssh-server sqlite-devel openmpi-devel \
     readline-devel tk-devel gdbm-devel libdb-devel xz-devel libffi-devel \
-    hdf5-devel patch pciutils vim dos2unix gcc-c++ automake autoconf m4 perl git e2fsprogs sudo && \
+    hdf5-devel patch pciutils vim findutils dos2unix gcc-c++ automake autoconf m4 perl git e2fsprogs sudo && \
     dnf clean all && \
     rm -rf /var/cache/dnf
 
@@ -68,7 +68,13 @@ ENV PATH=/usr/local/python3.11.0/bin:$PATH \
 
 # 配置 pip 源
 RUN mkdir -p ~/.pip && \
-    echo "[global]\ntrusted-host=mirrors.aliyun.com\nindex-url=https://mirrors.aliyun.com/pypi/simple/\ntimeout=200" > ~/.pip/pip.conf
+    echo "[global]" > ~/.pip/pip.conf && \
+    echo "index-url = https://pypi.tuna.tsinghua.edu.cn/simple" >> ~/.pip/pip.conf && \
+    echo "extra-index-url = https://mirrors.aliyun.com/pypi/simple" >> ~/.pip/pip.conf && \
+    echo "               https://repo.huaweicloud.com/repository/pypi/simple" >> ~/.pip/pip.conf && \
+    echo "trusted-host = pypi.tuna.tsinghua.edu.cn mirrors.aliyun.com repo.huaweicloud.com" >> ~/.pip/pip.conf && \
+    echo "timeout = 600" >> ~/.pip/pip.conf && \
+    echo "retries = 3" >> ~/.pip/pip.conf
 
 # 安装 Python 包（分层缓存）
 # 更新 pip 并安装基础依赖
@@ -115,7 +121,9 @@ RUN pip3.11 install tensorboard==2.18.0
 RUN pip3.11 install black
 RUN pip3.11 install cmake
 RUN pip3.11 install hypothesis==6.70.1
-RUN pip3.11 install iopath
+RUN pip3.11 install iopath || \
+    (pip3.11 install --use-pep517 iopath || \
+     pip3.11 install --only-binary=:all: iopath)
 RUN pip3.11 install pyre-extensions
 RUN pip3.11 install scikit-build
 RUN pip3.11 install torchmetrics==1.0.3
@@ -142,15 +150,26 @@ ENV PATH=/usr/local/gcc11.2.0/bin:/usr/local/python3.11.0/bin:$PATH \
 
 # 安装 Ascend Toolkit
 ARG ASCEND_BASE=/usr/local/Ascend
-RUN umask 0027 && \
-    mkdir -p $ASCEND_BASE && \
-    chmod +x Ascend-cann-toolkit_*.run && \
-    ./Ascend-cann-toolkit_*.run --quiet --install --install-path=$ASCEND_BASE && \
-    chmod +x Ascend-cann-kernels_*.run && \
-    ./Ascend-cann-kernels_*.run --quiet --install && \
-    rm -f Ascend-cann-*.run && \
-    pip3.11 install torch_npu-2.6.0-cp311-cp311-*whl && \
-    rm -rf /root/.cache/pip /tmp/*
+# 1. 设置 umask 并创建目录
+RUN umask 0027 && mkdir -p $ASCEND_BASE
 
+# 2. 安装 CANN Toolkit
+RUN chmod +x Ascend-cann-toolkit_*.run
+RUN ./Ascend-cann-toolkit_*.run  --install --install-path=$ASCEND_BASE && \
+    [ -f /var/log/ascend_seclog/ascend_toolkit_install.log ] && \
+    cat /var/log/ascend_seclog/ascend_toolkit_install.log || \
+    echo "Log file not found: /var/log/ascend_seclog/ascend_toolkit_install.log"
+# 3. 安装 CANN Kernels
+RUN chmod +x Ascend-cann-kernels-*.run
+RUN ./Ascend-cann-kernels-*.run  --install
+
+# 4. 清理安装包
+RUN rm -f Ascend-cann-*.run
+
+# 5. 安装 torch_npu
+RUN pip3.11 install torch_npu-2.6.0-cp311-cp311-*whl
+
+# 6. 清理缓存
+RUN rm -rf /root/.cache/pip /tmp/*
 # 验证
 RUN gcc --version && cmake --version && python3.11 --version
