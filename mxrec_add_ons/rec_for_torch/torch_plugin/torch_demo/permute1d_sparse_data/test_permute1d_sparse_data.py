@@ -15,6 +15,7 @@
 # limitations under the License.
 # ==============================================================================
 import itertools
+import random
 import sysconfig
 
 import pytest
@@ -38,7 +39,7 @@ TYPE_LIST = list(itertools.product(PERMUTE_TYPE, LENGTHS_TYPE, VALUES_TYPE, WEIG
 # permute shape为[BASE_T]
 # extra_t用于测试permute和lengths不等长的情况，lengths[BASE_T + extra_T]
 BASE_T = np.random.randint(2, 30, 4)       # 随机生成4个介于2到30之间的整数，代表稀疏数据的原始维度
-EXTRA_T = [0, 3, 8]
+EXTRA_T = [1, 0, -1]
 SHAPE_LIST = list(itertools.product(BASE_T, EXTRA_T))
 
 
@@ -102,10 +103,9 @@ def test_permute1d_sparse_data(types, shapes, enable_permuted_sum):
     """
     ptype, ltype, vtype, wtype = types
     t, extra_t = shapes
+    extra_t = random.randint(1, t - 1) * extra_t
 
-    permute = np.arange(t + extra_t, dtype=ptype)  # 创建一个从0到t + extra_t - 1的数组
-    np.random.shuffle(permute)  # 随机打乱permute数组
-    permute = permute[:t]
+    permute = np.random.choice(t + extra_t, t).astype(dtype=np.int32)
     lengths = np.ones(t + extra_t, dtype=ltype) # 创建全1的lengths，简化
     values = np.arange(0, t + extra_t, dtype=vtype)  # 注意总长度为lengths.sum(),此处特殊，为len(lengths)
     weights = np.arange(0, t + extra_t, dtype=wtype) if wtype else None
@@ -126,38 +126,6 @@ def test_permute1d_sparse_data(types, shapes, enable_permuted_sum):
         assert type(gt) is type(pred)
         if isinstance(gt, torch.Tensor) and isinstance(pred, torch.Tensor):
             assert torch.allclose(gt, pred, atol=1e-4)
-
-
-@pytest.mark.parametrize("types", TYPE_LIST)
-@pytest.mark.parametrize("shapes", SHAPE_LIST)
-def test_longer_permute(types, shapes):
-    """
-    测试permute长度大于lengths的情况，应该抛出异常
-    """
-    ptype, ltype, vtype, wtype = types
-    t, extra_t = shapes
-
-    # 显式检查输入有效性
-    if extra_t <= 0:
-        return
-
-    permute = np.arange(t + extra_t, dtype=ptype)
-    np.random.shuffle(permute)
-    lengths = np.ones(t, dtype=ltype)
-    values = np.arange(0, t, dtype=vtype)
-    weights = np.arange(0, t, dtype=wtype) if wtype else None
-
-    params = {
-        'permute': permute,
-        'lengths': lengths,
-        'values': values,
-        'weights': weights,
-        'permuted_lengths_sum': None
-    }
-
-    with pytest.raises(RuntimeError):
-        result = get_result(params, DEVICE)
-        assert result is not None
 
 
 def test_empty_input():

@@ -110,15 +110,12 @@ tuple<Tensor, Tensor, c10::optional<Tensor>> permute1d_sparse_data_impl_npu(
     const auto pLength = permute.size(0);
 
     int outValuesLen; // 输出值的长度
-    if (permute.size(0) == lengths.size(0)) {
-        // 完整排列情况，输出长度等于输入长度
-        outValuesLen = valuesConti.size(0);
-    } else if (permuted_lengths_sum.has_value() && permuted_lengths_sum.value() > 0) {
+    if (permuted_lengths_sum.has_value() && permuted_lengths_sum.value() > 0) {
         // 提供了输出长度，直接使用
         outValuesLen = static_cast<int>(permuted_lengths_sum.value());
     } else {
         // 未提供输出长度，通过permute长度进行计算
-        outValuesLen = lengthsConti.narrow(0, 0, pLength).sum().item<int>();
+        outValuesLen = lengthsConti.index_select(0, permuteConti).sum().item<int>();
     }
 
     // 初始化输出向量
