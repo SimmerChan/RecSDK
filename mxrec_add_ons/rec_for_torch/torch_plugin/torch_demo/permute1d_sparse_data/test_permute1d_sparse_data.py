@@ -216,5 +216,10 @@ def test_duplicate_permute_indices():
         'permuted_lengths_sum': None
     }
 
+    golden = get_result(params)
     result = get_result(params, DEVICE)
-    assert len(result[0]) == t  # 检查输出lengths长度
+
+    for gt, pred in zip(golden, result):
+        assert type(gt) is type(pred)
+        if isinstance(gt, torch.Tensor) and isinstance(pred, torch.Tensor):
+            assert torch.allclose(gt, pred, atol=1e-4)
