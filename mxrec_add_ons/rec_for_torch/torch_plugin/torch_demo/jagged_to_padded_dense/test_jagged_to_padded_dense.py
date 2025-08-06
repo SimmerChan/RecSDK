@@ -78,7 +78,7 @@ def test_jagged_to_padded_dense(batch_size,
     1. 生成随机测试数据
     2. 使用FBGEMM的CPU实现计算基准结果
     3. 调用NPU算子计算结果
-    4. 对比两者差异(允许1e-5的误差)
+    4. 对比两者差异(允许1e-4的误差)
     """
     # 1. 生成测试数据
     jagged_tensor, seq_offsets, total_sequences = generate_jagged_tensor(
