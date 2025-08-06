@@ -64,7 +64,7 @@ def test_very_large_input():
     t = 300000  # 大尺寸
     permute = np.arange(t, dtype=np.int32)
     np.random.shuffle(permute)
-    lengths = np.random.randint(1, 10, size=t, dtype=np.int32)
+    lengths = np.random.randint(1, 8192, size=t, dtype=np.int32)
     total_length = lengths.sum()
     values = np.arange(total_length, dtype=np.int32)
     weights = np.random.rand(total_length).astype(np.float32)
