@@ -8,6 +8,8 @@ COPY ./ascend_install.info ./
 COPY ./Ascend-cann-toolkit_*.run ./
 COPY ./Ascend-cann-kernels-*.run ./
 
+RUN dnf update -y && dnf install -y ca-certificates && rm -rf /var/lib/dnf/*
+
 # 1.安装编译环境
 RUN source /etc/profile && dnf makecache && \
     dnf -y install net-tools make wget unzip zlib-devel bzip2 bzip2-devel openssl-devel ncurses-devel openssh-clients \
