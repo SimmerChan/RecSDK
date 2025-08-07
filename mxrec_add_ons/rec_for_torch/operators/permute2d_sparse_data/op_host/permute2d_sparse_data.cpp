@@ -60,13 +60,13 @@ namespace optiling {
         }
 
         // shape check
-        if ((permuteShape.GetDimNum() != 1) || (lengthsShape.GetDimNum() != SUPPORT_EMBEDDING_DIM_NUM) ||
-            (permuteShape.GetDim(0) > lengthsShape.GetDim(0)))  {
+        if ((permuteShape.GetDimNum() != 1) || (lengthsShape.GetDimNum() != SUPPORT_EMBEDDING_DIM_NUM))  {
             OPS_LOG_E("", "[ERROR]permute shape or lengths shape is error. ");
             return ge::GRAPH_FAILED;
         }
-        if (enableWeights && valuesShape != weightsShape) {
-            OPS_LOG_E("", "[ERROR]values shape or weights shape is error. ");
+        if (enableWeights && (valuesShape != weightsShape || valuesShape.GetDimNum() != 1)) {
+            OPS_LOG_E("", "[ERROR]values shape or weights shape is error. values.size() = %d, weights.size() = %d\n",
+                      valuesShape.GetDim(0), weightsShape.GetDim(0));
             return ge::GRAPH_FAILED;
         }
 
@@ -84,9 +84,9 @@ namespace optiling {
 
         // set coreNUm
         size_t coreNum = ascendPlatform.GetCoreNumAiv();
-        OPS_CHECK(coreNum == 0,
-                  OPS_LOG_E("Tiling Debug", "Core num is 0."),
-                  return ge::GRAPH_FAILED);
+        if (coreNum == 0) {
+            return ge::GRAPH_FAILED;
+        }
         tiling.set_coreNum(coreNum);
 
         // tiling core
@@ -106,8 +106,9 @@ namespace optiling {
         // apply workspace
         size_t* currentWorkspace = context->GetWorkspaceSizes(1);
         size_t systemWorkspacesSize = ascendPlatform.GetLibApiWorkSpaceSize();
-        // 使用workspace共享lengths.sum(dim=1)和offsets计算结果, 因此为两份内存
-        size_t userWorkspacesSize = 2 * (lengthsT + 1) * sizeof(int64_t);
+        // 使用workspace共享lengths.sum(dim=1) + 各core计算的offsets结果
+        // 为保证workspace同步成功需要保证首地址的32位对齐,因此乘以64
+        size_t userWorkspacesSize = (lengthsT + 1) * GM_ALIGN * (coreNum + 1);
         currentWorkspace[0] = systemWorkspacesSize + userWorkspacesSize;
 
         context->SetBlockDim(coreNum);
@@ -130,8 +131,8 @@ static ge::graphStatus InferShape(gert::InferShapeContext* context)
     const gert::Shape* lengthsShape = context->GetInputShape(optiling::LENGTH_INDEX);
     const gert::Shape* valuesShape = context->GetInputShape(optiling::VALUES_INDEX);
 
-    gert::Shape* outPermutedLengths = context->GetOutputShape(optiling::PERMUTE_INDEX);
-    gert::Shape* outPermutedValues = context->GetOutputShape(optiling::LENGTH_INDEX);
+    gert::Shape* outPermutedLengths = context->GetOutputShape(0);
+    gert::Shape* outPermutedValues = context->GetOutputShape(1);
 
     OPS_LOG_E_IF_NULL("permuteShape", permuteShape, return ge::GRAPH_FAILED);
     OPS_LOG_E_IF_NULL("lengthsShape", lengthsShape, return ge::GRAPH_FAILED);
