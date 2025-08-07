@@ -1,18 +1,15 @@
-# please configure 根据实际情况选择操作系统镜像
-FROM debian:12
+# 第一阶段：基础环境配置（快速完成）
+FROM debian:12 AS base
 
 WORKDIR /tmp
 COPY ./version.info ./
 COPY ./ascend_install.info ./
-COPY ./Ascend-cann-toolkit_*.run ./
-COPY ./Ascend-cann-kernels-*.run ./
 
-# 1.配置证书
+# 1. 配置证书和Debian源
 RUN apt-get update && \
     apt-get install -y ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
-# 2.配置Debian源
 RUN echo "deb https://mirrors.huaweicloud.com/debian/ bookworm main contrib non-free" > ./sources.list && \
     echo "deb-src https://mirrors.huaweicloud.com/debian/ bookworm main contrib non-free" >> ./sources.list && \
     echo "deb https://mirrors.huaweicloud.com/debian-security/ bookworm-security main contrib non-free" >> ./sources.list && \
@@ -20,7 +17,11 @@ RUN echo "deb https://mirrors.huaweicloud.com/debian/ bookworm main contrib non-
     echo "deb https://mirrors.huaweicloud.com/debian/ bookworm-updates main contrib non-free" >> ./sources.list && \
     echo "deb-src https://mirrors.huaweicloud.com/debian/ bookworm-updates main contrib non-free" >> ./sources.list
 
-# 3.安装编译环境
+
+# 第二阶段：安装编译工具（中等耗时）
+FROM base AS build-tools
+
+# 2. 安装编译工具链（保留全部依赖）
 RUN mv /etc/apt/sources.list.d/debian.sources /etc/apt/sources.list.d/debian.sources.bak && \
     cp -f ./sources.list /etc/apt/ && \
     apt-get update && \
@@ -29,18 +30,23 @@ RUN mv /etc/apt/sources.list.d/debian.sources /etc/apt/sources.list.d/debian.sou
     libffi-dev libhdf5-dev patch pciutils lcov vim dos2unix g++ automake libtool autoconf m4 perl git e2fsprogs && \
     apt-get clean && \
     rm -rf /var/cache/apt/
-# 注：openssh-server为双机训练样例需要，仅单机训练时可去掉
 
-# 4.安装cmake-3.20.6
-# 下载地址: https://cmake.org/files/v3.20/cmake-3.20.6.tar.gz
+
+# 第三阶段：安装CMake（中等耗时）
+FROM build-tools AS cmake-installer
+
+# 3. 安装cmake-3.20.6
 RUN wget https://cmake.org/files/v3.20/cmake-3.20.6.tar.gz && \
     . /etc/profile && gcc -v && tar -zxf cmake-3.20.6.tar.gz && \
     cd cmake-3.20.6 && \
     ./bootstrap && make -j 32 && make install && cd .. && \
     rm -rf cmake-3.20.6*
 
-# 5.安装python3.11.9
-# 下载地址: https://mirrors.huaweicloud.com/python/3.11.9/Python-3.11.9.tgz
+
+# 第四阶段：安装Python（中等耗时）
+FROM cmake-installer AS python-installer
+
+# 4. 安装Python 3.11.9
 RUN wget https://mirrors.huaweicloud.com/python/3.11.9/Python-3.11.9.tgz && \
     . /etc/profile && gcc -v && tar -xvf Python-3.11.9.tgz && \
     cd Python-3.11.9 && \
@@ -56,14 +62,18 @@ ENV PATH=$PATH:/usr/local/python3.11.9/bin \
 RUN ln -s /usr/local/python3.11.9/bin/python3 /usr/bin/python && \
     ln -s /usr/local/python3.11.9/bin/pip3 /usr/bin/pip
 
-# 配置python源
+# 配置Python源
 RUN mkdir ~/.pip && touch ~/.pip/pip.conf && \
     echo "[global]" > ~/.pip/pip.conf && \
     echo "trusted-host=mirrors.aliyun.com" >> ~/.pip/pip.conf && \
     echo "index-url=https://mirrors.aliyun.com/pypi/simple/" >> ~/.pip/pip.conf && \
     echo "timeout=200" >> ~/.pip/pip.conf
 
-# 6.安装python包
+
+# 第五阶段：安装Python依赖（耗时较长）
+FROM python-installer AS python-deps
+
+# 5. 安装Python包（保留全部依赖）
 RUN wget https://download.pytorch.org/whl/cpu/torch-2.6.0%2Bcpu-cp311-cp311-linux_x86_64.whl && \
     wget https://download.pytorch.org/whl/cpu/fbgemm_gpu-1.1.0%2Bcpu-cp311-cp311-manylinux2014_x86_64.whl
 
@@ -110,15 +120,20 @@ RUN pip3 install -U pip && \
     rm -rf /root/.cache/pip
 
 
-# 7.设置驱动路径环境变量
+# 第六阶段：安装CANN工具包（耗时最长）
+FROM python-deps AS cann-installer
+
+# 6. 复制CANN安装包
+COPY ./Ascend-cann-toolkit_*.run ./
+COPY ./Ascend-cann-kernels-*.run ./
+
+# 7. 设置驱动路径环境变量
 ARG ASCEND_BASE=/usr/local/Ascend
 ENV LD_LIBRARY_PATH=$ASCEND_BASE/driver/lib64:$ASCEND_BASE/driver/lib64/common:$ASCEND_BASE/driver/lib64/driver:$LD_LIBRARY_PATH
 
-# 8.安装ascend-toolkit与kernels算子包
-# 9.CANN相关参数
+# 8. 安装CANN工具包
 ARG TOOLKIT_PKG=Ascend-cann-toolkit*.run
 ARG KERNEL_PKG=Ascend-cann-kernels*.run
-# 10.删除旧的CANN
 RUN rm -rf $ASCEND_BASE/ascend-toolkit
 
 RUN umask 0027 && \
@@ -130,5 +145,27 @@ RUN umask 0027 && \
    rm -rf /root/.cache/pip && \
    rm -f $TOOLKIT_PKG && rm -f $KERNEL_PKG
 
-# 11.清理临时目录
-RUN rm -rf ./*
+
+# 最终阶段：保留全部内容
+FROM debian:12
+
+WORKDIR /app
+
+# 复制所有必要的文件
+COPY --from=base /tmp/version.info ./
+COPY --from=base /tmp/ascend_install.info ./
+COPY --from=build-tools /etc/apt/sources.list /etc/apt/
+COPY --from=python-installer /usr/local/python3.11.9 /usr/local/python3.11.9
+COPY --from=python-installer /usr/bin/python /usr/bin/python
+COPY --from=python-installer /usr/bin/pip /usr/bin/pip
+COPY --from=python-installer /root/.pip /root/.pip
+COPY --from=cann-installer /usr/local/Ascend /usr/local/Ascend
+
+# 设置环境变量
+ENV PATH=$PATH:/usr/local/python3.11.9/bin \
+    LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/python3.11.9/lib:/usr/local/Ascend/driver/lib64:/usr/local/Ascend/driver/lib64/common:/usr/local/Ascend/driver/lib64/driver
+
+# 验证安装
+RUN python --version && \
+    pip --version && \
+    ls /usr/local/Ascend/ascend-toolkit
