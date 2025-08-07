@@ -10,7 +10,8 @@ RUN dnf install -y ca-certificates && \
     dnf -y install net-tools make wget unzip zlib-devel bzip2 bzip2-devel openssl-devel \
     ncurses-devel openssh-clients openssh-server sqlite-devel openmpi-devel \
     readline-devel tk-devel gdbm-devel libdb-devel xz-devel libffi-devel \
-    hdf5-devel patch pciutils vim findutils dos2unix gcc-c++ automake autoconf m4 perl git e2fsprogs sudo && \
+    hdf5-devel patch pciutils vim findutils util-linux  dos2unix gcc-c++ automake autoconf \
+    m4 perl git e2fsprogs sudo && \
     dnf clean all && \
     rm -rf /var/cache/dnf
 
@@ -43,7 +44,7 @@ RUN tar -zxf /tmp/cmake-3.22.6.tar.gz && \
     ./bootstrap && make -j $(nproc) && make install && \
     rm -rf /tmp/cmake-3.22.6*
 
-# 编译 Python 3.11.0
+# 编译 Python 3.11.0 
 RUN tar -xvf /tmp/Python-3.11.0.tar.xz && \
     cd Python-3.11.0 && \
     mkdir -p build && cd build && \
@@ -58,11 +59,12 @@ ENV PATH=/usr/local/python3.11.0/bin:$PATH \
 RUN mkdir -p ~/.pip && \
     echo "[global]" > ~/.pip/pip.conf && \
     echo "index-url = https://pypi.tuna.tsinghua.edu.cn/simple" >> ~/.pip/pip.conf && \
-    echo "extra-index-url = https://mirrors.aliyun.com/pypi/simple" >> ~/.pip/pip.conf && \
+    echo "extra-index-url = https://pypi.org/simple" >> ~/.pip/pip.conf && \
+    echo "               https://mirrors.aliyun.com/pypi/simple" >> ~/.pip/pip.conf && \
     echo "               https://repo.huaweicloud.com/repository/pypi/simple" >> ~/.pip/pip.conf && \
-    echo "trusted-host = pypi.tuna.tsinghua.edu.cn mirrors.aliyun.com repo.huaweicloud.com" >> ~/.pip/pip.conf && \
+    echo "trusted-host = pypi.tuna.tsinghua.edu.cn pypi.org mirrors.aliyun.com repo.huaweicloud.com" >> ~/.pip/pip.conf && \
     echo "timeout = 600" >> ~/.pip/pip.conf && \
-    echo "retries = 3" >> ~/.pip/pip.conf
+    echo "retries = 3" >> ~/.pip/pip.conf 
 
 RUN pip3.11 install --upgrade pip
 RUN pip3.11 install numpy==1.25.0
@@ -92,7 +94,7 @@ RUN pip3.11 install absl-py
 RUN pip3.11 install gin-config
 RUN pip3.11 install torch-2.6.0+cpu-*.whl
 RUN pip3.11 install fbgemm_gpu-1.1.0+cpu-*.whl
-RUN pip3.11 install torch-npu==2.6.0.rc1
+RUN pip3.11 install torch_npu==2.6.0rc1
 RUN pip3.11 install tensorboard==2.18.0
 RUN pip3.11 install black
 RUN pip3.11 install cmake
@@ -115,12 +117,13 @@ ENV PATH=/usr/local/gcc11.2.0/bin:/usr/local/python3.11.0/bin:$PATH \
 
 ARG ASCEND_BASE=/usr/local/Ascend
 RUN umask 0022 && mkdir -p $ASCEND_BASE
+
 RUN chmod +x Ascend-cann-toolkit_*.run
 RUN ./Ascend-cann-toolkit_*.run --quiet --install --install-path=$ASCEND_BASE
+
 RUN chmod +x Ascend-cann-kernels-*.run
-RUN ./Ascend-cann-kernels-*.run  --install
+RUN ./Ascend-cann-kernels-*.run --quiet --install
 RUN rm -f Ascend-cann-*.run
-RUN pip3.11 install torch_npu-2.6.0-cp311-cp311-*whl
 RUN rm -rf /root/.cache/pip /tmp/*
 
 # 验证
