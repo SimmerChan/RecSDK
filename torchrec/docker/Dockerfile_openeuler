@@ -1,5 +1,5 @@
 # 阶段1：基础环境准备（缓存依赖安装）
-FROM openeuler-22.03-lts-sp4:latest as base
+FROM openeuler-22.03-lts-sp4:latest
 WORKDIR /tmp
 COPY ./version.info ./
 COPY ./ascend_install.info ./
@@ -15,7 +15,6 @@ RUN dnf install -y ca-certificates && \
     rm -rf /var/cache/dnf
 
 # 阶段2：下载源码（缓存下载结果）
-FROM base as downloader
 RUN wget https://mirrors.huaweicloud.com/gnu/gcc/gcc-11.2.0/gcc-11.2.0.tar.gz && \
     tar -zxvf gcc-11.2.0.tar.gz && \
     cd gcc-11.2.0 && \
@@ -28,12 +27,6 @@ RUN wget https://mirrors.huaweicloud.com/gnu/gcc/gcc-11.2.0/gcc-11.2.0.tar.gz &&
     wget https://mirrors.huaweicloud.com/python/3.11.0/Python-3.11.0.tar.xz && \
     wget https://download.pytorch.org/whl/cpu/torch-2.6.0%2Bcpu-cp311-cp311-manylinux_2_28_aarch64.whl && \
     wget https://download.pytorch.org/whl/cpu/fbgemm_gpu-1.1.0%2Bcpu-cp311-cp311-manylinux2014_aarch64.whl
-
-# 阶段3：编译工具链（缓存编译结果）
-FROM base as builder
-COPY --from=downloader /tmp/gcc-11.2.0 /tmp/gcc-11.2.0
-COPY --from=downloader /tmp/cmake-3.22.6.tar.gz /tmp/
-COPY --from=downloader /tmp/Python-3.11.0.tar.xz /tmp/
 
 # 编译 GCC 11.2.0
 RUN cd /tmp/gcc-11.2.0 && \
@@ -58,11 +51,6 @@ RUN tar -xvf /tmp/Python-3.11.0.tar.xz && \
     make -j $(nproc) && make install && \
     rm -rf /tmp/Python-3.11.0*
 
-# 阶段4：安装 Python 包（缓存 pip 安装）
-FROM base as python-packages
-COPY --from=downloader /tmp/*.whl /tmp/
-COPY --from=builder /usr/local/python3.11.0 /usr/local/python3.11.0
-
 ENV PATH=/usr/local/python3.11.0/bin:$PATH \
     LD_LIBRARY_PATH=/usr/local/python3.11.0/lib:$LD_LIBRARY_PATH
 
@@ -76,39 +64,29 @@ RUN mkdir -p ~/.pip && \
     echo "timeout = 600" >> ~/.pip/pip.conf && \
     echo "retries = 3" >> ~/.pip/pip.conf
 
-# 安装 Python 包（分层缓存）
-# 更新 pip 并安装基础依赖
 RUN pip3.11 install --upgrade pip
 RUN pip3.11 install numpy==1.25.0
 RUN pip3.11 install wheel
 RUN pip3.11 install decorator
 RUN pip3.11 install sympy==1.13.1
 RUN pip3.11 install cffi==1.17.1
-
-# 安装开发工具和常用库
 RUN pip3.11 install expecttest
 RUN pip3.11 install pybind11
 RUN pip3.11 install pyyaml
 RUN pip3.11 install psutil
 RUN pip3.11 install pathlib2
 RUN pip3.11 install pandas==2.2.3
-
-# 安装网络和序列化库
 RUN pip3.11 install grpcio
 RUN pip3.11 install grpcio-tools==1.67.0
 RUN pip3.11 install protobuf==5.28.2
 RUN pip3.11 install scipy==1.14.1
 RUN pip3.11 install requests
-
-# 安装机器学习和测试工具
 RUN pip3.11 install scikit-learn
 RUN pip3.11 install easydict
 RUN pip3.11 install attrs
 RUN pip3.11 install pytest
 RUN pip3.11 install pytest-cov
 RUN pip3.11 install pytest-html
-
-# 安装编译和深度学习相关
 RUN pip3.11 install Cython
 RUN pip3.11 install absl-py
 RUN pip3.11 install gin-config
@@ -116,8 +94,6 @@ RUN pip3.11 install torch-2.6.0+cpu-*.whl
 RUN pip3.11 install fbgemm_gpu-1.1.0+cpu-*.whl
 RUN pip3.11 install torch-npu==2.6.0.rc1
 RUN pip3.11 install tensorboard==2.18.0
-
-# 安装其他工具
 RUN pip3.11 install black
 RUN pip3.11 install cmake
 RUN pip3.11 install hypothesis==6.70.1
@@ -131,47 +107,21 @@ RUN pip3.11 install torchx
 RUN pip3.11 install tqdm
 RUN pip3.11 install usort
 
-# 清理缓存
-RUN rm -rf /root/.cache/pip
-
-# 阶段5：最终镜像（最小化）
-FROM openeuler-22.03-lts-sp4:latest
-WORKDIR /tmp
-COPY --from=builder /usr/bin/find /usr/local/find
-COPY --from=builder /usr/bin/flock  /usr/local/flock
-COPY --from=builder /usr/local/gcc11.2.0 /usr/local/gcc11.2.0
-COPY --from=builder /usr/local/bin/cmake /usr/local/bin/cmake
-COPY --from=python-packages /usr/local/python3.11.0 /usr/local/python3.11.0
-COPY --from=python-packages /root/.pip /root/.pip
 COPY ./Ascend-cann-toolkit_*.run ./
 COPY ./Ascend-cann-kernels-*.run ./
 
-# 设置环境变量
 ENV PATH=/usr/local/gcc11.2.0/bin:/usr/local/python3.11.0/bin:$PATH \
     LD_LIBRARY_PATH=/usr/local/gcc11.2.0/lib64:/usr/local/python3.11.0/lib:$LD_LIBRARY_PATH
 
-# 安装 Ascend Toolkit
 ARG ASCEND_BASE=/usr/local/Ascend
-# 1. 设置 umask 并创建目录
 RUN umask 0022 && mkdir -p $ASCEND_BASE
-
-# 2. 安装 CANN Toolkit
 RUN chmod +x Ascend-cann-toolkit_*.run
-# 确保 find 命令可用
-
-
 RUN ./Ascend-cann-toolkit_*.run --quiet --install --install-path=$ASCEND_BASE
-# 3. 安装 CANN Kernels
 RUN chmod +x Ascend-cann-kernels-*.run
 RUN ./Ascend-cann-kernels-*.run  --install
-
-# 4. 清理安装包
 RUN rm -f Ascend-cann-*.run
-
-# 5. 安装 torch_npu
 RUN pip3.11 install torch_npu-2.6.0-cp311-cp311-*whl
-
-# 6. 清理缓存
 RUN rm -rf /root/.cache/pip /tmp/*
+
 # 验证
 RUN gcc --version && cmake --version && python3.11 --version
