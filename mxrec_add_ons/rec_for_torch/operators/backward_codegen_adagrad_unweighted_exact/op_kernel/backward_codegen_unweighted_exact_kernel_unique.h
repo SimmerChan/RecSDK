@@ -227,7 +227,6 @@ public:
                 startIndices += thisLen;
                 thisLen = remain;
             }
-            
         }
     }
 
