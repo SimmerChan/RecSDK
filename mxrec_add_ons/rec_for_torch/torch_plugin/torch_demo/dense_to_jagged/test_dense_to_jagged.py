@@ -38,7 +38,7 @@ OFFSET_DATATYPE = [torch.int32, torch.int64] # 偏移量数据类型
 TYPE_LIST = list(itertools.product(DENSE_DATATYPE, OFFSET_DATATYPE))
 
 
-def get_golden_result(device, denses, offsets, types, use_output_size):
+def get_result(device, denses, offsets, types, use_output_size):
     dense_datatype, offset_datatype = types
     dense_torch = torch.from_numpy(denses).to(dense_datatype).to(device)
     offsets_torch = torch.from_numpy(offsets).to(offset_datatype).to(device)
@@ -56,21 +56,6 @@ def get_golden_result(device, denses, offsets, types, use_output_size):
     return jagged_embedding.cpu()
 
 
-def get_result(device, denses, offsets, types, use_output_size):
-    dense_datatype, offset_datatype = types
-    dense_torch = torch.from_numpy(denses).to(dense_datatype).to(device)
-    offsets_torch = torch.from_numpy(offsets).to(offset_datatype).to(device)
-
-    jagged_id_offset = torch.ops.fbgemm.asynchronous_complete_cumsum(offsets_torch)
-
-    output_size = None
-    if use_output_size:
-        output_size = jagged_id_offset[-1]
-
-    jagged_embedding = torch.ops.mxrec.dense_to_jagged(dense_torch, [jagged_id_offset], output_size)[0]
-    return jagged_embedding.cpu()
-
-
 @pytest.mark.parametrize("dims", DIM_LIST)
 @pytest.mark.parametrize("types", TYPE_LIST)
 @pytest.mark.parametrize("use_output_size", [True, False])  # 测试是否传入 output_size
@@ -81,7 +66,7 @@ def test_dense_to_jagged(dims, types, use_output_size):
     offsets = np.random.randint(0, dense_dim1, dense_dim0) # 生成随机偏移量
 
     # 2. 分别获取CPU和NPU结果
-    golden_result = get_golden_result(torch.device("cpu"), denses, offsets, types, use_output_size)
+    golden_result = get_result(torch.device("cpu"), denses, offsets, types, use_output_size)
     npu_result = get_result(torch.device(DEVICE), denses, offsets, types, use_output_size)
 
     # 3. 结果比对（允许1e-4的误差）

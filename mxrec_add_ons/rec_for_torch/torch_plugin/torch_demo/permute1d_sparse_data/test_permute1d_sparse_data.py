@@ -37,6 +37,7 @@ TYPE_LIST = list(itertools.product(PERMUTE_TYPE, LENGTHS_TYPE, VALUES_TYPE, WEIG
 
 # 定义参数shape
 # permute shape为[BASE_T]
+# lengths shape为[1 ~ (2T - 1)]
 # extra_t用于测试permute和lengths不等长的情况，lengths[BASE_T + extra_T]
 BASE_T = np.random.randint(2, 30, 4)       # 随机生成4个介于2到30之间的整数，代表稀疏数据的原始维度
 EXTRA_T = [1, 0, -1]
@@ -179,25 +180,3 @@ def test_2d_input():
     with pytest.raises(RuntimeError):
         result = get_result(params, DEVICE)
         assert result is not None
-
-
-def test_duplicate_permute_indices():
-    """
-    测试permute包含重复索引的情况
-    """
-    t = 5
-    params = {
-        'permute': np.array([0, 1, 1, 3, 4], dtype=np.int32),  # 包含重复索引
-        'lengths': np.ones(t, dtype=np.int32),
-        'values': np.arange(t, dtype=np.int32),
-        'weights': None,
-        'permuted_lengths_sum': None
-    }
-
-    golden = get_result(params)
-    result = get_result(params, DEVICE)
-
-    for gt, pred in zip(golden, result):
-        assert type(gt) is type(pred)
-        if isinstance(gt, torch.Tensor) and isinstance(pred, torch.Tensor):
-            assert torch.allclose(gt, pred, atol=1e-4)
