@@ -37,6 +37,7 @@ TYPE_LIST = list(itertools.product(PERMUTE_TYPE, LENGTHS_TYPE, VALUES_TYPE, WEIG
 
 # 定义参数shape
 # permute shape为[BASE_T]
+# lengths shape为[1 ~ (2T - 1)]
 # extra_t用于测试permute和lengths不等长的情况，lengths[BASE_T + extra_T]
 BASE_T = np.random.randint(2, 30, 4)       # 随机生成4个介于2到30之间的整数，代表稀疏数据的原始维度
 EXTRA_T = [1, 0, -1]
