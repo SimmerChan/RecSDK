@@ -116,7 +116,9 @@ COPY ./Ascend-cann-kernels-*.run ./
 ENV PATH=/usr/local/gcc11.2.0/bin:/usr/local/python3.11.0/bin:$PATH \
     LD_LIBRARY_PATH=/usr/local/gcc11.2.0/lib64:/usr/local/python3.11.0/lib:$LD_LIBRARY_PATH
 ARG ASCEND_BASE=/usr/local/Ascend
-ENV LD_LIBRARY_PATH=$ASCEND_BASE/driver/lib64:$ASCEND_BASE/driver/lib64/common:$ASCEND_BASE/driver/lib64/driver:$LD_LIBRARY_PATH
+ENV LD_LIBRARY_PATH=$ASCEND_BASE/driver/lib64:\
+$ASCEND_BASE/driver/lib64/common:\
+$ASCEND_BASE/driver/lib64/driver:$LD_LIBRARY_PATH
 
 RUN umask 0022 && mkdir -p $ASCEND_BASE
 RUN chmod +x Ascend-cann-toolkit_*.run
