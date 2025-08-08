@@ -94,7 +94,7 @@ RUN pip3.11 install absl-py
 RUN pip3.11 install gin-config
 RUN pip3.11 install torch-2.6.0+cpu-*.whl
 RUN pip3.11 install fbgemm_gpu-1.1.0+cpu-*.whl
-RUN pip3.11 install torch-npu==2.6.0.rc1
+RUN pip3.11 install torch-npu==2.6.0
 RUN pip3.11 install tensorboard==2.18.0
 RUN pip3.11 install black
 RUN pip3.11 install cmake
