@@ -107,6 +107,7 @@ RUN pip3 install -U pip && \
     pip3 install torchx && \
     pip3 install tqdm && \
     pip3 install usort && \
+    pip3 install parameterized && \
     rm -rf /root/.cache/pip
 
 
