@@ -120,8 +120,8 @@ tuple<Tensor, Tensor, c10::optional<Tensor>> permute1d_sparse_data_impl_npu(
 
     // 初始化输出向量
     at::Tensor outLengths = at::empty({pLength}, lengthsConti.options());
-    at::Tensor outValues = at::empty({outValuesLen}, valuesConti.options());
-    at::Tensor outWeights = weights.has_value() ? at::empty({outValuesLen}, weightsConti.options()) : at::Tensor();
+    at::Tensor outValues = at::zeros({outValuesLen}, valuesConti.options());
+    at::Tensor outWeights = weights.has_value() ? at::zeros({outValuesLen}, weightsConti.options()) : at::Tensor();
 
     EXEC_NPU_CMD(aclnnPermute2dSparseData, permuteConti, lengthsConti, valuesConti, weightsConti, outValuesLen,
         outLengths, outValues, outWeights);

@@ -152,7 +152,7 @@ public:
             .FormatList({ge::FORMAT_ND});
         this->Output("out")
             .ParamType(REQUIRED)
-            .DataType({ge::DT_FLOAT, ge::DT_INT64, ge::DT_FLOAT, ge::DT_INT64})
+            .Follow("values", FollowType::DTYPE)
             .FormatList({ge::FORMAT_ND});
         this->Attr("max_length").Int();
         this->Attr("padding_value").Float();
