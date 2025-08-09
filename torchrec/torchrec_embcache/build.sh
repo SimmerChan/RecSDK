@@ -33,4 +33,19 @@ function build_with_cmake_func()
     check_ret_fn "build torchrec_embcache"
 }
 
+function build_whl_pkg_with_setup_func()
+{
+    rm -rf build
+    rm -rf dist
+    rm -rf *.egg-info
+
+    rm -f src/torchrec_embcache/*.so*
+    cp cmake_build/install/embcache_pybind.so src/torchrec_embcache/
+
+    python3 setup.py bdist_wheel
+    check_ret_fn "python3 setup.py bdist_wheel"
+}
+
+
 build_with_cmake_func
+build_whl_pkg_with_setup_func
