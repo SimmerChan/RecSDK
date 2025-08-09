@@ -36,7 +36,7 @@ namespace optiling {
 
     TILING_DATA_FIELD_DEF(float, paddingValue);
 
-    ND_TILING_DATA_DEF;
+    END_TILING_DATA_DEF;
 
     REGISTER_TILING_DATA_CLASS(JaggedToPaddedDense, JaggedToPaddedDenseTilingData)
 }  // namespace optiling
