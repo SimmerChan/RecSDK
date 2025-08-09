@@ -271,7 +271,7 @@ class KeyedJaggedTensorWithLookHelper(KeyedJaggedTensor):
                 ),
                 unique_ids=torch.tensor(
                     empty_int_list,
-                    device=self.device('cpu'),
+                    device=torch.device('cpu'),
                     dtype=self._values.dtype,
                 ),
                 unique_inverse=torch.tensor(

@@ -31,6 +31,7 @@ function build_with_cmake_func()
     make install
 
     check_ret_fn "build torchrec_embcache"
+    cd -
 }
 
 function build_whl_pkg_with_setup_func()

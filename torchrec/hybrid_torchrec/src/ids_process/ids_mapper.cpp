@@ -90,6 +90,7 @@ void IdsMapper::UniqueAndLookupOut(const torch::Tensor& globalIds, const torch::
                                 initMaxIndex, " please reallocate a larger buffer.");
                 }
                 ids2indicesMap.insert_or_assign(key, r);
+                indice2id.push_back(key);
                 hashIndicesPtr[i] = r;
             } else {
                 hashIndicesPtr[i] = findResult->second;

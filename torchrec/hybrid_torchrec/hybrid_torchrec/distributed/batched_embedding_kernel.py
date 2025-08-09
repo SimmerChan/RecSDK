@@ -74,8 +74,14 @@ class CommonArgsInput:
 class HybridSplitTableBatchedEmbeddingBagsCodegen(
     SplitTableBatchedEmbeddingBagsCodegen
 ):
-    def __init__(self, **kwargs) -> None:
-        super().__init__(**kwargs)
+    def __init__(
+        self,
+        embedding_specs: List[
+            Tuple[int, int, EmbeddingLocation, ComputeDevice]
+        ],
+        **kwargs
+    ) -> None:
+        super().__init__(embedding_specs, **kwargs)
 
         is_mixed_dim = False
         first_dim = self.dims[0]
@@ -85,13 +91,13 @@ class HybridSplitTableBatchedEmbeddingBagsCodegen(
                 break
 
         self.is_mixed_dim = is_mixed_dim
-        optimizer_type = kwargs["optimizer"]
+        optimizer_type = kwargs.get("optimizer", self.optimizer)
         if optimizer_type in (OptimType.ADAM,):
             self._optim_num = 2
         elif optimizer_type in (OptimType.EXACT_ADAGRAD,):
             self._optim_num = 1
         else:
-            raise ValueError(f"{optimizer_type} is not support")
+            self._optim_num = 0
 
     def forward(
         self,
