@@ -11,12 +11,12 @@
 #include <torch/library.h>
 
 #include "../common/pytorch_npu_helper.hpp"
-using TensorList = std::vector<at::Tensor>;
+using tensor_list = std::vector<at::Tensor>;
 using namespace at;
 
 // 目前只支持3维的dense
 at::Tensor dense_to_jagged_forward_npu(const at::Tensor& dense,
-                                       const TensorList& offsets,
+                                       const tensor_list& offsets,
                                        const c10::optional<int64_t> total_L)
 {
     TORCH_CHECK(dense.dim() == 3,
@@ -46,8 +46,8 @@ at::Tensor dense_to_jagged_forward_npu(const at::Tensor& dense,
     return output;
 };
 
-std::tuple<at::Tensor, TensorList> dense_to_jagged_npu(const at::Tensor& dense,
-                                                       const TensorList& offsets,
+std::tuple<at::Tensor, tensor_list> dense_to_jagged_npu(const at::Tensor& dense,
+                                                       const tensor_list& offsets,
                                                        const c10::optional<int64_t> total_L)
 {
     return {dense_to_jagged_forward_npu(dense, offsets, total_L), offsets};
