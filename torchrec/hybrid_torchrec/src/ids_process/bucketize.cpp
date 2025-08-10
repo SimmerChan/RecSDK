@@ -249,7 +249,7 @@ BucketResult BlockBucketizeSparseFeaturesCpu(
 
     auto newLengths = at::zeros({newLengthsSize}, lengths.options());
     auto newIndices = at::empty_like(indices);
-    auto unbucketizePermute = at::empty(indices.sizes(), indices.options().pinned_memory(true));
+    auto unbucketizePermute = at::empty(indices.sizes(), indices.options());
     auto idsCounts = sequence && doUnique && returnCount ?
         at::empty_like(indices) : torch::tensor({}, torch::dtype(torch::kInt64));
 
