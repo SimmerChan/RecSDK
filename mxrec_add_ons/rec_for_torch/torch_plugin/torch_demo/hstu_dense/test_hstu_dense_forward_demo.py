@@ -248,7 +248,7 @@ class TestHstuJaggedDemo:
     @pytest.mark.parametrize("silu_scale", [1 / 1024])
     @pytest.mark.parametrize("data_type", [torch.bfloat16])
     @pytest.mark.skipif(get_chip(), reason="This test case is Skipped for Ascend310P.")
-    def test_hstu_dens_forward_head_255(self, head_num, max_seq_len, head_dim, enable_bias, mask_type, silu_scale,
+    def test_hstu_dens_forward_head_num_255(self, head_num, max_seq_len, head_dim, enable_bias, mask_type, silu_scale,
                                         data_type):
         with pytest.raises(RuntimeError) as e_info:
             self.execute(20, max_seq_len, head_num, head_dim, enable_bias, mask_type, silu_scale, data_type)
@@ -262,7 +262,7 @@ class TestHstuJaggedDemo:
     @pytest.mark.parametrize("silu_scale", [1 / 1024])
     @pytest.mark.parametrize("data_type", [torch.bfloat16])
     @pytest.mark.skipif(get_chip(), reason="This test case is Skipped for Ascend310P.")
-    def test_hstu_dens_forward_head_255(self, head_num, max_seq_len, head_dim, enable_bias, mask_type, silu_scale,
+    def test_hstu_dens_forward_head_dim_255(self, head_num, max_seq_len, head_dim, enable_bias, mask_type, silu_scale,
                                         data_type):
         with pytest.raises(RuntimeError) as e_info:
             self.execute(20, max_seq_len, head_num, head_dim, enable_bias, mask_type, silu_scale, data_type)
