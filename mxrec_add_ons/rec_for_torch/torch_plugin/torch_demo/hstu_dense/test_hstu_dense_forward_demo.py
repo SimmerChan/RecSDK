@@ -255,7 +255,6 @@ class TestHstuJaggedDemo:
         assert "head num must meet range[2 8] and multiple of [2]. but get value 255" in str(e_info.value)
 
 
-
 class TestHstuNormalDemo:
     @staticmethod
     def gloden_op_exec(q, k, v, bias, mask, mask_type, max_seq_len, silu_scale, enable_bias, data_type):
