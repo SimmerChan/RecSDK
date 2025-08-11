@@ -66,6 +66,7 @@ RUN mkdir -p ~/.pip && \
     echo "timeout = 600" >> ~/.pip/pip.conf && \
     echo "retries = 3" >> ~/.pip/pip.conf 
 
+# 注意：网络环境良好时建议合并安装以提高构建效率
 RUN pip3.11 install --upgrade pip
 RUN pip3.11 install numpy==1.25.0
 RUN pip3.11 install wheel
