@@ -66,49 +66,19 @@ RUN mkdir -p ~/.pip && \
     echo "timeout = 600" >> ~/.pip/pip.conf && \
     echo "retries = 3" >> ~/.pip/pip.conf 
 
-RUN pip3.11 install --upgrade pip
-RUN pip3.11 install numpy==1.25.0
-RUN pip3.11 install wheel
-RUN pip3.11 install decorator
-RUN pip3.11 install sympy==1.13.1
-RUN pip3.11 install cffi==1.17.1
-RUN pip3.11 install expecttest
-RUN pip3.11 install pybind11
-RUN pip3.11 install pyyaml
-RUN pip3.11 install psutil
-RUN pip3.11 install pathlib2
-RUN pip3.11 install pandas==2.2.3
-RUN pip3.11 install grpcio
-RUN pip3.11 install grpcio-tools==1.67.0
-RUN pip3.11 install protobuf==5.28.2
-RUN pip3.11 install scipy==1.14.1
-RUN pip3.11 install requests
-RUN pip3.11 install scikit-learn
-RUN pip3.11 install easydict
-RUN pip3.11 install attrs
-RUN pip3.11 install pytest
-RUN pip3.11 install pytest-cov
-RUN pip3.11 install pytest-html
-RUN pip3.11 install Cython
-RUN pip3.11 install absl-py
-RUN pip3.11 install gin-config
-RUN pip3.11 install torch-2.6.0+cpu-*.whl
-RUN pip3.11 install fbgemm_gpu-1.1.0+cpu-*.whl
-RUN pip3.11 install torch-npu==2.6.0
-RUN pip3.11 install tensorboard==2.18.0
-RUN pip3.11 install black
-RUN pip3.11 install cmake
-RUN pip3.11 install hypothesis==6.70.1
-RUN pip3.11 install iopath || \
-    (pip3.11 install --use-pep517 iopath || \
-     pip3.11 install --only-binary=:all: iopath)
-RUN pip3.11 install pyre-extensions
-RUN pip3.11 install scikit-build
-RUN pip3.11 install torchmetrics==1.0.3
-RUN pip3.11 install torchx
-RUN pip3.11 install tqdm
-RUN pip3.11 install usort
-RUN pip3.11 install parameterized
+RUN pip3.11 install --upgrade pip && \
+    pip3.11 install numpy==1.25.0 wheel decorator sympy==1.13.1 cffi==1.17.1 && \
+    pip3.11 install expecttest pybind11 pyyaml psutil pathlib2 pandas==2.2.3 && \
+    pip3.11 install grpcio grpcio-tools==1.67.0 protobuf==5.28.2 scipy==1.14.1 && \
+    pip3.11 install requests scikit-learn easydict attrs pytest pytest-cov && \
+    pip3.11 install pytest-html Cython absl-py gin-config && \
+    pip3.11 install torch-2.6.0+cpu-*.whl fbgemm_gpu-1.1.0+cpu-*.whl && \
+    pip3.11 install torch-npu==2.6.0 tensorboard==2.18.0 black cmake && \
+    pip3.11 install hypothesis==6.70.1 && \
+    (pip3.11 install iopath || pip3.11 install --use-pep517 iopath || \
+     pip3.11 install --only-binary=:all: iopath) && \
+    pip3.11 install pyre-extensions scikit-build torchmetrics==1.0.3 && \
+    pip3.11 install torchx tqdm usort parameterized
 
 COPY ./Ascend-cann-toolkit_*.run ./
 COPY ./Ascend-cann-kernels-*.run ./
