@@ -21,7 +21,7 @@ See the License for the specific language governing permissions and
 namespace HstuDenseForward {
 
 ShapeRange::ShapeRange(int64_t lbound, int64_t ubound, int64_t mutiple, const char *name)
-{mxrec_add_ons/rec_for_torch/operators/hstu_dense_forward/op_host/tiling_policy.cpp
+{
     this->lbound = lbound;
     this->ubound = ubound;
     this->mutiple = mutiple;
