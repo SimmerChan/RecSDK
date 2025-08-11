@@ -75,10 +75,11 @@ RUN pip3.11 install --upgrade pip && \
     pip3.11 install torch-2.6.0+cpu-*.whl fbgemm_gpu-1.1.0+cpu-*.whl && \
     pip3.11 install torch-npu==2.6.0 tensorboard==2.18.0 black cmake && \
     pip3.11 install hypothesis==6.70.1 && \
-    (pip3.11 install iopath || pip3.11 install --use-pep517 iopath || \
-     pip3.11 install --only-binary=:all: iopath) && \
     pip3.11 install pyre-extensions scikit-build torchmetrics==1.0.3 && \
     pip3.11 install torchx tqdm usort parameterized
+
+RUN (pip3.11 install iopath || pip3.11 install --use-pep517 iopath || \
+     pip3.11 install --only-binary=:all: iopath)
 
 COPY ./Ascend-cann-toolkit_*.run ./
 COPY ./Ascend-cann-kernels-*.run ./
