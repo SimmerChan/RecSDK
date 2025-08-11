@@ -28,7 +28,7 @@ from torchrec.distributed.embedding_types import (
     GroupedEmbeddingConfig,
     BaseEmbeddingLookup,
 )
-from torchrec.distributed.types import rank_device, ShardingType
+from torchrec.distributed.types import ShardingType
 
 
 class HybridGroupedPooledEmbeddingsLookup(GroupedPooledEmbeddingsLookup):

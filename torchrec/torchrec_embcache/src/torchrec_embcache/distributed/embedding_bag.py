@@ -5,6 +5,7 @@
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
+
 import os
 from dataclasses import dataclass
 from typing import Any, cast, Dict, List, Optional, Mapping, Union, Type
@@ -15,7 +16,6 @@ import numpy as np
 import torch_npu
 import torch
 from torch import distributed as dist, nn
-
 from fbgemm_gpu.split_embedding_configs import EmbOptimType
 from fbgemm_gpu.split_table_batched_embeddings_ops_training import (
     SplitTableBatchedEmbeddingBagsCodegen,
