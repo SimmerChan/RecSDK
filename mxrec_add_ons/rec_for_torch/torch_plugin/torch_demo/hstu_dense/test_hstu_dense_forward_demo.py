@@ -252,7 +252,7 @@ class TestHstuJaggedDemo:
                                         data_type):
         with pytest.raises(RuntimeError) as e_info:
             self.execute(20, max_seq_len, head_num, head_dim, enable_bias, mask_type, silu_scale, data_type)
-        assert "head num must meet range[2 8] and multiple of [2]. but get value 255" in str(e_info.value)
+        assert "head num must meet range[2 8] and mutiple of [2]. but get value 255" in str(e_info.value)
 
 
 class TestHstuNormalDemo:
