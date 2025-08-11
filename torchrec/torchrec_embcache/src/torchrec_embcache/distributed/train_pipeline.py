@@ -33,7 +33,7 @@ from hybrid_torchrec.distributed.sharding.sequence_sharding import (
     HybridSequenceShardingContext,
 )
 
-import embcache_pybind
+from torchrec_embcache import embcache_pybind
 from torchrec_embcache.distributed.sharding.rw_sharding import (
     EmbCacheRwSparseFeaturesDistAwaitable,
 )

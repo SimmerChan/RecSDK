@@ -5,28 +5,17 @@
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
-
 import os
 from dataclasses import dataclass
 from typing import Any, cast, Dict, List, Optional, Mapping, Union, Type
-from collections import defaultdict, OrderedDict
+from collections import defaultdict
 import logging
 import numpy as np
 
 import torch_npu
 import torch
-from torch import distributed as dist, nn, Tensor
+from torch import distributed as dist, nn
 
-from embcache_pybind import (
-    EmbcacheManager,
-    EmbConfig,
-    AdmitAndEvictConfig,
-    AsyncSwapInfo,
-    AsyncSwapinTensor,
-    InitializerType as CppInitType,
-    SwapInfo,
-    SwapinTensor,
-)
 from fbgemm_gpu.split_embedding_configs import EmbOptimType
 from fbgemm_gpu.split_table_batched_embeddings_ops_training import (
     SplitTableBatchedEmbeddingBagsCodegen,
@@ -55,7 +44,6 @@ from torchrec.sparse.jagged_tensor import KeyedTensor, KeyedJaggedTensor
 from torchrec.distributed.embedding_types import (
     ShardingType,
     KJTList,
-    ShardedEmbeddingModule,
 )
 from torchrec.distributed.types import (
     LazyAwaitable,
@@ -74,7 +62,6 @@ from torchrec.distributed.embedding_sharding import (
 from torchrec.modules.embedding_configs import (
     DataType,
     EmbeddingBagConfig,
-    EmbeddingConfig,
     pooling_type_to_str,
     PoolingType,
 )
@@ -89,6 +76,15 @@ from torchrec.distributed.embeddingbag import (
     EmbeddingBagCollectionContext,
     EmbeddingBagCollectionAwaitable,
     create_sharding_infos_by_sharding,
+)
+
+from torchrec_embcache.embcache_pybind import (
+    EmbcacheManager,
+    EmbConfig,
+    AsyncSwapInfo,
+    AsyncSwapinTensor,
+    InitializerType as CppInitType,
+    SwapInfo,
 )
 
 

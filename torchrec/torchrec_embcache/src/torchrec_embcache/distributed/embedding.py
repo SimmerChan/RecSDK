@@ -95,7 +95,7 @@ from torchrec_embcache.sparse.jagged_tensor_with_timestamp import (
     KeyedJaggedTensorWithTimestamp,
 )
 from torchrec_embcache.distributed.utils import get_embedding_optim_num
-from embcache_pybind import (
+from torchrec_embcache.embcache_pybind import (
     EmbcacheManager,
     EmbConfig,
     AdmitAndEvictConfig,

@@ -53,9 +53,9 @@ class IdsMapper(HashMapBase):
     of ids stored in the IdsMapper.
     """
 
-    def __init__(self, embedding_num, only_device_mem: bool = True):
+    def __init__(self, embedding_num, only_device_memory: bool = True):
         super().__init__()
-        self.ids_mapper = torch.classes.hybrid.IdsMapper(embedding_num, only_device_mem)
+        self.ids_mapper = torch.classes.hybrid.IdsMapper(embedding_num, only_device_memory)
         self.embedding_num = embedding_num
         self._cache_mgr = None
     

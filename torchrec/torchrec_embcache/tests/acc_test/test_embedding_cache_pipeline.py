@@ -109,7 +109,7 @@ def execute(rank: int, config: ExecuteConfig):
         assert torch.allclose(
             golden, result, rtol=1e-04, atol=1e-04
         ), "golden and result is not closed"
-
+        logging.debug("golden and result is closed")
 
 def weight_init(param: torch.nn.Parameter):
     if len(param.shape) != 2:
@@ -195,7 +195,7 @@ class TestModel:
         )
         # Shard
         constrans = {
-            f"table{i}": ParameterConstraints(sharding_types=[sharding_type])
+            f"table{i}": ParameterConstraints(sharding_types=[sharding_type], compute_kernels=["fused"])
             for i in range(table_num)
         }
         rank = int(os.environ["LOCAL_RANK"])
