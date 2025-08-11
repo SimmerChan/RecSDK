@@ -249,7 +249,7 @@ class TestHstuJaggedDemo:
     @pytest.mark.parametrize("data_type", [torch.bfloat16])
     @pytest.mark.skipif(get_chip(), reason="This test case is Skipped for Ascend310P.")
     def test_hstu_dens_forward_head_255(self, head_num, max_seq_len, head_dim, enable_bias, mask_type, silu_scale,
-                                      data_type):
+                                        data_type):
         with pytest.raises(RuntimeError) as e_info:
             self.execute(20, max_seq_len, head_num, head_dim, enable_bias, mask_type, silu_scale, data_type)
         assert "head num must meet range[2 8] and multiple of [2]. but get value 255" in str(e_info.value)
