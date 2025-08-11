@@ -120,14 +120,68 @@ ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$ASCEND_BASE/driver/lib64
 ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$ASCEND_BASE/driver/lib64/common
 ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$ASCEND_BASE/driver/lib64/driver
 
-RUN umask 0022 && mkdir -p $ASCEND_BASE
-RUN chmod +x Ascend-cann-toolkit_*.run
-RUN ./Ascend-cann-toolkit_*.run --quiet --install --install-path=$ASCEND_BASE
+# RUN umask 0027 && mkdir -p $ASCEND_BASE
+# RUN chmod u+x Ascend-cann-toolkit_*.run
+# RUN ./Ascend-cann-toolkit_*.run --quiet --install --install-path=$ASCEND_BASE
 
-RUN chmod +x Ascend-cann-kernels-*.run
-RUN ./Ascend-cann-kernels-*.run --quiet --install
-RUN rm -f Ascend-cann-*.run
-RUN rm -rf /root/.cache/pip /tmp/*
+# RUN chmod u+x Ascend-cann-kernels-*.run
+# RUN ./Ascend-cann-kernels-*.run --quiet --install
+# RUN rm -f Ascend-cann-*.run
+# RUN rm -rf /root/.cache/pip /tmp/*
 
 # 验证
 RUN gcc --version && cmake --version && python3.11 --version
+
+root@137d88e16ed6 recsdk]# ll
+total 4766540
+-rwxr-xr-x 1 unbound unbound 2246709793 Aug  5 15:59 Ascend-cann-kernels-910b_8.2.RC1.alpha003_linux-aarch64.run
+-rwxr----- 1 unbound unbound 2609853958 Aug  5 15:59 Ascend-cann-toolkit_8.2.RC1.alpha003_linux-aarch64.run
+-rw-r--r-- 1 root    root          5620 Aug 11 10:26 Dockerfile
+-rw-r--r-- 1 unbound unbound       5628 Aug 11 10:40 Dockerfile_openeuler
+-rw-r--r-- 1 unbound unbound        164 Aug  5 15:55 ascend_install.info
+-rw-r--r-- 1 root    root      24333395 Aug  5 16:08 torch_npu-2.6.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
+-r--r--r-- 1 unbound unbound        352 Aug  5 15:54 version.info
+[root@137d88e16ed6 recsdk]# cat /var/log/ascend_seclog/ascend_toolkit_install.log
+[Toolkit] [20250811-10:54:07] [INFO] Log file not found, create a new log file.
+[Toolkit] [20250811-10:54:07] [INFO] LogFile:/var/log/ascend_seclog/ascend_toolkit_install.log
+[Toolkit] [20250811-10:54:07] [INFO] The path /usr/local/Ascend is correct.
+[Toolkit] [20250811-10:54:07] [INFO] The path /usr/local/Ascend is correct.
+[Toolkit] [20250811-10:54:07] [INFO] show ./script/eula_en.txt
+[Toolkit] [20250811-10:54:09] [INFO] Accept EULA, start to install
+[Toolkit] [20250811-10:54:09] [INFO] mkdir /usr/local/Ascend/ascend-toolkit
+[Toolkit] [20250811-10:54:09] [INFO] install start
+[Toolkit] [20250811-10:54:09] [INFO] The installation path is /usr/local/Ascend.
+[Toolkit] [20250811-10:54:09] [WARNING] driver package is not installed. If you install in docker, you should map driver install path and /etc/ascend_install.info to the docker container, you can see the installation guide for details.
+[Toolkit] [20250811-10:54:09] [WARNING] driver package is not installed. If you install in docker, you should map driver install path and /etc/ascend_install.info to the docker container, you can see the installation guide for details.
+[Toolkit] [20250811-10:54:09] [INFO] this environment is compilation and development environment
+[Toolkit] [20250811-10:54:09] [INFO] CANN-runtime-8.2.t12.0.b077-linux.aarch64.run CANN-compiler-8.2.t12.0.b077-linux.aarch64.run CANN-hccl-8.2.t12.0.b077-linux.aarch64.run CANN-opp-8.2.t12.0.b077-linux.aarch64.run CANN-toolkit-8.2.t12.0.b077-linux.aarch64.run CANN-aoe-8.2.t12.0.b077-linux.aarch64.run CANN-ncs-8.2.t12.0.b077-linux.aarch64.run Ascend-BiSheng-toolkit_aarch64.run Ascend-mindstudio-toolkit_8.1.RC1_linux-aarch64.run Ascend-pyACL_8.2.RC1.alpha003_linux-aarch64.run Ascend-test-ops_8.2.RC1.alpha003_linux.run
+[Toolkit] [20250811-10:54:09] [INFO] --full --full&--pylocal --full&--pylocal --full --full&--pylocal --full --full --full --full --full --full
+[Toolkit] [20250811-10:54:09] [INFO] install package CANN-runtime-8.2.t12.0.b077-linux.aarch64.run start
+[Runtime] [2025-08-11 10:54:14] [INFO]: Start time:2025-08-11 10:54:14
+[Runtime] [2025-08-11 10:54:14] [INFO]: LogFile:/var/log/ascend_seclog/ascend_install.log
+[Runtime] [2025-08-11 10:54:14] [INFO]: InputParams:--quiet --full --install-path=/usr/local/Ascend/ascend-toolkit
+[Runtime] [2025-08-11 10:54:14] [INFO]: OperationLogFile:/var/log/ascend_seclog/operation.log
+[Runtime] [2025-08-11 10:54:14] [WARNING]: Cannot find the install path of driver.
+[Runtime] [2025-08-11 10:54:14] [INFO]: parent_dir value is [/usr/local/Ascend] and children_dir value is [ascend-toolkit]
+[Runtime] [2025-08-11 10:54:14] [INFO]: [ascend-toolkit] belongs to root.
+[Runtime] [2025-08-11 10:54:14] [INFO]: [ascend-toolkit] permission is ok.
+[Runtime] [2025-08-11 10:54:14] [INFO]: parent_dir value is [/usr/local] and children_dir value is [Ascend]
+[Runtime] [2025-08-11 10:54:14] [INFO]: [Ascend] belongs to root.
+[Runtime] [2025-08-11 10:54:14] [WARNING]: [Ascend] permission is too small, it is recommended that the permission be 755 for the root user.
+[Runtime] [2025-08-11 10:54:14] [ERROR]: the given dir, or its parents, permission is invalid.
+[Toolkit] [20250811-10:54:14] [INFO] start uninstall CANN-runtime-8.2.t12.0.b077-linux.aarch64.run
+[Runtime] [2025-08-11 10:54:19] [INFO]: Start time:2025-08-11 10:54:19
+[Runtime] [2025-08-11 10:54:19] [INFO]: LogFile:/var/log/ascend_seclog/ascend_install.log
+[Runtime] [2025-08-11 10:54:19] [INFO]: InputParams:--quiet --uninstall --install-path=/usr/local/Ascend/ascend-toolkit
+[Runtime] [2025-08-11 10:54:19] [INFO]: OperationLogFile:/var/log/ascend_seclog/operation.log
+[Runtime] [2025-08-11 10:54:19] [INFO]: parent_dir value is [/usr/local/Ascend] and children_dir value is [ascend-toolkit]
+[Runtime] [2025-08-11 10:54:19] [INFO]: [ascend-toolkit] belongs to root.
+[Runtime] [2025-08-11 10:54:19] [INFO]: [ascend-toolkit] permission is ok.
+[Runtime] [2025-08-11 10:54:19] [INFO]: parent_dir value is [/usr/local] and children_dir value is [Ascend]
+[Runtime] [2025-08-11 10:54:19] [INFO]: [Ascend] belongs to root.
+[Runtime] [2025-08-11 10:54:19] [WARNING]: [Ascend] permission is too small, it is recommended that the permission be 755 for the root user.
+[Runtime] [2025-08-11 10:54:19] [ERROR]: the given dir, or its parents, permission is invalid.
+[Toolkit] [20250811-10:54:19] [INFO]  delete directory /usr/local/Ascend/ascend-toolkit successfully.
+[Toolkit] [20250811-10:54:19] [ERROR] CANN-runtime-8.2.t12.0.b077-linux.aarch64.run install failed
+[Toolkit] [20250811-10:54:19] [ERROR] package install failed, Please refer to the log for more details: /var/log/ascend_seclog/ascend_toolkit_install.log
+[Toolkit] [20250811-10:54:19] [ERROR] process exit
