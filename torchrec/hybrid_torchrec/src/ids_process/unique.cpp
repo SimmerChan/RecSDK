@@ -30,24 +30,12 @@ struct IsUnique {};
 
 template <typename scalar_t>
 struct IsUnique<scalar_t, false> {
-    inline bool operator()(scalar_t* dataPtr, int64_t i)
+    inline bool operator()(scalar_t* sortedDataPtr, int64_t idx)
     {
-        if (i == 0) {
+        if (idx == 0) {
             return true;
         }
-        return c10::load(&dataPtr[i]) != c10::load(&dataPtr[i - 1]);
-    }
-};
-
-template <typename scalar_t>
-struct IsUnique<scalar_t, true> {
-    inline bool operator()(scalar_t* dataPtr, int64_t i)
-    {
-        if (i == 0) {
-            return true;
-        }
-        return (c10::load(&dataPtr[i]) != c10::load(&dataPtr[i - 1])) &&
-               !(_isnan(dataPtr[i]) && _isnan(dataPtr[i - 1]));
+        return c10::load(&sortedDataPtr[idx]) != c10::load(&sortedDataPtr[idx - 1]);
     }
 };
 
