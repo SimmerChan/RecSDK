@@ -21,7 +21,7 @@ See the License for the specific language governing permissions and
 #include "../../../common/ops_log.h"
 
 namespace optiling {
-// 常量定义
+// Constant definitions
 constexpr int32_t ALIGN_32 = 32;
 constexpr int32_t ALIGN_512 = 512;
 constexpr int32_t RESERVER_UB_SIZE = (20 * 1024); // 20KB

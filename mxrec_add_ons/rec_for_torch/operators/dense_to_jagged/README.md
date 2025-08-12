@@ -65,14 +65,15 @@ c) 算子约束说明：
 
 ## 算子逻辑
 ```
-import numpy as np
-def dense_to_jagged(dense, offset, jagged_dim0):
-    jagged_dense = torch.zeros(jagged_dim0, dense.shape[2]， dtype=dense.dtype)
+import torch
 
+def dense_to_jagged(dense, offset, jagged_dim0):
+    jagged_dense = torch.zeros(jagged_dim0, dense.shape[2], dtype=dense.dtype, device=dense.device)
+    
     for i in range(offset.shape[0] - 1):
         copyLen = offset[i + 1] - offset[i]
-        jagged_dense[offset[i]:offset[i + 1], :] = dense[i][0:copyLen, :]
-
+        jagged_dense[offset[i]:offset[i + 1], :] = dense[i, 0:copyLen, :]
+    
     return jagged_dense
 
 ```
