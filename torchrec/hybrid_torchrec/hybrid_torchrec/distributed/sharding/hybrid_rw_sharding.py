@@ -164,23 +164,23 @@ def bucketize_kjt_before_all2all(
             ),
             unbucketize_permute,
         )
-    else:
-        return (
-            KeyedJaggedTensor(
-                # duplicate keys will be resolved by AllToAll
-                keys=_fx_wrap_gen_list_n_times(kjt.keys(), num_buckets),
-                values=bucketized_indices,
-                weights=pos if bucketize_pos else bucketized_weights,
-                lengths=bucketized_lengths.view(-1),
-                offsets=None,
-                stride=_fx_wrap_stride(kjt),
-                stride_per_key_per_rank=_fx_wrap_stride_per_key_per_rank(kjt, num_buckets),
-                length_per_key=None,
-                offset_per_key=None,
-                index_per_key=None,
-            ),
-            unbucketize_permute,
-        )
+
+    return (
+        KeyedJaggedTensor(
+            # duplicate keys will be resolved by AllToAll
+            keys=_fx_wrap_gen_list_n_times(kjt.keys(), num_buckets),
+            values=bucketized_indices,
+            weights=pos if bucketize_pos else bucketized_weights,
+            lengths=bucketized_lengths.view(-1),
+            offsets=None,
+            stride=_fx_wrap_stride(kjt),
+            stride_per_key_per_rank=_fx_wrap_stride_per_key_per_rank(kjt, num_buckets),
+            length_per_key=None,
+            offset_per_key=None,
+            index_per_key=None,
+        ),
+        unbucketize_permute,
+    )
 
 
 class HashRwSparseFeaturesDistAwaitable(Awaitable):

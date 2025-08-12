@@ -421,11 +421,7 @@ class EmbCacheShardedEmbeddingBagCollection(ShardedEmbeddingBagCollection):
         self._inverse_indices_permute_indices: Optional[torch.Tensor] = None
         self._has_uninitialized_post_input_dist: bool = True
         # to support mean pooling callback hook
-        self._has_mean_pooling_callback: bool = (
-            True
-            if PoolingType.MEAN.value in self._pooling_type_to_rs_features
-            else False
-        )
+        self._has_mean_pooling_callback: bool = PoolingType.MEAN.value in self._pooling_type_to_rs_features
         self._dim_per_key: Optional[torch.Tensor] = None
         self._kjt_key_indices: Dict[str, int] = {}
         self._kjt_inverse_order: Optional[torch.Tensor] = None
@@ -580,8 +576,6 @@ class EmbCacheShardedEmbeddingBagCollection(ShardedEmbeddingBagCollection):
             batched_embedding_kernels.append(modules)
         return batched_embedding_kernels
 
-
-
     def _create_embcache_mgr(self, need_accumulate_offset: bool) -> EmbcacheManager:
         emb_configs = []
         for _, sharding_infos in self.sharding_type_to_sharding_infos.items():
@@ -604,7 +598,12 @@ class EmbCacheShardedEmbeddingBagCollection(ShardedEmbeddingBagCollection):
                     )
 
                 local_shard_size = 0
-                rank = int(os.environ["LOCAL_RANK"])
+                rank_str = os.environ.get("LOCAL_RANK", "0")
+                if not rank_str.isdigit():
+                    raise ValueError(
+                        f"Param error, LOCAL_RANK must be a number but got {rank_str}."
+                    )
+                rank = int(rank_str)
                 for shard_metadata in sharding_info.param_sharding.sharding_spec.shards:
                     # 解析 placement 字符串以获取 rank
                     placement_str = str(shard_metadata.placement)

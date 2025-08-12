@@ -83,14 +83,7 @@ class HybridSplitTableBatchedEmbeddingBagsCodegen(
     ) -> None:
         super().__init__(embedding_specs, **kwargs)
 
-        is_mixed_dim = False
-        first_dim = self.dims[0]
-        for d in self.dims:
-            if d != first_dim:
-                is_mixed_dim = True
-                break
-
-        self.is_mixed_dim = is_mixed_dim
+        self.is_mixed_dim = len(set(self.dims)) != len(self.dims)
         optimizer_type = kwargs.get("optimizer", self.optimizer)
         if optimizer_type in (OptimType.ADAM,):
             self._optim_num = 2
@@ -551,7 +544,6 @@ class HybridBatchedFusedEmbedding(
         unique_offset = None
         unique_inverse = None
         if isinstance(features, KeyedJaggedTensorWithLookHelper):
-            features: KeyedJaggedTensorWithLookHelper
             hash_indices = features.hash_indices
             unique_indices = features.unique_indices
             unique_offset = features.unique_offset

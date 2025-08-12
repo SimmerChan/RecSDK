@@ -104,11 +104,9 @@ class EmbCacheRwSparseFeaturesDist(RwSparseFeaturesDist):
         self.pg = pg
 
         # local unique只可用于EC(Embedding Collection / Sequence Embedding)
-        self._do_unique = os.environ.get("DO_EC_LOCAL_UNIQUE", "False").lower() in (
-            "true",
-            "1",
-            "yes",
-        ) and os.environ.get("USE_EC", "False").lower() in ("true", "1", "yes")
+        yes_str = ("true", "1", "yes")
+        self._do_unique = os.environ.get("DO_EC_LOCAL_UNIQUE", "False").lower() in yes_str and \
+                          os.environ.get("USE_EC", "False").lower() in yes_str
 
         self._enable_admit = enable_admit
 

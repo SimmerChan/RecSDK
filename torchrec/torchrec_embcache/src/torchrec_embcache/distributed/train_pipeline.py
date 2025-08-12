@@ -22,7 +22,6 @@ from typing import (
 )
 from collections import defaultdict, deque
 import logging
-import time
 import os
 
 import torch_npu
@@ -167,11 +166,7 @@ def _start_data_dist(
 
     for module in pipelined_modules:
         forward = module.forward
-        if not (
-            isinstance(forward, PipelinedForward)
-            or isinstance(forward, PrefetchPipelinedForward)
-            or isinstance(forward, EmbCachePipelinedForward)
-        ):
+        if not isinstance(forward, (PipelinedForward, PrefetchPipelinedForward, EmbCachePipelinedForward)):
             raise RuntimeError("forward should be in [PipelinedForward," \
             " PrefetchPipelinedForward, EmbCachePipelinedForward]")
 
@@ -284,9 +279,13 @@ class EmbCacheTrainPipelineSparseDist(TrainPipelineSparseDist[In, Out]):
         self._default_stream = torch.get_device_module(
             self._npu_device
         ).current_stream()
-        self.local_unique_parallel_batch_num = int(
-            os.environ.get("LOCAL_UNIQUE_PARALLEL_BATCH_NUM", 2)
-        )
+        local_unique_parallel_batch_num = os.environ.get("LOCAL_UNIQUE_PARALLEL_BATCH_NUM", "2")
+        if not local_unique_parallel_batch_num.isdigit():
+            raise ValueError(
+                f"Param error, LOCAL_UNIQUE_PARALLEL_BATCH_NUM must be a number"
+                f"but got {local_unique_parallel_batch_num}."
+            )
+        self.local_unique_parallel_batch_num = int(local_unique_parallel_batch_num)
 
     def _init_pipelined_modules(
         self,
@@ -402,15 +401,15 @@ class EmbCacheTrainPipelineSparseDist(TrainPipelineSparseDist[In, Out]):
                 with record_function("## wait input_dist_tensors_requests ##"):
                     kjt_list = awaitable.wait()
 
-                if hasattr(module, "post_input_dist"):
-                    post_waitable = module.post_input_dist(
-                        context.module_contexts[name], kjt_list
-                    )
-                    context.post_input_dist_awaitable[name] = post_waitable
-                else:
+                if not hasattr(module, "post_input_dist"):
                     raise RuntimeError(
-                        "EmbCacheTrainPipelineSparseDist can't be used for module with no post_input method"
+                        "EmbCacheTrainPipelineSparseDist can't be used for module with no post_input_dist method"
                     )
+
+                post_waitable = module.post_input_dist(
+                    context.module_contexts[name], kjt_list
+                )
+                context.post_input_dist_awaitable[name] = post_waitable
 
     def do_restore_async(self, context: EmbCacheTrainPipelineContext):
         with record_function("## restore ##"):
@@ -627,7 +626,7 @@ class EmbCacheTrainPipelineSparseDist(TrainPipelineSparseDist[In, Out]):
         _fuse_input_dist_splits(self.contexts[1])
         self.wait_sparse_data_dist(self.contexts[1])
         self.do_post_input_dist(self.contexts[1])
-        with record_function("## wait_for_batch##"):
+        with record_function("## wait_for_batch ##"):
             _wait_for_batch(cast(In, self.batches[1]), self._data_dist_stream)
         self.start_compute_swap_info(self.contexts[1])
 
@@ -638,7 +637,7 @@ class EmbCacheTrainPipelineSparseDist(TrainPipelineSparseDist[In, Out]):
         _fuse_input_dist_splits(self.contexts[2])
         self.wait_sparse_data_dist(self.contexts[2])
         self.do_post_input_dist(self.contexts[2])
-        with record_function("## wait_for_batch##"):
+        with record_function("## wait_for_batch ##"):
             _wait_for_batch(cast(In, self.batches[2]), self._data_dist_stream)
 
         # batch i+3
@@ -736,10 +735,7 @@ class EmbCacheTrainPipelineSparseDist(TrainPipelineSparseDist[In, Out]):
         self.wait_host_update(self.contexts[0])
 
         self.dequeue_batch()
-        if self._return_loss:
-            return output, losses
-        else:
-            return output
+        return (output, losses) if self._return_loss else output
 
     def _start_feature_evict(self):
         logging.info("Start invoke embcache_mgr.evict_features()")

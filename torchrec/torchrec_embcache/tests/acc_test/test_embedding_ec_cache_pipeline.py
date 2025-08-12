@@ -177,7 +177,7 @@ class TestModel:
 
     def test_loss(
         self,
-        embeding_config: List[EmbCacheEmbeddingConfig],
+        embedding_config: List[EmbCacheEmbeddingConfig],
         dataloader: DataLoader[Batch],
         sharding_type: str,
     ):
@@ -185,11 +185,11 @@ class TestModel:
         host_gp = dist.new_group(backend="gloo")
         host_env = ShardingEnv(world_size=world_size, rank=rank, pg=host_gp)
 
-        table_num = len(embeding_config)
-        ec = EmbCacheEmbeddingCollection(device=torch.device("meta"), tables=embeding_config,
+        table_num = len(embedding_config)
+        ec = EmbCacheEmbeddingCollection(device=torch.device("meta"), tables=embedding_config,
                                          batch_size=2, multi_hot_sizes=[1] * table_num,
                                          world_size=dist.get_world_size())
-        num_features = sum([c.num_features() for c in embeding_config])
+        num_features = sum([c.num_features() for c in embedding_config])
         ec = ModelEc(ec, num_features)
         apply_optimizer_in_backward(
             optimizer_class=torch.optim.Adagrad,
@@ -252,7 +252,7 @@ class TestModel:
 
 
 params = {
-    "warld_size": [WORLD_SIZE],
+    "world_size": [WORLD_SIZE],
     "table_num": [2],
     "embedding_dims": [[128, 128]],
     "num_embeddings": [[4000, 400]],

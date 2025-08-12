@@ -78,10 +78,9 @@ class EmbCacheEmbeddingBagCollectionSharder(EmbeddingBagCollectionSharder):
         )
 
     def sharding_types(self, compute_device_type: str) -> List[str]:
-        types = [
+        return [
             ShardingType.ROW_WISE.value,
         ]
-        return types
 
     @property
     def module_type(self) -> Type[EmbCacheEmbeddingBagCollection]:
@@ -132,10 +131,9 @@ class EmbCacheEmbeddingCollectionSharder(EmbeddingCollectionSharder):
         )
 
     def sharding_types(self, compute_device_type: str) -> List[str]:
-        types = [
+        return [
             ShardingType.ROW_WISE.value,
         ]
-        return types
 
     @property
     def module_type(self) -> Type[EmbCacheEmbeddingCollection]:

@@ -20,8 +20,8 @@ from typing import (
     Type,
 )
 import logging
-import numpy as np
 
+import numpy as np
 import torch_npu
 import torch
 from torch import distributed as dist, nn, Tensor
@@ -634,7 +634,12 @@ class EmbCacheShardedEmbeddingCollection(ShardedEmbeddingCollection):
                     )
 
                 local_shard_size = 0
-                rank = int(os.environ["LOCAL_RANK"])
+                rank_str = os.environ.get("LOCAL_RANK", "0")
+                if not rank_str.isdigit():
+                    raise ValueError(
+                        f"Param error, LOCAL_RANK must be a number but got {rank_str}."
+                    )
+                rank = int(rank_str)
                 for shard_metadata in sharding_info.param_sharding.sharding_spec.shards:
                     # 解析 placement 字符串以获取 rank
                     placement_str = str(shard_metadata.placement)

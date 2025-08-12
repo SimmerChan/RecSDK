@@ -90,7 +90,6 @@ class RandomRecDataset(IterableDataset[Batch]):
                 lengths = torch.ones(self.lookup_lens).long()
                 input_dict[name] = JaggedTensorWithTimestamp(values=ids, lengths=lengths, timestamps=timestamp_data)
             kjt_tensor = KeyedJaggedTensorWithTimestamp.from_jt_dict(input_dict)
-            label = torch.randint(0, 2, (self.lookup_lens,))
         else:
             for ind in range(feature_len):
                 name = f"feat{ind}"
@@ -99,5 +98,6 @@ class RandomRecDataset(IterableDataset[Batch]):
                 lengths = torch.ones(self.lookup_lens).long()
                 input_dict[name] = JaggedTensor(values=ids, lengths=lengths)
             kjt_tensor = KeyedJaggedTensor.from_jt_dict(input_dict)
-            label = torch.randint(0, 2, (self.lookup_lens,))
+
+        label = torch.randint(0, 2, (self.lookup_lens,))
         return Batch(kjt_tensor, label)

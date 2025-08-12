@@ -23,9 +23,6 @@ export OMP_NUM_THREADS=12
 # ascend related
 #----------------------------------------
 export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
-# export ASCEND_GLOBAL_LOG_LEVEL=3
-# export ASCEND_GLOBAL_EVENT_ENABLE=0
-# export ASCEND_SLOG_PRINT_TO_STDOUT=1
 
 #----------------------------------------
 # embcache related

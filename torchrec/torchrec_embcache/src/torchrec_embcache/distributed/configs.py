@@ -23,7 +23,7 @@ class AdmitAndEvictConfig:
     AdmitAndEvictConfig is a dataclass that represents an admit and evict config of a single embedding table.
 
     Args:
-        admit_threshold (Optional[int]): feature admit threshold. Feature (which after input dist) whill de admitted
+        admit_threshold (Optional[int]): feature admit threshold. Feature (which after input dist) will be admitted
             when repeat time is greater than `admit_threshold`.
             Default value is -1, and indicates that feature admit function is not enabled.
         not_admitted_default_value (Optional[float]): the embedding value of not admitted feature ids.
