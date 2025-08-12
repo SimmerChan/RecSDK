@@ -49,15 +49,10 @@ docker run \
 ```shell
 bash run_docker.sh 容器名 {镜像名称}:{版本名称}
 ```
-进入容器后，执行：
-```shell
-sudo su  # 切换为root用户
-```
 
 ### 设置环境变量
-
+进入容器后，设置环境变量
 ```shell
-
 source /usr/local/Ascend/ascend-toolkit/set_env.sh
 
 # 如果是arm镜像启动容器后手动设置python环境
@@ -65,25 +60,23 @@ export LD_LIBRARY_PATH=/usr/local/python3.11.0/lib/:$LD_LIBRARY_PATH
 export PATH=/usr/local/python3.11.0/bin:$PATH
 ```
 
-
-
 ### 安装依赖
 说明：安装依赖过程请确保网络通畅，请选择（1）通过获取安装包或者（2）源码编译的方式。
 
 1.获取安装包安装
 ```shell
 # 安装torchrec
-tar -zxvf Ascend-mindsdk-torchrec-1.1.0-npu-*.tar.gz
+tar -zxvf Ascend-mindxsdk-torchrec-1.1.0-npu-*.tar.gz
 pip3 install torchrec-1.1.0+npu-*.whl
 pip3 install -r requirements.txt
 
 # 安装hybrid_torchrec
-tar -zxvf Ascend-mindsdk-hybrid-torchrec-1.1.0-*.tar.gz
+tar -zxvf Ascend-mindxsdk-hybrid-torchrec-1.1.0-*.tar.gz
 pip3 install hybrid_torchrec-1.1.0-*.whl
 
 # 安装算子
-tar -zxvf Ascend-mindsdk-mxrec-add-ons-*.tar.gz
-cd mindxsdk-mxec-add-ons/mxrec_ops/
+tar -zxvf Ascend-mindxsdk-mxrec-add-ons-*.tar.gz
+cd mindxsdk-mxrec-add-ons/mxrec_ops/
 bash mxrec_opp_asynchronous_complete_cumsum.run
 bash mxrec_opp_dense_to_jagged.run
 bash mxrec_opp_index_select_for_rank1_backward.run
@@ -94,7 +87,7 @@ bash mxrec_opp_hstu_dense_backward.run
 
 # 编译算子适配文件
 cd ../../
-cd mindxsdk-mxec-add-ons/torch_plugin/torch_library/2.6.0/common
+cd mindxsdk-mxrec-add-ons/torch_plugin/torch_library/2.6.0/common
 bash build_ops.sh
 ```
 2.源码编译安装
@@ -151,8 +144,11 @@ mkdir -p tmp/ && python3 preprocess_public_data.py
 
 ## 模型运行
 
+```shell
+# 拷贝运行脚本到当前目录
+cp ../run.sh ./
+```
 修改run.sh 脚本：
-
 ```shell
 export USE_NPU_HSTU=1                                                                 # 是否使用hstu算子加速
 export ENABLE_RAB=0                                                                   # 是否带RAB
@@ -164,7 +160,6 @@ python3 main.py --gin_config_file=configs/ml-1m/hstu-sampled-softmax-n128-large-
 
 拷贝run.sh与main.py同级目录，执行命令：
 ```shell
-cp ../run.sh ./
 bash run.sh
 ```
 
