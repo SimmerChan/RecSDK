@@ -31,30 +31,28 @@ RUN mv /etc/apt/sources.list.d/debian.sources /etc/apt/sources.list.d/debian.sou
     rm -rf /var/cache/apt/
 # 注：openssh-server为双机训练样例需要，仅单机训练时可去掉
 
-# 4.安装cmake-3.20.6
-# 下载地址: https://cmake.org/files/v3.20/cmake-3.20.6.tar.gz
-RUN wget https://cmake.org/files/v3.20/cmake-3.20.6.tar.gz && \
-    . /etc/profile && gcc -v && tar -zxf cmake-3.20.6.tar.gz && \
-    cd cmake-3.20.6 && \
-    ./bootstrap && make -j 32 && make install && cd .. && \
-    rm -rf cmake-3.20.6*
+# 4.安装cmake-3.22.6
+RUN wget https://cmake.org/files/v3.22/cmake-3.22.6.tar.gz && \
+    . /etc/profile && gcc -v && tar -zxf /tmp/cmake-3.22.6.tar.gz && \
+    cd cmake-3.22.6 && \
+    ./bootstrap && make -j $(nproc) && make install && \
+    rm -rf /tmp/cmake-3.22.6*
 
-# 5.安装python3.11.9
-# 下载地址: https://mirrors.huaweicloud.com/python/3.11.9/Python-3.11.9.tgz
-RUN wget https://mirrors.huaweicloud.com/python/3.11.9/Python-3.11.9.tgz && \
-    . /etc/profile && gcc -v && tar -xvf Python-3.11.9.tgz && \
-    cd Python-3.11.9 && \
+# 5.安装python3.11.0
+RUN wget https://mirrors.huaweicloud.com/python/3.11.0/Python-3.11.0.tar.xz && \
+    . /etc/profile && gcc -v && tar -xvf /tmp/Python-3.11.0.tar.xz && \
+    cd Python-3.11.0 && \
     mkdir -p build && cd build && \
-    ../configure --enable-shared --prefix=/usr/local/python3.11.9 && \
-    make -j && make install && \
-    cd ../../ && rm -rf Python-3.11.9* && \
+    ../configure --enable-shared --prefix=/usr/local/python3.11.0 && \
+    make -j $(nproc) && make install && \
+    rm -rf /tmp/Python-3.11.0* && \
     ldconfig
 
-ENV PATH=$PATH:/usr/local/python3.11.9/bin \
-    LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/python3.11.9/lib
+ENV PATH=$PATH:/usr/local/python3.11.0/bin \
+    LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/python3.11.0/lib
 
-RUN ln -s /usr/local/python3.11.9/bin/python3 /usr/bin/python && \
-    ln -s /usr/local/python3.11.9/bin/pip3 /usr/bin/pip
+RUN ln -s /usr/local/python3.11.0/bin/python3 /usr/bin/python && \
+    ln -s /usr/local/python3.11.0/bin/pip3 /usr/bin/pip
 
 # 配置python源
 RUN mkdir ~/.pip && touch ~/.pip/pip.conf && \
