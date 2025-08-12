@@ -83,7 +83,14 @@ class HybridSplitTableBatchedEmbeddingBagsCodegen(
     ) -> None:
         super().__init__(embedding_specs, **kwargs)
 
-        self.is_mixed_dim = len(set(self.dims)) != len(self.dims)
+        is_mixed_dim = False
+        first_dim = self.dims[0]
+        for d in self.dims:
+            if d != first_dim:
+                is_mixed_dim = True
+                break
+
+        self.is_mixed_dim = is_mixed_dim
         optimizer_type = kwargs.get("optimizer", self.optimizer)
         if optimizer_type in (OptimType.ADAM,):
             self._optim_num = 2
