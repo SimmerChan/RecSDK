@@ -169,6 +169,7 @@ MovieLens-1M (ML-1M):
 | Method   | NDCG@10 | NDCG@50 | HR@10  | HR@50  | MRR    |
 |-------|---------|---------|--------|--------|--------|
 |HSTU-large| 0.1531  | 0.2142  | 0.2772 | 0.5531 | 0.1312 |
+
 说明:以上为hstu-sampled-softmax-n128-large-final.gin参数配置,训练一轮数据的测试精度。
 
 
