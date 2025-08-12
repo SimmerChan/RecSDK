@@ -31,6 +31,26 @@ RUN mv /etc/apt/sources.list.d/debian.sources /etc/apt/sources.list.d/debian.sou
     rm -rf /var/cache/apt/
 # 注：openssh-server为双机训练样例需要，仅单机训练时可去掉
 
+# 编译安装 GCC 11.2.0
+RUN wget https://mirrors.huaweicloud.com/gnu/gcc/gcc-11.2.0/gcc-11.2.0.tar.gz && \
+    tar -zxvf gcc-11.2.0.tar.gz && \
+    cd gcc-11.2.0 && \
+    wget https://mirrors.huaweicloud.com/gnu/gmp/gmp-6.1.0.tar.bz2 && \
+    wget https://mirrors.huaweicloud.com/gnu/mpfr/mpfr-3.1.6.tar.bz2 && \
+    wget https://mirrors.huaweicloud.com/gnu/mpc/mpc-1.0.3.tar.gz && \
+    wget https://gcc.gnu.org/pub/gcc/infrastructure/isl-0.18.tar.bz2 && \
+    sed -i "246s/tar -xf \"\${ar}\"/tar --no-same-owner -xf \"\${ar}\"/" contrib/download_prerequisites && \
+    ./contrib/download_prerequisites && \
+    ./configure --enable-languages=c,c++ --disable-multilib --with-system-zlib --prefix=/usr/local/gcc11.2.0 && \
+    make -j $(nproc) && make install && \
+    find /tmp/gcc-11.2.0/ -name libstdc++.so.6.0.29 -exec cp {} /lib64/ \; && \
+    rm -rf /tmp/gcc-11.2.0* && \
+    update-alternatives --install /usr/bin/gcc gcc /usr/local/gcc-11.2.0/bin/gcc 100 && \
+    update-alternatives --install /usr/bin/g++ g++ /usr/local/gcc-11.2.0/bin/g++ 100 && \
+    update-alternatives --set gcc /usr/local/gcc-11.2.0/bin/gcc && \
+    update-alternatives --set g++ /usr/local/gcc-11.2.0/bin/g++
+
+
 # 4.安装cmake-3.22.6
 RUN wget https://cmake.org/files/v3.22/cmake-3.22.6.tar.gz && \
     . /etc/profile && gcc -v && tar -zxf /tmp/cmake-3.22.6.tar.gz && \
