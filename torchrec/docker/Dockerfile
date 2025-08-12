@@ -45,10 +45,10 @@ RUN wget https://mirrors.huaweicloud.com/gnu/gcc/gcc-11.2.0/gcc-11.2.0.tar.gz &&
     make -j $(nproc) && make install && \
     find /tmp/gcc-11.2.0/ -name libstdc++.so.6.0.29 -exec cp {} /lib64/ \; && \
     rm -rf /tmp/gcc-11.2.0* && \
-    update-alternatives --install /usr/bin/gcc gcc /usr/local/gcc-11.2.0/bin/gcc 100 && \
-    update-alternatives --install /usr/bin/g++ g++ /usr/local/gcc-11.2.0/bin/g++ 100 && \
-    update-alternatives --set gcc /usr/local/gcc-11.2.0/bin/gcc && \
-    update-alternatives --set g++ /usr/local/gcc-11.2.0/bin/g++
+    update-alternatives --install /usr/bin/gcc gcc /usr/local/gcc11.2.0/bin/gcc 100 && \
+    update-alternatives --install /usr/bin/g++ g++ /usr/local/gcc11.2.0/bin/g++ 100 && \
+    update-alternatives --set gcc /usr/local/gcc11.2.0/bin/gcc && \
+    update-alternatives --set g++ /usr/local/gcc11.2.0/bin/g++
 
 
 # 4.安装cmake-3.22.6
