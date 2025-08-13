@@ -93,10 +93,10 @@ bash build_ops.sh
 2.源码编译安装
 
 （1）编译安装torchrec
-参考：
+参考：https://gitee.com/ascend/RecSDK/blob/develop/torchrec/README.md
 
 （2）编译安装hybrid_torchrec
-参考：
+参考：https://gitee.com/ascend/RecSDK/blob/develop/torchrec/hybrid_torchrec/README.MD
 
 （3）编译安装算子和适配文件
 

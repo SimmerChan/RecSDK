@@ -58,8 +58,6 @@ export LD_LIBRARY_PATH=/usr/local/python3.11.0/lib/:$LD_LIBRARY_PATH
 export PATH=/usr/local/python3.11.0/bin:$PATH
 ```
 
-
-
 ### 安装依赖
 说明：安装依赖过程请确保网络通畅，请选择（1）通过获取安装包或者（2）源码编译的方式。
 
@@ -90,10 +88,10 @@ bash build_ops.sh
 2.源码编译安装
 
 （1）编译安装torchrec
-参考：
+参考：https://gitee.com/ascend/RecSDK/blob/develop/torchrec/README.md
 
 （2）编译安装hybrid_torchrec
-参考：
+参考：https://gitee.com/ascend/RecSDK/blob/develop/torchrec/hybrid_torchrec/README.MD
 
 （3）编译安装算子和适配文件
 
@@ -117,6 +115,14 @@ cd mindxsdk-mxrec-add-ons/mxrec_ops
 
 
 ## dlrm源码适配
+
+进入当前目录，下载官方模型代码后，并使用patch文件进行修改。
+```shell
+git clone -b main https://github.com/facebookresearch/dlrm.git
+cd dlrm && git checkout b631a99 
+cp -f ../dlrm_npu.patch ./
+git apply dlrm_npu.patch
+```
 
 ### 数据集下载
 说明：本样例提供两种获取数据集的方式：使用官网数据集可验证模型性能和精度，若仅验证模型功能跑通可使用随机数据集。
@@ -152,19 +158,12 @@ day_23_sparse.npy
 day_23_dense.npy
 day_23_labels.npy
 ```
-说明：数据集较大，数据下载时间较长，请预留时间和磁盘空间，官网数据集大约660GB,随机生成数据集大约67GB
+说明：数据集较大，数据下载时间较长，请预留时间和磁盘空间，官网数据集大约690GB,随机生成数据集大约71GB
 
 
 ## 修改脚本并运行
-下载官方模型代码，并使用patch进行修改。
-```shell
-git clone -b main https://github.com/facebookresearch/dlrm.git
-cd dlrm && git checkout b631a99 
-cp -f ../dlrm_npu.patch ./
-git apply dlrm_npu.patch
-```
 
-进入当前目录，修改run.sh文件中的参数，然后运行模型。
+修改run.sh文件中的参数，然后运行模型。
 
 ```shell
 # 环境参数配置说明（根据实际情况修改）

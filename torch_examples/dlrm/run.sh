@@ -4,52 +4,23 @@ set -e
 # lib relate
 #---------------------------------------------
 source /usr/local/Ascend/ascend-toolkit/set_env.sh
-export LD_PRELOAD=/usr/lib64/libgomp.so.1
-export LD_LIBRARY_PATH=/usr/local/lib64/python3.11/site-packages/torch/lib:$LD_LIBRARY_PATH
-export LD_LIBRARY_PATH=/usr/local/lib/python3.11/site-packages/embedding_cache/:$LD_LIBRARY_PATH
-
-#---------------------------------------------
-# ascend related
-#---------------------------------------------
 export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
-# local unique
-export DO_LOCAL_UNIQUE=0
-
-#---------------------------------------------
-# embcache related
-#---------------------------------------------
-export USE_MOD_BUCKETIZE=1 #EMBCACHE模式下采用MOD方式分桶
-export EMBCACHE_SIZE_ON_HBM=$((16*1024*1024*1024))
-
-export SPARSE_OPTIM_NUM=1
-export ENABLE_GLOBAL_UNIQUE=0
-# ENABLE_FAST_HASHMAP=false时,默认适用unordered_map
-export ENABLE_FAST_HASHMAP=1
-export FAST_HASHMAP_RESERVE_BUCKET_NUM=$((2*1024*1024))
-
-# FAST_HASHMAP will use EMB_MEMORY_POOL
-export EMB_MEMORY_POOL_THREAD_NUM=4
-export EMB_MEMORY_POOL_SIZE=102400
-
-# 0:INFO; 1:WARNINH; 2:ERROR; 3:FATAL; (on profiling, we set 0; otherwise we set 1)
-export GLOG_MIN_LOG_LEVEL=1
-
-
-export USE_EC=1
 #---------------------------------------------
 # train job related
 #---------------------------------------------
-# data path
-export PREPROCESSED_DATASET=/mxrec_disk1/Criteo_all/Criteo_temp/temp_output_of_step_1  #根据实际情况修改
-export LIB_FBGEMM_NPU_API_SO_PATH="/path/to/libfbgemm_npu_api.so"                     #根据实际情况修改
 export OMP_NUM_THREADS=12
+export WORLD_SIZE=8
+export ASCEND_RT_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
+
+# 数据集位置，根据实际情况修改
+export PREPROCESSED_DATASET="/path/to/data"
+# 算子适配文件.so路径，根据实际情况修改
+export LIB_FBGEMM_NPU_API_SO_PATH="/path/to/libfbgemm_npu_api.so"
+
 export TOTAL_TRAINING_SAMPLES=4195197692
 export GLOBAL_BATCH_SIZE=16384
 export LIMIT_TRAIN_BATCHES=2000
 export LIMIT_TEST_BATCHES=1000
-
-export WORLD_SIZE=8
-export ASCEND_RT_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 FEATURE_NUM=$((40000000 * ${WORLD_SIZE} / 8))
 
 function run_dlrm_model(){
@@ -76,27 +47,20 @@ function run_dlrm_model(){
     2>&1 |tee ${model}_use_ec_${use_ec}_$(date '+%Y%m%d_%H%M%S').log
 }
 
-
-MODES=("torchrec" "hybrid_torchrec" "embcache")
-USE_EC_VALUES=(0 1)
+MODES=("torchrec" "hybrid_torchrec")
 
 for model in "${MODES[@]}"; do
-  for use_ec in "${USE_EC_VALUES[@]}"; do
-    # 重置环境变量
-    export WITH_TORCHREC=0
-    export WITH_HYBRID_TORCHREC=0
-    export WITH_EMBCACHE=0
-    export USE_EC=$use_ec
-
-    # 设置当前模式
-    case $model in
-      "torchrec") export WITH_TORCHREC=1 ;;
-      "hybrid_torchrec") export WITH_HYBRID_TORCHREC=1 ;;
-      "embcache") export WITH_EMBCACHE=1 ;;
-    esac
-    echo "MODEL_TYPE: $model (use_ec=$use_ec)"
-    run_dlrm_model # 执行模型
-    sleep 5
-  done
+  # 重置环境变量
+  export WITH_TORCHREC=0
+  export WITH_HYBRID_TORCHREC=0
+  # 设置当前模式
+  case $model in
+    "torchrec") export WITH_TORCHREC=1 ;;
+    "hybrid_torchrec") export WITH_HYBRID_TORCHREC=1 ;;
+  esac
+  echo "MODEL_TYPE: $model "
+  run_dlrm_model # 执行模型
+  sleep 5
 done
+
 

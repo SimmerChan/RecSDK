@@ -113,10 +113,10 @@ index e612629..bda0de2 100644
                          dense_inputs,
                          sparse_inputs,
 diff --git a/torchrec_dlrm/dlrm_main.py b/torchrec_dlrm/dlrm_main.py
-index 460aba8..11b67e3 100644
+index a3d98b6..2e7012b 100644
 --- a/torchrec_dlrm/dlrm_main.py
 +++ b/torchrec_dlrm/dlrm_main.py
-@@ -4,20 +4,26 @@
+@@ -4,20 +4,25 @@
  # This source code is licensed under the MIT license found in the
  # LICENSE file in the root directory of this source tree.
  
@@ -137,14 +137,13 @@ index 460aba8..11b67e3 100644
  from torch import distributed as dist
  from torch.utils.data import DataLoader
 -from torchrec import EmbeddingBagCollection
-+from ec_dcnv2 import DlrmDcnEc as DLRM_DCN_EC
 +
 +import torch_npu
 +from torchrec import EmbeddingBagCollection, EmbeddingCollection, EmbeddingConfig
  from torchrec.datasets.criteo import DEFAULT_CAT_NAMES, DEFAULT_INT_NAMES
  from torchrec.distributed import TrainPipelineSparseDist
  from torchrec.distributed.comm import get_local_size
-@@ -25,7 +31,7 @@ from torchrec.distributed.model_parallel import (
+@@ -25,7 +30,7 @@ from torchrec.distributed.model_parallel import (
      DistributedModelParallel,
      get_default_sharders,
  )
@@ -153,7 +152,7 @@ index 460aba8..11b67e3 100644
  from torchrec.distributed.planner.storage_reservations import (
      HeuristicalStorageReservation,
  )
-@@ -34,7 +40,12 @@ from torchrec.modules.embedding_configs import EmbeddingBagConfig
+@@ -34,7 +39,12 @@ from torchrec.modules.embedding_configs import EmbeddingBagConfig
  from torchrec.optim.apply_optimizer_in_backward import apply_optimizer_in_backward
  from torchrec.optim.keyed import CombinedOptimizer, KeyedOptimizerWrapper
  from torchrec.optim.optimizers import in_backward_optimizer_filter
@@ -167,7 +166,7 @@ index 460aba8..11b67e3 100644
  
  # OSS import
  try:
-@@ -60,7 +71,16 @@ try:
+@@ -60,7 +70,12 @@ try:
  except ImportError:
      pass
  
@@ -177,34 +176,20 @@ index 460aba8..11b67e3 100644
 +
 +with_torchrec = os.getenv('WITH_TORCHREC', 'False').strip().lower() in {'true', '1', 'yes'}
 +with_hybrid_torchrec = os.getenv('WITH_HYBRID_TORCHREC', 'False').strip().lower() in {'true', '1', 'yes'}
-+with_embcache = os.getenv('WITH_EMBCACHE', 'False').strip().lower() in {'true', '1', 'yes'}
 +
-+use_ec = os.getenv('USE_EC', 'False').strip().lower() in {'true', '1', 'yes'}
-+
-+g_sparse_optim_num = int(os.getenv('SPARSE_OPTIM_NUM', '1'))
  
  
  class InteractionType(Enum):
-@@ -334,7 +354,7 @@ def _evaluate(
+@@ -334,7 +349,7 @@ def _evaluate(
  
      iterator = itertools.islice(iter(eval_dataloader), limit_batches)
  
--    auroc = metrics.AUROC(task="multiclass", num_classes=2).to(device)
+-    auroc = metrics.AUROC(compute_on_step=False, num_classes=2).to(device)
 +    auroc = metrics.AUROC("binary").to(device)
  
      is_rank_zero = dist.get_rank() == 0
      if is_rank_zero:
-@@ -349,8 +369,7 @@ def _evaluate(
-             try:
-                 _loss, logits, labels = pipeline.progress(iterator)
-                 preds = torch.sigmoid(logits)
--                preds_reshaped = torch.stack((1 - preds, preds), dim=1)
--                auroc(preds_reshaped, labels)
-+                auroc(preds, labels)
-                 if is_rank_zero:
-                     pbar.update(1)
-             except StopIteration:
-@@ -361,28 +380,44 @@ def _evaluate(
+@@ -360,28 +375,44 @@ def _evaluate(
      dist.reduce(num_samples, 0, op=dist.ReduceOp.SUM)
  
      if is_rank_zero:
@@ -263,7 +248,7 @@ index 460aba8..11b67e3 100644
      """
      Trains model for 1 epoch. Helper function for train_val_test.
  
-@@ -400,6 +435,15 @@ def _train(
+@@ -399,6 +430,15 @@ def _train(
      Returns:
          None.
      """
@@ -279,14 +264,9 @@ index 460aba8..11b67e3 100644
      pipeline._model.train()
  
      iterator = itertools.islice(iter(train_dataloader), limit_train_batches)
-@@ -417,23 +461,23 @@ def _train(
-     n = (
-         validation_freq
+@@ -418,19 +458,21 @@ def _train(
          if validation_freq
--        else limit_train_batches
--        if limit_train_batches
--        else len(train_dataloader)
-+        else limit_train_batches if limit_train_batches else len(train_dataloader)
+         else limit_train_batches if limit_train_batches else len(train_dataloader)
      )
 +    # time start
 +    time0 = time.time()
@@ -308,7 +288,7 @@ index 460aba8..11b67e3 100644
                  start_it = it
                  break
  
-@@ -441,22 +485,22 @@ def _train(
+@@ -438,22 +480,22 @@ def _train(
              _evaluate(limit_val_batches, pipeline, val_dataloader, "val")
              pipeline._model.train()
  
@@ -338,7 +318,7 @@ index 460aba8..11b67e3 100644
  ) -> TrainValTestResults:
      """
      Train/validation/test loop.
-@@ -474,29 +518,50 @@ def train_val_test(
+@@ -471,29 +513,44 @@ def train_val_test(
      Returns:
          TrainValTestResults.
      """
@@ -355,12 +335,6 @@ index 460aba8..11b67e3 100644
 +        from hybrid_torchrec.distributed.hybrid_train_pipeline import HybridTrainPipelineSparseDist
 +        pipeline = HybridTrainPipelineSparseDist(
 +            model, optimizer, device, execute_all_batches=True
-+        )
-+    elif with_embcache:
-+        from torchrec_embcache_embedding.distributed.train_pipeline import EmbCacheTrainPipelineSparseDist
-+        cpu_device: torch.device = torch.device("cpu")
-+        pipeline = EmbCacheTrainPipelineSparseDist(
-+            model, optimizer, cpu_device=cpu_device, npu_device=device, execute_all_batches=True
 +        )
 +    else:
 +        # 原始torchrec
@@ -403,7 +377,7 @@ index 460aba8..11b67e3 100644
      return results
  
  
-@@ -523,41 +588,71 @@ def main(argv: List[str]) -> None:
+@@ -520,41 +577,71 @@ def main(argv: List[str]) -> None:
          except (ValueError, AttributeError):
              pass
  
@@ -499,7 +473,7 @@ index 460aba8..11b67e3 100644
      dist.init_process_group(backend=backend)
  
      if args.num_embeddings_per_feature is not None:
-@@ -591,13 +686,29 @@ def main(argv: List[str]) -> None:
+@@ -588,13 +675,29 @@ def main(argv: List[str]) -> None:
          )
          for feature_idx, feature_name in enumerate(DEFAULT_CAT_NAMES)
      ]
@@ -530,7 +504,7 @@ index 460aba8..11b67e3 100644
                  tables=eb_configs, device=torch.device("meta")
              ),
              dense_in_features=len(DEFAULT_INT_NAMES),
-@@ -606,20 +717,103 @@ def main(argv: List[str]) -> None:
+@@ -603,20 +706,35 @@ def main(argv: List[str]) -> None:
              dense_device=device,
          )
      elif args.interaction_type == InteractionType.DCN:
@@ -546,98 +520,30 @@ index 460aba8..11b67e3 100644
 -            dense_device=device,
 -        )
 +        if with_hybrid_torchrec:
-+            if use_ec:
-+                from hybrid_torchrec import HashEmbeddingCollection
-+                dlrm_model = DLRM_DCN_EC(
-+                    embedding_collection=HashEmbeddingCollection(
-+                        tables=ec_configs, device=torch.device("meta")
-+                    ),
-+                    multi_hot_sizes=args.multi_hot_sizes,
-+                    dense_in_features=len(DEFAULT_INT_NAMES),
-+                    dense_arch_layer_sizes=args.dense_arch_layer_sizes,
-+                    over_arch_layer_sizes=args.over_arch_layer_sizes,
-+                    dcn_num_layers=args.dcn_num_layers,
-+                    dcn_low_rank_dim=args.dcn_low_rank_dim,
-+                    dense_device=device,
-+                )
-+            else:
-+                from hybrid_torchrec import HashEmbeddingBagCollection
-+                dlrm_model = DLRM_DCN(
-+                    embedding_bag_collection=HashEmbeddingBagCollection(
-+                        tables=eb_configs, device=torch.device("meta")
-+                    ),
-+                    dense_in_features=len(DEFAULT_INT_NAMES),
-+                    dense_arch_layer_sizes=args.dense_arch_layer_sizes,
-+                    over_arch_layer_sizes=args.over_arch_layer_sizes,
-+                    dcn_num_layers=args.dcn_num_layers,
-+                    dcn_low_rank_dim=args.dcn_low_rank_dim,
-+                    dense_device=device,
-+                )
-+        elif with_embcache:
-+            if use_ec:
-+                from torchrec_embcache_embedding.distributed.embedding import EmbCacheEmbeddingCollection
-+                dlrm_model = DLRM_DCN_EC(
-+                    embedding_collection=EmbCacheEmbeddingCollection(
-+                        tables=ec_configs,
-+                        batch_size=args.batch_size,
-+                        multi_hot_sizes=args.multi_hot_sizes,
-+                        need_indices=False,
-+                        world_size=dist.get_world_size(),
-+                        device=torch.device("meta"),
-+                        sparse_optim_num=g_sparse_optim_num,
-+                    ),
-+                    multi_hot_sizes=args.multi_hot_sizes,
-+                    dense_in_features=len(DEFAULT_INT_NAMES),
-+                    dense_arch_layer_sizes=args.dense_arch_layer_sizes,
-+                    over_arch_layer_sizes=args.over_arch_layer_sizes,
-+                    dcn_num_layers=args.dcn_num_layers,
-+                    dcn_low_rank_dim=args.dcn_low_rank_dim,
-+                    dense_device=device,
-+                )
-+            else:
-+                from torchrec_embcache_embedding.distributed.embedding_bag import EmbCacheEmbeddingBagCollection
-+                dlrm_model = DLRM_DCN(
-+                    embedding_bag_collection=EmbCacheEmbeddingBagCollection(
-+                        tables=eb_configs,
-+                        batch_size=args.batch_size,
-+                        multi_hot_sizes=args.multi_hot_sizes,
-+                        world_size=dist.get_world_size(),
-+                        device=torch.device("meta"),
-+                        sparse_optim_num=g_sparse_optim_num,
-+                    ),
-+                    dense_in_features=len(DEFAULT_INT_NAMES),
-+                    dense_arch_layer_sizes=args.dense_arch_layer_sizes,
-+                    over_arch_layer_sizes=args.over_arch_layer_sizes,
-+                    dcn_num_layers=args.dcn_num_layers,
-+                    dcn_low_rank_dim=args.dcn_low_rank_dim,
-+                    dense_device=device,
-+                )
++            from hybrid_torchrec import HashEmbeddingBagCollection
++            dlrm_model = DLRM_DCN(
++                embedding_bag_collection=HashEmbeddingBagCollection(
++                    tables=eb_configs, device=torch.device("meta")
++                ),
++                dense_in_features=len(DEFAULT_INT_NAMES),
++                dense_arch_layer_sizes=args.dense_arch_layer_sizes,
++                over_arch_layer_sizes=args.over_arch_layer_sizes,
++                dcn_num_layers=args.dcn_num_layers,
++                dcn_low_rank_dim=args.dcn_low_rank_dim,
++                dense_device=device,
++            )
 +        else:
-+            if use_ec:
-+                dlrm_model = DLRM_DCN_EC(
-+                    embedding_collection=EmbeddingCollection(
-+                        tables=ec_configs, device=torch.device("meta")
-+                    ),
-+                    multi_hot_sizes=args.multi_hot_sizes,
-+                    dense_in_features=len(DEFAULT_INT_NAMES),
-+                    dense_arch_layer_sizes=args.dense_arch_layer_sizes,
-+                    over_arch_layer_sizes=args.over_arch_layer_sizes,
-+                    dcn_num_layers=args.dcn_num_layers,
-+                    dcn_low_rank_dim=args.dcn_low_rank_dim,
-+                    dense_device=device,
-+                )
-+            else:
-+                dlrm_model = DLRM_DCN(
-+                    embedding_bag_collection=EmbeddingBagCollection(
-+                        tables=eb_configs, device=torch.device("meta")
-+                    ),
-+                    dense_in_features=len(DEFAULT_INT_NAMES),
-+                    dense_arch_layer_sizes=args.dense_arch_layer_sizes,
-+                    over_arch_layer_sizes=args.over_arch_layer_sizes,
-+                    dcn_num_layers=args.dcn_num_layers,
-+                    dcn_low_rank_dim=args.dcn_low_rank_dim,
-+                    dense_device=device,
-+                )
++            dlrm_model = DLRM_DCN(
++                embedding_bag_collection=EmbeddingBagCollection(
++                    tables=eb_configs, device=torch.device("meta")
++                ),
++                dense_in_features=len(DEFAULT_INT_NAMES),
++                dense_arch_layer_sizes=args.dense_arch_layer_sizes,
++                over_arch_layer_sizes=args.over_arch_layer_sizes,
++                dcn_num_layers=args.dcn_num_layers,
++                dcn_low_rank_dim=args.dcn_low_rank_dim,
++                dense_device=device,
++            )
      elif args.interaction_type == InteractionType.PROJECTION:
 +        from hybrid_torchrec import HashEmbeddingBagCollection
          dlrm_model = DLRM_Projection(
@@ -646,7 +552,7 @@ index 460aba8..11b67e3 100644
                  tables=eb_configs, device=torch.device("meta")
              ),
              dense_in_features=len(DEFAULT_INT_NAMES),
-@@ -634,15 +828,12 @@ def main(argv: List[str]) -> None:
+@@ -631,15 +749,12 @@ def main(argv: List[str]) -> None:
              "Unknown interaction option set. Should be original, dcn, or projection."
          )
  
@@ -665,85 +571,38 @@ index 460aba8..11b67e3 100644
      optimizer_kwargs = {"lr": args.learning_rate}
      if args.adagrad:
          optimizer_kwargs["eps"] = args.eps
-@@ -651,39 +842,95 @@ def main(argv: List[str]) -> None:
+@@ -648,39 +763,55 @@ def main(argv: List[str]) -> None:
          train_model.model.sparse_arch.parameters(),
          optimizer_kwargs,
      )
--    planner = EmbeddingShardingPlanner(
--        topology=Topology(
--            local_world_size=get_local_size(),
--            world_size=dist.get_world_size(),
--            compute_device=device.type,
--        ),
--        batch_size=args.batch_size,
--        # If experience OOM, increase the percentage. see
--        # https://pytorch.org/torchrec/torchrec.distributed.planner.html#torchrec.distributed.planner.storage_reservations.HeuristicalStorageReservation
--        storage_reservation=HeuristicalStorageReservation(percentage=0.05),
--    )
 +
 +    constraints = {
 +        f"t_{feature_name}": ParameterConstraints(
 +            sharding_types=["row_wise"],
++            compute_kernels=["fused"]
 +        )
 +        for feature_idx, feature_name in enumerate(DEFAULT_CAT_NAMES)
 +    }
-+    if with_torchrec:
-+        # 不指定sharding_type
-+        planner = EmbeddingShardingPlanner(
-+            topology=Topology(
-+                local_world_size=get_local_size(),
-+                world_size=dist.get_world_size(),
-+                compute_device=device.type,
-+            ),
-+            batch_size=args.batch_size,
-+            # If experience OOM, increase the percentage. see
-+            storage_reservation=HeuristicalStorageReservation(percentage=0.05),
-+        )
-+    else:
-+        # row_wise
-+        planner = EmbeddingShardingPlanner(
-+            topology=Topology(
-+                local_world_size=get_local_size(),
-+                world_size=dist.get_world_size(),
-+                compute_device=device.type,
-+            ),
-+            batch_size=args.batch_size,
-+            # If experience OOM, increase the percentage. see
-+            storage_reservation=HeuristicalStorageReservation(percentage=0.05),
-+            constraints=constraints,
-+        )
 +
-+    sharders = []
-+    if with_embcache:
-+        cpu_device = torch.device("cpu")
-+        cpu_pg = dist.new_group(backend="gloo")
-+        cpu_env = ShardingEnv.from_process_group(cpu_pg)
-+        if use_ec:
-+            from torchrec_embcache_embedding.distributed.sharding.embedding_sharder import (
-+                EmbCacheEmbeddingCollectionSharder
-+            )
-+            embcache_sharder = EmbCacheEmbeddingCollectionSharder(
-+                cpu_device=cpu_device,
-+                cpu_env=cpu_env,
-+                npu_device=device,
-+                npu_env=ShardingEnv.from_process_group(dist.GroupMember.WORLD),
-+            )
-+        else:
-+            from torchrec_embcache_embedding.distributed.sharding.embedding_sharder import (
-+                EmbCacheEmbeddingBagCollectionSharder
-+            )
-+            embcache_sharder = EmbCacheEmbeddingBagCollectionSharder(
-+                cpu_device=cpu_device,
-+                cpu_env=cpu_env,
-+                npu_device=device,
-+                npu_env=ShardingEnv.from_process_group(dist.GroupMember.WORLD),
-+            )
-+        sharders = [embcache_sharder]
+     planner = EmbeddingShardingPlanner(
+         topology=Topology(
+-            local_world_size=get_local_size(),
+             world_size=dist.get_world_size(),
+             compute_device=device.type,
+         ),
+         batch_size=args.batch_size,
+-        # If experience OOM, increase the percentage. see
+-        # https://pytorch.org/torchrec/torchrec.distributed.planner.html#torchrec.distributed.planner.storage_reservations.HeuristicalStorageReservation
+-        storage_reservation=HeuristicalStorageReservation(percentage=0.05),
++        constraints=constraints,
+     )
++
++    if with_torchrec:
++        sharders = get_default_sharders()
 +    elif with_hybrid_torchrec:
 +        from hybrid_torchrec.distributed.sharding_plan import get_default_hybrid_sharders
 +        sharders = get_default_hybrid_sharders(host_env)
-+    else:
-+        sharders = get_default_sharders()
++
 +
      plan = planner.collective_plan(
 -        train_model, get_default_sharders(), dist.GroupMember.WORLD
@@ -777,7 +636,7 @@ index 460aba8..11b67e3 100644
  
      dense_optimizer = KeyedOptimizerWrapper(
          dict(in_backward_optimizer_filter(model.named_parameters())),
-@@ -708,19 +955,29 @@ def main(argv: List[str]) -> None:
+@@ -705,19 +836,29 @@ def main(argv: List[str]) -> None:
          )
          val_dataloader = RestartableMap(multihot.convert_to_multi_hot, val_dataloader)
          test_dataloader = RestartableMap(multihot.convert_to_multi_hot, test_dataloader)
