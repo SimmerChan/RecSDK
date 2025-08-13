@@ -46,13 +46,9 @@ docker run \
 ```shell
 bash run_docker.sh 容器名 {镜像名称}:{版本名称}
 ```
-进入容器后，执行：
-```shell
-sudo su  # 切换为root用户
-```
 
 ### 设置环境变量
-
+进入容器后，设置环境变量
 ```shell
 
 source /usr/local/Ascend/ascend-toolkit/set_env.sh
@@ -70,17 +66,17 @@ export PATH=/usr/local/python3.11.0/bin:$PATH
 1.获取安装包安装
 ```shell
 # 安装torchrec
-tar -zxvf Ascend-mindsdk-torchrec-1.1.0-npu-*.tar.gz
+tar -zxvf Ascend-mindxsdk-torchrec-1.1.0-npu-*.tar.gz
 pip3 install torchrec-1.1.0+npu-*.whl
 pip3 install -r requirements.txt
 
 # 安装hybrid_torchrec
-tar -zxvf Ascend-mindsdk-hybrid-torchrec-1.1.0-*.tar.gz
+tar -zxvf Ascend-mindxsdk-hybrid-torchrec-1.1.0-*.tar.gz
 pip3 install hybrid_torchrec-1.1.0-*.whl
 
 # 安装算子
-tar -zxvf Ascend-mindsdk-mxrec-add-ons-*.tar.gz
-cd mindxsdk-mxec-add-ons/mxrec_ops/
+tar -zxvf Ascend-mindxsdk-mxrec-add-ons-*.tar.gz
+cd mindxsdk-mxrec-add-ons/mxrec_ops/
 bash mxrec_opp_backward_codegen_adagrad_unweighted_exact.run
 bash mxrec_opp_split_embedding_codegen_forward_unweighted.run
 bash mxrec_opp_permute2d_sparse_data.run
@@ -88,7 +84,7 @@ bash mxrec_opp_asynchronous_complete_cumsum.run
 
 # 编译算子适配文件
 cd ../../
-cd mindxsdk-mxec-add-ons/torch_plugin/torch_library/2.6.0/common
+cd mindxsdk-mxrec-add-ons/torch_plugin/torch_library/2.6.0/common
 bash build_ops.sh
 ```
 2.源码编译安装
@@ -133,14 +129,12 @@ cd mindxsdk-mxrec-add-ons/mxrec_ops
 
 （2）下载原始数据处理后，在训练的过程中生成mutil-hot数据，使用690gb数据集
 
-由于1需要的条件苛刻，大部分机器很难满足条件，本次演示使用2中的条件。无host瓶颈的情况下，对性能影响较小。需要修改模型脚本代码，让host生成的数据在pin_memory上。
+由于(1)需要的条件苛刻，大部分机器很难满足条件，本次演示使用(2)中的条件。无host瓶颈的情况下，对性能影响较小。需要修改模型脚本代码，让host生成的数据在pin_memory上。
 
-进入[开源模型官网](https://github.com/facebookresearch/dlrm/blob/main/torchrec_dlrm/README.MD)，按照指引下载数据集到指定目录。
-该数据集已经托管到HuggingFace:https://huggingface.co/datasets/criteo/CriteoClickLogs 也可直接前往下载。
+进入[开源模型官网](https://github.com/facebookresearch/dlrm/blob/main/torchrec_dlrm/README.MD)，按照指引下载数据集到指定目录。该数据集已经托管到HuggingFace:https://huggingface.co/datasets/criteo/CriteoClickLogs 也可直接前往下载。
 
 
 2.使用生成的数据集
-如果用户仅验证功能，可以使用生成的随机数据集。注意会生成71G大小的数据，注意预留磁盘空间。
 ```shell
 mkdir generate_data
 cp generate_data.py generate_data
@@ -192,4 +186,4 @@ bash run.sh
 | GPU         | 8                   |104.54|2,048|16,384|0.006|DCN v2|Adagrad| 0.7973                            | ~55.0 batches/s == ~901,120 samples/s | 1h20m21s              |`--batch_size 2048 --learning_rate 0.006 --adagrad --interaction_type=dcn` |
 | NPU         | 8                   |104.54|2,048|16,384|0.006|DCN v2|Adagrad| 0.7975                            | ~59.0 batches/s == ~966,656 samples/s | 1h12m03s              |`--batch_size 2048 --learning_rate 0.006 --adagrad --interaction_type=dcn`|
 
-说明：NPU测试结果为参考镜像在X86环境上的测试结果。GPU测试数据参考: https://github.com/facebookresearch/dlrm/tree/main/torchrec_dlrm/ 。
+说明：NPU测试结果为在参考镜像的X86环境上的测试结果。GPU测试数据参考: https://github.com/facebookresearch/dlrm/tree/main/torchrec_dlrm/ 。

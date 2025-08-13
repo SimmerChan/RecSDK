@@ -683,11 +683,11 @@ index 78b44a1..bfbb2c2 100644
          args=(world_size, FLAGS.master_port, FLAGS.gin_config_file),
 diff --git a/prefetch_shape.py b/prefetch_shape.py
 new file mode 100644
-index 0000000..04dff12
+index 0000000..be1a2f8
 --- /dev/null
 +++ b/prefetch_shape.py
 @@ -0,0 +1 @@
-+args = {"offset": 0}
++#!/usr/bin/env python3# -*- coding: utf-8 -*-# Copyright 2025. Huawei Technologies Co.,Ltd. All rights reserved.args = {"offset": 0}
 \ No newline at end of file
 diff --git a/preprocess_public_data.py b/preprocess_public_data.py
 index c722cf5..4414c11 100644
@@ -707,11 +707,11 @@ index c722cf5..4414c11 100644
  if __name__ == "__main__":
 diff --git a/pt_jagged_dense_convert.py b/pt_jagged_dense_convert.py
 new file mode 100644
-index 0000000..d0723e8
+index 0000000..0504556
 --- /dev/null
 +++ b/pt_jagged_dense_convert.py
 @@ -0,0 +1 @@
-+import torchdef jagged_to_padded_dense(values, offsets, max_lengths, padding_value):    return torch.ops.mxrec.jagged_to_padded_dense(        values=values.to(torch.float32),        offsets=offsets,        max_lengths=max(max_lengths),        padding_value=padding_value,    ).to(torch.bfloat16)def dense_to_jagged(dense, offsets, total_L=None):    if total_L is None:        total_L = offsets[0][-1].item()    out0, out1 = torch.ops.dense_to_jagged(dense.to(torch.float32), offsets, total_L)    return out0.to(torch.bfloat16), out1class JaggedToPaddedDense(torch.autograd.Function):    @staticmethod    def forward(ctx, values, offsets, max_lengths, padding_value):        ctx.save_for_backward(*offsets)        ctx.total_L = values.shape[0]        return jagged_to_padded_dense(values, offsets, max_lengths, padding_value)    @staticmethod    def backward(ctx, grad_output):        offsets = list(ctx.saved_tensors)        total_L = ctx.total_L        grad_values, _ = dense_to_jagged(grad_output, offsets, total_L)        return grad_values, None, None, Noneclass DenseToJagged(torch.autograd.Function):    @staticmethod    def forward(ctx, dense, offsets, total_L=None):        ctx.save_for_backward(*offsets)        out0, out1 = dense_to_jagged(dense,offsets, total_L)        ctx.dense_shape = dense.shape        return out0, out1    @staticmethod    def backward(ctx, grad_out0, grad_out1):        offsets = list(ctx.saved_tensor)        max_len = ctx.dense_shape[1]        grad_dense = jagged_to_padded_dense(grad_out0, offsets, [max_len], 0.0)        return grad_dense, None, Nonedef jagged_to_padded_dense_wrapper(values, offsets, max_lengths, padding_value):    return JaggedToPaddedDense.apply(values, offsets, max_lengths, padding_value)def dense_to_jagged_wrapper(dense, offsets, total_L=None):    return DenseToJagged.apply(dense, offsets, total_L)
++#!/usr/bin/env python3# -*- coding: utf-8 -*-# Copyright 2025. Huawei Technologies Co.,Ltd. All rights reserved.import torchdef jagged_to_padded_dense(values, offsets, max_lengths, padding_value):    return torch.ops.mxrec.jagged_to_padded_dense(        values=values.to(torch.float32),        offsets=offsets,        max_lengths=max(max_lengths),        padding_value=padding_value,    ).to(torch.bfloat16)def dense_to_jagged(dense, offsets, total_L=None):    if total_L is None:        total_L = offsets[0][-1].item()    out0, out1 = torch.ops.mxrec.dense_to_jagged(dense.to(torch.float32), offsets, total_L)    return out0.to(torch.bfloat16), out1class JaggedToPaddedDense(torch.autograd.Function):    @staticmethod    def forward(ctx, values, offsets, max_lengths, padding_value):        ctx.save_for_backward(*offsets)        ctx.total_L = values.shape[0]        return jagged_to_padded_dense(values, offsets, max_lengths, padding_value)    @staticmethod    def backward(ctx, grad_output):        offsets = list(ctx.saved_tensors)        total_L = ctx.total_L        grad_values, _ = dense_to_jagged(grad_output, offsets, total_L)        return grad_values, None, None, Noneclass DenseToJagged(torch.autograd.Function):    @staticmethod    def forward(ctx, dense, offsets, total_L=None):        ctx.save_for_backward(*offsets)        out0, out1 = dense_to_jagged(dense,offsets, total_L)        ctx.dense_shape = dense.shape        return out0, out1    @staticmethod    def backward(ctx, grad_out0, grad_out1):        offsets = list(ctx.saved_tensors)        max_len = ctx.dense_shape[1]        grad_dense = jagged_to_padded_dense(grad_out0, offsets, [max_len], 0.0)        return grad_dense, None, Nonedef jagged_to_padded_dense_wrapper(values, offsets, max_lengths, padding_value):    return JaggedToPaddedDense.apply(values, offsets, max_lengths, padding_value)def dense_to_jagged_wrapper(dense, offsets, total_L=None):    return DenseToJagged.apply(dense, offsets, total_L)
 \ No newline at end of file
 diff --git a/requirements.txt b/requirements.txt
 index ff4d54a..9976729 100644
