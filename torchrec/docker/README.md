@@ -3,7 +3,10 @@
 ## 前提
 - 物理机上已经安装好对应CANN版本的驱动和固件
 - 物理机上已经安装docker，并且docker网络可用
-- 准备基础OS镜像：在物理机上使用命令`docker pull [openeuler-22.03-lts-sp4:latest|debian:12|centos:7.6.1810]`从Dockerhub上拉取镜像
+- 准备基础OS镜像：在物理机上使用命令<br>
+debian: `docker pull debian:12` 从Dockerhub上拉取镜像<br>
+openeuler: `wget https://mirrors.huaweicloud.com/openeuler/openEuler-22.03-LTS-SP4/docker_img/aarch64/openEuler-docker.aarch64.tar.xz && docker load -i openEuler-docker.aarch64.tar.xz`<br>
+centos: `docker pull centos:7.6.1810`从Dockerhub上拉取镜像<br>
 
 ### 构建步骤
 Step1: 新建`build_images`目录。
