@@ -12,6 +12,7 @@
 #include <stdexcept>
 
 #include "common/constants.h"
+#include "utils/logger.h"
 
 namespace Embcache {
 
@@ -34,8 +35,7 @@ void FeatureFilter::RecordTimestamp(const int64_t* featureDataPtr, int64_t start
         latestTimestamp = std::max(latestTimestamp, timestamp);
     }
     auto afterRecordSize = timestampRecordMap.size();
-    LOG(INFO) << "Enter RecordTimestamp, beforeRecordSize:" << beforeRecordSize
-              << ", afterRecordSize:" << afterRecordSize;
+    LOG_INFO("Enter RecordTimestamp, beforeRecordSize: {}, afterRecordSize: {}", beforeRecordSize, afterRecordSize);
 
     // 因记录timestamp和计算swap info存在步数差异，因此记录timestamp时需同时记录淘汰keys
     if (recordTsBatchId > 0 && (recordTsBatchId + 1) % evictStepInterval == 0) {
@@ -48,11 +48,11 @@ void FeatureFilter::FeatureEvict()
 {
     std::vector<int64_t>& evictKeys = evictFeatureRecord.GetEvictKeys();
     if (evictThreshold == 0) {
-        LOG(INFO) << "Current table evictThreshold is 0, will skip.";
+        LOG_INFO("Current table evictThreshold is 0, will skip.");
         return;
     }
 
-    LOG(INFO) << "The latestTimestamp for current table:" << latestTimestamp << ", evictThreshold:" << evictThreshold;
+    LOG_INFO("The latestTimestamp for current table: {}, evictThreshold: {}", latestTimestamp, evictThreshold);
     auto tempEvictThreshold = static_cast<std::time_t>(evictThreshold);
     for (auto iter : timestampRecordMap) {
         auto feature = iter.first;
@@ -74,7 +74,7 @@ void FeatureFilter::FeatureEvict()
             featureRecordMap.erase(feature);
         }
     }
-    LOG(INFO) << "The table name:" << tableName << ", get evict keys size:" << evictKeys.size();
+    LOG_INFO("The table name: {}, get evict keys size: {}", tableName, evictKeys.size());
 }
 
 const std::unordered_map<int64_t, FeatureRecord>& FeatureFilter::GetFeatureCountMap()

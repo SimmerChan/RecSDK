@@ -13,8 +13,6 @@
 #include <unordered_map>
 #include <vector>
 
-#include <glog/logging.h>
-
 #include "evict_feature_record.h"
 
 namespace Embcache {
