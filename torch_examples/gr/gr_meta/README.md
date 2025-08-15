@@ -26,7 +26,7 @@
 下载基础镜像地址为：
 
 ### 启动容器
-说明：以下启动命令仅作参考
+说明：以下启动命令仅作参考，按需挂在目录。
 ```shell
 #!/bin/bash
 container_name=$1
@@ -39,7 +39,6 @@ docker run \
 -v /etc/localtime:/etc/localtime:ro \
 -v /etc/ascend_install.info:/etc/ascend_install.info:ro \
 -v /usr/local/Ascend/driver:/usr/local/Ascend/driver:ro \
--v /home:/home \
 -v /ssd/Criteo_all:/ssd/Criteo_all \
 -v /mxrec_disk1:/mxrec_disk1 \
 "${image_name}" \
@@ -61,10 +60,12 @@ export PATH=/usr/local/python3.11.0/bin:$PATH
 ```
 
 ### 安装依赖
-说明：安装依赖过程请确保网络通畅，请选择（1）通过获取安装包或者（2）源码编译的方式。
+说明：容器中已经安装好torchrec,hybrid_torchrec以及算子等依赖，如需重新安装需确保网络通畅，请选择（1）通过获取安装包或者（2）源码编译的方式。
 
 1.获取安装包安装
 ```shell
+# 如果已经安装，请先卸载
+pip3 uninstall -y hybrid_torchrec torchrec
 # 安装torchrec
 tar -zxvf Ascend-mindxsdk-torchrec-1.1.0-npu-*.tar.gz
 pip3 install torchrec-1.1.0+npu-*.whl
