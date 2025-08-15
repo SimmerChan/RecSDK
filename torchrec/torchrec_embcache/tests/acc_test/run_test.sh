@@ -47,6 +47,7 @@ export ASCEND_RT_VISIBLE_DEVICES=6,7
 
 pytest ./test_embedding_cache_pipeline.py
 pytest ./test_embedding_ec_cache_pipeline.py
+pytest ./test_kjt_with_time.py
 
 # export DO_EC_LOCAL_UNIQUE=1
-# pytest ./test_feature_filter.py
+pytest ./test_feature_filter.py
