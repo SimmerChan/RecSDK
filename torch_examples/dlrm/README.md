@@ -37,8 +37,6 @@ docker run \
 -v /etc/localtime:/etc/localtime:ro \
 -v /etc/ascend_install.info:/etc/ascend_install.info:ro \
 -v /usr/local/Ascend/driver:/usr/local/Ascend/driver:ro \
--v /ssd/Criteo_all:/ssd/Criteo_all \
--v /mxrec_disk1:/mxrec_disk1 \
 "${image_name}" \
 /bin/bash
 ```
