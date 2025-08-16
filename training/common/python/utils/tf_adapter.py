@@ -23,10 +23,8 @@ if tf.__version__.startswith("1"):
     from npu_bridge.estimator import npu_ops
     from npu_bridge.estimator.npu.npu_hook import NPUCheckpointSaverHook
     from npu_bridge.estimator.npu.npu_loss_scale_optimizer import NPULossScaleOptimizer
-    from npu_bridge.npu_cpu.npu_cpu_ops import npu_cpu_ops
 else:
     from npu_device.compat.v1.hccl import hccl_ops
     from npu_device.compat.v1.estimator import npu_ops
     from npu_device.compat.v1.estimator.npu.npu_hook import NPUCheckpointSaverHook
     from npu_device.train.optimizer.npu_loss_scale_optimizer import NpuLossScaleOptimizer as NPULossScaleOptimizer
-    from npu_device.compat.v1.npu_cpu.npu_cpu_ops import npu_cpu_ops

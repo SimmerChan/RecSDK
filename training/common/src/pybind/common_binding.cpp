@@ -1,7 +1,13 @@
 //
 // Created by ROME on 2025/8/6.
 //
+#include <string>
+#include <sstream>
 #include <dsmi_common_interface.h>
+#include <acl/acl_base.h>
+#include <acl/acl_rt.h>
+#include <driver/ascend_hal_define.h>
+
 #include "pybind11/cast.h"
 #include "pybind11/pybind11.h"
 #include "pybind11/stl.h"
@@ -29,7 +35,7 @@ namespace
         return count;
     }
 
-    string GetChipName(uint32_t devID)
+    std::string GetChipName(uint32_t devID)
     {
         int ret = 0;
         struct dsmi_chip_info_stru info = {{ 0 },
@@ -37,12 +43,12 @@ namespace
                                            { 0 }};
         ret = dsmi_get_chip_info(devID, &info);
         if (ret == 0) {
-            stringstream ss;
+            std::stringstream ss;
             ss << info.chip_name;
             return ss.str();
         }
 
-        throw std::runtime_error("dsmi_get_chip_info failed, ret = " + to_string(ret));
+        throw std::runtime_error("dsmi_get_chip_info failed, ret = " + std::to_string(ret));
     }
 
     PYBIND11_MODULE(common_binding, m)

@@ -4,7 +4,7 @@
 import os
 from typing import Optional, Dict
 
-from training.common.python.constants.constants import MPIParams
+from training.common.python.constants.constants import MPIParams, ValidatorParams
 from training.common.python.communication.hccl.hccl_mgmt import _get_rank_info_with_ranktable, _get_rank_info_without_ranktable
 from training.common.python.constants.constants import RankTableInfo
 from training.common.python.validator.validator import StringValidator

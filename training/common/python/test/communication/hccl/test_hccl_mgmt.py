@@ -20,6 +20,7 @@ import unittest
 from unittest import mock
 from unittest.mock import mock_open, patch
 
+import training.common.python.utils
 from training.common.python.constants.constants import CommonEnv, RankTableInfo
 from training.common.python.communication.hccl.hccl_mgmt import _get_rank_info_with_ranktable, _get_rank_info_without_ranktable
 
@@ -31,14 +32,14 @@ class HCCLMGMTTest(unittest.TestCase):
         :return:无
         """
         self.rank_table_file = os.getenv(RankTableInfo.RANK_TABLE_FILE.value, "")
-        os.setenv(RankTableInfo.RANK_TABLE_FILE.value, __file__)
+        os.environ[RankTableInfo.RANK_TABLE_FILE.value] = __file__
 
     def tearDown(self):
         """
         销毁步骤
         :return: 无
         """
-        os.setenv(RankTableInfo.RANK_TABLE_FILE.value, self.rank_table_file)
+        os.environ[RankTableInfo.RANK_TABLE_FILE.value] = self.rank_table_file
 
     def test_get_rank_info_with_ranktable_when_attribute_error(self):
         with patch(
@@ -129,8 +130,7 @@ class HCCLMGMTTest(unittest.TestCase):
 
 
 class TestSetHcclInfoWithoutRanktable(unittest.TestCase):
-    @mock.patch("os.environ", {CommonEnv.CM_WORKER_SIZE.value: "1"})
-    @mock.patch("os.environ", {CommonEnv.CM_CHIEF_DEVICE.value: "0"})
+    @mock.patch("os.environ", {CommonEnv.CM_WORKER_SIZE.value: "1", CommonEnv.CM_CHIEF_DEVICE.value: "0"})
     @mock.patch.multiple(
         "training.common.python.communication.hccl.hccl_mgmt",
         get_device_list=mock.MagicMock(return_value=[1]),
@@ -139,8 +139,7 @@ class TestSetHcclInfoWithoutRanktable(unittest.TestCase):
         with self.assertRaises(ValueError):
             _get_rank_info_without_ranktable()
 
-    @mock.patcht("os.environ", {CommonEnv.CM_WORKER_SIZE.value: "1"})
-    @mock.patch("os.environ", {CommonEnv.CM_CHIEF_DEVICE.value: "0"})
+    @mock.patch("os.environ", {CommonEnv.CM_WORKER_SIZE.value: "1", CommonEnv.CM_CHIEF_DEVICE.value: "0"})
     @mock.patch.multiple(
         "training.common.python.communication.hccl.hccl_mgmt",
         get_device_list=mock.MagicMock(return_value=[0]),

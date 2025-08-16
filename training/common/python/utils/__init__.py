@@ -14,17 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-from training.common.python.utils.framework_detect import detect_framework
 
-frameworks = detect_framework()
-if "tensorflow" in frameworks:
-    __all__ = ["hccl_ops",
-                "npu_ops",
-                "NPUCheckpointSaverHook",
-                "NPULossScaleOptimizer",
-                "npu_cpu_ops"]
+__all__ = ["hccl_ops",
+            "npu_ops",
+            "NPUCheckpointSaverHook",
+            "NPULossScaleOptimizer"]
 
-    from training.common.python.utils.tf_adapter import hccl_ops, npu_ops, NPUCheckpointSaverHook, \
-        NPULossScaleOptimizer, npu_cpu_ops
-else:
-    __all__ = []
+from training.common.python.utils.tf_adapter import hccl_ops, npu_ops, NPUCheckpointSaverHook, \
+        NPULossScaleOptimizer
