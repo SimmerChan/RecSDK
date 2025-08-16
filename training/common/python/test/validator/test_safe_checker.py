@@ -50,19 +50,19 @@ class TestStrSafeCheck:
     def test_len_less_err():
         with pytest.raises(ValueError) as excinfo:
             str_safe_check("table_name", "user_table", min_len=20)
-        assert "table_name length not in" in str(excinfo.value)
+        assert "'table_name' length is less than" in str(excinfo.value)
 
     @staticmethod
     def test_len_greater_err():
         with pytest.raises(ValueError) as excinfo:
             str_safe_check("table_name", "user_table", max_len=5)
-        assert "table_name length not in" in str(excinfo.value)
+        assert "'table_name' length is bigger than" in str(excinfo.value)
 
     @staticmethod
     def test_whitelist_err():
         with pytest.raises(ValueError) as excinfo:
             str_safe_check("table_name", "user_table*")
-        assert "Note: It should be a string consisting of '[0-9A-Za-z_.-]'" in str(excinfo.value)
+        assert "The string 'table_name' is invalid" in str(excinfo.value)
 
     @staticmethod
     def test_black_element_err():
@@ -114,7 +114,7 @@ class TestClassSafeCheck:
     def test_type_err():
         with pytest.raises(ValueError) as excinfo:
             class_safe_check("embedding_dim", 8, str)
-        assert "is not <class 'str'>" in str(excinfo.value)
+        assert "not in <class 'str'>" in str(excinfo.value)
 
 
 class TestDirSafeCheck:
@@ -122,7 +122,7 @@ class TestDirSafeCheck:
 
     @staticmethod
     def test_ok():
-        path = "test_path" + str(get_rank_id())
+        path = "test_path"
         if not os.path.exists(path):
             os.makedirs(path, exist_ok=True)
         try:

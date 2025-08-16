@@ -35,7 +35,7 @@ def str_safe_check(
         max_len: int = ValidatorParams.STR_MAX_LENGTH.value,
         black_element: Optional[str] = None,
 ):
-    validator = StringValidator(name, value, min_len, max_len, black_element)
+    validator = StringValidator(name, value, max_len, min_len, black_element)
     validator.check_whitelist().check_not_contain_black_element().check_string_length().check()
 
 
@@ -43,7 +43,7 @@ def int_safe_check(
         name: str,
         value: int,
         min_value: int = ValidatorParams.MIN_INT32.value,
-        max_value: int = ValidatorParams.MAX_INT32.value,
+        max_value: int = ValidatorParams.MAX_INT32.value
 ):
     validator = IntValidator(name, value, min_value, max_value)
     validator.check_value().check()
@@ -83,7 +83,7 @@ def file_safe_check(
         max_size: int = ValidatorParams.FILE_MAX_SIZE.value,
 ):
     validator = FileValidator(name, path)
-    validator.check_not_soft_link().check_file_size(min_size, max_size).check_file_mode(
+    validator.check_not_soft_link().check_file_size(max_size, min_size).check_file_mode(
         unsupported_mode
     ).check_user_group().check()
 

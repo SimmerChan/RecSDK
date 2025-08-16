@@ -30,8 +30,8 @@ def get_available_cpu_num_and_range():
             break
 
         with open(f_path, "r", encoding="utf-8") as f_in:
-            file_safe_check("cpu_topology_file", f_path, min_size = FileParams.MIN_SIZE,
-                            max_size = FileParams.MAX_CONFIG_SIZE)
+            file_safe_check("cpu_topology_file", f_path, min_size = FileParams.MIN_SIZE.value,
+                            max_size = FileParams.MAX_CONFIG_SIZE.value)
             pkg_id = f_in.readline().strip()
             pkg_id2cpu_list[pkg_id].append(cpu)
 

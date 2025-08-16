@@ -23,8 +23,8 @@ from training.common.python.constants.constants import RankTableInfo, ChipName, 
 from training.common.python.validator.safe_checker import file_safe_check, class_safe_check, int_safe_check
 
 def _get_chip_name():
-    import common_binding
-    chipName = common_binding.get_chip_name(0)
+    import common_pybind
+    chipName = common_pybind.get_chip_name(0)
     if "910B" in chipName:
         return ChipName.ASCEND_910B
 
@@ -35,8 +35,8 @@ def _get_rank_info_with_ranktable() -> Dict[int, int]:
     """
     rank_table_path = os.getenv(RankTableInfo.RANK_TABLE_FILE.value, "")
     with open(rank_table_path, "r", encoding="utf-8") as file:
-        file_safe_check(RankTableInfo.RANK_TABLE_FILE.value, rank_table_path, min_size = FileParams.MIN_SIZE,
-                        max_size = FileParams.MAX_CONFIG_SIZE)
+        file_safe_check(RankTableInfo.RANK_TABLE_FILE.value, rank_table_path, min_size = FileParams.MIN_SIZE.value,
+                        max_size = FileParams.MAX_CONFIG_SIZE.value)
 
         try:
             ranktable_info = json.load(file)
@@ -68,8 +68,8 @@ def _get_rank_info_with_ranktable() -> Dict[int, int]:
                 int_safe_check("rank_id", rank_id, min_value=0, max_value=CommParams.MAX_RANK_ID.value)
                 if RankTableInfo.DEVICE_ID.value not in device or not device.get(RankTableInfo.DEVICE_ID.value).isdigit():
                     raise ValueError(f"hccl_json device_id wrong.")
-                import common_binding
-                logic_id = common_binding.get_logic_id(int(device.get(RankTableInfo.DEVICE_ID.value)))
+                import common_pybind
+                logic_id = common_pybind.get_logic_id(int(device.get(RankTableInfo.DEVICE_ID.value)))
                 int_safe_check("logic_id", logic_id, min_value=0, max_value=CommParams.MAX_LOGIC_ID.value)
                 rank_to_device_dict[rank_id] = logic_id
     return rank_to_device_dict
@@ -105,7 +105,7 @@ def get_device_list() -> List[int]:
     Obtain the number of visible Ascend devices in the environment.
     :return: the logic id list of visible Ascend devices .
     """
-    import common_binding
-    device_count = common_binding.get_device_count()
+    import common_pybind
+    device_count = common_pybind.get_device_count()
     device_list = [i for i in range(device_count)]
     return device_list

@@ -97,8 +97,7 @@ class TestGetLocalRankSize(unittest.TestCase):
 
 
 class TestGetDeviceId(unittest.TestCase):
-    @mock.patch("os.environ", {MPIParams.OMPI_COMM_WORLD_RANK.value: "0"})
-    @mock.patch("os.environ", {RankTableInfo.RANK_TABLE_FILE.value: "file"})
+    @mock.patch("os.environ", {MPIParams.OMPI_COMM_WORLD_RANK.value: "0", RankTableInfo.RANK_TABLE_FILE.value: "file"})
     @mock.patch.multiple(
         "training.common.python.communication.hccl.hccl_info",
         _get_rank_info_with_ranktable=mock.MagicMock(return_value={0: 0}),
@@ -108,8 +107,7 @@ class TestGetDeviceId(unittest.TestCase):
     def test_get_device_id_with_rank_table_ok(self):
         self.assertEqual(get_device_id(), 0)
 
-    @mock.patch("os.environ", {MPIParams.OMPI_COMM_WORLD_RANK.value: "0"})
-    @mock.patch("os.environ", {RankTableInfo.RANK_TABLE_FILE.value: ""})
+    @mock.patch("os.environ", {MPIParams.OMPI_COMM_WORLD_RANK.value: "0", RankTableInfo.RANK_TABLE_FILE.value: ""})
     @mock.patch.multiple(
         "training.common.python.communication.hccl.hccl_info",
         _get_rank_info_without_ranktable=mock.MagicMock(return_value={0: 0}),
@@ -119,8 +117,7 @@ class TestGetDeviceId(unittest.TestCase):
     def test_get_device_id_without_rank_table_ok(self):
         self.assertEqual(get_device_id(), 0)
 
-    @mock.patch("os.environ", {MPIParams.OMPI_COMM_WORLD_RANK.value: "0"})
-    @mock.patch("os.environ", {RankTableInfo.RANK_TABLE_FILE.value: ""})
+    @mock.patch("os.environ", {MPIParams.OMPI_COMM_WORLD_RANK.value: "0", RankTableInfo.RANK_TABLE_FILE.value: ""})
     @mock.patch.multiple(
         "training.common.python.communication.hccl.hccl_info",
         _get_rank_info_without_ranktable=mock.MagicMock(return_value={1: 0}),
@@ -133,8 +130,7 @@ class TestGetDeviceId(unittest.TestCase):
 
         self.assertIn("Environment variable DEVICE_ID has not been exported", str(e.exception))
 
-    @mock.patch("os.environ", {MPIParams.OMPI_COMM_WORLD_RANK.value: "0"})
-    @mock.patch("os.environ", {RankTableInfo.RANK_TABLE_FILE.value: ""})
+    @mock.patch("os.environ", {MPIParams.OMPI_COMM_WORLD_RANK.value: "0", RankTableInfo.RANK_TABLE_FILE.value: ""})
     @mock.patch.multiple(
         "training.common.python.communication.hccl.hccl_info",
         _get_rank_info_without_ranktable=mock.MagicMock(return_value={0: "xxx"}),

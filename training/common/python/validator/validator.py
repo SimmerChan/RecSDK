@@ -106,7 +106,6 @@ def para_checker_decorator(check_option_list: List[Tuple[Union[List[str], str],
     需要校验的参数及其相关校验器[“需要检验的参数或参数组合”, "使用的校验器", "校验器的参数", "校验器需要执行的方法（添加指定校验）"]
     :return:
     """
-    LoggingProxy.set_instance(log_level=os.getenv(EnvOption.RECSDK_LOG_LEVEL.value, LogLevel.INFO.value))
     def para_checker(func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
@@ -376,7 +375,7 @@ class StringValidator(Validator):
     String type validator.
     """
 
-    def __init__(self, name, value, max_len: Optional[int] = None, min_len: Optional[int] = 0,
+    def __init__(self, name, value, min_len: Optional[int] = 0, max_len: Optional[int] = None,
                  element: Optional[str] = None, msg=""):
         super(StringValidator, self).__init__(name, value)
         self.max_len = max_len
@@ -433,11 +432,11 @@ class OptionalStringValidator(StringValidator):
     String type validator if value is not None
     """
 
-    def __init__(self, name, value, max_len=None, min_len=0, element: Optional[str] = None, msg=""):
+    def __init__(self, name, value, min_len=0, max_len=None, element: Optional[str] = None, msg=""):
         if not isinstance(value, str):
             super(OptionalStringValidator, self).__init__(name, "", None, None, None, msg)
         elif isinstance(value, str):
-            super(OptionalStringValidator, self).__init__(name, value, max_len, min_len, element, msg)
+            super(OptionalStringValidator, self).__init__(name, value, min_len, max_len, element, msg)
 
 
 class SSDFeatureValidator(Validator):

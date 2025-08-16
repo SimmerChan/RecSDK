@@ -133,38 +133,39 @@ class ParameterCheckerTest(unittest.TestCase):
         if hasattr(BaseSession, "old_run_method"):
             BaseSession.run = BaseSession.old_run_method
 
-        self.assertTrue(LearningRateValidator(
-            name="whatever",
-            value=tf.constant([1.0]),
-            min_value=0.0,
-            max_value=10.0
-            ).check_value().check().is_valid())
-
-        try:
+        with tf.Graph().as_default():
             self.assertTrue(LearningRateValidator(
                 name="whatever",
-                value=tf.constant([11.0]),
+                value=tf.constant([1.0]),
                 min_value=0.0,
                 max_value=10.0
-            ).check_value().check().is_valid())
+                ).check_value().check().is_valid())
 
-        except ValueError as exp:
-            self.assertEqual(type(exp), ValueError)
-        else:
-            self.fail("ValueError not raised.")
+            try:
+                self.assertTrue(LearningRateValidator(
+                    name="whatever",
+                    value=tf.constant([11.0]),
+                    min_value=0.0,
+                    max_value=10.0
+                ).check_value().check().is_valid())
 
-        try:
-            self.assertTrue(LearningRateValidator(
-                name="whatever",
-                value=tf.constant([1.0, 2.0]),
-                min_value=0.0,
-                max_value=10.0
-            ).check_value_for_left_open_interval().check().is_valid())
+            except ValueError as exp:
+                self.assertEqual(type(exp), ValueError)
+            else:
+                self.fail("ValueError not raised.")
 
-        except ValueError as exp:
-            self.assertEqual(type(exp), ValueError)
-        else:
-            self.fail("ValueError not raised.")
+            try:
+                self.assertTrue(LearningRateValidator(
+                    name="whatever",
+                    value=tf.constant([1.0, 2.0]),
+                    min_value=0.0,
+                    max_value=10.0
+                ).check_value_for_left_open_interval().check().is_valid())
+
+            except ValueError as exp:
+                self.assertEqual(type(exp), ValueError)
+            else:
+                self.fail("ValueError not raised.")
 
     def test_string_validator_max_len_parameter(self):
         try:

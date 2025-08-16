@@ -108,3 +108,5 @@ def _get_logger(log_level: str = LogLevel.INFO.value) -> logging.Logger:
     rec_logger.addHandler(stream_handler)
     rec_logger.setLevel(log_level)
     return rec_logger
+
+LoggingProxy.set_instance(log_level=os.getenv(EnvOption.RECSDK_LOG_LEVEL.value, LogLevel.INFO.value))
