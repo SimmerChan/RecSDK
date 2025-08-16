@@ -21,7 +21,7 @@ import numpy as np
 
 class RankTableParams(Enum):
     MAX_RANK_SIZE = 4095
-    MIN_RANK_SIZE = 1
+    MIN_RANK_SIZE = 0
 
 class FileParams(Enum):
     MIN_SIZE = 1

@@ -375,7 +375,7 @@ class StringValidator(Validator):
     String type validator.
     """
 
-    def __init__(self, name, value, min_len: Optional[int] = 0, max_len: Optional[int] = None,
+    def __init__(self, name, value, max_len: Optional[int] = None, min_len: Optional[int] = 0,
                  element: Optional[str] = None, msg=""):
         super(StringValidator, self).__init__(name, value)
         self.max_len = max_len
@@ -432,11 +432,11 @@ class OptionalStringValidator(StringValidator):
     String type validator if value is not None
     """
 
-    def __init__(self, name, value, min_len=0, max_len=None, element: Optional[str] = None, msg=""):
+    def __init__(self, name, value, max_len=None, min_len=0, element: Optional[str] = None, msg=""):
         if not isinstance(value, str):
             super(OptionalStringValidator, self).__init__(name, "", None, None, None, msg)
         elif isinstance(value, str):
-            super(OptionalStringValidator, self).__init__(name, value, min_len, max_len, element, msg)
+            super(OptionalStringValidator, self).__init__(name, value, max_len, min_len, element, msg)
 
 
 class SSDFeatureValidator(Validator):
