@@ -51,7 +51,7 @@ def get_available_cpu_num_and_range():
 
     valid_cpu_range_list = []
     if is_ok:
-        logger.info("available numa node num: %s", len(pkg_id2cpu_list))
+        LoggingProxy.info("available numa node num: %s", len(pkg_id2cpu_list))
         for _, part_cpu_list in pkg_id2cpu_list.items():
             parse_range(part_cpu_list, valid_cpu_range_list)
     else:
