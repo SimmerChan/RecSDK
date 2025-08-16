@@ -1,3 +1,4 @@
+#!/bin/bash
 export USE_NPU_HSTU=1                                                                 # 是否使用hstu算子加速
 export ENABLE_RAB=0                                                                   # 是否带RAB
 export LIB_FBGEMM_NPU_API_SO_PATH="/path/to/libfbgemm_npu_api.so"                     # 根据实际情况修改
