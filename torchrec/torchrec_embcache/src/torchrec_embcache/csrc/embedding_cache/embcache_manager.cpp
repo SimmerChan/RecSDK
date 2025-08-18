@@ -21,7 +21,7 @@
 
 using namespace Embcache;
 
-EmbcacheManager::EmbcacheManager(const std::vector<EmbConfig>& embConfigs, bool needAccumulateOffset)
+EmbcacheManager::EmbcacheManager(const std::vector<EmbConfig>& embConfigs_, bool needAccumulateOffset)
     : embNum_(embConfigs.size()), needAccumulateOffset_(needAccumulateOffset)
 {
     for (const auto& config : embConfigs) {
@@ -284,7 +284,7 @@ void EmbcacheManager::RecordTimestamp(const at::Tensor& batchKeys, const std::ve
 
     for (int64_t i = 0; i < embNum; ++i) {
         int32_t idx = curTableIndices[i];
-        if (embConfigs[idx].admitAndEvictConfig.IsEvictEnabled()) {
+        if (embConfigs_[idx].admitAndEvictConfig.IsEvictEnabled()) {
             featureFilters[idx].RecordTimestamp(keyPtr, offsetPerKey[i], offsetPerKey[i + 1], timestampsPtr);
         }
     }
@@ -297,8 +297,8 @@ void EmbcacheManager::EvictFeatures()
     TimeCost evictFeaturesTC;
     size_t evictKeyCount = 0;
     for (int32_t i = 0; i < embNum; ++i) {
-        if (!embConfigs[i].admitAndEvictConfig.IsEvictEnabled()) {
-            LOG(INFO) << "The table：" << embConfigs[i].tableName << " doesn't enable evict, skip feature evict.";
+        if (!embConfigs_[i].admitAndEvictConfig.IsEvictEnabled()) {
+            LOG(INFO) << "The table：" << embConfigs_[i].tableName << " doesn't enable evict, skip feature evict.";
             continue;
         }
 
@@ -335,7 +335,7 @@ bool EmbcacheManager::NeedEvictEmbeddingTable()
 {
     for (int32_t i = 0; i < embNum; ++i) {
         // 开启淘汰
-        if (!embConfigs[i].admitAndEvictConfig.IsEvictEnabled()) {
+        if (!embConfigs_[i].admitAndEvictConfig.IsEvictEnabled()) {
             continue;
         }
         // 待删除embTable的keys非空且达到和GetSwapInfo相同的步数
@@ -354,13 +354,13 @@ void EmbcacheManager::RemoveEmbeddingTableInfo()
     for (int32_t i = 0; i < embNum; ++i) {
         auto& keys = featureFilters[i].evictFeatureRecord.GetEvictKeys();
         if (keys.empty()) {
-            LOG(INFO) << "Feature keys list is empty, skip to remove embedding from table:" << embConfigs[i].tableName;
+            LOG(INFO) << "Feature keys list is empty, skip to remove embedding from table:" << embConfigs_[i].tableName;
             continue;
         }
 
         // 调用embTable Remove
         embeddingTables[i]->RemoveEmbedding(keys);
-        LOG(INFO) << "Remove table embedding info, table:" << embConfigs[i].tableName
+        LOG(INFO) << "Remove table embedding info, table:" << embConfigs_[i].tableName
                   << ", remove key size:" << keys.size() << ", detail keys:" << StringTools::ToString(keys);
         featureFilters[i].evictFeatureRecord.ClearEvictInfo();
     }
@@ -371,8 +371,8 @@ void EmbcacheManager::StatisticsKeyCount(const at::Tensor& batchKeys, const torc
                                          const at::Tensor& batchKeyCounts, int64_t tableIndex)
 {
     LOG(INFO) << "StatisticsKeyCount, tableIndex:" << tableIndex
-              << ", isAdmit:" << embConfigs[tableIndex].admitAndEvictConfig.IsAdmitEnabled();
-    if (!embConfigs[tableIndex].admitAndEvictConfig.IsAdmitEnabled()) {
+              << ", isAdmit:" << embConfigs_[tableIndex].admitAndEvictConfig.IsAdmitEnabled();
+    if (!embConfigs_[tableIndex].admitAndEvictConfig.IsAdmitEnabled()) {
         return;
     }
     TORCH_CHECK(offset.numel() > tableIndex, "param error, tableIndex need be smaller than offset length,"
