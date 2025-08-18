@@ -18,7 +18,7 @@ namespace Embcache {
 
 FeatureFilter::FeatureFilter(const std::string& tableName, int32_t admitThreshold,
                              uint64_t evictThreshold, uint64_t evictStepInterval)
-    : tableName(tableName), admitThreshold(admitThreshold),
+    : tableName(tableName), admitThreshold(admitThreshold_),
       evictThreshold(evictThreshold), evictStepInterval(evictStepInterval)
 {
 }
@@ -66,7 +66,7 @@ void FeatureFilter::FeatureEvict()
         }
     }
     // 淘汰掉的key从timestampRecordMap中移出
-    bool isAdmitEnabled = admitThreshold != -1;
+    bool isAdmitEnabled = admitThreshold_ != -1;
     for (auto feature : evictKeys) {
         timestampRecordMap.erase(feature);
         if (isAdmitEnabled) {
@@ -126,7 +126,7 @@ void FeatureFilter::StatisticsKeyCount(const int64_t* featureDataPtr, const int6
 void FeatureFilter::CountFilter(int64_t* featureDataPtr, int64_t startIndex, int64_t endIndex)
 {
     // 准入检查，将未准入的特征置为-1
-    auto thresholdCount = static_cast<uint64_t>(admitThreshold);
+    auto thresholdCount = static_cast<uint64_t>(admitThreshold_);
     for (int64_t i = startIndex; i < endIndex; ++i) {
         auto feature = *(featureDataPtr + i);
         auto iter = featureRecordMap.find(feature);

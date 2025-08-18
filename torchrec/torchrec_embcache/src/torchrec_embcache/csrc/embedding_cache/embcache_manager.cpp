@@ -360,8 +360,8 @@ void EmbcacheManager::RemoveEmbeddingTableInfo()
 
         // 调用embTable Remove
         embeddingTables_[i]->RemoveEmbedding(keys);
-        LOG(INFO) << "Remove table embedding info, table:" << embConfigs_[i].tableName
-                  << ", remove key size:" << keys.size() << ", detail keys:" << StringTools::ToString(keys);
+        // LOG(INFO) << "Remove table embedding info, table:" << embConfigs_[i].tableName
+        //           << ", remove key size:" << keys.size() << ", detail keys:" << StringTools::ToString(keys);
         featureFilters[i].evictFeatureRecord.ClearEvictInfo();
     }
     LOG(INFO) << "The removeEmbeddingTableTC(ms):" << removeEmbeddingTableTC.ElapsedMS();

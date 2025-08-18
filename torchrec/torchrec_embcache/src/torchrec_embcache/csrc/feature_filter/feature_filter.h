@@ -50,7 +50,7 @@ private:
     std::string tableName;
 
     // 准入相关配置
-    int32_t admitThreshold = -1;                                  // 准入阈值，默认值表示未开启准入
+    int32_t admitThreshold_ = -1;                                  // 准入阈值，默认值表示未开启准入
     std::unordered_map<int64_t, FeatureRecord> featureRecordMap;  // 准入，记录key次数
 
     // 淘汰相关配置
