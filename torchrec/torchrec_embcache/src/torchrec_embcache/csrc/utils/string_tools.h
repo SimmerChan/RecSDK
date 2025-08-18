@@ -12,7 +12,7 @@
 #include <string>
 #include <sstream>
 
-#include "utils/string_toools.h"
+#include "utils/string_tools.h"
 
 namespace Embcache {
 
