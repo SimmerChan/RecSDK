@@ -18,12 +18,22 @@ import os
 import dataclasses
 from dataclasses import dataclass
 
-from mx_rec.constants.constants import EnvOption, RecPyLogLevel, Flag, EMPTY_STR, \
-    DEFAULT_HD_CHANNEL_SIZE, DEFAULT_KP_THREAD_NUM, DEFAULT_FAST_UNIQUE_THREAD_NUM, RecCPPLogLevel, MAX_INT32, \
+from mx_rec_common.constants.constants import (
+    EnvOptionCommon,
+    LogLevel,
+    ValidatorParams,
+    DeviceType,
+    CommonEnv)
+from mx_rec_common.validator.validator import (
+    para_checker_decorator,
+    OptionValidator,
+    DirectoryValidator,
+    Convert2intValidator)
+from mx_rec.constants.constants import EnvOption, Flag, EMPTY_STR, \
+    DEFAULT_HD_CHANNEL_SIZE, DEFAULT_KP_THREAD_NUM, DEFAULT_FAST_UNIQUE_THREAD_NUM, RecCPPLogLevel, \
     MIN_HD_CHANNEL_SIZE, MAX_HD_CHANNEL_SIZE, MIN_KP_THREAD_NUM, MAX_KP_THREAD_NUM, \
     MIN_FAST_UNIQUE_THREAD_NUM, MAX_FAST_UNIQUE_THREAD_NUM, DEFAULT_HOT_EMB_UPDATE_STEP, MIN_HOT_EMB_UPDATE_STEP, \
-    MAX_HOT_EMB_UPDATE_STEP, TFDevice, MAX_CM_WORKER_SIZE, MIN_CM_WORKER_SIZE, DEFAULT_CM_WORKER_SIZE, SsdCompactLevel
-from mx_rec.validator.validator import para_checker_decorator, OptionValidator, DirectoryValidator, Convert2intValidator
+    MAX_HOT_EMB_UPDATE_STEP, MAX_CM_WORKER_SIZE, MIN_CM_WORKER_SIZE, DEFAULT_CM_WORKER_SIZE, SsdCompactLevel
 
 
 @dataclass
@@ -51,11 +61,11 @@ def get_global_env_conf() -> RecEnv:
     :return:
     """
     rec_env = RecEnv(
-        mxrec_log_level=os.getenv(EnvOption.MXREC_LOG_LEVEL.value, RecPyLogLevel.INFO.value),
+        mxrec_log_level=os.getenv(EnvOptionCommon.RECSDK_LOG_LEVEL.value, LogLevel.INFO.value),
         rank_table_file=os.getenv(EnvOption.RANK_TABLE_FILE.value, EMPTY_STR),
-        cm_chief_device=os.getenv(EnvOption.CM_CHIEF_DEVICE.value),
-        cm_worker_size=os.getenv(EnvOption.CM_WORKER_SIZE.value, DEFAULT_CM_WORKER_SIZE),
-        tf_device=os.getenv(EnvOption.TF_DEVICE.value, TFDevice.NONE.value),
+        cm_chief_device=os.getenv(CommonEnv.CM_CHIEF_DEVICE.value),
+        cm_worker_size=os.getenv(CommonEnv.CM_WORKER_SIZE.value, DEFAULT_CM_WORKER_SIZE),
+        tf_device=os.getenv(EnvOptionCommon.DEVICE_TYPE.value, DeviceType.NONE.value),
         acl_timeout=os.getenv(EnvOption.ACL_TIMEOUT.value, "-1"),
         hd_channel_size=os.getenv(EnvOption.HD_CHANNEL_SIZE.value, DEFAULT_HD_CHANNEL_SIZE),
         key_process_thread_num=os.getenv(EnvOption.KEY_PROCESS_THREAD_NUM.value, DEFAULT_KP_THREAD_NUM),
@@ -72,12 +82,12 @@ def get_global_env_conf() -> RecEnv:
 
 
 @para_checker_decorator(check_option_list=[
-    ("mxrec_log_level", OptionValidator, {"options": [i.value for i in list(RecPyLogLevel)]}),
+    ("mxrec_log_level", OptionValidator, {"options": [i.value for i in list(LogLevel)]}),
     ("rank_table_file", DirectoryValidator, {}, ["check_exists_if_not_empty"]),
     ("cm_worker_size", Convert2intValidator, {"min_value": MIN_CM_WORKER_SIZE, "max_value": MAX_CM_WORKER_SIZE},
      ["check_value"]),
-    ("tf_device", OptionValidator, {"options": [i.value for i in list(TFDevice)]}),
-    ("acl_timeout", Convert2intValidator, {"min_value": -1, "max_value": MAX_INT32}, ["check_value"]),
+    ("tf_device", OptionValidator, {"options": [i.value for i in list(DeviceType)]}),
+    ("acl_timeout", Convert2intValidator, {"min_value": -1, "max_value": ValidatorParams.MAX_INT32.value}, ["check_value"]),
     ("hd_channel_size", Convert2intValidator,
      {"min_value": MIN_HD_CHANNEL_SIZE, "max_value": MAX_HD_CHANNEL_SIZE}, ["check_value"]),
     ("key_process_thread_num", Convert2intValidator,

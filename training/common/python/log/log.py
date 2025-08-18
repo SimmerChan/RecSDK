@@ -18,7 +18,7 @@
 import os
 import logging
 
-from training.common.python.constants.constants import LogLevel, EnvOption
+from mx_rec_common.constants.constants import LogLevel, EnvOptionCommon
 
 class LoggingProxy:
     _instance: logging.Logger = None
@@ -109,4 +109,4 @@ def _get_logger(log_level: str = LogLevel.INFO.value) -> logging.Logger:
     rec_logger.setLevel(log_level)
     return rec_logger
 
-LoggingProxy.set_instance(log_level=os.getenv(EnvOption.RECSDK_LOG_LEVEL.value, LogLevel.INFO.value))
+LoggingProxy.set_instance(log_level=os.getenv(EnvOptionCommon.RECSDK_LOG_LEVEL.value, LogLevel.INFO.value))
