@@ -1,5 +1,5 @@
 diff --git a/tzrec/main.py b/tzrec/main.py
-index a95fa0f..c507f5b 100644
+index 9a3b7ad..e216cda 100644
 --- a/tzrec/main.py
 +++ b/tzrec/main.py
 @@ -88,6 +88,17 @@ from tzrec.utils.plan_util import create_planner, get_default_sharders
@@ -31,8 +31,16 @@ index a95fa0f..c507f5b 100644
      else:
          device: torch.device = torch.device("cpu")
          backend = "gloo"
+@@ -705,6 +720,7 @@ def train_and_evaluate(
+ 
+     model = DistributedModelParallel(
+         module=model,
++        sharders=get_default_sharders(),
+         device=device,
+         plan=plan,
+     )
 diff --git a/tzrec/utils/plan_util.py b/tzrec/utils/plan_util.py
-index 5edb550..48d6a9e 100644
+index 5edb550..42ff6cb 100644
 --- a/tzrec/utils/plan_util.py
 +++ b/tzrec/utils/plan_util.py
 @@ -57,7 +57,7 @@ from torchrec.distributed.types import (
@@ -44,16 +52,22 @@ index 5edb550..48d6a9e 100644
  
  def _bytes_to_float_bin(num_bytes: Union[float, int], bin_size: float) -> float:
      return float(num_bytes) / bin_size
-@@ -77,6 +77,8 @@ def create_planner(
-     topo_kwargs = {}
+@@ -78,14 +78,11 @@ def create_planner(
      if torch.cuda.is_available():
          topo_kwargs["hbm_cap"] = torch.cuda.get_device_properties(device).total_memory
-+    elif torch_npu.npu.is_available():
-+        topo_kwargs["hbm_cap"] = torch_npu.npu.get_device_properties(device).total_memory
  
-     ddr_cap_per_rank = int(float(psutil.virtual_memory().total) / local_world_size)
-     topo_kwargs["ddr_cap"] = ddr_cap_per_rank
-@@ -131,19 +133,22 @@ def create_planner(
+-    ddr_cap_per_rank = int(float(psutil.virtual_memory().total) / local_world_size)
+-    topo_kwargs["ddr_cap"] = ddr_cap_per_rank
+     if "INTRA_NODE_BANDWIDTH" in os.environ:
+         topo_kwargs["intra_host_bw"] = float(os.environ["INTRA_NODE_BANDWIDTH"])
+     if "CROSS_NODE_BANDWIDTH" in os.environ:
+         topo_kwargs["inter_host_bw"] = float(os.environ["CROSS_NODE_BANDWIDTH"])
+     topology = Topology(
+-        local_world_size=local_world_size,
+         world_size=dist.get_world_size(),
+         compute_device=device.type,
+         **topo_kwargs,
+@@ -131,19 +128,23 @@ def create_planner(
              if len(global_constraints_cfg.compute_kernels) > 0
              else None,
          )
@@ -61,7 +75,8 @@ index 5edb550..48d6a9e 100644
 +    # row_wise
 +    constraints = {
 +        f"{feature_name}_emb": ParameterConstraints(
-+            sharding_types=["row_wise"]
++            sharding_types=["row_wise"],
++            compute_kernels=["fused"]
 +        )
 +        for feature_name in ["user_id", "cms_segid", "cms_group_id", "final_gender_code", "age_level",
 +                             "pvalue_level", "shopping_level", "occupation", "new_user_class_level", "adgroup_id",
@@ -84,7 +99,7 @@ index 5edb550..48d6a9e 100644
          debug=True,
      )
      return planner
-@@ -153,6 +158,8 @@ def get_default_sharders() -> List[ModuleSharder[nn.Module]]:
+@@ -153,6 +154,8 @@ def get_default_sharders() -> List[ModuleSharder[nn.Module]]:
      """Get embedding module default sharder."""
      if torch.cuda.is_available():
          return _get_default_sharders()

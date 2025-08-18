@@ -1,3 +1,5 @@
+#!/bin/bash
+
 export LIB_FBGEMM_NPU_API_SO_PATH="/path/to/libfbgemm_npu_api.so"      # 根据实际情况修改
 
 torchrun --master_addr=localhost --master_port=32555 \
