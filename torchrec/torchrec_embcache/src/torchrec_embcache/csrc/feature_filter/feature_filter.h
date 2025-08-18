@@ -12,6 +12,7 @@
 #include <ctime>
 #include <unordered_map>
 #include <vector>
+#include <cstring>
 
 #include "evict_feature_record.h"
 
