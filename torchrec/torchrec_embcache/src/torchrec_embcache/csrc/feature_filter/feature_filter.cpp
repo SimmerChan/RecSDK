@@ -18,7 +18,7 @@ namespace Embcache {
 
 FeatureFilter::FeatureFilter(const std::string& tableName, int32_t admitThreshold,
                              uint64_t evictThreshold, uint64_t evictStepInterval)
-    : tableName(tableName), admitThreshold(admitThreshold_),
+    : tableName(tableName), admitThreshold_(admitThreshold),
       evictThreshold(evictThreshold), evictStepInterval(evictStepInterval)
 {
 }
