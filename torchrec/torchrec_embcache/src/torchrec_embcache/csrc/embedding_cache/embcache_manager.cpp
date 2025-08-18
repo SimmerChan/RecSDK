@@ -274,7 +274,7 @@ void EmbcacheManager::EmbeddingUpdate(const std::vector<std::vector<int64_t>>& s
 void EmbcacheManager::RecordTimestamp(const at::Tensor& batchKeys, const std::vector<int64_t>& offsetPerKey,
                                       const at::Tensor& timestamps, const std::vector<int32_t>& tableIndices)
 {
-    LOG(INFO) << "Start invoke mgmt RecordTimestamp";
+    LOG_INFO("Start invoke mgmt RecordTimestamp");
     TimeCost recordTimestampTC;
     const auto* keyPtr = batchKeys.data_ptr<int64_t>();
     const auto* timestampsPtr = timestamps.data_ptr<int64_t>();
@@ -288,17 +288,17 @@ void EmbcacheManager::RecordTimestamp(const at::Tensor& batchKeys, const std::ve
             featureFilters[idx].RecordTimestamp(keyPtr, offsetPerKey[i], offsetPerKey[i + 1], timestampsPtr);
         }
     }
-    LOG(INFO) << "The recordTimestampTC(ms):" << recordTimestampTC.ElapsedMS();
+    LOG_INFO("RecordTimestamp execution time: {} ms", recordTimestampTC.ElapsedMS());
 }
 
 void EmbcacheManager::EvictFeatures()
 {
-    LOG(INFO) << "Start invoke EvictFeatures method, ComputeSwapInfo execute times:" << swapCount_;
+    LOG_INFO("Start invoke EvictFeatures method, ComputeSwapInfo execute times: {}", swapCount_);
     TimeCost evictFeaturesTC;
     size_t evictKeyCount = 0;
     for (int32_t i = 0; i < embNum_; ++i) {
         if (!embConfigs_[i].admitAndEvictConfig.IsEvictEnabled()) {
-            LOG(INFO) << "The table：" << embConfigs_[i].tableName << " doesn't enable evict, skip feature evict.";
+            LOG_INFO("The table: {} doesn't enable evict, skip feature evict.", embConfigs_[i].tableName);
             continue;
         }
 
@@ -310,8 +310,8 @@ void EmbcacheManager::EvictFeatures()
         featureFilters[i].evictFeatureRecord.SetSwapCount(swapCount_);
         evictKeyCount += evictFeatures.size();
     }
-    LOG(INFO) << "The evictFeaturesTC(ms):" << evictFeaturesTC.ElapsedMS()
-              << ", all table evictKeyCount:" << evictKeyCount;
+    LOG_INFO("EvictFeatures execution time: {} ms, all table evictKeyCount: {}", 
+             evictFeaturesTC.ElapsedMS(), evictKeyCount);
 }
 
 void EmbcacheManager::RecordEmbeddingUpdateTimes()
@@ -349,39 +349,40 @@ bool EmbcacheManager::NeedEvictEmbeddingTable()
 
 void EmbcacheManager::RemoveEmbeddingTableInfo()
 {
-    LOG(INFO) << "Start invoke RemoveEmbeddingTableInfo, embUpdateCount_:" << embUpdateCount_;
+    LOG_INFO("Start invoke RemoveEmbeddingTableInfo, embUpdateCount_: {}", embUpdateCount_);
     TimeCost removeEmbeddingTableTC;
     for (int32_t i = 0; i < embNum_; ++i) {
         auto& keys = featureFilters[i].evictFeatureRecord.GetEvictKeys();
         if (keys.empty()) {
-            LOG(INFO) << "Feature keys list is empty, skip to remove embedding from table:" << embConfigs_[i].tableName;
+            LOG_INFO("Feature keys list is empty, skip to remove embedding from table: {}", embConfigs_[i].tableName);
             continue;
         }
 
         // 调用embTable Remove
         embeddingTables_[i]->RemoveEmbedding(keys);
-        // LOG(INFO) << "Remove table embedding info, table:" << embConfigs_[i].tableName
-        //           << ", remove key size:" << keys.size() << ", detail keys:" << StringTools::ToString(keys);
+        // 调试日志已注释，如需启用可改为：
+        // LOG_INFO("Remove table embedding info, table: {}, remove key size: {}", 
+        //          embConfigs_[i].tableName, keys.size());
         featureFilters[i].evictFeatureRecord.ClearEvictInfo();
     }
-    LOG(INFO) << "The removeEmbeddingTableTC(ms):" << removeEmbeddingTableTC.ElapsedMS();
+    LOG_INFO("RemoveEmbeddingTableInfo execution time: {} ms", removeEmbeddingTableTC.ElapsedMS());
 }
 
 void EmbcacheManager::StatisticsKeyCount(const at::Tensor& batchKeys, const torch::Tensor& offset,
                                          const at::Tensor& batchKeyCounts, int64_t tableIndex)
 {
-    LOG(INFO) << "StatisticsKeyCount, tableIndex:" << tableIndex
-              << ", isAdmit:" << embConfigs_[tableIndex].admitAndEvictConfig.IsAdmitEnabled();
+    LOG_INFO("StatisticsKeyCount, tableIndex: {}, isAdmit: {}", 
+             tableIndex, embConfigs_[tableIndex].admitAndEvictConfig.IsAdmitEnabled());
     if (!embConfigs_[tableIndex].admitAndEvictConfig.IsAdmitEnabled()) {
         return;
     }
     TORCH_CHECK(offset.numel() > tableIndex, "param error, tableIndex need be smaller than offset length,"
-                                             " but got equal or greater than offset length.")
+                                           " but got equal or greater than offset length.")
     // 未开启local unique时，counts为空tensor，处理时默认key对应count为1
     bool isCountDataEmpty = batchKeyCounts.numel() == 0;
     if (!isCountDataEmpty) {
         TORCH_CHECK(batchKeys.numel() == batchKeyCounts.numel(),
-                    "batchKeys length should equal with batchKeyCounts length when batchKeyCounts is not empty.")
+                   "batchKeys length should equal with batchKeyCounts length when batchKeyCounts is not empty.")
     }
     auto* featureDataPtr = batchKeys.data_ptr<int64_t>();
     auto* countDataPtr = batchKeyCounts.data_ptr<int64_t>();
