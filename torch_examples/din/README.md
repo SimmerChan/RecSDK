@@ -49,8 +49,6 @@ docker run \
 bash run_docker.sh 容器名 {镜像名称}:{版本名称}
 ```
 
-### 安装Pytorch配套
-
 ### 设置环境变量
 进入容器后，设置环境变量
 ```shell
@@ -61,7 +59,7 @@ export LD_LIBRARY_PATH=/usr/local/python3.11.0/lib/:$LD_LIBRARY_PATH
 export PATH=/usr/local/python3.11.0/bin:$PATH
 ```
 
-### 安装依赖
+### 安装Pytorch配套
 说明：容器中已经安装好torchrec,hybrid_torchrec以及算子等依赖，如需重新安装需确保网络通畅，请选择（1）通过获取安装包或者（2）源码编译的方式。
 
 1.获取安装包安装
@@ -137,13 +135,19 @@ protoc --proto_path=./ --python_out=./ tzrec/protos/*.proto
 protoc --proto_path=./ --python_out=./ tzrec/protos/models/*.proto
 ```
 
-## 生成并安装源码框架
+### 安装依赖
+```bash
+pip3 install -r requirements/runtime.txt
+```
+说明：部分三方库需要在指定地址安装，如遇网络问题，可按runtime.txt描述手动下在依赖库安装。
+
+
+### 生成并安装源码框架
 ```bash
 python3 setup.py sdist bdist_wheel
 cd dist && pip3 install tzrec-0.7.14-*.whl
 cd ..
 ```
-注意：使用pip3安装tzrec三方库时，会默认安装requirements/runtime.txt中依赖，其中部分三方库需要在指定地址安装，如遇网络问题，请手动安装依赖库，然后使用--no-deps选项安装tzrec库。
 
 ## 数据集准备
 下载训练数据和评估数据，配置文件以multi_tower_din_taobao_local.config为例。
