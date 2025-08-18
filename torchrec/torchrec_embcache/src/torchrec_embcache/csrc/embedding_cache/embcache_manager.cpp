@@ -282,7 +282,7 @@ void EmbcacheManager::RecordTimestamp(const at::Tensor& batchKeys, const std::ve
     TORCH_CHECK(curTableIndices.size() + 1 == offsetPerKey.size(),
                 "tableIndices size+1 must be equal to offsetPerKey size");
 
-    for (int64_t i = 0; i < embNum; ++i) {
+    for (int64_t i = 0; i < embNum_; ++i) {
         int32_t idx = curTableIndices[i];
         if (embConfigs_[idx].admitAndEvictConfig.IsEvictEnabled()) {
             featureFilters[idx].RecordTimestamp(keyPtr, offsetPerKey[i], offsetPerKey[i + 1], timestampsPtr);
@@ -293,10 +293,10 @@ void EmbcacheManager::RecordTimestamp(const at::Tensor& batchKeys, const std::ve
 
 void EmbcacheManager::EvictFeatures()
 {
-    LOG(INFO) << "Start invoke EvictFeatures method, ComputeSwapInfo execute times:" << swapCount;
+    LOG(INFO) << "Start invoke EvictFeatures method, ComputeSwapInfo execute times:" << swapCount_;
     TimeCost evictFeaturesTC;
     size_t evictKeyCount = 0;
-    for (int32_t i = 0; i < embNum; ++i) {
+    for (int32_t i = 0; i < embNum_; ++i) {
         if (!embConfigs_[i].admitAndEvictConfig.IsEvictEnabled()) {
             LOG(INFO) << "The table：" << embConfigs_[i].tableName << " doesn't enable evict, skip feature evict.";
             continue;
@@ -307,7 +307,7 @@ void EmbcacheManager::EvictFeatures()
         // 调用swapManager删除映射信息
         // 删除embeddingTables中的embedding待对应step的swap out emb update执行完成后触发
         swapManagers[i].RemoveKeys(evictFeatures);
-        featureFilters[i].evictFeatureRecord.SetSwapCount(swapCount);
+        featureFilters[i].evictFeatureRecord.SetSwapCount(swapCount_);
         evictKeyCount += evictFeatures.size();
     }
     LOG(INFO) << "The evictFeaturesTC(ms):" << evictFeaturesTC.ElapsedMS()
@@ -333,14 +333,14 @@ AsyncTask<void> EmbcacheManager::EmbeddingUpdateAsync(const SwapInfo& swapInfo, 
 }
 bool EmbcacheManager::NeedEvictEmbeddingTable()
 {
-    for (int32_t i = 0; i < embNum; ++i) {
+    for (int32_t i = 0; i < embNum_; ++i) {
         // 开启淘汰
         if (!embConfigs_[i].admitAndEvictConfig.IsEvictEnabled()) {
             continue;
         }
         // 待删除embTable的keys非空且达到和GetSwapInfo相同的步数
         if (!featureFilters[i].evictFeatureRecord.GetEvictKeys().empty() &&
-            featureFilters[i].evictFeatureRecord.CanRemoveFromEmbTable(embUpdateCount)) {
+            featureFilters[i].evictFeatureRecord.CanRemoveFromEmbTable(embUpdateCount_)) {
             return true;
         }
     }
@@ -349,9 +349,9 @@ bool EmbcacheManager::NeedEvictEmbeddingTable()
 
 void EmbcacheManager::RemoveEmbeddingTableInfo()
 {
-    LOG(INFO) << "Start invoke RemoveEmbeddingTableInfo, embUpdateCount:" << embUpdateCount;
+    LOG(INFO) << "Start invoke RemoveEmbeddingTableInfo, embUpdateCount_:" << embUpdateCount_;
     TimeCost removeEmbeddingTableTC;
-    for (int32_t i = 0; i < embNum; ++i) {
+    for (int32_t i = 0; i < embNum_; ++i) {
         auto& keys = featureFilters[i].evictFeatureRecord.GetEvictKeys();
         if (keys.empty()) {
             LOG(INFO) << "Feature keys list is empty, skip to remove embedding from table:" << embConfigs_[i].tableName;
