@@ -12,6 +12,8 @@
 #include <string>
 #include <sstream>
 
+#include "utils/string_toools.h"
+
 namespace Embcache {
 
 class StringTools {
