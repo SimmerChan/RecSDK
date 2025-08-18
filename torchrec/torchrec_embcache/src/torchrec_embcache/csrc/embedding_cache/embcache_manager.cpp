@@ -358,11 +358,9 @@ void EmbcacheManager::RemoveEmbeddingTableInfo()
             continue;
         }
 
-        // 调用embTable Remove
         embeddingTables_[i]->RemoveEmbedding(keys);
-        // 调试日志已注释，如需启用可改为：
-        // LOG_INFO("Remove table embedding info, table: {}, remove key size: {}", 
-        //          embConfigs_[i].tableName, keys.size());
+        LOG_INFO("Remove table embedding info, table: {}, remove key size: {}, detail keys: {}", 
+                 embConfigs_[i].tableName, keys.size(), StringTools::ToString(keys));
         featureFilters[i].evictFeatureRecord.ClearEvictInfo();
     }
     LOG_INFO("RemoveEmbeddingTableInfo execution time: {} ms", removeEmbeddingTableTC.ElapsedMS());
