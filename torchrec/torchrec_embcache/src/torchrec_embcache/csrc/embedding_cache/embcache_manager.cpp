@@ -21,7 +21,7 @@
 
 using namespace Embcache;
 
-EmbcacheManager::EmbcacheManager(const std::vector<EmbConfig>& embConfigs_, bool needAccumulateOffset)
+EmbcacheManager::EmbcacheManager(const std::vector<EmbConfig>& embConfigs, bool needAccumulateOffset)
     : embNum_(embConfigs.size()), needAccumulateOffset_(needAccumulateOffset)
 {
     for (const auto& config : embConfigs) {
@@ -100,7 +100,7 @@ SwapInfo EmbcacheManager::ComputeSwapInfo(const at::Tensor& batchKeys, const std
     SwapInfo swapInfo;
     for (int64_t i = 0; i < curTableIndices.size(); i++) {
         int64_t idx = curTableIndices[i];
-        if (embConfigs[idx].admitAndEvictConfig.IsAdmitEnabled()) {
+        if (embConfigs_[idx].admitAndEvictConfig.IsAdmitEnabled()) {
             featureFilters[idx].CountFilter(keyPtr, offsetPerKey[i], offsetPerKey[i + 1]);
         }
 
