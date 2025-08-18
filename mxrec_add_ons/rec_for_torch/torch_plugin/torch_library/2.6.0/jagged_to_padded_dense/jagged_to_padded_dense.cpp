@@ -236,6 +236,7 @@ TORCH_LIBRARY_IMPL(fbgemm, PrivateUse1, m)
         torch::dispatch(c10::DispatchKey::PrivateUse1,
                       TORCH_FN(fbgemm_npu::jagged_to_padded_dense_forward_npu_v2)));
     m.impl("jagged_to_padded_dense_backward", &fbgemm_npu::jagged_to_padded_dense_backward_npu);
+}
 
 // 注册自动求导实现
 TORCH_LIBRARY_IMPL(mxrec, AutogradPrivateUse1, m)
