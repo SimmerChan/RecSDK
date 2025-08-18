@@ -18,7 +18,7 @@
 
 #include "utils/logger.h"
 #include "utils/time_cost.h"
-#include "utils/string_toools.h"
+#include "utils/string_tools.h"
 
 using namespace Embcache;
 
