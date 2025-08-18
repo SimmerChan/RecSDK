@@ -17,8 +17,8 @@
 
 from typing import Optional, Any, Union, Tuple
 
-from training.common.python.constants.constants import ValidatorParams, NumCheckValueMethod
-from training.common.python.validator.validator import (
+from mx_rec_common.constants.constants import ValidatorParams, NumCheckValueMethod
+from mx_rec_common.validator.validator import (
     StringValidator,
     IntValidator,
     FloatValidator,

@@ -86,5 +86,12 @@ class LogLevel(Enum):
     ERROR = "ERROR"
     CRITICAL = "CRITICAL"
 
-class EnvOption(Enum):
-    RECSDK_LOG_LEVEL = "RECSDK_LOG_LEVEL"
+class EnvOptionCommon(Enum):
+    RECSDK_LOG_LEVEL = "MXREC_LOG_LEVEL"
+    DEVICE_TYPE = "TF_DEVICE"   #TF_DEVICE
+
+class DeviceType(Enum):
+    CPU = "CPU"
+    NPU = "NPU"
+    GPU = "GPU"
+    NONE = "NONE"

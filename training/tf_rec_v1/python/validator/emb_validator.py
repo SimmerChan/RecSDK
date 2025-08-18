@@ -6,9 +6,11 @@ from typing import Union, Optional, List
 
 import tensorflow as tf
 
-from mx_rec.constants.constants import MAX_VOCABULARY_SIZE, MULTI_LOOKUP_TIMES, MAX_INT64, MAX_INT32, MIN_INT64
+from mx_rec_common.communication.hccl.hccl_info import get_rank_size
+from mx_rec_common.constants.constants import ValidatorParams
+from mx_rec.constants.constants import MAX_VOCABULARY_SIZE, MULTI_LOOKUP_TIMES
 from mx_rec.core.asc.feature_spec import FeatureSpec
-from mx_rec.util.communication.hccl_ops import get_rank_size
+
 from mx_rec.util.initialize import ConfigInitializer
 
 
@@ -134,14 +136,14 @@ def check_and_format_emb_padding_keys(
     """
 
     if isinstance(padding_keys, int):
-        if padding_keys < MIN_INT64 or padding_keys > MAX_INT64:
-            raise ValueError(f"the padding keys should be between {MIN_INT64} and {MAX_INT64}")
+        if padding_keys < ValidatorParams.MIN_INT64.value or padding_keys > ValidatorParams.MAX_INT64.value:
+            raise ValueError(f"the padding keys should be between {ValidatorParams.MIN_INT64.value} and {ValidatorParams.MAX_INT64.value}")
     elif isinstance(padding_keys, list):
-        if len(padding_keys) < 1 or len(padding_keys) > MAX_INT32:
-            raise ValueError(f"the length of the padding keys should be between 1 and {MAX_INT32}")
+        if len(padding_keys) < 1 or len(padding_keys) > ValidatorParams.MAX_INT32.value:
+            raise ValueError(f"the length of the padding keys should be between 1 and {ValidatorParams.MAX_INT32.value}")
         for padding_key in padding_keys:
-            if padding_key < MIN_INT64 or padding_key > MAX_INT64:
-                raise ValueError(f"the padding keys should be between {MIN_INT64} and {MAX_INT64}")
+            if padding_key < ValidatorParams.MIN_INT64.value or padding_key > ValidatorParams.MAX_INT64.value:
+                raise ValueError(f"the padding keys should be between {ValidatorParams.MIN_INT64.value} and {ValidatorParams.MAX_INT64.value}")
     elif isinstance(padding_keys, type(None)):
         if padding_keys_mask:
             raise ValueError("the padding keys mask be False when padding keys is None")

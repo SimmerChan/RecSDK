@@ -19,8 +19,8 @@ import os
 import json
 from typing import Dict, List
 
-from training.common.python.constants.constants import RankTableInfo, ChipName, CommParams, CommonEnv, FileParams
-from training.common.python.validator.safe_checker import file_safe_check, class_safe_check, int_safe_check
+from mx_rec_common.constants.constants import RankTableInfo, ChipName, CommParams, CommonEnv, FileParams
+from mx_rec_common.validator.safe_checker import file_safe_check, class_safe_check, int_safe_check
 
 def _get_chip_name():
     import common_binding
