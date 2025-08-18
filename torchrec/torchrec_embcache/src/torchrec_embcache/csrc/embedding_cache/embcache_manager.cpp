@@ -306,7 +306,7 @@ void EmbcacheManager::EvictFeatures()
         const std::vector<int64_t>& evictFeatures = featureFilters[i].evictFeatureRecord.GetEvictKeys();
         // 调用swapManager删除映射信息
         // 删除embeddingTables中的embedding待对应step的swap out emb update执行完成后触发
-        swapManagers[i].RemoveKeys(evictFeatures);
+        swapManagers_[i].RemoveKeys(evictFeatures);
         featureFilters[i].evictFeatureRecord.SetSwapCount(swapCount_);
         evictKeyCount += evictFeatures.size();
     }
@@ -359,7 +359,7 @@ void EmbcacheManager::RemoveEmbeddingTableInfo()
         }
 
         // 调用embTable Remove
-        embeddingTables[i]->RemoveEmbedding(keys);
+        embeddingTables_[i]->RemoveEmbedding(keys);
         LOG(INFO) << "Remove table embedding info, table:" << embConfigs_[i].tableName
                   << ", remove key size:" << keys.size() << ", detail keys:" << StringTools::ToString(keys);
         featureFilters[i].evictFeatureRecord.ClearEvictInfo();
