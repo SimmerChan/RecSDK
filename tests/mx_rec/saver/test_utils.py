@@ -58,7 +58,7 @@ class TestCheckFilesInDirectories(unittest.TestCase):
 
 
 class TestGetOptimizerDictByTableName(unittest.TestCase):
-    @mock.patch("mx_rec.saver.util.ConfigInitializer")
+    @mock.patch("mx_rec.saver.utils.ConfigInitializer")
     def test_experimental_mode_is_none(self, utils_config_initializer):
         mock_config_init = MockConfigInitializer()
         mock_config_init.get_instance().optimizer_config.set_optimizer_for_table(
@@ -71,7 +71,7 @@ class TestGetOptimizerDictByTableName(unittest.TestCase):
 
         self.assertEqual(get_optimizer_dict_by_table_name("test_table"), {"xxx": {}})
 
-    @mock.patch("mx_rec.saver.util.ConfigInitializer")
+    @mock.patch("mx_rec.saver.utils.ConfigInitializer")
     def test_experimental_mode_is_train(self, utils_config_initializer):
         mock_config_init = MockConfigInitializer(experimental_mode="train")
         mock_config_init.get_instance().optimizer_config.set_optimizer_for_table(
