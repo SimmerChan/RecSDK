@@ -19,7 +19,7 @@ __version__ = "6.0.RC3"
 __all__ = ["version", "__version__"]
 
 from mx_rec.constants.constants import ASCEND_GLOBAL_HASHTABLE_COLLECTION
-from mx_rec.util.tf_version_adapter import npu_ops, hccl_ops, NPUCheckpointSaverHook
+
 from mx_rec.saver.patch import (
     patch_for_saver,
     patch_for_summary_writer,

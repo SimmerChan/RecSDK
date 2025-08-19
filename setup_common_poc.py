@@ -19,6 +19,7 @@ import os
 import re
 import stat
 import subprocess
+import shutil
 from pathlib import Path
 
 from setuptools import setup, find_packages
@@ -80,49 +81,12 @@ def run_setup(build_script_name, build_type):
     if res.returncode:
         raise RuntimeError("compile so files failed!")
 
-    setup(
-        name='mx_rec_common',
-        version=VERSION,
-        author='HUAWEI Inc',
-        description='MindSDK Recommend',
-        long_description=LONG_DESCRIPTION,
-        # include mx_rec
-        packages=find_packages(
-            where='training/common/python',
-            include=["python", "python.communication*", "python.constants*",
-                     "python.log*", "python.perf_factory*",
-                     "python.utils*", "python.validator*"],
-            exclude=["python.test*"]
-        ),
-        package_dir={
-            "": "training/common",  # 根目录映射
-            "mx_rec_common": "training/common/python",  # 将 python/ 重命名为 mxrec
-        },
-        # dependency
-        python_requires='>=3.7.5'
-    )
-
-    setup(
-        name='mx_rec',
-        version=VERSION,
-        author='HUAWEI Inc',
-        description='MindSDK Recommend',
-        long_description=LONG_DESCRIPTION,
-        # include mx_rec
-        packages=find_packages(
-            where='training/tf_rec_v1/python',
-            include=["python", "python.constants*", "python.core*",
-                     "python.data*", "python.graph*",
-                     "python.optimizers*", "python.saver*",
-                     "python.utils*", "python.validator*"],
-            exclude=["python.test*"]
-        ),
-        # other file
-        package_data={'': ['tools/*', 'tools/*/*', '*.yml', '*.sh', '*.so*']},
-        # dependency
-        python_requires='>=3.7.5'
-    )
-
+    common_dir = os.path.join(script_path, "training/common")
+    subprocess.run(["python3", "setup.py", "bdist_wheel", f"--version={VERSION}",
+                    f"--discription={LONG_DESCRIPTION}"], cwd=common_dir)
+    tf_rec_v1_dir = os.path.join(script_path, "training/tf_rec_v1")
+    subprocess.run(["python3", "setup.py", "bdist_wheel", f"--version={VERSION}",
+                    f"--discription={LONG_DESCRIPTION}"], cwd=tf_rec_v1_dir)
     move_whl_script = os.path.join(script_path, "./build_poc/move_whl_file_2_pkg_dir.sh")
     res = subprocess.run([move_whl_script, build_type], shell=False)
     if res.returncode:

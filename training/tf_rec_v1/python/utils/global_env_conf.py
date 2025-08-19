@@ -23,7 +23,8 @@ from mx_rec_common.constants.constants import (
     LogLevel,
     ValidatorParams,
     DeviceType,
-    CommonEnv)
+    CommonEnv,
+    RankTableInfo)
 from mx_rec_common.validator.validator import (
     para_checker_decorator,
     OptionValidator,
@@ -62,7 +63,7 @@ def get_global_env_conf() -> RecEnv:
     """
     rec_env = RecEnv(
         mxrec_log_level=os.getenv(EnvOptionCommon.RECSDK_LOG_LEVEL.value, LogLevel.INFO.value),
-        rank_table_file=os.getenv(EnvOption.RANK_TABLE_FILE.value, EMPTY_STR),
+        rank_table_file=os.getenv(RankTableInfo.RANK_TABLE_FILE.value, EMPTY_STR),
         cm_chief_device=os.getenv(CommonEnv.CM_CHIEF_DEVICE.value),
         cm_worker_size=os.getenv(CommonEnv.CM_WORKER_SIZE.value, DEFAULT_CM_WORKER_SIZE),
         tf_device=os.getenv(EnvOptionCommon.DEVICE_TYPE.value, DeviceType.NONE.value),

@@ -20,9 +20,9 @@ import unittest
 from unittest import mock
 from unittest.mock import mock_open, patch
 
-import training.common.python.utils
-from training.common.python.constants.constants import CommonEnv, RankTableInfo
-from training.common.python.communication.hccl.hccl_mgmt import _get_rank_info_with_ranktable, _get_rank_info_without_ranktable
+import mx_rec_common.util
+from mx_rec_common.constants.constants import CommonEnv, RankTableInfo
+from mx_rec_common.communication.hccl.hccl_mgmt import _get_rank_info_with_ranktable, _get_rank_info_without_ranktable
 
 
 class HCCLMGMTTest(unittest.TestCase):
@@ -132,7 +132,7 @@ class HCCLMGMTTest(unittest.TestCase):
 class TestSetHcclInfoWithoutRanktable(unittest.TestCase):
     @mock.patch("os.environ", {CommonEnv.CM_WORKER_SIZE.value: "1", CommonEnv.CM_CHIEF_DEVICE.value: "0"})
     @mock.patch.multiple(
-        "training.common.python.communication.hccl.hccl_mgmt",
+        "mx_rec_common.communication.hccl.hccl_mgmt",
         get_device_list=mock.MagicMock(return_value=[1]),
     )
     def test_value_err(self):
@@ -141,7 +141,7 @@ class TestSetHcclInfoWithoutRanktable(unittest.TestCase):
 
     @mock.patch("os.environ", {CommonEnv.CM_WORKER_SIZE.value: "1", CommonEnv.CM_CHIEF_DEVICE.value: "0"})
     @mock.patch.multiple(
-        "training.common.python.communication.hccl.hccl_mgmt",
+        "mx_rec_common.communication.hccl.hccl_mgmt",
         get_device_list=mock.MagicMock(return_value=[0]),
     )
     def test_ok(self):
