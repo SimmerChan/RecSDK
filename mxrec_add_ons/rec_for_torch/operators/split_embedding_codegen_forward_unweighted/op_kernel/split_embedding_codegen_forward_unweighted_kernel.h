@@ -121,19 +121,19 @@ public:
         pipe.InitBuffer(queIndices, 1, MAX_INDICS_ONE_BLOCK * sizeof(int64_t));
     }
 
-    __aicore__ inline void InitAddr(Args args)
+    __aicore__ inline void InitAddr(const Args &args)
     {
-         // ADDR
-         devWeights = args.devWeights;
-         weightsPlacements = args.weightsPlacements;
-         weightsOffsets = args.weightsOffsets;
-         dOffsets = args.dOffsets;
-         indices = args.indices;
-         offsets = args.offsets;
-         hashIndices = args.hashIndices;
-         indiceSizeCumsum = args.indiceSizeCumsum;
-         out = args.out;
-         workspace = args.workspace;
+        // ADDR
+        devWeights = args.devWeights;
+        weightsPlacements = args.weightsPlacements;
+        weightsOffsets = args.weightsOffsets;
+        dOffsets = args.dOffsets;
+        indices = args.indices;
+        offsets = args.offsets;
+        hashIndices = args.hashIndices;
+        indiceSizeCumsum = args.indiceSizeCumsum;
+        out = args.out;
+        workspace = args.workspace;
     }
 
     template <typename T>
