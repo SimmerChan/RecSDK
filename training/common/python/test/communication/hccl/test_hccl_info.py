@@ -18,8 +18,8 @@
 import unittest
 from unittest import mock
 
-from training.common.python.communication.hccl.hccl_info import get_rank_id, get_rank_size, get_local_rank_size, get_device_id, get_min_device_id
-from training.common.python.constants.constants import MPIParams, RankTableInfo
+from mx_rec_common.communication.hccl.hccl_info import get_rank_id, get_rank_size, get_local_rank_size, get_device_id, get_min_device_id
+from mx_rec_common.constants.constants import MPIParams, RankTableInfo
 
 
 class TestGetRankId(unittest.TestCase):
@@ -99,7 +99,7 @@ class TestGetLocalRankSize(unittest.TestCase):
 class TestGetDeviceId(unittest.TestCase):
     @mock.patch("os.environ", {MPIParams.OMPI_COMM_WORLD_RANK.value: "0", RankTableInfo.RANK_TABLE_FILE.value: "file"})
     @mock.patch.multiple(
-        "training.common.python.communication.hccl.hccl_info",
+        "mx_rec_common.communication.hccl.hccl_info",
         _get_rank_info_with_ranktable=mock.MagicMock(return_value={0: 0}),
         get_rank_id=mock.MagicMock(return_value=0),
         get_local_rank_size=mock.MagicMock(return_value=1),
@@ -109,7 +109,7 @@ class TestGetDeviceId(unittest.TestCase):
 
     @mock.patch("os.environ", {MPIParams.OMPI_COMM_WORLD_RANK.value: "0", RankTableInfo.RANK_TABLE_FILE.value: ""})
     @mock.patch.multiple(
-        "training.common.python.communication.hccl.hccl_info",
+        "mx_rec_common.communication.hccl.hccl_info",
         _get_rank_info_without_ranktable=mock.MagicMock(return_value={0: 0}),
         get_rank_id=mock.MagicMock(return_value=0),
         get_local_rank_size=mock.MagicMock(return_value=1),
@@ -119,7 +119,7 @@ class TestGetDeviceId(unittest.TestCase):
 
     @mock.patch("os.environ", {MPIParams.OMPI_COMM_WORLD_RANK.value: "0", RankTableInfo.RANK_TABLE_FILE.value: ""})
     @mock.patch.multiple(
-        "training.common.python.communication.hccl.hccl_info",
+        "mx_rec_common.communication.hccl.hccl_info",
         _get_rank_info_without_ranktable=mock.MagicMock(return_value={1: 0}),
         get_rank_id=mock.MagicMock(return_value=0),
         get_local_rank_size=mock.MagicMock(return_value=1),
@@ -132,7 +132,7 @@ class TestGetDeviceId(unittest.TestCase):
 
     @mock.patch("os.environ", {MPIParams.OMPI_COMM_WORLD_RANK.value: "0", RankTableInfo.RANK_TABLE_FILE.value: ""})
     @mock.patch.multiple(
-        "training.common.python.communication.hccl.hccl_info",
+        "mx_rec_common.communication.hccl.hccl_info",
         _get_rank_info_without_ranktable=mock.MagicMock(return_value={0: "xxx"}),
         get_rank_id=mock.MagicMock(return_value=0),
         get_local_rank_size=mock.MagicMock(return_value=1),

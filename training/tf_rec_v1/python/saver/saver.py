@@ -104,7 +104,7 @@ class SaveModelThread(threading.Thread):
 class Saver(object):
     @para_checker_decorator(check_option_list=[
         ("var_list", ClassValidator, {"classes": (list, type(None))}),
-        ("max_to_keep", IntValidator, {"min_value": 0, "max_value": ValidatorParams.MAX_INT32}, ["check_value"]),
+        ("max_to_keep", IntValidator, {"min_value": 0, "max_value": ValidatorParams.MAX_INT32.value}, ["check_value"]),
         ("prefix_name", ClassValidator, {"classes": (str, type(None))}),
         ("prefix_name", OptionalStringValidator, {"min_len": 1, "max_len": 50}, ["check_string_length"]),
     ])

@@ -18,15 +18,15 @@
 import unittest
 from unittest import mock
 
-from training.common.python.perf_factory.bind_cpu import bind_cpu
-from training.common.python.constants.constants import MPIParams
+from mx_rec_common.perf_factory.bind_cpu import bind_cpu
+from mx_rec_common.constants.constants import MPIParams
 
 
 class TestBindCpu(unittest.TestCase):
     @mock.patch("os.environ", {MPIParams.OMPI_COMM_WORLD_LOCAL_SIZE.value : "1",
                                MPIParams.OMPI_COMM_WORLD_RANK.value : "0"})
     @mock.patch.multiple(
-        "training.common.python.communication.hccl.hccl_info",
+        "mx_rec_common.communication.hccl.hccl_info",
         get_local_rank_size=mock.MagicMock(return_value=1),
         get_rank_id=mock.MagicMock(return_value=0),
     )

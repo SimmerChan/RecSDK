@@ -19,19 +19,19 @@ import os
 import shutil
 import pytest
 
-from training.common.python.validator import (
+from mx_rec_common.validator import (
     str_safe_check,
     int_safe_check,
     class_safe_check,
     dir_safe_check,
     float_safe_check,
 )
-from training.common.python.constants.constants import NumCheckValueMethod
-from training.common.python.communication.hccl import get_rank_id
+from mx_rec_common.constants.constants import NumCheckValueMethod
+from mx_rec_common.communication.hccl import get_rank_id
 
 
 class TestStrSafeCheck:
-    """Test for 'mxrec.python.utils.validator.safe_checker.str_safe_check'."""
+    """Test for 'mxrec.python.util.validator.safe_checker.str_safe_check'."""
 
     @staticmethod
     def test_ok():
@@ -72,7 +72,7 @@ class TestStrSafeCheck:
 
 
 class TestIntSafeCheck:
-    """Test for 'mxrec.python.utils.validator.safe_checker.int_safe_check'."""
+    """Test for 'mxrec.python.util.validator.safe_checker.int_safe_check'."""
 
     @staticmethod
     def test_ok():
@@ -101,7 +101,7 @@ class TestIntSafeCheck:
 
 
 class TestClassSafeCheck:
-    """Test for 'mxrec.python.utils.validator.safe_checker.class_safe_check'."""
+    """Test for 'mxrec.python.util.validator.safe_checker.class_safe_check'."""
 
     @staticmethod
     def test_ok():
@@ -118,7 +118,7 @@ class TestClassSafeCheck:
 
 
 class TestDirSafeCheck:
-    """Test for 'mxrec.python.utils.validator.safe_checker.dir_safe_check'."""
+    """Test for 'mxrec.python.util.validator.safe_checker.dir_safe_check'."""
 
     @staticmethod
     def test_ok():
@@ -133,7 +133,7 @@ class TestDirSafeCheck:
 
 
 class TestFloatSafeCheck:
-    """Test for 'mxrec.python.utils.validator.safe_checker.float_safe_check'."""
+    """Test for 'mxrec.python.util.validator.safe_checker.float_safe_check'."""
 
     @staticmethod
     def test_default_method():

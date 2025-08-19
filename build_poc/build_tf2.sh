@@ -69,7 +69,7 @@ src_path="${MxRec_DIR}"/src
 acc_ctr_path="${MxRec_DIR}"/src/AccCTR
 common_src_path="${MxRec_DIR}"/training/common/src
 common_python_path="${MxRec_DIR}"/training/common/python
-tf_rec_v1_path="${MxRec_DIR}"/training/tf_rev_v1/python
+tf_rec_v1_path="${MxRec_DIR}"/training/tf_rec_v1/python
 
 cd "${MxRec_DIR}"
 
@@ -116,6 +116,7 @@ function collect_so_file()
   cp "${common_src_path}"/build/pybind/*.so ./lib
   rm -rf "${common_python_path}"/lib
   mv "${common_src_path}"/lib "${common_python_path}"
+  touch "${common_python_path}"/lib/__init__.py
 
   cd "${src_path}"
   rm -rf "${src_path}"/libasc
@@ -123,7 +124,7 @@ function collect_so_file()
   chmod u+x libasc
 
   cp ${acc_ctr_path}/output/ock_ctr_common/lib/* libasc
-  cp -df "${MxRec_DIR}"/output/*.so* libasc
+  cp -df "${MxRec_DIR}"/tf_rec_v1/output/*.so* libasc
   cp "${opensource_path}"/securec/lib/libsecurec.so libasc
   cd "${MxRec_DIR}"
   touch "${src_path}"/libasc/__init__.py

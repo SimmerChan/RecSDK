@@ -17,12 +17,12 @@
 
 import pytest
 
-from training.common.python.log.log import LoggingProxy
-from training.common.python.constants.constants import LogLevel
+from mx_rec_common.log.log import LoggingProxy
+from mx_rec_common.constants.constants import LogLevel
 
 
 class TestLoggingProxy:
-    """Test for 'mxrec.python.utils.log.LoggingProxy'."""
+    """Test for 'mxrec.python.util.log.LoggingProxy'."""
 
     @staticmethod
     def teardown_method():

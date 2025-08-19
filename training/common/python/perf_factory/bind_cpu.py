@@ -64,7 +64,6 @@ def bind_cpu_task():
     为每个进程绑定CPU
     """
     import math
-    LoggingProxy.set_instance(log_level=os.getenv(EnvOptionCommon.RECSDK_LOG_LEVEL.value, LogLevel.INFO.value))
     total_cpu, cpu_range_list = get_available_cpu_num_and_range()
     local_rank_size = get_local_rank_size()
     if local_rank_size <= 0:

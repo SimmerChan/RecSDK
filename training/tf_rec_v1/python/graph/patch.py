@@ -38,8 +38,7 @@ from tensorflow.python.client.session import BaseSession
 
 from mx_rec_common.log import logger
 from mx_rec_common.validator.validator import para_checker_decorator, ClassValidator
-#from mx_rec.constants import constants
-from training.tf_rec_v1.python.constants import constants
+from mx_rec.constants import constants
 from mx_rec.util.initialize import ConfigInitializer
 from mx_rec.graph.merge_lookup import do_merge_lookup
 
