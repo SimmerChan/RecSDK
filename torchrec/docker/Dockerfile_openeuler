@@ -3,7 +3,6 @@ FROM openeuler-22.03-lts-sp4:latest
 WORKDIR /tmp
 COPY ./version.info ./
 COPY ./ascend_install.info ./
-COPY ./torch_npu-2.6.0-cp311-cp311-*whl ./
 
 # 安装系统依赖（缓存此层）
 RUN dnf install -y ca-certificates && \
@@ -128,23 +127,13 @@ ARG KERNEL_PKG=Ascend-cann-kernels*.run
 RUN rm -rf $ASCEND_BASE/ascend-toolkit
 
 RUN umask 0027 && \
-    mkdir -p $ASCEND_BASE/driver && \
-    chmod 755 $ASCEND_BASE && \
-    cp -f version.info $ASCEND_BASE/driver/ && \
-    cp -f ascend_install.info /etc/ && \
-    chmod +x $TOOLKIT_PKG && \
-    bash $TOOLKIT_PKG --quiet --install --install-path=$ASCEND_BASE && \
-    . $ASCEND_BASE/ascend-toolkit/set_env.sh && \
-    chmod +x $KERNEL_PKG && \
-    bash $KERNEL_PKG --quiet --install && \
-    rm -rf /root/.cache/pip && \
-    rm -f $TOOLKIT_PKG && rm -f $KERNEL_PKG && \
-    rm -rf $ASCEND_BASE/driver && \
-    rm -rf /etc/ascend_install.info
-
-# 安装torch_npu
-RUN pip3.11 install torch_npu-2.6.0-cp311-cp311-*whl && \
-    rm -rf /root/.cache/pip
+   chmod +x $TOOLKIT_PKG && \
+   bash $TOOLKIT_PKG --quiet --install --install-path=$ASCEND_BASE && \
+   . $ASCEND_BASE/ascend-toolkit/set_env.sh && \
+   chmod +x $KERNEL_PKG && \
+   bash $KERNEL_PKG --quiet --install && \
+   rm -rf /root/.cache/pip && \
+   rm -f $TOOLKIT_PKG && rm -f $KERNEL_PKG
 
 # 验证
 RUN gcc --version && cmake --version && python3.11 --version
