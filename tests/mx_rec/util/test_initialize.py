@@ -19,7 +19,8 @@ import unittest
 from unittest import mock
 
 
-
+from mx_rec_common.perf_factory.bind_cpu import bind_cpu
+from mx_rec_common.constants.constants import MPIParams
 from mx_rec.util.initialize import ConfigInitializer, terminate_config_initializer
 from mx_rec.util.config_utils.embedding_utils import SparseEmbedConfig
 from mx_rec.util.config_utils.feature_spec_utils import FeatureSpecConfig
