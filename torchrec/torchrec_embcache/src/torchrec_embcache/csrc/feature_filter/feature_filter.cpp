@@ -18,73 +18,71 @@ namespace Embcache {
 
 FeatureFilter::FeatureFilter(const std::string& tableName, int32_t admitThreshold,
                              uint64_t evictThreshold, uint64_t evictStepInterval)
-    : tableName(tableName), admitThreshold_(admitThreshold),
-      evictThreshold(evictThreshold), evictStepInterval(evictStepInterval)
+    : tableName_(tableName), admitThreshold_(admitThreshold),
+      evictThreshold_(evictThreshold), evictStepInterval_(evictStepInterval)
 {
 }
 
 void FeatureFilter::RecordTimestamp(const int64_t* featureDataPtr, int64_t startIndex, int64_t endIndex,
                                     const int64_t* timestampDataPtr)
 {
-    auto beforeRecordSize = timestampRecordMap.size();
+    auto beforeRecordSize = timestampRecordMap_.size();
     for (int64_t i = startIndex; i < endIndex; ++i) {
         auto feature = *(featureDataPtr + i);
         auto timestampData = *(timestampDataPtr + i);
         auto timestamp = static_cast<std::time_t>(timestampData);
-        timestampRecordMap.insert_or_assign(feature, timestamp);
-        latestTimestamp = std::max(latestTimestamp, timestamp);
+        timestampRecordMap_.insert_or_assign(feature, timestamp);
+        latestTimestamp_ = std::max(latestTimestamp_, timestamp);
     }
-    auto afterRecordSize = timestampRecordMap.size();
-    LOG_INFO("Enter RecordTimestamp, beforeRecordSize: {}, afterRecordSize: {}", beforeRecordSize, afterRecordSize);
+    auto afterRecordSize = timestampRecordMap_.size();
+    LOG_DEBUG("Enter RecordTimestamp, beforeRecordSize: {}, afterRecordSize: {}", beforeRecordSize, afterRecordSize);
 
     // 因记录timestamp和计算swap info存在步数差异，因此记录timestamp时需同时记录淘汰keys
-    if (recordTsBatchId > 0 && (recordTsBatchId + 1) % evictStepInterval == 0) {
+    if (recordTsBatchId_ > 0 && (recordTsBatchId_ + 1) % evictStepInterval_ == 0) {
         FeatureEvict();
     }
-    recordTsBatchId++;
+    recordTsBatchId_++;
 }
 
 void FeatureFilter::FeatureEvict()
 {
-    std::vector<int64_t>& evictKeys = evictFeatureRecord.GetEvictKeys();
-    if (evictThreshold == 0) {
-        LOG_INFO("Current table evictThreshold is 0, will skip.");
+    std::vector<int64_t>& evictKeys = evictFeatureRecord_.GetEvictKeys();
+    if (evictThreshold_ == 0) {
+        LOG_DEBUG("Current table evictThreshold is 0, will skip.");
         return;
     }
 
-    LOG_INFO("The latestTimestamp for current table: {}, evictThreshold: {}", latestTimestamp, evictThreshold);
-    auto tempEvictThreshold = static_cast<std::time_t>(evictThreshold);
-    for (auto iter : timestampRecordMap) {
+    LOG_DEBUG("The latestTimestamp for current table: {}, evictThreshold: {}", latestTimestamp_, evictThreshold_);
+    auto tempEvictThreshold = static_cast<std::time_t>(evictThreshold_);
+    for (const auto& iter : timestampRecordMap_) {
         auto feature = iter.first;
         if (feature == -1) {
             continue;
         }
-        bool needEvict = false;
-        if (latestTimestamp - iter.second > tempEvictThreshold) {
+        if (latestTimestamp_ - iter.second > tempEvictThreshold) {
             evictKeys.emplace_back(feature);
-            needEvict = true;
         }
     }
     // 淘汰掉的key从timestampRecordMap中移出
     bool isAdmitEnabled = admitThreshold_ != -1;
-    for (auto feature : evictKeys) {
-        timestampRecordMap.erase(feature);
+    for (const auto& feature : evictKeys) {
+        timestampRecordMap_.erase(feature);
         if (isAdmitEnabled) {
             // 开启准入时同时移出准入map中的key
-            featureRecordMap.erase(feature);
+            featureRecordMap_.erase(feature);
         }
     }
-    LOG_INFO("The table name: {}, get evict keys size: {}", tableName, evictKeys.size());
+    LOG_DEBUG("The table name: {}, get evict keys size: {}", tableName_, evictKeys.size());
 }
 
 const std::unordered_map<int64_t, FeatureRecord>& FeatureFilter::GetFeatureCountMap()
 {
-    return featureRecordMap;
+    return featureRecordMap_;
 }
 
 const std::unordered_map<int64_t, std::time_t>& FeatureFilter::GetFeatureTimestampMap()
 {
-    return timestampRecordMap;
+    return timestampRecordMap_;
 }
 
 void FeatureFilter::LoadFeatureRecords(const std::vector<int64_t>& keys, std::vector<uint64_t>& counts)
@@ -93,7 +91,7 @@ void FeatureFilter::LoadFeatureRecords(const std::vector<int64_t>& keys, std::ve
         throw std::runtime_error("Failed to load key count info, vector size is not same between keys and counts.");
     }
     for (size_t i = 0; i < keys.size(); ++i) {
-        featureRecordMap[keys[i]].count = counts[i];
+        featureRecordMap_[keys[i]].count = counts[i];
     }
 }
 
@@ -103,7 +101,7 @@ void FeatureFilter::LoadTimestampRecords(const std::vector<int64_t>& keys, std::
         throw std::runtime_error("Failed to load timestamp info, vector size is not same between keys and timestamps.");
     }
     for (size_t i = 0; i < keys.size(); ++i) {
-        timestampRecordMap[keys[i]] = static_cast<std::time_t>(timestamps[i]);
+        timestampRecordMap_[keys[i]] = static_cast<std::time_t>(timestamps[i]);
     }
 }
 

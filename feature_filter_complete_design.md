@@ -95,24 +95,24 @@ private:
 classDiagram
     class EvictFeatureRecord {
         +EvictFeatureRecord()
-        +CanRemoveFromEmbTable(uint64_t embUpdateCount) bool
+        +CanRemoveFromEmbTable()
         +ClearEvictInfo()
-        +SetSwapCount(uint64_t swapCount)
-        +GetEvictKeys() std::vector<int64_t>&
+        +SetSwapCount()
+        +GetEvictKeys()
         -executeSwapCount uint64_t
         -evictKeys std::vector<int64_t>
     }
     
     class FeatureFilter {
-        +FeatureFilter(const std::string& tableName, int32_t admitThreshold, uint64_t evictThreshold, uint64_t evictStepInterval)
-        +StatisticsKeyCount(const int64_t* featureDataPtr, const int64_t* countDataPtr, int64_t startIndex, int64_t endIndex, bool isCountDataEmpty)
-        +CountFilter(int64_t* featureDataPtr, int64_t startIndex, int64_t endIndex)
-        +RecordTimestamp(const int64_t* featureDataPtr, int64_t startIndex, int64_t endIndex, const int64_t* timestampDataPtr)
+        +FeatureFilter()
+        +StatisticsKeyCount()
+        +CountFilter()
+        +RecordTimestamp()
         +FeatureEvict()
-        +GetFeatureCountMap() const std::unordered_map<int64_t, FeatureRecord>&
-        +GetFeatureTimestampMap() const std::unordered_map<int64_t, std::time_t>&
-        +LoadFeatureRecords(const std::vector<int64_t>& keys, std::vector<uint64_t>& counts)
-        +LoadTimestampRecords(const std::vector<int64_t>& keys, std::vector<int64_t>& timestamps)
+        +GetFeatureCountMap()
+        +GetFeatureTimestampMap()
+        +LoadFeatureRecords()
+        +LoadTimestampRecords()
         -tableName std::string
         -admitThreshold_ int32_t
         -featureRecordMap std::unordered_map<int64_t, FeatureRecord>
@@ -129,27 +129,27 @@ classDiagram
     }
     
     class JaggedTensorWithCount {
-        +JaggedTensorWithCount(values, weights, lengths, offsets, counts)
+        +JaggedTensorWithCount()
         +counts torch.Tensor
     }
     
     class KeyedJaggedTensorWithCount {
-        +KeyedJaggedTensorWithCount(keys, values, counts, weights, lengths, offsets, stride, stride_per_key_per_rank, length_per_key, lengths_offset_per_key, offset_per_key, index_per_key, jt_dict, inverse_indices)
+        +KeyedJaggedTensorWithCount()
         +counts torch.Tensor
-        +from_jt_dict(jt_dict) KeyedJaggedTensorWithCount
-        +split(segments) List[KeyedJaggedTensorWithCount]
+        +from_jt_dict()
+        +split()
     }
     
     class JaggedTensorWithTimestamp {
-        +JaggedTensorWithTimestamp(values, weights, lengths, offsets, timestamps)
+        +JaggedTensorWithTimestamp()
         +timestamps torch.Tensor
     }
     
     class KeyedJaggedTensorWithTimestamp {
-        +KeyedJaggedTensorWithTimestamp(keys, values, timestamps, weights, lengths, offsets, stride, stride_per_key_per_rank, length_per_key, lengths_offset_per_key, offset_per_key, index_per_key, jt_dict, inverse_indices)
+        +KeyedJaggedTensorWithTimestamp()
         +timestamps torch.Tensor
-        +from_jt_dict(jt_dict) KeyedJaggedTensorWithTimestamp
-        +split(segments) List[KeyedJaggedTensorWithTimestamp]
+        +from_jt_dict()
+        +split()
     }
     
     FeatureFilter --> EvictFeatureRecord : uses
@@ -534,4 +534,4 @@ class KeyedJaggedTensorWithTimestamp(KeyedJaggedTensor):
 2. 提供监控指标，用于观察特征过滤效果
 3. 支持动态调整阈值参数，无需重启服务
 
-这个设计方案实现了基于访问频率和时间戳的特征准入和淘汰机制，能够有效提高Embedding Cache的利用率和推荐系统的整体性能。
+这个设计方案实现了基于访问频率和时间戳的特征准入和淘汰机制，能够有效提高Embedding Cache的利用率和推荐系统的整体性能.

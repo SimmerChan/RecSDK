@@ -24,10 +24,10 @@ public:
 
 private:
     // 触发淘汰时ComputeSwapInfo的执行步数，用于判断调用embTable删除接口的时机
-    uint64_t executeSwapCount = 0;
+    uint64_t executeSwapCount_ = 0;
 
     // ComputeSwapInfo于EmbeddingUpdate之间存在执行时间差异，记录embTable待删除的keys
-    std::vector<int64_t> evictKeys;
+    std::vector<int64_t> evictKeys_;
 };
 
 }  // namespace Embcache

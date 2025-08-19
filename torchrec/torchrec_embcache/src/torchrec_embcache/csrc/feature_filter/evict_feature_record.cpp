@@ -11,18 +11,18 @@ namespace Embcache {
 
 bool EvictFeatureRecord::CanRemoveFromEmbTable(uint64_t embUpdateCount) const
 {
-    return embUpdateCount == executeSwapCount;
+    return embUpdateCount == executeSwapCount_;
 }
 
 void EvictFeatureRecord::SetSwapCount(uint64_t swapCount)
 {
-    executeSwapCount = swapCount;
+    executeSwapCount_ = swapCount;
 }
 
 void EvictFeatureRecord::ClearEvictInfo()
 {
-    executeSwapCount = 0;
-    evictKeys.clear();
+    executeSwapCount_ = 0;
+    evictKeys_.clear();
 }
 
 std::vector<int64_t>& EvictFeatureRecord::GetEvictKeys()
