@@ -22,7 +22,7 @@ from unittest.mock import patch
 import tensorflow as tf
 from mx_rec.util.global_env_conf import global_env
 from mx_rec.util.variable import get_dense_and_sparse_variable
-from tests.mx_rec.core.mock_class import MockConfigInitializer
+from core.mock_class import MockConfigInitializer
 
 
 class MockTableInstance:

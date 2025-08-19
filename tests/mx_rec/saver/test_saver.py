@@ -32,8 +32,8 @@ from mx_rec.saver.saver import (
 )
 from mx_rec.constants.constants import ASCEND_GLOBAL_HASHTABLE_COLLECTION
 from mx_rec.core.embedding import create_table
-from tests.mx_rec.core.mock_class import MockConfigInitializer, MockSparseEmbedConfig
-from tests.mx_rec.saver.sparse_embedding_mock import SparseEmbeddingMock
+from core.mock_class import MockConfigInitializer, MockSparseEmbedConfig
+from saver.sparse_embedding_mock import SparseEmbeddingMock
 
 
 class TestSaver(unittest.TestCase):

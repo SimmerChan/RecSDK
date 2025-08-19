@@ -23,7 +23,7 @@ import tensorflow as tf
 from mx_rec.constants import constants
 from mx_rec.core import embedding_proxy
 from mx_rec.core.emb import mergeable_sparse_embedding
-from tests.mx_rec.core import mock_class
+from core import mock_class
 
 
 class CreateMergeableEmbeddingTestCase(unittest.TestCase):

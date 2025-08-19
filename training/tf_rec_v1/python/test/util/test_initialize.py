@@ -19,6 +19,8 @@ import unittest
 from unittest import mock
 
 
+from mx_rec_common.perf_factory.bind_cpu import bind_cpu
+from mx_rec_common.constants.constants import MPIParams
 from mx_rec.util.initialize import ConfigInitializer, terminate_config_initializer
 from mx_rec.util.config_utils.embedding_utils import SparseEmbedConfig
 from mx_rec.util.config_utils.feature_spec_utils import FeatureSpecConfig
@@ -27,8 +29,10 @@ from mx_rec.util.config_utils.optimizer_utils import OptimizerConfig
 from mx_rec.util.config_utils.train_param import TrainParamsConfig
 
 
+@mock.patch("os.environ", {MPIParams.OMPI_COMM_WORLD_LOCAL_SIZE.value : "1",
+                           MPIParams.OMPI_COMM_WORLD_RANK.value : "0"})
 @mock.patch.multiple(
-    "mx_rec_common.perf_factory.bind_cpu",
+    "mx_rec_common.communication.hccl.hccl_info",
     get_local_rank_size=mock.MagicMock(return_value=1),
     get_rank_id=mock.MagicMock(return_value=0),
 )

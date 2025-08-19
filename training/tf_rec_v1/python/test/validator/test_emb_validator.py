@@ -27,7 +27,7 @@ from mx_rec.validator.emb_validator import (
     check_and_format_emb_padding_keys,
 )
 from mx_rec.core.asc.feature_spec import FeatureSpec
-from tests.mx_rec.core.mock_class import MockConfigInitializer
+from core.mock_class import MockConfigInitializer
 
 
 class TestCheckEmbInitParams(unittest.TestCase):

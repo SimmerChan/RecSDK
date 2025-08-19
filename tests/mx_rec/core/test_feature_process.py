@@ -23,7 +23,7 @@ import tensorflow as tf
 
 from mx_rec.core.feature_process import EvictHook
 from mx_rec.core.asc.feature_spec import FeatureSpec
-from tests.mx_rec.core.mock_class import MockSparseEmbedding, MockConfigInitializer
+from core.mock_class import MockSparseEmbedding, MockConfigInitializer
 
 
 class TestEvictHookClass(unittest.TestCase):

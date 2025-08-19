@@ -22,7 +22,7 @@ import tensorflow as tf
 from tensorflow.python.framework import ops
 
 from mx_rec.optimizers.lazy_adam_by_addr import create_hash_optimizer_by_address
-from tests.mx_rec.core.mock_class import MockConfigInitializer, MockSparseEmbedding
+from core.mock_class import MockConfigInitializer, MockSparseEmbedding
 
 
 class TestCreateHashOptimizerFunc(unittest.TestCase):

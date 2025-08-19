@@ -19,7 +19,7 @@ import unittest
 from unittest import mock
 
 from mx_rec.util.framework_npu_env.tfa_env import set_ascend_env
-from tests.mx_rec.core.mock_class import MockGlobalEnv
+from core.mock_class import MockGlobalEnv
 
 
 class TestBindCpu(unittest.TestCase):

@@ -24,7 +24,7 @@ import tensorflow as tf
 from tensorflow import Tensor
 import mx_rec.graph.merge_lookup as merge_lookup
 from mx_rec.constants.constants import ASCEND_SPARSE_LOOKUP_ENTRANCE, ASCAnchorAttr
-from tests.mx_rec.core.mock_class import MockConfigInitializer
+from core.mock_class import MockConfigInitializer
 
 
 def mock_get_anchor_attribute(anchor: Tensor, attr: ASCAnchorAttr) -> Union[bool, Mock]:

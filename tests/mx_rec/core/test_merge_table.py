@@ -23,7 +23,7 @@ import tensorflow as tf
 import mx_rec.core.asc.merge_table
 from mx_rec.core.asc.merge_table import find_dangling_table, check_dangling_table
 from mx_rec.util.global_env_conf import global_env
-from tests.mx_rec.core.mock_class import MockSparseEmbedding, MockConfigInitializer, MockGlobalEnv
+from core.mock_class import MockSparseEmbedding, MockConfigInitializer, MockGlobalEnv
 
 
 class TestAffirmFunc(unittest.TestCase):

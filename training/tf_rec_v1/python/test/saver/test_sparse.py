@@ -24,7 +24,7 @@ import numpy as np
 
 from mx_rec.saver.saver import generate_file_name
 from mx_rec.saver.sparse import export, check_table_param, SparseProcessor
-from tests.mx_rec.core.mock_class import MockConfigInitializer
+from core.mock_class import MockConfigInitializer
 
 
 class TestSparseProcessor(unittest.TestCase):
