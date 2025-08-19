@@ -18,20 +18,18 @@
 import unittest
 from unittest import mock
 
-from mx_rec_common.perf_factory.bind_cpu import bind_cpu
-from mx_rec_common.constants.constants import MPIParams
-from mx_rec_common.log.log import LoggingProxy
-from mx_rec_common.constants.constants import LogLevel
+from mx_rec.util.framework_npu_env.tfa_env import set_ascend_env
+from tests.mx_rec.core.mock_class import MockGlobalEnv
+
 
 class TestBindCpu(unittest.TestCase):
-    @mock.patch("os.environ", {MPIParams.OMPI_COMM_WORLD_LOCAL_SIZE.value : "1",
-                               MPIParams.OMPI_COMM_WORLD_RANK.value : "0"})
     @mock.patch.multiple(
-        "mx_rec_common.communication.hccl.hccl_info",
-        get_local_rank_size=mock.MagicMock(return_value=1),
+        "mx_rec.util.framework_npu_env.tfa_env",
+        get_rank_size=mock.MagicMock(return_value=1),
         get_rank_id=mock.MagicMock(return_value=0),
+        get_device_id=mock.MagicMock(return_value=0),
     )
-    @bind_cpu
-    def test_bind_cpu_ok(self):
-        LoggingProxy.set_instance(log_level=LogLevel.INFO.value)
-        self.assertTrue(callable(bind_cpu))
+    @mock.patch("mx_rec.util.framework_npu_env.tfa_env.global_env", MockGlobalEnv(rank_table_file=True))
+    def test_set_ascend_env_ok(self):
+        set_ascend_env()
+        self.assertTrue(callable(set_ascend_env))

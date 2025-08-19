@@ -67,6 +67,9 @@ tf1_path=$(dirname "$(dirname "$(which python3.7)")")/lib/python3.7/site-package
 # 配置Rec SDK C++代码路径和AccCTR路径
 src_path="${MxRec_DIR}"/src
 acc_ctr_path="${MxRec_DIR}"/src/AccCTR
+common_src_path="${MxRec_DIR}"/training/common/src
+common_python_path="${MxRec_DIR}"/training/common/python
+tf_rec_v1_path="${MxRec_DIR}"/training/tf_rec_v1/python
 cd "${MxRec_DIR}"
 
 function compile_securec()
@@ -97,25 +100,42 @@ function compile_acc_ctr_so_file()
   ./build.sh "release"
 }
 
+function compile_common_so_file() {
+    cd "${common_src_path}"
+    chmod u+x build.sh
+    ./build.sh "$1" "${MxRec_DIR}" "YES"
+}
+
 function collect_so_file()
 {
+  cd "${common_src_path}"
+  rm -rf "${common_src_path}"/lib
+  mkdir -p "${common_src_path}"/lib
+  chmod u+x lib
+  cp "${common_src_path}"/build/pybind/*.so ./lib
+  rm -rf "${common_python_path}"/lib
+  mv "${common_src_path}"/lib "${common_python_path}"
+  touch "${common_python_path}"/lib/__init__.py
+
   cd "${src_path}"
   rm -rf "${src_path}"/libasc
   mkdir -p "${src_path}"/libasc
   chmod u+x libasc
 
   cp ${acc_ctr_path}/output/ock_ctr_common/lib/* libasc
-  cp -df "${MxRec_DIR}"/output/*.so* libasc
+  cp -df "${MxRec_DIR}"/tf_rec_v1/output/*.so* libasc
   cp "${opensource_path}"/securec/lib/libsecurec.so libasc
   cd "${MxRec_DIR}"
   touch "${src_path}"/libasc/__init__.py
-  rm -rf "${MxRec_DIR}"/mx_rec/libasc
-  mv "${src_path}"/libasc "${MxRec_DIR}"/mx_rec
+  rm -rf "${tf_rec_v1_path}"/libasc
+  mv "${src_path}"/libasc "${tf_rec_v1_path}"
 }
 
 # start to build Rec SDK
 echo "----------------          compile     securec           ----------------"
 compile_securec
+echo "----------------          compile common so files       ----------------"
+compile_common_so_file
 echo "----------------          compile     AccCTR            ----------------"
 compile_acc_ctr_so_file
 echo "----------------          compile MxRec so files        ----------------"

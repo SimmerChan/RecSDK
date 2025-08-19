@@ -25,19 +25,18 @@ if [ $ARCH == "aarch64" ]; then
   export LD_PRELOAD=/usr/local/gcc7.3.0/lib64/libgomp.so.1
 fi
 
-cd "$TOP_PATH"/training/common/src
-
 # build Rec SDK and get output directory
-bash "$TOP_PATH"/training/common/src/build.sh
+bash "$TOP_PATH"/build/build_tf1.sh
 
 # create libasc directory and copy so files into it
-mkdir -p lib
-cp -f "$TOP_PATH"/training/common/src/build/pybind/*.so ./lib
+cd "$TOP_PATH"/training/tf_rec_v1/src
+mkdir -p libasc
+cp -f "$TOP_PATH"/tf_rec_v1/output/*.so ./libasc
 cd -
 
 # set environment variable
-export PYTHONPATH="${TOP_PATH}"/training/common/src/lib/:"${TOP_PATH}":$PYTHONPATH
-export LD_LIBRARY_PATH="${TOP_PATH}"/training/common/src/lib/:/usr/local/lib:$LD_LIBRARY_PATH
+export PYTHONPATH="${TOP_PATH}"/training/tf_rec_v1/src/libasc:"${TOP_PATH}":$PYTHONPATH
+export LD_LIBRARY_PATH="${TOP_PATH}"/training/tf_rec_v1/src/libasc:/usr/local/lib:$LD_LIBRARY_PATH
 
 rm -rf result
 mkdir -p result
@@ -45,7 +44,7 @@ mkdir -p result
 function run_test_cases() {
     echo "Get testcases final result."
     pytest --cov="${CUR_PATH}"/../ --cov-report=html --cov-report=xml --junit-xml=./final.xml --html=./final.html --self-contained-html --durations=5 -vv --cov-branch
-    coverage xml -i --omit="src/*,build/*"
+    coverage xml -i --omit="build/*,cust_op/*,src/*"
     cp coverage.xml final.xml final.html ./result
     cp -r htmlcov ./result
     rm -rf coverage.xml final.xml final.html htmlcov
@@ -59,6 +58,6 @@ end=$(date +%s)
 echo "*************************************  End  Rec SDK LLT Test *************************************"
 echo "LLT running take: $(expr "${end}" - "${start}") seconds"
 
-rm -rf "$TOP_PATH"/training/common/src/lib
+rm -rf "$TOP_PATH"/training/tf_rec_v1/src/libasc
 
 exit "${ret}"
