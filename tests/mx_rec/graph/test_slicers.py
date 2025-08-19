@@ -267,7 +267,7 @@ class LookupSubGraphSlicerTestCase(unittest.TestCase):
 
 
 class OrphanLookupKeySlicerTestCase(unittest.TestCase):
-    @patch.multiple("mx_rec.graph.slicers.utils", export_pb_graph=Mock(return_value=None))
+    @patch.multiple("mx_rec.graph.slicers.util", export_pb_graph=Mock(return_value=None))
     def test_ok_slice_ops(self):
         with tf.compat.v1.Graph().as_default():
             prefetch_dataset = gen_mock_dataset().prefetch(0)

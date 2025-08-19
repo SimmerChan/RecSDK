@@ -28,7 +28,7 @@ from mx_rec.constants.constants import BaseEnum
 from mx_rec.graph.modifier import modify_graph_and_start_emb_cache
 from mx_rec.util.initialize import ConfigInitializer
 from mx_rec.util.ops import import_host_pipeline_ops
-from mx_rec.util.tf_version_adapter import hccl_ops
+from mx_rec_common.util.tf_adapter import hccl_ops
 from mx_rec.util.variable import get_dense_and_sparse_variable
 
 from config import (PRECISION_CHECK, USE_DETERMINISTIC,

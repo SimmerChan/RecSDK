@@ -22,7 +22,7 @@ from tensorflow.python.framework import ops
 from tensorflow.python.training.training_util import get_global_step
 
 from mx_rec_common.log import logger
-from mx_rec_common.utils.tf_adapter import npu_ops
+from mx_rec_common.util.tf_adapter import npu_ops
 import mxrec_pybind
 from mx_rec.constants.constants import ASCAnchorAttr, TRAIN_CHANNEL_ID
 from mx_rec.util.initialize import ConfigInitializer

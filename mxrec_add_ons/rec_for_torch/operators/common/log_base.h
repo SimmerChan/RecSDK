@@ -91,7 +91,7 @@ private:
     }
 };
 
-} // namespace utils
+} // namespace util
 
 template <typename T>
 std::string Shape2String(const T& shape)

@@ -427,7 +427,7 @@ class TestReplaceAnchorForDDRSSD(unittest.TestCase):
         get_rank_id=mock.MagicMock(return_value=0),
         get_device_id=mock.MagicMock(return_value=0),
     )
-    @mock.patch.multiple("mx_rec.graph.modifier.utils", replace_anchor_control=mock.MagicMock(return_value=None))
+    @mock.patch.multiple("mx_rec.graph.modifier.util", replace_anchor_control=mock.MagicMock(return_value=None))
     @mock.patch.multiple("mx_rec.graph.modifier", _get_swap_info=mock.MagicMock(return_value=None))
     @mock.patch("mx_rec.core.embedding.ConfigInitializer", new=_mock_config_init_default)
     @mock.patch("mx_rec.core.emb.base_sparse_embedding.ConfigInitializer", new=_mock_config_init_default)

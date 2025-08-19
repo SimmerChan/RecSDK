@@ -7,7 +7,7 @@ import shutil
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--version", default="7.2.RC1")
-    parser.add_argument("--description", default="")
+    parser.add_argument("--discription", default="")
 
     # 分离 setuptools 参数和自定义参数
     args, unknown = parser.parse_known_args()
@@ -24,10 +24,10 @@ setup(
     version=args.version,
     author='HUAWEI Inc',
     description='MindSDK Recommend',
-    long_description=LONG_DESCRIPTION,
+    long_description=args.discription,
     # include mx_rec
     packages=find_packages(
-        where='.',
+        where=".",
         include=["mx_rec*"]
     ),
     # other file
