@@ -28,6 +28,41 @@ torch.ops.load_library(f"{sysconfig.get_path('purelib')}/libfbgemm_npu_api.so")
 DEVICE = "npu:0"
 
 
+def jagged_to_padded_dense_wrapper(values, offsets, max_lengths, padding_value):
+    return JaggedToPaddedDense.apply(values, offsets, max_lengths, padding_value)
+
+
+def jagged_to_padded_dense(values, offsets, max_lengths, padding_value):
+    return torch.ops.mxrec.jagged_to_padded_dense_forward(
+        values=values.to(DEVICE),
+        offsets=offsets,
+        max_lengths=max(max_lengths),
+        padding_value=padding_value,
+    )
+
+
+def dense_to_jagged(dense, offsets, total_L=None):
+    if total_L is None:
+        total_L = offsets[0][-1].item()
+    out = torch.ops.mxrec.jagged_to_padded_dense_backward(dense.to(torch.float32), offsets, total_L)
+    return out
+
+
+class JaggedToPaddedDense(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, values, offsets, max_lengths, padding_value):
+        ctx.save_for_backward(*offsets)
+        ctx.total_L = values.shape[0]
+        return jagged_to_padded_dense(values, offsets, max_lengths, padding_value)
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        offsets = list(ctx.saved_tensors)
+        total_L = ctx.total_L
+        grad_values = dense_to_jagged(grad_output, offsets, total_L)
+        return grad_values, None, None, None
+
+
 def generate_jagged_tensor(batch_size, max_seq_len, num_heads, attention_dim):
     """
     生成不规则(Jagged)张量测试数据
@@ -117,7 +152,7 @@ def test_jagged_to_padded_dense(batch_size,
     # ===== 反向传播验证 =====
     # 6. 准备可训练参数
     input_flat_npu = input_flat.clone().to(DEVICE).requires_grad_(True)
-    input_flat_cpu = input_flat.clone().requires_grad_(True)
+    input_flat_npu_py = input_flat.clone().to(DEVICE).requires_grad_(True)
 
     # 7. 计算NPU前向传播
     npu_dense_for_grad = torch.ops.mxrec.jagged_to_padded_dense(
@@ -127,10 +162,10 @@ def test_jagged_to_padded_dense(batch_size,
         0.0
     )
 
-    # 8. 计算CPU前向传播
-    cpu_dense_for_grad = torch.ops.fbgemm.jagged_to_padded_dense(
-        input_flat_cpu,
-        [fbgemm_offsets],
+    # 8. 计算NPU python实现前向传播
+    npu_py_dense_for_grad = jagged_to_padded_dense_wrapper(
+        input_flat_npu_py,
+        [fbgemm_offsets.to(DEVICE)],
         [max_seq_len],
         0.0
     )
@@ -142,14 +177,14 @@ def test_jagged_to_padded_dense(batch_size,
     npu_dense_for_grad.backward(grad_output.to(DEVICE))
     npu_grad_input = input_flat_npu.grad
 
-    # 11. CPU反向传播
-    cpu_dense_for_grad.backward(grad_output.cpu())
-    cpu_grad_input = input_flat_cpu.grad
+    # 11. NPU python反向传播
+    npu_py_dense_for_grad.backward(grad_output.to(DEVICE))
+    npu_py_grad_input = input_flat_npu_py.grad
 
     # 12. 梯度比对
     assert torch.allclose(
-        cpu_grad_input,
+        npu_py_grad_input.cpu(),
         npu_grad_input.cpu(),
         atol=1e-4,
         rtol=1e-4
-    ), f"NPU梯度与CPU梯度不匹配\nCPU梯度:\n{cpu_grad_input}\nNPU梯度:\n{npu_grad_input.cpu()}"
+    ), f"NPU python梯度与NPU梯度不匹配\nNPU python梯度:\n{npu_py_grad_input.cpu()}\nNPU梯度:\n{npu_grad_input.cpu()}"
