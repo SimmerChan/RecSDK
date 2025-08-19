@@ -31,7 +31,8 @@ bash "$TOP_PATH"/build/build_tf1.sh
 # create libasc directory and copy so files into it
 cd "$TOP_PATH"/training/tf_rec_v1/src
 mkdir -p libasc
-cp -f "$TOP_PATH"/tf_rec_v1/output/*.so ./libasc
+cp -f "$TOP_PATH"/training/tf_rec_v1/build/lib/mx_rec/libasc/*.so ./libasc
+cp -f "$TOP_PATH"/training/common/src/build/pybind/*.so ./libasc
 cd -
 
 # set environment variable
