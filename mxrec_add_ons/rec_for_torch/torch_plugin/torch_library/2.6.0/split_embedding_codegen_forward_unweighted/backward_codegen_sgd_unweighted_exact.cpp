@@ -304,6 +304,7 @@ at::Tensor split_embedding_backward_codegen_sgd_unweighted_exact_npu(const Tenso
                                                                      const at::Tensor& unique_ids,
                                                                      const at::Tensor& unique_offsets,
                                                                      const at::Tensor& unique_inverse,
+                                                                     const at::Tensor& indice_size_cumsum,
                                                                      double learning_rate = 0)
 {
     const int64_t t_max_D = max_D.guard_int(__FILE__, __LINE__);

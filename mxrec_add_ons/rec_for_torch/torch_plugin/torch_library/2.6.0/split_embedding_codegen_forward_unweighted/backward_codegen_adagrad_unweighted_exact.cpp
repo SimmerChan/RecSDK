@@ -75,7 +75,7 @@ public:
                                 momentum1_dev, momentum1_uvm, momentum1_placements, momentum1_offsets,
                                 hash_indices.value_or(Tensor()), unique_ids.value_or(at::Tensor()),
                                 unique_offsets.value_or(at::Tensor()), unique_inverse.value_or(at::Tensor()),
-                                indice_size_cumsum.value_or(at::Tensor())});
+                                indice_size_cumsum});
         ctx->saved_data["max_D"] = max_D;
         ctx->saved_data["pooling_mode"] = pooling_mode;
         ctx->saved_data["total_hash_size_bits"] = total_hash_size_bits;
@@ -360,6 +360,7 @@ TORCH_LIBRARY_FRAGMENT(fbgemm, m)
           "    Tensor unique_ids = None, "
           "    Tensor unique_offsets = None, "
           "    Tensor unique_inverse = None, "
+          "    Tensor indice_size_cumsum = None, "
           "    float eps = 0, float learning_rate = 0 "
           ") -> Tensor");
 

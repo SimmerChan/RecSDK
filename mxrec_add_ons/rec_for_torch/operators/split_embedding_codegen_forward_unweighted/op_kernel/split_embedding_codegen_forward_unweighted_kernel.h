@@ -60,16 +60,7 @@ public:
     __aicore__ inline SplitEmbeddingCodegenForwardUnweightedKernel(Args args)
     {
         GET_TILING_DATA(tilingData, args.tiling);
-        // ADDR
-        devWeights = args.devWeights;
-        weightsPlacements = args.weightsPlacements;
-        weightsOffsets = args.weightsOffsets;
-        dOffsets = args.dOffsets;
-        indices = args.indices;
-        offsets = args.offsets;
-        hashIndices = args.hashIndices;
-        out = args.out;
-        workspace = args.workspace;
+        InitAddr(args);
 
         // Shape
         devWeightsDim0 = tilingData.devWeightsDim0;
@@ -108,7 +99,7 @@ public:
         blockLen = blockLen / FLOAT_ALIGNMENT * FLOAT_ALIGNMENT;
         
         // Init globalbuffer
-        devWeightsGT.SetGlobalBuffer((__gm__ wType*)devWeights, devWeightsDim0);
+        devWeightsGT.SetGlobalBuffer((__gm__ float*)devWeights, devWeightsDim0);
         if (enableHash) {
             indicesGT.SetGlobalBuffer((__gm__ int64_t*)hashIndices, indicesDim0);
         } else {
@@ -128,6 +119,21 @@ public:
         pipe.InitBuffer(queIn, 1, blockLen * sizeof(float));
         pipe.InitBuffer(queOut, 1, blockLen * sizeof(float));
         pipe.InitBuffer(queIndices, 1, MAX_INDICS_ONE_BLOCK * sizeof(int64_t));
+    }
+
+    __aicore__ inline void InitAddr(Args args)
+    {
+         // ADDR
+         devWeights = args.devWeights;
+         weightsPlacements = args.weightsPlacements;
+         weightsOffsets = args.weightsOffsets;
+         dOffsets = args.dOffsets;
+         indices = args.indices;
+         offsets = args.offsets;
+         hashIndices = args.hashIndices;
+         indiceSizeCumsum = args.indiceSizeCumsum;
+         out = args.out;
+         workspace = args.workspace;
     }
 
     template <typename T>
@@ -279,8 +285,8 @@ public:
 
     __aicore__ inline void Scheduler(const int64_t &totalLen, int64_t &offsetLen, int64_t &calcLen)
     {
-        int64_t splitBaseLen = totalLen / GetBlockNum();
-        int64_t tailSplitIndex = totalLen % GetBlockNum();
+        splitBaseLen = totalLen / GetBlockNum();
+        tailSplitIndex = totalLen % GetBlockNum();
         if (GetBlockIdx() >= tailSplitIndex) {
             calcLen = splitBaseLen;
             offsetLen = tailSplitIndex * (splitBaseLen + 1) + (GetBlockIdx() -  tailSplitIndex) * splitBaseLen;
