@@ -28,7 +28,7 @@ from mx_rec.util.config_utils.train_param import TrainParamsConfig
 
 
 @mock.patch.multiple(
-    "mx_rec.util.perf_factory.bind_cpu",
+    "mx_rec_common.perf_factory.bind_cpu",
     get_local_rank_size=mock.MagicMock(return_value=1),
     get_rank_id=mock.MagicMock(return_value=0),
 )
