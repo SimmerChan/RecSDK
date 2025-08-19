@@ -97,6 +97,11 @@ public:
         auto info_B_num_bits = max_B_;
         auto info_B_mask = T;
 
+        // EC查表，计算每张表的indices个数
+        int64_t batchs = (offsets.numel() - 1) / weights_offsets.numel();
+        at::Tensor table_offsets = torch::arange(D_offsets.size(0), offsets.device()) * batchs;
+        at::Tensor indice_size_cumsum = offsets.index_select(0, table_offsets.to(at::kLong));
+
         ctx->save_for_backward({dev_weights, uvm_weights, lxu_cache_weights, weights_placements, weights_offsets,
                                 D_offsets, hash_size_cumsum, indices, offsets, indice_weights.value_or(Tensor()),
                                 feature_requires_grad.value_or(Tensor()), lxu_cache_locations,
@@ -125,7 +130,7 @@ public:
             return {embedding_codegen_forward_op.call(
                 flatten_dev_weights, uvm_weights, lxu_cache_weights, weights_placements, weights_offsets, D_offsets,
                 total_D, max_D, indices, offsets, pooling_mode, lxu_cache_locations, uvm_cache_stats_, output_dtype,
-                is_experimental, hash_indices.value_or(Tensor()))};
+                is_experimental, hash_indices.value_or(Tensor()), indice_size_cumsum)};
         }
         return {at::Tensor()};
     }

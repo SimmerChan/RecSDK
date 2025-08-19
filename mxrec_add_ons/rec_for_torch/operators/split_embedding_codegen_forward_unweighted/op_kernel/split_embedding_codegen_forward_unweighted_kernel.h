@@ -42,6 +42,7 @@ struct Args {
     GM_ADDR indices;
     GM_ADDR offsets;
     GM_ADDR hashIndices;
+    GM_ADDR indiceSizeCumsum;
     GM_ADDR out;
     GM_ADDR tiling;
     GM_ADDR workspace;
@@ -59,8 +60,17 @@ public:
     __aicore__ inline SplitEmbeddingCodegenForwardUnweightedKernel(Args args)
     {
         GET_TILING_DATA(tilingData, args.tiling);
-       
-        InitAddr(args);
+        // ADDR
+        devWeights = args.devWeights;
+        weightsPlacements = args.weightsPlacements;
+        weightsOffsets = args.weightsOffsets;
+        dOffsets = args.dOffsets;
+        indices = args.indices;
+        offsets = args.offsets;
+        hashIndices = args.hashIndices;
+        out = args.out;
+        workspace = args.workspace;
+
         // Shape
         devWeightsDim0 = tilingData.devWeightsDim0;
         weightsOffsetsDim0 = tilingData.weightsOffsetsDim0;
@@ -98,7 +108,7 @@ public:
         blockLen = blockLen / FLOAT_ALIGNMENT * FLOAT_ALIGNMENT;
         
         // Init globalbuffer
-        devWeightsGT.SetGlobalBuffer((__gm__ float*)devWeights, devWeightsDim0);
+        devWeightsGT.SetGlobalBuffer((__gm__ wType*)devWeights, devWeightsDim0);
         if (enableHash) {
             indicesGT.SetGlobalBuffer((__gm__ int64_t*)hashIndices, indicesDim0);
         } else {
@@ -107,6 +117,7 @@ public:
         offsetGT.SetGlobalBuffer((__gm__ int64_t*)offsets, offsetsDim0);
         dOffsetGT.SetGlobalBuffer((__gm__ int32_t*)dOffsets, dOffsetsDim0);
         weightOffsetGT.SetGlobalBuffer((__gm__ int64_t*)weightsOffsets, weightsOffsetsDim0);
+        indiceSizeCumsumGT.SetGlobalBuffer((__gm__ int64_t*)indiceSizeCumsum, indicesDim0);
 
         outGT.SetGlobalBuffer((__gm__ float*)out, outDim0 * outDim1);
 
@@ -117,20 +128,6 @@ public:
         pipe.InitBuffer(queIn, 1, blockLen * sizeof(float));
         pipe.InitBuffer(queOut, 1, blockLen * sizeof(float));
         pipe.InitBuffer(queIndices, 1, MAX_INDICS_ONE_BLOCK * sizeof(int64_t));
-    }
-
-    __aicore__ inline void InitAddr(const Args &args)
-    {
-        // ADDR
-        devWeights = args.devWeights;
-        weightsPlacements = args.weightsPlacements;
-        weightsOffsets = args.weightsOffsets;
-        dOffsets = args.dOffsets;
-        indices = args.indices;
-        offsets = args.offsets;
-        hashIndices = args.hashIndices;
-        out = args.out;
-        workspace = args.workspace;
     }
 
     template <typename T>
@@ -268,7 +265,6 @@ public:
                 thisLen = indicesNumOneBlock;
             }
             remain -= thisLen;
-
             CopyInNormal(startIndices, thisLen, maxD, thisWeightOffset);
             if (alignMaxD == maxD) {
                 CopyOutEC(thisLen, startIndices);
@@ -281,15 +277,42 @@ public:
         }
     }
 
-    __aicore__ inline void Compute()
+    __aicore__ inline void Scheduler(const int64_t &totalLen, int64_t &offsetLen, int64_t &calcLen)
+    {
+        int64_t splitBaseLen = totalLen / GetBlockNum();
+        int64_t tailSplitIndex = totalLen % GetBlockNum();
+        if (GetBlockIdx() >= tailSplitIndex) {
+            calcLen = splitBaseLen;
+            offsetLen = tailSplitIndex * (splitBaseLen + 1) + (GetBlockIdx() -  tailSplitIndex) * splitBaseLen;
+        } else {
+            calcLen = splitBaseLen + 1;
+            offsetLen = GetBlockIdx() * (splitBaseLen + 1);
+        }
+    }
+
+    __aicore__ inline void ComputeEC()
+    {
+        int64_t lastIndices = 0;
+        int64_t thisTableLen = 0;
+        for (int64_t i = 1; i <= weightsOffsetsDim0; i++) {
+            if (indiceSizeCumsumGT.GetValue(i) != lastIndices) {
+                Scheduler(indiceSizeCumsumGT.GetValue(i) - lastIndices, offsetOfThisCore, thisTableLen);
+                if (thisTableLen > 0) {
+                    int64_t thisTableOffset = offsetOfThisCore + lastIndices;
+                    int64_t thisWeightOffset = weightOffsetGT.GetValue(i - 1);
+                    ProcessEC(thisTableLen, thisTableOffset, thisWeightOffset);
+                }
+                lastIndices = indiceSizeCumsumGT.GetValue(i);
+            }
+        }
+    }
+
+    __aicore__ inline void ComputeEBC()
     {
         if (lenOfThisCore == 0) {
             return;
         }
-        indicesNumOneBlock = blockLen / alignMaxD;
-        if (indicesNumOneBlock >= MAX_INDICS_ONE_BLOCK) {
-            indicesNumOneBlock = MAX_INDICS_ONE_BLOCK;
-        }
+        
         for (int64_t loop = 0; loop < lenOfThisCore; loop++) {
             int64_t i = (offsetOfThisCore + loop) / weightsOffsetsDim0;
             int64_t j = (offsetOfThisCore + loop) % weightsOffsetsDim0;
@@ -305,17 +328,25 @@ public:
             // dataCopy In params
             int64_t tableIndex = thisOffsetIndex / batchs;
             int64_t thisWeightOffset = weightOffsetGT.GetValue(tableIndex);
+            // dataCopy Out params
+            int64_t outBatchInd = thisOffsetIndex % outDim0;
+            int64_t outEmbedOffset = dOffsetGT.GetValue(tableIndex);
+            int64_t outOffset = outBatchInd * outDim1 + outEmbedOffset;
+            int64_t embedDim = dOffsetGT.GetValue(tableIndex + 1) - dOffsetGT.GetValue(tableIndex);
+            ProcessEBC(thisLen, startIndices, embedDim, thisWeightOffset, outOffset);
+        }
+    }
 
-            if (poolMode == NONE_POOL) {
-                ProcessEC(thisLen, startIndices, thisWeightOffset);
-            } else {
-                // dataCopy Out params
-                int64_t outBatchInd = thisOffsetIndex % outDim0;
-                int64_t outEmbedOffset = dOffsetGT.GetValue(tableIndex);
-                int64_t outOffset = outBatchInd * outDim1 + outEmbedOffset;
-                int64_t embedDim = dOffsetGT.GetValue(tableIndex + 1) - dOffsetGT.GetValue(tableIndex);
-                ProcessEBC(thisLen, startIndices, embedDim, thisWeightOffset, outOffset);
-            }
+    __aicore__ inline void Compute()
+    {
+        indicesNumOneBlock = blockLen / alignMaxD;
+        if (indicesNumOneBlock >= MAX_INDICS_ONE_BLOCK) {
+            indicesNumOneBlock = MAX_INDICS_ONE_BLOCK;
+        }
+        if (poolMode == NONE_POOL) {
+            ComputeEC();
+        } else {
+            ComputeEBC();
         }
     }
 
@@ -328,6 +359,7 @@ private:
     GM_ADDR indices;
     GM_ADDR offsets;
     GM_ADDR hashIndices;
+    GM_ADDR indiceSizeCumsum;
     GM_ADDR out;
     GM_ADDR workspace;
 
@@ -365,6 +397,10 @@ private:
     int64_t lenOfThisCore;
     int64_t offsetOfThisCore;
 
+    // dynamic
+    int64_t blockEmbNum;
+    bool isDynamic;
+
     // Tpipe
     TPipe pipe;
     TQue<TPosition::VECIN, 1> queIn;
@@ -378,6 +414,7 @@ private:
     GlobalTensor<int64_t> offsetGT;
     GlobalTensor<int32_t> dOffsetGT;
     GlobalTensor<int64_t> weightOffsetGT;
+    GlobalTensor<int64_t> indiceSizeCumsumGT;
 };
 }  // namespace SplitEmbeddingCodegenForwardUnweighted
 #endif

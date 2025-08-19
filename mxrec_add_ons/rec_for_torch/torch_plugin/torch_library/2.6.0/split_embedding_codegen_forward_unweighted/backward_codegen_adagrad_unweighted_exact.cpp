@@ -12,6 +12,7 @@
 #include "torch/extension.h"
 #include "split_embedding_codegen_forward_unweighted.h"
 #include "../common/pytorch_npu_helper.hpp"
+#include "../common/embedding_common.hpp"
 
 using torch::autograd::AutogradContext;
 using torch::autograd::Function;
@@ -30,7 +31,7 @@ Tensor split_embedding_backward_codegen_adagrad_unweighted_exact_cuda(
     const int64_t info_B_mask_int64, const bool use_uniq_cache_locations, const bool use_homogeneous_placements,
     Tensor momentum1_dev, Tensor momentum1_uvm, Tensor momentum1_placements, Tensor momentum1_offsets,
     const Tensor& hash_indices, const Tensor& unique_ids, const Tensor& unique_offsets, const Tensor& unique_inverse,
-    double eps = 0, double learning_rate = 0);
+    const Tensor& indice_size_cumsum, double eps = 0, double learning_rate = 0);
 
 class SplitLookupAdagrad : public torch::autograd::Function<SplitLookupAdagrad> {
 public:
@@ -62,14 +63,20 @@ public:
 
         auto info_B_num_bits = max_B_;
         auto info_B_mask = T;
-
+        
+        // EC查表，计算每张表的indices个数
+        int64_t batchs = (offsets.numel() - 1) / weights_offsets.numel();
+        at::Tensor table_offsets = torch::arange(D_offsets.size(0), offsets.device()) * batchs;
+        at::Tensor indice_size_cumsum = offsets.index_select(0, table_offsets.to(at::kLong));
+        
         ctx->save_for_backward({dev_weights, uvm_weights, lxu_cache_weights, weights_placements,
                                 weights_offsets, D_offsets, hash_size_cumsum, indices, offsets,
                                 indice_weights.value_or(Tensor()),
                                 feature_requires_grad.value_or(Tensor()), lxu_cache_locations,
                                 momentum1_dev, momentum1_uvm, momentum1_placements, momentum1_offsets,
                                 hash_indices.value_or(Tensor()), unique_ids.value_or(at::Tensor()),
-                                unique_offsets.value_or(at::Tensor()), unique_inverse.value_or(at::Tensor())});
+                                unique_offsets.value_or(at::Tensor()), unique_inverse.value_or(at::Tensor()),
+                                indice_size_cumsum.value_or(at::Tensor())});
         ctx->saved_data["max_D"] = max_D;
         ctx->saved_data["pooling_mode"] = pooling_mode;
         ctx->saved_data["total_hash_size_bits"] = total_hash_size_bits;
@@ -94,7 +101,7 @@ public:
             return {embedding_codegen_forward_op.call(
                 flatten_dev_weights, uvm_weights, lxu_cache_weights, weights_placements, weights_offsets, D_offsets,
                 total_D, max_D, indices, offsets, pooling_mode, lxu_cache_locations, uvm_cache_stats_, output_dtype,
-                is_experimental, hash_indices.value_or(Tensor()))};
+                is_experimental, hash_indices.value_or(Tensor()), indice_size_cumsum)};
         }
         return {at::Tensor()};
     }
@@ -124,6 +131,7 @@ public:
         auto unique_ids = *savedItr++;
         auto unique_offsets = *savedItr++;
         auto unique_inverse = *savedItr++;
+        auto indice_size_cumsum = *savedItr++;
         auto max_D = ctx->saved_data["max_D"].toSymInt();
         auto pooling_mode = ctx->saved_data["pooling_mode"].toInt();
         auto total_hash_size_bits = ctx->saved_data["total_hash_size_bits"].toInt();
@@ -144,7 +152,6 @@ public:
 
         using torch::autograd::Variable;
         auto grad_output = gradient_clipping ? clamp(grad_outputs[0], -max_gradient, max_gradient) : grad_outputs[0];
-
         static auto embedding_codegen_unweighted_backward_op =
             torch::Dispatcher::singleton()
                 .findSchemaOrThrow("fbgemm::split_embedding_backward_codegen_adagrad_unweighted_exact_cuda", "")
@@ -155,8 +162,8 @@ public:
             max_D, hash_size_cumsum, total_hash_size_bits, indices, offsets, pooling_mode, lxu_cache_locations,
             BT_block_size, max_segment_length_per_warp, stochastic_rounding, info_B_num_bits, info_B_mask_int64,
             use_uniq_cache_locations_bwd, use_homogeneous_placements, momentum1_dev, momentum1_uvm,
-            momentum1_placements, momentum1_offsets, hash_indices, unique_ids, unique_offsets, unique_inverse, eps,
-            learning_rate);
+            momentum1_placements, momentum1_offsets, hash_indices, unique_ids, unique_offsets, unique_inverse,
+            indice_size_cumsum, eps, learning_rate);
         return {
             Tensor(),          // placeholder autograd tensor
             Variable(),        // output_dtype
@@ -191,6 +198,7 @@ public:
             Variable(),        // unique_ids
             Variable(),        // unique_offsets
             Variable(),        // unique_inverse
+            Variable(),        // indice_size_cumsum
             Variable(),        // eps
             Variable()         // learning_rate
         };
@@ -242,7 +250,7 @@ at::Tensor split_embedding_backward_codegen_adagrad_unweighted_exact_npu(
     const int64_t info_B_mask_int64, const bool use_uniq_cache_locations, const bool use_homogeneous_placements,
     Tensor momentum1_dev, Tensor momentum1_uvm, Tensor momentum1_placements, Tensor momentum1_offsets,
     const Tensor& hash_indices, const at::Tensor& unique_ids, const at::Tensor& unique_offsets,
-    const at::Tensor& unique_inverse, double eps = 0, double learning_rate = 0)
+    const at::Tensor& unique_inverse, const at::Tensor& indice_size_cumsum, double eps = 0, double learning_rate = 0)
 {
     const int64_t t_max_D = max_D.guard_int(__FILE__, __LINE__);
 
@@ -251,11 +259,6 @@ at::Tensor split_embedding_backward_codegen_adagrad_unweighted_exact_npu(
     // unique查表，则需要将output的形状设置为(unique_ids.numel() * t_max_D)
     int64_t totalEmbed = unique_ids.numel() == 0 ? dev_weights.size(0) : unique_ids.numel() * t_max_D;
     auto output = at::empty({totalEmbed}, dev_weights.options().dtype(at::kFloat));
-
-    // EC查表，计算每张表的indices个数
-    int64_t batchs = (offsets.numel() - 1) / weights_offsets.numel();
-    at::Tensor table_offsets = torch::arange(D_offsets.size(0), offsets.device()) * batchs;
-    at::Tensor indice_size_cumsum = offsets.index_select(0, table_offsets.to(at::kLong));
 
     int optim_type = static_cast<int>(OptimizerType::ADAGRAD);
     const auto _unused = Tensor();
