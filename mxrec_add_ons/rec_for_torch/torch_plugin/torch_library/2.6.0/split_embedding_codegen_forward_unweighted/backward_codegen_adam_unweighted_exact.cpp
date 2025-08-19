@@ -500,6 +500,7 @@ TORCH_LIBRARY_FRAGMENT(fbgemm, m)
           "    Tensor unique_ids = None, "
           "    Tensor unique_offsets = None, "
           "    Tensor unique_inverse = None, "
+          "    Tensor indice_size_cumsum = None, "
           "    float eps = 0, float learning_rate = 0, float beta1 = 0, float beta2 = 0, int iter = 0 "
           ") -> Tensor");
     m.impl("split_embedding_backward_codegen_adam_unweighted_exact_cuda",

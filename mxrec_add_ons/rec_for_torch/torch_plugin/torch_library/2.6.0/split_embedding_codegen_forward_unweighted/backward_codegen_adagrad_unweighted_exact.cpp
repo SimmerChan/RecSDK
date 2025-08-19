@@ -12,7 +12,6 @@
 #include "torch/extension.h"
 #include "split_embedding_codegen_forward_unweighted.h"
 #include "../common/pytorch_npu_helper.hpp"
-#include "../common/embedding_common.hpp"
 
 using torch::autograd::AutogradContext;
 using torch::autograd::Function;
