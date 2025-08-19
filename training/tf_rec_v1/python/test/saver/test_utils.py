@@ -22,7 +22,7 @@ from unittest import mock
 import tensorflow as tf
 
 from mx_rec.saver.utils import check_files_in_directories, get_optimizer_dict_by_table_name
-from tests.mx_rec.core.mock_class import MockConfigInitializer
+from core.mock_class import MockConfigInitializer
 
 
 class TestCheckFilesInDirectories(unittest.TestCase):

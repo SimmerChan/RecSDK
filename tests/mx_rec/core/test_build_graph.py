@@ -29,7 +29,7 @@ from mx_rec.core.asc.build_graph import (
     get_unique_shape,
     get_all2all_args,
 )
-from tests.mx_rec.core.mock_class import MockConfigInitializer, MockSparseEmbedding
+from core.mock_class import MockConfigInitializer, MockSparseEmbedding
 
 
 class TestGetRestoreVectorFunc(unittest.TestCase):

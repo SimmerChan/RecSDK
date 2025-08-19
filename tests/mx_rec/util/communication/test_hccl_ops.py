@@ -20,7 +20,7 @@ from unittest import mock
 
 from mx_rec.util.communication.hccl_ops import get_rank_id, get_rank_size, get_local_rank_size, get_device_id
 from mx_rec.constants.constants import EnvOption
-from tests.mx_rec.core.mock_class import MockGlobalEnv
+from core.mock_class import MockGlobalEnv
 
 
 class TestGetRankId(unittest.TestCase):

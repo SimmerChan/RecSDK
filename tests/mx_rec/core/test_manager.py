@@ -21,7 +21,7 @@ from unittest import mock
 import tensorflow as tf
 
 from mx_rec.core.asc.feature_spec import FeatureSpec
-from tests.mx_rec.core.mock_class import MockSparseEmbedding, MockOptimizer, MockHybridMgmt, MockConfigInitializer
+from core.mock_class import MockSparseEmbedding, MockOptimizer, MockHybridMgmt, MockConfigInitializer
 
 
 class TestGenerateTableInfoListFunc(unittest.TestCase):

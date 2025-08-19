@@ -22,7 +22,7 @@ import tensorflow as tf
 from tensorflow.python.framework import ops
 
 from mx_rec.optimizers.gradient_descent_by_addr import create_hash_optimizer_by_addr
-from tests.mx_rec.core.mock_class import MockConfigInitializer, MockSparseEmbedding
+from core.mock_class import MockConfigInitializer, MockSparseEmbedding
 
 
 class TestCreateHashOptimizerFunc(unittest.TestCase):

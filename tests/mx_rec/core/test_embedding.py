@@ -26,7 +26,7 @@ from mx_rec.core.asc.feature_spec import set_temporary_feature_spec_attribute
 from mx_rec.core.emb.dynamic_sparse_embedding import HBMDynamicSparseEmbedding
 from mx_rec.core.emb.mergeable_sparse_embedding import MergeableSparseEmbedding
 from mx_rec.core.emb.sparse_embedding import HBMSparseEmbedding, ExternalStorageSparseEmbedding
-from tests.mx_rec.core.mock_class import MockConfigInitializer
+from core.mock_class import MockConfigInitializer
 
 
 class TestCreateTableFunc(unittest.TestCase):

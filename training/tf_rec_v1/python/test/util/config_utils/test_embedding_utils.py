@@ -21,7 +21,7 @@ from unittest import mock
 import tensorflow as tf
 
 from mx_rec.util.config_utils.embedding_utils import SparseEmbedConfig
-from tests.mx_rec.core.mock_class import MockConfigInitializer
+from core.mock_class import MockConfigInitializer
 
 
 class TestSparseEmbedConfig(unittest.TestCase):

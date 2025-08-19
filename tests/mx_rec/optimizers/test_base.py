@@ -21,7 +21,7 @@ from unittest import mock
 import tensorflow as tf
 
 from mx_rec.optimizers.base import CustomizedOptimizer
-from tests.mx_rec.core.mock_class import MockConfigInitializer, MockSparseEmbedding
+from core.mock_class import MockConfigInitializer, MockSparseEmbedding
 
 
 class TestCustomizedOptimizer(unittest.TestCase):

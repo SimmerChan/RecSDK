@@ -24,8 +24,8 @@ from typing import Callable
 import tensorflow as tf
 
 from mx_rec.core.asc.feature_spec import FeatureSpec
-from tests.mx_rec.core.generator_dataset import generate_dataset, Config
-from tests.mx_rec.core.mock_class import MockHostPipeLineOps, MockConfigInitializer
+from core.generator_dataset import generate_dataset, Config
+from core.mock_class import MockHostPipeLineOps, MockConfigInitializer
 
 
 class TestGetAscInsertFunc(unittest.TestCase):

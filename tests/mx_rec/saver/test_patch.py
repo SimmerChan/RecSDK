@@ -27,7 +27,7 @@ from mx_rec.saver.patch import (
     check_characters_is_valid,
     saver_from_object_based_checkpoint,
 )
-from tests.mx_rec.core.mock_class import MockConfigInitializer
+from core.mock_class import MockConfigInitializer
 
 
 class TestGetSparseVars(unittest.TestCase):

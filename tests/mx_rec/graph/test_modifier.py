@@ -41,8 +41,8 @@ from mx_rec.graph.modifier import (
     _get_passing_tensor_list,
     _get_timestamp_index,
 )
-from tests.mx_rec.core.mock_class import MockConfigInitializer, MockSparseEmbedding, MockOptimizer
-from tests.mx_rec.graph.mock_dataset import gen_mock_dataset
+from core.mock_class import MockConfigInitializer, MockSparseEmbedding, MockOptimizer
+from graph.mock_dataset import gen_mock_dataset
 
 
 def _gen_mock_get_anchor_attribute(is_training: bool = True) -> Callable:

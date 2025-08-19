@@ -18,7 +18,7 @@
 import unittest
 
 from mx_rec.util.config_utils.feature_spec_utils import FeatureSpecConfig
-from tests.mx_rec.core.mock_class import MockFeatureSpec
+from core.mock_class import MockFeatureSpec
 
 
 class TestFeatureSpecConfig(unittest.TestCase):
