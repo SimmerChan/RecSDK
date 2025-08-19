@@ -1,4 +1,5 @@
-# Copyright 2024. Huawei Technologies Co.,Ltd. All rights reserved.
+#!/bin/bash
+# Copyright 2025. Huawei Technologies Co.,Ltd. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,11 +13,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+set -e
+SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
+JSON_FILE=$SCRIPT_DIR/json.hpp
 
-cmake_minimum_required(VERSION 3.12)
-set(CMAKE_CXX_STANDARD 14)
+function get_nlohmann()
+{
+    cd $SCRIPT_DIR
+    # 判断 v3.9.1.tar.gz 文件是否存在，不存在输出错误信息
+    if [ ! -e "v3.9.1.tar.gz" ]; then
+        echo "The required component 'v3.9.1.tar.gz' for the ONNX plugin does not exist."
+    else
+        tar -xvf v3.9.1.tar.gz
+        cp json-3.9.1/single_include/nlohmann/json.hpp .
+    fi
+}
 
-file(GLOB_RECURSE MXREC_OP_SRC ./*.cpp)
-add_library(mxrec_cpu_ops SHARED ${MXREC_OP_SRC})
-target_link_libraries(mxrec_cpu_ops PUBLIC ASC)
-install(TARGETS mxrec_cpu_ops LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX})
+if [ ! -e "$JSON_FILE" ]; then
+    get_nlohmann
+fi

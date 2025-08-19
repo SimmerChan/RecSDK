@@ -67,6 +67,7 @@ tf1_path=$(dirname "$(dirname "$(which python3.7)")")/lib/python3.7/site-package
 # 配置Rec SDK C++代码路径和AccCTR路径
 src_path="${MxRec_DIR}"/src
 acc_ctr_path="${MxRec_DIR}"/src/AccCTR
+cust_op_tf_plugin_path="${MxRec_DIR}"/cust_op_new/framework/tf_plugin
 cd "${MxRec_DIR}"
 
 function compile_securec()
@@ -88,6 +89,14 @@ function compile_so_file()
   chmod u+x build.sh
   ./build.sh "$1" "${MxRec_DIR}" "YES"
   cd ..
+}
+
+function compile_asc_ops_tf_plugin_so_file()
+{
+  cd "${cust_op_tf_plugin_path}"
+  chmod u+x build.sh
+  ./build.sh "$1" "${MxRec_DIR}"
+  cd ${MxRec_DIR}
 }
 
 function compile_acc_ctr_so_file()
@@ -120,6 +129,7 @@ echo "----------------          compile     AccCTR            ----------------"
 compile_acc_ctr_so_file
 echo "----------------          compile MxRec so files        ----------------"
 compile_so_file "${tf1_path}"
+compile_asc_ops_tf_plugin_so_file "${tf1_path}"
 echo "---------------- collect so files and mv them to libasc ----------------"
 collect_so_file
 echo "----------------        compile MxRec success!!!!       ----------------"
