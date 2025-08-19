@@ -34,7 +34,9 @@ else
 fi
 
 cd ${BUILD_PATH}
-cmake ${REC_BASE_PATH} -DCMAKE_INSTALL_PREFIX:STRING=${OUTPUT_PATH}/rec_base -DBUILD_MODE=${BUILD_MODE}
+cmake ${REC_BASE_PATH} -DCMAKE_INSTALL_PREFIX:STRING=${OUTPUT_PATH}/rec_base -DBUILD_MODE=${BUILD_MODE} \
+    -DCMAKE_CXX_COMPILER=`which c++` \
+    -DCMAKE_C_COMPILER=`which gcc`
 if [ 0 != $? ];then
     echo "Failed to build_src"
     exit 1
