@@ -11,9 +11,11 @@ import time
 
 import pytest
 import torch
-from torchrec_embcache.sparse.jagged_tensor_with_timestamp import (
+
+from hybrid_torchrec.sparse.jagged_tensor_with_timestamp import (
     JaggedTensorWithTimestamp,
-    KeyedJaggedTensorWithTimestamp)
+    KeyedJaggedTensorWithTimestamp,
+)
 
 TEST_NUM = 100
 IDS_RANGE_TIMES = 10

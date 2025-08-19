@@ -12,7 +12,7 @@ from typing import Iterator
 import torch
 import torch_npu
 from torch.utils.data.dataset import IterableDataset
-from torchrec_embcache.sparse.jagged_tensor_with_timestamp import (
+from hybrid_torchrec.sparse.jagged_tensor_with_timestamp import (
     JaggedTensorWithTimestamp,
     KeyedJaggedTensorWithTimestamp
 )
