@@ -6,6 +6,7 @@ COPY ./version.info ./
 COPY ./ascend_install.info ./
 COPY ./Ascend-cann-toolkit_*.run ./
 COPY ./Ascend-cann-kernels-*.run ./
+COPY ./torch_npu-2.6.0-cp311-cp311-*whl ./
 
 # 1.配置证书
 RUN apt-get update && \
@@ -141,13 +142,23 @@ ARG KERNEL_PKG=Ascend-cann-kernels*.run
 RUN rm -rf $ASCEND_BASE/ascend-toolkit
 
 RUN umask 0027 && \
-   chmod +x $TOOLKIT_PKG && \
-   bash $TOOLKIT_PKG --quiet --install --install-path=$ASCEND_BASE && \
-   . $ASCEND_BASE/ascend-toolkit/set_env.sh && \
-   chmod +x $KERNEL_PKG && \
-   bash $KERNEL_PKG --quiet --install && \
-   rm -rf /root/.cache/pip && \
-   rm -f $TOOLKIT_PKG && rm -f $KERNEL_PKG
+    mkdir -p $ASCEND_BASE/driver && \
+    chmod 755 $ASCEND_BASE && \
+    cp -f version.info $ASCEND_BASE/driver/ && \
+    cp -f ascend_install.info /etc/ && \
+    chmod +x $TOOLKIT_PKG && \
+    bash $TOOLKIT_PKG --quiet --install --install-path=$ASCEND_BASE && \
+    . $ASCEND_BASE/ascend-toolkit/set_env.sh && \
+    chmod +x $KERNEL_PKG && \
+    bash $KERNEL_PKG --quiet --install && \
+    rm -rf /root/.cache/pip && \
+    rm -f $TOOLKIT_PKG && rm -f $KERNEL_PKG && \
+    rm -rf $ASCEND_BASE/driver && \
+    rm -rf /etc/ascend_install.info
 
-# 11.清理临时目录
+# 11.安装torch_npu
+RUN pip3 install torch_npu-2.6.0-cp311-cp311-*whl && \
+    rm -rf /root/.cache/pip
+
+# 12.清理临时目录
 RUN rm -rf ./*
