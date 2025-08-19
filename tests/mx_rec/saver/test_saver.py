@@ -60,7 +60,7 @@ class TestSaver(unittest.TestCase):
         get_device_id=mock.MagicMock(return_value=0),
     )
     @mock.patch("mx_rec.graph.patch.ConfigInitializer", new=_mock_config_init_default)
-    @mock.patch("mx_rec.saver.utils.ConfigInitializer", new=_mock_config_init_default)
+    @mock.patch("mx_rec.saver.util.ConfigInitializer", new=_mock_config_init_default)
     @mock.patch("mx_rec.core.emb.base_sparse_embedding.ConfigInitializer", new=_mock_config_init_default)
     @mock.patch("mx_rec.validator.emb_validator.ConfigInitializer", new=_mock_config_init_default)
     @mock.patch("mx_rec.core.util.ConfigInitializer", new=_mock_config_init_default)
@@ -94,7 +94,7 @@ class TestSaver(unittest.TestCase):
         get_device_id=mock.MagicMock(return_value=0),
     )
     @mock.patch("mx_rec.graph.patch.ConfigInitializer", new=_mock_config_init_default)
-    @mock.patch("mx_rec.saver.utils.ConfigInitializer", new=_mock_config_init_default)
+    @mock.patch("mx_rec.saver.util.ConfigInitializer", new=_mock_config_init_default)
     @mock.patch("mx_rec.core.emb.base_sparse_embedding.ConfigInitializer", new=_mock_config_init_default)
     @mock.patch("mx_rec.validator.emb_validator.ConfigInitializer", new=_mock_config_init_default)
     @mock.patch("mx_rec.core.util.ConfigInitializer", new=_mock_config_init_default)
@@ -136,7 +136,7 @@ class TestSaver(unittest.TestCase):
         get_device_id=mock.MagicMock(return_value=0),
     )
     @mock.patch("mx_rec.graph.patch.ConfigInitializer", new=_mock_config_init_incremental)
-    @mock.patch("mx_rec.saver.utils.ConfigInitializer", new=_mock_config_init_incremental)
+    @mock.patch("mx_rec.saver.util.ConfigInitializer", new=_mock_config_init_incremental)
     @mock.patch("mx_rec.core.emb.base_sparse_embedding.ConfigInitializer", new=_mock_config_init_incremental)
     @mock.patch("mx_rec.validator.emb_validator.ConfigInitializer", new=_mock_config_init_incremental)
     @mock.patch("mx_rec.core.util.ConfigInitializer", new=_mock_config_init_incremental)
@@ -172,7 +172,7 @@ class TestSaver(unittest.TestCase):
     )
     @mock.patch("mx_rec.graph.patch.ConfigInitializer")
     @mock.patch("mx_rec.saver.saver.ConfigInitializer")
-    @mock.patch("mx_rec.saver.utils.ConfigInitializer")
+    @mock.patch("mx_rec.saver.util.ConfigInitializer")
     def test_save_and_load_is_consistent(
         self, utils_config_initializer, saver_config_initializer, graph_config_initializer
     ):

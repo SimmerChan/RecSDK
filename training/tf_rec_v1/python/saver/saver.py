@@ -39,7 +39,7 @@ from mx_rec_common.constants.constants import (
     DeviceType,
     ValidatorParams,
 )
-from mx_rec_common.utils.tf_adapter import npu_ops
+from mx_rec_common.util.tf_adapter import npu_ops
 from mx_rec_common.validator.validator import (
     DirectoryValidator,
     FileValidator,

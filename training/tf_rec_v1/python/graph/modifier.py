@@ -28,7 +28,7 @@ from tensorflow.python.framework.errors_impl import InvalidArgumentError
 
 from mx_rec_common.log import logger
 from mx_rec_common.communication.hccl.hccl_info import get_rank_id, get_device_id
-from mx_rec_common.utils.tf_adapter import npu_ops
+from mx_rec_common.util.tf_adapter import npu_ops
 from mx_rec_common.validator.validator import para_checker_decorator, ClassValidator
 import mxrec_pybind
 from mx_rec.core.embedding_proxy import MergeableEmbeddingTableProxy

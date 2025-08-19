@@ -15,7 +15,7 @@
 # ==============================================================================
 
 import tensorflow as tf
-from mx_rec.util.communication.hccl_ops import get_rank_id, get_rank_size
+from mx_rec_common.communication.hccl.hccl_info import get_rank_id, get_rank_size
 from mx_rec.util.ops import import_host_pipeline_ops
 
 from random_data_generator import (get_data_generator,

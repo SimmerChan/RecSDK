@@ -16,7 +16,7 @@
 # ==============================================================================
 
 """
-utils
+util
 """
 from __future__ import absolute_import
 import tensorflow as tf

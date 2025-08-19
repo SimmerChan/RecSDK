@@ -21,7 +21,7 @@ import tensorflow as tf
 
 from mx_rec_common.log import logger
 from mx_rec_common.constants.constants import ValidatorParams
-from mx_rec_common.utils.tf_adapter import npu_ops
+from mx_rec_common.util.tf_adapter import npu_ops
 from mx_rec_common.validator.validator import para_checker_decorator, ClassValidator, IntValidator, OptionalIntValidator
 from mx_rec.constants.constants import DEFAULT_EVICT_TIME_INTERVAL, TRAIN_CHANNEL_ID
 from mx_rec.util.initialize import ConfigInitializer
