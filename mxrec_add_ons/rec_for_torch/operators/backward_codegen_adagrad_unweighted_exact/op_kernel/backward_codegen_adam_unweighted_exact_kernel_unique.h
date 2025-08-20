@@ -129,7 +129,6 @@ public:
         queOut.template FreeTensor(newOutLt);
     }
 
-    
     __aicore__ inline void UpdateEmbedAdam()
     {
         __gm__ int32_t* dOffsetsPtr = (__gm__ int32_t*)dOffsets;
