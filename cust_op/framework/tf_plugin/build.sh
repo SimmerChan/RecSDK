@@ -41,5 +41,3 @@ cmake -DCMAKE_BUILD_TYPE=Release \
 
 make -j8
 make install
-
-# bash build.sh $(dirname "$(dirname "$(which python3.7)")")/lib/python3.7/site-packages/tensorflow_core /root/w00637849/src/RecSDK
