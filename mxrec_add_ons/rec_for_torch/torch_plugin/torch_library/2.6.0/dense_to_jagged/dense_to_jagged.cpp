@@ -11,8 +11,35 @@
 #include <torch/library.h>
 
 #include "../common/pytorch_npu_helper.hpp"
+using torch::autograd::AutogradContext;
+using torch::autograd::Function;
+using torch::autograd::Variable;
 using tensor_list = std::vector<at::Tensor>;
 using namespace at;
+
+at::Tensor jagged_to_padded_dense_forward_npu(const at::Tensor& values,
+                                              const tensor_list& offsets,
+                                              const int64_t max_lengths,
+                                              const double padding_value)
+{
+    TORCH_CHECK(values.dim() == 2,
+        "values must be a 2D tensor, but got ", values.dim(), "D tensor");
+    TORCH_CHECK(offsets.size() == 1,
+        "offsets must contain exactly 1 tensor, but got ", offsets.size(), " tensors");
+    const auto& offset_tensor = offsets[0];
+    TORCH_CHECK(offset_tensor.defined(),
+        "offset tensor must be defined (non-null)");
+    TORCH_CHECK(offset_tensor.dim() == 1,
+        "offset tensor must be 1D, but got ", offset_tensor.dim(), "D");
+    TORCH_CHECK(max_lengths > 0, "max_lengths must be positive, but got ", max_lengths);
+    const at::OptionalDeviceGuard guard(device_of(values));
+    auto values_contin = values.contiguous();
+    auto D = values.size(-1);
+    auto output =
+        at::full({offsets[0].size(0) - 1, max_lengths, values.size(1)}, padding_value, values.options());
+    EXEC_NPU_CMD(aclnnJaggedToPaddedDense, values_contin, offsets[0], max_lengths, padding_value, output);
+    return output;
+};
 
 // 目前只支持3维的dense
 at::Tensor dense_to_jagged_forward_npu(const at::Tensor& dense,
@@ -53,6 +80,69 @@ std::tuple<at::Tensor, tensor_list> dense_to_jagged_npu(const at::Tensor& dense,
     return {dense_to_jagged_forward_npu(dense, offsets, total_L), offsets};
 };
 
+// 反向算子 - 使用jagged_to_padded_dense作为反向
+at::Tensor dense_to_jagged_backward_npu(const at::Tensor& values,
+                                        const tensor_list& offsets,
+                                        const int64_t max_lengths,
+                                        const double padding_value)
+{
+    return jagged_to_padded_dense_forward_npu(values, offsets, max_lengths, padding_value);
+};
+
+// 自动求导Function类
+class DenseToJaggedFunction : public torch::autograd::Function<DenseToJaggedFunction> {
+public:
+    static std::tuple<at::Tensor, tensor_list> forward(AutogradContext* ctx,
+                                                      const at::Tensor& dense,
+                                                      const tensor_list& offsets,
+                                                      const c10::optional<int64_t> total_L)
+    {
+        at::AutoDispatchBelowADInplaceOrView guard;
+        // 保存offsets用于反向传播
+        for (const auto& offset : offsets) {
+            ctx->save_for_backward({offset});
+        }
+        // 保存dense的形状信息
+        auto dense_shape = dense.sizes();
+        ctx->saved_data["dense_shape"] = dense_shape;
+
+        auto result = dense_to_jagged_npu(dense, offsets, total_L);
+        return result;  // 返回 (out0, out1)
+    }
+
+    static tensor_list backward(AutogradContext* ctx, tensor_list grad_outputs)
+    {
+        // grad_outputs[0]: grad_out0 (jagged tensor的梯度)
+        // grad_outputs[1]: grad_out1 (offsets的梯度，应该是None)
+
+        // 恢复保存的offsets
+        auto saved = ctx->get_saved_variables();
+        tensor_list offsets;
+        for (auto& tensor : saved) {
+            offsets.push_back(tensor);
+        }
+
+        // 获取dense的形状
+        auto dense_shape = ctx->saved_data["dense_shape"].toIntVector();
+        int64_t max_len = dense_shape[1];
+
+        // 调用jagged_to_padded_dense作为反向
+        auto grad_dense = fbgemm_npu::dense_to_jagged_backward_npu(
+            grad_outputs[0], offsets, {max_len}, 0.0);
+
+        // 返回梯度：grad_dense, None, None
+        return {grad_dense, Variable(), Variable()};
+    }
+};
+
+// 自动求导接口
+std::tuple<at::Tensor, tensor_list> dense_to_jagged_autograd(const at::Tensor& dense,
+                                                            const tensor_list& offsets,
+                                                            const c10::optional<int64_t> total_L)
+{
+    return DenseToJaggedFunction::apply(dense, offsets, total_L);
+}
+
 TORCH_LIBRARY_FRAGMENT(mxrec, m)
 {
     m.def("dense_to_jagged_forward(Tensor dense, "
@@ -62,16 +152,34 @@ TORCH_LIBRARY_FRAGMENT(mxrec, m)
     m.def("dense_to_jagged(Tensor dense, "
           "                Tensor[] offsets, "
           "                SymInt? total_L=None) -> (Tensor, Tensor[])");
+
+    m.def("dense_to_jagged_backward(Tensor values, "
+          "                         Tensor[] offsets, "
+          "                         int max_lengths, "
+          "                         float padding_value) -> Tensor");
 }
 
 TORCH_LIBRARY_IMPL(mxrec, PrivateUse1, m)
 {
     m.impl("dense_to_jagged_forward", &dense_to_jagged_forward_npu);
     m.impl("dense_to_jagged", &dense_to_jagged_npu);
+    m.impl("dense_to_jagged_backward", &dense_to_jagged_backward_npu);
 }
 
 TORCH_LIBRARY_IMPL(fbgemm, PrivateUse1, m)
 {
     m.impl("dense_to_jagged_forward", &dense_to_jagged_forward_npu);
     m.impl("dense_to_jagged", &dense_to_jagged_npu);
+    m.impl("dense_to_jagged_backward", &dense_to_jagged_backward_npu);
+}
+
+// 注册自动求导实现
+TORCH_LIBRARY_IMPL(mxrec, AutogradPrivateUse1, m)
+{
+    m.impl("dense_to_jagged", &dense_to_jagged_autograd);
+}
+
+TORCH_LIBRARY_IMPL(fbgemm, AutogradPrivateUse1, m)
+{
+    m.impl("dense_to_jagged", &dense_to_jagged_autograd);
 }

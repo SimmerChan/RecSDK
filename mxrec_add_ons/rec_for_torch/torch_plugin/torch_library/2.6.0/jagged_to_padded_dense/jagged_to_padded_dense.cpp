@@ -182,26 +182,28 @@ at::Tensor jagged_to_padded_dense_npu_v2_autograd(const at::Tensor& values,
 TORCH_LIBRARY_FRAGMENT(mxrec, m)
 {
     m.def("jagged_to_padded_dense.v1(Tensor values, "
-          "                       Tensor[] offsets, "
-          "                       int max_lengths, "
-          "                       float padding_value) -> Tensor");
+          "                          Tensor[] offsets, "
+          "                          int max_lengths, "
+          "                          float padding_value) -> Tensor");
     // 新增int[]的max_lengths
     m.def("jagged_to_padded_dense.v2(Tensor values, "
-          "                       Tensor[] offsets, "
-          "                       int[] max_lengths, "
-          "                       float padding_value) -> Tensor");
+          "                          Tensor[] offsets, "
+          "                          int[] max_lengths, "
+          "                          float padding_value) -> Tensor");
 
     m.def("jagged_to_padded_dense_forward.v1(Tensor values, "
-          "                               Tensor[] offsets, "
-          "                               int max_lengths, "
-          "                               float padding_value) -> Tensor");
+          "                                  Tensor[] offsets, "
+          "                                  int max_lengths, "
+          "                                  float padding_value) -> Tensor");
     // 新增int[]的max_lengths
     m.def("jagged_to_padded_dense_forward.v2(Tensor values, "
-          "                               Tensor[] offsets, "
-          "                               int[] max_lengths, "
-          "                               float padding_value) -> Tensor");
+          "                                  Tensor[] offsets, "
+          "                                  int[] max_lengths, "
+          "                                  float padding_value) -> Tensor");
 
-    m.def("jagged_to_padded_dense_backward(Tensor grad, Tensor[] offsets, int total_L) -> Tensor");
+    m.def("jagged_to_padded_dense_backward(Tensor grad, "
+          "                                Tensor[] offsets, "
+          "                                int total_L) -> Tensor");
 }
 
 TORCH_LIBRARY_IMPL(mxrec, PrivateUse1, m)
