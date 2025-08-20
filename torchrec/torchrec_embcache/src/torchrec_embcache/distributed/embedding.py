@@ -51,7 +51,7 @@ from torchrec_embcache.distributed.configs import (
 from torchrec_embcache.distributed.sharding.rw_sequence_sharding import (
     EmbCacheRwSequenceEmbeddingSharding,
 )
-from hybrid_torchrec.sparse.jagged_tensor_with_timestamp import (
+from torchrec_embcache.sparse.jagged_tensor_with_timestamp import (
     KeyedJaggedTensorWithTimestamp,
 )
 from torchrec_embcache.distributed.utils import get_embedding_optim_num

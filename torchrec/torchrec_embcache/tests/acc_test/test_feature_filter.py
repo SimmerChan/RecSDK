@@ -26,8 +26,7 @@ from torchrec_embcache.distributed.configs import (EmbCacheEmbeddingConfig,
                                                    AdmitAndEvictConfig)
 from torchrec_embcache.distributed.train_pipeline import EmbCacheTrainPipelineSparseDist
 from torchrec_embcache.distributed.sharding.embedding_sharder import EmbCacheEmbeddingCollectionSharder
-from hybrid_torchrec.sparse.jagged_tensor_with_timestamp import KeyedJaggedTensorWithTimestamp
-from torchrec_embcache.saver import Saver
+from torchrec_embcache.sparse.jagged_tensor_with_timestamp import KeyedJaggedTensorWithTimestamp
 import torchrec
 import torchrec.distributed
 from torchrec import EmbeddingCollection

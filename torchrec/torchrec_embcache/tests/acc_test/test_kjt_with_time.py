@@ -12,7 +12,7 @@ import time
 import pytest
 import torch
 
-from hybrid_torchrec.sparse.jagged_tensor_with_timestamp import (
+from torchrec_embcache.sparse.jagged_tensor_with_timestamp import (
     JaggedTensorWithTimestamp,
     KeyedJaggedTensorWithTimestamp,
 )
