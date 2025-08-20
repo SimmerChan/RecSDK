@@ -67,7 +67,7 @@ index 9a3b7ad..c21d52a 100644
          plan=plan,
      )
 diff --git a/tzrec/utils/plan_util.py b/tzrec/utils/plan_util.py
-index 5edb550..42ff6cb 100644
+index 5edb550..07681cc 100644
 --- a/tzrec/utils/plan_util.py
 +++ b/tzrec/utils/plan_util.py
 @@ -57,7 +57,7 @@ from torchrec.distributed.types import (
@@ -94,9 +94,16 @@ index 5edb550..42ff6cb 100644
          world_size=dist.get_world_size(),
          compute_device=device.type,
          **topo_kwargs,
-@@ -131,19 +128,23 @@ def create_planner(
+@@ -126,24 +123,27 @@ def create_planner(
+         global_constraints = ParameterConstraints(
+             sharding_types=list(global_constraints_cfg.sharding_types)
+             if len(global_constraints_cfg.sharding_types) > 0
+-            else None,
++            else [],
+             compute_kernels=list(global_constraints_cfg.compute_kernels)
              if len(global_constraints_cfg.compute_kernels) > 0
-             else None,
+-            else None,
++            else [],
          )
 -
 +    # row_wise
@@ -120,13 +127,13 @@ index 5edb550..42ff6cb 100644
 -            fqn_constraints=fqn_constraints,
 -            global_constraints=global_constraints,
 -        ),
-         storage_reservation=storage_reservation,
+-        storage_reservation=storage_reservation,
 -        proposer=[DynamicProgrammingProposer(), UniformProposer()],
 +        constraints=constraints,
          debug=True,
      )
      return planner
-@@ -153,6 +154,8 @@ def get_default_sharders() -> List[ModuleSharder[nn.Module]]:
+@@ -153,6 +153,8 @@ def get_default_sharders() -> List[ModuleSharder[nn.Module]]:
      """Get embedding module default sharder."""
      if torch.cuda.is_available():
          return _get_default_sharders()
