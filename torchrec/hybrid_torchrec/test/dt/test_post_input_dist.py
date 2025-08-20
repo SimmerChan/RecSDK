@@ -97,6 +97,7 @@ class TestDoUniqueHash:
 class TestDoUniqueHashOut:
     @staticmethod
     @patch("torch.empty_like", new=empty_like_without_pin_memory)
+    @patch("torch.Tensor.pin_memory", new=lambda self, *args, **kwargs: self)
     def test_do_unique_hash_out_with_parallel():
         with patch.dict(os.environ, {"ENABLE_PARALLEL_GLOBAL_UNIQUE": "1"}):
             kjt = KeyedJaggedTensor(
