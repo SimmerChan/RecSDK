@@ -66,7 +66,3 @@ cd ..
 bash build.sh
 
 bash ./build_out/custom_opp*.run
-
-# cd ..
-
-# rm -rf ./pcie_through

@@ -60,6 +60,3 @@ bash build.sh
 
 # # 安装编译成功的算子包
 bash ./build_out/custom_opp*.run
-# rm -rf ../attention_fusion
-# cd ../aclnn_attention_fusion_test
-# bash run.sh
