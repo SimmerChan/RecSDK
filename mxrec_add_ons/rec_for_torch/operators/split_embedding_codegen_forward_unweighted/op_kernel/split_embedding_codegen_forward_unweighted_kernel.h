@@ -42,7 +42,7 @@ struct Args {
     GM_ADDR indices;
     GM_ADDR offsets;
     GM_ADDR hashIndices;
-    GM_ADDR indiceSizeCumsum;
+    GM_ADDR offsetPerKey;
     GM_ADDR out;
     GM_ADDR tiling;
     GM_ADDR workspace;
@@ -108,7 +108,7 @@ public:
         offsetGT.SetGlobalBuffer((__gm__ int64_t*)offsets, offsetsDim0);
         dOffsetGT.SetGlobalBuffer((__gm__ int32_t*)dOffsets, dOffsetsDim0);
         weightOffsetGT.SetGlobalBuffer((__gm__ int64_t*)weightsOffsets, weightsOffsetsDim0);
-        indiceSizeCumsumGT.SetGlobalBuffer((__gm__ int64_t*)indiceSizeCumsum, indicesDim0);
+        offsetPerKeyGT.SetGlobalBuffer((__gm__ int64_t*)offsetPerKey, indicesDim0);
 
         outGT.SetGlobalBuffer((__gm__ float*)out, outDim0 * outDim1);
 
@@ -131,7 +131,7 @@ public:
         indices = args.indices;
         offsets = args.offsets;
         hashIndices = args.hashIndices;
-        indiceSizeCumsum = args.indiceSizeCumsum;
+        offsetPerKey = args.offsetPerKey;
         out = args.out;
         workspace = args.workspace;
     }
@@ -179,7 +179,7 @@ public:
         queIn.EnQue(inputLt);
     }
 
-    __aicore__ inline void CopyOutEC(int64_t thisLen, int64_t startIndices)
+    __aicore__ inline void CopyOutNoPooling(int64_t thisLen, int64_t startIndices)
     {
         LocalTensor<float> inputLt = queIn.DeQue<float>();
         LocalTensor<float> outLt = queOut.AllocTensor<float>();
@@ -196,7 +196,7 @@ public:
         queOut.FreeTensor(outLt);
     }
 
-    __aicore__ inline void CopyOutECPad(int64_t thisLen, int64_t startIndices)
+    __aicore__ inline void CopyOutNoPoolingPad(int64_t thisLen, int64_t startIndices)
     {
         LocalTensor<float> inputLt = queIn.DeQue<float>();
         LocalTensor<float> outLt = queOut.AllocTensor<float>();
@@ -214,7 +214,7 @@ public:
         queOut.FreeTensor(outLt);
     }
 
-    __aicore__ inline void CopyOutEBC(int64_t outOffset, int64_t embedDim)
+    __aicore__ inline void CopyOutWithPooling(int64_t outOffset, int64_t embedDim)
     {
         auto outLt = queOut.DeQue<float>();
         SetAtomicAdd<float>();
@@ -240,7 +240,7 @@ public:
         queOut.EnQue(outLt);
     }
 
-    __aicore__ inline void ProcessEBC(int64_t remain, int64_t startIndices, int64_t embedDim,
+    __aicore__ inline void ProcessWithPooling(int64_t remain, int64_t startIndices, int64_t embedDim,
                                       int64_t thisWeightOffset, int64_t outOffset)
     {
         float meanLen = static_cast<float>(1) / static_cast<float>(remain);
@@ -256,14 +256,14 @@ public:
             // compute
             Pooling(meanLen, thisLen, embedDim);
             // copyout
-            CopyOutEBC(outOffset, embedDim);
+            CopyOutWithPooling(outOffset, embedDim);
 
             startIndices = startIndices + thisLen;
             thisLen = remain;
         }
     }
 
-    __aicore__ inline void ProcessEC(int64_t remain, int64_t startIndices, int64_t thisWeightOffset)
+    __aicore__ inline void ProcessNoPooling(int64_t remain, int64_t startIndices, int64_t thisWeightOffset)
     {
         int64_t thisLen = remain;
         while (remain > 0) {
@@ -273,9 +273,9 @@ public:
             remain -= thisLen;
             CopyInNormal(startIndices, thisLen, maxD, thisWeightOffset);
             if (alignMaxD == maxD) {
-                CopyOutEC(thisLen, startIndices);
+                CopyOutNoPooling(thisLen, startIndices);
             } else {
-                CopyOutECPad(thisLen, startIndices);
+                CopyOutNoPoolingPad(thisLen, startIndices);
             }
 
             startIndices = startIndices + thisLen;
@@ -296,24 +296,24 @@ public:
         }
     }
 
-    __aicore__ inline void ComputeEC()
+    __aicore__ inline void ComputeNoPooling()
     {
         int64_t lastIndices = 0;
         int64_t thisTableLen = 0;
         for (int64_t i = 1; i <= weightsOffsetsDim0; i++) {
-            if (indiceSizeCumsumGT.GetValue(i) != lastIndices) {
-                Scheduler(indiceSizeCumsumGT.GetValue(i) - lastIndices, offsetOfThisCore, thisTableLen);
+            if (offsetPerKeyGT.GetValue(i) != lastIndices) {
+                Scheduler(offsetPerKeyGT.GetValue(i) - lastIndices, offsetOfThisCore, thisTableLen);
                 if (thisTableLen > 0) {
                     int64_t thisTableOffset = offsetOfThisCore + lastIndices;
                     int64_t thisWeightOffset = weightOffsetGT.GetValue(i - 1);
-                    ProcessEC(thisTableLen, thisTableOffset, thisWeightOffset);
+                    ProcessNoPooling(thisTableLen, thisTableOffset, thisWeightOffset);
                 }
-                lastIndices = indiceSizeCumsumGT.GetValue(i);
+                lastIndices = offsetPerKeyGT.GetValue(i);
             }
         }
     }
 
-    __aicore__ inline void ComputeEBC()
+    __aicore__ inline void ComputeWithPooling()
     {
         if (lenOfThisCore == 0) {
             return;
@@ -339,7 +339,7 @@ public:
             int64_t outEmbedOffset = dOffsetGT.GetValue(tableIndex);
             int64_t outOffset = outBatchInd * outDim1 + outEmbedOffset;
             int64_t embedDim = dOffsetGT.GetValue(tableIndex + 1) - dOffsetGT.GetValue(tableIndex);
-            ProcessEBC(thisLen, startIndices, embedDim, thisWeightOffset, outOffset);
+            ProcessWithPooling(thisLen, startIndices, embedDim, thisWeightOffset, outOffset);
         }
     }
 
@@ -350,9 +350,9 @@ public:
             indicesNumOneBlock = MAX_INDICS_ONE_BLOCK;
         }
         if (poolMode == NONE_POOL) {
-            ComputeEC();
+            ComputeNoPooling();
         } else {
-            ComputeEBC();
+            ComputeWithPooling();
         }
     }
 
@@ -365,7 +365,7 @@ private:
     GM_ADDR indices;
     GM_ADDR offsets;
     GM_ADDR hashIndices;
-    GM_ADDR indiceSizeCumsum;
+    GM_ADDR offsetPerKey;
     GM_ADDR out;
     GM_ADDR workspace;
 
@@ -420,7 +420,7 @@ private:
     GlobalTensor<int64_t> offsetGT;
     GlobalTensor<int32_t> dOffsetGT;
     GlobalTensor<int64_t> weightOffsetGT;
-    GlobalTensor<int64_t> indiceSizeCumsumGT;
+    GlobalTensor<int64_t> offsetPerKeyGT;
 };
 }  // namespace SplitEmbeddingCodegenForwardUnweighted
 #endif

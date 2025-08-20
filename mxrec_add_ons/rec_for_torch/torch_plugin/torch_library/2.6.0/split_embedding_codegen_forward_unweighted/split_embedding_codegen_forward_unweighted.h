@@ -55,7 +55,7 @@ at::Tensor split_embedding_codegen_forward_unweighted_cuda(const at::Tensor& dev
                                                            const int64_t output_dtype,
                                                            const bool is_experimental,
                                                            const at::Tensor& hash_indices,
-                                                           const at::Tensor& indice_size_cumsum);
+                                                           const at::Tensor& offset_per_key);
 
 at::Tensor split_embedding_codegen_forward_unweighted_npu(const at::Tensor& dev_weights,
                                                           const at::Tensor& uvm_weights,
@@ -73,6 +73,6 @@ at::Tensor split_embedding_codegen_forward_unweighted_npu(const at::Tensor& dev_
                                                           const int64_t output_dtype,
                                                           const bool is_experimental,
                                                           const at::Tensor& hash_indices,
-                                                          const at::Tensor& indice_size_cumsum);
+                                                          const at::Tensor& offset_per_key);
 }; // namespace fbgemm_npu_lookups
 #endif // MXREC_ADD_ONS_SPLIT_EMBEDDING_CODEGEN_FORWARD_UNWEIGHTED_H

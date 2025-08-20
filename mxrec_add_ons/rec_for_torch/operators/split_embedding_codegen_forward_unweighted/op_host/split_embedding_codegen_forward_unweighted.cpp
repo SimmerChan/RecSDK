@@ -215,7 +215,7 @@ public:
         this->Input("hash_indices")
             .ParamType(OPTIONAL).DataType({ge::DT_INT64})
             .Format({ge::FORMAT_ND}).UnknownShapeFormat({ge::FORMAT_ND});
-        this->Input("indice_size_cumsum")
+        this->Input("offset_per_key")
             .ParamType(OPTIONAL).DataType({ge::DT_INT64})
             .Format({ge::FORMAT_ND}).UnknownShapeFormat({ge::FORMAT_ND});
         this->Output("out")
