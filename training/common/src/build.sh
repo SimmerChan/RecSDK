@@ -30,10 +30,8 @@ fi
 
 cmake -DCMAKE_BUILD_TYPE=Release \
     -DTF_PATH="$1" \
-    -DOMPI_PATH="$(whereis openmpi)" \
     -DPYTHON_PATH="$python_path" \
     -DASCEND_PATH="$ascend_path" \
-    -DABSEIL_PATH="$1" \
     -DSECUREC_PATH="$2"/../opensource/securec \
     -DCMAKE_INSTALL_PREFIX="$2"/common_output \
     -DBUILD_CUST="$3" ..
