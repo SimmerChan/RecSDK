@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 ==============================================================================*/
 
 #include "constant_initializer.h"
-#include "utils/common.h"
+#include "log/logger.h"
 
 using namespace std;
 using namespace MxRec;
