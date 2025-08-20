@@ -28,7 +28,7 @@ See the License for the specific language governing permissions and
 #include "absl/container/flat_hash_map.h"
 #include "emb_table/embedding_table.h"
 #include "hd_transfer/hd_transfer.h"
-#include "hd_transfer/rma_shm_svm.h"
+#include "pcie_through/rma_shm_svm.h"
 #include "hybrid_mgmt_block.h"
 #include "l3_storage/cache_manager.h"
 #include "ock_ctr_common/include/embedding_cache.h"

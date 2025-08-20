@@ -19,7 +19,7 @@ See the License for the specific language governing permissions and
 
 #include "key_process/key_process.h"
 #include "utils/common.h"
-#include "utils/logger.h"
+#include "log/logger.h"
 #include "utils/singleton.h"
 #include "utils/time_cost.h"
 

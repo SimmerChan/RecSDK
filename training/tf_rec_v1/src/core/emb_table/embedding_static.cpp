@@ -15,8 +15,8 @@ See the License for the specific language governing permissions and
 
 #include "emb_table/embedding_static.h"
 
-#include "utils/logger.h"
-#include "utils/error.h"
+#include "log/logger.h"
+#include "error/error.h"
 #include "file_system/file_system_handler.h"
 #include "hybrid_mgmt/hybrid_mgmt.h"
 

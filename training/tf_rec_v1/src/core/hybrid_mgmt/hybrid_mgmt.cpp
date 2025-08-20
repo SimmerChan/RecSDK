@@ -30,8 +30,8 @@ See the License for the specific language governing permissions and
 #include "key_process/feature_admit_and_evict.h"
 #include "key_process/key_process.h"
 #include "utils/common.h"
-#include "utils/error.h"
-#include "utils/logger.h"
+#include "error/error.h"
+#include "log/logger.h"
 #include "utils/time_cost.h"
 
 using namespace MxRec;

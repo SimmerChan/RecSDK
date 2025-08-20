@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 
 #include <utility>
 
-#include "utils/logger.h"
+#include "log/logger.h"
 #include "utils/singleton.h"
 #include "l3_storage/cache_manager.h"
 #include "ock_ctr_common/include/error_code.h"

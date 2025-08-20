@@ -15,7 +15,7 @@ See the License for the specific language governing permissions and
 
 #include "table.h"
 
-#include "utils/error.h"
+#include "error/error.h"
 
 using namespace MxRec;
 

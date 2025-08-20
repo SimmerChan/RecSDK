@@ -51,6 +51,7 @@ target_include_directories(ASC
         ${SECUREC_PATH}/include
         ${ASCEND_DRIVER_PATH}/include
         ${ASCEND_DRIVER_PATH}/kernel/inc
+        ${TRAINING_COMM_PATH}/src/core/pcie_through
 )
 
 target_link_directories(ASC
@@ -62,10 +63,11 @@ target_link_directories(ASC
         ${SECUREC_PATH}/lib
         ${ASCEND_DRIVER_PATH}/lib64/driver
         ${ACCCTR_PATH}/output/ock_ctr_common/lib
+        ${TRAINING_COMM_PATH}/src/build/core
 )
 
 target_link_libraries(ASC PUBLIC ascendcl msprofiler ge_executor gert runtime ge_common register graph ascend_protobuf
-    profapi opt_feature error_manager exe_graph acl_tdt_channel acl_tdt_queue securec drvdsmi_host _ock_ctr_common)
+    profapi opt_feature error_manager exe_graph acl_tdt_channel acl_tdt_queue securec drvdsmi_host _ock_ctr_common COMMON_ASC)
 target_link_libraries(ASC PUBLIC
         -l:_tf_adapter.so
         OpenMP::OpenMP_CXX ${MPI_CXX_LIBRARIES}

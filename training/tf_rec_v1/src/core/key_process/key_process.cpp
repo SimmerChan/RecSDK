@@ -25,11 +25,11 @@ See the License for the specific language governing permissions and
 #include "ock_ctr_common/include/error_code.h"
 #include "utils/common.h"
 #include "utils/config.h"
-#include "utils/logger.h"
+#include "log/logger.h"
 #include "utils/safe_queue.h"
 #include "utils/singleton.h"
 #include "utils/time_cost.h"
-#include "utils/error.h"
+#include "error/error.h"
 
 using namespace std;
 using namespace chrono;

@@ -26,7 +26,7 @@ See the License for the specific language governing permissions and
 #include <future>
 #include <memory>
 
-#include "logger.h"
+#include "log/logger.h"
 
 namespace MxRec {
 

@@ -21,7 +21,7 @@ See the License for the specific language governing permissions and
 #include <sys/mman.h>
 
 #include "hdfs_wrapper.h"
-#include "utils/logger.h"
+#include "log/logger.h"
 
 using namespace std;
 using namespace MxRec;
