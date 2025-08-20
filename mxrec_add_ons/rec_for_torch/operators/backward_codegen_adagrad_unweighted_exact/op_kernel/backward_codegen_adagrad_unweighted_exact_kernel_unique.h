@@ -147,7 +147,7 @@ private:
     GlobalTensor<float> dynamicWeightsGT;
     GlobalTensor<float> dynamicM1GT;
 
-    int numOfOut = 3;
+    int numOfOut = 2;
     int indicesNumOneBlock;
 
     int64_t thisMoment1Index;
