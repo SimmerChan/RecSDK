@@ -17,10 +17,18 @@ index 31d5d4f..74e33d8 100644
  scikit-learn
  tensorboard
 diff --git a/tzrec/main.py b/tzrec/main.py
-index 9a3b7ad..e216cda 100644
+index 9a3b7ad..c21d52a 100644
 --- a/tzrec/main.py
 +++ b/tzrec/main.py
-@@ -88,6 +88,17 @@ from tzrec.utils.plan_util import create_planner, get_default_sharders
+@@ -12,6 +12,7 @@
+ import copy
+ import itertools
+ import json
++import logging
+ import os
+ import shutil
+ from collections import OrderedDict
+@@ -88,6 +89,18 @@ from tzrec.utils.plan_util import create_planner, get_default_sharders
  from tzrec.utils.state_dict_util import fix_mch_state, init_parameters
  from tzrec.version import __version__ as tzrec_version
  
@@ -28,17 +36,18 @@ index 9a3b7ad..e216cda 100644
 +
 +
 +lib_fbgemm_npu_api_so_path = os.getenv("LIB_FBGEMM_NPU_API_SO_PATH")
-+if lib_fbgemm_npu_api_so_path:
++
++try:
 +    torch.ops.load_library(lib_fbgemm_npu_api_so_path)
-+else:
-+    raise ValueError(
-+        "Enviroment variable LIB_FBGEMM_NPU_API_SO_PATH is not set. Please configure it with the correct path."
-+    )
++except FileNotFoundError as e:
++    logging.error(f"libfbgemm_npu_api.so is not exist")
++except Exception as e:
++    logging.error(f"libfbgemm_npu_api.so failed to load: {e}")
 +
  
  def init_process_group() -> Tuple[torch.device, str]:
      """Init process_group, device, rank, backend."""
-@@ -96,6 +107,10 @@ def init_process_group() -> Tuple[torch.device, str]:
+@@ -96,6 +109,10 @@ def init_process_group() -> Tuple[torch.device, str]:
          device: torch.device = torch.device(f"cuda:{rank}")
          backend = "nccl"
          torch.cuda.set_device(device)
@@ -49,7 +58,7 @@ index 9a3b7ad..e216cda 100644
      else:
          device: torch.device = torch.device("cpu")
          backend = "gloo"
-@@ -705,6 +720,7 @@ def train_and_evaluate(
+@@ -705,6 +722,7 @@ def train_and_evaluate(
  
      model = DistributedModelParallel(
          module=model,

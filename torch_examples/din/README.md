@@ -52,11 +52,8 @@ bash run_docker.sh 容器名 {镜像名称}:{版本名称}
 ### 设置环境变量
 进入容器后，设置环境变量
 ```shell
+source /etc/profile
 source /usr/local/Ascend/ascend-toolkit/set_env.sh
-
-# 如果是arm镜像启动容器后手动设置python环境
-export LD_LIBRARY_PATH=/usr/local/python3.11.0/lib/:$LD_LIBRARY_PATH
-export PATH=/usr/local/python3.11.0/bin:$PATH
 ```
 
 ### 安装Pytorch配套
@@ -139,7 +136,7 @@ protoc --proto_path=./ --python_out=./ tzrec/protos/models/*.proto
 ```bash
 pip3 install -r requirements/runtime.txt
 ```
-说明：部分三方库需要在指定地址安装，如遇网络问题，可按runtime.txt描述手动下在依赖库安装。
+说明：部分三方库需要在指定地址安装，如遇网络问题，可按runtime.txt描述手动下载依赖库安装。
 
 
 ### 生成并安装源码框架
