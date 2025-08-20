@@ -9,6 +9,7 @@ import os
 from unittest.mock import patch
 
 import torch
+from torch import empty_like
 from hybrid_torchrec.distributed.sharding.post_input_dist import (
     split_keys_offset,
     do_unique_hash,
@@ -29,6 +30,11 @@ class MockHashMap(HashMapBase):
     @staticmethod
     def ids2indices_unique_out(*args, **kwargs):
         pass
+
+
+def empty_like_without_pin_memory(*args, **kwargs):
+    kwargs['pin_memory'] = False
+    return empty_like(*args, **kwargs)
 
 
 class TestDoUniqueHash:
@@ -90,7 +96,7 @@ class TestDoUniqueHash:
 
 class TestDoUniqueHashOut:
     @staticmethod
-    @patch("torch.Tensor.pin_memory", new=lambda self, *args, **kwargs: self)
+    @patch("torch.empty_like", new=empty_like_without_pin_memory)
     def test_do_unique_hash_out_with_parallel():
         with patch.dict(os.environ, {"ENABLE_PARALLEL_GLOBAL_UNIQUE": "1"}):
             kjt = KeyedJaggedTensor(
