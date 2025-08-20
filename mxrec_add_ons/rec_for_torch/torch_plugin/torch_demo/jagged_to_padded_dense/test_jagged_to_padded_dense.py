@@ -32,34 +32,25 @@ def jagged_to_padded_dense_wrapper(values, offsets, max_lengths, padding_value):
     return JaggedToPaddedDense.apply(values, offsets, max_lengths, padding_value)
 
 
-def jagged_to_padded_dense(values, offsets, max_lengths, padding_value):
-    return torch.ops.mxrec.jagged_to_padded_dense_forward(
-        values=values.to(DEVICE),
-        offsets=offsets,
-        max_lengths=max(max_lengths),
-        padding_value=padding_value,
-    )
-
-
-def dense_to_jagged(dense, offsets, total_L=None):
-    if total_L is None:
-        total_L = offsets[0][-1].item()
-    out = torch.ops.mxrec.jagged_to_padded_dense_backward(dense.to(torch.float32), offsets, total_L)
-    return out
-
-
 class JaggedToPaddedDense(torch.autograd.Function):
     @staticmethod
     def forward(ctx, values, offsets, max_lengths, padding_value):
         ctx.save_for_backward(*offsets)
         ctx.total_L = values.shape[0]
-        return jagged_to_padded_dense(values, offsets, max_lengths, padding_value)
+        return torch.ops.mxrec.jagged_to_padded_dense_forward(
+            values=values.to(DEVICE),
+            offsets=offsets,
+            max_lengths=max(max_lengths),
+            padding_value=padding_value,
+        )
 
     @staticmethod
     def backward(ctx, grad_output):
         offsets = list(ctx.saved_tensors)
         total_L = ctx.total_L
-        grad_values = dense_to_jagged(grad_output, offsets, total_L)
+        if total_L is None:
+            total_L = offsets[0][-1].item()
+        grad_values = torch.ops.mxrec.jagged_to_padded_dense_backward(grad_output.to(DEVICE), offsets, total_L)
         return grad_values, None, None, None
 
 

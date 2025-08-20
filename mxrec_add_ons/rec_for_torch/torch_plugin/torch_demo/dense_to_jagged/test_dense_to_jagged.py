@@ -64,10 +64,9 @@ def test_dense_to_jagged(dims, types, output_size_type):
     actual_size = np.sum(offsets)
 
     # 根据测试类型设置output_size
-    if output_size_type == "none":
-        output_size = None
-    elif output_size_type == "exact":
-        output_size = actual_size
+    output_size = None
+    if output_size_type == "exact":
+        output_size = np.sum(offsets)
 
     # 2. 分别获取CPU和NPU结果
     golden_result = get_result(torch.device("cpu"), denses, offsets, types, output_size)
