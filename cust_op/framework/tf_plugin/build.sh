@@ -36,7 +36,7 @@ cmake -DCMAKE_BUILD_TYPE=Release \
     -DOMPI_PATH="$(whereis openmpi)" \
     -DPYTHON_PATH="$python_path" \
     -DASCEND_PATH="$ascend_path" \
-    -DCMAKE_INSTALL_PREFIX="$2"/output \
+    -DCMAKE_INSTALL_PREFIX="$2"/cust_op_output \
     ..
 
 make -j8

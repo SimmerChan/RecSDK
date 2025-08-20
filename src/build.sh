@@ -35,7 +35,7 @@ cmake -DCMAKE_BUILD_TYPE=Release \
     -DASCEND_PATH="$ascend_path" \
     -DABSEIL_PATH="$1" \
     -DSECUREC_PATH="$2"/../opensource/securec \
-    -DCMAKE_INSTALL_PREFIX="$2"/tf_rec_v1/output \
+    -DCMAKE_INSTALL_PREFIX="$2"/tf_rec_v1_output \
     -DBUILD_CUST="$3" ..
 make -j8
 make install

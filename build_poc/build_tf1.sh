@@ -67,6 +67,7 @@ tf1_path=$(dirname "$(dirname "$(which python3.7)")")/lib/python3.7/site-package
 # 配置Rec SDK C++代码路径和AccCTR路径
 src_path="${MxRec_DIR}"/src
 acc_ctr_path="${MxRec_DIR}"/src/AccCTR
+cust_op_tf_plugin_path="${MxRec_DIR}"/cust_op/framework/tf_plugin
 common_src_path="${MxRec_DIR}"/training/common/src
 common_python_path="${MxRec_DIR}"/training/common/python
 tf_rec_v1_path="${MxRec_DIR}"/training/tf_rec_v1/python
@@ -83,6 +84,14 @@ function compile_securec()
       cd "${opensource_path}"/securec/src
       make -j4
     fi
+}
+
+function compile_asc_ops_tf_plugin_so_file()
+{
+  cd "${cust_op_tf_plugin_path}"
+  chmod u+x build.sh
+  ./build.sh "$1" "${MxRec_DIR}"
+  cd ${MxRec_DIR}
 }
 
 function compile_so_file()
@@ -123,7 +132,8 @@ function collect_so_file()
   chmod u+x libasc
 
   cp ${acc_ctr_path}/output/ock_ctr_common/lib/* libasc
-  cp -df "${MxRec_DIR}"/tf_rec_v1/output/*.so* libasc
+  cp -df "${MxRec_DIR}"/tf_rec_v1_output/*.so* libasc
+  cp -df "${MxRec_DIR}"/cust_op_output/*.so* libasc
   cp "${opensource_path}"/securec/lib/libsecurec.so libasc
   cd "${MxRec_DIR}"
   touch "${src_path}"/libasc/__init__.py
@@ -139,6 +149,7 @@ compile_common_so_file
 echo "----------------          compile     AccCTR            ----------------"
 compile_acc_ctr_so_file
 echo "----------------          compile MxRec so files        ----------------"
+compile_asc_ops_tf_plugin_so_file "${tf1_path}"
 compile_so_file "${tf1_path}"
 echo "---------------- collect so files and mv them to libasc ----------------"
 collect_so_file

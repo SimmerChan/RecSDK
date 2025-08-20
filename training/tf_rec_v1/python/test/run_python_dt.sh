@@ -33,6 +33,7 @@ cd "$TOP_PATH"/training/tf_rec_v1/src
 mkdir -p libasc
 cp -f "$TOP_PATH"/training/tf_rec_v1/build/lib/mx_rec/libasc/*.so ./libasc
 cp -f "$TOP_PATH"/training/common/src/build/pybind/*.so ./libasc
+cp -f "$TOP_PATH"/cust_op/framework/tf_plugin/build/src/*.so ./libasc
 cd -
 
 # set environment variable
