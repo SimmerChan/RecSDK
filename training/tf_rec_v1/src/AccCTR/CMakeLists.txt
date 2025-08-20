@@ -99,7 +99,7 @@ else ()
     message(FATAL_ERROR "don't support ${CMAKE_HOST_SYSTEM_PROCESSOR}")
 endif (${CMAKE_HOST_SYSTEM_PROCESSOR} MATCHES "aarch64")
 
-set(OCK_CTR_PLATFORM_UTIL_DIR       ${PROJECT_SOURCE_DIR}/../../../opensource)
+set(OCK_CTR_PLATFORM_UTIL_DIR       ${PROJECT_SOURCE_DIR}/../../../../../opensource)
 message(===============${OCK_CTR_PLATFORM_UTIL_DIR})
 include_directories(${OCK_CTR_PLATFORM_UTIL_DIR}/securec/include)
 

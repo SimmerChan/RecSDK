@@ -28,7 +28,7 @@ See the License for the specific language governing permissions and
 #include "ckpt_data_handler/key_freq_map_ckpt/key_freq_map_ckpt.h"
 #include "file_system/file_system_handler.h"
 #include "utils/common.h"
-#include "utils/error.h"
+#include "error/error.h"
 #include "utils/time_cost.h"
 
 using namespace std;

@@ -20,7 +20,7 @@ See the License for the specific language governing permissions and
 #include "emb_table/embedding_dynamic.h"
 #include "emb_table/embedding_ddr.h"
 #include "file_system/file_system_handler.h"
-#include "utils/logger.h"
+#include "log/logger.h"
 #include "embedding_mgmt.h"
 
 using namespace MxRec;

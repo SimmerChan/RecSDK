@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 ==============================================================================*/
 
 #include "emb_table/embedding_table.h"
-#include "utils/logger.h"
+#include "log/logger.h"
 #include "utils/singleton.h"
 #include "hd_transfer/hd_transfer.h"
 #include "file_system/file_system_handler.h"

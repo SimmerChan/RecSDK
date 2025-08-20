@@ -22,7 +22,7 @@ See the License for the specific language governing permissions and
 #include "hd_transfer/hd_transfer.h"
 #include "utils/common.h"
 #include "utils/singleton.h"
-#include "utils/error.h"
+#include "error/error.h"
 
 namespace MxRec {
     const std::string HYBRID_BLOCKING = "[HYBRID_BLOCKING] ";

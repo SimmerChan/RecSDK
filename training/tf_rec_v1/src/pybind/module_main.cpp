@@ -19,7 +19,7 @@ See the License for the specific language governing permissions and
 
 #include "lcal_comm.h"
 #include "hybrid_mgmt/hybrid_mgmt.h"
-#include "hd_transfer/rma_shm_svm.h"
+#include "pcie_through/rma_shm_svm.h"
 
 namespace py = pybind11;
 using namespace MxRec;
@@ -47,26 +47,6 @@ void GetNormalInitializerInfo(pybind11::module_& m);
 int GetUBHotSize(int devID)
 {
     return static_cast<int>(static_cast<float>(MxRec::GetUBSize(devID)) / sizeof(float) * HOT_EMB_CACHE_PCT);
-}
-
-int32_t GetLogicID(uint32_t phyid)
-{
-    uint32_t logicId;
-    int32_t ret = dsmi_get_logicid_from_phyid(phyid, &logicId);
-    if (ret != 0) {
-        return ret;
-    }
-    return logicId;
-}
-
-uint32_t GetDeviceCount()
-{
-    uint32_t count;
-    aclError ec = aclrtGetDeviceCount(&count);
-    if (ec != 0) {
-        throw runtime_error("The failed to get device count.");
-    }
-    return count;
 }
 
 vector<int64_t> GetPeerMem(int32_t rankId, int deviceId, int rankSize)
@@ -99,10 +79,6 @@ PYBIND11_MODULE(mxrec_pybind, m)
     m.def("get_shm_mem", &GetShmAddr, py::arg("name"), py::arg("rankId"), py::arg("capacity"));
 
     m.def("get_ub_hot_size", &GetUBHotSize, py::arg("device_id"));
-
-    m.def("get_logic_id", &GetLogicID, py::arg("physic_id"));
-
-    m.def("get_device_count", &GetDeviceCount);
 
     m.attr("USE_STATIC") = py::int_(HybridOption::USE_STATIC);
 

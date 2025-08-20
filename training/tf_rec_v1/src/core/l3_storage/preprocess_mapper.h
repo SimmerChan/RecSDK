@@ -18,7 +18,7 @@ See the License for the specific language governing permissions and
 
 #include <stdexcept>
 #include "lfu_cache.h"
-#include "utils/error.h"
+#include "error/error.h"
 
 namespace MxRec {
     /*

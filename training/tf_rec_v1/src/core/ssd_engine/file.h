@@ -25,7 +25,7 @@ See the License for the specific language governing permissions and
 #include <experimental/filesystem>
 
 #include "utils/common.h"
-#include "utils/error.h"
+#include "error/error.h"
 
 namespace MxRec {
     using namespace std;

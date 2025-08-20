@@ -15,10 +15,10 @@ See the License for the specific language governing permissions and
 
 #include "emb_table/embedding_dynamic.h"
 #include "hd_transfer/hd_transfer.h"
-#include "utils/logger.h"
+#include "log/logger.h"
 #include "utils/singleton.h"
 #include "utils/common.h"
-#include "utils/error.h"
+#include "error/error.h"
 
 using namespace MxRec;
 

@@ -49,7 +49,7 @@ fi
 cd -
 
 if [[ "${BUILD_TYPE}" == "ut" ]];then
-    cp ${CURRENT_PATH}/../../../opensource/securec/lib/libsecurec.so ${CURRENT_PATH}/output/ock_ctr_common/lib/
+    cp ${CURRENT_PATH}/../../../../../opensource/securec/lib/libsecurec.so ${CURRENT_PATH}/output/ock_ctr_common/lib/
     export LD_LIBRARY_PATH=${CURRENT_PATH}/output/ock_ctr_common/lib:$LD_LIBRARY_PATH
 fi
 

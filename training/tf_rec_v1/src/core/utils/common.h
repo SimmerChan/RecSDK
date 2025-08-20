@@ -37,8 +37,8 @@ See the License for the specific language governing permissions and
 #include "securec.h"
 #include "tensorflow/core/framework/tensor.h"
 #include "utils/config.h"
-#include "utils/logger.h"
-#include "utils/error.h"
+#include "log/logger.h"
+#include "error/error.h"
 
 namespace MxRec {
 #define MGMT_CPY_THREADS 4

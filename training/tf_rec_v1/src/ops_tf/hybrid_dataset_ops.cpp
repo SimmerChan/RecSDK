@@ -27,7 +27,7 @@ See the License for the specific language governing permissions and
 #include "utils/safe_queue.h"
 #include "utils/singleton.h"
 #include "utils/time_cost.h"
-#include "utils/error.h"
+#include "error/error.h"
 
 using namespace tensorflow;
 using shape_inference::InferenceContext;

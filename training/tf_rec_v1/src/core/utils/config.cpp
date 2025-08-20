@@ -15,7 +15,7 @@ See the License for the specific language governing permissions and
 
 
 #include "config.h"
-#include "logger.h"
+#include "log/logger.h"
 
 using namespace std;
 
