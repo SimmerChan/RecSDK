@@ -599,24 +599,27 @@ index 9e19a736..8add180f 100644
 +    return size, (size[1], 1) if size else (torch.Size([0, 0]), (0, 1))
 \ No newline at end of file
 diff --git a/torchrec/optim/apply_optimizer_in_backward.py b/torchrec/optim/apply_optimizer_in_backward.py
-index 99ba72df..e395b791 100644
+index 99ba72df..423cabd7 100644
 --- a/torchrec/optim/apply_optimizer_in_backward.py
 +++ b/torchrec/optim/apply_optimizer_in_backward.py
-@@ -11,7 +11,8 @@ from typing import Any, Dict, Iterable, Type
+@@ -11,8 +11,12 @@ from typing import Any, Dict, Iterable, Type
  from warnings import warn
  
  import torch
--
 +from torchrec.tensor_types import check
 +from torchrec.optim.optimizers import SGD, Adam, Adagrad
  
+ 
++SUPPORT_OPTIM_TYPE_LIST = [torch.optim.SGD, torch.optim.Adam, torch.optim.Adagrad, SGD, Adam, Adagrad]
++
  def apply_optimizer_in_backward(
      optimizer_class: Type[torch.optim.Optimizer],
-@@ -52,6 +53,11 @@ def apply_optimizer_in_backward(
+     params: Iterable[torch.nn.Parameter],
+@@ -52,6 +56,11 @@ def apply_optimizer_in_backward(
          "This API is deprecated. Please use Pytorch Distributed's _apply_optimizer_in_backward API instead.",
          DeprecationWarning,
      )
-+    if (optimizer_class not in [torch.optim.SGD, torch.optim.Adam, torch.optim.Adagrad, SGD, Adam, Adagrad]):
++    if optimizer_class not in SUPPORT_OPTIM_TYPE_LIST:
 +        raise ValueError(f"Expected optimizer_class in [torch.optim.SGD, torch.optim.Adam, torch.optim.Adagrad \
 +                        torchrec.optim.optimizers.SGD, torchrec.optim.optimizers.Adam, torchrec.optim.optimizers.Adagrad],\
 +                        but got {optimizer_class}")
