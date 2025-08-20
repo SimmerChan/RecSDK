@@ -122,6 +122,7 @@ function collect_so_file()
   mkdir -p "${common_src_path}"/lib
   chmod u+x lib
   cp "${common_src_path}"/build/pybind/*.so ./lib
+  cp "${common_src_path}"/build/core/*.so ./lib
   rm -rf "${common_python_path}"/lib
   mv "${common_src_path}"/lib "${common_python_path}"
   touch "${common_python_path}"/lib/__init__.py
@@ -145,7 +146,7 @@ function collect_so_file()
 echo "----------------          compile     securec           ----------------"
 compile_securec
 echo "----------------          compile common so files       ----------------"
-compile_common_so_file
+compile_common_so_file "${tf1_path}"
 echo "----------------          compile     AccCTR            ----------------"
 compile_acc_ctr_so_file
 echo "----------------          compile MxRec so files        ----------------"
