@@ -37,6 +37,15 @@ message("MXREC_TEST_SRC: " ${MXREC_TEST_SRC})
 
 set(CMAKE_CXX_FLAGS "--coverage")
 
+find_package(OpenMP REQUIRED)
+find_package(MPI REQUIRED)
+if (OPENMP_FOUND)
+    message(STATUS "OPENMP FOUND")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
+endif ()
+
 link_libraries(stdc++fs)
 
 add_executable(test_main ${MXREC_SRC} ${MXREC_TEST_SRC})
@@ -62,6 +71,10 @@ target_include_directories(test_main
         ${ASCEND_PATH}/${ARCH}-linux/include/hccl
         ${ASCEND_PATH}/${ARCH}-linux/include/experiment/runtime
         ${ASCEND_PATH}/${ARCH}-linux/include/experiment/msprof
+        ${CMAKE_CURRENT_SOURCE_DIR}/../core/lccl/src/3rdparty/
+        ${CMAKE_CURRENT_SOURCE_DIR}/../core/lccl/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/../core/lccl/include/src/3rdparty
+        ${CMAKE_CURRENT_SOURCE_DIR}/../core/lccl/src/tools/socket
 )
 
 target_link_directories(test_main
@@ -80,6 +93,7 @@ target_link_directories(test_main
 
 target_link_libraries(test_main PUBLIC ${TF_LIB}
         securec
+        OpenMP::OpenMP_CXX ${HDF5_CXX_LIBRARIES}  ${MPI_CXX_LIBRARIES}
         ${PYTHON_LIBRARY} drvdsmi_host
         ${ASCEND_PATH}/lib64
         c_sec
@@ -87,7 +101,8 @@ target_link_libraries(test_main PUBLIC ${TF_LIB}
         )
 
 target_link_libraries(test_main PUBLIC
-        ${GTEST_BOTH_LIBRARIES})
+        ${GTEST_BOTH_LIBRARIES}
+        MPI::MPI_CXX)
 
 target_link_libraries(test_main PUBLIC ascendcl msprofiler ge_executor gert runtime ge_common register graph ascend_protobuf
         profapi opt_feature error_manager exe_graph acl_tdt_channel acl_tdt_queue securec drvdsmi_host ${EMOCK_LIBRARY} gmock libascend_hal.so)
