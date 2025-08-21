@@ -123,7 +123,7 @@ public:
 };
 
 // 自动求导接口
-std::tuple<at::Tensor, tensor_list> dense_to_jagged_autograd(const at::Tensor& dense,
+at::Tensor dense_to_jagged_autograd(const at::Tensor& dense,
                                                              const tensor_list& offsets,
                                                              const c10::optional<int64_t> total_L)
 {
