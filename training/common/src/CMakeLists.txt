@@ -49,6 +49,7 @@ endif ()
 
 message("== ASCEND_PATH: ${ASCEND_PATH}")
 
+include_directories(SYSTEM ${MPI_INCLUDE_PATH})
 include_directories(${ASCEND_PATH}/fwkacllib/include)
 include_directories(${ASCEND_PATH}/runtime/include)
 include_directories(${ASCEND_PATH}/compiler/include)

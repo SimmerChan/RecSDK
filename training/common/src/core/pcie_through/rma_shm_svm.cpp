@@ -27,7 +27,6 @@
 #include "securec.h"
 #include "log/logger.h"
 #include "error/error.h"
-#include "common_func/common_func.h"
 
 using namespace MxRec;
 using namespace std;
