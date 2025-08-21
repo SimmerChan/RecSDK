@@ -92,43 +92,30 @@ at::Tensor dense_to_jagged_backward_npu(const at::Tensor& values,
 // 自动求导Function类
 class DenseToJaggedFunction : public torch::autograd::Function<DenseToJaggedFunction> {
 public:
-    static std::tuple<at::Tensor, tensor_list> forward(AutogradContext* ctx,
-                                                      const at::Tensor& dense,
-                                                      const tensor_list& offsets,
-                                                      const c10::optional<int64_t> total_L)
+    static at::Tensor forward(AutogradContext* ctx,
+                              const at::Tensor& dense,
+                              const tensor_list& offsets,
+                              const c10::optional<int64_t> total_L)
     {
         at::AutoDispatchBelowADInplaceOrView guard;
-        // 保存offsets用于反向传播
-        for (const auto& offset : offsets) {
-            ctx->save_for_backward({offset});
-        }
-        // 保存dense的形状信息
-        auto dense_shape = dense.sizes();
-        ctx->saved_data["dense_shape"] = dense_shape;
+        ctx->save_for_backward({dense, offsets[0]});
 
-        auto result = dense_to_jagged_npu(dense, offsets, total_L);
-        return result;  // 返回 (out0, out1)
+        return dense_to_jagged_forward_npu(dense, offsets, total_L);
     }
 
     static tensor_list backward(AutogradContext* ctx, tensor_list grad_outputs)
     {
-        // grad_outputs[0]: grad_out0 (jagged tensor的梯度)
-        // grad_outputs[1]: grad_out1 (offsets的梯度，应该是None)
-
-        // 恢复保存的offsets
+        auto grad_output = grad_outputs[0];
         auto saved = ctx->get_saved_variables();
-        tensor_list offsets;
-        for (auto& tensor : saved) {
-            offsets.push_back(tensor);
-        }
+        auto dense = saved[0];
+        auto offsets_tensor = saved[1];
 
-        // 获取dense的形状
-        auto dense_shape = ctx->saved_data["dense_shape"].toIntVector();
-        int64_t max_len = dense_shape[1];
+        tensor_list offsets = {offsets_tensor};
+        int64_t max_len = dense.size(1);
 
         // 调用jagged_to_padded_dense作为反向
-        auto grad_dense = fbgemm_npu::dense_to_jagged_backward_npu(
-            grad_outputs[0], offsets, {max_len}, 0.0);
+        auto grad_dense = dense_to_jagged_backward_npu(
+            grad_output, offsets, max_len, 0.0);
 
         // 返回梯度：grad_dense, None, None
         return {grad_dense, Variable(), Variable()};
