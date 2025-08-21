@@ -570,9 +570,7 @@ public:
     {
         SyncAll();
 
-        if (GetBlockIdx() == 0) {
-            this->DoCopyQGrad(backwardTilingData->seqOffset);
-        }
+        this->DoCopyQGrad(backwardTilingData->seqOffset);
     }
 
 protected:

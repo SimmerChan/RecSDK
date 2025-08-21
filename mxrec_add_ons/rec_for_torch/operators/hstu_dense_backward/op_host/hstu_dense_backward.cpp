@@ -132,6 +132,18 @@ static ge::graphStatus TilingCommonFunc(gert::TilingContext *context, HstuDenseB
         vGradMatmul.GetTiling(tiling.vGradMatmul) == -1) {
         return ge::GRAPH_FAILED;
     }
+    // 设置matmul预取块个数，默认为6，GR: BLOCKHEIGHT=256，bf16，提升4ms
+    if (gradType == ge::DataType::DT_BF16) {
+        int64_t depth = 2;
+        tiling.qkMatmul.set_depthA1(depth);
+        tiling.qkMatmul.set_depthB1(depth);
+        tiling.qGradMatmul.set_depthA1(depth);
+        tiling.qGradMatmul.set_depthB1(depth);
+        tiling.kGradMatmul.set_depthA1(depth);
+        tiling.kGradMatmul.set_depthB1(depth);
+        tiling.vGradMatmul.set_depthA1(depth);
+        tiling.vGradMatmul.set_depthB1(depth);
+    }
 
     context->SetBlockDim(coreNum);
     tiling.set_aivNum(vecCoreNum);
