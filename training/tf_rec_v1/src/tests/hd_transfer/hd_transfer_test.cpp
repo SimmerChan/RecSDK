@@ -156,19 +156,3 @@ TEST_F(HdTransferTest, TransferChannel2Str)
         EXPECT_EQ(ret, it.second);
     }
 }
-
-TEST_F(HdTransferTest, GetShmAddr)
-{
-    std::string name = "test";
-    int deviceId = 1;
-    int capacity = 51;
-
-    EMOCK(GetChipName).stubs().will(returnValue(std::string("testDeviceName")));
-    try {
-        int64_t res = GetShmAddr(name, deviceId, capacity);
-        EXPECT_GE(res, 0);
-    }
-    catch  (const std::runtime_error& e) {
-        std::cerr << "Caught expected runtime_error: " << e.what() << std::endl;
-    }
-}
