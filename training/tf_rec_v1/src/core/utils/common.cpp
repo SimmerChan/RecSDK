@@ -79,23 +79,6 @@ namespace MxRec {
         }
     }
 
-    string GetChipName(int devID)
-    {
-        int ret = 0;
-        struct dsmi_chip_info_stru info = {{ 0 },
-                                           { 0 },
-                                           { 0 }};
-        ret = dsmi_get_chip_info(devID, &info);
-        if (ret == 0) {
-            stringstream ss;
-            ss << info.chip_name;
-            LOG_DEBUG("dsmi_get_chip_info successful, ret = {}, chip_name = {}", ret, ss.str());
-            return ss.str();
-        }
-
-        throw std::runtime_error("dsmi_get_chip_info failed, ret = " + to_string(ret));
-    }
-
     int GetThreadNumEnv()
     {
         return GlobalEnv::keyProcessThreadNum;
