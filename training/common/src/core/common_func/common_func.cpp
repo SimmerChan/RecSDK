@@ -36,7 +36,7 @@ namespace MxRec {
             return ss.str();
         }
 
-        throw std::runtime_error("dsmi_get_chip_info failed, ret = " + to_string(ret));
+        throw std::runtime_error("dsmi_get_chip_info failed, ret = " + std::to_string(ret));
     }
 }
 

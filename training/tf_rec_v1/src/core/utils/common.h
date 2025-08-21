@@ -39,6 +39,7 @@ See the License for the specific language governing permissions and
 #include "utils/config.h"
 #include "log/logger.h"
 #include "error/error.h"
+#include "common_func/common_func.h"
 
 namespace MxRec {
 #define MGMT_CPY_THREADS 4
@@ -62,8 +63,6 @@ struct GlogConfig {
     static int gGlogLevel;
     static string gRankId;
 };
-
-constexpr int GLOG_MAX_BUF_SIZE = 1024;
 
 // unique related config
 constexpr int MIN_UNIQUE_THREAD_NUM = 1;
@@ -110,7 +109,6 @@ const unsigned int USE_DYNAMIC_EXPANSION = 0x001 << 1;
 const unsigned int USE_SUM_SAME_ID_GRADIENTS = 0x001 << 2;
 };  // namespace HybridOption
 
-string GetChipName(int devID);
 int GetThreadNumEnv();
 
 namespace UBSize {
@@ -287,19 +285,6 @@ struct AdmitAndEvictData {
 };
 
 void SetLog(int rank);
-
-template <typename... Args>
-string StringFormat(const string& format, Args... args)
-{
-    auto size = static_cast<size_t>(GLOG_MAX_BUF_SIZE);
-    auto buf = std::make_unique<char[]>(size); // LCOV_EXCL_BR_LINE
-    memset_s(buf.get(), size, 0, size);
-    int nChar = snprintf_s(buf.get(), size, size - 1, format.c_str(), args...);
-    if (nChar == -1) { // LCOV_EXCL_BR_LINE
-        throw invalid_argument("StringFormat failed");
-    }
-    return string(buf.get(), buf.get() + nChar);
-}
 
 template <typename T>
 std::string VectorToString(const std::vector<T>& vec)

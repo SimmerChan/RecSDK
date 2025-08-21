@@ -34,7 +34,6 @@ void SetEnvironmentVariables()
     setenv(RecEnvNames::USE_COMBINE_FAAE, "1", 1);
     setenv(RecEnvNames::RECORD_KEY_COUNT, "1", 1);
     setenv(RecEnvNames::USE_SHM_SWAP, "1", 1);
-    setenv(RecEnvNames::HUGE_TLB_ENABLE, "1", 1);
 }
 
 void UnsetEnvironmentVariables()
@@ -49,7 +48,6 @@ void UnsetEnvironmentVariables()
     unsetenv(RecEnvNames::USE_COMBINE_FAAE);
     unsetenv(RecEnvNames::RECORD_KEY_COUNT);
     unsetenv(RecEnvNames::USE_SHM_SWAP);
-    unsetenv(RecEnvNames::HUGE_TLB_ENABLE);
 }
 
 TEST(GlobalEnv, DefaultValues)
@@ -64,7 +62,6 @@ TEST(GlobalEnv, DefaultValues)
     ASSERT_EQ(GlobalEnv::useCombineFaae, false);
     ASSERT_EQ(GlobalEnv::recordKeyCount, false);
     ASSERT_EQ(GlobalEnv::useShmSwap, false);
-    ASSERT_EQ(GlobalEnv::hugeTlbEnable, false);
 }
 
 TEST(GlobalEnv, ConfigGlobalEnv)
@@ -84,7 +81,6 @@ TEST(GlobalEnv, ConfigGlobalEnv)
     ASSERT_EQ(GlobalEnv::useCombineFaae, true);
     ASSERT_EQ(GlobalEnv::recordKeyCount, true);
     ASSERT_EQ(GlobalEnv::useShmSwap, true);
-    ASSERT_EQ(GlobalEnv::hugeTlbEnable, true);
     // 清除环境变量
     UnsetEnvironmentVariables();
 }
@@ -95,7 +91,6 @@ TEST(GlobalEnv, ConfigGlobalEnv_SetZero)
     setenv(RecEnvNames::USE_COMBINE_FAAE, "0", 1);
     setenv(RecEnvNames::RECORD_KEY_COUNT, "0", 1);
     setenv(RecEnvNames::USE_SHM_SWAP, "0", 1);
-    setenv(RecEnvNames::HUGE_TLB_ENABLE, "0", 1);
     setenv(RecEnvNames::SSD_SAVE_COMPACT_LEVEL, "0", 1);
 
     ConfigGlobalEnv();
@@ -104,7 +99,6 @@ TEST(GlobalEnv, ConfigGlobalEnv_SetZero)
     ASSERT_EQ(GlobalEnv::useCombineFaae, false);
     ASSERT_EQ(GlobalEnv::recordKeyCount, false);
     ASSERT_EQ(GlobalEnv::useShmSwap, false);
-    ASSERT_EQ(GlobalEnv::hugeTlbEnable, false);
 
     UnsetEnvironmentVariables();
 
