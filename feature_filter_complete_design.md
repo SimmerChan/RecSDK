@@ -14,15 +14,116 @@
 6. 支持特征访问计数统计
 7. 支持特征时间戳记录和处理
 
-## 3. 设计方案
+## 3. 系统架构
 
-### 3.1 核心组件
+### 3.1 详细架构图
 
-#### 3.1.1 EvictFeatureRecord（特征淘汰记录）
+```mermaid
+graph TD
+    A[PyTorch/TorchRec训练任务] --> B{输入数据类型}
+    B -->|带计数数据| C[KeyedJaggedTensorWithCount]
+    B -->|带时间戳数据| D[KeyedJaggedTensorWithTimestamp]
+    
+    subgraph 数据预处理阶段
+        C --> E[PostInputDist]
+        D --> E
+        E --> F[HashMap::do_unique_hash_out]
+        F --> G[FeatureFilter::StatisticsKeyCount]
+        G --> H[featureRecordMap记录访问次数]
+    end
+    
+    subgraph 特征处理与时间戳记录阶段
+        C --> I[Embedding::forward]
+        D --> I
+        I --> J[EmbCacheManager::_record_timestamp_data]
+        J --> K[FeatureFilter::RecordTimestamp]
+        K --> L[timestampRecordMap记录时间戳]
+        K --> M{是否需要执行淘汰检查}
+        M -->|是| N[FeatureFilter::FeatureEvict]
+        N --> O[检查超时特征]
+        O --> P[evictFeatureRecord记录待淘汰特征]
+        M -->|否| Q[继续执行]
+    end
+    
+    subgraph 准入控制阶段
+        I --> R[EmbCacheManager::GetSwapInfo]
+        R --> S{是否启用准入控制}
+        S -->|是| T[FeatureFilter::CountFilter]
+        T --> U[检查特征访问次数]
+        U --> V{访问次数 >= 准入阈值}
+        V -->|是| W[允许特征准入]
+        V -->|否| X[拒绝特征准入]
+        S -->|否| Y[直接加载特征]
+    end
+    
+    subgraph 缓存交换阶段
+        R --> Z[SwapManager::GetSwapInfo]
+        Z --> AA[SwapInfo]
+    end
+    
+    subgraph 异步更新与特征淘汰阶段
+        I --> AB[EmbCacheManager::EmbeddingUpdateAsync]
+        AB --> AC[异步执行EmbeddingUpdate]
+        AC --> AD[EmbCacheManager::RecordEmbeddingUpdateTimes]
+        AD --> AE[embUpdateCount_递增]
+        AE --> AF{是否需要淘汰特征}
+        AF -->|是| AG[EmbCacheManager::RemoveEmbeddingTableInfo]
+        AG --> AH[从EmbeddingTable移除特征]
+        AF -->|是| AI[EmbCacheManager::EvictFeatures]
+        AI --> AJ[SwapManager::RemoveKeys]
+    end
+    
+    style A fill:#FFFF00,stroke:#333
+    style C fill:#FFFF00,stroke:#333
+    style D fill:#FFFF00,stroke:#333
+    style E fill:#FFFF00,stroke:#333
+    style I fill:#FFFF00,stroke:#333
+    style J fill:#FFFF00,stroke:#333
+    style K fill:#FFFF00,stroke:#333
+    style T fill:#90EE90,stroke:#333
+    style N fill:#90EE90,stroke:#333
+    style W fill:#90EE90,stroke:#333
+    style X fill:#FFB6C1,stroke:#333
+```
+
+### 3.2 架构说明
+
+#### 3.2.1 数据输入层
+- 支持两种输入数据类型：`KeyedJaggedTensorWithCount` 和 `KeyedJaggedTensorWithTimestamp`
+- 数据经过 `PostInputDist` 预处理
+
+#### 3.2.2 特征统计与记录
+- 通过 `FeatureFilter::StatisticsKeyCount` 统计特征访问次数并记录到 `featureRecordMap`
+- 通过 `FeatureFilter::RecordTimestamp` 记录时间戳到 `timestampRecordMap`
+
+#### 3.2.3 准入控制机制
+- 可配置的准入控制开关
+- 基于访问次数的准入策略，通过 `FeatureFilter::CountFilter` 实现
+- 未达到阈值的特征将被拒绝准入
+
+#### 3.2.4 特征淘汰机制
+- 定期检查是否需要执行特征淘汰
+- 通过 `FeatureFilter::FeatureEvict` 检查超时特征
+- 记录待淘汰特征到 `evictFeatureRecord`
+
+#### 3.2.5 缓存管理
+- 通过 `SwapManager` 管理缓存交换信息
+- 异步更新机制保证系统性能
+
+#### 3.2.6 异步更新与清理
+- 异步执行 `EmbeddingUpdate`
+- 定期清理和淘汰不需要的特征
+- 从 `EmbeddingTable` 和 `SwapManager` 中移除淘汰的特征
+
+## 4. 设计方案
+
+### 4.1 核心组件
+
+#### 4.1.1 EvictFeatureRecord（特征淘汰记录）
 
 EvictFeatureRecord类用于记录和管理待淘汰的特征信息：
 
-``cpp
+```cpp
 class EvictFeatureRecord {
 public:
     EvictFeatureRecord() = default;
@@ -43,11 +144,11 @@ private:
 - SetSwapCount: 设置交换计数
 - GetEvictKeys: 获取待淘汰的键列表
 
-#### 3.1.2 FeatureFilter（特征过滤器）
+#### 4.1.2 FeatureFilter（特征过滤器）
 
 FeatureFilter类实现了具体的特征准入和淘汰逻辑：
 
-``cpp
+```cpp
 class FeatureFilter {
 public:
     FeatureFilter(const std::string& tableName, int32_t admitThreshold, uint64_t evictThreshold,
@@ -89,7 +190,7 @@ private:
 - LoadFeatureRecords: 加载特征记录
 - LoadTimestampRecords: 加载时间戳记录
 
-### 3.2 类图
+### 4.2 类图
 
 ```mermaid
 classDiagram
@@ -212,9 +313,9 @@ classDiagram
     EmbcacheManager --> "creates" SwapInfo : creates
 ```
 
-### 3.3 特征准入控制
+### 4.3 特征准入控制
 
-#### 3.3.1 特征准入流程
+#### 4.3.1 特征准入流程
 
 ```mermaid
 graph TD
@@ -246,7 +347,7 @@ graph TD
     style N fill:#FFB6C1,stroke:#333
 ```
 
-#### 3.3.3 特征准入时序图
+#### 4.3.2 特征准入时序图
 
 ```mermaid
 sequenceDiagram
@@ -281,11 +382,9 @@ sequenceDiagram
     end
 ```
 
+### 4.4 特征淘汰机制
 
-
-### 3.4 特征淘汰机制
-
-#### 3.4.2 从开始到淘汰模块的详细流程
+#### 4.4.1 从开始到淘汰模块的详细流程
 
 ```mermaid
 graph TD
@@ -316,9 +415,9 @@ graph TD
     style F fill:#90EE90,stroke:#333
     style I fill:#90EE90,stroke:#333
     style M fill:#90EE90,stroke:#333
-````
+```
 
-#### 3.4.3 特征淘汰时序图
+#### 4.4.2 特征淘汰时序图
 
 ```mermaid
 sequenceDiagram
@@ -367,9 +466,9 @@ sequenceDiagram
     end
 ```
 
-## 4. 接口设计
+## 5. 接口设计
 
-### 4.1 C++接口
+### 5.1 C++接口
 
 #### FeatureFilter类接口
 
@@ -410,7 +509,7 @@ public:
 };
 ```
 
-### 4.2 Python接口
+### 5.2 Python接口
 
 在Python层，通过扩展KeyedJaggedTensor，添加了对特征计数和时间戳的支持，以支持基于访问频率的特征过滤和基于时间的特征淘汰功能：
 
@@ -458,8 +557,116 @@ class KeyedJaggedTensorWithTimestamp(KeyedJaggedTensor):
 
 这些扩展类使得Embedding Cache能够同时支持基于访问频率的准入控制和基于时间戳的特征淘汰功能。
 
-## 5. 用例设计
-## 6. 测试用例图
+## 6. 用例设计
+
+### 6.1 特征准入控制用例
+
+#### 用例名称
+特征准入控制
+
+#### 用例描述
+系统根据特征的历史访问次数决定是否将特征加载到Embedding Cache中
+
+#### 前置条件
+1. FeatureFilter已初始化并配置了准入阈值
+2. 存在待加载的特征数据
+
+#### 主要流程
+1. 系统接收特征加载请求
+2. FeatureFilter统计特征访问次数
+3. FeatureFilter检查特征是否满足准入条件
+4. 如果满足准入条件，特征被加载到Embedding Cache
+5. 如果不满足准入条件，特征被标记为无效
+
+#### 后置条件
+特征根据准入策略被正确处理
+
+### 6.2 特征淘汰用例
+
+#### 用例名称
+特征淘汰
+
+#### 用例描述
+系统根据特征的时间戳信息淘汰长时间未使用的特征
+
+#### 前置条件
+1. FeatureFilter已初始化并配置了淘汰阈值
+2. 系统中存在已加载的特征
+
+#### 主要流程
+1. 系统定期检查特征使用情况
+2. FeatureFilter记录特征时间戳
+3. FeatureFilter识别需要淘汰的特征
+4. 将待淘汰特征记录到EvictFeatureRecord
+5. 在适当时机从Embedding Cache中移除特征
+
+#### 后置条件
+长时间未使用的特征被正确淘汰，释放内存空间
+
+### 6.3 特征记录加载用例
+
+#### 用例名称
+特征记录加载
+
+#### 用例描述
+系统支持从持久化存储中加载特征访问记录和时间戳记录
+
+#### 前置条件
+1. FeatureFilter已初始化
+2. 存在持久化的特征记录数据
+
+#### 主要流程
+1. 系统启动或恢复时加载特征记录
+2. FeatureFilter加载特征访问次数记录
+3. FeatureFilter加载特征时间戳记录
+4. 系统基于加载的记录继续特征过滤操作
+
+#### 后置条件
+特征记录被成功加载并可用于后续的过滤操作
+
+### 6.4 特征计数统计用例
+
+#### 用例名称
+特征计数统计
+
+#### 用例描述
+系统统计特征的访问次数，用于准入控制决策
+
+#### 前置条件
+1. FeatureFilter已初始化并配置了准入阈值
+2. 存在携带计数信息的KeyedJaggedTensorWithCount数据
+
+#### 主要流程
+1. 系统接收携带特征计数信息的KeyedJaggedTensorWithCount数据
+2. FeatureFilter通过StatisticsKeyCount方法统计特征访问次数
+3. 访问次数信息被存储在featureRecordMap中
+4. 后续的准入控制将基于这些统计信息进行决策
+
+#### 后置条件
+特征访问次数被正确统计并存储，可用于后续的准入控制
+
+### 6.5 时间戳处理用例
+
+#### 用例名称
+时间戳处理
+
+#### 用例描述
+系统记录特征的时间戳信息，用于淘汰长时间未使用的特征
+
+#### 前置条件
+1. FeatureFilter已初始化并配置了淘汰阈值
+2. 存在携带时间戳信息的KeyedJaggedTensorWithTimestamp数据
+
+#### 主要流程
+1. 系统接收携带时间戳信息的KeyedJaggedTensorWithTimestamp数据
+2. FeatureFilter通过RecordTimestamp方法记录特征时间戳
+3. 时间戳信息被存储在timestampRecordMap中
+4. 在适当的时机，系统根据时间戳判断是否需要淘汰特征
+
+#### 后置条件
+特征时间戳被正确记录并存储，可用于后续的淘汰策略
+
+## 7. 测试用例图
 
 ```mermaid
 graph TD
@@ -492,136 +699,28 @@ graph TD
     style Q fill:#90EE90,stroke:#333
 ```
 
-
-### 5.1 特征准入控制用例
-
-#### 用例名称
-特征准入控制
-
-#### 用例描述
-系统根据特征的历史访问次数决定是否将特征加载到Embedding Cache中
-
-#### 前置条件
-1. FeatureFilter已初始化并配置了准入阈值
-2. 存在待加载的特征数据
-
-#### 主要流程
-1. 系统接收特征加载请求
-2. FeatureFilter统计特征访问次数
-3. FeatureFilter检查特征是否满足准入条件
-4. 如果满足准入条件，特征被加载到Embedding Cache
-5. 如果不满足准入条件，特征被标记为无效
-
-#### 后置条件
-特征根据准入策略被正确处理
-
-### 5.2 特征淘汰用例
-
-#### 用例名称
-特征淘汰
-
-#### 用例描述
-系统根据特征的时间戳信息淘汰长时间未使用的特征
-
-#### 前置条件
-1. FeatureFilter已初始化并配置了淘汰阈值
-2. 系统中存在已加载的特征
-
-#### 主要流程
-1. 系统定期检查特征使用情况
-2. FeatureFilter记录特征时间戳
-3. FeatureFilter识别需要淘汰的特征
-4. 将待淘汰特征记录到EvictFeatureRecord
-5. 在适当时机从Embedding Cache中移除特征
-
-#### 后置条件
-长时间未使用的特征被正确淘汰，释放内存空间
-
-### 5.3 特征记录加载用例
-
-#### 用例名称
-特征记录加载
-
-#### 用例描述
-系统支持从持久化存储中加载特征访问记录和时间戳记录
-
-#### 前置条件
-1. FeatureFilter已初始化
-2. 存在持久化的特征记录数据
-
-#### 主要流程
-1. 系统启动或恢复时加载特征记录
-2. FeatureFilter加载特征访问次数记录
-3. FeatureFilter加载特征时间戳记录
-4. 系统基于加载的记录继续特征过滤操作
-
-#### 后置条件
-特征记录被成功加载并可用于后续的过滤操作
-
-### 5.4 特征计数统计用例
-
-#### 用例名称
-特征计数统计
-
-#### 用例描述
-系统统计特征的访问次数，用于准入控制决策
-
-#### 前置条件
-1. FeatureFilter已初始化并配置了准入阈值
-2. 存在携带计数信息的KeyedJaggedTensorWithCount数据
-
-#### 主要流程
-1. 系统接收携带特征计数信息的KeyedJaggedTensorWithCount数据
-2. FeatureFilter通过StatisticsKeyCount方法统计特征访问次数
-3. 访问次数信息被存储在featureRecordMap中
-4. 后续的准入控制将基于这些统计信息进行决策
-
-#### 后置条件
-特征访问次数被正确统计并存储，可用于后续的准入控制
-
-### 5.5 时间戳处理用例
-
-#### 用例名称
-时间戳处理
-
-#### 用例描述
-系统记录特征的时间戳信息，用于淘汰长时间未使用的特征
-
-#### 前置条件
-1. FeatureFilter已初始化并配置了淘汰阈值
-2. 存在携带时间戳信息的KeyedJaggedTensorWithTimestamp数据
-
-#### 主要流程
-1. 系统接收携带时间戳信息的KeyedJaggedTensorWithTimestamp数据
-2. FeatureFilter通过RecordTimestamp方法记录特征时间戳
-3. 时间戳信息被存储在timestampRecordMap中
-4. 在适当的时机，系统根据时间戳判断是否需要淘汰特征
-
-#### 后置条件
-特征时间戳被正确记录并存储，可用于后续的淘汰策略
-
-## 6. 性能优化
+## 8. 性能优化
 
 1. 使用std::unordered_map存储特征信息，提高查询效率
 2. 通过批量处理特征统计和过滤操作，减少系统调用次数
 3. 异步淘汰机制，避免阻塞主流程
 4. 只在必要时执行淘汰检查，减少计算开销
 
-## 7. 安全性考虑
+## 9. 安全性考虑
 
 1. 对特征记录数据进行定期清理，防止内存泄漏
 2. 添加边界检查，防止数组越界访问
 3. 使用安全的字符串处理函数
 4. 对输入参数进行有效性验证
 
-## 8. 测试方案
+## 10. 测试方案
 
 1. 单元测试：对FeatureFilter和EvictFeatureRecord类进行独立测试
 2. 集成测试：测试特征准入和淘汰功能在完整流程中的表现
 3. 压力测试：测试在高并发场景下的性能表现
 4. 边界测试：测试各种边界条件下的正确性
 
-## 9. 部署方案
+## 11. 部署方案
 
 1. 通过配置文件设置准入阈值和淘汰阈值
 2. 提供监控指标，用于观察特征过滤效果
