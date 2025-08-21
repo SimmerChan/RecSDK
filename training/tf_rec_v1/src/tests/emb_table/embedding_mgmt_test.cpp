@@ -22,8 +22,8 @@ See the License for the specific language governing permissions and
 #include <mpi.h>
 
 #include "utils/common.h"
-#include "utils/logger.h"
-#include "utils/error.h"
+#include "log/logger.h"
+#include "error/error.h"
 #include "emb_table/embedding_mgmt.h"
 
 using namespace std;

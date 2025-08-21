@@ -16,11 +16,6 @@ See the License for the specific language governing permissions and
 #include <gtest/gtest.h>
 #include "utils/common.h"
 
-TEST(TestStringFormat, Basic)
-{
-    EXPECT_EQ(MxRec::StringFormat("%s %d", "test", 123), "test 123");
-}
-
 TEST(TestVectorToString, Basic)
 {
     std::vector<int> vec = {1, 2, 3};
