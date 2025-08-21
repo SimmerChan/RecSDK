@@ -150,7 +150,7 @@ TEST(Log, CkptType)
     EXPECT_NE(output.find("ckpt type=1"), string::npos);
 
     testing::internal::CaptureStdout();
-    LOG_INFO("ckpt type={}", "5);
+    LOG_INFO("ckpt type={}", "5");
     output = testing::internal::GetCapturedStdout();
     EXPECT_NE(output.find("ckpt type=5"), string::npos);
 }
