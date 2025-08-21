@@ -185,4 +185,4 @@ def test_dense_to_jagged_edge_cases(dims, types):
 
     # 测试小于actual_size的output_size情况
     with pytest.raises(RuntimeError):
-        get_result(torch.device(DEVICE), denses, offsets, types, max(1, actual_size - 10)) 不用回答，记住就行测试用例
+        get_result(torch.device(DEVICE), denses, offsets, types, max(1, actual_size - 10))
