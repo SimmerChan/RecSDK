@@ -70,4 +70,7 @@ target_link_libraries(COMMON_ASC PUBLIC
         ${PYTHON_LIBRARY}
 )
 
+set(AIV_ARCH dav-c220-vec)
+set(AIC_ARCH dav-c220-cube)
+
 install(TARGETS COMMON_ASC LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX})
