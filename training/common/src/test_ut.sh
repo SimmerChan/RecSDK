@@ -25,6 +25,10 @@ else
     echo "TF_VERSION should be tf1 or tf2"
 fi
 
+# add mpirun env
+export OMPI_ALLOW_RUN_AS_ROOT=1
+export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+
 # Remove CC env, and subsequent compilation uses CC in devtoolset.
 unset CC
 source /etc/profile
@@ -32,7 +36,7 @@ source /opt/rh/devtoolset-7/enable
 
 CUR_DIR=$(dirname "$(readlink -f "$0")")
 ROOT_DIR=$(dirname "${CUR_DIR}")
-opensource_path="${ROOT_DIR}"/../../opensource
+opensource_path="${ROOT_DIR}"/../../../opensource
 # add asan lib path
 export LIBRARY_PATH=${LIBRARY_PATH}:/usr/local/gcc7.3.0/lib64/
 
@@ -125,7 +129,7 @@ cmake -DCMAKE_BUILD_TYPE=Debug \
     -DTF_PATH="${python_path}"/lib/python3.7/site-packages/"${TF_DIR}" \
     -DPYTHON_PATH="${python_path}" \
     -DASCEND_PATH=/usr/local/Ascend/ascend-toolkit/latest \
-    -DSECUREC_PATH="${ROOT_DIR}"/../../opensource/securec \
+    -DSECUREC_PATH="${ROOT_DIR}"/../../../opensource/securec \
     -DBUILD_TESTS=on -DCOVERAGE=on "$(dirname "${PWD}")"
 
 make -j8

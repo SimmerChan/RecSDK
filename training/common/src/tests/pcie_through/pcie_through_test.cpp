@@ -18,8 +18,8 @@ See the License for the specific language governing permissions and
 
 #include "pcie_through/rma_shm_svm.h"
 
-
-TEST_F(RmaShmSvmTest, GetShmAddr)
+using namespace MxRec
+TEST(TestGetShmAddr, Basic)
 {
 std::string name = "test";
 int deviceId = 1;
