@@ -22,7 +22,7 @@
 
 EvictFeatureRecord类用于记录和管理待淘汰的特征信息：
 
-```cpp
+``cpp
 class EvictFeatureRecord {
 public:
     EvictFeatureRecord() = default;
@@ -47,7 +47,7 @@ private:
 
 FeatureFilter类实现了具体的特征准入和淘汰逻辑：
 
-```cpp
+``cpp
 class FeatureFilter {
 public:
     FeatureFilter(const std::string& tableName, int32_t admitThreshold, uint64_t evictThreshold,
@@ -93,41 +93,87 @@ private:
 
 ```mermaid
 classDiagram
-    class EvictFeatureRecord {
-        +EvictFeatureRecord()
-        +CanRemoveFromEmbTable()
-        +ClearEvictInfo()
-        +SetSwapCount()
-        +GetEvictKeys()
-        -executeSwapCount uint64_t
-        -evictKeys std::vector<int64_t>
+    class EmbcacheManager {
+        -embNum_ int32_t
+        -embConfigs_ std::vector~EmbConfig~
+        -swapManagers_ std::vector~SwapManager~
+        -embeddingTables_ std::vector~std::unique_ptr~EmbTable~~
+        -featureFilters std::vector~FeatureFilter~
+        -swapCount_ uint64_t
+        -embUpdateCount_ uint64_t
+        -enableFastHashMap_ bool
+        -optimNum_ int32_t
+        -needAccumulateOffset_ bool
+        +ComputeSwapInfoAsync() AsyncTask~SwapInfo~
+        +EmbeddingLookupAsync() AsyncTask~SwapinTensor~
+        +EmbeddingUpdateAsync() AsyncTask~void~
+        +EvictFeatures() void
+        +RecordTimestamp() void
+        +StatisticsKeyCount() void
+        +RecordEmbeddingUpdateTimes() void
+        -ComputeSwapInfo() SwapInfo
+        -EmbeddingLookup() SwapinTensor
+        -EmbeddingUpdate() void
+        -NeedEvictEmbeddingTable() bool
+        -RemoveEmbeddingTableInfo() void
     }
     
     class FeatureFilter {
-        +FeatureFilter()
-        +StatisticsKeyCount()
-        +CountFilter()
-        +RecordTimestamp()
-        +FeatureEvict()
-        +GetFeatureCountMap()
-        +GetFeatureTimestampMap()
-        +LoadFeatureRecords()
-        +LoadTimestampRecords()
-        -tableName std::string
+        -evictFeatureRecord_ EvictFeatureRecord
+        -tableName_ std::string
         -admitThreshold_ int32_t
-        -featureRecordMap std::unordered_map<int64_t, FeatureRecord>
-        -evictThreshold uint64_t
-        -evictStepInterval uint64_t
-        -recordTsBatchId uint64_t
-        -latestTimestamp std::time_t
-        -timestampRecordMap std::unordered_map<int64_t, std::time_t>
-        +evictFeatureRecord EvictFeatureRecord
+        -featureRecordMap_ std::unordered_map~int64_t, FeatureRecord~
+        -evictThreshold_ uint64_t
+        -evictStepInterval_ uint64_t
+        -recordTsBatchId_ uint64_t
+        -latestTimestamp_ std::time_t
+        -timestampRecordMap_ std::unordered_map~int64_t, std::time_t~
+        +FeatureFilter() 
+        +StatisticsKeyCount() void
+        +CountFilter() void
+        +RecordTimestamp() void
+        +FeatureEvict() void
+        +GetFeatureCountMap() const std::unordered_map~int64_t, FeatureRecord~&
+        +GetFeatureTimestampMap() const std::unordered_map~int64_t, std::time_t~&
+        +LoadFeatureRecords() void
+        +LoadTimestampRecords() void
+    }
+    
+    class EvictFeatureRecord {
+        -executeSwapCount_ uint64_t
+        -evictKeys_ std::vector~int64_t~
+        +EvictFeatureRecord()
+        +CanRemoveFromEmbTable() bool
+        +ClearEvictInfo() void
+        +SetSwapCount() void
+        +GetEvictKeys() std::vector~int64_t~&
     }
     
     class FeatureRecord {
         +count uint64_t
     }
     
+    class SwapManager {
+        -swapinKeys_ std::vector~std::vector~int64_t~~
+        -swapoutKeys_ std::vector~std::vector~int64_t~~
+        +SwapInKeys() std::vector~std::vector~int64_t~~
+        +SwapOutKeys() std::vector~std::vector~int64_t~~
+        +RemoveKeys() void
+    }
+    
+    class EmbTable {
+        +RemoveEmbedding() void
+    }
+    
+    class SwapInfo {
+        +swapoutKeys std::vector~std::vector~int64_t~~
+        +swapoutOffs at::Tensor
+        +swapinKeys std::vector~std::vector~int64_t~~
+        +swapinOffs at::Tensor
+        +batchOffs at::Tensor
+        +swapinKeysLengthPreSum std::vector~int64_t~
+        +swapoutKeysLengthPreSum std::vector~int64_t~
+    }
     class JaggedTensorWithCount {
         +JaggedTensorWithCount()
         +counts torch.Tensor
@@ -160,6 +206,10 @@ classDiagram
     KeyedJaggedTensorWithTimestamp --> JaggedTensorWithTimestamp : contains
     KeyedJaggedTensorWithTimestamp --> KeyedJaggedTensor : extends
     JaggedTensorWithTimestamp --> JaggedTensor : extends
+    EmbcacheManager --> "1" FeatureFilter : manages
+    EmbcacheManager --> "1" SwapManager : uses
+    EmbcacheManager --> "1" EmbTable : manages
+    EmbcacheManager --> "creates" SwapInfo : creates
 ```
 
 ### 3.3 特征准入控制
@@ -168,127 +218,124 @@ classDiagram
 
 ```mermaid
 graph TD
-    A[新特征请求加载] --> B{是否启用准入控制?}
-    B -->|否| C[直接加载特征]
-    B -->|是| D[调用CountFilter]
-    D --> E[查询特征历史访问次数]
-    E --> F{访问次数 >= 准入阈值?}
-    F -->|是| G[允许特征准入]
-    G --> H[加载特征到Embedding Cache]
-    F -->|否| I[拒绝特征准入]
-    I --> J[将特征标记为无效]
-    C --> K[结束]
-    H --> K
-    J --> K
+    A[PyTorch训练任务开始] --> B[创建KeyedJaggedTensorWithCount]
+    B --> C[调用Embedding::forward]
+    C --> D[EmbCacheManager::StatisticsKeyCount]
+    D --> E[FeatureFilter::StatisticsKeyCount]
+    E --> F[更新featureRecordMap_访问计数]
+    C --> G[EmbCacheManager::ComputeSwapInfo]
+    G --> H{是否启用准入控制?}
+    H -->|是| I[FeatureFilter::CountFilter]
+    H -->|否| J[跳过准入控制]
+    I --> K[查询featureRecordMap_中的访问次数]
+    K --> L{访问次数 >= 准入阈值?}
+    L -->|是| M[特征准入到Embedding Cache]
+    L -->|否| N[特征被标记为无效]
+    J --> O[直接加载特征]
+    M --> P[继续处理]
+    N --> P
+    O --> P
+    
+    style A fill:#FFFF00,stroke:#333
+    style B fill:#FFFF00,stroke:#333
+    style C fill:#FFFF00,stroke:#333
+    style D fill:#FFFF00,stroke:#333
+    style E fill:#90EE90,stroke:#333
+    style I fill:#90EE90,stroke:#333
+    style M fill:#90EE90,stroke:#333
+    style N fill:#FFB6C1,stroke:#333
 ```
 
-#### 3.3.2 特征准入时序图
+#### 3.3.3 特征准入时序图
 
 ```mermaid
 sequenceDiagram
-    participant EC as EmbeddingCache
+    participant Train as PyTorch训练任务
+    participant KJT as KeyedJaggedTensorWithCount
+    participant E as Embedding
+    participant EM as EmbCacheManager
     participant FF as FeatureFilter
-    participant FRM as featureRecordMap
+    participant FRM as featureRecordMap_
     
-    EC->>FF: StatisticsKeyCount(featureData, countData, start, end, isEmpty)
+    Train->>KJT: 创建带计数的特征数据
+    KJT->>E: 提供特征数据和计数信息
+    E->>EM: StatisticsKeyCount(batchKeys, offset, counts, tableIndex)
+    EM->>FF: StatisticsKeyCount(featureDataPtr, countDataPtr, startIndex, endIndex, isCountDataEmpty)
     FF->>FRM: 更新特征访问次数
     FRM-->>FF: 更新完成
-    EC->>FF: CountFilter(featureData, start, end)
-    FF->>FRM: 查询特征访问次数
-    FRM-->>FF: 返回特征访问次数
-    FF->>FF: 比较次数与准入阈值
-    alt 访问次数 < 准入阈值
-        FF->>EC: 将特征标记为无效(-1)
-    else 访问次数 >= 准入阈值
-        FF->>EC: 保留特征值
+    
+    E->>EM: ComputeSwapInfo(batchKeys, offsetPerKey, tableIndices)
+    EM->>EM: 检查是否启用准入控制
+    alt 启用准入控制
+        EM->>FF: CountFilter(featureDataPtr, startIndex, endIndex)
+        FF->>FRM: 查询特征访问次数
+        FRM-->>FF: 返回特征访问次数
+        FF->>FF: 比较次数与准入阈值
+        alt 访问次数 < 准入阈值
+            FF->>E: 将特征标记为无效(-1)
+        else 访问次数 >= 准入阈值
+            FF->>E: 保留特征值
+        end
+    else 不启用准入控制
+        EM->>E: 直接加载特征
     end
 ```
 
-#### 3.3.3 特征计数统计时序图
 
-```mermaid
-sequenceDiagram
-    participant KJT as KeyedJaggedTensorWithCount
-    participant PI as PostInputDist
-    participant HM as HashMap
-    participant FF as FeatureFilter
-    participant FRM as featureRecordMap
-    
-    KJT->>PI: 提供特征数据和计数信息
-    PI->>HM: do_unique_hash_out(origin_kjt, ...)
-    HM->>HM: 检查origin_kjt是否有counts属性
-    HM->>FF: statistic_key_count(ids, offsets, counts, table_i)
-    FF->>FRM: StatisticsKeyCount处理计数信息
-    FRM-->>FF: 更新特征访问次数
-    FF->>FF: 存储计数信息用于后续准入控制
-```
 
 ### 3.4 特征淘汰机制
 
-#### 3.4.1 特征淘汰流程
+#### 3.4.2 从开始到淘汰模块的详细流程
 
 ```mermaid
 graph TD
-    A[触发淘汰步骤] --> B{是否启用淘汰机制?}
-    B -->|否| C[跳过淘汰]
-    B -->|是| D[调用FeatureEvict]
-    D --> E[检查特征时间戳]
-    E --> F{当前时间-特征时间 > 淘汰阈值?}
-    F -->|是| G[标记为待淘汰特征]
-    G --> H[记录到EvictFeatureRecord]
-    F -->|否| I[保留在缓存中]
-    H --> J[从记录中移除淘汰特征]
-    J --> K[结束]
-    I --> K
-    C --> K
-```
-
-#### 3.4.2 特征淘汰时序图
-
-```mermaid
-sequenceDiagram
-    participant EC as EmbeddingCache
-    participant FF as FeatureFilter
-    participant TRM as timestampRecordMap
-    participant EFR as EvictFeatureRecord
+    A[PyTorch训练任务开始] --> B[创建KeyedJaggedTensorWithTimestamp]
+    B --> C[调用Embedding::forward]
+    C --> D[EmbCacheManager::_record_timestamp_data]
+    D --> E[EmbCacheManager::RecordTimestamp]
+    E --> F[FeatureFilter::RecordTimestamp]
+    F --> G[更新timestampRecordMap_时间戳]
+    F --> H{是否需要执行淘汰检查?}
+    H -->|是| I[FeatureFilter::FeatureEvict]
+    H -->|否| J[继续执行]
+    I --> K[遍历timestampRecordMap_检查超时]
+    K --> L{特征时间戳超阈值?}
+    L -->|是| M[记录到EvictFeatureRecord]
+    L -->|否| N[保留特征]
+    M --> O[EmbCacheManager::EvictFeatures]
+    O --> P[SwapManager::RemoveKeys]
+    P --> Q[EmbTable::RemoveEmbedding]
+    N --> R[结束]
+    J --> R
     
-    EC->>FF: RecordTimestamp(featureData, start, end, timestampData)
-    FF->>TRM: 记录特征时间戳
-    TRM-->>FF: 记录完成
-    FF->>FF: 检查是否需要执行淘汰
-    alt 需要执行淘汰
-        FF->>FF: FeatureEvict()
-        FF->>TRM: 遍历时间戳记录
-        loop 遍历所有特征
-            TRM->>TRM: 检查时间戳是否超阈值
-            alt 时间戳超阈值
-                TRM-->>FF: 返回超阈值特征
-                FF->>EFR: 记录待淘汰特征
-            end
-        end
-        FF->>EFR: 获取待淘汰特征列表
-        EFR-->>FF: 返回待淘汰特征列表
-        FF->>TRM: 移除淘汰特征记录
-        TRM-->>FF: 移除完成
-        FF->>EC: 返回淘汰特征列表
-    end
-```
+    style A fill:#FFFF00,stroke:#333
+    style B fill:#FFFF00,stroke:#333
+    style C fill:#FFFF00,stroke:#333
+    style D fill:#FFFF00,stroke:#333
+    style E fill:#FFFF00,stroke:#333
+    style F fill:#90EE90,stroke:#333
+    style I fill:#90EE90,stroke:#333
+    style M fill:#90EE90,stroke:#333
+````
 
-#### 3.4.3 时间戳处理时序图
+#### 3.4.3 特征淘汰时序图
 
 ```mermaid
 sequenceDiagram
+    participant Train as PyTorch训练任务
     participant KJT as KeyedJaggedTensorWithTimestamp
     participant E as Embedding
-    participant EM as EmbcacheManager
+    participant EM as EmbCacheManager
     participant FF as FeatureFilter
-    participant TRM as timestampRecordMap
+    participant TRM as timestampRecordMap_
     participant EFR as EvictFeatureRecord
     
+    Train->>KJT: 创建带时间戳的特征数据
     KJT->>E: 提供特征数据和时间戳信息
     E->>EM: _record_timestamp_data(features)
     EM->>EM: 检查features是否有_timestamps属性
-    EM->>FF: RecordTimestamp(keyPtr, startIndex, endIndex, timestampsPtr)
+    EM->>EM: RecordTimestamp(batchKeys, offsetPerKey, timestamps, tableIndices)
+    EM->>FF: RecordTimestamp(featureDataPtr, startIndex, endIndex, timestampsPtr)
     FF->>TRM: 记录特征时间戳
     TRM-->>FF: 记录完成
     FF->>FF: 检查是否需要执行淘汰
@@ -304,6 +351,19 @@ sequenceDiagram
         end
         FF->>TRM: 移除淘汰特征记录
         TRM-->>FF: 移除完成
+    end
+    
+    E->>EM: EmbeddingUpdateAsync
+    EM->>EM: 异步执行EmbeddingUpdate
+    EM->>EM: RecordEmbeddingUpdateTimes
+    EM->>EM: embUpdateCount_递增
+    EM->>EM: NeedEvictEmbeddingTable检查
+    alt 需要淘汰特征
+        EM->>EM: RemoveEmbeddingTableInfo
+        EM->>ET: RemoveEmbedding(keys)
+        EM->>EM: EvictFeatures
+        EM->>SM: RemoveKeys(evictFeatures)
+        SM-->>EM: 移除完成
     end
 ```
 
@@ -399,6 +459,39 @@ class KeyedJaggedTensorWithTimestamp(KeyedJaggedTensor):
 这些扩展类使得Embedding Cache能够同时支持基于访问频率的准入控制和基于时间戳的特征淘汰功能。
 
 ## 5. 用例设计
+## 6. 测试用例图
+
+```mermaid
+graph TD
+    A[测试用例: test_feature_filter.py] --> B{测试类型}
+    B -->|准入控制测试| C[验证特征计数统计正确性]
+    B -->|淘汰机制测试| D[验证特征淘汰功能]
+    B -->|加载保存测试| E[验证特征记录持久化]
+    
+    C --> F[创建RandomRecDataset]
+    C --> G[配置AdmitAndEvictConfig启用准入]
+    C --> H[运行训练流程]
+    C --> I[手动统计key count]
+    C --> J[读取保存的key count]
+    C --> K[对比统计数据]
+    
+    D --> L[配置AdmitAndEvictConfig启用淘汰]
+    D --> M[设置evict_threshold和evict_step_interval]
+    D --> N[运行训练流程]
+    D --> O[验证淘汰特征正确性]
+    
+    E --> P[保存特征记录到文件]
+    E --> Q[从文件加载特征记录]
+    E --> R[验证加载后功能正常]
+    
+    style A fill:#FFFF00,stroke:#333
+    style F fill:#90EE90,stroke:#333
+    style G fill:#90EE90,stroke:#333
+    style L fill:#90EE90,stroke:#333
+    style P fill:#90EE90,stroke:#333
+    style Q fill:#90EE90,stroke:#333
+```
+
 
 ### 5.1 特征准入控制用例
 
