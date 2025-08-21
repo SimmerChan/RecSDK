@@ -92,15 +92,15 @@ at::Tensor dense_to_jagged_backward_npu(const at::Tensor& values,
 // 自动求导Function类
 class DenseToJaggedFunction : public torch::autograd::Function<DenseToJaggedFunction> {
 public:
-    static at::Tensor forward(AutogradContext* ctx,
-                              const at::Tensor& dense,
-                              const tensor_list& offsets,
-                              const c10::optional<int64_t> total_L)
+    static std::tuple<at::Tensor, tensor_list> forward(AutogradContext* ctx,
+                                                       const at::Tensor& dense,
+                                                       const tensor_list& offsets,
+                                                       const c10::optional<int64_t> total_L)
     {
         at::AutoDispatchBelowADInplaceOrView guard;
         ctx->save_for_backward({dense, offsets[0]});
 
-        return dense_to_jagged_forward_npu(dense, offsets, total_L);
+        return dense_to_jagged_npu(dense, offsets, total_L);
     }
 
     static tensor_list backward(AutogradContext* ctx, tensor_list grad_outputs)
