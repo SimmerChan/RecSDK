@@ -25,7 +25,6 @@
 #include "hash_table/fast_hashmap.h"
 #include "initializer.h"
 #include "utils/logger.h"
-constexpr int OPTIMIZER_SLOT_INDEX2 = 2;
 
 namespace Embcache {
 
