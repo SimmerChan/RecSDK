@@ -670,57 +670,93 @@ class KeyedJaggedTensorWithTimestamp(KeyedJaggedTensor):
 
 ```mermaid
 graph TD
-    A[测试用例: test_feature_filter.py] --> B{测试类型}
-    B -->|准入控制测试| C[验证特征计数统计正确性]
-    B -->|淘汰机制测试| D[验证特征淘汰功能]
-    B -->|加载保存测试| E[验证特征记录持久化]
+    A[特征过滤测试] --> B{测试类型}
+    B -->|准入控制测试| C[验证特征访问次数统计]
+    B -->|淘汰机制测试| D[验证特征时间淘汰功能]
+    B -->|时间戳处理测试| E[验证时间戳相关操作]
     
-    C --> F[创建RandomRecDataset]
-    C --> G[配置AdmitAndEvictConfig启用准入]
-    C --> H[运行训练流程]
-    C --> I[手动统计key count]
-    C --> J[读取保存的key count]
-    C --> K[对比统计数据]
+    C --> F[创建带计数数据的KeyedJaggedTensorWithCount]
+    C --> G[运行StatisticsKeyCount统计特征访问次数]
+    C --> H[手动统计特征访问次数]
+    C --> I[读取featureRecordMap_中的统计数据]
+    C --> J[对比手动统计与系统统计结果]
     
-    D --> L[配置AdmitAndEvictConfig启用淘汰]
-    D --> M[设置evict_threshold和evict_step_interval]
-    D --> N[运行训练流程]
-    D --> O[验证淘汰特征正确性]
+    D --> K[创建带时间戳数据的KeyedJaggedTensorWithTimestamp]
+    D --> L[运行RecordTimestamp记录特征时间戳]
+    D --> M[模拟时间流逝超过evictThreshold_]
+    D --> N[运行FeatureEvict执行特征淘汰]
+    D --> O[检查evictFeatureRecord_中的待淘汰特征]
+    D --> P[验证特征是否从timestampRecordMap_中移除]
     
-    E --> P[保存特征记录到文件]
-    E --> Q[从文件加载特征记录]
-    E --> R[验证加载后功能正常]
-    
+    E --> Q[创建带时间戳的KeyedJaggedTensorWithTimestamp]
+    E --> R[执行permute操作]
+    E --> S[验证时间戳是否正确跟随特征移动]
+    E --> T[执行split操作]
+    E --> U[验证分割后的时间戳是否正确]
+
     style A fill:#FFFF00,stroke:#333
     style F fill:#90EE90,stroke:#333
     style G fill:#90EE90,stroke:#333
-    style L fill:#90EE90,stroke:#333
-    style P fill:#90EE90,stroke:#333
+    style K fill:#90EE90,stroke:#333
     style Q fill:#90EE90,stroke:#333
+    style H fill:#90EE90,stroke:#333
+    style I fill:#90EE90,stroke:#333
+    style L fill:#90EE90,stroke:#333
+    style R fill:#90EE90,stroke:#333
+    style T fill:#90EE90,stroke:#333
 ```
 
-## 8. 性能优化
+## 8. 测试方案
+
+基于对测试文件[test_feature_filter.py](file://c:\zengxiong\RecSDK\torchrec\torchrec_embcache\tests\acc_test\test_feature_filter.py)和[test_kjt_with_time.py](file://c:\zengxiong\RecSDK\torchrec\torchrec_embcache\tests\acc_test\test_kjt_with_time.py)的分析，重新设计测试方案如下：
+
+### 8.1 测试用例详情表
+
+| 用例编号 | 用例名称 | 测试目标 | 测试步骤 | 预期结果 | 优先级 |
+|---------|---------|---------|---------|---------|--------|
+| TC001 | 特征访问次数统计测试 | 验证StatisticsKeyCount方法能正确统计特征访问次数 | 1. 创建带计数数据的KeyedJaggedTensorWithCount<br>2. 调用FeatureFilter::StatisticsKeyCount方法<br>3. 手动统计特征访问次数<br>4. 从FeatureFilter::GetFeatureCountMap获取统计数据<br>5. 对比手动统计与系统统计结果 | featureRecordMap_中的特征计数与手动统计结果一致 | 高 |
+| TC002 | 特征准入控制测试 | 验证CountFilter方法能正确过滤未达到访问次数阈值的特征 | 1. 设置admitThreshold_为特定值<br>2. 调用StatisticsKeyCount统计特征访问次数<br>3. 调用CountFilter进行准入过滤<br>4. 检查未达到阈值的特征是否被设置为INVALID_KEY | 未达到准入阈值的特征被正确设置为INVALID_KEY | 高 |
+| TC003 | 特征时间戳记录测试 | 验证RecordTimestamp方法能正确记录特征时间戳 | 1. 创建带时间戳数据的KeyedJaggedTensorWithTimestamp<br>2. 调用FeatureFilter::RecordTimestamp方法<br>3. 从FeatureFilter::GetFeatureTimestampMap获取时间戳数据 | timestampRecordMap_中的时间戳与输入数据一致 | 高 |
+| TC004 | 特征淘汰测试 | 验证FeatureEvict方法能正确识别并记录超时特征 | 1. 调用RecordTimestamp记录特征时间戳<br>2. 模拟时间流逝超过evictThreshold_<br>3. 调用FeatureEvict执行特征淘汰<br>4. 检查evictFeatureRecord_中的待淘汰特征 | 超时特征被正确识别并记录到evictFeatureRecord_中 | 高 |
+| TC005 | 时间戳permute操作测试 | 验证KeyedJaggedTensorWithTimestamp的permute操作能正确处理时间戳 | 1. 创建带时间戳的KeyedJaggedTensorWithTimestamp<br>2. 执行permute操作<br>3. 验证时间戳是否正确跟随特征移动 | permute操作后时间戳与特征保持对应关系 | 中 |
+| TC006 | 时间戳split操作测试 | 验证KeyedJaggedTensorWithTimestamp的split操作能正确处理时间戳 | 1. 创建带时间戳的KeyedJaggedTensorWithTimestamp<br>2. 执行split操作<br>3. 验证分割后的时间戳是否正确 | split操作后各部分时间戳与特征保持对应关系 | 中 |
+| TC007 | 特征记录加载测试 | 验证LoadFeatureRecords和LoadTimestampRecords方法能正确加载特征记录 | 1. 准备特征记录数据<br>2. 调用LoadFeatureRecords加载访问次数记录<br>3. 调用LoadTimestampRecords加载时间戳记录<br>4. 验证featureRecordMap_和timestampRecordMap_中的数据 | 特征记录被正确加载到对应的数据结构中 | 中 |
+| TC008 | 准入淘汰组合测试 | 验证同时启用准入控制和淘汰机制时功能正确性 | 1. 同时设置admitThreshold_和evictThreshold_<br>2. 运行完整的特征处理流程<br>3. 验证准入和淘汰机制都正常工作 | 准入和淘汰机制同时正常工作，互不干扰 | 高 |
+
+### 8.2 补充测试用例
+
+基于对代码的全面分析，建议增加以下测试用例以提高测试覆盖率：
+
+| 用例编号 | 用例名称 | 测试目标 | 测试步骤 | 预期结果 | 优先级 |
+|---------|---------|---------|---------|---------|--------|
+| TC009 | 未启用准入控制测试 | 验证未设置准入阈值时所有特征都能通过准入检查 | 1. 不设置admitThreshold_(-1为默认值)<br>2. 执行CountFilter操作<br>3. 检查特征是否都被保留 | 所有特征都被保留，不进行准入过滤 | 中 |
+| TC010 | 未启用淘汰机制测试 | 验证未设置淘汰阈值时不会执行特征淘汰 | 1. 设置evictThreshold_为0<br>2. 执行FeatureEvict操作<br>3. 检查是否有特征被标记为待淘汰 | 不执行特征淘汰操作 | 中 |
+| TC011 | 空数据处理测试 | 验证各方法能正确处理空数据输入 | 1. 传入空数据给各个方法<br>2. 检查是否能正常处理不发生崩溃 | 各方法能正确处理空数据输入 | 中 |
+| TC012 | 边界值测试 | 验证特征ID为-1等边界值的处理 | 1. 输入特征ID为-1的数据<br>2. 执行各个处理方法<br>3. 检查处理结果 | 特征ID为-1的数据被正确处理（通常被忽略） | 中 |
+| TC013 | 大数据量测试 | 验证系统在处理大量特征数据时的性能和正确性 | 1. 构造大量特征数据<br>2. 执行完整的特征处理流程<br>3. 检查处理结果和性能表现 | 系统能正确处理大量数据且性能在可接受范围内 | 低 |
+
+## 9. 性能优化
 
 1. 使用std::unordered_map存储特征信息，提高查询效率
 2. 通过批量处理特征统计和过滤操作，减少系统调用次数
 3. 异步淘汰机制，避免阻塞主流程
 4. 只在必要时执行淘汰检查，减少计算开销
 
-## 9. 安全性考虑
+## 10. 安全性考虑
 
 1. 对特征记录数据进行定期清理，防止内存泄漏
 2. 添加边界检查，防止数组越界访问
 3. 使用安全的字符串处理函数
 4. 对输入参数进行有效性验证
 
-## 10. 测试方案
+## 11. 测试方案
 
 1. 单元测试：对FeatureFilter和EvictFeatureRecord类进行独立测试
 2. 集成测试：测试特征准入和淘汰功能在完整流程中的表现
 3. 压力测试：测试在高并发场景下的性能表现
 4. 边界测试：测试各种边界条件下的正确性
 
-## 11. 部署方案
+## 12. 部署方案
 
 1. 通过配置文件设置准入阈值和淘汰阈值
 2. 提供监控指标，用于观察特征过滤效果
