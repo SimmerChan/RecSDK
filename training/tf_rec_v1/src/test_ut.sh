@@ -23,6 +23,7 @@ elif [ "${TF_VERSION}" == "tf2" ];then
     TF_DIR=tensorflow
 else
     echo "TF_VERSION should be tf1 or tf2"
+    exit 1
 fi
 
 # add mpirun env
@@ -35,10 +36,14 @@ source /etc/profile
 source /opt/rh/devtoolset-7/enable
 
 CUR_DIR=$(dirname "$(readlink -f "$0")")
-ROOT_DIR=$(dirname "${CUR_DIR}")
+ROOT_DIR=$(dirname "$(dirname "$(dirname "${CUR_DIR}")")")
 opensource_path="${ROOT_DIR}"/../opensource
-acc_ctr_path="${ROOT_DIR}"/src/AccCTR
-export LD_LIBRARY_PATH="${acc_ctr_path}"/output/ock_ctr_common/lib:$LD_LIBRARY_PATH
+acc_ctr_path="${ROOT_DIR}"/training/tf_rec_v1/src/AccCTR
+common_src_path="${ROOT_DIR}"/training/common/src
+python_path="$(dirname "$(dirname "$(which python3.7)")")"
+tf_path="${python_path}"/lib/python3.7/site-packages/"${TF_DIR}"
+
+export LD_LIBRARY_PATH="${acc_ctr_path}"/output/ock_ctr_common/lib:"${tf_path}/python":$LD_LIBRARY_PATH
 # add asan lib path
 export LIBRARY_PATH=${LIBRARY_PATH}:/usr/local/gcc7.3.0/lib64/
 
@@ -105,12 +110,19 @@ function prepare_pybind(){
   fi
 }
 
+function compile_common_so_file() {
+    cd "${common_src_path}"
+    chmod u+x build.sh
+    ./build.sh "${tf_path}" "${ROOT_DIR}" "YES"
+}
+
 prepare_pybind
 echo "opensource path:${opensource_path}"
 prepare_googletest
 prepare_emock
 prepare_securec
 compile_securec
+compile_common_so_file 
 
 compile_acc_ctr_so_file()
 {
@@ -122,7 +134,7 @@ compile_acc_ctr_so_file()
 echo "-----Build AccCTR -----"
 compile_acc_ctr_so_file
 
-cd "${ROOT_DIR}"/src
+cd "${CUR_DIR}"
 
 find ./ -name "*.sh" -exec dos2unix {} \;
 find ./ -name "*.sh" -exec chmod +x {} \;
@@ -132,18 +144,17 @@ find ./ -name "*.sh" -exec chmod +x {} \;
 mkdir build
 cd build
 
-python_path="$(dirname "$(dirname "$(which python3.7)")")"
 # config asan environment variable
 export ASAN_OPTIONS=halt_on_error=1:detect_leaks=1:fast_unwind_on_malloc=0
 export LSAN_OPTIONS=suppressions=../tests/leaks.supp
 
 cmake -DCMAKE_BUILD_TYPE=Debug \
-    -DTF_PATH="${python_path}"/lib/python3.7/site-packages/"${TF_DIR}" \
+    -DTF_PATH=${tf_path} \
     -DOMPI_PATH=/usr/local/openmpi/ \
     -DPYTHON_PATH="${python_path}" \
     -DASCEND_PATH=/usr/local/Ascend/ascend-toolkit/latest \
-    -DABSEIL_PATH="${python_path}"/lib/python3.7/site-packages/"${TF_DIR}" \
-    -DSECUREC_PATH="${ROOT_DIR}"/../opensource/securec \
+    -DABSEIL_PATH=${tf_path} \
+    -DSECUREC_PATH="${opensource_path}"/securec \
     -DBUILD_TESTS=on -DCOVERAGE=on "$(dirname "${PWD}")"
 
 make -j8

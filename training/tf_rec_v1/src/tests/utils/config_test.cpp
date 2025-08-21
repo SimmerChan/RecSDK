@@ -17,7 +17,7 @@ See the License for the specific language governing permissions and
 #include <gmock/gmock.h>
 
 #include "utils/config.h"
-#include "utils/logger.h"
+#include "log/logger.h"
 
 using namespace std;
 using namespace MxRec;

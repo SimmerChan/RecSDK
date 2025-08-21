@@ -22,7 +22,7 @@ See the License for the specific language governing permissions and
 #include "gtest/gtest.h"
 
 #include "utils/common.h"
-#include "utils/error.h"
+#include "error/error.h"
 #include "ssd_engine/file.h"
 
 using namespace std;
