@@ -156,7 +156,21 @@ public:
 
             // 所有核共享一片globalMemory，且存在累加操作，每次执行需要清理内存防止上次执行结果残留数据影响本次结果
             // 多核执行后需要调用SyncAll保证多核间同步正常
-            InitGlobalMemory(qGradAccumTemp, qGradAccumTempSpace, static_cast<float>(0));
+            // 分核清零逻辑：
+            //    1. 将待清零长度分为batchSize份，qGradAccumTempSpace正好能整除batchSize
+            //    2. 全核参与清零，当核数大于batchSize，多余核不参与，当核数小于batchSize，每个核负责清理blockNum范围内固定划片
+            // PS. GR场景优化8ms。By liqiang 2025.08
+            int64_t blockNum = GetBlockNum();
+            uint64_t unitClear = qGradAccumTempSpace/batchSize;
+            int64_t batchIdx = GetBlockIdx();
+            while (batchIdx < batchSize) {
+                GlobalTensor<float> thisBlockQGrad;
+                thisBlockQGrad.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(
+                    reinterpret_cast<__gm__ uint8_t *>(workspace) + aivNum * totalTempSpaceForOneVec + batchIdx * unitClear * sizeof(float)), unitClear);
+                InitGlobalMemory(thisBlockQGrad, unitClear, static_cast<float>(0));
+                batchIdx += blockNum;
+            }
+
             SyncAll();
         }
 
@@ -852,7 +866,14 @@ public:
 
     __aicore__ inline void DoCopyQGrad(const uint32_t *seqOffset)
     {
-        for (int64_t batchIdx = 0; batchIdx < batchSize; batchIdx++) {
+        // 分核拷贝逻辑：
+        //   1. 以batchSize为划分粒度，每个核认领一块
+        //   2. 当核数大于batchSize，多余的核不需要干活
+        //   3. 当核数小于batchSize，多的batchSize依然按每个核认领一块，直到全部结束
+        // PS. GR此处优化15ms，占单算子13%，by liqiang 2025.08
+        int64_t blockNum = GetBlockNum();
+        int64_t batchIdx = GetBlockIdx();
+        while (batchIdx < batchSize) {
             int64_t curSeqLen = static_cast<int64_t>(seqOffset[batchIdx + 1] - seqOffset[batchIdx]);
             for (int64_t headIdx = 0; headIdx < headNum; headIdx++) {
                 int64_t totalLen = curSeqLen * headDim;
@@ -894,6 +915,8 @@ public:
                     remain = remain - thisLen;
                 }
             }
+            // 按核数分块后，每个核处理每一块的相应位置，最后超出batchSize退出
+            batchIdx += blockNum;
         }
     }
 
