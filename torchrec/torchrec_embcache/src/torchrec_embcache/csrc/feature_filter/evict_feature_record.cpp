@@ -27,7 +27,7 @@ void EvictFeatureRecord::ClearEvictInfo()
 
 std::vector<int64_t>& EvictFeatureRecord::GetEvictKeys()
 {
-    return evictKeys;
+    return evictKeys_;
 }
 
 }  // namespace Embcache

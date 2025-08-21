@@ -111,12 +111,12 @@ void FeatureFilter::StatisticsKeyCount(const int64_t* featureDataPtr, const int6
     for (int64_t i = startIndex; i < endIndex; ++i) {
         auto feature = *(featureDataPtr + i);
         auto count = isCountDataEmpty ? 1 : *(countDataPtr + i);
-        auto iter = featureRecordMap.find(feature);
-        if (iter != featureRecordMap.end()) {
+        auto iter = featureRecordMap_.find(feature);
+        if (iter != featureRecordMap_.end()) {
             iter->second.count += count;
         } else {
             FeatureRecord featureRecord = {count};
-            featureRecordMap[feature] = featureRecord;
+            featureRecordMap_[feature] = featureRecord;
         }
     }
 }
@@ -127,8 +127,10 @@ void FeatureFilter::CountFilter(int64_t* featureDataPtr, int64_t startIndex, int
     auto thresholdCount = static_cast<uint64_t>(admitThreshold_);
     for (int64_t i = startIndex; i < endIndex; ++i) {
         auto feature = *(featureDataPtr + i);
-        auto iter = featureRecordMap.find(feature);
-        if (iter != featureRecordMap.end() && iter->second.count < thresholdCount) {
+        auto iter = featureRecordMap_.find(feature);
+        if (iter != featureRecordMap_.end() && iter->second.count < thresholdCount) {
+            LOG_DEBUG("Feature filtered out due to insufficient count. TableName: {}, Feature: {}, Count: {}, "
+                      "Threshold: {}", tableName_, feature, iter->second.count, thresholdCount);
             *(featureDataPtr + i) = INVALID_KEY;
         }
     }
