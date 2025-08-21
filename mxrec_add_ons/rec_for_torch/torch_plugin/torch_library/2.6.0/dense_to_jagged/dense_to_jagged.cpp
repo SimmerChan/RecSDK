@@ -171,11 +171,9 @@ TORCH_LIBRARY_IMPL(fbgemm, PrivateUse1, m)
 TORCH_LIBRARY_IMPL(mxrec, AutogradPrivateUse1, m)
 {
     m.impl("dense_to_jagged", &dense_to_jagged_npu_autograd);
-    m.impl("dense_to_jagged_forward", &dense_to_jagged_autograd);
 }
 
 TORCH_LIBRARY_IMPL(fbgemm, AutogradPrivateUse1, m)
 {
     m.impl("dense_to_jagged", &dense_to_jagged_npu_autograd);
-    m.impl("dense_to_jagged_forward", &dense_to_jagged_autograd);
 }
