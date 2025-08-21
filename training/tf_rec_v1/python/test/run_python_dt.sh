@@ -31,7 +31,10 @@ bash "$TOP_PATH"/build/build_tf1.sh
 # create libasc directory and copy so files into it
 cd "$TOP_PATH"/training/tf_rec_v1/src
 mkdir -p libasc
-cp -f "$TOP_PATH"/training/tf_rec_v1/build/lib/mx_rec/libasc/*.so ./libasc
+cp -f "$TOP_PATH"/training/tf_rec_v1/src/build/core/*.so ./libasc
+cp -f "$TOP_PATH"/training/tf_rec_v1/src/build/dataset_tf/*.so ./libasc
+cp -f "$TOP_PATH"/training/tf_rec_v1/src/build/ops_tf/*.so ./libasc
+cp -f "$TOP_PATH"/training/tf_rec_v1/src/build/pybind/*.so ./libasc
 cp -f "$TOP_PATH"/training/common/src/build/pybind/*.so ./libasc
 cp -f "$TOP_PATH"/cust_op/framework/tf_plugin/build/src/*.so ./libasc
 cd -
