@@ -25,10 +25,15 @@ if [ $ARCH == "aarch64" ]; then
   export LD_PRELOAD=/usr/local/gcc7.3.0/lib64/libgomp.so.1
 fi
 
+# 配置tf1路径
+[ -e /opt/buildtools/tf1_env/bin/activate ] && source /opt/buildtools/tf1_env/bin/activate
+TF1_PATH=$(dirname "$(dirname "$(which python3.7)")")/lib/python3.7/site-packages/tensorflow_core
+[ -e /opt/buildtools/tf1_env/bin/activate ] && deactivate tf1_env
+
 cd "$TOP_PATH"/training/common/src
 
 # build Rec SDK and get output directory
-bash "$TOP_PATH"/training/common/src/build.sh
+bash "$TOP_PATH"/training/common/src/build.sh "$TF1_PATH" "$TOP_PATH"
 
 # create libasc directory and copy so files into it
 mkdir -p lib
