@@ -179,8 +179,6 @@ def execute(rank: int, config: ExecuteConfig):
     if not enable_admit and enable_evict:
         test_result_golden = test_model.cpu_golden_loss(embedding_configs, data_loader_golden, evict_threshold, rank)
     test_results = test_model.test_loss(embedding_configs, data_loader, sharding_type, enable_evict, training=True)
-    # if enable_admit and not enable_evict:
-    #     _check_admit_key_count(data_loader_golden, embedding_configs, rank)
 
     # load
     test_model.test_loss(embedding_configs, data_loader_golden, sharding_type, enable_evict, training=False)
@@ -329,11 +327,6 @@ class TestModel:
                 shutil.rmtree(save_dir, ignore_errors=True)
             os.makedirs(save_dir, exist_ok=True) 
 
-        #     saver = Saver(rank=rank)
-        #     saver.save(ddp_model, _SAVE_PATH)
-        # else:
-        #     saver = Saver(rank=rank)
-        #     saver.load(ddp_model, _SAVE_PATH)
         return results
 
     def _record_timestamp_info_cpu(self, batch, table_num, batch_id):
