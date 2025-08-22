@@ -311,8 +311,8 @@ void EmbcacheManager::EvictFeatures()
         featureFilters[i].evictFeatureRecord_.SetSwapCount(swapCount_);
         evictKeyCount += evictFeatures.size();
     }
-    LOG_INFO("EvictFeatures execution time : {} ms, all table evictKeyCount : {}", 
-             evictFeaturesTC.ElapsedMS(), evictKeyCount);
+    LOG_INFO("EvictFeatures execution time : {} ms, all table evictKeyCount : {}", evictFeaturesTC.ElapsedMS(),
+             evictKeyCount);
 }
 
 void EmbcacheManager::RecordEmbeddingUpdateTimes()
@@ -381,7 +381,7 @@ void EmbcacheManager::StatisticsKeyCount(const at::Tensor& batchKeys, const torc
     bool isCountDataEmpty = batchKeyCounts.numel() == 0;
     if (!isCountDataEmpty) {
         TORCH_CHECK(batchKeys.numel() == batchKeyCounts.numel(), 
-        "batchKeys length should equal with batchKeyCounts length when batchKeyCounts is not empty.")
+                    "batchKeys length should equal with batchKeyCounts length when batchKeyCounts is not empty.")
     }
     auto* featureDataPtr = batchKeys.data_ptr<int64_t>();
     auto* countDataPtr = batchKeyCounts.data_ptr<int64_t>();
