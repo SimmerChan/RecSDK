@@ -33,16 +33,16 @@ from torchrec.distributed.planner import (
 from torchrec.distributed.types import ShardingEnv
 from torchrec.optim.keyed import CombinedOptimizer
 
-from dataset import RandomRecDataset, Batch
-from model import ModelEc as Model
-from util import setup_logging
-
 from torchrec_embcache.distributed.embedding import EmbCacheEmbeddingCollection
 from torchrec_embcache.distributed.configs import (EmbCacheEmbeddingConfig,
                                                    AdmitAndEvictConfig)
 from torchrec_embcache.distributed.train_pipeline import EmbCacheTrainPipelineSparseDist
 from torchrec_embcache.distributed.sharding.embedding_sharder import EmbCacheEmbeddingCollectionSharder
 from torchrec_embcache.sparse.jagged_tensor_with_timestamp import KeyedJaggedTensorWithTimestamp
+
+from dataset import RandomRecDataset, Batch
+from model import ModelEc as Model
+from util import setup_logging
 
 _SAVE_PATH = "save_dir/sparse"
 
