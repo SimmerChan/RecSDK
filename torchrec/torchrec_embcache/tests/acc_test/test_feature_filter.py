@@ -32,7 +32,6 @@ from torchrec.distributed.planner import (
 )
 from torchrec.distributed.types import ShardingEnv
 from torchrec.optim.keyed import CombinedOptimizer
-
 from torchrec_embcache.distributed.embedding import EmbCacheEmbeddingCollection
 from torchrec_embcache.distributed.configs import (EmbCacheEmbeddingConfig,
                                                    AdmitAndEvictConfig)
