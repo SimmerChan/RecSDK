@@ -39,6 +39,7 @@ from torchrec.distributed.planner import (
 from torchrec.distributed.types import ShardingEnv
 from torchrec.optim.keyed import CombinedOptimizer
 
+# 本地导入应该放在第三方库导入之后
 from dataset import RandomRecDataset, Batch
 from model import ModelEc as Model
 from util import setup_logging

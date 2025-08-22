@@ -31,7 +31,7 @@ public:
     void CountFilter(int64_t* featureDataPtr, int64_t startIndex, int64_t endIndex);
     void RecordTimestamp(const int64_t* featureDataPtr, int64_t startIndex, int64_t endIndex,
                          const int64_t* timestampDataPtr);
-    void FeatureEvict(); 
+    void FeatureEvict();
 
     // 要从embTable中删除的key信息，待lookup执行到和GetSwapInfo相同步数后删除key对应emb
     EvictFeatureRecord evictFeatureRecord_;

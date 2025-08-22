@@ -360,7 +360,7 @@ void EmbcacheManager::RemoveEmbeddingTableInfo()
         }
 
         embeddingTables_[i]->RemoveEmbedding(keys);
-        LOG_INFO("Remove table embedding info, table : {}, remove key size : {}, detail keys : {}", 
+        LOG_INFO("Remove table embedding info, table : {}, remove key size : {}, detail keys : {}",
                  embConfigs_[i].tableName, keys.size(), StringTools::ToString(keys));
         featureFilters[i].evictFeatureRecord_.ClearEvictInfo();
     }
@@ -370,7 +370,7 @@ void EmbcacheManager::RemoveEmbeddingTableInfo()
 void EmbcacheManager::StatisticsKeyCount(const at::Tensor& batchKeys, const torch::Tensor& offset,
                                          const at::Tensor& batchKeyCounts, int64_t tableIndex)
 {
-    LOG_INFO("StatisticsKeyCount, tableIndex : {}, isAdmit : {}", 
+    LOG_INFO("StatisticsKeyCount, tableIndex : {}, isAdmit : {}",
              tableIndex, embConfigs_[tableIndex].admitAndEvictConfig.IsAdmitEnabled());
     if (!embConfigs_[tableIndex].admitAndEvictConfig.IsAdmitEnabled()) {
         return;
@@ -380,7 +380,7 @@ void EmbcacheManager::StatisticsKeyCount(const at::Tensor& batchKeys, const torc
     // 未开启local unique时，counts为空tensor，处理时默认key对应count为1
     bool isCountDataEmpty = batchKeyCounts.numel() == 0;
     if (!isCountDataEmpty) {
-        TORCH_CHECK(batchKeys.numel() == batchKeyCounts.numel(), 
+        TORCH_CHECK(batchKeys.numel() == batchKeyCounts.numel(),
                     "batchKeys length should equal with batchKeyCounts length when batchKeyCounts is not empty.")
     }
     auto* featureDataPtr = batchKeys.data_ptr<int64_t>();
