@@ -173,16 +173,16 @@ def test_dense_to_jagged_edge_cases(dims, types):
 
     # 测试output_size为0的情况
     with pytest.raises(RuntimeError):
-        result = get_result(torch.device(DEVICE), denses, offsets, types, 0)
+        get_result(torch.device(DEVICE), denses, offsets, types, 0)
 
     # 测试output_size为负数的情况
     with pytest.raises(RuntimeError):
-        result = get_result(torch.device(DEVICE), denses, offsets, types, -1)
+        get_result(torch.device(DEVICE), denses, offsets, types, -1)
 
     # 测试大于actual_size的output_size情况
     with pytest.raises(RuntimeError):
-        result = get_result(torch.device(DEVICE), denses, offsets, types, actual_size + 10)
+        get_result(torch.device(DEVICE), denses, offsets, types, actual_size + 10)
 
     # 测试小于actual_size的output_size情况
     with pytest.raises(RuntimeError):
-        result = get_result(torch.device(DEVICE), denses, offsets, types, max(1, actual_size - 10))
+        get_result(torch.device(DEVICE), denses, offsets, types, max(1, actual_size - 10))
