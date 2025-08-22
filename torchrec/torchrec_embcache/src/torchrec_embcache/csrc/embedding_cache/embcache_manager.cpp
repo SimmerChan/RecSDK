@@ -51,7 +51,7 @@ EmbcacheManager::EmbcacheManager(const std::vector<EmbConfig>& embConfigs, bool 
 
         if (embConfigs[i].admitAndEvictConfig.IsFeatureFilterEnabled()) {
             auto& aaeConfig = embConfigs[i].admitAndEvictConfig;
-            featureFilters.emplace_back(FeatureFilter(embConfigs[i].tableName, aaeConfig.admitThreshold,
+            featureFilters_.emplace_back(FeatureFilter(embConfigs[i].tableName, aaeConfig.admitThreshold,
                                                       aaeConfig.evictThreshold, aaeConfig.evictStepInterval));
         }
     }
@@ -102,7 +102,7 @@ SwapInfo EmbcacheManager::ComputeSwapInfo(const at::Tensor& batchKeys, const std
     for (int64_t i = 0; i < curTableIndices.size(); i++) {
         int64_t idx = curTableIndices[i];
         if (embConfigs_[idx].admitAndEvictConfig.IsAdmitEnabled()) {
-            featureFilters[idx].CountFilter(keyPtr, offsetPerKey[i], offsetPerKey[i + 1]);
+            featureFilters_[idx].CountFilter(keyPtr, offsetPerKey[i], offsetPerKey[i + 1]);
         }
 
         // 取出每个表的 key
@@ -286,7 +286,7 @@ void EmbcacheManager::RecordTimestamp(const at::Tensor& batchKeys, const std::ve
     for (int64_t i = 0; i < embNum_; ++i) {
         int32_t idx = curTableIndices[i];
         if (embConfigs_[idx].admitAndEvictConfig.IsEvictEnabled()) {
-            featureFilters[idx].RecordTimestamp(keyPtr, offsetPerKey[i], offsetPerKey[i + 1], timestampsPtr);
+            featureFilters_[idx].RecordTimestamp(keyPtr, offsetPerKey[i], offsetPerKey[i + 1], timestampsPtr);
         }
     }
     LOG_INFO("RecordTimestamp execution time: {} ms", recordTimestampTC.ElapsedMS());
@@ -304,11 +304,11 @@ void EmbcacheManager::EvictFeatures()
         }
 
         // 获取当前表要淘汰的keys
-        const std::vector<int64_t>& evictFeatures = featureFilters[i].evictFeatureRecord_.GetEvictKeys();
+        const std::vector<int64_t>& evictFeatures = featureFilters_[i].evictFeatureRecord_.GetEvictKeys();
         // 调用swapManager删除映射信息
         // 删除embeddingTables中的embedding待对应step的swap out emb update执行完成后触发
         swapManagers_[i].RemoveKeys(evictFeatures);
-        featureFilters[i].evictFeatureRecord_.SetSwapCount(swapCount_);
+        featureFilters_[i].evictFeatureRecord_.SetSwapCount(swapCount_);
         evictKeyCount += evictFeatures.size();
     }
     LOG_INFO("EvictFeatures execution time : {} ms, all table evictKeyCount : {}", evictFeaturesTC.ElapsedMS(),
@@ -340,8 +340,8 @@ bool EmbcacheManager::NeedEvictEmbeddingTable()
             continue;
         }
         // 待删除embTable的keys非空且达到和GetSwapInfo相同的步数
-        if (!featureFilters[i].evictFeatureRecord_.GetEvictKeys().empty() &&
-            featureFilters[i].evictFeatureRecord_.CanRemoveFromEmbTable(embUpdateCount_)) {
+        if (!featureFilters_[i].evictFeatureRecord_.GetEvictKeys().empty() &&
+            featureFilters_[i].evictFeatureRecord_.CanRemoveFromEmbTable(embUpdateCount_)) {
             return true;
         }
     }
@@ -353,7 +353,7 @@ void EmbcacheManager::RemoveEmbeddingTableInfo()
     LOG_INFO("Start invoke RemoveEmbeddingTableInfo, embUpdateCount_: {}", embUpdateCount_);
     TimeCost removeEmbeddingTableTC;
     for (int32_t i = 0; i < embNum_; ++i) {
-        auto& keys = featureFilters[i].evictFeatureRecord_.GetEvictKeys();
+        auto& keys = featureFilters_[i].evictFeatureRecord_.GetEvictKeys();
         if (keys.empty()) {
             LOG_INFO("Feature keys list is empty, skip to remove embedding from table: {}", embConfigs_[i].tableName);
             continue;
@@ -362,7 +362,7 @@ void EmbcacheManager::RemoveEmbeddingTableInfo()
         embeddingTables_[i]->RemoveEmbedding(keys);
         LOG_INFO("Remove table embedding info, table : {}, remove key size : {}, detail keys : {}",
                  embConfigs_[i].tableName, keys.size(), StringTools::ToString(keys));
-        featureFilters[i].evictFeatureRecord_.ClearEvictInfo();
+        featureFilters_[i].evictFeatureRecord_.ClearEvictInfo();
     }
     LOG_INFO("RemoveEmbeddingTableInfo execution time: {} ms", removeEmbeddingTableTC.ElapsedMS());
 }
@@ -389,5 +389,5 @@ void EmbcacheManager::StatisticsKeyCount(const at::Tensor& batchKeys, const torc
     int64_t start = offsetDataPtr[tableIndex];
     int64_t end = offsetDataPtr[tableIndex + 1];
     TORCH_CHECK(end <= batchKeys.numel())
-    featureFilters[tableIndex].StatisticsKeyCount(featureDataPtr, countDataPtr, start, end, isCountDataEmpty);
+    featureFilters_[tableIndex].StatisticsKeyCount(featureDataPtr, countDataPtr, start, end, isCountDataEmpty);
 }

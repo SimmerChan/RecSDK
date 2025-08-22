@@ -130,7 +130,7 @@ private:
     std::vector<EmbConfig> embConfigs_;
     std::vector<SwapManager> swapManagers_;
     std::vector<std::unique_ptr<EmbTable>> embeddingTables_;
-    std::vector<FeatureFilter> featureFilters;
+    std::vector<FeatureFilter> featureFilters_;
 
     uint64_t swapCount_ = 0;       // ComputeSwapInfo 执行次数
     uint64_t embUpdateCount_ = 0;  // EmbeddingUpdate 执行次数
