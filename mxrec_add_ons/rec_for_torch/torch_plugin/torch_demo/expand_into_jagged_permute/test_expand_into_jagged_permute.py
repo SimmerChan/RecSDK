@@ -15,15 +15,330 @@
 # limitations under the License.
 # ==============================================================================
 import itertools
-import logging
+import random
 import sysconfig
 
 import pytest
+import torch
+import torch_npu
 import fbgemm_gpu
 import numpy as np
-import torch_npu
-import torch
 
+# 定义用到的卡以及so库的位置
 DEVICE = "npu:0"
-logging.getLogger().setLevel(logging.INFO)
 torch.ops.load_library(f"{sysconfig.get_path('purelib')}/libfbgemm_npu_api.so")
+
+# 定义参数数据类型
+PERMUTE_TYPE = [np.int32, np.int64]
+OFFSET_TYPE = [np.int32, np.int64]
+TYPE_LIST = list(itertools.product(PERMUTE_TYPE, OFFSET_TYPE))
+
+def get_expand_into_jagged_permute_result(tensors: dict, device: str = 'cpu'):
+    tensors = {k: torch.from_numpy(v) if isinstance(v, np.ndarray) else v for k, v in tensors.items()}
+
+    # 根据device类型进行npu转换
+    if device and device.startswith('npu'):
+        torch.npu.set_device(device)
+        tensors = {k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in tensors.items()}
+
+    result = torch.ops.fbgemm.expand_into_jagged_permute(
+        tensors['permute'],
+        tensors['input_offsets'],
+        tensors['output_offsets'],
+        tensors['output_size']
+    )
+
+    if device and device.startswith('npu'):
+        torch_npu.npu.synchronize()
+    return result.cpu() if isinstance(result, torch.Tensor) else result
+
+def generate_test_data(num_features, max_batch_size):
+    """生成测试数据"""
+    # 生成特征级别的permute
+    permute = np.random.permutation(num_features).astype(np.int32)
+
+    # 生成输入长度和偏移量（特征级别的长度）
+    input_lengths = np.random.randint(1, max_batch_size + 1, size=num_features)
+    input_offsets = np.concatenate([[0], np.cumsum(input_lengths)]).astype(np.int32)
+
+    # 生成输出长度和偏移量（特征级别的permuted长度）
+    permuted_lengths = input_lengths[permute]
+    output_offsets = np.concatenate([[0], np.cumsum(permuted_lengths)]).astype(np.int32)
+
+    # 计算输出大小
+    output_size = np.sum(permuted_lengths)
+
+    return {
+        'permute': permute,
+        'input_offsets': input_offsets,
+        'output_offsets': output_offsets,
+        'output_size': output_size,
+        'input_lengths': input_lengths,
+        'permuted_lengths': permuted_lengths
+    }
+
+@pytest.mark.parametrize("types", TYPE_LIST)
+def test_expand_into_jagged_permute_basic(types):
+    """测试基本功能"""
+    ptype, otype = types
+
+    # 简单测试用例
+    permute = np.array([2, 0, 1], dtype=ptype)  # 3个特征
+    input_lengths = np.array([3, 4, 2])  # 特征长度: [3, 4, 2]
+    input_offsets = np.array([0, 3, 7, 9], dtype=otype)  # 包含起始0和结束值
+
+    # permuted后长度: [2, 3, 4] (对应特征2, 0, 1)
+    permuted_lengths = np.array([2, 3, 4])
+    output_offsets = np.array([0, 2, 5, 9], dtype=otype)  # 包含起始0和所有累加值
+    output_size = 9  # 2 + 3 + 4
+
+    # 验证条件: permute.numel() == input_offsets.numel() - 1
+    assert len(permute) == len(input_offsets) - 1, f"permute: {len(permute)}, input_offsets: {len(input_offsets)}"
+
+    params = {
+        'permute': permute,
+        'input_offsets': input_offsets,
+        'output_offsets': output_offsets,
+        'output_size': output_size
+    }
+
+    golden = get_expand_into_jagged_permute_result(params)
+    result = get_expand_into_jagged_permute_result(params, DEVICE)
+
+    # 验证结果类型和形状
+    assert isinstance(result, torch.Tensor)
+    assert result.shape[0] == output_size
+    assert result.dtype == torch.int32 or result.dtype == torch.int64
+
+    # 验证结果值
+    expected = np.array([
+        # 特征2的batch: 0-1 (对应原始位置7-8)
+        7, 8,
+        # 特征0的batch: 0-2 (对应原始位置0-2)
+        0, 1, 2,
+        # 特征1的batch: 0-3 (对应原始位置3-6)
+        3, 4, 5, 6
+    ], dtype=ptype)
+
+    assert torch.allclose(result, torch.from_numpy(expected))
+
+@pytest.mark.parametrize("num_features", [10, 50, 100])
+@pytest.mark.parametrize("max_batch_size", [5, 20, 50])
+def test_expand_into_jagged_permute_random(num_features, max_batch_size):
+    """测试随机生成的测试用例"""
+    test_data = generate_test_data(num_features, max_batch_size)
+
+    # 验证条件
+    assert len(test_data['permute']) == len(test_data['input_offsets']) - 1
+
+    params = {
+        'permute': test_data['permute'],
+        'input_offsets': test_data['input_offsets'],
+        'output_offsets': test_data['output_offsets'],
+        'output_size': test_data['output_size']
+    }
+
+    golden = get_expand_into_jagged_permute_result(params)
+    result = get_expand_into_jagged_permute_result(params, DEVICE)
+
+    # 验证结果类型和形状
+    assert isinstance(result, torch.Tensor)
+    assert result.shape[0] == test_data['output_size']
+
+    # 验证结果值的一致性
+    assert torch.allclose(golden, result)
+
+def test_expand_into_jagged_permute_large_input():
+    """测试非常大的输入情况"""
+    num_features = 10000
+    max_batch_size = 100
+
+    test_data = generate_test_data(num_features, max_batch_size)
+
+    # 验证条件
+    assert len(test_data['permute']) == len(test_data['input_offsets']) - 1
+
+    params = {
+        'permute': test_data['permute'],
+        'input_offsets': test_data['input_offsets'],
+        'output_offsets': test_data['output_offsets'],
+        'output_size': test_data['output_size']
+    }
+
+    golden = get_expand_into_jagged_permute_result(params)
+    result = get_expand_into_jagged_permute_result(params, DEVICE)
+
+    assert torch.allclose(golden, result)
+
+def test_expand_into_jagged_permute_empty_input():
+    """测试空输入的情况"""
+    # 对于空输入，permute应该为空，input_offsets应该为[0]
+    params = {
+        'permute': np.array([], dtype=np.int32),
+        'input_offsets': np.array([0], dtype=np.int32),  # 空输入的偏移量应该是[0]
+        'output_offsets': np.array([0], dtype=np.int32),  # 空输出的偏移量应该是[0]
+        'output_size': 0
+    }
+
+    # 验证条件: 0 == 1 - 1
+    assert len(params['permute']) == len(params['input_offsets']) - 1
+
+    golden = get_expand_into_jagged_permute_result(params)
+    result = get_expand_into_jagged_permute_result(params, DEVICE)
+
+    assert result.shape[0] == 0
+    assert torch.allclose(golden, result)
+
+def test_expand_into_jagged_permute_invalid_output_size():
+    """测试输出大小不匹配的情况"""
+    permute = np.array([0, 1], dtype=np.int32)
+    input_lengths = np.array([2, 3])  # 特征长度: [2, 3]
+    input_offsets = np.array([0, 2, 5], dtype=np.int32)
+
+    # permuted后长度: [2, 3] (恒等permute)
+    output_offsets = np.array([0, 2, 5], dtype=np.int32)
+    output_size = 4  # 实际应该是5 (2+3)
+
+    # 验证条件
+    assert len(permute) == len(input_offsets) - 1
+
+    params = {
+        'permute': permute,
+        'input_offsets': input_offsets,
+        'output_offsets': output_offsets,
+        'output_size': output_size
+    }
+
+    with pytest.raises(RuntimeError):
+        result = get_expand_into_jagged_permute_result(params, DEVICE)
+
+def test_expand_into_jagged_permute_mismatched_offsets():
+    """测试偏移量不匹配的情况"""
+    permute = np.array([0, 1], dtype=np.int32)
+    input_offsets = np.array([0, 2, 5], dtype=np.int32)    # 特征长度: [2, 3]
+    output_offsets = np.array([0, 1, 3], dtype=np.int32)   # 错误的偏移量
+    output_size = 5
+
+    # 验证条件
+    assert len(permute) == len(input_offsets) - 1
+
+    params = {
+        'permute': permute,
+        'input_offsets': input_offsets,
+        'output_offsets': output_offsets,
+        'output_size': output_size
+    }
+
+    with pytest.raises(RuntimeError):
+        result = get_expand_into_jagged_permute_result(params, DEVICE)
+
+def test_expand_into_jagged_permute_non_monotonic_offsets():
+    """测试非单调递增偏移量"""
+    permute = np.array([0, 1], dtype=np.int32)
+    input_offsets = np.array([0, 2, 5], dtype=np.int32)
+    output_offsets = np.array([0, 3, 2], dtype=np.int32)  # 非单调递增
+    output_size = 5
+
+    # 验证条件
+    assert len(permute) == len(input_offsets) - 1
+
+    params = {
+        'permute': permute,
+        'input_offsets': input_offsets,
+        'output_offsets': output_offsets,
+        'output_size': output_size
+    }
+
+    with pytest.raises(RuntimeError):
+        result = get_expand_into_jagged_permute_result(params, DEVICE)
+
+def test_expand_into_jagged_permute_size_mismatch():
+    """测试permute和input_offsets大小不匹配的情况"""
+    permute = np.array([0, 1, 2], dtype=np.int32)  # 3个元素
+    input_offsets = np.array([0, 2, 5], dtype=np.int32)  # 3个元素，但需要4个元素才能匹配
+
+    params = {
+        'permute': permute,
+        'input_offsets': input_offsets,
+        'output_offsets': np.array([0, 2, 5], dtype=np.int32),
+        'output_size': 5
+    }
+
+    with pytest.raises(RuntimeError):
+        result = get_expand_into_jagged_permute_result(params, DEVICE)
+
+def test_expand_into_jagged_permute_2d_input():
+    """测试输入为2D的情况"""
+    params = {
+        'permute': np.array([[0, 1], [1, 0]], dtype=np.int32),  # 2D permute
+        'input_offsets': np.array([0, 2, 5], dtype=np.int32),
+        'output_offsets': np.array([0, 2, 5], dtype=np.int32),
+        'output_size': 5
+    }
+
+    with pytest.raises(RuntimeError):
+        result = get_expand_into_jagged_permute_result(params, DEVICE)
+
+def test_expand_into_jagged_permute_dtype_mismatch():
+    """测试数据类型不匹配的情况"""
+    params = {
+        'permute': np.array([0, 1], dtype=np.int32),
+        'input_offsets': np.array([0, 2, 5], dtype=np.int64),  # 数据类型不匹配
+        'output_offsets': np.array([0, 2, 5], dtype=np.int32),
+        'output_size': 5
+    }
+
+    with pytest.raises(RuntimeError):
+        result = get_expand_into_jagged_permute_result(params, DEVICE)
+
+def test_expand_into_jagged_permute_identity_permute():
+    """测试恒等permute的情况"""
+    num_features = 5
+    permute = np.arange(num_features, dtype=np.int32)  # 恒等permute
+    input_lengths = np.array([2, 3, 4, 1, 2], dtype=np.int32)
+    input_offsets = np.concatenate([[0], np.cumsum(input_lengths)]).astype(np.int32)
+
+    # 恒等permute，输出偏移量与输入相同
+    output_offsets = input_offsets.copy()
+    output_size = np.sum(input_lengths)
+
+    # 验证条件
+    assert len(permute) == len(input_offsets) - 1
+
+    params = {
+        'permute': permute,
+        'input_offsets': input_offsets,
+        'output_offsets': output_offsets,
+        'output_size': output_size
+    }
+
+    golden = get_expand_into_jagged_permute_result(params)
+    result = get_expand_into_jagged_permute_result(params, DEVICE)
+
+    # 恒等permute时，输出应该是连续的索引
+    expected = np.arange(output_size, dtype=np.int32)
+    assert torch.allclose(result, torch.from_numpy(expected))
+
+def test_expand_into_jagged_permute_single_feature():
+    """测试单特征的情况"""
+    permute = np.array([0], dtype=np.int32)
+    input_offsets = np.array([0, 5], dtype=np.int32)  # 单个特征有5个batch
+    output_offsets = np.array([0, 5], dtype=np.int32)
+    output_size = 5
+
+    # 验证条件: 1 == 2 - 1
+    assert len(permute) == len(input_offsets) - 1
+
+    params = {
+        'permute': permute,
+        'input_offsets': input_offsets,
+        'output_offsets': output_offsets,
+        'output_size': output_size
+    }
+
+    golden = get_expand_into_jagged_permute_result(params)
+    result = get_expand_into_jagged_permute_result(params, DEVICE)
+
+    # 单特征时，输出应该是0-4
+    expected = np.arange(5, dtype=np.int32)
+    assert torch.allclose(result, torch.from_numpy(expected))
