@@ -152,6 +152,7 @@ ARG KERNEL_PKG=Ascend-cann-kernels*.run
 # 11.安装ascend-toolkit和kernels算子包
 RUN umask 0027 && \
     mkdir -p $ASCEND_BASE/driver && \
+    chmod 755 $ASCEND_BASE && \
     /usr/bin/cp -f version.info $ASCEND_BASE/driver/ && \
     /usr/bin/cp -f ascend_install.info /etc/ && \
     chmod +x $TOOLKIT_PKG && \
