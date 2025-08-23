@@ -17,7 +17,7 @@ using torch::autograd::Variable;
 using tensor_list = std::vector<at::Tensor>;
 using namespace at;
 
-void check_tensor_non_empty(const Tensor &tensor, const std::string &name)
+void check_tensor_not_empty(const Tensor &tensor, const std::string &name)
 {
     TORCH_CHECK(tensor.defined(), name, " tensor must be defined");
     TORCH_CHECK(tensor.numel() > 0, name, " tensor must be non-empty");
@@ -30,9 +30,9 @@ void validate_expand_into_jagged_permute_inputs(
     const int64_t output_size)
 {
     // ============= 空值检查 =============
-    check_tensor_non_empty(permute, "permute");
-    check_tensor_non_empty(input_offset, "input_offset");
-    check_tensor_non_empty(output_offsets, "output_offsets");
+    check_tensor_not_empty(permute, "permute");
+    check_tensor_not_empty(input_offset, "input_offset");
+    check_tensor_not_empty(output_offsets, "output_offsets");
 
     // 1. 校验inputOffset和outputOffset的shape要相同
     TORCH_CHECK(input_offset.sizes().equals(output_offsets.sizes()),
