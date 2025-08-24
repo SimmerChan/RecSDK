@@ -161,3 +161,4 @@ Rec SDK框架基础镜像，基于TensorFlow 1.15.0、tensorflow2.6.5制作的�
 1. https://www.hiascend.com/developer/ascendhub/detail/rec_sdk-tf1
 
 2. https://www.hiascend.com/developer/ascendhub/detail/rec_sdk-tf2
+test
