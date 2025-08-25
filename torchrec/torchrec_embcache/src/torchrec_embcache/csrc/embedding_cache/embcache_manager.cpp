@@ -51,8 +51,11 @@ EmbcacheManager::EmbcacheManager(const std::vector<EmbConfig>& embConfigs, bool 
 
         if (embConfigs[i].admitAndEvictConfig.IsFeatureFilterEnabled()) {
             auto& aaeConfig = embConfigs[i].admitAndEvictConfig;
-            featureFilters_.emplace_back(FeatureFilter(embConfigs[i].tableName, aaeConfig.admitThreshold,
-                                                      aaeConfig.evictThreshold, aaeConfig.evictStepInterval));
+            featureFilters_.emplace_back(
+                FeatureFilter(embConfigs[i].tableName,
+                              aaeConfig.admitThreshold,
+                              aaeConfig.evictThreshold,
+                              aaeConfig.evictStepInterval));
         }
     }
     TORCH_CHECK(embConfigs.size() > 0, "ERROR, Size of embConfigs must > 0")
