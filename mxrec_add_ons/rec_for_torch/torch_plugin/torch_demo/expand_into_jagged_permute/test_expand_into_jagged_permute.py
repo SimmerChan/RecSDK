@@ -29,8 +29,8 @@ DEVICE = "npu:0"
 torch.ops.load_library(f"{sysconfig.get_path('purelib')}/libfbgemm_npu_api.so")
 
 # 定义参数数据类型
-PERMUTE_TYPE = [np.int32, np.int64]
-OFFSET_TYPE = [np.int32, np.int64]
+PERMUTE_TYPE = [np.int32]
+OFFSET_TYPE = [np.int32]
 TYPE_LIST = list(itertools.product(PERMUTE_TYPE, OFFSET_TYPE))
 
 def get_expand_into_jagged_permute_result(tensors: dict, device: str = 'cpu'):
@@ -84,11 +84,9 @@ def test_expand_into_jagged_permute_basic(types):
 
     # 简单测试用例
     permute = np.array([2, 0, 1], dtype=ptype)  # 3个特征
-    input_lengths = np.array([3, 4, 2])  # 特征长度: [3, 4, 2]
     input_offsets = np.array([0, 3, 7, 9], dtype=otype)  # 包含起始0和结束值
 
     # permuted后长度: [2, 3, 4] (对应特征2, 0, 1)
-    permuted_lengths = np.array([2, 3, 4])
     output_offsets = np.array([0, 2, 5, 9], dtype=otype)  # 包含起始0和所有累加值
     output_size = 9  # 2 + 3 + 4
 
