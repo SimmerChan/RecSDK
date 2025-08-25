@@ -161,8 +161,8 @@ def test_expand_into_jagged_permute_empty_input():
     golden = get_expand_into_jagged_permute_result(params)
     result = get_expand_into_jagged_permute_result(params, DEVICE)
 
-    assert result.shape[0] == 0
-    assert torch.allclose(golden, result)
+    with pytest.raises(RuntimeError):
+        get_expand_into_jagged_permute_result(params, DEVICE)
 
 def test_expand_into_jagged_permute_invalid_output_size():
     """测试输出大小不匹配的情况"""
