@@ -565,7 +565,7 @@ typedef void (*ReleaseHugeMem)(void*, bool);
  * @param tensor 要检查的张量
  * @param name 张量名称(用于错误信息)
  */
-inline void check_tensor_non_empty(const Tensor &tensor, const std::string &name)
+inline void check_tensor_non_empty(const at::Tensor& tensor, const std::string &name)
 {
     TORCH_CHECK(tensor.defined(), name, " tensor must be defined");
     TORCH_CHECK(tensor.numel() > 0, name, " tensor must be non-empty");
@@ -577,7 +577,7 @@ inline void check_tensor_non_empty(const Tensor &tensor, const std::string &name
  * @param expected_dim 期望的维度
  * @param name 张量名称(用于错误信息)
  */
-inline void check_tensor_dim(const Tensor &tensor, int64_t expected_dim, const std::string &name)
+inline void check_tensor_dim(const at::Tensor& tensor, int64_t expected_dim, const std::string &name)
 {
     TORCH_CHECK(tensor.dim() == expected_dim, name, " must be ", expected_dim, "D");
 }
