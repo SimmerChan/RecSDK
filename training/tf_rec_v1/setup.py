@@ -30,6 +30,7 @@ setup(
         where=".",
         include=["mx_rec*"]
     ),
+    install_requires=[f"rec_sdk_common=={args.version} @ file://../common/dist/rec_sdk_common-{args.version}-py3-none-any.whl"],
     # other file
     package_data={'': ['tools/*', 'tools/*/*', '*.yml', '*.sh', '*.so*']},
     # dependency
