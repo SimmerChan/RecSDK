@@ -158,9 +158,6 @@ def test_expand_into_jagged_permute_empty_input():
         'output_size': 0
     }
 
-    golden = get_expand_into_jagged_permute_result(params)
-    result = get_expand_into_jagged_permute_result(params, DEVICE)
-
     with pytest.raises(RuntimeError):
         get_expand_into_jagged_permute_result(params, DEVICE)
 
