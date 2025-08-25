@@ -37,7 +37,6 @@ from torchrec_embcache.distributed.utils import get_embedding_optim_num
 from torchrec_embcache.embcache_pybind import (
     EmbcacheManager,
     EmbConfig,
-    AdmitAndEvictConfig,
     AsyncSwapInfo,
     AsyncSwapinTensor,
     InitializerType as CppInitType,

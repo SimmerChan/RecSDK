@@ -45,7 +45,6 @@ from hybrid_torchrec.sparse.jagged_tensor_with_looup_helper import (
 )
 
 from torchrec_embcache.distributed.configs import (
-    AdmitAndEvictConfig as AdmitAndEvictConfigPy,
     EmbCacheEmbeddingConfig
 )
 from torchrec_embcache.distributed.sharding.rw_sequence_sharding import (
