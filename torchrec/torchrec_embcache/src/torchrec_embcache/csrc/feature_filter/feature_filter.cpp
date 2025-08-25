@@ -56,7 +56,7 @@ void FeatureFilter::FeatureEvict()
     auto tempEvictThreshold = static_cast<std::time_t>(evictThreshold_);
     for (const auto& iter : timestampRecordMap_) {
         auto feature = iter.first;
-        if (feature == -1) {
+        if (feature == INVALID_KEY) {
             continue;
         }
         if (latestTimestamp_ - iter.second > tempEvictThreshold) {
@@ -72,7 +72,7 @@ void FeatureFilter::FeatureEvict()
             featureRecordMap_.erase(feature);
         }
     }
-    LOG_DEBUG("The table name: {}, get evict keys size: {}", tableName_, evictKeys.size());
+    LOG_INFO("The table name: {}, get evict keys size: {}", tableName_, evictKeys.size());
 }
 
 const std::unordered_map<int64_t, FeatureRecord>& FeatureFilter::GetFeatureCountMap()

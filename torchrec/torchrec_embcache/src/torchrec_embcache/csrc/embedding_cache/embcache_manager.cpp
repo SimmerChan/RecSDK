@@ -378,7 +378,7 @@ void EmbcacheManager::StatisticsKeyCount(const at::Tensor& batchKeys, const torc
     if (!embConfigs_[tableIndex].admitAndEvictConfig.IsAdmitEnabled()) {
         return;
     }
-    TORCH_CHECK(offset.numel() > tableIndex, "param error, tableIndex need be smaller than offset length,"
+    TORCH_CHECK(offset.numel() > tableIndex + 1, "param error, tableIndex need be smaller than offset length,"
                                            " but got equal or greater than offset length.")
     // 未开启local unique时，counts为空tensor，处理时默认key对应count为1
     bool isCountDataEmpty = batchKeyCounts.numel() == 0;

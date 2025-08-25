@@ -105,6 +105,14 @@ class KeyedJaggedTensorWithTimestamp(KeyedJaggedTensor):
         Returns:
             KeyedJaggedTensorWithTimestamp: constructed KeyedJaggedTensorWithTimestamp.
         """
+        # 处理空字典的情况
+        if not jt_dict:
+            return KeyedJaggedTensorWithTimestamp(
+                keys=[],
+                values=torch.empty(0, dtype=torch.int64),
+                timestamps=torch.empty(0, dtype=torch.int64),
+            )
+            
         kjt_keys = list(jt_dict.keys())
         kjt_vals_list: List[torch.Tensor] = []
         kjt_timestamps_list: List[torch.Tensor] = []
