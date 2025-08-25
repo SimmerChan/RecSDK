@@ -57,6 +57,14 @@ class HDF5Dataset(Dataset):
         self.hdf5_path = hdf5_path
         self._load_hdf5()
 
+    def __len__(self):
+        return self._length
+
+    def __getitem__(self, idx):
+        input_dict = {k: v[idx] for k, v in self.input_sample.items()}
+        target_dict = {k: v[idx] for k, v in self.target_sample.items()}
+        return input_dict, target_dict
+
     def _load_hdf5(self):
         with h5py.File(self.hdf5_path, 'r') as f:
             self.input_sample = {}
@@ -72,14 +80,6 @@ class HDF5Dataset(Dataset):
         self.positive_indices = np.where(y == 1)[0]
         self.negative_indices = np.where(y == 0)[0]
         logger.info(f"load file {self.hdf5_path} finished")
-
-    def __len__(self):
-        return self._length
-
-    def __getitem__(self, idx):
-        input_dict = {k: v[idx] for k, v in self.input_sample.items()}
-        target_dict = {k: v[idx] for k, v in self.target_sample.items()}
-        return input_dict, target_dict
 
 
 class TorchDataSet(ConcatDataset):
