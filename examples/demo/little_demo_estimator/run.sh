@@ -59,6 +59,7 @@ if [ -n "$ip" ]; then
   fi
 fi
 
+
 cur_path=`pwd`
 rec_package_path="/usr/local/python3.7.5/lib/python3.7/site-packages/mx_rec" # please config
 so_path=${rec_package_path}/libasc
