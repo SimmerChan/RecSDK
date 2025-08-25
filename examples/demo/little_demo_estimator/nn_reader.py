@@ -15,7 +15,7 @@
 # limitations under the License.
 # ==============================================================================
 
-from mx_rec.util.communication.hccl_ops import get_rank_size
+from mx_rec_common.communication.hccl.hccl_info import get_rank_size
 from mx_rec.util.ops import import_host_pipeline_ops
 from mx_rec.core.asc.helper import get_asc_insert_func
 from mx_rec.util.initialize import ConfigInitializer

@@ -59,15 +59,16 @@ HOROVOD_WITH_MPI=1 HOROVOD_WITH_TENSORFLOW=1 pip3.7 install horovod --no-cache-d
 从昇腾开源社区直接获取编译打包后的产品包。解压后包含tf1和tf2两个版本的whl安装包，使用pip命令安装whl包（请根据实际需求，选取对应TensorFlow版本匹配的Wheel包）：
 ```shell
 pip3 install mx_rec-{version}-py3-none-linux_{arch}.whl
+pip3 install mx_rec_common-{version}-py3-none-linux_{arch}.whl
 ```
 
 Wheel包默认安装在Python的“site-packages”路径，如通过“--target”参数指定目录，在安装完成后需要将安装路径加入“PYTHONPATH”环境变量。
 
 ```shell
-export PYTHONPATH={rec_install_path}:{rec_install_path}/mx_rec:$PYTHONPATH
+export PYTHONPATH={rec_install_path}:{rec_install_path}/mx_rec:{rec_install_path}/mx_rec_common:$PYTHONPATH
 ```
 
-如需使用动态扩容功能，进入已解压的Rec SDK软件包“mindxsdk-mxrec/cust_op/cust_op_by_addr”目录中。参考以下命令编译并安装动态扩容算子包。
+如需使用动态扩容功能，进入已解压的Rec SDK软件包“mindxsdk-mxrec/cust_op/ascendc_op/ai_core_op/cust_op_by_addr/v220”目录中。参考以下命令编译并安装动态扩容算子包。
 ```shell
 bash run.sh
 ```
@@ -99,7 +100,7 @@ bash run.sh
 
 whl包安装参考前文二进制包安装。
 
-如需使用动态扩容功能，进入“./cust_op/cust_op_by_addr”目录，参考以下命令编译并安装动态扩容算子包。
+如需使用动态扩容功能，进入“./cust_op/ascendc_op/ai_core_op/cust_op_by_addr/v220”目录，参考以下命令编译并安装动态扩容算子包。
 ```shell
 bash run.sh
 ```
@@ -115,7 +116,7 @@ bash run.sh
 - pytest-cov 4.1.0
 - pytest-html
 
-如需使用python测试用例，需要先安装上述依赖以及能够在tf1环境下进行源码编译，然后进入tests目录中。参考以下命令执行python侧测试用例：
+如需使用python测试用例，需要先安装上述依赖以及能够在tf1环境下进行源码编译并安装好whl包，然后进入tests目录中。参考以下命令执行python侧测试用例：
 ```shell
 bash run_python_dt.sh
 ```
