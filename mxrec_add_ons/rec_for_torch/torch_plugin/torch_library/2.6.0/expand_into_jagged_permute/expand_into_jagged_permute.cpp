@@ -48,17 +48,7 @@ void validate_expand_into_jagged_permute_inputs(
                 "permute and output_offsets must have the same data type, but got permute: ",
                 permute.scalar_type(), " and output_offsets: ", output_offsets.scalar_type());
 
-    // 3. 校验outputOffset的值严格单调递增
-    if (output_offsets.numel() > 1) {
-        auto output_offsets_accessor = output_offsets.accessor<int64_t, 1>();
-        for (int64_t i = 1; i < output_offsets.numel(); ++i) {
-            TORCH_CHECK(output_offsets_accessor[i] > output_offsets_accessor[i-1],
-                        "output_offsets must be strictly monotonically increasing, but found ",
-                        output_offsets_accessor[i-1], " >= ", output_offsets_accessor[i], " at index ", i);
-        }
-    }
-
-    // 4. 校验outputOffset最后一个值等于output_size
+    // 3. 校验outputOffset最后一个值等于output_size
     if (output_offsets.numel() > 0) {
         auto last_offset = output_offsets[-1].item<int64_t>();
         TORCH_CHECK(last_offset == output_size,
