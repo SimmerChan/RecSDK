@@ -11,7 +11,6 @@ import torch
 
 from torch.autograd.profiler import record_function
 from torchrec.sparse.jagged_tensor import (
-    _pin_and_move,
     _permute_tensor_by_segments,
     _sum_by_splits,
     JaggedTensor,
@@ -106,36 +105,31 @@ class KeyedJaggedTensorWithCount(KeyedJaggedTensor):
         Returns:
             KeyedJaggedTensorWithCount: constructed KeyedJaggedTensorWithCount.
         """
-        kjt_keys = list(jt_dict.keys())
-        kjt_vals_list: List[torch.Tensor] = []
-        kjt_counts_list: List[torch.Tensor] = []
-        kjt_lens_list: List[torch.Tensor] = []
-        kjt_weights_list: List[torch.Tensor] = []
-        stride_per_key: List[int] = []
-        for jt in jt_dict.values():
-            stride_per_key.append(len(jt.lengths()))
-            kjt_vals_list.append(jt.values())
-            kjt_counts_list.append(jt.counts)
-            kjt_lens_list.append(jt.lengths())
-            weight = jt.weights_or_none()
-            if weight is not None:
-                kjt_weights_list.append(weight)
-        kjt_vals = torch.concat(kjt_vals_list)
-        kjt_lens = torch.concat(kjt_lens_list)
-
-        # handle custom attribute: counts
-        kjt_counts = (
-            torch.concat(kjt_counts_list) if len(kjt_counts_list) > 0 else None
-        )
-
+        # Handle empty dictionary case
+        if not jt_dict:
+            return KeyedJaggedTensorWithCount(
+                keys=[],
+                values=torch.empty(0, dtype=torch.int64),
+                counts=torch.empty(0, dtype=torch.int64),
+            )
+            
+        # Extract values, counts, lengths, and weights from the dictionary values
+        kjt_vals = torch.concat([jt.values() for jt in jt_dict.values()])
+        kjt_counts = torch.concat([jt.counts for jt in jt_dict.values()])
+        kjt_lens = torch.concat([jt.lengths() for jt in jt_dict.values()])
+        stride_per_key = [len(jt.lengths()) for jt in jt_dict.values()]
+        
+        # Concatenate weights if present
         kjt_weights = (
-            torch.concat(kjt_weights_list) if len(kjt_weights_list) > 0 else None
+            torch.concat([jt.weights() for jt in jt_dict.values() if jt.weights_or_none() is not None])
+            if any(jt.weights_or_none() is not None for jt in jt_dict.values())
+            else None
         )
-        kjt_stride, kjt_stride_per_key_per_rank = (
-            (stride_per_key[0], None)
-            if all(s == stride_per_key[0] for s in stride_per_key)
-            else (None, [[stride] for stride in stride_per_key])
-        )
+        # Determine stride and stride per key per rank
+        if all(s == stride_per_key[0] for s in stride_per_key):
+            kjt_stride, kjt_stride_per_key_per_rank = (stride_per_key[0], None)
+        else:
+            kjt_stride, kjt_stride_per_key_per_rank = (None, [[s] for s in stride_per_key])
         kjt = KeyedJaggedTensorWithCount(
             keys=kjt_keys,
             values=kjt_vals,

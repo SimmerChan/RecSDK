@@ -124,6 +124,11 @@ void FeatureFilter::StatisticsKeyCount(const int64_t* featureDataPtr, const int6
 void FeatureFilter::CountFilter(int64_t* featureDataPtr, int64_t startIndex, int64_t endIndex)
 {
     // 准入检查，将未准入的特征置为-1
+    // 解决数据类型不匹配问题：admitThreshold_为int32_t类型，当为负数时表示未开启准入功能
+    if (admitThreshold_ < 0) {
+        return;  // 未开启准入功能
+    }
+    
     auto thresholdCount = static_cast<uint64_t>(admitThreshold_);
     for (int64_t i = startIndex; i < endIndex; ++i) {
         auto feature = *(featureDataPtr + i);

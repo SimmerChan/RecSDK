@@ -280,13 +280,20 @@ void EmbcacheManager::RecordTimestamp(const at::Tensor& batchKeys, const std::ve
 {
     LOG_INFO("Start invoke mgmt RecordTimestamp");
     TimeCost recordTimestampTC;
+    
+    // 添加空指针检查
+    TORCH_CHECK(batchKeys.is_contiguous(), "batchKeys must be contiguous");
+    TORCH_CHECK(timestamps.is_contiguous(), "timestamps must be contiguous");
+    TORCH_CHECK(batchKeys.dtype() == torch::kInt64, "batchKeys must be of type int64_t");
+    TORCH_CHECK(timestamps.dtype() == torch::kInt64, "timestamps must be of type int64_t");
+    
     const auto* keyPtr = batchKeys.data_ptr<int64_t>();
     const auto* timestampsPtr = timestamps.data_ptr<int64_t>();
     const std::vector<int32_t>& curTableIndices = tableIndices.empty() ? embTableIndies_ : tableIndices;
     TORCH_CHECK(curTableIndices.size() + 1 == offsetPerKey.size(),
                 "tableIndices size+1 must be equal to offsetPerKey size");
 
-    for (int64_t i = 0; i < embNum_; ++i) {
+    for (size_t i = 0; i < curTableIndices.size(); ++i) {  // 修改类型为size_t以匹配curTableIndices.size()
         int32_t idx = curTableIndices[i];
         if (embConfigs_[idx].admitAndEvictConfig.IsEvictEnabled()) {
             featureFilters_[idx].RecordTimestamp(keyPtr, offsetPerKey[i], offsetPerKey[i + 1], timestampsPtr);
@@ -314,7 +321,7 @@ void EmbcacheManager::EvictFeatures()
         featureFilters_[i].evictFeatureRecord_.SetSwapCount(swapCount_);
         evictKeyCount += evictFeatures.size();
     }
-    LOG_INFO("EvictFeatures execution time : {} ms, all table evictKeyCount : {}", evictFeaturesTC.ElapsedMS(),
+    LOG_INFO("EvictFeatures execution time: {} ms, all table evictKeyCount: {}", evictFeaturesTC.ElapsedMS(),
              evictKeyCount);
 }
 
