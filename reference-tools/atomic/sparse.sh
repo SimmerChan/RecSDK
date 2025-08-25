@@ -21,7 +21,7 @@ case "$py" in
 esac
 
 export ALL2ALL=$5
-export HOST_PIPELINE_OPS_LIB_PATH=/usr/local/python3.7.5/lib/python3.7/site-packages/mx_rec/libasc/libasc_ops.so
+export HOST_PIPELINE_OPS_LIB_PATH=/usr/local/python3.7.5/lib/python3.7/site-packages/mx_rec/libasc/librecsdk_tf_npu_ops.so
 export EMPTY_TENSOR=1
 export ENABLE_RUNTIME_V2=0
 mpi_path=/usr/local/openmpi/bin/

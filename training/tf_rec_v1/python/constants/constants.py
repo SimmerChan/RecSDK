@@ -97,8 +97,8 @@ DELTA_MODEL = "delta"
 HDFS_FILE_PREFIX = ["viewfs://", "hdfs://"]
 
 # so包名称
-LIBASC_OPS_SO = "libasc_ops.so"
-LIBREC_CPU_SO = "libmxrec_cpu_ops.so"
+LIBREC_TF_NPU_OPS_SO = "librecsdk_tf_npu_ops.so"
+LIBREC_TF_REC_V1_CPU_SO = "librecsdk_tf_rec_v1_cpu_ops.so"
 LIBREC_EOS_OPS_SO = "librec_eos_ops.so"
 
 INVALID_CHARS = frozenset({

@@ -25,7 +25,7 @@ import tensorflow as tf
 from npu_bridge.npu_init import npu_config_proto
 import acl
 
-CUSTOM_OPS_SO = "libasc_ops.so"
+CUSTOM_OPS_SO = "librecsdk_tf_npu_ops.so"
 
 
 class MemcpyKind(Enum):

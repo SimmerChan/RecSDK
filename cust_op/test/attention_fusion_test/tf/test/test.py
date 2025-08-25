@@ -31,7 +31,7 @@ os.environ["ASCEND_DEVICE_ID"] = str(0)
 os.environ["JOB_ID"] = "10086"
 
 tf.compat.v1.disable_eager_execution()
-tfOpLib = tf.load_op_library("/usr/local/python3.7.5/lib/python3.7/site-packages/mx_rec/libasc/libasc_ops.so")
+tfOpLib = tf.load_op_library("/usr/local/python3.7.5/lib/python3.7/site-packages/mx_rec/libasc/librecsdk_tf_npu_ops.so")
 
 npu_device.compat.enable_v1()
 npu_init = npu_ops.initialize_system()

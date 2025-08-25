@@ -73,15 +73,15 @@ tar -zxvf Ascend-mindxsdk-hybrid-torchrec-1.1.0-*.tar.gz
 pip3 install hybrid_torchrec-1.1.0-*.whl
 
 # 安装算子
-tar -zxvf Ascend-mindxsdk-mxrec-add-ons-*.tar.gz
-cd mindxsdk-mxrec-add-ons/mxrec_ops/
+tar -zxvf Ascend-recsdk-npu-ops-*.tar.gz
+cd recsdk-npu-ops/recsdk_ops/
 bash mxrec_opp_backward_codegen_adagrad_unweighted_exact.run
 bash mxrec_opp_split_embedding_codegen_forward_unweighted.run
 bash mxrec_opp_asynchronous_complete_cumsum.run
 
 # 编译算子适配文件
 cd ../../
-cd mindxsdk-mxrec-add-ons/torch_plugin/torch_library/2.6.0/common
+cd recsdk-npu-ops/torch_plugin/torch_library/2.6.0/common
 bash build_ops.sh
 ```
 2.源码编译安装
@@ -103,9 +103,9 @@ bash build.sh
 # 进入打包文件
 cd ../../../RecSDK/mxrec_add_ons/output
 # 解压安装包
-tar -zvxf Ascend-mindxsdk-mxrec-add-ons-*.tar.gz
+tar -zvxf Ascend-recsdk-npu-ops-*.tar.gz
 # 进入算子目录
-cd mindxsdk-mxrec-add-ons/mxrec_ops
+cd recsdk-npu-ops/recsdk_ops
 # 安装算子--参考以上安装方法
 # 编译算子适配文件--参考以上编译方法
 ```

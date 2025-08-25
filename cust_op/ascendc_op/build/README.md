@@ -1,7 +1,7 @@
 ### 依赖组件准备
 部分算子依赖外部组件，编译前请将组件 [v3.9.1.tar.gz](https://github.com/nlohmann/json/archive/v3.9.1.tar.gz) 下载后放置于 RecSDK/cust_op/ascendc_op/build/scripts/onnx_plugin 目录
 
-### 编译生成 Ascend-mindxsdk-mxrec-add-ons-\*-linux-\*.tar.gz
+### 编译生成 Ascend-recsdk-npu-ops-\*-linux-\*.tar.gz
 ```
 cd RecSDK/cust_op/ascendc_op/build
 bash build_ai_core_op.sh [ver]
@@ -14,8 +14,8 @@ e.g. 'bash build_ai_core_op.sh v220'
 **安装方法**
 
 ```
-tar zxvf Ascend-mindxsdk-mxrec-add-ons-*-linux-*.tar.gz
-cd mindxsdk-mxrec-add-ons/mxrec_ops
+tar zxvf Ascend-recsdk-npu-ops-*-linux-*.tar.gz
+cd recsdk-npu-ops/recsdk_ops
 
 # 安装所需算子
 bash mxrec_opp_asynchronous_complete_cumsum.run

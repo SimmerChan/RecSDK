@@ -280,7 +280,7 @@ peer_mem = mxrec_pybind.get_peer_mem(rank_id, comm_server_rank_id, rank_size)
 
 # 加载算子库，用于调用lccl算子
 import tensorflow as tf
-ops_so = tf.load_op_library("/usr/local/python3.7.5/lib/python3.7/site-packages/mx_rec/libasc/libasc_ops.so")
+ops_so = tf.load_op_library("/usr/local/python3.7.5/lib/python3.7/site-packages/mx_rec/libasc/librecsdk_tf_npu_ops.so")
 
 # 构建单算子模型
 class WideDeep:

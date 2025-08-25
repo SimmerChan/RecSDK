@@ -67,7 +67,7 @@ function cp_op_plugin()
 function make_output_dir() {
     mxrec_output_path="${ASCENDC_OP_DIR}"/output
     output_path="${CUR_DIR}"/output
-    opp_output_path="${CUR_DIR}"/output/mxrec_ops
+    opp_output_path="${CUR_DIR}"/output/recsdk_ops
     mkdir -p "${mxrec_output_path}"
     mkdir -p "${output_path}"
     mkdir -p "${opp_output_path}"
@@ -123,7 +123,7 @@ function compile_ops() {
 
 function get_tar_pkg() {
     cd "${CUR_DIR}"
-    pkg_dir=mindxsdk-mxrec-add-ons
+    pkg_dir=recsdk-npu-ops
     release_tar=Ascend-"${pkg_dir}"-"${BUILD_VER}"-linux-"${ARCH}".tar.gz
     mkdir -p "${pkg_dir}"
 

@@ -29,7 +29,7 @@ import custom_pybind
 from custom_pybind import ShmInfo, HostMgmt
 from config import bind_cpu, sess_config, import_ops, format_size
 
-rma_ops = import_ops("libasc_ops.so")
+rma_ops = import_ops("librecsdk_tf_npu_ops.so")
 
 # 定义运行算子的Device ID
 device_id = int(os.environ.get("RMA_DEVICE_ID"))

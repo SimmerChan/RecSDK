@@ -135,7 +135,7 @@ peer_mem = mxrec_pybind.get_shm_mem(d2h_name_id, device_id, capacity)
 
 # 加载算子库，用于调用RmaSwapMultiTables算子
 import tensorflow as tf
-ops_so = tf.load_op_library("/usr/local/python3.7.5/lib/python3.7/site-packages/mx_rec/libasc/libasc_ops.so")
+ops_so = tf.load_op_library("/usr/local/python3.7.5/lib/python3.7/site-packages/mx_rec/libasc/librecsdk_tf_npu_ops.so")
 
 # 构建单算子模型
 class WideDeep:

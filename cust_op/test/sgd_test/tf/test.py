@@ -36,7 +36,7 @@ mx_rec_package_path = os.getenv('MX_REC_PACKAGE_PATH')
 if not mx_rec_package_path:
     raise EnvironmentError("please set env MX_REC_PACKAGE_PATH first")
 
-op_lib_path = os.path.join(mx_rec_package_path, "libasc", "libasc_ops.so")
+op_lib_path = os.path.join(mx_rec_package_path, "libasc", "librecsdk_tf_npu_ops.so")
 tfOpLib = tf.load_op_library(op_lib_path)
 
 
