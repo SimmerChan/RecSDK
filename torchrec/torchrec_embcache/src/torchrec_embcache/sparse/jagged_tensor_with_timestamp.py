@@ -286,9 +286,11 @@ class KeyedJaggedTensorWithTimestamp(KeyedJaggedTensor):
 
         permuted_length_per_key_sum = sum(permuted_length_per_key)
         if not torch.jit.is_scripting() and is_non_strict_exporting():
-            torch._check_is_size(permuted_length_per_key_sum)
-            torch._check(permuted_length_per_key_sum != -1)
-            torch._check(permuted_length_per_key_sum != 0)
+            # 使用公共API替代受保护成员的访问
+            if permuted_length_per_key_sum < 0:
+                raise ValueError("permuted_length_per_key_sum should not be negative")
+            if permuted_length_per_key_sum == 0:
+                raise ValueError("permuted_length_per_key_sum should not be zero")
 
         if self.variable_stride_per_key():
             length_per_key_tensor = _pin_and_move(
