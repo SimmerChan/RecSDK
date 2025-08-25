@@ -1,4 +1,4 @@
-# Copyright 2024. Huawei Technologies Co.,Ltd. All rights reserved.
+# Copyright 2025. Huawei Technologies Co.,Ltd. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,8 @@
 cmake_minimum_required(VERSION 3.12)
 set(CMAKE_CXX_STANDARD 14)
 
-file(GLOB_RECURSE MXREC_OP_SRC ./*.cpp)
-add_library(mxrec_cpu_ops SHARED ${MXREC_OP_SRC})
-target_link_libraries(mxrec_cpu_ops PUBLIC ASC)
-install(TARGETS mxrec_cpu_ops LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX})
+file(GLOB_RECURSE OP_TF_PLUGIN_SRC ./*.cpp)
+add_library(asc_ops SHARED ${OP_TF_PLUGIN_SRC})
+target_link_libraries(asc_ops PUBLIC ${TF_LIB})
+
+install(TARGETS asc_ops LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX})
