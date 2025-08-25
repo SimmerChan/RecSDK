@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 # Copyright 2025. Huawei Technologies Co.,Ltd. All rights reserved.
 
+import os
 import logging
 import random
 import sysconfig
@@ -42,7 +43,7 @@ TORCH_POOLING_MODE_TO_NN = {
 
 TORCH_OPTIMIZER_TO_FBGEMM = {
     SparseAdam: EmbOptimType.ADAM,
-    Adam: EmbOptimType.Adam,
+    Adam: EmbOptimType.ADAM,
     Adagrad: EmbOptimType.EXACT_ADAGRAD,
     SGD: EmbOptimType.EXACT_SGD
 }
