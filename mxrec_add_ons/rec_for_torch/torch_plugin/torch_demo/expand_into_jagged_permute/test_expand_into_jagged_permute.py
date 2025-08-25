@@ -15,7 +15,6 @@
 # limitations under the License.
 # ==============================================================================
 import itertools
-import random
 import sysconfig
 
 import pytest
@@ -105,9 +104,6 @@ def test_expand_into_jagged_permute_basic(types):
     assert result.shape[0] == output_size
     assert result.dtype == torch.int32 or result.dtype == torch.int64
 
-    golden = get_expand_into_jagged_permute_result(params)
-    result = get_expand_into_jagged_permute_result(params, DEVICE)
-
     assert torch.allclose(result, golden, atol=1e-4)
 
 @pytest.mark.parametrize("num_features", [10, 50, 100])
@@ -171,7 +167,6 @@ def test_expand_into_jagged_permute_empty_input():
 def test_expand_into_jagged_permute_invalid_output_size():
     """测试输出大小不匹配的情况"""
     permute = np.array([0, 1], dtype=np.int32)
-    input_lengths = np.array([2, 3])  # 特征长度: [2, 3]
     input_offsets = np.array([0, 2, 5], dtype=np.int32)
 
     # permuted后长度: [2, 3] (恒等permute)
@@ -186,7 +181,7 @@ def test_expand_into_jagged_permute_invalid_output_size():
     }
 
     with pytest.raises(RuntimeError):
-        result = get_expand_into_jagged_permute_result(params, DEVICE)
+        get_expand_into_jagged_permute_result(params, DEVICE)
 
 def test_expand_into_jagged_permute_mismatched_offsets():
     """测试偏移量不匹配的情况"""
@@ -203,7 +198,7 @@ def test_expand_into_jagged_permute_mismatched_offsets():
     }
 
     with pytest.raises(RuntimeError):
-        result = get_expand_into_jagged_permute_result(params, DEVICE)
+        get_expand_into_jagged_permute_result(params, DEVICE)
 
 def test_expand_into_jagged_permute_non_monotonic_offsets():
     """测试非单调递增偏移量"""
@@ -220,7 +215,7 @@ def test_expand_into_jagged_permute_non_monotonic_offsets():
     }
 
     with pytest.raises(RuntimeError):
-        result = get_expand_into_jagged_permute_result(params, DEVICE)
+        get_expand_into_jagged_permute_result(params, DEVICE)
 
 def test_expand_into_jagged_permute_size_mismatch():
     """测试permute和input_offsets大小不匹配的情况"""
@@ -235,7 +230,7 @@ def test_expand_into_jagged_permute_size_mismatch():
     }
 
     with pytest.raises(RuntimeError):
-        result = get_expand_into_jagged_permute_result(params, DEVICE)
+        get_expand_into_jagged_permute_result(params, DEVICE)
 
 def test_expand_into_jagged_permute_2d_input():
     """测试输入为2D的情况"""
@@ -247,7 +242,7 @@ def test_expand_into_jagged_permute_2d_input():
     }
 
     with pytest.raises(RuntimeError):
-        result = get_expand_into_jagged_permute_result(params, DEVICE)
+        get_expand_into_jagged_permute_result(params, DEVICE)
 
 def test_expand_into_jagged_permute_dtype_mismatch():
     """测试数据类型不匹配的情况"""
@@ -259,7 +254,7 @@ def test_expand_into_jagged_permute_dtype_mismatch():
     }
 
     with pytest.raises(RuntimeError):
-        result = get_expand_into_jagged_permute_result(params, DEVICE)
+        get_expand_into_jagged_permute_result(params, DEVICE)
 
 def test_expand_into_jagged_permute_identity_permute():
     """测试恒等permute的情况"""
