@@ -360,6 +360,7 @@ class TestModel:
                 self._evict_embedding_cpu(evict_threshold, ec.embeddings, opt, i)
 
         dist.destroy_process_group(pg)
+        return results
 
     def _record_timestamp_info_cpu(self, batch, table_num, batch_id):
         sparse_tensor: KeyedJaggedTensorWithTimestamp = batch.sparse_features

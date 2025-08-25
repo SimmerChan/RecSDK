@@ -52,9 +52,9 @@ EmbcacheManager::EmbcacheManager(const std::vector<EmbConfig>& embConfigs, bool 
         if (embConfigs[i].admitAndEvictConfig.IsFeatureFilterEnabled()) {
             auto& aaeConfig = embConfigs[i].admitAndEvictConfig;
             featureFilters_.emplace_back(
-                FeatureFilter(embConfigs[i].tableName, 
+                FeatureFilter(embConfigs[i].tableName,
                               aaeConfig.admitThreshold,
-                              aaeConfig.evictThreshold, 
+                              aaeConfig.evictThreshold,
                               aaeConfig.evictStepInterval));
         }
     }
