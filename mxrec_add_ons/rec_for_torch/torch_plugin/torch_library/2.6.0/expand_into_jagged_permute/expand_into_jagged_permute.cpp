@@ -27,7 +27,7 @@ void validate_expand_into_jagged_permute_inputs(
     const at::Tensor& permute,
     const at::Tensor& input_offset,
     const at::Tensor& output_offsets,
-    const int64_t output_size)
+    const int32_t output_size)
 {
     // ============= 空值检查 =============
     check_tensor_not_empty(permute, "permute");
@@ -50,8 +50,8 @@ void validate_expand_into_jagged_permute_inputs(
 
     // 3. 校验outputOffset的值严格单调递增
     if (output_offsets.numel() > 1) {
-        auto output_offsets_accessor = output_offsets.accessor<int64_t, 1>();
-        for (int64_t i = 1; i < output_offsets.numel(); ++i) {
+        auto output_offsets_accessor = output_offsets.accessor<int32_t, 1>();
+        for (int32_t i = 1; i < output_offsets.numel(); ++i) {
             TORCH_CHECK(output_offsets_accessor[i] > output_offsets_accessor[i-1],
                         "output_offsets must be strictly monotonically increasing, but found ",
                         output_offsets_accessor[i-1], " >= ", output_offsets_accessor[i], " at index ", i);
@@ -60,7 +60,7 @@ void validate_expand_into_jagged_permute_inputs(
 
     // 4. 校验outputOffset最后一个值等于output_size
     if (output_offsets.numel() > 0) {
-        auto last_offset = output_offsets[-1].item<int64_t>();
+        auto last_offset = output_offsets[-1].item<int32_t>();
         TORCH_CHECK(last_offset == output_size,
                     "Last value of output_offsets (", last_offset,
                     ") must equal output_size (", output_size, ")");
@@ -73,7 +73,7 @@ void validate_expand_into_jagged_permute_inputs(
 at::Tensor expand_into_jagged_permute_impl_npu(const at::Tensor& permute,
                                                const at::Tensor& input_offset,
                                                const at::Tensor& output_offsets,
-                                               const int64_t output_size)
+                                               const int32_t output_size)
 {
     validate_expand_into_jagged_permute_inputs(permute,
                                                input_offset,
