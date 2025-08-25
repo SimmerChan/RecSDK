@@ -18,7 +18,6 @@
 
 #include "utils/logger.h"
 #include "utils/time_cost.h"
-#include "utils/string_tools.h"
 
 using namespace Embcache;
 
@@ -47,12 +46,6 @@ EmbcacheManager::EmbcacheManager(const std::vector<EmbConfig>& embConfigs, bool 
             embeddingTables_.emplace_back(std::make_unique<EmbTableFastHashMap>(embConfigs[i]));
         } else {
             embeddingTables_.emplace_back(std::make_unique<EmbTableUnorderedMap>(embConfigs[i]));
-        }
-
-        if (embConfigs[i].admitAndEvictConfig.IsFeatureFilterEnabled()) {
-            auto& aaeConfig = embConfigs[i].admitAndEvictConfig;
-            featureFilters_.emplace_back(FeatureFilter(embConfigs[i].tableName, aaeConfig.admitThreshold,
-                                                      aaeConfig.evictThreshold, aaeConfig.evictStepInterval));
         }
     }
     TORCH_CHECK(embConfigs.size() > 0, "ERROR, Size of embConfigs must > 0")
@@ -358,36 +351,3 @@ void EmbcacheManager::RemoveEmbeddingTableInfo()
             LOG_INFO("Feature keys list is empty, skip to remove embedding from table: {}", embConfigs_[i].tableName);
             continue;
         }
-
-        embeddingTables_[i]->RemoveEmbedding(keys);
-        LOG_INFO("Remove table embedding info, table : {}, remove key size : {}, detail keys : {}",
-                 embConfigs_[i].tableName, keys.size(), StringTools::ToString(keys));
-        featureFilters_[i].evictFeatureRecord_.ClearEvictInfo();
-    }
-    LOG_INFO("RemoveEmbeddingTableInfo execution time: {} ms", removeEmbeddingTableTC.ElapsedMS());
-}
-
-void EmbcacheManager::StatisticsKeyCount(const at::Tensor& batchKeys, const torch::Tensor& offset,
-                                         const at::Tensor& batchKeyCounts, int64_t tableIndex)
-{
-    LOG_INFO("StatisticsKeyCount, tableIndex : {}, isAdmit : {}",
-             tableIndex, embConfigs_[tableIndex].admitAndEvictConfig.IsAdmitEnabled());
-    if (!embConfigs_[tableIndex].admitAndEvictConfig.IsAdmitEnabled()) {
-        return;
-    }
-    TORCH_CHECK(offset.numel() > tableIndex, "param error, tableIndex need be smaller than offset length,"
-                                           " but got equal or greater than offset length.")
-    // 未开启local unique时，counts为空tensor，处理时默认key对应count为1
-    bool isCountDataEmpty = batchKeyCounts.numel() == 0;
-    if (!isCountDataEmpty) {
-        TORCH_CHECK(batchKeys.numel() == batchKeyCounts.numel(),
-                    "batchKeys length should equal with batchKeyCounts length when batchKeyCounts is not empty.")
-    }
-    auto* featureDataPtr = batchKeys.data_ptr<int64_t>();
-    auto* countDataPtr = batchKeyCounts.data_ptr<int64_t>();
-    auto* offsetDataPtr = offset.data_ptr<int64_t>();
-    int64_t start = offsetDataPtr[tableIndex];
-    int64_t end = offsetDataPtr[tableIndex + 1];
-    TORCH_CHECK(end <= batchKeys.numel())
-    featureFilters_[tableIndex].StatisticsKeyCount(featureDataPtr, countDataPtr, start, end, isCountDataEmpty);
-}
