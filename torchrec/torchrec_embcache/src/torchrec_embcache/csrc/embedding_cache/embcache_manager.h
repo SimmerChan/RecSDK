@@ -16,7 +16,6 @@
 
 #include "common/common.h"
 #include "emb_table/emb_table.h"
-#include "feature_filter/feature_filter.h"
 #include "swap_manager.h"
 #include "utils/async_task.h"
 #include "utils/thread_pool.h"
@@ -130,7 +129,6 @@ private:
     std::vector<EmbConfig> embConfigs_;
     std::vector<SwapManager> swapManagers_;
     std::vector<std::unique_ptr<EmbTable>> embeddingTables_;
-    std::vector<FeatureFilter> featureFilters_;
 
     uint64_t swapCount_ = 0;       // ComputeSwapInfo 执行次数
     uint64_t embUpdateCount_ = 0;  // EmbeddingUpdate 执行次数
