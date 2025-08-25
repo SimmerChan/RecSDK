@@ -72,7 +72,8 @@ setup(
         include=["mx_rec*"]
     ),
     # other file
-    package_data={'rec_sdk_common': [f"../../../../common/dist/rec_sdk_common-{common_version}-py3-none-any.whl"]},
+    package_data={'': ['tools/*', 'tools/*/*', '*.yml', '*.sh',
+                        '*.so*', f"../../../../common/dist/rec_sdk_common-{common_version}-py3-none-any.whl"]},
     cmdclass={'install':PostInstallCommand},
     # dependency
     python_requires='>=3.7.5'
