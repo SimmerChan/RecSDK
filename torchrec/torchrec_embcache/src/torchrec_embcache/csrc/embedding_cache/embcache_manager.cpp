@@ -17,6 +17,7 @@
 #include <ATen/Parallel.h>
 
 #include "utils/logger.h"
+#include "utils/string_tools.h"
 #include "utils/time_cost.h"
 
 using namespace Embcache;
@@ -288,11 +289,11 @@ void EmbcacheManager::Embedding2Host(const at::Tensor& weightsDev, const std::ve
         for (int64_t off = start; off < end; off++) {
             keys.emplace_back(swapManagers_[embIndex].GetKey(off));
         }
-        std::vector<float*> momentum1DevPtrs(momentumDevs.size());
+        std::vector<float*> momentumDataPtrs(momentumDevs.size());
         for (size_t i = 0; i < momentumDevs.size(); i++) {
-            momentum1DevPtrs[i] = momentumDevs[i].data_ptr<float>() + currentTableOffset;
+            momentumDataPtrs[i] = momentumDevs[i].data_ptr<float>() + currentTableOffset;
         }
-        embeddingTables_[embIndex]->InsertOrAssign(keys, weightsDevPtr + currentTableOffset, momentum1DevPtrs);
+        embeddingTables_[embIndex]->InsertOrAssign(keys, weightsDevPtr + currentTableOffset, momentumDataPtrs);
 
         // Here, GetOccupiedNum is less than embConfigs_[embIndex].cacheSize = weightsDev.shape[0],
         // and we need to skip the unnecessary weight indices.
@@ -319,6 +320,7 @@ void EmbcacheManager::Save(const std::string path, const int rank)
         size_t count = 0;
         std::vector<int64_t> saveKeys;
         LOG_INFO("Start save table:{}.", tableName);
+        auto embDim = embConfigs_[i].embDim;
         embeddingTables_[i]->ForEachKey([&](const int64_t key, const float* value) {
             ++count;
             // 1. write key
@@ -327,40 +329,36 @@ void EmbcacheManager::Save(const std::string path, const int rank)
                 saveKeys.emplace_back(key);
             }
             // 2. write embedding
-            WriteData(fileEmbeddingSliceData, reinterpret_cast<const char*>(value),
-                      embConfigs_[i].embDim * sizeof(float));
+            WriteData(fileEmbeddingSliceData, reinterpret_cast<const char*>(value), embDim * sizeof(float));
             LOG_DEBUG("In save, table:{}, key:{}, embedding.dim:{}, detail embedding:{}",
-                      tableName, key, embConfigs_[i].embDim,
-                      StringTools::ToString(value, embConfigs_[i].embDim);
+                      tableName, key, embDim, StringTools::ToString(value, embDim));
 
             // 3. write momentum
             if (optimNum_ > 0) {
-                WriteData(fileMomentum1SliceData, reinterpret_cast<const char*>(value + embConfigs_[i].embDim),
-                          embConfigs_[i].embDim * sizeof(float));
+                WriteData(fileMomentum1SliceData, reinterpret_cast<const char*>(value + embDim),
+                          embDim * sizeof(float));
                 LOG_DEBUG("In save, table:{}, key:{}, momentum1.dim:{}, momentum1:{}",
-                          tableName, key, embConfigs_[i].embDim,
-                          StringTools::ToString(value + 1 * embConfigs_[i].embDim, embConfigs_[i].embDim));
+                          tableName, key, embDim, StringTools::ToString(value + 1 * embDim, embDim));
             }
             if (optimNum_ > 1) {
-                WriteData(fileMomentum2SliceData, reinterpret_cast<const char*>(value + 2 * embConfigs_[i].embDim),
-                          embConfigs_[i].embDim * sizeof(float));
+                WriteData(fileMomentum2SliceData, reinterpret_cast<const char*>(value + optimNum_ * embDim),
+                          embDim * sizeof(float));
                 LOG_DEBUG("In save, table:{}, key:{}, momentum2.dim:{}, momentum2:{}",
-                          tableName, key, embConfigs_[i].embDim,
-                          StringTools::ToString(value + OPTIMIZER_SLOT_INDEX2 * embConfigs_[i].embDim,
-                                                embConfigs_[i].embDim));
+                          tableName, key, embDim,
+                          StringTools::ToString(value + optimNum_ * embDim, embDim));
             }
         });
-        LOG_INFO("The table:{}, saved data shape info: {}, {}", tableName, count, embConfigs_[i].embDim);
+        LOG_INFO("The table:{}, saved data shape info: {}, {}", tableName, count, embDim);
         std::vector<int64_t> keyAttribute = {sizeof(int64_t), count};
         WriteData(fileKeySliceAttr, reinterpret_cast<const char*>(keyAttribute.data()),
                   keyAttribute.size() * sizeof(int64_t));
-        std::vector<int64_t> embedAttribute = {sizeof(int64_t), count, embConfigs_[i].embDim};
+        std::vector<int64_t> embedAttribute = {sizeof(int64_t), count, embDim};
         WriteData(fileEmbeddingSliceAttr, reinterpret_cast<const char*>(embedAttribute.data()),
                   embedAttribute.size() * sizeof(int64_t));
         WriteOptimizerAttributeFile(i, fileMomentum1SliceAttr, fileMomentum2SliceAttr, count);
 
         // 4 保存准入淘汰数据
-        SaveFeatureAdmitAndEvictInfo(i, midPath, saveKeys);
+//        SaveFeatureAdmitAndEvictInfo(i, midPath, saveKeys);
     }
 }
 
@@ -400,12 +398,11 @@ void EmbcacheManager::WriteData(std::ofstream& file, const char* dataPtr, size_t
     try {
         file.write(dataPtr, bytes);
     } catch (const std::ios_base::failure& e) {
-        LOG(ERROR) << e.what();
+        LOG_ERROR("Write file data error:{}", e.what());
         throw std::runtime_error(e.what());
     }
     if (!file.good()) {
-        LOG_ERROR("File status is abnormal after write data, maybe write bytes not meet the expectation, file path:{}.",
-                  path);
+        LOG_ERROR("File status is abnormal after write data, maybe write bytes not meet the expectation.");
         TORCH_CHECK(-1, "File status is abnormal after write data, maybe write bytes not meet the expectation.")
     }
 }
@@ -457,11 +454,11 @@ void EmbcacheManager::Load(const std::string& path, int rank)
             if (optimNum_ > 1) {
                 momentum.emplace_back(momentum2[k].data());
             }
-            embeddingTables[i]->InsertOrAssign(insertKey, embeddings[k].data(), momentum);
+            embeddingTables_[i]->InsertOrAssign(insertKey, embeddings[k].data(), momentum);
         }
 
         // 加载准入淘汰数据
-        LoadFeatureAdmitAndEvictInfo(i, filePath, keys);
+//        LoadFeatureAdmitAndEvictInfo(i, filePath, keys);
     }
 }
 
@@ -560,7 +557,7 @@ int32_t EmbcacheManager::ReadFile(const std::string& filePath, std::vector<std::
             }
         }
     } catch (const std::ios_base::failure& e) {
-        LOG_ERROR("Encountered an error when read file:{}, error:{}.", ss.str() e.what());
+        LOG_ERROR("Encountered an error when read file:{}, error:{}.", ss.str(), e.what());
         file.close();
         return -1;
     }

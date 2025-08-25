@@ -41,6 +41,7 @@ public:
     virtual void FindOrInsert(const std::vector<int64_t>& keys, float* outEmbs, std::vector<float*> outOptims) = 0;
     virtual void InsertOrAssign(const std::vector<int64_t>& keys, float* inEmbs, std::vector<float*> inOptims) = 0;
     virtual void RemoveEmbedding(const std::vector<int64_t>& keys) = 0;
+    virtual void ForEachKey(const std::function<void(const int64_t, const float*)>& callback) = 0;
 
 protected:
     EmbConfig config_;
@@ -163,6 +164,15 @@ public:
         std::lock_guard<std::mutex> lk(mtx_);
         for (auto key : keys) {
             table_.erase(key);
+        }
+    }
+
+    void ForEachKey(const std::function<void(const int64_t, const float*)>& callback) override
+    {
+        std::lock_guard<std::mutex> lk(mtx_);
+
+        for (const auto& [key, vec] : this->table_) {
+            callback(key, vec.data());
         }
     }
 
@@ -336,6 +346,13 @@ public:
                 LOG_ERROR("remove embedding failed!");
                 throw std::runtime_error("remove embedding failed!");
             }
+        }
+    }
+
+    void ForEachKey(const std::function<void(const int64_t, const float*)>& callback) override
+    {
+        for (auto key : this->fastHashMapPtr_->Export()) {
+            callback(key.first, (float*)key.second);
         }
     }
 

@@ -50,10 +50,7 @@ class Saver:
             mod.embcache_mgr.embedding_to_host(codegen.weights_dev.detach().to("cpu"), momentum_list)
             mod.embcache_mgr.save(path, self.rank)
 
-    def _check_emb_cache_instance_len(self):
-        if len(self.cache_module) == 0:
-            raise ValueError("param `module` must has at least one child module which "
-                             "type is EmbCacheShardedEmbeddingBagCollection or EmbCacheShardedEmbeddingBagCollection.")
+
 
     def load(self, module: torch.nn.Module, path: str) -> None:
         self.cache_module.clear()
@@ -69,3 +66,7 @@ class Saver:
                 self.cache_module.append(child)
             self._find_all_embed_cache_instance(child)
 
+    def _check_emb_cache_instance_len(self):
+        if len(self.cache_module) == 0:
+            raise ValueError("param `module` must has at least one child module which "
+                             "type is EmbCacheShardedEmbeddingBagCollection or EmbCacheShardedEmbeddingBagCollection.")

@@ -45,7 +45,6 @@ const std::string SLICE_EVICT_KEY_DATA_PATH = "/slice_evict_key.data";
 const std::string SLICE_EVICT_TS_DATA_PATH = "/slice_evict_ts.data";
 
 
-
 struct SwapInfo {
     std::vector<std::vector<int64_t>> swapoutKeys;
     at::Tensor swapoutOffs;
