@@ -242,15 +242,14 @@ class TestModel:
         dist.init_process_group(self.pg_method, rank=rank, world_size=world_size)
         os.environ["LOCAL_RANK"] = f"{rank}"
 
-
     def test_loss(
-        self,
-        embedding_configs: List[EmbCacheEmbeddingConfig],
-        dataloader: DataLoader[Batch],
-        sharding_type: str,
-        enable_evict: bool,
-        training: True,
-    ):
+            self,
+            embedding_configs: List[EmbCacheEmbeddingConfig],
+            dataloader: DataLoader[Batch],
+            sharding_type: str,
+            enable_evict: bool,
+            training: True,
+        ):
         rank, world_size = self.rank, self.world_size
         host_gp = dist.new_group(backend="gloo")
         host_env = ShardingEnv(world_size=world_size, rank=rank, pg=host_gp)
@@ -329,6 +328,38 @@ class TestModel:
 
         return results
 
+    def cpu_golden_loss(self, embedding_configs: List[EmbCacheEmbeddingConfig], dataloader: DataLoader[Batch],
+                        evict_threshold: int, rank_id: int):
+        pg = dist.new_group(backend="gloo")
+        self.emb_configs = embedding_configs
+        table_num = len(embedding_configs)
+        ec = EmbeddingCollection(device=torch.device("cpu"), tables=embedding_configs)
+
+        num_features = sum([c.num_features() for c in embedding_configs])
+        ec_wrap = Model(ec, num_features)
+        model = DDP(ec_wrap, process_group=pg)
+
+        opt = torch.optim.Adagrad(model.parameters(), lr=0.02, eps=1e-8)
+        results = []
+        batch: Batch
+        iter_ = iter(dataloader)
+        for i in range(LOOP_TIMES):
+            batch = next(iter_)
+            opt.zero_grad()
+            loss, outputs = model(batch)
+            results.append(loss.detach().cpu())
+            results.append(outputs.detach().cpu())
+            loss.backward()
+            opt.step()
+
+            # 1 record batch timestamp data
+            self._record_timestamp_info_cpu(batch, table_num, i)
+            # 2 evict emb and optimizer data
+            if i > 0 and (i + 1) % EVICT_STEP_INTERVAL == 0:
+                self._evict_embedding_cpu(evict_threshold, ec.embeddings, opt, i)
+
+        return results
+
     def _record_timestamp_info_cpu(self, batch, table_num, batch_id):
         sparse_tensor: KeyedJaggedTensorWithTimestamp = batch.sparse_features
         values = sparse_tensor.values()
@@ -383,39 +414,7 @@ class TestModel:
                     slot_tensor[ids].data.copy_(optimizer_init_values[table_index])
             logging.info("batchId:%d, table name:%s, evict ids num:%d",
                          batch_id, table_name, len(evict_ids_per_table))
-
-    def cpu_golden_loss(self, embedding_configs: List[EmbCacheEmbeddingConfig], dataloader: DataLoader[Batch],
-                        evict_threshold: int, rank_id: int):
-        pg = dist.new_group(backend="gloo")
-        self.emb_configs = embedding_configs
-        table_num = len(embedding_configs)
-        ec = EmbeddingCollection(device=torch.device("cpu"), tables=embedding_configs)
-
-        num_features = sum([c.num_features() for c in embedding_configs])
-        ec_wrap = Model(ec, num_features)
-        model = DDP(ec_wrap, process_group=pg)
-
-        opt = torch.optim.Adagrad(model.parameters(), lr=0.02, eps=1e-8)
-        results = []
-        batch: Batch
-        iter_ = iter(dataloader)
-        for i in range(LOOP_TIMES):
-            batch = next(iter_)
-            opt.zero_grad()
-            loss, outputs = model(batch)
-            results.append(loss.detach().cpu())
-            results.append(outputs.detach().cpu())
-            loss.backward()
-            opt.step()
-
-            # 1 record batch timestamp data
-            self._record_timestamp_info_cpu(batch, table_num, i)
-            # 2 evict emb and optimizer data
-            if i > 0 and (i + 1) % EVICT_STEP_INTERVAL == 0:
-                self._evict_embedding_cpu(evict_threshold, ec.embeddings, opt, i)
-
-        return results
-
+    
 
 params = {
     "world_size": [WORLD_SIZE],
