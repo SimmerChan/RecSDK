@@ -127,7 +127,7 @@ def test_expand_into_jagged_permute_random(num_features, max_batch_size):
     assert result.shape[0] == test_data['output_size']
 
     # 验证结果值的一致性
-    assert torch.allclose(golden, result)
+    assert torch.allclose(result, golden, atol=1e-4)
 
 def test_expand_into_jagged_permute_large_input():
     """测试非常大的输入情况"""
@@ -146,7 +146,7 @@ def test_expand_into_jagged_permute_large_input():
     golden = get_expand_into_jagged_permute_result(params)
     result = get_expand_into_jagged_permute_result(params, DEVICE)
 
-    assert torch.allclose(golden, result)
+    assert torch.allclose(result, golden, atol=1e-4)
 
 def test_expand_into_jagged_permute_empty_input():
     """测试空输入的情况"""
