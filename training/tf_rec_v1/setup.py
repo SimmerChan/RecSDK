@@ -1,8 +1,28 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# Copyright 2025. Huawei Technologies Co.,Ltd. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+
 import os
 import argparse
 import sys
 from setuptools import setup, find_packages
+from setuptools.command.install import install
+from packaging.version import Version
 import shutil
+import subprocess
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -19,6 +39,27 @@ args = parse_args()
 if os.path.exists("mx_rec"):
     shutil.rmtree("mx_rec")
 shutil.copytree("python", "mx_rec")
+
+common_version = Version(args.version)
+
+class PostInstallCommand(install):
+    def run(self):
+        install.run(self)
+        install_dir = self.install_lib
+        whl_path = os.path.join(install_dir, f"../../../../common/dist/rec_sdk_common-{common_version}-py3-none-any.whl")
+        if not os.path.exists(whl_path):
+            raise FileNotFoundError(f"not find：{whl_path}")
+
+        try:
+            subprocess.check_call(
+                [sys.executable, "-m", "pip", "install", whl_path],
+                stdout=subprocess.DEVNULL,  # 隐藏输出（可选）
+                stderr=subprocess.STDOUT
+            )
+            print(f"success install ：{whl_path}")
+        except subprocess.CalledProcessError as e:
+            raise RuntimeError(f"install fail：{e}")
+
 setup(
     name='mx_rec',
     version=args.version,
@@ -30,9 +71,9 @@ setup(
         where=".",
         include=["mx_rec*"]
     ),
-    install_requires=[f"rec_sdk_common=={args.version} @ file://../common/dist/rec_sdk_common-{args.version}-py3-none-any.whl"],
     # other file
-    package_data={'': ['tools/*', 'tools/*/*', '*.yml', '*.sh', '*.so*']},
+    package_data={'rec_sdk_common': [f"../../../../common/dist/rec_sdk_common-{common_version}-py3-none-any.whl"]},
+    cmdclass={'install':PostInstallCommand},
     # dependency
     python_requires='>=3.7.5'
 )
