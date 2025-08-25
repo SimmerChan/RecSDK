@@ -329,6 +329,61 @@ class TestModel:
 
         return results
 
+    def _record_timestamp_info_cpu(self, batch, table_num, batch_id):
+        sparse_tensor: KeyedJaggedTensorWithTimestamp = batch.sparse_features
+        values = sparse_tensor.values()
+        timestamps = sparse_tensor.timestamps
+        offset_per_key = sparse_tensor.offset_per_key()
+        # init data structure
+        if len(self.timestamps_for_table) == 0:
+            for _ in range(table_num):
+                self.timestamps_for_table.append(dict())
+                self.last_timestamp_for_table.append(0)
+        
+        # record timestamp data
+        for table_index in range(table_num):
+            start = offset_per_key[table_index]
+            end = offset_per_key[table_index + 1]
+            values_per_table = values[start:end]
+            ts_per_table = timestamps[start:end]
+
+            for index, ids in enumerate(values_per_table):
+                ids = ids.item()
+                ts = ts_per_table[index].item()
+                self.timestamps_for_table[table_index][ids] = ts
+                self.last_timestamp_for_table[table_index] = max(self.last_timestamp_for_table[table_index], ts)
+
+    def _evict_embedding_cpu(self, evict_threshold: int, embeddings: nn.ModuleDict,
+                             opt: torch.optim.Adagrad, batch_id: int):
+        logging.info("Start cpu embedding evict, current step:%d", batch_id)
+        emb_dims: List[int] = [c.embedding_dim for c in self.emb_configs]
+        table_names = [c.name for c in self.emb_configs]
+        table_num = len(table_names)
+        emb_init_values: List[Tensor] = _get_init_weight(emb_dims)
+        optimizer_init_values: List[Tensor] = _get_init_optimizer_slot(emb_dims)
+        for table_index in range(table_num):
+            evict_ids_per_table = []
+            last_timestamp = self.last_timestamp_for_table[table_index]
+            for ids, ts in self.timestamps_for_table[table_index].items():
+                if last_timestamp - ts > evict_threshold:
+                    evict_ids_per_table.append(ids)
+
+            table_name = table_names[table_index]
+            # get slot tensor of Adagrad optimizer
+            op_t = opt.param_groups[0]["params"][table_index]
+            slot_tensor = opt.state[op_t]["sum"]
+            for ids in evict_ids_per_table:
+                # step1 delete timestamp record for ids
+                self.timestamps_for_table[table_index].pop(ids)
+                # step2 reset emb and optimizer slot as init value
+                with torch.no_grad():
+                    # init emb
+                    embeddings[table_name].weight[ids].data.copy_(emb_init_values[table_index])
+                    # init optimizer slot
+                    slot_tensor[ids].data.copy_(optimizer_init_values[table_index])
+            logging.info("batchId:%d, table name:%s, evict ids num:%d",
+                         batch_id, table_name, len(evict_ids_per_table))
+
     def cpu_golden_loss(self, embedding_configs: List[EmbCacheEmbeddingConfig], dataloader: DataLoader[Batch],
                         evict_threshold: int, rank_id: int):
         pg = dist.new_group(backend="gloo")
@@ -359,74 +414,25 @@ class TestModel:
             if i > 0 and (i + 1) % EVICT_STEP_INTERVAL == 0:
                 self._evict_embedding_cpu(evict_threshold, ec.embeddings, opt, i)
 
-        dist.destroy_process_group(pg)
         return results
 
-    def _record_timestamp_info_cpu(self, batch, table_num, batch_id):
-        sparse_tensor: KeyedJaggedTensorWithTimestamp = batch.sparse_features
-        values = sparse_tensor.values()
-        timestamps = sparse_tensor.timestamps
-        offset_per_key = sparse_tensor.offset_per_key()
-        # init data structure
-        if len(self.timestamps_for_table) == 0:
-            for _ in range(table_num):
-                self.timestamps_for_table.append(dict())
-                self.last_timestamp_for_table.append(0)
 
-        ts_per_table = timestamps.tolist()
-        values_per_table = values.tolist()
-        for index in range(len(values_per_table)):
-            ids = values[index]
-            table_index = int(ids / self.emb_table_size)
-            ids = ids.item()
-            ts = ts_per_table[index].item()
-            self.timestamps_for_table[table_index][ids] = ts
-            self.last_timestamp_for_table[table_index] = max(self.last_timestamp_for_table[table_index], ts)
+params = {
+    "world_size": [WORLD_SIZE],
+    "table_num": [2],
+    "embedding_dims": [[128, 128]],
+    "num_embeddings": [[4000, 400]],
+    "sharding_type": ["row_wise"],
+    "lookup_len": [128],  # batchsize
+    "device": ["npu"],
+    "enable_admit": [True],
+    "enable_evict": [True],
+}
 
-    def _evict_embedding_cpu(self, evict_threshold: int, embeddings: nn.ModuleDict,
-                             opt: torch.optim.Adagrad, batch_id: int):
-        logging.info("Start cpu embedding evict, current step:%d", batch_id)
-        emb_dims: List[int] = [c.embedding_dim for c in self.emb_configs]
-        table_names = [c.name for c in self.emb_configs]
-        table_num = len(table_names)
-        emb_init_values: List[Tensor] = _get_init_weight(emb_dims)
-        optimizer_init_values: List[Tensor] = _get_init_optimizer_slot(emb_dims)
-        for table_index in range(table_num):
-            evict_ids_per_table = []
-            last_timestamp = self.last_timestamp_for_table[table_index]
-            for ids, ts in self.timestamps_for_table[table_index].items():
-                if last_timestamp - ts > evict_threshold:
-                    evict_ids_per_table.append(ids)
 
-            table_name = table_names[table_index]
-            emb_module: EmbeddingModule = embeddings[table_name]
-            emb_module_weight = emb_module.weight
-            emb_module_weight_dim = emb_module_weight.shape
-            # 创建一个新的优化器状态
-            new_opt_state = torch.zeros((len(evict_ids_per_table), emb_dims[table_index]),
-                                        dtype=emb_module_weight.dtype,
-                                        device=emb_module_weight.device)
-            # 更新优化器状态
-            opt_state = opt.state[emb_module_weight]
-            opt_state["sum"] = torch.cat((opt_state["sum"], new_opt_state), dim=0)
-
-            # 创建新的嵌入权重
-            new_emb_weight = torch.zeros((len(evict_ids_per_table), emb_dims[table_index]),
-                                         dtype=emb_module_weight.dtype,
-                                         device=emb_module_weight.device)
-            new_emb_weight_with_old = torch.cat((emb_module_weight, new_emb_weight), dim=0)
-            with torch.no_grad():
-                emb_module_weight.copy_(new_emb_weight_with_old)
-
-            # 更新嵌入表大小
-            emb_module_weight_dim_new = list(emb_module_weight_dim)
-            emb_module_weight_dim_new[0] = emb_module_weight_dim_new[0] + len(evict_ids_per_table)
-            emb_module_weight.resize_(emb_module_weight_dim_new)
-
-            # 清理已淘汰的特征记录
-            for ids in evict_ids_per_table:
-                del self.timestamps_for_table[table_index][ids]
-
+@pytest.mark.parametrize("config", [
+    ExecuteConfig(*v) for v in itertools.product(*params.values())
+])
 def test_hstu_dens_normal(config: ExecuteConfig):
     mp.spawn(
         execute,
