@@ -256,10 +256,9 @@ class KeyedJaggedTensorWithCount(KeyedJaggedTensor):
         # 避免直接访问受保护的成员
         if not torch.jit.is_scripting() and is_non_strict_exporting():
             # 使用公共API替代受保护成员的访问
-            permuted_length = permuted_length_per_key_sum
-            if permuted_length < 0:
+            if sum(permuted_length_per_key) < 0:
                 raise ValueError("permuted_length_per_key_sum should not be negative")
-            if permuted_length == 0:
+            if sum(permuted_length_per_key) == 0:
                 raise ValueError("permuted_length_per_key_sum should not be zero")
 
         with record_function("KeyedJaggedTensorWithCount.permute"):

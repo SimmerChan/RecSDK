@@ -287,6 +287,12 @@ void EmbcacheManager::RecordTimestamp(const at::Tensor& batchKeys, const std::ve
     TORCH_CHECK(batchKeys.dtype() == torch::kInt64, "batchKeys must be of type int64_t");
     TORCH_CHECK(timestamps.dtype() == torch::kInt64, "timestamps must be of type int64_t");
     
+    // 检查数据指针是否为空
+    if (batchKeys.numel() == 0 || timestamps.numel() == 0) {
+        LOG_INFO("Empty batchKeys or timestamps, skip RecordTimestamp");
+        return;
+    }
+    
     const auto* keyPtr = batchKeys.data_ptr<int64_t>();
     const auto* timestampsPtr = timestamps.data_ptr<int64_t>();
     const std::vector<int32_t>& curTableIndices = tableIndices.empty() ? embTableIndies_ : tableIndices;
@@ -321,7 +327,7 @@ void EmbcacheManager::EvictFeatures()
         featureFilters_[i].evictFeatureRecord_.SetSwapCount(swapCount_);
         evictKeyCount += evictFeatures.size();
     }
-    LOG_INFO("EvictFeatures execution time: {} ms, all table evictKeyCount: {}", evictFeaturesTC.ElapsedMS(),
+    LOG_INFO("EvictFeatures execution time : {} ms, all table evictKeyCount : {}", evictFeaturesTC.ElapsedMS(),
              evictKeyCount);
 }
 
@@ -370,7 +376,7 @@ void EmbcacheManager::RemoveEmbeddingTableInfo()
         }
 
         embeddingTables_[i]->RemoveEmbedding(keys);
-        LOG_INFO("Remove table embedding info, table : {}, remove key size : {}, detail keys : {}",
+        LOG_INFO("Remove table embedding info, table: {}, remove key size: {}, detail keys: {}",
                  embConfigs_[i].tableName, keys.size(), StringTools::ToString(keys));
         featureFilters_[i].evictFeatureRecord_.ClearEvictInfo();
     }
