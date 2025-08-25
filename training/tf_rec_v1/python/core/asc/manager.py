@@ -17,8 +17,8 @@
 
 import tensorflow as tf
 
-from mx_rec_common.log import logger
-from mx_rec_common.communication.hccl.hccl_info import get_rank_id, get_device_id, get_rank_size
+from rec_sdk_common.log import logger
+from rec_sdk_common.communication.hccl.hccl_info import get_rank_id, get_device_id, get_rank_size
 from mxrec_pybind import (
     InitializeInfo,
     ConstantInitializerInfo,

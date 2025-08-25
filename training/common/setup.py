@@ -16,11 +16,11 @@ def parse_args():
 
 args = parse_args()
 
-if os.path.exists("mx_rec_common"):
-    shutil.rmtree("mx_rec_common")
-shutil.copytree("python", "mx_rec_common")
+if os.path.exists("rec_sdk_common"):
+    shutil.rmtree("rec_sdk_common")
+shutil.copytree("python", "rec_sdk_common")
 setup(
-    name='mx_rec_common',
+    name='rec_sdk_common',
     version=args.version,
     author='HUAWEI Inc',
     description='MindSDK Recommend',
@@ -28,11 +28,11 @@ setup(
     # include mx_rec
     packages=find_packages(
         where=".",
-        include=["mx_rec_common*"]
+        include=["rec_sdk_common*"]
     ),
     # other file
     package_data={'': ['tools/*', 'tools/*/*', '*.yml', '*.sh', '*.so*']},
     # dependency
     python_requires='>=3.7.5'
 )
-shutil.rmtree("mx_rec_common")
+shutil.rmtree("rec_sdk_common")

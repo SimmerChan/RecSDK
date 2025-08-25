@@ -17,7 +17,7 @@
 
 import re
 
-from mx_rec_common.log import logger
+from rec_sdk_common.log import logger
 
 
 def fix_invalid_table_name(name):

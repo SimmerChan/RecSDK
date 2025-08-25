@@ -24,8 +24,8 @@ import stat
 
 import tensorflow as tf
 
-from mx_rec_common.constants.constants import EnvOptionCommon, LogLevel, FileParams, RankTableParams, ValidatorParams
-from mx_rec_common.log.log import LoggingProxy
+from rec_sdk_common.constants.constants import EnvOptionCommon, LogLevel, FileParams, RankTableParams, ValidatorParams
+from rec_sdk_common.log.log import LoggingProxy
 
 
 class Validator:

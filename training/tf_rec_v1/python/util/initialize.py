@@ -19,10 +19,10 @@ import atexit
 import dataclasses
 import json
 
-from mx_rec_common.log import logger
-from mx_rec_common.constants.constants import ValidatorParams
-from mx_rec_common.perf_factory.bind_cpu import bind_cpu
-from mx_rec_common.validator.validator import (
+from rec_sdk_common.log import logger
+from rec_sdk_common.constants.constants import ValidatorParams
+from rec_sdk_common.perf_factory.bind_cpu import bind_cpu
+from rec_sdk_common.validator.validator import (
     para_checker_decorator,
     ClassValidator,
     IntValidator,

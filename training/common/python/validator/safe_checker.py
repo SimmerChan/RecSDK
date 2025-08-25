@@ -17,8 +17,8 @@
 
 from typing import Optional, Any, Union, Tuple
 
-from mx_rec_common.constants.constants import ValidatorParams, NumCheckValueMethod
-from mx_rec_common.validator.validator import (
+from rec_sdk_common.constants.constants import ValidatorParams, NumCheckValueMethod
+from rec_sdk_common.validator.validator import (
     StringValidator,
     IntValidator,
     FloatValidator,

@@ -19,7 +19,7 @@ from typing import Optional, Union
 
 from tensorflow.python.framework.ops import Operation
 
-from mx_rec_common.validator.validator import para_checker_decorator, StringValidator
+from rec_sdk_common.validator.validator import para_checker_decorator, StringValidator
 from mx_rec.constants.constants import ASCEND_GLOBAL_HASHTABLE_COLLECTION, TRAIN_CHANNEL_ID, EVAL_CHANNEL_ID
 
 

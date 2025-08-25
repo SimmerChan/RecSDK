@@ -17,4 +17,4 @@
 
 __all__ = ["logger"]
 
-from mx_rec_common.log.log import LoggingProxy as logger
+from rec_sdk_common.log.log import LoggingProxy as logger

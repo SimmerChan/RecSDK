@@ -17,7 +17,7 @@
 
 from typing import Optional
 
-from mx_rec_common.log import logger
+from rec_sdk_common.log import logger
 
 
 class HybridManagerConfig:  # pragma: no cover

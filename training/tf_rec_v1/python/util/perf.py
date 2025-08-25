@@ -17,7 +17,7 @@
 
 import time
 
-from mx_rec_common.log import logger
+from rec_sdk_common.log import logger
 
 
 def performance(method_name):

@@ -24,7 +24,7 @@ from tensorflow.python.ops import math_ops
 from tensorflow.python.training import adagrad
 from tensorflow.python.training.optimizer import Optimizer
 
-from mx_rec_common.validator.validator import (
+from rec_sdk_common.validator.validator import (
     FloatValidator,
     StringValidator,
     para_checker_decorator,

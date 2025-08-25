@@ -4,11 +4,11 @@
 import os
 from typing import Optional, Dict
 
-from mx_rec_common.constants.constants import MPIParams, ValidatorParams
-from mx_rec_common.communication.hccl.hccl_mgmt import _get_rank_info_with_ranktable, _get_rank_info_without_ranktable
-from mx_rec_common.constants.constants import RankTableInfo
-from mx_rec_common.validator.validator import StringValidator
-from mx_rec_common.validator.safe_checker import str_safe_check
+from rec_sdk_common.constants.constants import MPIParams, ValidatorParams
+from rec_sdk_common.communication.hccl.hccl_mgmt import _get_rank_info_with_ranktable, _get_rank_info_without_ranktable
+from rec_sdk_common.constants.constants import RankTableInfo
+from rec_sdk_common.validator.validator import StringValidator
+from rec_sdk_common.validator.safe_checker import str_safe_check
 
 def _comm_env_value_str2int(value: str, greater_or_equal: int = 0) -> int:
     str_safe_check("communication environment value", value)

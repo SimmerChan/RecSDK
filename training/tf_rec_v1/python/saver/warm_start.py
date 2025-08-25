@@ -23,7 +23,7 @@ import tensorflow as tf
 from tensorflow.python.estimator import estimator as estimator_lib
 from tensorflow.python.training import warm_starting_util
 
-from mx_rec_common.log import logger
+from rec_sdk_common.log import logger
 from mx_rec.saver.saver import Saver
 
 

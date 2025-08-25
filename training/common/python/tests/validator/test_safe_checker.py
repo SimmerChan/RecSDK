@@ -19,15 +19,15 @@ import os
 import shutil
 import pytest
 
-from mx_rec_common.validator import (
+from rec_sdk_common.validator import (
     str_safe_check,
     int_safe_check,
     class_safe_check,
     dir_safe_check,
     float_safe_check,
 )
-from mx_rec_common.constants.constants import NumCheckValueMethod
-from mx_rec_common.communication.hccl import get_rank_id
+from rec_sdk_common.constants.constants import NumCheckValueMethod
+from rec_sdk_common.communication.hccl import get_rank_id
 
 
 class TestStrSafeCheck:

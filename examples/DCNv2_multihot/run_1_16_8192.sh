@@ -29,7 +29,7 @@ local_rank_size=16
 num_process=$((num_server * local_rank_size))
 export TRAIN_RANK_SIZE=$num_process
 project_root=$(cd "$cur_path/../.." && pwd)
-common_package_path=$(dirname "$(dirname "$(which python3.7)")")/lib/python3.7/site-packages/mx_rec_common
+common_package_path=$(dirname "$(dirname "$(which python3.7)")")/lib/python3.7/site-packages/rec_sdk_common
 common_so_path=${common_package_path}/lib
 ################# 参数配置 ######################
 export OPTIMIZER="adam"
