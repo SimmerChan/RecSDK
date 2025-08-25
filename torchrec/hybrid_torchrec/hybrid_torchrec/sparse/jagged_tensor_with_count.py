@@ -16,7 +16,7 @@ from torchrec.sparse.jagged_tensor import (
     JaggedTensor,
     KeyedJaggedTensor,
 )
-from torchrec.pt2.checks import is_torchdynamo_compiling, is_non_strict_exporting
+from torchrec.pt2.checks import is_non_strict_exporting
 
 
 class JaggedTensorWithCount(JaggedTensor):
