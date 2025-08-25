@@ -102,7 +102,7 @@ def test_expand_into_jagged_permute_basic(types):
     # 验证结果类型和形状
     assert isinstance(result, torch.Tensor)
     assert result.shape[0] == output_size
-    assert result.dtype == torch.int32 or result.dtype == torch.int64
+    assert result.dtype == torch.int32
 
     assert torch.allclose(result, golden, atol=1e-4)
 
