@@ -17,11 +17,7 @@ using torch::autograd::Variable;
 using tensor_list = std::vector<at::Tensor>;
 using namespace at;
 
-void check_tensor_not_empty(const Tensor &tensor, const std::string &name)
-{
-    TORCH_CHECK(tensor.defined(), name, " tensor must be defined");
-    TORCH_CHECK(tensor.numel() > 0, name, " tensor must be non-empty");
-}
+constexpr int EXPECTED_DIM_1D = 1;
 
 void validate_expand_into_jagged_permute_inputs(
     const at::Tensor& permute,
@@ -30,14 +26,26 @@ void validate_expand_into_jagged_permute_inputs(
     const int64_t output_size)
 {
     // ============= 空值检查 =============
-    check_tensor_not_empty(permute, "permute");
-    check_tensor_not_empty(input_offset, "input_offset");
-    check_tensor_not_empty(output_offsets, "output_offsets");
+    check_tensor_non_empty(permute, "permute");
+    check_tensor_non_empty(input_offset, "input_offset");
+    check_tensor_non_empty(output_offsets, "output_offsets");
+
+    check_tensor_dim(permute, EXPECTED_DIM_1D, "permute");
+    check_tensor_dim(input_offset, EXPECTED_DIM_1D, "input_offset");
+    check_tensor_dim(output_offsets, EXPECTED_DIM_1D, "output_offsets");
+
+    const auto permute_len = permute.size(0);
+    const auto input_offset_len = input_offset.size(0);
+    const auto output_offsets_len = output_offsets.size(0);
 
     // 1. 校验inputOffset和outputOffset的shape要相同
-    TORCH_CHECK(input_offset.sizes().equals(output_offsets.sizes()),
-                "input_offset and output_offsets must have the same shape, but got input_offset: ",
-                input_offset.sizes(), " and output_offsets: ", output_offsets.sizes());
+    TORCH_CHECK(input_offset_len == output_offsets_len,
+                "input_offset_len and output_offsets_len must be the same, but got input_offset_len: ",
+                input_offset_len, " and output_offsets_len: ", output_offsets_len);
+
+    TORCH_CHECK(permute_len == input_offset_len - 1,
+                "permute_len must equals input_offset_len - 1, but got permute_len: ",
+                permute_len, " and input_offset_len: ", input_offset_len);
 
     // 2. 校验所有输入张量的数据类型相同
     TORCH_CHECK(permute.scalar_type() == input_offset.scalar_type(),
