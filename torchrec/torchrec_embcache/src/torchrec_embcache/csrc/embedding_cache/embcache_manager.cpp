@@ -111,9 +111,15 @@ SwapInfo EmbcacheManager::ComputeSwapInfo(const at::Tensor& batchKeys, const std
     SwapInfo swapInfo;
     for (int64_t i = 0; i < curTableIndices.size(); i++) {
         int64_t idx = curTableIndices[i];
+        // 添加表索引边界检查
+        TORCH_CHECK(idx >= 0 && idx < embNum_, "table index {} is out of range [0, {})", idx, embNum_);
+        
         if (embConfigs_[idx].admitAndEvictConfig.IsAdmitEnabled()) {
             int32_t filterIndex = tableToFilterIndexMap_[idx];
             if (filterIndex >= 0) {
+                // 添加FeatureFilter数组边界检查
+                TORCH_CHECK(filterIndex < static_cast<int32_t>(featureFilters_.size()), 
+                           "filterIndex {} is out of range [0, {})", filterIndex, featureFilters_.size());
                 featureFilters_[filterIndex].CountFilter(keyPtr, offsetPerKey[i], offsetPerKey[i + 1]);
             }
         }
@@ -235,6 +241,11 @@ SwapinTensor EmbcacheManager::EmbeddingLookup(const std::vector<std::vector<int6
         }
 
         int32_t idx = curTableIndices[i];
+        // 添加表索引边界检查
+        TORCH_CHECK(idx >= 0 && idx < embNum_, "table index {} is out of range [0, {})", idx, embNum_);
+        TORCH_CHECK(idx < static_cast<int32_t>(embeddingTables_.size()), 
+                   "embeddingTables index {} is out of range [0, {})", idx, embeddingTables_.size());
+        
         auto* swapinEmbsPtr = swapinTensor.swapinEmbs.data_ptr<float>();
         TORCH_CHECK(swapinEmbsPtr != nullptr, "swapinEmbs data_ptr should not be nullptr");
         embeddingTables_[idx]->FindOrInsert(swapinKeys[i], swapinEmbsPtr + jaggedOffsPtr[i],
@@ -290,6 +301,11 @@ void EmbcacheManager::EmbeddingUpdate(const std::vector<std::vector<int64_t>>& s
         }
 
         int32_t idx = curTableIndices[i];
+        // 添加表索引边界检查
+        TORCH_CHECK(idx >= 0 && idx < embNum_, "table index {} is out of range [0, {})", idx, embNum_);
+        TORCH_CHECK(idx < static_cast<int32_t>(embeddingTables_.size()), 
+                   "embeddingTables index {} is out of range [0, {})", idx, embeddingTables_.size());
+        
         embeddingTables_[idx]->InsertOrAssign(swapoutKeys[i], swapoutEmbsPtr + jaggedOff, swapoutOptimPtrs);
         jaggedOff += swapoutKeys[i].size() * embConfigs_[idx].embDim;
     }
@@ -321,9 +337,15 @@ void EmbcacheManager::RecordTimestamp(const at::Tensor& batchKeys, const std::ve
 
     for (int64_t i = 0; i < embNum_; ++i) {
         int32_t idx = curTableIndices[i];
+        // 添加表索引边界检查
+        TORCH_CHECK(idx >= 0 && idx < embNum_, "table index {} is out of range [0, {})", idx, embNum_);
+        
         if (embConfigs_[idx].admitAndEvictConfig.IsEvictEnabled()) {
             int32_t filterIndex = tableToFilterIndexMap_[idx];
             if (filterIndex >= 0) {
+                // 添加FeatureFilter数组边界检查
+                TORCH_CHECK(filterIndex < static_cast<int32_t>(featureFilters_.size()), 
+                           "filterIndex {} is out of range [0, {})", filterIndex, featureFilters_.size());
                 featureFilters_[filterIndex].RecordTimestamp(keyPtr, offsetPerKey[i], offsetPerKey[i + 1], timestampsPtr);
             }
         }
@@ -347,6 +369,10 @@ void EmbcacheManager::EvictFeatures()
         if (filterIndex < 0) {
             continue;
         }
+        // 添加FeatureFilter数组边界检查
+        TORCH_CHECK(filterIndex < static_cast<int32_t>(featureFilters_.size()), 
+                   "filterIndex {} is out of range [0, {})", filterIndex, featureFilters_.size());
+        
         const std::vector<int64_t>& evictFeatures = featureFilters_[filterIndex].evictFeatureRecord_.GetEvictKeys();
         // 调用swapManager删除映射信息
         // 删除embeddingTables中的embedding待对应step的swap out emb update执行完成后触发
@@ -386,6 +412,10 @@ bool EmbcacheManager::NeedEvictEmbeddingTable()
         if (filterIndex < 0) {
             continue;
         }
+        // 添加FeatureFilter数组边界检查
+        TORCH_CHECK(filterIndex < static_cast<int32_t>(featureFilters_.size()), 
+                   "filterIndex {} is out of range [0, {})", filterIndex, featureFilters_.size());
+        
         // 待删除embTable的keys非空且达到和GetSwapInfo相同的步数
         if (!featureFilters_[filterIndex].evictFeatureRecord_.GetEvictKeys().empty() &&
             featureFilters_[filterIndex].evictFeatureRecord_.CanRemoveFromEmbTable(embUpdateCount_)) {
@@ -404,6 +434,10 @@ void EmbcacheManager::RemoveEmbeddingTableInfo()
         if (filterIndex < 0) {
             continue;
         }
+        // 添加FeatureFilter数组边界检查
+        TORCH_CHECK(filterIndex < static_cast<int32_t>(featureFilters_.size()), 
+                   "filterIndex {} is out of range [0, {})", filterIndex, featureFilters_.size());
+        
         auto& keys = featureFilters_[filterIndex].evictFeatureRecord_.GetEvictKeys();
         if (keys.empty()) {
             LOG_INFO("Feature keys list is empty, skip to remove embedding from table: {}", embConfigs_[i].tableName);
@@ -421,6 +455,9 @@ void EmbcacheManager::RemoveEmbeddingTableInfo()
 void EmbcacheManager::StatisticsKeyCount(const at::Tensor& batchKeys, const torch::Tensor& offset,
                                          const at::Tensor& batchKeyCounts, int64_t tableIndex)
 {
+    // 添加表索引边界检查
+    TORCH_CHECK(tableIndex >= 0 && tableIndex < embNum_, "table index {} is out of range [0, {})", tableIndex, embNum_);
+    
     LOG_INFO("StatisticsKeyCount, tableName: {}, isAdmit: {}",
              embConfigs_[tableIndex].tableName, embConfigs_[tableIndex].admitAndEvictConfig.IsAdmitEnabled());
     if (!embConfigs_[tableIndex].admitAndEvictConfig.IsAdmitEnabled()) {
@@ -447,5 +484,10 @@ void EmbcacheManager::StatisticsKeyCount(const at::Tensor& batchKeys, const torc
     int64_t start = offsetDataPtr[tableIndex];
     int64_t end = offsetDataPtr[tableIndex + 1];
     TORCH_CHECK(end <= batchKeys.numel())
+    
+    // 添加FeatureFilter数组边界检查
+    TORCH_CHECK(tableIndex < static_cast<int64_t>(featureFilters_.size()), 
+               "tableIndex {} is out of range [0, {})", tableIndex, featureFilters_.size());
+    
     featureFilters_[tableIndex].StatisticsKeyCount(featureDataPtr, countDataPtr, start, end, isCountDataEmpty);
-}
+} 

@@ -500,7 +500,7 @@ params = {
     "sharding_type": ["row_wise"],
     "lookup_len": [64],
     "device": ["npu"],
-    "enable_admit": [True],  # 第1、3个表开启准入
+    "enable_admit": [True],  # 这个参数不会被使用，实际逻辑由filter_config_type决定
     "enable_evict": [False],
 }
 
