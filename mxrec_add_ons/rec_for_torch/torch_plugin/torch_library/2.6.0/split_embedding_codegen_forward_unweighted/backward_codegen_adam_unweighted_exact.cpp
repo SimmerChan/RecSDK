@@ -415,9 +415,9 @@ at::Tensor split_embedding_backward_codegen_adam_unweighted_exact_npu(const Tens
     // torch.optim.Adam eps -> eps * sqrt((1 - beta2**t))
     // tf/sparseAdam eps->eps
     double adamEps = sqrt(1 - pow(beta2, iter)) * eps;
-    const char* env_value = std::getenv("TF_ADAM_MODE");
-    if (env_value != nullptr) {
-        std::string value(env_value);
+    const char* envValue = std::getenv("TF_ADAM_MODE");
+    if (envValue != nullptr) {
+        std::string value(envValue);
         for (char& c :value) {
             c = std::tolower(static_cast<unsigned char>(c));
         }
@@ -434,7 +434,7 @@ at::Tensor split_embedding_backward_codegen_adam_unweighted_exact_npu(const Tens
                  momentum2_dev, momentum2_uvm, momentum2_placements, momentum2_offsets, hash_indices, unique_ids,
                  unique_offsets, unique_inverse, t_max_D, total_hash_size_bits, pooling_mode, BT_block_size,
                  max_segment_length_per_warp, stochastic_rounding, info_B_num_bits, info_B_mask_int64,
-                 use_uniq_cache_locations, use_homogeneous_placements, optim_type, eps, learning_rate, beta1, beta2,
+                 use_uniq_cache_locations, use_homogeneous_placements, optim_type, adamEps, learning_rate, beta1, beta2,
                  iter, is_dynamic, output, momentum1_dev, momentum2_dev, dev_weights);
 
     return at::Tensor();

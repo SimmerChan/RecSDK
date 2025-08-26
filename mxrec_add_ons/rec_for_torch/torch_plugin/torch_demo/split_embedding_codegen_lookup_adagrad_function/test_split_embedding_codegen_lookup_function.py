@@ -298,9 +298,9 @@ def generate_unique(jt_lst, feature_map):
 
 def execute(params):
     if (params.optim == SparseAdam):
-        os.environ["TF_ADAM_MODE"] = "True";
+        os.environ["TF_ADAM_MODE"] = "True"
     else:
-        os.environ["TF_ADAM_MODE"] = "False";
+        os.environ["TF_ADAM_MODE"] = "False"
     if params.unique and (params.optim == SGD):
         return  # 暂未适配SGD unique算子
     if params.feature_map is None:
