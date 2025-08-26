@@ -87,10 +87,8 @@ bash run.sh
 参考[host侧算子实现](https://www.hiascend.com/document/detail/zh/canncommercial/70RC1/operatordev/Ascendcopdevg/atlas_ascendc_10_0026.html)完成host侧实现相关准备。
 2. 参考[算子编译部署](https://www.hiascend.com/document/detail/zh/canncommercial/70RC1/operatordev/Ascendcopdevg/atlas_ascendc_10_0031.html)完成算子的编译部署，编译部署时需要开启算子的二进制编译功能：修改算子工程中的编译配置项文件CMakePresets.json，将
 ENABLE_BINARY_PACKAGE设置为True。编译部署时可将算子的二进制部署到当前环境，便于后续算子的调用。
-3. 检查API执行需要的头文件和库文件是否自动生成，针对Rec SDK，检查cust_op/cust_op_by_addr/custom_op/build_out/autogen目录下，是否有
+3. 检查API执行需要的头文件和库文件是否自动生成，针对Rec SDK，检查cust_op/ascendc_op/ai_core_op/cust_op_by_addr/v220/cust_op_by_addr/build_out/autogen目录下，是否有
 aclnn_embedding_lookup_by_address.cpp和aclnn_embedding_lookup_by_address.h等。
-
-注意：对于cust_op/cust_op_by_addr/run.sh脚本，安装算子后会删除构建目录。运行单算子测试时，需要屏蔽掉删除rm rf ./custom_op这一步，以确保前置条件3。
 
 ### 查询算子 embedding_lookup_by_addr
 针对embedding_lookup_by_addr算子，入口src/main.cpp中：
