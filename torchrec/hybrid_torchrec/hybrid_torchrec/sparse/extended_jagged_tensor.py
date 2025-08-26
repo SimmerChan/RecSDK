@@ -108,12 +108,23 @@ class KeyedExtendedJaggedTensor(KeyedJaggedTensor):
         """
         # 处理空字典的情况
         if not jt_dict:
-            return cls(
-                keys=[],
-                values=torch.empty(0, dtype=torch.int64),
-                extra=torch.empty(0, dtype=torch.int64),
-                extra_field_name=extra_field_name,
-            )
+            # 根据extra_field_name动态构造参数字典
+            constructor_kwargs = {
+                "keys": [],
+                "values": torch.empty(0, dtype=torch.int64),
+            }
+            
+            # 根据extra_field_name设置对应的参数
+            if extra_field_name == "timestamps":
+                constructor_kwargs["timestamps"] = torch.empty(0, dtype=torch.int64)
+            elif extra_field_name == "counts":
+                constructor_kwargs["counts"] = torch.empty(0, dtype=torch.int64)
+            else:
+                # 对于其他情况，使用通用的extra参数
+                constructor_kwargs["extra"] = torch.empty(0, dtype=torch.int64)
+                constructor_kwargs["extra_field_name"] = extra_field_name
+            
+            return cls(**constructor_kwargs)
             
         kjt_keys = list(jt_dict.keys())
         kjt_vals_list: List[torch.Tensor] = []
@@ -148,16 +159,27 @@ class KeyedExtendedJaggedTensor(KeyedJaggedTensor):
             else (None, [[stride] for stride in stride_per_key])
         )
         
-        kjt = cls(
-            keys=kjt_keys,
-            values=kjt_vals,
-            extra=kjt_extra,
-            weights=kjt_weights,
-            lengths=kjt_lens,
-            stride=kjt_stride,
-            stride_per_key_per_rank=kjt_stride_per_key_per_rank,
-            extra_field_name=extra_field_name,
-        ).sync()
+        # 根据extra_field_name动态构造参数字典
+        constructor_kwargs = {
+            "keys": kjt_keys,
+            "values": kjt_vals,
+            "weights": kjt_weights,
+            "lengths": kjt_lens,
+            "stride": kjt_stride,
+            "stride_per_key_per_rank": kjt_stride_per_key_per_rank,
+        }
+        
+        # 根据extra_field_name设置对应的参数
+        if extra_field_name == "timestamps":
+            constructor_kwargs["timestamps"] = kjt_extra
+        elif extra_field_name == "counts":
+            constructor_kwargs["counts"] = kjt_extra
+        else:
+            # 对于其他情况，使用通用的extra参数
+            constructor_kwargs["extra"] = kjt_extra
+            constructor_kwargs["extra_field_name"] = extra_field_name
+        
+        kjt = cls(**constructor_kwargs).sync()
         return kjt
 
     def split_base(self, segments: List[int], cls_type) -> List["KeyedExtendedJaggedTensor"]:
@@ -183,93 +205,136 @@ class KeyedExtendedJaggedTensor(KeyedJaggedTensor):
             
             if segment == len(self._keys):
                 # no torch slicing required
-                split_list.append(
-                    cls_type(
-                        keys=self._keys,
-                        values=self._values,
-                        extra=self._extra,
-                        weights=self.weights_or_none(),
-                        lengths=self._lengths,
-                        offsets=self._offsets,
-                        stride=stride,
-                        stride_per_key_per_rank=stride_per_key_per_rank,
-                        length_per_key=self._length_per_key,
-                        offset_per_key=self._offset_per_key,
-                        index_per_key=self._index_per_key,
-                        jt_dict=self._jt_dict,
-                        extra_field_name=self._extra_field_name,
-                    )
-                )
+                # 根据extra_field_name动态构造参数字典
+                constructor_kwargs = {
+                    "keys": self._keys,
+                    "values": self._values,
+                    "weights": self.weights_or_none(),
+                    "lengths": self._lengths,
+                    "offsets": self._offsets,
+                    "stride": stride,
+                    "stride_per_key_per_rank": stride_per_key_per_rank,
+                    "length_per_key": self._length_per_key,
+                    "offset_per_key": self._offset_per_key,
+                    "index_per_key": self._index_per_key,
+                    "jt_dict": self._jt_dict,
+                }
+                
+                # 根据extra_field_name设置对应的参数
+                if self._extra_field_name == "timestamps":
+                    constructor_kwargs["timestamps"] = self._extra
+                elif self._extra_field_name == "counts":
+                    constructor_kwargs["counts"] = self._extra
+                else:
+                    # 对于其他情况，使用通用的extra参数
+                    constructor_kwargs["extra"] = self._extra
+                    constructor_kwargs["extra_field_name"] = self._extra_field_name
+                
+                split_list.append(cls_type(**constructor_kwargs))
             elif segment == 0:
+                # 根据extra_field_name动态构造参数字典
                 empty_int_list: List[int] = torch.jit.annotate(List[int], [])
-                split_list.append(
-                    cls_type(
-                        keys=keys,
-                        values=torch.tensor(
+                constructor_kwargs = {
+                    "keys": keys,
+                    "values": torch.tensor(
+                        empty_int_list,
+                        device=self.device(),
+                        dtype=self._values.dtype,
+                    ),
+                    "weights": (
+                        None
+                        if self.weights_or_none() is None
+                        else torch.tensor(
                             empty_int_list,
                             device=self.device(),
-                            dtype=self._values.dtype,
-                        ),
-                        extra=torch.tensor(
-                            empty_int_list,
-                            device=self.device(),
-                            dtype=self._extra.dtype,
-                        ),
-                        weights=(
-                            None
-                            if self.weights_or_none() is None
-                            else torch.tensor(
-                                empty_int_list,
-                                device=self.device(),
-                                dtype=self.weights().dtype,
-                            )
-                        ),
-                        lengths=torch.tensor(
-                            empty_int_list, device=self.device(), dtype=torch.int
-                        ),
-                        offsets=torch.tensor(
-                            empty_int_list, device=self.device(), dtype=torch.int
-                        ),
-                        stride=stride,
-                        stride_per_key_per_rank=stride_per_key_per_rank,
-                        length_per_key=None,
-                        offset_per_key=None,
-                        index_per_key=None,
-                        jt_dict=None,
-                        extra_field_name=self._extra_field_name,
+                            dtype=self.weights().dtype,
+                        )
+                    ),
+                    "lengths": torch.tensor(
+                        empty_int_list, device=self.device(), dtype=torch.int
+                    ),
+                    "offsets": torch.tensor(
+                        empty_int_list, device=self.device(), dtype=torch.int
+                    ),
+                    "stride": stride,
+                    "stride_per_key_per_rank": stride_per_key_per_rank,
+                    "length_per_key": None,
+                    "offset_per_key": None,
+                    "index_per_key": None,
+                    "jt_dict": None,
+                }
+                
+                # 根据extra_field_name设置对应的参数
+                if self._extra_field_name == "timestamps":
+                    constructor_kwargs["timestamps"] = torch.tensor(
+                        empty_int_list,
+                        device=self.device(),
+                        dtype=self._extra.dtype if self._extra is not None else torch.int64,
                     )
-                )
+                elif self._extra_field_name == "counts":
+                    constructor_kwargs["counts"] = torch.tensor(
+                        empty_int_list,
+                        device=self.device(),
+                        dtype=self._extra.dtype if self._extra is not None else torch.int64,
+                    )
+                else:
+                    # 对于其他情况，使用通用的extra参数
+                    constructor_kwargs["extra"] = torch.tensor(
+                        empty_int_list,
+                        device=self.device(),
+                        dtype=self._extra.dtype if self._extra is not None else torch.int64,
+                    )
+                    constructor_kwargs["extra_field_name"] = self._extra_field_name
+                
+                split_list.append(cls_type(**constructor_kwargs))
             else:
+                # 根据extra_field_name动态构造参数字典
                 split_length_per_key = _length_per_key[start:end]
-                split_list.append(
-                    cls_type(
-                        keys=keys,
-                        values=self._values[start_offset:end_offset],
-                        extra=(
-                            self._extra[start_offset:end_offset]
-                            if self._extra is not None
-                            else None
-                        ),
-                        weights=(
-                            None
-                            if self.weights_or_none() is None
-                            else self.weights()[start_offset:end_offset]
-                        ),
-                        lengths=self.lengths()[
-                            self.lengths_offset_per_key()[
-                                start
-                            ]: self.lengths_offset_per_key()[end]
-                        ],
-                        offsets=None,
-                        stride=stride,
-                        stride_per_key_per_rank=stride_per_key_per_rank,
-                        length_per_key=split_length_per_key,
-                        offset_per_key=None,
-                        index_per_key=None,
-                        jt_dict=None,
-                        extra_field_name=self._extra_field_name,
+                constructor_kwargs = {
+                    "keys": keys,
+                    "values": self._values[start_offset:end_offset],
+                    "weights": (
+                        None
+                        if self.weights_or_none() is None
+                        else self.weights()[start_offset:end_offset]
+                    ),
+                    "lengths": self.lengths()[
+                        self.lengths_offset_per_key()[
+                            start
+                        ]: self.lengths_offset_per_key()[end]
+                    ],
+                    "offsets": None,
+                    "stride": stride,
+                    "stride_per_key_per_rank": stride_per_key_per_rank,
+                    "length_per_key": split_length_per_key,
+                    "offset_per_key": None,
+                    "index_per_key": None,
+                    "jt_dict": None,
+                }
+                
+                # 根据extra_field_name设置对应的参数
+                if self._extra_field_name == "timestamps":
+                    constructor_kwargs["timestamps"] = (
+                        self._extra[start_offset:end_offset]
+                        if self._extra is not None
+                        else None
                     )
-                )
+                elif self._extra_field_name == "counts":
+                    constructor_kwargs["counts"] = (
+                        self._extra[start_offset:end_offset]
+                        if self._extra is not None
+                        else None
+                    )
+                else:
+                    # 对于其他情况，使用通用的extra参数
+                    constructor_kwargs["extra"] = (
+                        self._extra[start_offset:end_offset]
+                        if self._extra is not None
+                        else None
+                    )
+                    constructor_kwargs["extra_field_name"] = self._extra_field_name
+                
+                split_list.append(cls_type(**constructor_kwargs))
             start = end
             start_offset = end_offset
         return split_list
@@ -291,23 +356,38 @@ class KeyedExtendedJaggedTensor(KeyedJaggedTensor):
             else (self._stride, None)
         )
 
-        return cls_type(
-            keys=self._keys,
-            values=self._values.pin_memory(),
-            extra=(
+        # 根据extra_field_name动态构造参数字典
+        constructor_kwargs = {
+            "keys": self._keys,
+            "values": self._values.pin_memory(),
+            "weights": weights.pin_memory() if weights is not None else None,
+            "lengths": lengths.pin_memory() if lengths is not None else None,
+            "offsets": offsets.pin_memory() if offsets is not None else None,
+            "stride": stride,
+            "stride_per_key_per_rank": stride_per_key_per_rank,
+            "length_per_key": self._length_per_key,
+            "offset_per_key": self._offset_per_key,
+            "index_per_key": self._index_per_key,
+            "jt_dict": None,
+        }
+        
+        # 根据extra_field_name设置对应的参数
+        if self._extra_field_name == "timestamps":
+            constructor_kwargs["timestamps"] = (
                 self._extra.pin_memory() if self._extra is not None else None
-            ),
-            weights=weights.pin_memory() if weights is not None else None,
-            lengths=lengths.pin_memory() if lengths is not None else None,
-            offsets=offsets.pin_memory() if offsets is not None else None,
-            stride=stride,
-            stride_per_key_per_rank=stride_per_key_per_rank,
-            length_per_key=self._length_per_key,
-            offset_per_key=self._offset_per_key,
-            index_per_key=self._index_per_key,
-            jt_dict=None,
-            extra_field_name=self._extra_field_name,
-        )
+            )
+        elif self._extra_field_name == "counts":
+            constructor_kwargs["counts"] = (
+                self._extra.pin_memory() if self._extra is not None else None
+            )
+        else:
+            # 对于其他情况，使用通用的extra参数
+            constructor_kwargs["extra"] = (
+                self._extra.pin_memory() if self._extra is not None else None
+            )
+            constructor_kwargs["extra_field_name"] = self._extra_field_name
+        
+        return cls_type(**constructor_kwargs)
 
     def to_base(self, device: torch.device, non_blocking: bool, cls_type) -> "KeyedExtendedJaggedTensor":
         """Base implementation for to method."""
@@ -324,37 +404,56 @@ class KeyedExtendedJaggedTensor(KeyedJaggedTensor):
         index_per_key = self._index_per_key
         jt_dict = self._jt_dict
 
-        return cls_type(
-            keys=self._keys,
-            values=self._values.to(device, non_blocking=non_blocking),
-            extra=(
-                self._extra.to(device, non_blocking=non_blocking)
-                if self._extra is not None
-                else None
-            ),
-            weights=(
+        # 根据extra_field_name动态构造参数字典
+        constructor_kwargs = {
+            "keys": self._keys,
+            "values": self._values.to(device, non_blocking=non_blocking),
+            "weights": (
                 weights.to(device, non_blocking=non_blocking)
                 if weights is not None
                 else None
             ),
-            lengths=(
+            "lengths": (
                 lengths.to(device, non_blocking=non_blocking)
                 if lengths is not None
                 else None
             ),
-            offsets=(
+            "offsets": (
                 offsets.to(device, non_blocking=non_blocking)
                 if offsets is not None
                 else None
             ),
-            stride=stride,
-            stride_per_key_per_rank=stride_per_key_per_rank,
-            length_per_key=length_per_key,
-            offset_per_key=offset_per_key,
-            index_per_key=index_per_key,
-            jt_dict=jt_dict,
-            extra_field_name=self._extra_field_name,
-        )
+            "stride": stride,
+            "stride_per_key_per_rank": stride_per_key_per_rank,
+            "length_per_key": length_per_key,
+            "offset_per_key": offset_per_key,
+            "index_per_key": index_per_key,
+            "jt_dict": jt_dict,
+        }
+        
+        # 根据extra_field_name设置对应的参数
+        if self._extra_field_name == "timestamps":
+            constructor_kwargs["timestamps"] = (
+                self._extra.to(device, non_blocking=non_blocking)
+                if self._extra is not None
+                else None
+            )
+        elif self._extra_field_name == "counts":
+            constructor_kwargs["counts"] = (
+                self._extra.to(device, non_blocking=non_blocking)
+                if self._extra is not None
+                else None
+            )
+        else:
+            # 对于其他情况，使用通用的extra参数
+            constructor_kwargs["extra"] = (
+                self._extra.to(device, non_blocking=non_blocking)
+                if self._extra is not None
+                else None
+            )
+            constructor_kwargs["extra_field_name"] = self._extra_field_name
+        
+        return cls_type(**constructor_kwargs)
 
     @torch.jit.unused
     def record_stream_base(self, stream: torch.cuda.streams.Stream) -> None:

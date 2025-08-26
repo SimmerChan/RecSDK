@@ -248,7 +248,7 @@ class TestModel:
             dataloader: DataLoader[Batch],
             sharding_type: str,
             enable_evict: bool,
-            training: True,
+        training: bool = True,
         ):
         rank, world_size = self.rank, self.world_size
         host_gp = dist.new_group(backend="gloo")
@@ -491,15 +491,424 @@ def test_evict_correctness(config: ExecuteConfig):
     )
 
 
+# 测试tableToFilterIndexMap_相关功能
+params = {
+    "world_size": [WORLD_SIZE],
+    "table_num": [3],  # 测试多个表
+    "embedding_dims": [[64, 128, 256]],
+    "num_embeddings": [[1000, 2000, 3000]],
+    "sharding_type": ["row_wise"],
+    "lookup_len": [64],
+    "device": ["npu"],
+    "enable_admit": [True],  # 第1、3个表开启准入
+    "enable_evict": [False],
+}
+
+
+@pytest.mark.parametrize("config", [
+    ExecuteConfig(*v) for v in itertools.product(*params.values())
+])
+def test_table_to_filter_index_mapping_admit_only(config: ExecuteConfig):
+    """测试只开启准入时的tableToFilterIndexMap映射关系"""
+    mp.spawn(
+        execute_with_custom_filter_config,
+        args=(config, "admit_only"),
+        nprocs=WORLD_SIZE,
+        join=True,
+    )
+
+
+params = {
+    "world_size": [WORLD_SIZE],
+    "table_num": [3],
+    "embedding_dims": [[64, 128, 256]],
+    "num_embeddings": [[1000, 2000, 3000]],
+    "sharding_type": ["row_wise"],
+    "lookup_len": [64],
+    "device": ["npu"],
+    "enable_admit": [False],
+    "enable_evict": [True],  # 第2、3个表开启淘汰
+}
+
+
+@pytest.mark.parametrize("config", [
+    ExecuteConfig(*v) for v in itertools.product(*params.values())
+])
+def test_table_to_filter_index_mapping_evict_only(config: ExecuteConfig):
+    """测试只开启淘汰时的tableToFilterIndexMap映射关系"""
+    mp.spawn(
+        execute_with_custom_filter_config,
+        args=(config, "evict_only"),
+        nprocs=WORLD_SIZE,
+        join=True,
+    )
+
+
+params = {
+    "world_size": [WORLD_SIZE],
+    "table_num": [4],
+    "embedding_dims": [[32, 64, 128, 256]],
+    "num_embeddings": [[800, 1600, 3200, 6400]],
+    "sharding_type": ["row_wise"],
+    "lookup_len": [32],
+    "device": ["npu"],
+    "enable_admit": [True],  # 混合配置
+    "enable_evict": [True],
+}
+
+
+@pytest.mark.parametrize("config", [
+    ExecuteConfig(*v) for v in itertools.product(*params.values())
+])
+def test_table_to_filter_index_mapping_mixed_config(config: ExecuteConfig):
+    """测试混合配置时的tableToFilterIndexMap映射关系"""
+    mp.spawn(
+        execute_with_custom_filter_config,
+        args=(config, "mixed_config"),
+        nprocs=WORLD_SIZE,
+        join=True,
+    )
+
+
+params = {
+    "world_size": [WORLD_SIZE],
+    "table_num": [2],
+    "embedding_dims": [[64, 64]],
+    "num_embeddings": [[100, 200]],
+    "sharding_type": ["row_wise"],
+    "lookup_len": [16],
+    "device": ["npu"],
+    "enable_admit": [False],  # 所有表都不开启特征过滤
+    "enable_evict": [False],
+}
+
+
+@pytest.mark.parametrize("config", [
+    ExecuteConfig(*v) for v in itertools.product(*params.values())
+])
+def test_table_to_filter_index_mapping_no_filter(config: ExecuteConfig):
+    """测试所有表都不开启特征过滤时的tableToFilterIndexMap映射关系"""
+    mp.spawn(
+        execute_with_custom_filter_config,
+        args=(config, "no_filter"),
+        nprocs=WORLD_SIZE,
+        join=True,
+    )
+
+
+params = {
+    "world_size": [WORLD_SIZE],
+    "table_num": [1],  # 边界测试：单表
+    "embedding_dims": [[128]],
+    "num_embeddings": [[1000]],
+    "sharding_type": ["row_wise"],
+    "lookup_len": [64],
+    "device": ["npu"],
+    "enable_admit": [True],
+    "enable_evict": [True],
+}
+
+
+@pytest.mark.parametrize("config", [
+    ExecuteConfig(*v) for v in itertools.product(*params.values())
+])
+def test_table_to_filter_index_mapping_single_table(config: ExecuteConfig):
+    """测试单表配置时的tableToFilterIndexMap映射关系"""
+    mp.spawn(
+        execute_with_custom_filter_config,
+        args=(config, "single_table"),
+        nprocs=WORLD_SIZE,
+        join=True,
+    )
+
+
+def execute_with_custom_filter_config(rank: int, config: ExecuteConfig, filter_config_type: str):
+    """执行带有自定义过滤器配置的测试"""
+    world_size = config.world_size
+    table_num = config.table_num
+    embedding_dims = config.embedding_dims
+    num_embeddings = config.num_embeddings
+    sharding_type = config.sharding_type
+    lookup_len = config.lookup_len
+    device = config.device
+    setup_logging(rank)
+    logging.info("Testing tableToFilterIndexMap with filter_config_type: %s", filter_config_type)
+
+    dataset = RandomRecDataset(BATCH_NUM, lookup_len, num_embeddings, table_num, is_evict_enabled=True)
+    data_loader = DataLoader(
+        dataset,
+        batch_size=None,
+        batch_sampler=None,
+        pin_memory=True,
+        pin_memory_device="npu",
+        num_workers=1,
+    )
+    
+    # 根据不同的过滤器配置类型设置表的准入淘汰配置
+    embedding_configs = _create_embedding_configs_for_filter_test(
+        table_num, embedding_dims, num_embeddings, filter_config_type
+    )
+    
+    # 记录预期的tableToFilterIndexMap映射关系
+    expected_filter_mapping = _calculate_expected_filter_mapping(embedding_configs)
+    logging.info("Expected tableToFilterIndexMap for %s: %s", filter_config_type, expected_filter_mapping)
+    
+    test_model = TestModel(rank, world_size, device)
+    test_results = test_model.test_loss(embedding_configs, data_loader, sharding_type, True, training=True)
+    
+    # 验证映射关系是否正确
+    _verify_filter_mapping(embedding_configs, expected_filter_mapping, filter_config_type)
+    
+    dist.destroy_process_group()
+
+
+def _create_embedding_configs_for_filter_test(table_num: int, embedding_dims: List[int], 
+                                             num_embeddings: List[int], filter_config_type: str) -> List[EmbCacheEmbeddingConfig]:
+    """根据测试类型创建不同配置的embedding configs"""
+    embedding_configs = []
+    default_config = AdmitAndEvictConfig()
+    
+    for i in range(table_num):
+        if filter_config_type == "admit_only":
+            # 只有第1和第3个表（索引0和2）开启准入
+            admit_enabled = (i % 2 == 0)
+            admit_threshold = 2 if admit_enabled else default_config.admit_threshold
+            evict_threshold = default_config.evict_threshold
+        elif filter_config_type == "evict_only":
+            # 只有第2和第3个表（索引1和2）开启淘汰
+            evict_enabled = (i >= 1)
+            admit_threshold = default_config.admit_threshold
+            evict_threshold = 2000_0000 if evict_enabled else default_config.evict_threshold
+        elif filter_config_type == "mixed_config":
+            # 混合配置：第1个表只开准入，第2个表只开淘汰，第3个表都开启，第4个表都不开启
+            if i == 0:  # 第1个表：只开准入
+                admit_threshold = 2
+                evict_threshold = default_config.evict_threshold
+            elif i == 1:  # 第2个表：只开淘汰
+                admit_threshold = default_config.admit_threshold
+                evict_threshold = 2000_0000
+            elif i == 2:  # 第3个表：都开启
+                admit_threshold = 2
+                evict_threshold = 2000_0000
+            else:  # 第4个表：都不开启
+                admit_threshold = default_config.admit_threshold
+                evict_threshold = default_config.evict_threshold
+        elif filter_config_type == "no_filter":
+            # 所有表都不开启特征过滤
+            admit_threshold = default_config.admit_threshold
+            evict_threshold = default_config.evict_threshold
+        elif filter_config_type == "single_table":
+            # 单表同时开启准入和淘汰
+            admit_threshold = 2
+            evict_threshold = 2000_0000
+        else:
+            raise ValueError(f"Unknown filter_config_type: {filter_config_type}")
+            
+        admit_and_evict_config = AdmitAndEvictConfig(
+            admit_threshold=admit_threshold,
+            not_admitted_default_value=0.999,
+            evict_threshold=evict_threshold,
+            evict_step_interval=EVICT_STEP_INTERVAL
+        )
+        
+        ec_config = EmbCacheEmbeddingConfig(
+            name=f"table{i}",
+            embedding_dim=embedding_dims[i],
+            num_embeddings=num_embeddings[i],
+            feature_names=[f"feat{i}"],
+            init_fn=weight_init,
+            weight_init_min=0.0,
+            weight_init_max=1.0,
+            admit_and_evict_config=admit_and_evict_config
+        )
+        embedding_configs.append(ec_config)
+    
+    return embedding_configs
+
+
+def _calculate_expected_filter_mapping(embedding_configs: List[EmbCacheEmbeddingConfig]) -> List[int]:
+    """计算预期的tableToFilterIndexMap映射关系
+    
+    Returns:
+        List[int]: 每个表索引对应的FeatureFilter索引，-1表示未开启特征过滤
+    """
+    expected_mapping = []
+    filter_index = 0
+    
+    for i, config in enumerate(embedding_configs):
+        # 根据代码逻辑：如果表开启了特征过滤（准入或淘汰），则分配一个FeatureFilter索引
+        if config.admit_and_evict_config.IsFeatureFilterEnabled():
+            expected_mapping.append(filter_index)
+            filter_index += 1
+        else:
+            expected_mapping.append(-1)  # INVALID_KEY
+    
+    return expected_mapping
+
+
+def _verify_filter_mapping(embedding_configs: List[EmbCacheEmbeddingConfig], 
+                          expected_mapping: List[int], filter_config_type: str):
+    """验证tableToFilterIndexMap映射关系是否符合预期"""
+    logging.info("Verifying filter mapping for %s", filter_config_type)
+    
+    # 打印详细的表配置信息
+    _print_table_configuration_details(embedding_configs, expected_mapping, filter_config_type)
+    
+    # 验证映射长度
+    assert len(expected_mapping) == len(embedding_configs), \
+        f"Mapping length mismatch: expected {len(embedding_configs)}, got {len(expected_mapping)}"
+    
+    # 验证映射关系的逻辑正确性
+    filter_enabled_count = 0
+    for i, config in enumerate(embedding_configs):
+        is_filter_enabled = config.admit_and_evict_config.IsFeatureFilterEnabled()
+        expected_filter_index = expected_mapping[i]
+        
+        if is_filter_enabled:
+            # 开启特征过滤的表应该有有效的FeatureFilter索引
+            assert expected_filter_index >= 0, \
+                f"Table {i} has feature filter enabled but got invalid filter index {expected_filter_index}"
+            filter_enabled_count += 1
+        else:
+            # 未开启特征过滤的表应该映射到-1（INVALID_KEY）
+            assert expected_filter_index == -1, \
+                f"Table {i} has feature filter disabled but got valid filter index {expected_filter_index}"
+    
+    # 验证FeatureFilter索引的连续性
+    if filter_enabled_count > 0:
+        filter_indices = [idx for idx in expected_mapping if idx >= 0]
+        filter_indices.sort()
+        expected_indices = list(range(filter_enabled_count))
+        assert filter_indices == expected_indices, \
+            f"Filter indices should be consecutive starting from 0: expected {expected_indices}, got {filter_indices}"
+    
+    # 验证特定配置类型的预期结果
+    if filter_config_type == "admit_only":
+        # admit_only配置：只有第1和第3个表（索引0和2）应该开启
+        for i, expected_idx in enumerate(expected_mapping):
+            if i % 2 == 0:  # 第1和第3个表
+                assert expected_idx >= 0, f"Table {i} should have filter enabled in admit_only config"
+            else:  # 第2个表
+                assert expected_idx == -1, f"Table {i} should have filter disabled in admit_only config"
+    
+    elif filter_config_type == "evict_only":
+        # evict_only配置：只有第2和第3个表（索引1和2）应该开启
+        for i, expected_idx in enumerate(expected_mapping):
+            if i >= 1:  # 第2和第3个表
+                assert expected_idx >= 0, f"Table {i} should have filter enabled in evict_only config"
+            else:  # 第1个表
+                assert expected_idx == -1, f"Table {i} should have filter disabled in evict_only config"
+    
+    elif filter_config_type == "mixed_config":
+        # mixed_config配置：第1、2、3个表开启，第4个表不开启
+        for i, expected_idx in enumerate(expected_mapping):
+            if i <= 2:  # 前3个表
+                assert expected_idx >= 0, f"Table {i} should have filter enabled in mixed_config"
+            else:  # 第4个表
+                assert expected_idx == -1, f"Table {i} should have filter disabled in mixed_config"
+    
+    elif filter_config_type == "no_filter":
+        # no_filter配置：所有表都不开启
+        for i, expected_idx in enumerate(expected_mapping):
+            assert expected_idx == -1, f"Table {i} should have filter disabled in no_filter config"
+    
+    elif filter_config_type == "single_table":
+        # single_table配置：唯一的表应该开启
+        assert len(expected_mapping) == 1, f"Single table config should have exactly 1 table"
+        assert expected_mapping[0] == 0, f"Single table should have filter index 0, got {expected_mapping[0]}"
+    
+    logging.info("Filter mapping verification passed for %s", filter_config_type)
+
+
+def _print_table_configuration_details(embedding_configs: List[EmbCacheEmbeddingConfig],
+                                      expected_mapping: List[int], filter_config_type: str):
+    """打印表配置的详细信息，帮助调试和验证"""
+    logging.info("=== Table Configuration Details for %s ===", filter_config_type)
+    logging.info("Total tables: %d", len(embedding_configs))
+    logging.info("Expected tableToFilterIndexMap: %s", expected_mapping)
+    
+    filter_enabled_tables = []
+    for i, config in enumerate(embedding_configs):
+        admit_config = config.admit_and_evict_config
+        is_admit_enabled = admit_config.IsAdmitEnabled()
+        is_evict_enabled = admit_config.IsEvictEnabled()
+        is_filter_enabled = admit_config.IsFeatureFilterEnabled()
+        
+        table_info = {
+            "table_index": i,
+            "table_name": config.name,
+            "admit_enabled": is_admit_enabled,
+            "evict_enabled": is_evict_enabled,
+            "filter_enabled": is_filter_enabled,
+            "expected_filter_index": expected_mapping[i],
+            "admit_threshold": admit_config.admitThreshold if is_admit_enabled else "N/A",
+            "evict_threshold": admit_config.evictThreshold if is_evict_enabled else "N/A"
+        }
+        
+        logging.info("Table %d (%s): admit=%s, evict=%s, filter=%s, filter_index=%d, "
+                    "admit_threshold=%s, evict_threshold=%s",
+                    i, config.name, is_admit_enabled, is_evict_enabled, is_filter_enabled,
+                    expected_mapping[i], table_info["admit_threshold"], table_info["evict_threshold"])
+        
+        if is_filter_enabled:
+            filter_enabled_tables.append(i)
+    
+    logging.info("Filter enabled table indices: %s", filter_enabled_tables)
+    logging.info("Expected FeatureFilter count: %d", len(filter_enabled_tables))
+    
+    # 验证INVALID_KEY的使用是否符合预期
+    invalid_key_count = sum(1 for idx in expected_mapping if idx == -1)
+    valid_filter_count = sum(1 for idx in expected_mapping if idx >= 0)
+    logging.info("Tables with INVALID_KEY (-1) mapping: %d", invalid_key_count)
+    logging.info("Tables with valid filter mapping: %d", valid_filter_count)
+    
+    # 验证映射的一致性
+    expected_filter_count = len(filter_enabled_tables)
+    assert valid_filter_count == expected_filter_count, \
+        f"Mismatch in filter count: expected {expected_filter_count}, got {valid_filter_count}"
+    
+    logging.info("=== End of Table Configuration Details ===")
+
+
 if __name__ == '__main__':
-    test_evict_correctness(ExecuteConfig(
+    # 运行tableToFilterIndexMap相关的测试
+    logging.basicConfig(level=logging.INFO)
+    
+    # 测试混合配置
+    test_table_to_filter_index_mapping_mixed_config(ExecuteConfig(
+        world_size=WORLD_SIZE,
+        table_num=4,
+        embedding_dims=[32, 64, 128, 256],
+        num_embeddings=[800, 1600, 3200, 6400],
+        sharding_type="row_wise",
+        lookup_len=32,
+        device="npu",
+        enable_admit=True,
+        enable_evict=True
+    ))
+    
+    # 测试单表配置
+    test_table_to_filter_index_mapping_single_table(ExecuteConfig(
+        world_size=WORLD_SIZE,
+        table_num=1,
+        embedding_dims=[128],
+        num_embeddings=[1000],
+        sharding_type="row_wise",
+        lookup_len=64,
+        device="npu",
+        enable_admit=True,
+        enable_evict=True
+    ))
+    
+    # 测试无过滤器配置
+    test_table_to_filter_index_mapping_no_filter(ExecuteConfig(
         world_size=WORLD_SIZE,
         table_num=2,
-        embedding_dims=[128, 128],
-        num_embeddings=[4000, 400],
+        embedding_dims=[64, 64],
+        num_embeddings=[100, 200],
         sharding_type="row_wise",
-        lookup_len=128,
+        lookup_len=16,
         device="npu",
         enable_admit=False,
-        enable_evict=True
+        enable_evict=False
     ))
