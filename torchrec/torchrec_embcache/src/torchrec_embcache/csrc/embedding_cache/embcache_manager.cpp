@@ -215,28 +215,95 @@ SwapinTensor EmbcacheManager::EmbeddingLookup(const std::vector<std::vector<int6
     TORCH_CHECK(jaggedOffsPtr != nullptr, "jaggedOffsPtr should not be nullptr");
 
     jaggedOffsPtr[0] = 0;
+    LOG_INFO("EmbeddingLookup: calculating jaggedOffs for {} tables", swapinKeys.size());
+    
     for (uint64_t i = 1; i <= swapinKeys.size(); i++) {
-        jaggedOffsPtr[i] = jaggedOffsPtr[i - 1] + swapinKeys[i - 1].size() * embConfigs_[i - 1].embDim;
+        int64_t tableKeyCount = swapinKeys[i - 1].size();
+        int32_t embDim = embConfigs_[i - 1].embDim;
+        int64_t tableSize = tableKeyCount * embDim;
+        
+        LOG_INFO("EmbeddingLookup: table[{}] keyCount={}, embDim={}, tableSize={}", 
+                 i-1, tableKeyCount, embDim, tableSize);
+        
+        jaggedOffsPtr[i] = jaggedOffsPtr[i - 1] + tableSize;
+        
+        // 检查是否有整数溢出
+        TORCH_CHECK(jaggedOffsPtr[i] >= jaggedOffsPtr[i - 1], 
+                   "Integer overflow detected in jaggedOffs calculation for table {}", i-1);
     }
 
     int64_t embsSize = jaggedOffsPtr[swapinKeys.size()];
+    LOG_INFO("EmbeddingLookup: embsSize={}, optimNum_={}, swapinKeys.size()={}", embsSize, optimNum_, swapinKeys.size());
+    
+    // 检查embsSize是否为有效值
+    if (embsSize <= 0) {
+        LOG_WARN("EmbeddingLookup: embsSize is {} which is invalid, this may cause tensor allocation issues", embsSize);
+        // 对于空输入，返回空的SwapinTensor
+        swapinTensor.swapinEmbs = at::empty({0}, floatPinnedOpt);
+        // 不创建优化器张量，避免空指针问题
+        return swapinTensor;
+    }
+    
     swapinTensor.swapinEmbs = at::empty({embsSize}, floatPinnedOpt);
+    LOG_INFO("EmbeddingLookup: swapinEmbs tensor created, size={}, data_ptr={}", 
+             embsSize, (void*)swapinTensor.swapinEmbs.data_ptr<float>());
+    
+    // 仅在optimNum_ > 0时创建优化器张量
     for (int32_t i = 0; i < optimNum_; i++) {
-        swapinTensor.swapinOptims.emplace_back(at::empty({embsSize}, floatPinnedOpt));
+        auto optimTensor = at::empty({embsSize}, floatPinnedOpt);
+        LOG_INFO("EmbeddingLookup: creating optimizer tensor {}, size={}, data_ptr={}", 
+                 i, embsSize, (void*)optimTensor.data_ptr<float>());
+        
+        // 检查张量是否成功创建
+        TORCH_CHECK(optimTensor.defined(), "optimizer tensor {} creation failed", i);
+        TORCH_CHECK(optimTensor.data_ptr<float>() != nullptr, 
+                   "optimizer tensor {} data_ptr is nullptr after creation", i);
+        
+        swapinTensor.swapinOptims.emplace_back(std::move(optimTensor));
     }
 
     const std::vector<int32_t>& curTableIndices = tableIndices.empty() ? embTableIndies_ : tableIndices;
     TORCH_CHECK(curTableIndices.size() == swapinKeys.size(),
                 "tableIndices size must be equal to swapinKeys size");
 
+    // 初始化优化器指针数组，确保大小正确
     std::vector<float*> swapinOptimsPtr(optimNum_);
+    LOG_INFO("EmbeddingLookup: initialized swapinOptimsPtr with size {}", optimNum_);
+    
+    // 对于空输入，直接返回
+    if (swapinKeys.empty()) {
+        LOG_INFO("EmbeddingLookup: swapinKeys is empty, returning empty tensor");
+        return swapinTensor;
+    }
     for (uint64_t i = 0; i < swapinKeys.size(); i++) {
         // 当优化器数量为0时，跳过优化器张量的处理
         if (optimNum_ > 0) {
+            LOG_INFO("EmbeddingLookup: processing optimizers for swapinKeys[{}], optimNum_={}", i, optimNum_);
+            
+            // 检查优化器张量数组的大小
+            TORCH_CHECK(swapinTensor.swapinOptims.size() == static_cast<size_t>(optimNum_), 
+                       "swapinOptims size {} does not match optimNum_ {}", 
+                       swapinTensor.swapinOptims.size(), optimNum_);
+            
             for (int32_t j = 0; j < optimNum_; j++) {
+                // 检查张量是否已定义
+                TORCH_CHECK(swapinTensor.swapinOptims[j].defined(), 
+                           "swapinOptims[{}] tensor is not defined", j);
+                           
+                // 检查张量大小是否正确
+                TORCH_CHECK(swapinTensor.swapinOptims[j].numel() > 0, 
+                           "swapinOptims[{}] tensor is empty, numel={}", j, swapinTensor.swapinOptims[j].numel());
+                           
                 auto* optimPtr = swapinTensor.swapinOptims[j].data_ptr<float>();
                 TORCH_CHECK(optimPtr != nullptr, "swapinOptims[{}] data_ptr should not be nullptr", j);
+                
+                // 检查偏移量是否在有效范围内
+                TORCH_CHECK(jaggedOffsPtr[i] < swapinTensor.swapinOptims[j].numel(), 
+                           "jaggedOffsPtr[{}]={} exceeds swapinOptims[{}] tensor size {}", 
+                           i, jaggedOffsPtr[i], j, swapinTensor.swapinOptims[j].numel());
+                           
                 swapinOptimsPtr[j] = optimPtr + jaggedOffsPtr[i];
+                LOG_INFO("EmbeddingLookup: swapinOptimsPtr[{}] set to offset {}", j, jaggedOffsPtr[i]);
             }
         }
 
