@@ -33,6 +33,8 @@ parser.add_argument("--padding", type=bool, default=False, help="generate padded
 args = parser.parse_args()
 args.length = math.inf if args.length == -1 else args.length
 
+INDEX_NAME = "common_index"
+
 
 def parse_data(file_name, index_dict_in=None):
     index_dict_local = dict()
@@ -46,10 +48,10 @@ def parse_data(file_name, index_dict_in=None):
             feat_len = len(line)
             # common_feature_index|feat_num|feat_list
             if feat_len == 3:
-                if line[0] not in index_dict_in["index"]:
+                if line[0] not in index_dict_in[INDEX_NAME]:
                     continue
 
-                shown_nums = index_dict_in["index"][line[0]]
+                shown_nums = index_dict_in[INDEX_NAME][line[0]]
 
                 feat_strs = line[2]
                 for fstr in feat_strs.split("\x01"):
@@ -67,11 +69,11 @@ def parse_data(file_name, index_dict_in=None):
                 if line[1] == "0" and line[2] == "1":
                     continue
 
-                if "index" not in index_dict_local:
-                    index_dict_local["index"] = dict()
-                if line[3] not in index_dict_local["index"]:
-                    index_dict_local["index"][line[3]] = 0
-                index_dict_local["index"][line[3]] += 1
+                if INDEX_NAME not in index_dict_local:
+                    index_dict_local[INDEX_NAME] = dict()
+                if line[3] not in index_dict_local[INDEX_NAME]:
+                    index_dict_local[INDEX_NAME][line[3]] = 0
+                index_dict_local[INDEX_NAME][line[3]] += 1
 
                 feat_strs = line[5]
                 for fstr in feat_strs.split("\x01"):
