@@ -13,6 +13,7 @@
 
 #include "embedding_cache/embcache_manager.h"
 #include "ops/restore.h"
+#include "common/constants.h"
 
 using namespace Embcache;
 
@@ -53,7 +54,7 @@ void AddEmbConfigModule(pybind11::module_& m)
              py::arg("table_name"), py::arg("initializer_type"), py::arg("emb_dim"), py::arg("optim_num"),
              py::arg("cache_size"), py::arg("weight_init_min"), py::arg("weight_init_max"), py::arg("weight_init_mean"),
              py::arg("weight_init_stddev"), py::arg("admit_and_evict_config") = AdmitAndEvictConfig(),
-             py::arg("initializer_random_pool_size") = -1, py::arg("seed") = 0)
+             py::arg("initializer_random_pool_size") = INVALID_KEY, py::arg("seed") = 0)
         .def_readwrite("table_name", &EmbConfig::tableName)
         .def_readwrite("initializer_type", &EmbConfig::initializerType)
         .def_readwrite("emb_dim", &EmbConfig::embDim)
@@ -73,7 +74,7 @@ PYBIND11_MODULE(embcache_pybind, m)
 
     py::class_<AdmitAndEvictConfig>(m, "AdmitAndEvictConfig")
         .def(py::init<>())
-        .def(py::init<int32_t, float, uint64_t, uint64_t>(), py::arg("admit_threshold") = -1,
+        .def(py::init<int64_t, float, uint64_t, uint64_t>(), py::arg("admit_threshold") = INVALID_KEY,
              py::arg("not_admitted_default_value") = 0.0, py::arg("evict_threshold") = 0,
              py::arg("evict_step_interval") = 0)
         .def_readwrite("admit_threshold", &AdmitAndEvictConfig::admitThreshold)
