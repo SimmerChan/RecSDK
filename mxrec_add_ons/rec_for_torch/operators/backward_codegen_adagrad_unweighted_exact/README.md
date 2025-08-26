@@ -289,9 +289,13 @@ TF_ADAM_MODE: adam优化器的计算选择开关，根据环境变量设置对�
 
 $stepSize = lr * \frac{\sqrt{1 - {\beta_2}^t}}{(1 - {\beta_1}^t)}$
 
-默认情况：计算公式: $ \hat{\theta} = stepSize * \frac{\^{m}}{\sqrt{\^v} + \sqrt{1-{\beta_2}^t}eps}$
+默认情况下计算公式为:
 
-**TF_ADAM_MODE=True** 计算公式: $ \hat{\theta} = stepSize * \frac{\^{m}}{\sqrt{\^v}+ eps}$
+$ \hat{\theta} = stepSize * \frac{\hat{m}}{\sqrt{\hat{v}} + \sqrt{1-{\beta_2}^t}eps}$
+
+设置环境变量**TF_ADAM_MODE=True** 计算公式:
+
+$ \hat{\theta} = stepSize * \frac{\hat{m}}{\sqrt{\hat{v}}+ eps}$
 
 ## backward_codegen_sgd_unweighted_exact融合算子介绍
 
