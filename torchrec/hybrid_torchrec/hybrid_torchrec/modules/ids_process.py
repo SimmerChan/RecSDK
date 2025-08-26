@@ -64,6 +64,7 @@ class IdsMapper(HashMapBase):
 
     def statistic_key_count(self, ids: torch.Tensor, offset: torch.Tensor, counts: torch.Tensor, table_i: int):
         # cache manager内会判断表是否开启准入，开启时才记录count数据
+        logging.debug("[IdsMapper.statistic_key_count] calling with table_i: %d, embedding_num: %d", table_i, self.embedding_num)
         self._cache_mgr.statistics_key_count(
             ids, offset, counts, table_i
         )

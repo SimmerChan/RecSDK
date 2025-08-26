@@ -210,7 +210,9 @@ def do_unique_hash_out(
         # 开启local unique时，会传入KeyedJaggedTensorWithCount,使用其counts属性；
         # 不包含counts属性时使用空tensor, 统计时会用1作为count
         counts = origin_kjt.counts if hasattr(origin_kjt, "counts") else torch.empty((0,), dtype=torch.int64)
+        logger.debug("[do_unique_hash_out] num_of_table: %d, table count for statistic_key_count", num_of_table)
         for table_i in range(num_of_table):
+            logger.debug("[do_unique_hash_out] calling statistic_key_count for table_i: %d", table_i)
             hashmap_list[table_i].statistic_key_count(
                 ids, offsets, counts, table_i
             )

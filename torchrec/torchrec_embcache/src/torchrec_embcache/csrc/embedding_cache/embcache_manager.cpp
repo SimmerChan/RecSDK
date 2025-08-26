@@ -455,12 +455,20 @@ void EmbcacheManager::RemoveEmbeddingTableInfo()
 void EmbcacheManager::StatisticsKeyCount(const at::Tensor& batchKeys, const torch::Tensor& offset,
                                          const at::Tensor& batchKeyCounts, int64_t tableIndex)
 {
-    // 添加表索引边界检查
-    TORCH_CHECK(tableIndex >= 0 && tableIndex < embNum_, "table index {} is out of range [0, {})", tableIndex, embNum_);
+    // 添加表索引边界检查和详细调试信息
+    LOG_INFO("StatisticsKeyCount called with tableIndex: {}, embNum_: {}", tableIndex, embNum_);
+    TORCH_CHECK(tableIndex >= 0 && tableIndex < embNum_, 
+                "table index {} is out of range [0, {}). embNum_={}, "
+                "This error indicates that the tableIndex parameter passed from Python exceeds "
+                "the number of tables configured in EmbcacheManager.", 
+                tableIndex, embNum_, embNum_);
     
     LOG_INFO("StatisticsKeyCount, tableName: {}, isAdmit: {}",
              embConfigs_[tableIndex].tableName, embConfigs_[tableIndex].admitAndEvictConfig.IsAdmitEnabled());
+    
+    // 只有开启了准入功能的表才需要记录key count统计信息
     if (!embConfigs_[tableIndex].admitAndEvictConfig.IsAdmitEnabled()) {
+        LOG_INFO("Table {} does not have admit enabled, skipping StatisticsKeyCount", tableIndex);
         return;
     }
     TORCH_CHECK(offset.numel() > tableIndex + 1, "param error, tableIndex need be smaller than offset length,"
@@ -485,9 +493,17 @@ void EmbcacheManager::StatisticsKeyCount(const at::Tensor& batchKeys, const torc
     int64_t end = offsetDataPtr[tableIndex + 1];
     TORCH_CHECK(end <= batchKeys.numel())
     
-    // 添加FeatureFilter数组边界检查
-    TORCH_CHECK(tableIndex < static_cast<int64_t>(featureFilters_.size()), 
-               "tableIndex {} is out of range [0, {})", tableIndex, featureFilters_.size());
+    // 使用tableToFilterIndexMap_来获取正确的FeatureFilter索引
+    // 只有开启了特征过滤的表才会有对应的FeatureFilter
+    int32_t filterIndex = tableToFilterIndexMap_[tableIndex];
+    if (filterIndex < 0) {
+        // 这个表没有开启特征过滤，但有准入功能，这是不应该出现的情况
+        LOG_WARN("Table {} has admit enabled but no corresponding FeatureFilter, this should not happen", tableIndex);
+        return;
+    }
     
-    featureFilters_[tableIndex].StatisticsKeyCount(featureDataPtr, countDataPtr, start, end, isCountDataEmpty);
+    TORCH_CHECK(filterIndex < static_cast<int32_t>(featureFilters_.size()), 
+               "filterIndex {} is out of range [0, {})", filterIndex, featureFilters_.size());
+    
+    featureFilters_[filterIndex].StatisticsKeyCount(featureDataPtr, countDataPtr, start, end, isCountDataEmpty);
 } 
