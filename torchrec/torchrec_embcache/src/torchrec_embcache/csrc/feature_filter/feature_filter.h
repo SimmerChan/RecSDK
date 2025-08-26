@@ -15,6 +15,7 @@
 #include <string>
 
 #include "evict_feature_record.h"
+#include "common/constants.h"
 
 namespace Embcache {
 
@@ -24,7 +25,7 @@ struct FeatureRecord {
 
 class FeatureFilter {
 public:
-    FeatureFilter(const std::string& tableName, int32_t admitThreshold, uint64_t evictThreshold,
+    FeatureFilter(const std::string& tableName, int64_t admitThreshold, uint64_t evictThreshold,
                   uint64_t evictStepInterval);
     void StatisticsKeyCount(const int64_t* featureDataPtr, const int64_t* countDataPtr, int64_t startIndex,
                             int64_t endIndex, bool isCountDataEmpty);
@@ -46,7 +47,7 @@ private:
     std::string tableName_;
 
     // 准入相关配置
-    int32_t admitThreshold_ = -1;                                  // 准入阈值，默认值表示未开启准入
+    int64_t admitThreshold_ = INVALID_KEY;         // 准入阈值，默认值表示未开启准入
     std::unordered_map<int64_t, FeatureRecord> featureRecordMap_;  // 准入，记录key次数
 
     // 淘汰相关配置

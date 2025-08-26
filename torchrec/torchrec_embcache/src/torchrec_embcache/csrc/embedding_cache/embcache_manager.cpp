@@ -50,7 +50,7 @@ EmbcacheManager::EmbcacheManager(const std::vector<EmbConfig>& embConfigs, bool 
         }
 
         if (embConfigs[i].admitAndEvictConfig.IsFeatureFilterEnabled()) {
-            auto& aaeConfig = embConfigs[i].admitAndEvictConfig;
+            const auto& aaeConfig = embConfigs[i].admitAndEvictConfig;
             featureFilters_.emplace_back(
                 FeatureFilter(embConfigs[i].tableName,
                               aaeConfig.admitThreshold,
@@ -95,6 +95,8 @@ SwapInfo EmbcacheManager::ComputeSwapInfo(const at::Tensor& batchKeys, const std
                 "tableIndices size+1 must be equal to offsetPerKey size");
 
     auto* keyPtr = batchKeys.data_ptr<int64_t>();
+    // 添加空指针校验
+    TORCH_CHECK(keyPtr != nullptr, "keyPtr should not be nullptr");
     int64_t keyNum = batchKeys.numel();
     int64_t offPreSum = 0;
 
@@ -195,6 +197,8 @@ SwapinTensor EmbcacheManager::EmbeddingLookup(const std::vector<std::vector<int6
     SwapinTensor swapinTensor;
     swapinTensor.jaggedOffs = at::empty({static_cast<int64_t>(swapinKeys.size() + 1)}, longPinnedOpt);
     auto jaggedOffsPtr = swapinTensor.jaggedOffs.data_ptr<int64_t>();
+    // 添加空指针校验
+    TORCH_CHECK(jaggedOffsPtr != nullptr, "jaggedOffsPtr should not be nullptr");
 
     jaggedOffsPtr[0] = 0;
     for (uint64_t i = 1; i <= swapinKeys.size(); i++) {
@@ -214,11 +218,15 @@ SwapinTensor EmbcacheManager::EmbeddingLookup(const std::vector<std::vector<int6
     std::vector<float*> swapinOptimsPtr(optimNum_);
     for (uint64_t i = 0; i < swapinKeys.size(); i++) {
         for (int32_t j = 0; j < optimNum_; j++) {
-            swapinOptimsPtr[j] = swapinTensor.swapinOptims[j].data_ptr<float>() + jaggedOffsPtr[i];
+            auto* optimPtr = swapinTensor.swapinOptims[j].data_ptr<float>();
+            TORCH_CHECK(optimPtr != nullptr, "swapinOptims[{}] data_ptr should not be nullptr", j);
+            swapinOptimsPtr[j] = optimPtr + jaggedOffsPtr[i];
         }
 
         int32_t idx = curTableIndices[i];
-        embeddingTables_[idx]->FindOrInsert(swapinKeys[i], swapinTensor.swapinEmbs.data_ptr<float>() + jaggedOffsPtr[i],
+        auto* swapinEmbsPtr = swapinTensor.swapinEmbs.data_ptr<float>();
+        TORCH_CHECK(swapinEmbsPtr != nullptr, "swapinEmbs data_ptr should not be nullptr");
+        embeddingTables_[idx]->FindOrInsert(swapinKeys[i], swapinEmbsPtr + jaggedOffsPtr[i],
                                             swapinOptimsPtr);
     }
 
@@ -253,11 +261,15 @@ void EmbcacheManager::EmbeddingUpdate(const std::vector<std::vector<int64_t>>& s
                 "tableIndices size must be equal to swapoutKeys size");
 
     auto* swapoutEmbsPtr = swapoutEmbs.data_ptr<float>();
+    // 添加空指针校验
+    TORCH_CHECK(swapoutEmbsPtr != nullptr, "swapoutEmbsPtr should not be nullptr");
     int64_t jaggedOff = 0;
     std::vector<float*> swapoutOptimPtrs(swapoutOptims.size());
     for (uint64_t i = 0; i < swapoutKeys.size(); i++) {
         for (size_t j = 0; j < swapoutOptims.size(); j++) {
-            swapoutOptimPtrs[j] = swapoutOptims[j].data_ptr<float>() + jaggedOff;
+            auto* optimPtr = swapoutOptims[j].data_ptr<float>();
+            TORCH_CHECK(optimPtr != nullptr, "swapoutOptims[{}] data_ptr should not be nullptr", j);
+            swapoutOptimPtrs[j] = optimPtr + jaggedOff;
         }
 
         int32_t idx = curTableIndices[i];
@@ -282,6 +294,10 @@ void EmbcacheManager::RecordTimestamp(const at::Tensor& batchKeys, const std::ve
     TimeCost recordTimestampTC;
     const auto* keyPtr = batchKeys.data_ptr<int64_t>();
     const auto* timestampsPtr = timestamps.data_ptr<int64_t>();
+    
+    // 添加空指针校验
+    TORCH_CHECK(keyPtr != nullptr, "keyPtr should not be nullptr");
+    TORCH_CHECK(timestampsPtr != nullptr, "timestampsPtr should not be nullptr");
     const std::vector<int32_t>& curTableIndices = tableIndices.empty() ? embTableIndies_ : tableIndices;
     TORCH_CHECK(curTableIndices.size() + 1 == offsetPerKey.size(),
                 "tableIndices size+1 must be equal to offsetPerKey size");
@@ -389,6 +405,13 @@ void EmbcacheManager::StatisticsKeyCount(const at::Tensor& batchKeys, const torc
     auto* featureDataPtr = batchKeys.data_ptr<int64_t>();
     auto* countDataPtr = batchKeyCounts.data_ptr<int64_t>();
     auto* offsetDataPtr = offset.data_ptr<int64_t>();
+    
+    // 添加空指针校验
+    TORCH_CHECK(featureDataPtr != nullptr, "featureDataPtr should not be nullptr");
+    TORCH_CHECK(offsetDataPtr != nullptr, "offsetDataPtr should not be nullptr");
+    if (!isCountDataEmpty) {
+        TORCH_CHECK(countDataPtr != nullptr, "countDataPtr should not be nullptr when counts data is not empty");
+    }
     int64_t start = offsetDataPtr[tableIndex];
     int64_t end = offsetDataPtr[tableIndex + 1];
     TORCH_CHECK(end <= batchKeys.numel())
