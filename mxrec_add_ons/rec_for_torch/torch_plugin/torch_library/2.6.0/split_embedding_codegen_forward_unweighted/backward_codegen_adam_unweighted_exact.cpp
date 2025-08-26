@@ -418,9 +418,8 @@ at::Tensor split_embedding_backward_codegen_adam_unweighted_exact_npu(const Tens
     const char* envValue = std::getenv("TF_ADAM_MODE");
     if (envValue != nullptr) {
         std::string value(envValue);
-        for (char& c :value) {
-            c = std::tolower(static_cast<unsigned char>(c));
-        }
+        std::transform(value.begin(), value.end(), value.begin(),
+                       [](unsigned char c) { return std::tolower(c); });
         if (value == "true" || value == "yes") {
             adamEps = eps;
         }
