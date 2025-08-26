@@ -356,9 +356,6 @@ void EmbcacheManager::Save(const std::string path, const int rank)
         WriteData(fileEmbeddingSliceAttr, reinterpret_cast<const char*>(embedAttribute.data()),
                   embedAttribute.size() * sizeof(int64_t));
         WriteOptimizerAttributeFile(i, fileMomentum1SliceAttr, fileMomentum2SliceAttr, count);
-
-        // 4 保存准入淘汰数据
-//        SaveFeatureAdmitAndEvictInfo(i, midPath, saveKeys);
     }
 }
 
@@ -461,9 +458,6 @@ void EmbcacheManager::Load(const std::string& path, int rank)
             }
             embeddingTables_[i]->InsertOrAssign(insertKey, embeddings[k].data(), momentum);
         }
-
-        // 加载准入淘汰数据
-//        LoadFeatureAdmitAndEvictInfo(i, filePath, keys);
     }
 }
 

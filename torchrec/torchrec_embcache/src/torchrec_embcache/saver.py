@@ -6,7 +6,7 @@
 # LICENSE file in the root directory of this source tree.
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import torch.distributed as dist
@@ -44,6 +44,23 @@ class Saver:
         self.rank: int = rank
         self.cache_module = []
 
+    @staticmethod
+    def is_timestamp_format(self, dir_name: str) -> bool:
+        try:
+            datetime.strptime(dir_name, TIMESTAMP_FORMAT)
+            return True
+        except ValueError:
+            return False
+
+    @staticmethod
+    def _get_latest_load_path(self, path):
+        path = Path(path)
+        dirs = [d for d in path.iterdir() if d.is_dir() and self.is_timestamp_format(d.name)]
+        if not dirs:
+            raise ValueError(f"expect a timestamp directory but empty in path:{path}")
+        latest_dir = max(d.name for d in dirs)
+        return os.path.join(os.path.realpath(path), latest_dir)
+
     def save(self, module: torch.nn.Module, path: str) -> None:
         check_path(path)
         if not isinstance(module, torch.nn.Module):
@@ -76,24 +93,7 @@ class Saver:
 
     @staticmethod
     def _get_format_path(self, path):
-        return os.path.join(path, datetime.now().strftime(TIMESTAMP_FORMAT))
-
-    @staticmethod
-    def is_timestamp_format(self, dir_name: str) -> bool:
-        try:
-            datetime.strptime(dir_name, TIMESTAMP_FORMAT)
-            return True
-        except ValueError:
-            return False
-
-    @staticmethod
-    def _get_latest_load_path(self, path):
-        path = Path(path)
-        dirs = [d for d in path.iterdir() if d.is_dir() and self.is_timestamp_format(d.name)]
-        if not dirs:
-            raise ValueError(f"expect a timestamp directory but empty in path:{path}")
-        latest_dir = max(d.name for d in dirs)
-        return os.path.join(os.path.realpath(path), latest_dir)
+        return os.path.join(path, datetime.now(tz=timezone.utc).strftime(TIMESTAMP_FORMAT))
 
     def _find_all_embed_cache_instance(self, module):
         for _, child in module.named_children():

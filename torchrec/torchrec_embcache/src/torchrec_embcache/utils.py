@@ -57,9 +57,9 @@ def check_path(value: str, min_len: int = _STRING_MIN_LEN, max_len: int = _STRIN
     if is_dir and not current_is_dir:
         raise ValueError(f"expected path param is a directory, but file not exist or not a directory")
 
-    if file_exist and not os.path.isdir(value) and (file_size_min or file_size_max):
+    if file_exist and not os.path.isdir(value):
         file_bytes = Path(value).stat().st_size
-        if file_size_min and file_bytes < file_size_min or file_size_max and file_bytes > file_size_max:
-            min_size = file_size_min or 0
-            max_size = file_size_max or _FILE_SIZE_MAX
-            raise ValueError(f"file size in byte exceeds limit:[{min_size}, {max_size}]")
+        if file_size_min and file_bytes < file_size_min:
+            raise ValueError(f"file size:{file_bytes} in byte is slower than file min size:{file_size_min}")
+        if file_size_max and file_bytes > file_size_max:
+            raise ValueError(f"file size::{file_bytes} in byte exceeds file max size limit:{file_size_max}")

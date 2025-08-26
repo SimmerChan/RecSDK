@@ -7,7 +7,7 @@
 import os
 import random
 import shutil
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import patch
 
 import pytest
@@ -16,28 +16,33 @@ from torchrec_embcache.saver import Saver, SAVE_PATH_MAX_LEN, TIMESTAMP_FORMAT
 
 
 class TestSaver:
+    @staticmethod
     @patch("torch.distributed.is_initialized", return_value=True)
     @patch("torch.distributed.get_rank", return_value=0)
     def test_init_with_no_rank_should_ok(self):
         saver = Saver()
         assert saver.rank == 0
 
+    @staticmethod
     @patch("torch.distributed.is_initialized", return_value=True)
     @patch("torch.distributed.get_world_size", return_value=10)
     def test_init_with_rank_should_ok(self):
         _ = Saver(9)
 
+    @staticmethod
     @patch("torch.distributed.is_initialized", return_value=True)
     @patch("torch.distributed.get_world_size", return_value=10)
     def test_init_with_exceed_rank_should_failed(self):
         with pytest.raises(ValueError):
             _ = Saver(15)
 
+    @staticmethod
     @patch("torch.distributed.is_initialized", return_value=False)
     def test_init_with_no_rank_should_failed(self):
         with pytest.raises(ValueError):
             _ = Saver()
 
+    @staticmethod
     def test_init_with_invalid_rank_should_failed(self):
         with pytest.raises(ValueError):
             _ = Saver("rank_str")
@@ -48,6 +53,7 @@ class TestSaver:
         with pytest.raises(ValueError):
             _ = Saver(-1)
 
+    @staticmethod
     def test_save_with_valid_path_should_failed(self):
         saver = Saver(0)
         with pytest.raises(TypeError):
@@ -65,6 +71,7 @@ class TestSaver:
             module = torch.nn.Module()
             saver.save(module, "save_dir")
 
+    @staticmethod
     def test_load_with_valid_path_should_failed(self):
         saver = Saver(0)
         with pytest.raises(ValueError):
@@ -77,7 +84,7 @@ class TestSaver:
 
         # 不存在时间戳目录
         dir_path = os.path.dirname(os.path.realpath(__file__))
-        temp_dir = datetime.now().strftime(TIMESTAMP_FORMAT) + str(random.randint(0, 100000))
+        temp_dir = datetime.now(tz=timezone.utc).strftime(TIMESTAMP_FORMAT) + str(random.randint(0, 100000))
         temp_dir = os.path.join(dir_path, temp_dir)
         os.makedirs(temp_dir, exist_ok=True)
         with pytest.raises(ValueError):
