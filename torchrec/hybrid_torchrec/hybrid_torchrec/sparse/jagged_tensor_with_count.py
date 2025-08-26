@@ -17,7 +17,7 @@ from torchrec.sparse.jagged_tensor import (
     KeyedJaggedTensor,
 )
 from torchrec.pt2.checks import is_non_strict_exporting
-from torchrec.torchrec_embcache.src.torchrec_embcache.sparse.extended_jagged_tensor import ExtendedJaggedTensor, KeyedExtendedJaggedTensor
+from .extended_jagged_tensor import ExtendedJaggedTensor, KeyedExtendedJaggedTensor
 
 
 class JaggedTensorWithCount(ExtendedJaggedTensor):

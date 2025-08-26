@@ -17,7 +17,7 @@ from torchrec.sparse.jagged_tensor import (
     _permute_tensor_by_segments,
 )
 from torchrec.pt2.checks import is_torchdynamo_compiling, is_non_strict_exporting
-from .extended_jagged_tensor import ExtendedJaggedTensor, KeyedExtendedJaggedTensor
+from hybrid_torchrec.sparse.extended_jagged_tensor import ExtendedJaggedTensor, KeyedExtendedJaggedTensor
 
 
 class JaggedTensorWithTimestamp(ExtendedJaggedTensor):
