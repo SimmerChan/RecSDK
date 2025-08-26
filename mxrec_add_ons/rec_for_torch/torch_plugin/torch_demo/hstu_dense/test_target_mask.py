@@ -124,14 +124,16 @@ def write_tensor2file(tensor: torch.Tensor):
             one_line_str = ",".join([str(mask) for mask in tensor_list[i]])
             f.write(one_line_str + "\n")
 
+
 test_param_all = {
     "seq_len": [64],
     "num_target": [16],
     "num_context": [16],
     "target_group_size": [4],
     "block_height": [8],
-    "block_weight": [8]
+    "block_weight": [8],
 }
+
 
 @dataclass
 class TestParam:
@@ -143,10 +145,10 @@ class TestParam:
     block_weight: int
 
 
-@pytest.mark.parametrize("test_param", [TestParam(*v) for v in itertools.product(*test_param_all.values())])
-def test_hstu_target_mask(
-    test_param: TestParam
-):
+@pytest.mark.parametrize(
+    "test_param", [TestParam(*v) for v in itertools.product(*test_param_all.values())]
+)
+def test_hstu_target_mask(test_param: TestParam):
     seq_len = test_param.seq_len
     num_target = test_param.num_target
     num_context = test_param.num_context
@@ -169,6 +171,7 @@ def test_hstu_target_mask(
     )
     result = compute_target_mask_each_block(score_shape_param)
     write_tensor2file(result)
+
 
 if __name__ == "__main__":
     reuslt = test_hstu_target_mask(TestParam(64, 16, 16, 4, 8, 8))
