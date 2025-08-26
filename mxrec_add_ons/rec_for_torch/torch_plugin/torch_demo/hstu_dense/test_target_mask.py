@@ -32,30 +32,32 @@ def _check_param_valid(seq_len, num_target, num_context, target_group_size) -> b
     return True
 
 
-def _is_this_point_in_context(row_on_score, num_context, col_on_score, num_history):
-    return row_on_score < num_context and col_on_score < num_history
+class GPUSmit:
+    @staticmethod
+    def is_this_point_in_context(row_on_score, num_context, col_on_score, num_history):
+        return row_on_score < num_context and col_on_score < num_history
+
+    @staticmethod
+    def is_this_point_out_border(row_on_score, col_on_score, seq_len):
+        return row_on_score >= seq_len or col_on_score >= seq_len
+
+    @staticmethod
+    def is_this_point_in_casual_mask(row_on_score, col_on_score):
+        return col_on_score > row_on_score
+
+    @staticmethod
+    def is_this_point_in_target_mask(
+        row_on_score, col_on_score, num_history, target_group_size
+    ):
+        if row_on_score >= num_history and col_on_score > num_history:
+            target_index = (row_on_score - num_history) // target_group_size
+            target_col_limit_left = num_history + target_index * target_group_size
+            if col_on_score < target_col_limit_left:
+                return True
+        return False
 
 
-def _is_this_point_out_border(row_on_score, col_on_score, seq_len):
-    return row_on_score >= seq_len or col_on_score >= seq_len
-
-
-def _is_this_point_in_casual_mask(row_on_score, col_on_score):
-    return col_on_score > row_on_score
-
-
-def _is_this_point_in_target_mask(
-    row_on_score, col_on_score, num_history, target_group_size
-):
-    if row_on_score >= num_history and col_on_score > num_history:
-        target_index = (row_on_score - num_history) // target_group_size
-        target_col_limit_left = num_history + target_index * target_group_size
-        if col_on_score < target_col_limit_left:
-            return True
-    return False
-
-
-def _compute_target_mask_one_block(
+def _compute_target_mask_one_block_gpu(
     block_param: HstuBlockParam, param: ScoreShapeParam
 ) -> torch.Tensor:
     """
@@ -71,22 +73,24 @@ def _compute_target_mask_one_block(
             col_on_score = (
                 col_id_on_block + block_param.block_id_k * block_param.block_w
             )
-            if _is_this_point_out_border(row_on_score, col_on_score, param.seq_len):
+            if GPUSmit.is_this_point_out_border(
+                row_on_score, col_on_score, param.seq_len
+            ):
                 continue
-            if _is_this_point_in_context(
+            if GPUSmit.is_this_point_in_context(
                 row_on_score, param.num_context, col_on_score, param.num_history
             ):
                 continue
-            if _is_this_point_in_casual_mask(row_on_score, col_on_score):
+            if GPUSmit.is_this_point_in_casual_mask(row_on_score, col_on_score):
                 block_mask[row_id_on_block][col_id_on_block] = 0
-            if _is_this_point_in_target_mask(
+            if GPUSmit.is_this_point_in_target_mask(
                 row_on_score, col_on_score, param.num_history, param.target_group_size
             ):
                 block_mask[row_id_on_block][col_id_on_block] = 0
     return block_mask
 
 
-def compute_target_mask_each_block(
+def compute_target_mask_each_block_concat(
     score_shape_param: ScoreShapeParam,
 ) -> list[torch.Tensor]:
     block_num_on_q = (
@@ -95,10 +99,11 @@ def compute_target_mask_each_block(
     block_num_on_k = (
         score_shape_param.seq_len + score_shape_param.block_w - 1
     ) // score_shape_param.block_w
-    score_mask_blocks = []
+    score_mask_blocks_gpu = [
+        [None for _ in range(block_num_on_k)] for _ in range(block_num_on_q)
+    ]
 
     for block_id_q in range(block_num_on_q):
-        blocks_on_one_k_line = []
         for block_id_k in range(block_num_on_k):
             block_param = HstuBlockParam(
                 block_id_q,
@@ -106,11 +111,14 @@ def compute_target_mask_each_block(
                 score_shape_param.block_h,
                 score_shape_param.block_w,
             )
-            block_mask = _compute_target_mask_one_block(block_param, score_shape_param)
-            blocks_on_one_k_line.append(block_mask)
-        blocks_on_one_k_line_concat = torch.concat(blocks_on_one_k_line, dim=1)
-        score_mask_blocks.append(blocks_on_one_k_line_concat)
-    score_mask = torch.concat(score_mask_blocks, dim=0)
+            block_mask_gpu = _compute_target_mask_one_block_gpu(
+                block_param, score_shape_param
+            )
+            score_mask_blocks_gpu[block_id_q][block_id_k] = block_mask_gpu
+        score_mask_blocks_gpu[block_id_q] = torch.concat(
+            score_mask_blocks_gpu[block_id_q], dim=1
+        )
+    score_mask = torch.concat(score_mask_blocks_gpu, dim=0)
     score_mask_without_padding = score_mask[
         : score_shape_param.seq_len, : score_shape_param.seq_len
     ]
@@ -119,7 +127,7 @@ def compute_target_mask_each_block(
 
 def write_tensor2file(tensor: torch.Tensor):
     tensor_list = tensor.long().tolist()
-    with open("target_mask_tesnor_example.txt", "w") as f:
+    with open("target_mask_tesnor_example_gen.txt", "w") as f:
         for i in range(tensor.shape[0]):
             one_line_str = ",".join([str(mask) for mask in tensor_list[i]])
             f.write(one_line_str + "\n")
@@ -169,7 +177,7 @@ def test_hstu_target_mask(test_param: TestParam):
         block_height,
         block_weight,
     )
-    result = compute_target_mask_each_block(score_shape_param)
+    result = compute_target_mask_each_block_concat(score_shape_param)
     write_tensor2file(result)
 
 
