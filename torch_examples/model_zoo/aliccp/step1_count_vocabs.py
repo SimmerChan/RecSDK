@@ -46,10 +46,10 @@ def parse_data(file_name, index_dict_in=None):
             feat_len = len(line)
             # common_feature_index|feat_num|feat_list
             if feat_len == 3:
-                if line[0] not in index_dict_in["common_index"]:
+                if line[0] not in index_dict_in["index"]:
                     continue
 
-                shown_nums = index_dict_in["common_index"][line[0]]
+                shown_nums = index_dict_in["index"][line[0]]
 
                 feat_strs = line[2]
                 for fstr in feat_strs.split("\x01"):
@@ -67,11 +67,11 @@ def parse_data(file_name, index_dict_in=None):
                 if line[1] == "0" and line[2] == "1":
                     continue
 
-                if "common_index" not in index_dict_local:
-                    index_dict_local["common_index"] = dict()
-                if line[3] not in index_dict_local["common_index"]:
-                    index_dict_local["common_index"][line[3]] = 0
-                index_dict_local["common_index"][line[3]] += 1
+                if "index" not in index_dict_local:
+                    index_dict_local["index"] = dict()
+                if line[3] not in index_dict_local["index"]:
+                    index_dict_local["index"][line[3]] = 0
+                index_dict_local["index"][line[3]] += 1
 
                 feat_strs = line[5]
                 for fstr in feat_strs.split("\x01"):
@@ -118,7 +118,7 @@ if __name__ == "__main__":
     index_dict = parse_data(os.path.join(train_data_path, "sample_skeleton_train.csv"))
     parse_ret = parse_data(os.path.join(train_data_path, "common_features_train.csv"), index_dict)
     logging.info("parse_data ret:%s", parse_ret)
-    index_dict.pop("common_index")
+    index_dict.pop("index")
 
     json_str = json.dumps(index_dict, indent=4)
     flags = os.O_WRONLY | os.O_CREAT
