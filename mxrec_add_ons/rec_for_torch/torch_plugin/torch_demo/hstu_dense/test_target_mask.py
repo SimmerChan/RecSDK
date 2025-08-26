@@ -80,8 +80,8 @@ def compute_target_mask_each_block(score_shape_param: ScoreShapeParam) -> list[t
         blocks_on_one_k_line_concat = torch.concat(blocks_on_one_k_line, dim=1) 
         score_mask_blocks.append(blocks_on_one_k_line_concat)
     score_mask = torch.concat(score_mask_blocks, dim=0) 
-    score_mask[:score_shape_param.seq_len, :score_shape_param.seq_len]
-    return score_mask
+    score_mask_without_padding = score_mask[:score_shape_param.seq_len, :score_shape_param.seq_len]
+    return score_mask_without_padding
 
 def write_tensor2file(tensor: torch.Tensor):
     tensor_list = tensor.long().tolist()
