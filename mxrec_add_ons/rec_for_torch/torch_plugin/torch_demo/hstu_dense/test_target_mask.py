@@ -23,7 +23,7 @@ class ScoreShapeParam:
     block_w: int = 0
 
 
-def check_param_valid(seq_len, num_target, num_context, target_group_size) -> bool:
+def _check_param_valid(seq_len, num_target, num_context, target_group_size) -> bool:
     if seq_len < num_target + num_context:
         return False
     if target_group_size > num_target:
@@ -31,19 +31,19 @@ def check_param_valid(seq_len, num_target, num_context, target_group_size) -> bo
     return True
 
 
-def is_this_point_in_context(row_on_score, num_context, col_on_score, num_history):
+def _is_this_point_in_context(row_on_score, num_context, col_on_score, num_history):
     return row_on_score < num_context and col_on_score < num_history
 
 
-def is_this_point_out_border(row_on_score, col_on_score, seq_len):
+def _is_this_point_out_border(row_on_score, col_on_score, seq_len):
     return row_on_score >= seq_len or col_on_score >= seq_len
 
 
-def is_this_point_in_casual_mask(row_on_score, col_on_score):
+def _is_this_point_in_casual_mask(row_on_score, col_on_score):
     return col_on_score > row_on_score
 
 
-def is_this_point_in_target_mask(
+def _is_this_point_in_target_mask(
     row_on_score, col_on_score, num_history, target_group_size
 ):
     if row_on_score >= num_history and col_on_score > num_history:
@@ -54,7 +54,7 @@ def is_this_point_in_target_mask(
     return False
 
 
-def compute_target_mask_one_block(
+def _compute_target_mask_one_block(
     block_param: HstuBlockParam, param: ScoreShapeParam
 ) -> torch.Tensor:
     """
@@ -70,15 +70,15 @@ def compute_target_mask_one_block(
             col_on_score = (
                 col_id_on_block + block_param.block_id_k * block_param.block_w
             )
-            if is_this_point_out_border(row_on_score, col_on_score, param.seq_len):
+            if _is_this_point_out_border(row_on_score, col_on_score, param.seq_len):
                 continue
-            if is_this_point_in_context(
+            if _is_this_point_in_context(
                 row_on_score, param.num_context, col_on_score, param.num_history
             ):
                 continue
-            if is_this_point_in_casual_mask(row_on_score, col_on_score):
+            if _is_this_point_in_casual_mask(row_on_score, col_on_score):
                 block_mask[row_id_on_block][col_id_on_block] = 0
-            if is_this_point_in_target_mask(
+            if _is_this_point_in_target_mask(
                 row_on_score, col_on_score, param.num_history, param.target_group_size
             ):
                 block_mask[row_id_on_block][col_id_on_block] = 0
@@ -105,7 +105,7 @@ def compute_target_mask_each_block(
                 score_shape_param.block_h,
                 score_shape_param.block_w,
             )
-            block_mask = compute_target_mask_one_block(block_param, score_shape_param)
+            block_mask = _compute_target_mask_one_block(block_param, score_shape_param)
             blocks_on_one_k_line.append(block_mask)
         blocks_on_one_k_line_concat = torch.concat(blocks_on_one_k_line, dim=1)
         score_mask_blocks.append(blocks_on_one_k_line_concat)
@@ -133,7 +133,7 @@ def write_tensor2file(tensor: torch.Tensor):
 def test_hstu_target_mask(
     seq_len, num_target, num_context, target_group_size, block_height, block_weight
 ):
-    is_valid = check_param_valid(seq_len, num_target, num_context, target_group_size)
+    is_valid = _check_param_valid(seq_len, num_target, num_context, target_group_size)
     if not is_valid:
         raise RuntimeError("param is not valid")
     num_history = seq_len - num_target
