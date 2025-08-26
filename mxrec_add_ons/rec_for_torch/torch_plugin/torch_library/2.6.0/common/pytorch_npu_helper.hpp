@@ -574,12 +574,12 @@ inline void check_tensor_non_empty(const at::Tensor& tensor, const std::string &
 /**
  * 检查张量维度是否符合预期
  * @param tensor 要检查的张量
- * @param expected_dim 期望的维度
+ * @param expectedDim 期望的维度
  * @param name 张量名称(用于错误信息)
  */
-inline void check_tensor_dim(const at::Tensor& tensor, int64_t expected_dim, const std::string &name)
+inline void check_tensor_dim(const at::Tensor& tensor, int64_t expectedDim, const std::string &name)
 {
-    TORCH_CHECK(tensor.dim() == expected_dim, name, " must be ", expected_dim, "D");
+    TORCH_CHECK(tensor.dim() == expectedDim, name, " must be ", expectedDim, "D");
 }
 
 #endif // PYTORCH_NPU_HELPER_HPP_
