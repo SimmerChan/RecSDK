@@ -17,10 +17,10 @@ from torchrec.sparse.jagged_tensor import (
     _permute_tensor_by_segments,
 )
 from torchrec.pt2.checks import is_torchdynamo_compiling, is_non_strict_exporting
-from .jagged_tensor_with_extra import JaggedTensorWithExtra, KeyedJaggedTensorWithExtra
+from .extended_jagged_tensor import ExtendedJaggedTensor, KeyedExtendedJaggedTensor
 
 
-class JaggedTensorWithTimestamp(JaggedTensorWithExtra):
+class JaggedTensorWithTimestamp(ExtendedJaggedTensor):
     _fields = ["_timestamps"]
 
     def __init__(
@@ -47,7 +47,7 @@ class JaggedTensorWithTimestamp(JaggedTensorWithExtra):
         return self._timestamps
 
 
-class KeyedJaggedTensorWithTimestamp(KeyedJaggedTensorWithExtra):
+class KeyedJaggedTensorWithTimestamp(KeyedExtendedJaggedTensor):
     _fields = ["_timestamps"]
 
     def __init__(

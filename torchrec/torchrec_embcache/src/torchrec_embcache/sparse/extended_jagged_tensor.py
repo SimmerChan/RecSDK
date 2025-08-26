@@ -100,9 +100,9 @@ class KeyedExtendedJaggedTensor(KeyedJaggedTensor):
     @classmethod
     def from_jt_dict_base(
         cls,
-        jt_dict: Dict[str, JaggedTensorWithExtra],
+        jt_dict: Dict[str, ExtendedJaggedTensor],
         extra_field_name: str = "extra",
-    ) -> "KeyedJaggedTensorWithExtra":
+    ) -> "KeyedExtendedJaggedTensor":
         """
         Base implementation for constructing from a dictionary of JaggedTensorWithExtra.
         """
@@ -160,11 +160,11 @@ class KeyedExtendedJaggedTensor(KeyedJaggedTensor):
         ).sync()
         return kjt
 
-    def split_base(self, segments: List[int], cls_type) -> List["KeyedJaggedTensorWithExtra"]:
+    def split_base(self, segments: List[int], cls_type) -> List["KeyedExtendedJaggedTensor"]:
         """
         Base implementation for split method.
         """
-        split_list: List[KeyedJaggedTensorWithExtra] = []
+        split_list: List[KeyedExtendedJaggedTensor] = []
         start = 0
         start_offset = 0
         _length_per_key = self.length_per_key()
@@ -280,7 +280,7 @@ class KeyedExtendedJaggedTensor(KeyedJaggedTensor):
             if permuted_length_per_key_sum <= 0:
                 raise ValueError("permuted_length_per_key_sum needs to be greater than 0")
 
-    def pin_memory_base(self, cls_type) -> "KeyedJaggedTensorWithExtra":
+    def pin_memory_base(self, cls_type) -> "KeyedExtendedJaggedTensor":
         """Base implementation for pin_memory method."""
         weights = self._weights
         lengths = self._lengths
@@ -309,7 +309,7 @@ class KeyedExtendedJaggedTensor(KeyedJaggedTensor):
             extra_field_name=self._extra_field_name,
         )
 
-    def to_base(self, device: torch.device, non_blocking: bool, cls_type) -> "KeyedJaggedTensorWithExtra":
+    def to_base(self, device: torch.device, non_blocking: bool, cls_type) -> "KeyedExtendedJaggedTensor":
         """Base implementation for to method."""
         weights = self._weights
         lengths = self._lengths

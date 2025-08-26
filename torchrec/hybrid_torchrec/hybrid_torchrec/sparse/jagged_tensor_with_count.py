@@ -17,9 +17,10 @@ from torchrec.sparse.jagged_tensor import (
     KeyedJaggedTensor,
 )
 from torchrec.pt2.checks import is_non_strict_exporting
+from torchrec.torchrec_embcache.src.torchrec_embcache.sparse.extended_jagged_tensor import ExtendedJaggedTensor, KeyedExtendedJaggedTensor
 
 
-class JaggedTensorWithCount(JaggedTensor):
+class JaggedTensorWithCount(ExtendedJaggedTensor):
     _fields = [
         "_counts"
     ]
@@ -32,12 +33,14 @@ class JaggedTensorWithCount(JaggedTensor):
         offsets: Optional[torch.Tensor] = None,
         counts: Optional[torch.Tensor] = None,
     ) -> None:
-        if counts is not None and values.size() != counts.size():
-            raise ValueError(f"counts size must same with values, but got timestamp size:{counts.size()},"
-                             f" values size:{values.size()}.")
-
-        super().__init__(values, weights, lengths, offsets)
-
+        super().__init__(
+            values=values,
+            extra=counts,
+            weights=weights,
+            lengths=lengths,
+            offsets=offsets,
+            extra_field_name="counts"
+        )
         # values中每个ids出现次数，分桶去重时会进行计算，input_dist all2all会做集合通信，post dist input时做count记录
         self._counts = counts
 
@@ -46,7 +49,7 @@ class JaggedTensorWithCount(JaggedTensor):
         return self._counts
 
 
-class KeyedJaggedTensorWithCount(KeyedJaggedTensor):
+class KeyedJaggedTensorWithCount(KeyedExtendedJaggedTensor):
     _fields = [
         "_counts"
     ]
@@ -71,22 +74,23 @@ class KeyedJaggedTensorWithCount(KeyedJaggedTensor):
         inverse_indices: Optional[Tuple[List[str], torch.Tensor]] = None,
     ) -> None:
         super().__init__(
-            keys,
-            values,
-            weights,
-            lengths,
-            offsets,
-            stride,
-            stride_per_key_per_rank,
-            stride_per_key,
-            length_per_key,
-            lengths_offset_per_key,
-            offset_per_key,
-            index_per_key,
-            jt_dict,
-            inverse_indices
+            keys=keys,
+            values=values,
+            extra=counts,
+            weights=weights,
+            lengths=lengths,
+            offsets=offsets,
+            stride=stride,
+            stride_per_key_per_rank=stride_per_key_per_rank,
+            stride_per_key=stride_per_key,
+            length_per_key=length_per_key,
+            lengths_offset_per_key=lengths_offset_per_key,
+            offset_per_key=offset_per_key,
+            index_per_key=index_per_key,
+            jt_dict=jt_dict,
+            inverse_indices=inverse_indices,
+            extra_field_name="counts"
         )
-
         self._counts: torch.Tensor = counts
 
     @property
@@ -105,54 +109,7 @@ class KeyedJaggedTensorWithCount(KeyedJaggedTensor):
         Returns:
             KeyedJaggedTensorWithCount: constructed KeyedJaggedTensorWithCount.
         """
-        # 处理空字典的情况
-        if not jt_dict:
-            return KeyedJaggedTensorWithCount(
-                keys=[],
-                values=torch.empty(0, dtype=torch.int64),
-                counts=torch.empty(0, dtype=torch.int64),
-            )
-            
-        kjt_keys = list(jt_dict.keys())
-        kjt_vals_list: List[torch.Tensor] = []
-        kjt_counts_list: List[torch.Tensor] = []
-        kjt_lens_list: List[torch.Tensor] = []
-        kjt_weights_list: List[torch.Tensor] = []
-        stride_per_key: List[int] = []
-        for jt in jt_dict.values():
-            stride_per_key.append(len(jt.lengths()))
-            kjt_vals_list.append(jt.values())
-            kjt_counts_list.append(jt.counts)
-            kjt_lens_list.append(jt.lengths())
-            weight = jt.weights_or_none()
-            if weight is not None:
-                kjt_weights_list.append(weight)
-        kjt_vals = torch.concat(kjt_vals_list)
-        kjt_lens = torch.concat(kjt_lens_list)
-
-        # handle custom attribute: counts
-        kjt_counts = (
-            torch.concat(kjt_counts_list) if len(kjt_counts_list) > 0 else None
-        )
-
-        kjt_weights = (
-            torch.concat(kjt_weights_list) if len(kjt_weights_list) > 0 else None
-        )
-        kjt_stride, kjt_stride_per_key_per_rank = (
-            (stride_per_key[0], None)
-            if all(s == stride_per_key[0] for s in stride_per_key)
-            else (None, [[stride] for stride in stride_per_key])
-        )
-        kjt = KeyedJaggedTensorWithCount(
-            keys=kjt_keys,
-            values=kjt_vals,
-            counts=kjt_counts,
-            weights=kjt_weights,
-            lengths=kjt_lens,
-            stride=kjt_stride,
-            stride_per_key_per_rank=kjt_stride_per_key_per_rank,
-        ).sync()
-        return kjt
+        return KeyedJaggedTensorWithCount.from_jt_dict_base(jt_dict, "counts")
 
     def split(self, segments: List[int]) -> List["KeyedJaggedTensorWithCount"]:
         split_list: List[KeyedJaggedTensorWithCount] = []
