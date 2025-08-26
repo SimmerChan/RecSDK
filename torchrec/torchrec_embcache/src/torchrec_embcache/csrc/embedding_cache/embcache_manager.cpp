@@ -413,7 +413,7 @@ void EmbcacheManager::StatisticsKeyCount(const at::Tensor& batchKeys, const torc
                                          const at::Tensor& batchKeyCounts, int64_t tableIndex)
 {
     LOG_INFO("StatisticsKeyCount, tableName: {}, isAdmit: {}",
-             embConfigs_[i].tableName, embConfigs_[tableIndex].admitAndEvictConfig.IsAdmitEnabled());
+             embConfigs_[tableIndex].tableName, embConfigs_[tableIndex].admitAndEvictConfig.IsAdmitEnabled());
     if (!embConfigs_[tableIndex].admitAndEvictConfig.IsAdmitEnabled()) {
         return;
     }

@@ -122,7 +122,7 @@ void FeatureFilter::StatisticsKeyCount(const int64_t* featureDataPtr, const int6
         // 确保 count 为非负数，并转换为 uint64_t 类型
         int64_t rawCount = isCountDataEmpty ? 1 : *(countDataPtr + i);
         if (rawCount < 0) {
-            LOG_WARNING("Negative count {} detected for feature {}, setting to 0", rawCount, feature);
+            LOG_WARN("Negative count {} detected for feature {}, setting to 0", rawCount, feature);
             rawCount = 0;
         }
         auto count = static_cast<uint64_t>(rawCount);
