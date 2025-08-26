@@ -127,6 +127,14 @@ class HDF5Dataset(Dataset):
         self.hdf5_path = hdf5_path
         self._load_hdf5()
 
+    def __len__(self):
+        return self._length
+
+    def __getitem__(self, idx):
+        input_dict = {k: v[idx] for k, v in self.input_sample.items()}
+        target_dict = {k: v[idx] for k, v in self.target_sample.items()}
+        return input_dict, target_dict
+
     def _load_hdf5(self):
         with h5py.File(self.hdf5_path, 'r') as f:
             self.input_sample = {}
@@ -140,14 +148,6 @@ class HDF5Dataset(Dataset):
                 self.input_sample.update({multi_field: torch.tensor(np.array(f[multi_field]), dtype=torch.int64)})
         self._length = len(y)
         logger.info(f"LOAD {self.hdf5_path} success")
-
-    def __len__(self):
-        return self._length
-
-    def __getitem__(self, idx):
-        input_dict = {k: v[idx] for k, v in self.input_sample.items()}
-        target_dict = {k: v[idx] for k, v in self.target_sample.items()}
-        return input_dict, target_dict
 
 
 class TorchDataSet(ConcatDataset):
