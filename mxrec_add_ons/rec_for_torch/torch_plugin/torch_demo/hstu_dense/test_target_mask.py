@@ -1,8 +1,8 @@
-import pytest
-import logging
-import torch
 from dataclasses import dataclass
 import itertools
+
+import pytest
+import torch
 
 
 @dataclass
