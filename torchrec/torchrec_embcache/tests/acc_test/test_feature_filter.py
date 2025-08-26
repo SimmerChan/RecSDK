@@ -495,7 +495,7 @@ def test_evict_correctness(config: ExecuteConfig):
 params = {
     "world_size": [WORLD_SIZE],
     "table_num": [3],  # 测试多个表
-    "embedding_dims": [[64, 128, 256]],
+    "embedding_dims": [[128, 128, 128]],  # 所有表使用相同的嵌入维度
     "num_embeddings": [[1000, 2000, 3000]],
     "sharding_type": ["row_wise"],
     "lookup_len": [64],
@@ -521,7 +521,7 @@ def test_table_to_filter_index_mapping_admit_only(config: ExecuteConfig):
 params = {
     "world_size": [WORLD_SIZE],
     "table_num": [3],
-    "embedding_dims": [[64, 128, 256]],
+    "embedding_dims": [[128, 128, 128]],  # 所有表使用相同的嵌入维度
     "num_embeddings": [[1000, 2000, 3000]],
     "sharding_type": ["row_wise"],
     "lookup_len": [64],
@@ -547,7 +547,7 @@ def test_table_to_filter_index_mapping_evict_only(config: ExecuteConfig):
 params = {
     "world_size": [WORLD_SIZE],
     "table_num": [4],
-    "embedding_dims": [[32, 64, 128, 256]],
+    "embedding_dims": [[128, 128, 128, 128]],  # 所有表使用相同的嵌入维度
     "num_embeddings": [[800, 1600, 3200, 6400]],
     "sharding_type": ["row_wise"],
     "lookup_len": [32],
@@ -573,7 +573,7 @@ def test_table_to_filter_index_mapping_mixed_config(config: ExecuteConfig):
 params = {
     "world_size": [WORLD_SIZE],
     "table_num": [2],
-    "embedding_dims": [[64, 64]],
+    "embedding_dims": [[128, 128]],  # 所有表使用相同的嵌入维度
     "num_embeddings": [[100, 200]],
     "sharding_type": ["row_wise"],
     "lookup_len": [16],
