@@ -17,6 +17,9 @@ using torch::autograd::Variable;
 using tensor_list = std::vector<at::Tensor>;
 using namespace at;
 
+constexpr int EXPECTED_DIM_1D = 1;
+constexpr int EXPECTED_DIM_2D = 2;
+
 namespace fbgemm_npu {
 at::Tensor dense_to_jagged_forward_npu(const at::Tensor& dense,
                                        const tensor_list& offsets,
@@ -43,16 +46,15 @@ at::Tensor jagged_to_padded_dense_forward_npu_v1(const at::Tensor& values,
                                                  const int64_t max_lengths,
                                                  const double padding_value)
 {
-    TORCH_CHECK(values.dim() == 2,
-        "values must be a 2D tensor, but got ", values.dim(), "D tensor");
+    check_tensor_dim(values, EXPECTED_DIM_2D, "values");
     TORCH_CHECK(offsets.size() == 1,
         "offsets must contain exactly 1 tensor, but got ", offsets.size(), " tensors");
+
     const auto& offset_tensor = offsets[0];
-    TORCH_CHECK(offset_tensor.defined(),
-        "offset tensor must be defined (non-null)");
-    TORCH_CHECK(offset_tensor.dim() == 1,
-        "offset tensor must be 1D, but got ", offset_tensor.dim(), "D");
+    check_tensor_non_empty(offset_tensor, "offset_tensor");
+    check_tensor_dim(offset_tensor, EXPECTED_DIM_1D, "offset_tensor");
     TORCH_CHECK(max_lengths > 0, "max_lengths must be positive, but got ", max_lengths);
+
     const at::OptionalDeviceGuard guard(device_of(values));
     auto values_contin = values.contiguous();
     auto D = values.size(-1);
@@ -125,8 +127,8 @@ public:
         auto offsets_tensor = saved[1];
         tensor_list offsets = {offsets_tensor};
 
-        int64_t total_L = values.size(0);
-        auto grad_input = jagged_to_padded_dense_backward_npu(grad_output, offsets, total_L);
+        int64_t totalL = values.size(0);
+        auto grad_input = jagged_to_padded_dense_backward_npu(grad_output, offsets, totalL);
         return {grad_input, Variable(), Variable(), Variable()};
     }
 };
@@ -154,8 +156,8 @@ public:
         auto offsets_tensor = saved[1];
         tensor_list offsets = {offsets_tensor};
 
-        int64_t total_L = values.size(0);
-        auto grad_input = jagged_to_padded_dense_backward_npu(grad_output, offsets, total_L);
+        int64_t totalL = values.size(0);
+        auto grad_input = jagged_to_padded_dense_backward_npu(grad_output, offsets, totalL);
         return {grad_input, Variable(), Variable(), Variable()};
     }
 };

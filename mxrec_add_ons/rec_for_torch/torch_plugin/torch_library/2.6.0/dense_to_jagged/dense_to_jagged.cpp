@@ -17,21 +17,24 @@ using torch::autograd::Variable;
 using tensor_list = std::vector<at::Tensor>;
 using namespace at;
 
+constexpr int EXPECTED_DIM_1D = 1;
+constexpr int EXPECTED_DIM_2D = 2;
+constexpr int EXPECTED_DIM_3D = 3;
+
 at::Tensor jagged_to_padded_dense_forward_npu(const at::Tensor& values,
                                               const tensor_list& offsets,
                                               const int64_t max_lengths,
                                               const double padding_value)
 {
-    TORCH_CHECK(values.dim() == 2,
-        "values must be a 2D tensor, but got ", values.dim(), "D tensor");
+    check_tensor_dim(values, EXPECTED_DIM_2D, "values");
     TORCH_CHECK(offsets.size() == 1,
         "offsets must contain exactly 1 tensor, but got ", offsets.size(), " tensors");
+
     const auto& offset_tensor = offsets[0];
-    TORCH_CHECK(offset_tensor.defined(),
-        "offset tensor must be defined (non-null)");
-    TORCH_CHECK(offset_tensor.dim() == 1,
-        "offset tensor must be 1D, but got ", offset_tensor.dim(), "D");
+    check_tensor_non_empty(offset_tensor, "offset_tensor");
+    check_tensor_dim(offset_tensor, EXPECTED_DIM_1D, "offset_tensor");
     TORCH_CHECK(max_lengths > 0, "max_lengths must be positive, but got ", max_lengths);
+
     const at::OptionalDeviceGuard guard(device_of(values));
     auto values_contin = values.contiguous();
     auto D = values.size(-1);
@@ -46,8 +49,7 @@ at::Tensor dense_to_jagged_forward_npu(const at::Tensor& dense,
                                        const tensor_list& offsets,
                                        const c10::optional<int64_t> total_L)
 {
-    TORCH_CHECK(dense.dim() == 3,
-        "dense must be 3-dimensional (B, MaxT, D), but got ", dense.dim(), "D input");
+    check_tensor_dim(dense, EXPECTED_DIM_3D, "dense");
     TORCH_CHECK(offsets.size() == 1,
         "Only single-dimension jagged tensors supported (offsets.size() must be 1)");
 
@@ -111,11 +113,11 @@ public:
         auto offsets_tensor = saved[1];
 
         tensor_list offsets = {offsets_tensor};
-        int64_t max_len = dense.size(1);
+        int64_t maxLen = dense.size(1);
 
         // 调用jagged_to_padded_dense作为反向
         auto grad_dense = dense_to_jagged_backward_npu(
-            grad_output, offsets, max_len, 0.0);
+            grad_output, offsets, maxLen, 0.0);
 
         // 返回梯度：grad_dense, None, None
         return {grad_dense, Variable(), Variable()};
