@@ -56,8 +56,7 @@ public:
         std::lock_guard<std::mutex> lk(mtx_);
         auto embDim = config_.embDim;
         auto optimNum = config_.optimNum;
-        // 当优化器数量为0时，允许 outOptims 为空
-        if (optimNum > 0 && outOptims.size() != optimNum) {
+        if (outOptims.size() != optimNum) {
             LOG_ERROR("outOptims size {} is not equal to optimNum {}", outOptims.size(), optimNum);
             throw std::runtime_error("outOptims size is not equal to optimNum");
         }
