@@ -109,7 +109,8 @@ function compile_acc_ctr_so_file()
   ./build.sh "release"
 }
 
-function compile_common_so_file() {
+function compile_common_so_file()
+{
     cd "${common_src_path}"
     chmod u+x build.sh
     ./build.sh "$1" "${MxRec_DIR}" "YES"
