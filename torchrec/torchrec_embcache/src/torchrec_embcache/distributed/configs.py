@@ -45,6 +45,13 @@ class AdmitAndEvictConfig:
 
     def is_feature_evict_enabled(self) -> bool:
         return self.evict_threshold != _DEFAULT_EVICT_THRESHOLD
+    
+    def is_feature_filter_enabled(self) -> bool:
+        """检查是否开启了特征过滤功能（准入或淘汰）
+        
+        遵循 Python 编码规范的 snake_case 命名
+        """
+        return self.is_feature_admit_enabled() or self.is_feature_evict_enabled()
 
 
 class InitializerType(str, Enum):

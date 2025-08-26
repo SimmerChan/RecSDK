@@ -737,7 +737,7 @@ def _calculate_expected_filter_mapping(embedding_configs: List[EmbCacheEmbedding
     
     for i, config in enumerate(embedding_configs):
         # 根据代码逻辑：如果表开启了特征过滤（准入或淘汰），则分配一个FeatureFilter索引
-        if config.admit_and_evict_config.IsFeatureFilterEnabled():
+        if config.admit_and_evict_config.is_feature_filter_enabled():
             expected_mapping.append(filter_index)
             filter_index += 1
         else:
@@ -761,7 +761,7 @@ def _verify_filter_mapping(embedding_configs: List[EmbCacheEmbeddingConfig],
     # 验证映射关系的逻辑正确性
     filter_enabled_count = 0
     for i, config in enumerate(embedding_configs):
-        is_filter_enabled = config.admit_and_evict_config.IsFeatureFilterEnabled()
+        is_filter_enabled = config.admit_and_evict_config.is_feature_filter_enabled()
         expected_filter_index = expected_mapping[i]
         
         if is_filter_enabled:
@@ -830,9 +830,9 @@ def _print_table_configuration_details(embedding_configs: List[EmbCacheEmbedding
     filter_enabled_tables = []
     for i, config in enumerate(embedding_configs):
         admit_config = config.admit_and_evict_config
-        is_admit_enabled = admit_config.IsAdmitEnabled()
-        is_evict_enabled = admit_config.IsEvictEnabled()
-        is_filter_enabled = admit_config.IsFeatureFilterEnabled()
+        is_admit_enabled = admit_config.is_feature_admit_enabled()
+        is_evict_enabled = admit_config.is_feature_evict_enabled()
+        is_filter_enabled = admit_config.is_feature_filter_enabled()
         
         table_info = {
             "table_index": i,
@@ -841,8 +841,8 @@ def _print_table_configuration_details(embedding_configs: List[EmbCacheEmbedding
             "evict_enabled": is_evict_enabled,
             "filter_enabled": is_filter_enabled,
             "expected_filter_index": expected_mapping[i],
-            "admit_threshold": admit_config.admitThreshold if is_admit_enabled else "N/A",
-            "evict_threshold": admit_config.evictThreshold if is_evict_enabled else "N/A"
+            "admit_threshold": admit_config.admit_threshold if is_admit_enabled else "N/A",
+            "evict_threshold": admit_config.evict_threshold if is_evict_enabled else "N/A"
         }
         
         logging.info("Table %d (%s): admit=%s, evict=%s, filter=%s, filter_index=%d, "
@@ -869,46 +869,3 @@ def _print_table_configuration_details(embedding_configs: List[EmbCacheEmbedding
     
     logging.info("=== End of Table Configuration Details ===")
 
-
-if __name__ == '__main__':
-    # 运行tableToFilterIndexMap相关的测试
-    logging.basicConfig(level=logging.INFO)
-    
-    # 测试混合配置
-    test_table_to_filter_index_mapping_mixed_config(ExecuteConfig(
-        world_size=WORLD_SIZE,
-        table_num=4,
-        embedding_dims=[32, 64, 128, 256],
-        num_embeddings=[800, 1600, 3200, 6400],
-        sharding_type="row_wise",
-        lookup_len=32,
-        device="npu",
-        enable_admit=True,
-        enable_evict=True
-    ))
-    
-    # 测试单表配置
-    test_table_to_filter_index_mapping_single_table(ExecuteConfig(
-        world_size=WORLD_SIZE,
-        table_num=1,
-        embedding_dims=[128],
-        num_embeddings=[1000],
-        sharding_type="row_wise",
-        lookup_len=64,
-        device="npu",
-        enable_admit=True,
-        enable_evict=True
-    ))
-    
-    # 测试无过滤器配置
-    test_table_to_filter_index_mapping_no_filter(ExecuteConfig(
-        world_size=WORLD_SIZE,
-        table_num=2,
-        embedding_dims=[64, 64],
-        num_embeddings=[100, 200],
-        sharding_type="row_wise",
-        lookup_len=16,
-        device="npu",
-        enable_admit=False,
-        enable_evict=False
-    ))
