@@ -118,7 +118,7 @@ def compute_target_mask_each_block(
 
 def write_tensor2file(tensor: torch.Tensor):
     tensor_list = tensor.long().tolist()
-    with open("generate_tensor.txt", "w") as f:
+    with open("target_mask_tesnor_example.txt", "w") as f:
         for i in range(tensor.shape[0]):
             one_line_str = ",".join([str(mask) for mask in tensor_list[i]])
             f.write(one_line_str + "\n")
