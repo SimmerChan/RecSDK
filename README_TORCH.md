@@ -47,31 +47,15 @@ pip3 install hybrid_torchrec-1.1.0-py3-none-linux_*.whl
 ```
 
 ### 编译Ascend-recsdk-npu-ops-\*-linux-\*.tar.gz  
-```
-cd RecSDK/mxrec_add_ons/build
-bash build.sh
-```
-
-生成的tar包在RecSDK/mxrec_add_ons/output下
-
-**安装方法**
-
-```
-tar zxvf Ascend-recsdk-npu-ops-\*-linux-\*.tar.gz  
-cd recsdk-npu-ops/recsdk_ops
-bash mxrec_opp_asynchronous_complete_cumsum.run
-bash mxrec_opp_backward_codegen_adagrad_unweighted_exact.run
-bash mxrec_opp_permute2d_sparse_data.run
-bash mxrec_opp_split_embedding_codegen_forward_unweighted.run
-```
+方法见 RecSDK/cust_op/ascendc_op/build/README.md
 
 ### 编译libfbgemm_npu_api.so 
 
 ```
-cd RecSDK/mxrec_add_ons/rec_for_torch/torch_plugin/torch_library/2.6.0/common
+cd RecSDK/cust_op/framework/torch_plugin/torch_library/2.6.0/common/
 ```
 
-生成的tar包在RecSDK/mxrec_add_ons/rec_for_torch/torch_plugin/torch_library/2.6.0/common/build下
+生成的tar包在RecSDK/cust_op/framework/torch_plugin/torch_library/2.6.0/common/build下
 
 **安装方法**
 

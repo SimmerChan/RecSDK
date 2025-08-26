@@ -73,11 +73,6 @@ function make_output_dir() {
     mkdir -p "${opp_output_path}"
 }
 
-function mv_doc_to_output() {
-    cd "${ASCENDC_OP_DIR}"/rec_for_torch
-    mv ./docs "${output_path}"
-}
-
 function compile_ops() {
     echo "OP Path: $ops_path"
     for dir in "$ops_path"/*; do

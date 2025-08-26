@@ -134,11 +134,8 @@ ENABLE_BINARY_PACKAGE设置为True。编译部署时可将算子的二进制部�
 
 3.
 
-检查API执行需要的头文件和库文件是否自动生成，检查cust_op/fused_lazy_adam/lazy_adam/build_out/autogen目录下，是否有
+检查API执行需要的头文件和库文件是否自动生成，检查cust_op/ascendc_op/ai_core_op/fused_lazy_adam/v220/fused_lazy_adam/build_out/autogen目录下，是否有
 aclnn_lazy_adam.cpp和aclnn_lazy_adam.h等。
-
-注意：对于cust_op/fused_lazy_adam/run.sh脚本，安装算子后会删除构建目录。运行单算子测试时，需要屏蔽掉删除rm rf
-./lazy_adam这一步，以确保前置条件3。
 
 ### LazyAdam融合算子的AclNN调用实现
 
