@@ -115,7 +115,7 @@ bash run.sh
 - pytest-cov 4.1.0
 - pytest-html
 
-如需使用python测试用例，需要先安装上述依赖以及能够在tf1环境下进行源码编译并安装好whl包，然后进入tests目录中。参考以下命令执行python侧测试用例：
+如需使用python测试用例，需要先安装上述依赖以及能够在tf1环境下进行源码编译并安装好Rec SDK whl包，然后进入tests目录中。参考以下命令执行python侧测试用例：
 ```shell
 bash run_python_dt.sh
 ```
