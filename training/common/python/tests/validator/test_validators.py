@@ -23,7 +23,7 @@ import unittest
 import tensorflow as tf
 from tensorflow.python.client.session import BaseSession
 
-from mx_rec_common.validator.validator import ClassValidator, Convert2intValidator, DirectoryValidator, IntValidator, \
+from rec_sdk_common.validator.validator import ClassValidator, Convert2intValidator, DirectoryValidator, IntValidator, \
     NumValidator, OptionalIntValidator, OptionalStringValidator, OptionValidator, para_checker_decorator, \
     StringValidator, ValueCompareValidator, FloatValidator, SSDFeatureValidator, ListValidator, LearningRateValidator
 

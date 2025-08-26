@@ -17,8 +17,8 @@
 
 import pytest
 
-from mx_rec_common.log.log import LoggingProxy
-from mx_rec_common.constants.constants import LogLevel
+from rec_sdk_common.log.log import LoggingProxy
+from rec_sdk_common.constants.constants import LogLevel
 
 
 class TestLoggingProxy:

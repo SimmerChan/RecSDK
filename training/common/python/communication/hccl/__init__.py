@@ -21,5 +21,5 @@ __all__ = ["get_rank_id",
            "get_local_rank_size",
            "get_min_device_id"]
 
-from mx_rec_common.communication.hccl.hccl_info import get_rank_id, get_rank_size, get_device_id, \
+from rec_sdk_common.communication.hccl.hccl_info import get_rank_id, get_rank_size, get_device_id, \
     get_local_rank_size, get_min_device_id

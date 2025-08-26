@@ -43,7 +43,7 @@ if [ "$ai_core" = "ai_core-Ascend310P3" ]; then
   bash $onnx_path/build_onnx.sh
   mkdir -p gather_for_rank1/framework/onnx_plugin
   cp -rf $json_file gather_for_rank1/framework/onnx_plugin
-  cp -rf ./onnx_plugin/* gather_for_rank1/framework/onnx_plugin
+  cp -rf ../onnx_plugin/* gather_for_rank1/framework/onnx_plugin
 fi
 
 cd gather_for_rank1

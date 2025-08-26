@@ -17,4 +17,4 @@
 
 __all__ = ["bind_cpu"]
 
-from mx_rec_common.perf_factory.bind_cpu import bind_cpu
+from rec_sdk_common.perf_factory.bind_cpu import bind_cpu

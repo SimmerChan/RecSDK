@@ -73,15 +73,15 @@ tar -zxvf Ascend-mindxsdk-hybrid-torchrec-1.1.0-*.tar.gz
 pip3 install hybrid_torchrec-1.1.0-*.whl
 
 # 安装算子
-tar -zxvf Ascend-mindxsdk-mxrec-add-ons-*.tar.gz
-cd mindxsdk-mxrec-add-ons/mxrec_ops/
+tar -zxvf Ascend-recsdk-npu-ops-*.tar.gz
+cd recsdk-npu-ops/recsdk_ops/
 bash mxrec_opp_backward_codegen_adagrad_unweighted_exact.run
 bash mxrec_opp_split_embedding_codegen_forward_unweighted.run
 bash mxrec_opp_asynchronous_complete_cumsum.run
 
 # 编译算子适配文件
 cd ../../
-cd mindxsdk-mxrec-add-ons/torch_plugin/torch_library/2.6.0/common
+cd recsdk-npu-ops/torch_plugin/torch_library/2.6.0/common
 bash build_ops.sh
 ```
 2.源码编译安装
@@ -97,17 +97,7 @@ bash build_ops.sh
 ```shell
 # 克隆源码仓
 git clone -b develop https://gitee.com/ascend/RecSDK.git  # 如果已经克隆此分支请忽略
-# 算子编译
-cd RecSDK/mxrec_add_ons/build
-bash build.sh
-# 进入打包文件
-cd ../../../RecSDK/mxrec_add_ons/output
-# 解压安装包
-tar -zvxf Ascend-mindxsdk-mxrec-add-ons-*.tar.gz
-# 进入算子目录
-cd mindxsdk-mxrec-add-ons/mxrec_ops
-# 安装算子--参考以上安装方法
-# 编译算子适配文件--参考以上编译方法
+# 算子编译/安装方法见 RecSDK/cust_op/ascendc_op/build/README.md
 ```
 
 注意：执行完"编译算子适配文件"步骤后，融合算子的依赖包libfbgemm_npu_api.so会生成在同目录下的build文件夹下，同时也会生成在python默认安装的site-package路径中，也可以将该so包拷贝到指定的目录下，在后续模型运行时会配置该文件的路径 。

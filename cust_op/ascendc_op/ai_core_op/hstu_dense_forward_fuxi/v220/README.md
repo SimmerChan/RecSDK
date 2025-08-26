@@ -98,10 +98,10 @@ Atlas 推理系列产品
 ## 使用方式
 
 ### 下载软件包并解压
-tar -zxvf Ascend-mindxsdk-mxrec-add-ons-linux-aarch64.tar.gz
+tar -zxvf Ascend-recsdk-npu-ops-v220-linux-aarch64.tar.gz
    
 ### 部署安装算子
-进入解压后的mxrec_ops目录
+进入解压后的recsdk_ops目录
 执行./mxrec_opps_hstu_dense_forward_fuxi.run 完成算子安装部署
 
 ### 编译torch适配层SO

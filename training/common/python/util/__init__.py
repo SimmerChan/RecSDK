@@ -20,5 +20,5 @@ __all__ = ["hccl_ops",
             "NPUCheckpointSaverHook",
             "NPULossScaleOptimizer"]
 
-from mx_rec_common.util.tf_adapter import hccl_ops, npu_ops, NPUCheckpointSaverHook, \
+from rec_sdk_common.util.tf_adapter import hccl_ops, npu_ops, NPUCheckpointSaverHook, \
         NPULossScaleOptimizer

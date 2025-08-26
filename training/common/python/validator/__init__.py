@@ -30,7 +30,7 @@ __all__ = [
     "dir_safe_check",
 ]
 
-from mx_rec_common.validator.validator import (
+from rec_sdk_common.validator.validator import (
     StringValidator,
     IntValidator,
     FloatValidator,
@@ -38,7 +38,7 @@ from mx_rec_common.validator.validator import (
     FileValidator,
     DirectoryValidator,
 )
-from mx_rec_common.validator.safe_checker import (
+from rec_sdk_common.validator.safe_checker import (
     str_safe_check,
     int_safe_check,
     float_safe_check,

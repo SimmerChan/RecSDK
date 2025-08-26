@@ -1,14 +1,28 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# Copyright (c) Huawei Technologies Co., Ltd. 2023. All rights reserved.
+# Copyright 2025. Huawei Technologies Co.,Ltd. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+
 import os
 from typing import Optional, Dict
 
-from mx_rec_common.constants.constants import MPIParams, ValidatorParams
-from mx_rec_common.communication.hccl.hccl_mgmt import _get_rank_info_with_ranktable, _get_rank_info_without_ranktable
-from mx_rec_common.constants.constants import RankTableInfo
-from mx_rec_common.validator.validator import StringValidator
-from mx_rec_common.validator.safe_checker import str_safe_check
+from rec_sdk_common.constants.constants import MPIParams, ValidatorParams
+from rec_sdk_common.communication.hccl.hccl_mgmt import _get_rank_info_with_ranktable, _get_rank_info_without_ranktable
+from rec_sdk_common.constants.constants import RankTableInfo
+from rec_sdk_common.validator.validator import StringValidator
+from rec_sdk_common.validator.safe_checker import str_safe_check
 
 def _comm_env_value_str2int(value: str, greater_or_equal: int = 0) -> int:
     str_safe_check("communication environment value", value)

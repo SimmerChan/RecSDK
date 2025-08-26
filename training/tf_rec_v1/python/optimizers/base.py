@@ -27,9 +27,9 @@ from tensorflow.python.framework import ops
 from tensorflow.python.ops import array_ops
 from tensorflow.python.training.optimizer import _TensorProcessor
 
-from mx_rec_common.log import logger
-from mx_rec_common.communication.hccl.hccl_info import get_rank_size
-from mx_rec_common.util.tf_adapter import hccl_ops, npu_ops
+from rec_sdk_common.log import logger
+from rec_sdk_common.communication.hccl.hccl_info import get_rank_size
+from rec_sdk_common.util.tf_adapter import hccl_ops, npu_ops
 from mx_rec.core.asc.swap_args import SwapArgs
 from mx_rec.constants.constants import ASCAnchorAttr
 from mx_rec.util.initialize import ConfigInitializer

@@ -18,14 +18,14 @@ import os
 import dataclasses
 from dataclasses import dataclass
 
-from mx_rec_common.constants.constants import (
+from rec_sdk_common.constants.constants import (
     EnvOptionCommon,
     LogLevel,
     ValidatorParams,
     DeviceType,
     CommonEnv,
     RankTableInfo)
-from mx_rec_common.validator.validator import (
+from rec_sdk_common.validator.validator import (
     para_checker_decorator,
     OptionValidator,
     DirectoryValidator,

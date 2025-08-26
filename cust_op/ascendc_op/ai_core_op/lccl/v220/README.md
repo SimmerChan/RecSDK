@@ -271,7 +271,7 @@ Kernel侧算子实现在目录lccl/op_kernel下，其中包括：gather_all.h、
 
 ### LCCL算子的调用实现
 
-核心代码如下，以AllToAll算子为例，详细代码参见cust_op/lccl/tf-test/all2all.py：
+核心代码如下，以AllToAll算子为例，详细代码参见cust_op/test/lccl_op_test/tf/all2all.py：
 
 ```python
 # 使用get_peer_mem接口申请共享内存
@@ -280,7 +280,7 @@ peer_mem = mxrec_pybind.get_peer_mem(rank_id, comm_server_rank_id, rank_size)
 
 # 加载算子库，用于调用lccl算子
 import tensorflow as tf
-ops_so = tf.load_op_library("/usr/local/python3.7.5/lib/python3.7/site-packages/mx_rec/libasc/libasc_ops.so")
+ops_so = tf.load_op_library("/usr/local/python3.7.5/lib/python3.7/site-packages/mx_rec/libasc/librecsdk_tf_npu_ops.so")
 
 # 构建单算子模型
 class WideDeep:
@@ -296,7 +296,7 @@ class WideDeep:
         return self.all2all_result
 ```
 
-详细实践请参考cust_op/lccl/tf-test目录下的文件。
+详细实践请参考cust_op/test/lccl_op_test/tf目录下的文件。
 
 ### 运行脚本
 

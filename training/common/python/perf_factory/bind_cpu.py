@@ -5,10 +5,10 @@ import os
 from collections import defaultdict
 import psutil
 
-from mx_rec_common.constants.constants import FileParams, EnvOptionCommon, LogLevel
-from mx_rec_common.communication.hccl.hccl_info import get_local_rank_size, get_rank_id
-from mx_rec_common.validator.safe_checker import file_safe_check
-from mx_rec_common.log.log import LoggingProxy
+from rec_sdk_common.constants.constants import FileParams, EnvOptionCommon, LogLevel
+from rec_sdk_common.communication.hccl.hccl_info import get_local_rank_size, get_rank_id
+from rec_sdk_common.validator.safe_checker import file_safe_check
+from rec_sdk_common.log.log import LoggingProxy
 
 
 def get_available_cpu_num_and_range():

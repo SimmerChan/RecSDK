@@ -20,15 +20,15 @@ from types import ModuleType
 
 import tensorflow as tf
 
-from mx_rec_common.log import logger
-from mx_rec_common.validator.validator import para_checker_decorator, StringValidator
-from mx_rec.constants.constants import LIBASC_OPS_SO
+from rec_sdk_common.log import logger
+from rec_sdk_common.validator.validator import para_checker_decorator, StringValidator
+from mx_rec.constants.constants import LIBREC_TF_NPU_OPS_SO
 
 
 @para_checker_decorator(check_option_list=[
     ("so_pkg_name", StringValidator, {"min_len": 1, "max_len": 100}, ["check_string_length", "check_whitelist"])
 ])
-def import_host_pipeline_ops(so_pkg_name: str = LIBASC_OPS_SO) -> ModuleType:
+def import_host_pipeline_ops(so_pkg_name: str = LIBREC_TF_NPU_OPS_SO) -> ModuleType:
     """
     导入so包.
 

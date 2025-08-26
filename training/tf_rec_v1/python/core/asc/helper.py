@@ -20,9 +20,9 @@ from typing import Union, List, Tuple, Dict
 
 import tensorflow as tf
 
-from mx_rec_common.log import logger
-from mx_rec_common.constants.constants import ValidatorParams
-from mx_rec_common.validator.validator import (
+from rec_sdk_common.log import logger
+from rec_sdk_common.constants.constants import ValidatorParams
+from rec_sdk_common.validator.validator import (
     para_checker_decorator,
     ValueCompareValidator,
     ClassValidator,
@@ -34,7 +34,7 @@ from mx_rec.core.asc.merge_table import find_dangling_table, should_skip
 from mx_rec.util.initialize import ConfigInitializer
 from mx_rec.util.normalization import fix_invalid_table_name
 from mx_rec.util.ops import import_host_pipeline_ops
-from mx_rec.constants.constants import LIBREC_CPU_SO
+from mx_rec.constants.constants import LIBREC_TF_REC_V1_CPU_SO
 
 @para_checker_decorator(check_option_list=[
     (["tgt_key_specs", "args_index_list"], ValueCompareValidator, {"target": None},
@@ -267,7 +267,7 @@ def merge_feature_id_request(feature_id_list, split_list, table_name_list):
 def send_feature_id_request_async(feature_id_list, split_list, table_name_list, input_dict):
     is_training = input_dict["is_training"]
     timestamp = input_dict["timestamp"]
-    host_pipeline_ops = import_host_pipeline_ops(LIBREC_CPU_SO)
+    host_pipeline_ops = import_host_pipeline_ops(LIBREC_TF_REC_V1_CPU_SO)
     use_static = ConfigInitializer.get_instance().use_static
     timestamp_feature_id = []
 

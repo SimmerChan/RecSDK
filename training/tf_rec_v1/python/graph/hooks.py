@@ -20,8 +20,8 @@ from typing import List
 import tensorflow as tf
 from tensorflow import Operation, Graph
 
-from mx_rec_common.log import logger
-from mx_rec_common.validator.validator import ClassValidator, para_checker_decorator
+from rec_sdk_common.log import logger
+from rec_sdk_common.validator.validator import ClassValidator, para_checker_decorator
 from mx_rec.graph.slicers import LookupSubgraphSlicer, OrphanLookupKeySlicer
 
 

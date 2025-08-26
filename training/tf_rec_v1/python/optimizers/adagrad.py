@@ -26,7 +26,7 @@ from tensorflow.python.ops import init_ops
 from tensorflow.python.ops import math_ops
 from tensorflow.python.training import adagrad, training_ops
 
-from mx_rec_common.validator.validator import (
+from rec_sdk_common.validator.validator import (
     para_checker_decorator,
     StringValidator,
     ClassValidator,

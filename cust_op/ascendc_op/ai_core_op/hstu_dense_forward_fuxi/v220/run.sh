@@ -50,7 +50,7 @@ if [ "$ai_core" = "ai_core-Ascend310P3" ]; then
   bash $onnx_path/build_onnx.sh
   mkdir -p hstu_dense_forward_fuxi/framework/onnx_plugin
   cp -rf $json_file hstu_dense_forward_fuxi/framework/onnx_plugin
-  cp -rf ./onnx_plugin/* hstu_dense_forward_fuxi/framework/onnx_plugin
+  cp -rf ../onnx_plugin/* hstu_dense_forward_fuxi/framework/onnx_plugin
 fi
 
 cd hstu_dense_forward_fuxi

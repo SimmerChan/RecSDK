@@ -28,19 +28,19 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.python.util import compat
 
-from mx_rec_common.log import logger
-from mx_rec_common.communication.hccl.hccl_info import (
+from rec_sdk_common.log import logger
+from rec_sdk_common.communication.hccl.hccl_info import (
     get_rank_id,
     get_rank_size,
     get_local_rank_size,
 )
-from mx_rec_common.constants.constants import (
+from rec_sdk_common.constants.constants import (
     FileParams,
     DeviceType,
     ValidatorParams,
 )
-from mx_rec_common.util.tf_adapter import npu_ops
-from mx_rec_common.validator.validator import (
+from rec_sdk_common.util.tf_adapter import npu_ops
+from rec_sdk_common.validator.validator import (
     DirectoryValidator,
     FileValidator,
     para_checker_decorator,

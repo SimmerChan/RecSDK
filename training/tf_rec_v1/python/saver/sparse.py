@@ -22,9 +22,9 @@ from typing import List
 import numpy as np
 import tensorflow as tf
 
-from mx_rec_common.log import logger
-from mx_rec_common.constants.constants import ValidatorParams
-from mx_rec_common.validator.validator import (para_checker_decorator, ClassValidator,
+from rec_sdk_common.log import logger
+from rec_sdk_common.constants.constants import ValidatorParams
+from rec_sdk_common.validator.validator import (para_checker_decorator, ClassValidator,
                                         ListValidator, OrValidator, AndValidator, DirectoryValidator)
 from mx_rec.constants.constants import SAVE_FILE_FLAG, SAVE_FILE_MODE, HDFS_FILE_PREFIX
 from mx_rec.util.initialize import ConfigInitializer

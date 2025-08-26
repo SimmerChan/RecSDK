@@ -36,8 +36,8 @@ from tensorflow.python.distribute import reduce_util as ds_reduce_util
 from tensorflow.python.training.optimizer import Optimizer
 from tensorflow.python.client.session import BaseSession
 
-from mx_rec_common.log import logger
-from mx_rec_common.validator.validator import para_checker_decorator, ClassValidator
+from rec_sdk_common.log import logger
+from rec_sdk_common.validator.validator import para_checker_decorator, ClassValidator
 from mx_rec.constants import constants
 from mx_rec.util.initialize import ConfigInitializer
 from mx_rec.graph.merge_lookup import do_merge_lookup

@@ -18,7 +18,7 @@
 import collections
 from typing import Any, Dict, List, Optional, Union
 
-from mx_rec_common.log import logger
+from rec_sdk_common.log import logger
 from mx_rec.core.emb.mergeable_sparse_embedding import MergeableSparseEmbedding
 from mx_rec.util.singleton import singleton
 

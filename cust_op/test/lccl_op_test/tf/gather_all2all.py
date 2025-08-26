@@ -25,7 +25,7 @@ import tensorflow as tf
 from mpi4py import MPI
 from tensorflow.core.protobuf.rewriter_config_pb2 import RewriterConfig
 # must load before mxrec_pybind
-ops_so = tf.load_op_library("/usr/local/python3.7.5/lib/python3.7/site-packages/mx_rec/libasc/libasc_ops.so")
+ops_so = tf.load_op_library("/usr/local/python3.7.5/lib/python3.7/site-packages/mx_rec/libasc/librecsdk_tf_npu_ops.so")
 
 import mxrec_pybind
 
@@ -74,23 +74,26 @@ def set_ascend_env(rank, rank_size, local_rank_size, file=None, dev_id=-1, dev_i
 
 
 class WideDeep:
-    def __init__(self, input_data, matrix):
-        self.lbl_hldr = input_data
+    def __init__(self, table, lookup_table, matrix, shape):
+        self.gather_all_result = None
+        self.shape_vec = shape
+        self.table = table
+        self.lookup = lookup_table
         self.matrix = matrix
         self.forward()
 
     def forward(self):
-        with tf.control_dependencies([self.lbl_hldr]):
-            all2all_result_ = ops_so.lccl_all_to_all(
-                send_data=self.lbl_hldr,
-                send_count_matrix=self.matrix,
-                shape_vec=shape_vec,
-                peer_mem=peer_mem,
-                rank=rank_id,
-                rank_size=rank_size,
-                dim=dim)
-            self.all2all_result = tf.reshape(all2all_result_, [-1, dim])
-        return self.all2all_result
+        with tf.control_dependencies([self.table, self.lookup]):
+            gather_all_result = ops_so.lccl_gather_all(emb_table=self.table,
+                                                lookup=self.lookup,
+                                                send_count_matrix=self.matrix,
+                                                shape_vec=self.shape_vec,
+                                                peer_mem=peer_mem,
+                                                rank=rank_id,
+                                                rank_size=rank_size,
+                                                dim=emb_dim)
+            self.gather_all_result = tf.reshape(gather_all_result, gather_all_result.shape[:2])
+        return self.gather_all_result
 
 
 def verify_result(real_result:np.array, golden:np.array):
@@ -105,7 +108,7 @@ def verify_result(real_result:np.array, golden:np.array):
         if np.sum(result_rtol == 0) > real_result.size * loss and \
             np.sum(result_atol == 0) > real_result.size * loss:
             raise ValueError("precision error")
-    logging.info("all2all precision test pass")
+    logging.info("GatherAll precision test pass")
 
 
 if __name__ == "__main__":
@@ -125,7 +128,6 @@ if __name__ == "__main__":
 
     peer_mem_ = mxrec_pybind.get_peer_mem(rank_id, comm_server_rank_id, rank_size)
     logging.info(f"python peer_mem_ = {peer_mem_}")
-    peer_mem = tf.constant(peer_mem_, dtype=tf.int64)
 
     # create session
     sess_config = tf.compat.v1.ConfigProto()
@@ -140,70 +142,69 @@ if __name__ == "__main__":
     custom_op.parameter_map["hcom_parallel"].b = False
     custom_op.parameter_map["op_execute_timeout"].i = 500
 
-    dim = 128
-    emb_len = 1000 * rank_size
-    # 8x8 matrix
-    send_rows_per_rank = emb_len // rank_size
-    send_count_matrix = np.full((rank_size, rank_size), emb_len // rank_size * dim)
+    emb_dim = 128
+    emb_len = 3000
+    lookup_num = 2048
 
-    send_count = 0
-    for i in range(rank_size):
-        send_count += int(send_count_matrix[local_rank_id][i])
+    emb_table_np = np.random.randn(emb_len, emb_dim)
+    for i in range(emb_table_np.shape[0]):
+        for j in range(len(emb_table_np[i])):
+            emb_table_np[i][j] = rank_id * 100000 + i
 
-    rev_count = 0
-    for i in range(rank_size):
-        rev_count += int(send_count_matrix[i][local_rank_id])
+    lookup_idx_np = np.arange(0, lookup_num)
+    emb_table = tf.convert_to_tensor(emb_table_np, dtype=tf.float32)
+    lookup_idx = tf.convert_to_tensor(lookup_idx_np, dtype=tf.int32)
 
-    random_send_data_np = np.random.rand(send_count, 1).astype(np.float32).reshape(-1, dim)
-    for i in range(random_send_data_np.shape[0]):
-        for j in range(len(random_send_data_np[i])):
-            random_send_data_np[i][j] = rank_id * 100000 + i
-
-    random_send_data = tf.convert_to_tensor(random_send_data_np, dtype=tf.float32)
+    send_count_matrix = np.full((rank_size, rank_size), lookup_num // rank_size * emb_dim)
     send_count_matrix = tf.convert_to_tensor(send_count_matrix, dtype=tf.int64)
-    peer_mem = tf.convert_to_tensor(peer_mem_, dtype=tf.int64)
-    shape_vec = tf.constant([1] * (rev_count // dim), dtype=tf.int32)
-    shape_vec = tf.convert_to_tensor(shape_vec, dtype=tf.int32)
+
+    shape_vec = tf.constant([1] * lookup_num, dtype=tf.int32)
     shape_vec = tf.reshape(shape_vec, [-1, 1])
 
+    peer_mem = tf.convert_to_tensor(peer_mem_, dtype=tf.int64)
 
     # model run parameter
     stop_steps = 1
-    model = WideDeep(random_send_data, send_count_matrix)
+    model = WideDeep(emb_table, lookup_idx, send_count_matrix, shape_vec)
 
     with tf.compat.v1.Session(config=sess_config) as sess:
         sess.run(tf.compat.v1.global_variables_initializer())
 
-        logging.info("============start all2all test=============")
+        logging.info("============start GatherAll test=============")
         # start run loop
         current_steps = 0
         train_finished = False
         while not train_finished:
             try:
                 current_steps += 1
-                logging.info(f"current step = {current_steps}")
-                run_dict = {"all2all_result": model.all2all_result}
+                logging.info("current step = {current_steps}")
+                run_dict = {
+                    "gather_all_result": model.gather_all_result,
+                }
                 start_time = time.time()
                 results = sess.run(fetches=run_dict)
                 end_time = time.time()
+
                 logging.info(f"current steps: {current_steps}, time cost(ms):{(end_time - start_time) * 1000}")
+                results_np = np.array(results.get("gather_result"))
                 if current_steps >= stop_steps:
                     comm.Barrier()
-                    logging.info("all2all finished")
+                    logging.info("gather finished")
                     train_finished = True
-            except tf.errors.OutOfRangeError as e:
+            except tf.errors.OutOfRangeError:
                 comm.Barrier()
-                logging.info("all2all test failed with error:{e}")
+                logging.info("gather test failed with error:{e}")
                 train_finished = True
         MPI.Finalize()
-
+        
     # check precision
-    expect = random_send_data_np
-    for i in range(expect.shape[0]):
-        for j in range(len(expect[i])):
-            expect[i][j] = int(i / send_rows_per_rank) * 100000 + \
-                           (i % send_rows_per_rank) + send_rows_per_rank * rank_id
-    out = np.array(results.get("all2all_result"))
-    verify_result(out, expect)
-
-    logging.info("============end all2all test=============")
+    expect_gather_all = emb_table_np[lookup_idx_np]
+    send_row_per_rank = lookup_num // rank_size
+    for i in range(expect_gather_all.shape[0]):
+        for j in range(len(expect_gather_all[i])):
+            expect_gather_all[i][j] = int(i / send_row_per_rank) * 100000 + \
+                (i % send_row_per_rank) + send_row_per_rank * rank_id
+    
+    actual = np.array(results.get("gather_all_result"))
+    verify_result(actual, expect_gather_all)
+    logging.info("============end GatherAll test=============")

@@ -86,7 +86,7 @@ function compile_securec()
     fi
 }
 
-function compile_asc_ops_tf_plugin_so_file()
+function compile_recsdk_tf_npu_ops_tf_plugin_so_file()
 {
   cd "${cust_op_tf_plugin_path}"
   chmod u+x build.sh
@@ -150,7 +150,7 @@ compile_common_so_file "${tf1_path}"
 echo "----------------          compile     AccCTR            ----------------"
 compile_acc_ctr_so_file
 echo "----------------          compile MxRec so files        ----------------"
-compile_asc_ops_tf_plugin_so_file "${tf1_path}"
+compile_recsdk_tf_npu_ops_tf_plugin_so_file "${tf1_path}"
 compile_tf_rec_v1_so_file "${tf1_path}"
 echo "---------------- collect so files and mv them to libasc ----------------"
 collect_so_file

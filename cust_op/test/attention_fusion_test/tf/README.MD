@@ -2,7 +2,7 @@
 
 ## 适用场景说明
 > 需要满足以下件的场景，适合使用本示例：
-- 已经在/mxrec/cust_op/下安装完attention_fusion_grad和attention_fusion，希望在Tensorflow中调用该算子, 安装方法见mxrec/cust_op/attention_fusion_grad/README.md。
+- 已经在/mxrec/cust_op/下安装完attention_fusion_grad和attention_fusion，希望在Tensorflow中调用该算子, 安装方法见mxrec/cust_op/ascendc_op/ai_core_op/attention_fusion_grad/v220/README.md。
 - 本用例使用tensorflow 2.6.5为例。
 
 ## 目录结构说明
@@ -39,7 +39,7 @@ os.environ["ASCEND_DEVICE_ID"] = str(0)
 os.environ["JOB_ID"] = "10086"
 
 tf.compat.v1.disable_eager_execution()
-tfOpLib = tf.load_op_library("/usr/local/python3.7.5/lib/python3.7/site-packages/mx_rec/libasc/libasc_ops.so")
+tfOpLib = tf.load_op_library("/usr/local/python3.7.5/lib/python3.7/site-packages/mx_rec/libasc/librecsdk_tf_npu_ops.so")
 
 npu_device.compat.enable_v1()
 npu_init = npu_ops.initialize_system()

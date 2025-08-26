@@ -18,7 +18,7 @@
 import os
 import logging
 
-from mx_rec_common.constants.constants import LogLevel, EnvOptionCommon
+from rec_sdk_common.constants.constants import LogLevel, EnvOptionCommon
 
 class LoggingProxy:
     _instance: logging.Logger = None

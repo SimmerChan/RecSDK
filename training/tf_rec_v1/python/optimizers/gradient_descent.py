@@ -26,7 +26,7 @@ from tensorflow.python.ops import math_ops
 from tensorflow.python.framework import ops
 from tensorflow.python.training import gradient_descent
 
-from mx_rec_common.validator.validator import (
+from rec_sdk_common.validator.validator import (
     para_checker_decorator, StringValidator, ClassValidator, LearningRateValidator,
     OptionalFloatValidator
 )

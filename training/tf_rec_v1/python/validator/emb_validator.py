@@ -6,8 +6,8 @@ from typing import Union, Optional, List
 
 import tensorflow as tf
 
-from mx_rec_common.communication.hccl.hccl_info import get_rank_size
-from mx_rec_common.constants.constants import ValidatorParams
+from rec_sdk_common.communication.hccl.hccl_info import get_rank_size
+from rec_sdk_common.constants.constants import ValidatorParams
 from mx_rec.constants.constants import MAX_VOCABULARY_SIZE, MULTI_LOOKUP_TIMES
 from mx_rec.core.asc.feature_spec import FeatureSpec
 
