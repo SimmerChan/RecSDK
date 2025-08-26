@@ -225,10 +225,13 @@ SwapinTensor EmbcacheManager::EmbeddingLookup(const std::vector<std::vector<int6
 
     std::vector<float*> swapinOptimsPtr(optimNum_);
     for (uint64_t i = 0; i < swapinKeys.size(); i++) {
-        for (int32_t j = 0; j < optimNum_; j++) {
-            auto* optimPtr = swapinTensor.swapinOptims[j].data_ptr<float>();
-            TORCH_CHECK(optimPtr != nullptr, "swapinOptims[{}] data_ptr should not be nullptr", j);
-            swapinOptimsPtr[j] = optimPtr + jaggedOffsPtr[i];
+        // 当优化器数量为0时，跳过优化器张量的处理
+        if (optimNum_ > 0) {
+            for (int32_t j = 0; j < optimNum_; j++) {
+                auto* optimPtr = swapinTensor.swapinOptims[j].data_ptr<float>();
+                TORCH_CHECK(optimPtr != nullptr, "swapinOptims[{}] data_ptr should not be nullptr", j);
+                swapinOptimsPtr[j] = optimPtr + jaggedOffsPtr[i];
+            }
         }
 
         int32_t idx = curTableIndices[i];
@@ -255,12 +258,15 @@ void EmbcacheManager::EmbeddingUpdate(const std::vector<std::vector<int64_t>>& s
                                       const std::vector<int32_t>& tableIndices)
 {
     TimeCost embeddingUpdateTC;
-    for (auto& embedConfig : embConfigs_) {
-        TORCH_CHECK(embedConfig.optimNum == (int32_t)swapoutOptims.size())
-    }
-    for (auto& optimition : swapoutOptims) {
-        TORCH_CHECK(swapoutEmbs.numel() == optimition.numel())
-        TORCH_CHECK(optimition.dtype() == torch::kFloat32)
+    // 当优化器数量为0时，应该允许传入空的优化器张量数组
+    if (optimNum_ > 0) {
+        for (auto& embedConfig : embConfigs_) {
+            TORCH_CHECK(embedConfig.optimNum == (int32_t)swapoutOptims.size())
+        }
+        for (auto& optimition : swapoutOptims) {
+            TORCH_CHECK(swapoutEmbs.numel() == optimition.numel())
+            TORCH_CHECK(optimition.dtype() == torch::kFloat32)
+        }
     }
     TORCH_CHECK(swapoutEmbs.dtype() == torch::kFloat32)
 
@@ -274,10 +280,13 @@ void EmbcacheManager::EmbeddingUpdate(const std::vector<std::vector<int64_t>>& s
     int64_t jaggedOff = 0;
     std::vector<float*> swapoutOptimPtrs(swapoutOptims.size());
     for (uint64_t i = 0; i < swapoutKeys.size(); i++) {
-        for (size_t j = 0; j < swapoutOptims.size(); j++) {
-            auto* optimPtr = swapoutOptims[j].data_ptr<float>();
-            TORCH_CHECK(optimPtr != nullptr, "swapoutOptims[{}] data_ptr should not be nullptr", j);
-            swapoutOptimPtrs[j] = optimPtr + jaggedOff;
+        // 当优化器数量为0时，跳过优化器张量的处理
+        if (optimNum_ > 0) {
+            for (size_t j = 0; j < swapoutOptims.size(); j++) {
+                auto* optimPtr = swapoutOptims[j].data_ptr<float>();
+                TORCH_CHECK(optimPtr != nullptr, "swapoutOptims[{}] data_ptr should not be nullptr", j);
+                swapoutOptimPtrs[j] = optimPtr + jaggedOff;
+            }
         }
 
         int32_t idx = curTableIndices[i];
