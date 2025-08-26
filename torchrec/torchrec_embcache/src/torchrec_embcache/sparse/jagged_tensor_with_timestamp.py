@@ -17,9 +17,10 @@ from torchrec.sparse.jagged_tensor import (
     _permute_tensor_by_segments,
 )
 from torchrec.pt2.checks import is_torchdynamo_compiling, is_non_strict_exporting
+from .jagged_tensor_with_extra import JaggedTensorWithExtra, KeyedJaggedTensorWithExtra
 
 
-class JaggedTensorWithTimestamp(JaggedTensor):
+class JaggedTensorWithTimestamp(JaggedTensorWithExtra):
     _fields = ["_timestamps"]
 
     def __init__(
@@ -30,14 +31,14 @@ class JaggedTensorWithTimestamp(JaggedTensor):
         offsets: Optional[torch.Tensor] = None,
         timestamps: Optional[torch.Tensor] = None,
     ) -> None:
-        if timestamps is not None and values.size() != timestamps.size():
-            raise ValueError(
-                f"timestamps size must same with values, but got timestamp size:{timestamps.size()},"
-                f" values size:{values.size()}."
-            )
-
-        super().__init__(values, weights, lengths, offsets)
-
+        super().__init__(
+            values=values,
+            extra=timestamps,
+            weights=weights,
+            lengths=lengths,
+            offsets=offsets,
+            extra_field_name="timestamps"
+        )
         # 和values值对应的时间戳，size需和values相同, 仅在input dist前使用
         self._timestamps = timestamps
 
@@ -46,7 +47,7 @@ class JaggedTensorWithTimestamp(JaggedTensor):
         return self._timestamps
 
 
-class KeyedJaggedTensorWithTimestamp(KeyedJaggedTensor):
+class KeyedJaggedTensorWithTimestamp(KeyedJaggedTensorWithExtra):
     _fields = ["_timestamps"]
 
     def __init__(
@@ -69,22 +70,23 @@ class KeyedJaggedTensorWithTimestamp(KeyedJaggedTensor):
         inverse_indices: Optional[Tuple[List[str], torch.Tensor]] = None,
     ) -> None:
         super().__init__(
-            keys,
-            values,
-            weights,
-            lengths,
-            offsets,
-            stride,
-            stride_per_key_per_rank,
-            stride_per_key,
-            length_per_key,
-            lengths_offset_per_key,
-            offset_per_key,
-            index_per_key,
-            jt_dict,
-            inverse_indices,
+            keys=keys,
+            values=values,
+            extra=timestamps,
+            weights=weights,
+            lengths=lengths,
+            offsets=offsets,
+            stride=stride,
+            stride_per_key_per_rank=stride_per_key_per_rank,
+            stride_per_key=stride_per_key,
+            length_per_key=length_per_key,
+            lengths_offset_per_key=lengths_offset_per_key,
+            offset_per_key=offset_per_key,
+            index_per_key=index_per_key,
+            jt_dict=jt_dict,
+            inverse_indices=inverse_indices,
+            extra_field_name="timestamps"
         )
-
         self._timestamps: torch.Tensor = timestamps
 
     @property
@@ -105,54 +107,7 @@ class KeyedJaggedTensorWithTimestamp(KeyedJaggedTensor):
         Returns:
             KeyedJaggedTensorWithTimestamp: constructed KeyedJaggedTensorWithTimestamp.
         """
-        # 处理空字典的情况
-        if not jt_dict:
-            return KeyedJaggedTensorWithTimestamp(
-                keys=[],
-                values=torch.empty(0, dtype=torch.int64),
-                timestamps=torch.empty(0, dtype=torch.int64),
-            )
-            
-        kjt_keys = list(jt_dict.keys())
-        kjt_vals_list: List[torch.Tensor] = []
-        kjt_timestamps_list: List[torch.Tensor] = []
-        kjt_lens_list: List[torch.Tensor] = []
-        kjt_weights_list: List[torch.Tensor] = []
-        stride_per_key: List[int] = []
-        for jt in jt_dict.values():
-            stride_per_key.append(len(jt.lengths()))
-            kjt_vals_list.append(jt.values())
-            kjt_timestamps_list.append(jt.timestamps)
-            kjt_lens_list.append(jt.lengths())
-            weight = jt.weights_or_none()
-            if weight is not None:
-                kjt_weights_list.append(weight)
-        kjt_vals = torch.concat(kjt_vals_list)
-        kjt_lens = torch.concat(kjt_lens_list)
-
-        # handle custom attribute: timestamps
-        kjt_timestamps = (
-            torch.concat(kjt_timestamps_list) if len(kjt_timestamps_list) > 0 else None
-        )
-
-        kjt_weights = (
-            torch.concat(kjt_weights_list) if len(kjt_weights_list) > 0 else None
-        )
-        kjt_stride, kjt_stride_per_key_per_rank = (
-            (stride_per_key[0], None)
-            if all(s == stride_per_key[0] for s in stride_per_key)
-            else (None, [[stride] for stride in stride_per_key])
-        )
-        kjt = KeyedJaggedTensorWithTimestamp(
-            keys=kjt_keys,
-            values=kjt_vals,
-            timestamps=kjt_timestamps,
-            weights=kjt_weights,
-            lengths=kjt_lens,
-            stride=kjt_stride,
-            stride_per_key_per_rank=kjt_stride_per_key_per_rank,
-        ).sync()
-        return kjt
+        return KeyedJaggedTensorWithTimestamp.from_jt_dict_base(jt_dict, "timestamps")
 
     def split(self, segments: List[int]) -> List["KeyedJaggedTensorWithTimestamp"]:
         split_list: List[KeyedJaggedTensorWithTimestamp] = []
@@ -295,10 +250,8 @@ class KeyedJaggedTensorWithTimestamp(KeyedJaggedTensor):
         permuted_length_per_key_sum = sum(permuted_length_per_key)
         if not torch.jit.is_scripting() and is_non_strict_exporting():
             # 使用公共API替代受保护成员的访问
-            if permuted_length_per_key_sum < 0:
-                raise ValueError("permuted_length_per_key_sum should not be negative")
-            if permuted_length_per_key_sum == 0:
-                raise ValueError("permuted_length_per_key_sum should not be zero")
+            if permuted_length_per_key_sum <= 0:
+                raise ValueError("permuted_length_per_key_sum needs to be greater than 0")
 
         if self.variable_stride_per_key():
             length_per_key_tensor = _pin_and_move(

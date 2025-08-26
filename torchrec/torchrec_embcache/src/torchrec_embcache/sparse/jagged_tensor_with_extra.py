@@ -1,61 +1,63 @@
-#!/usr/bin/env python3
 # Copyright (c) Huawei Platforms, Inc. and affiliates.
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 # All rights reserved.
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
-from typing import Optional, Dict, List, Tuple
+
+from typing import Optional, Dict, List, Tuple, TypeVar, Generic, Union
 
 import torch
 
-from torch.autograd.profiler import record_function
 from torchrec.sparse.jagged_tensor import (
-    _permute_tensor_by_segments,
-    _sum_by_splits,
     JaggedTensor,
     KeyedJaggedTensor,
 )
-from torchrec.pt2.checks import is_non_strict_exporting
+from torchrec.pt2.checks import  is_non_strict_exporting
+
+T = TypeVar('T', bound='ExtendedJaggedTensor')
+K = TypeVar('K', bound='KeyedExtendedJaggedTensor')
 
 
-class JaggedTensorWithCount(JaggedTensor):
-    _fields = [
-        "_counts"
-    ]
-
+class ExtendedJaggedTensor(JaggedTensor):
+    """
+    Base class for JaggedTensor with an additional tensor field.
+    """
+    
     def __init__(
         self,
         values: torch.Tensor,
+        extra: Optional[torch.Tensor] = None,
         weights: Optional[torch.Tensor] = None,
         lengths: Optional[torch.Tensor] = None,
         offsets: Optional[torch.Tensor] = None,
-        counts: Optional[torch.Tensor] = None,
+        extra_field_name: str = "extra",
     ) -> None:
-        if counts is not None and values.size() != counts.size():
-            raise ValueError(f"counts size must same with values, but got timestamp size:{counts.size()},"
-                             f" values size:{values.size()}.")
+        if extra is not None and values.size() != extra.size():
+            raise ValueError(
+                f"{extra_field_name} size must same with values, but got {extra_field_name} size:{extra.size()},"
+                f" values size:{values.size()}."
+            )
 
         super().__init__(values, weights, lengths, offsets)
+        self._extra = extra
+        self._extra_field_name = extra_field_name
 
-        # values中每个ids出现次数，分桶去重时会进行计算，input_dist all2all会做集合通信，post dist input时做count记录
-        self._counts = counts
-
-    @property
-    def counts(self):
-        return self._counts
+    def get_extra(self) -> Optional[torch.Tensor]:
+        """Get the extra tensor field."""
+        return self._extra
 
 
-class KeyedJaggedTensorWithCount(KeyedJaggedTensor):
-    _fields = [
-        "_counts"
-    ]
-
+class KeyedExtendedJaggedTensor(KeyedJaggedTensor):
+    """
+    Base class for KeyedJaggedTensor with an additional tensor field.
+    """
+    
     def __init__(
         self,
         keys: List[str],
         values: torch.Tensor,
-        counts: Optional[torch.Tensor] = None,
+        extra: Optional[torch.Tensor] = None,
         weights: Optional[torch.Tensor] = None,
         lengths: Optional[torch.Tensor] = None,
         offsets: Optional[torch.Tensor] = None,
@@ -69,6 +71,7 @@ class KeyedJaggedTensorWithCount(KeyedJaggedTensor):
         index_per_key: Optional[Dict[str, int]] = None,
         jt_dict: Optional[Dict[str, JaggedTensor]] = None,
         inverse_indices: Optional[Tuple[List[str], torch.Tensor]] = None,
+        extra_field_name: str = "extra",
     ) -> None:
         super().__init__(
             keys,
@@ -84,55 +87,56 @@ class KeyedJaggedTensorWithCount(KeyedJaggedTensor):
             offset_per_key,
             index_per_key,
             jt_dict,
-            inverse_indices
+            inverse_indices,
         )
 
-        self._counts: torch.Tensor = counts
+        self._extra: Optional[torch.Tensor] = extra
+        self._extra_field_name = extra_field_name
 
-    @property
-    def counts(self) -> torch.Tensor:
-        return self._counts
+    def get_extra(self) -> Optional[torch.Tensor]:
+        """Get the extra tensor field."""
+        return self._extra
 
-    @staticmethod
-    def from_jt_dict(jt_dict: Dict[str, JaggedTensorWithCount]) -> "KeyedJaggedTensorWithCount":
+    @classmethod
+    def from_jt_dict_base(
+        cls,
+        jt_dict: Dict[str, JaggedTensorWithExtra],
+        extra_field_name: str = "extra",
+    ) -> "KeyedJaggedTensorWithExtra":
         """
-        Constructs a KeyedJaggedTensorWithCount from a dictionary of JaggedTensorWithCounts.
-        Automatically calls `kjt.sync()` on newly created KJT.
-
-        Args:
-            jt_dict (Dict[str, JaggedTensorWithCount]): dictionary of JaggedTensorWithCounts.
-
-        Returns:
-            KeyedJaggedTensorWithCount: constructed KeyedJaggedTensorWithCount.
+        Base implementation for constructing from a dictionary of JaggedTensorWithExtra.
         """
         # 处理空字典的情况
         if not jt_dict:
-            return KeyedJaggedTensorWithCount(
+            return cls(
                 keys=[],
                 values=torch.empty(0, dtype=torch.int64),
-                counts=torch.empty(0, dtype=torch.int64),
+                extra=torch.empty(0, dtype=torch.int64),
+                extra_field_name=extra_field_name,
             )
             
         kjt_keys = list(jt_dict.keys())
         kjt_vals_list: List[torch.Tensor] = []
-        kjt_counts_list: List[torch.Tensor] = []
+        kjt_extra_list: List[torch.Tensor] = []
         kjt_lens_list: List[torch.Tensor] = []
         kjt_weights_list: List[torch.Tensor] = []
         stride_per_key: List[int] = []
+        
         for jt in jt_dict.values():
             stride_per_key.append(len(jt.lengths()))
             kjt_vals_list.append(jt.values())
-            kjt_counts_list.append(jt.counts)
+            kjt_extra_list.append(jt.get_extra())
             kjt_lens_list.append(jt.lengths())
             weight = jt.weights_or_none()
             if weight is not None:
                 kjt_weights_list.append(weight)
+                
         kjt_vals = torch.concat(kjt_vals_list)
         kjt_lens = torch.concat(kjt_lens_list)
 
-        # handle custom attribute: counts
-        kjt_counts = (
-            torch.concat(kjt_counts_list) if len(kjt_counts_list) > 0 else None
+        # handle custom attribute: extra
+        kjt_extra = (
+            torch.concat(kjt_extra_list) if len(kjt_extra_list) > 0 else None
         )
 
         kjt_weights = (
@@ -143,23 +147,29 @@ class KeyedJaggedTensorWithCount(KeyedJaggedTensor):
             if all(s == stride_per_key[0] for s in stride_per_key)
             else (None, [[stride] for stride in stride_per_key])
         )
-        kjt = KeyedJaggedTensorWithCount(
+        
+        kjt = cls(
             keys=kjt_keys,
             values=kjt_vals,
-            counts=kjt_counts,
+            extra=kjt_extra,
             weights=kjt_weights,
             lengths=kjt_lens,
             stride=kjt_stride,
             stride_per_key_per_rank=kjt_stride_per_key_per_rank,
+            extra_field_name=extra_field_name,
         ).sync()
         return kjt
 
-    def split(self, segments: List[int]) -> List["KeyedJaggedTensorWithCount"]:
-        split_list: List[KeyedJaggedTensorWithCount] = []
+    def split_base(self, segments: List[int], cls_type) -> List["KeyedJaggedTensorWithExtra"]:
+        """
+        Base implementation for split method.
+        """
+        split_list: List[KeyedJaggedTensorWithExtra] = []
         start = 0
         start_offset = 0
         _length_per_key = self.length_per_key()
         _offset_per_key = self.offset_per_key()
+        
         for segment in segments:
             end = start + segment
             end_offset = _offset_per_key[end]
@@ -170,13 +180,14 @@ class KeyedJaggedTensorWithCount(KeyedJaggedTensor):
                 if self.variable_stride_per_key()
                 else (self._stride, None)
             )
+            
             if segment == len(self._keys):
                 # no torch slicing required
                 split_list.append(
-                    KeyedJaggedTensorWithCount(
+                    cls_type(
                         keys=self._keys,
                         values=self._values,
-                        counts=self._counts,
+                        extra=self._extra,
                         weights=self.weights_or_none(),
                         lengths=self._lengths,
                         offsets=self._offsets,
@@ -186,22 +197,23 @@ class KeyedJaggedTensorWithCount(KeyedJaggedTensor):
                         offset_per_key=self._offset_per_key,
                         index_per_key=self._index_per_key,
                         jt_dict=self._jt_dict,
+                        extra_field_name=self._extra_field_name,
                     )
                 )
             elif segment == 0:
                 empty_int_list: List[int] = torch.jit.annotate(List[int], [])
                 split_list.append(
-                    KeyedJaggedTensorWithCount(
+                    cls_type(
                         keys=keys,
                         values=torch.tensor(
                             empty_int_list,
                             device=self.device(),
                             dtype=self._values.dtype,
                         ),
-                        counts=torch.tensor(
+                        extra=torch.tensor(
                             empty_int_list,
                             device=self.device(),
-                            dtype=self._counts.dtype,
+                            dtype=self._extra.dtype,
                         ),
                         weights=(
                             None
@@ -224,17 +236,18 @@ class KeyedJaggedTensorWithCount(KeyedJaggedTensor):
                         offset_per_key=None,
                         index_per_key=None,
                         jt_dict=None,
+                        extra_field_name=self._extra_field_name,
                     )
                 )
             else:
                 split_length_per_key = _length_per_key[start:end]
                 split_list.append(
-                    KeyedJaggedTensorWithCount(
+                    cls_type(
                         keys=keys,
                         values=self._values[start_offset:end_offset],
-                        counts=(
-                            self._counts[start_offset:end_offset]
-                            if self._counts is not None
+                        extra=(
+                            self._extra[start_offset:end_offset]
+                            if self._extra is not None
                             else None
                         ),
                         weights=(
@@ -254,58 +267,98 @@ class KeyedJaggedTensorWithCount(KeyedJaggedTensor):
                         offset_per_key=None,
                         index_per_key=None,
                         jt_dict=None,
+                        extra_field_name=self._extra_field_name,
                     )
                 )
             start = end
             start_offset = end_offset
         return split_list
 
-    def permute(
-        self,
-        permute_order: List[int],
-        permuted_length_per_key: List[int],
-    ) -> "KeyedJaggedTensorWithCount":
-        permuted_length_per_key_sum = sum(permuted_length_per_key)
-        # 避免直接访问受保护的成员
+    def _validate_permuted_length_per_key_sum(self, permuted_length_per_key_sum: int) -> None:
+        """Validate permuted_length_per_key_sum value."""
         if not torch.jit.is_scripting() and is_non_strict_exporting():
-            # 使用公共API替代受保护成员的访问
             if permuted_length_per_key_sum <= 0:
                 raise ValueError("permuted_length_per_key_sum needs to be greater than 0")
 
-        with record_function("KeyedJaggedTensorWithCount.permute"):
-            permuted_values = _permute_tensor_by_segments(
-                self._values,
-                self._offsets,
-                permute_order,
-                permuted_length_per_key,
-            )
-            permuted_counts = _permute_tensor_by_segments(
-                self._counts,
-                self._offsets,
-                permute_order,
-                permuted_length_per_key,
-            )
-            permuted_lengths = _sum_by_splits(
-                torch.ones_like(self._values),
-                self._offsets,
-                permute_order,
-                permuted_length_per_key,
-            )
-            permuted_offsets = torch.cumsum(
-                torch.cat([torch.tensor([0]), permuted_lengths]), dim=0
-            )
+    def pin_memory_base(self, cls_type) -> "KeyedJaggedTensorWithExtra":
+        """Base implementation for pin_memory method."""
+        weights = self._weights
+        lengths = self._lengths
+        offsets = self._offsets
+        stride, stride_per_key_per_rank = (
+            (None, self._stride_per_key_per_rank)
+            if self.variable_stride_per_key()
+            else (self._stride, None)
+        )
 
-            return KeyedJaggedTensorWithCount(
-                keys=self._keys,
-                values=permuted_values,
-                counts=permuted_counts,
-                weights=None,
-                lengths=permuted_lengths,
-                offsets=permuted_offsets,
-                stride=self._stride,
-                stride_per_key_per_rank=self._stride_per_key_per_rank,
-                length_per_key=permuted_length_per_key,
-                offset_per_key=None,
-                index_per_key=self._index_per_key,
-                jt_dict=None,
-            )
+        return cls_type(
+            keys=self._keys,
+            values=self._values.pin_memory(),
+            extra=(
+                self._extra.pin_memory() if self._extra is not None else None
+            ),
+            weights=weights.pin_memory() if weights is not None else None,
+            lengths=lengths.pin_memory() if lengths is not None else None,
+            offsets=offsets.pin_memory() if offsets is not None else None,
+            stride=stride,
+            stride_per_key_per_rank=stride_per_key_per_rank,
+            length_per_key=self._length_per_key,
+            offset_per_key=self._offset_per_key,
+            index_per_key=self._index_per_key,
+            jt_dict=None,
+            extra_field_name=self._extra_field_name,
+        )
+
+    def to_base(self, device: torch.device, non_blocking: bool, cls_type) -> "KeyedJaggedTensorWithExtra":
+        """Base implementation for to method."""
+        weights = self._weights
+        lengths = self._lengths
+        offsets = self._offsets
+        stride, stride_per_key_per_rank = (
+            (None, self._stride_per_key_per_rank)
+            if self.variable_stride_per_key()
+            else (self._stride, None)
+        )
+        length_per_key = self._length_per_key
+        offset_per_key = self._offset_per_key
+        index_per_key = self._index_per_key
+        jt_dict = self._jt_dict
+
+        return cls_type(
+            keys=self._keys,
+            values=self._values.to(device, non_blocking=non_blocking),
+            extra=(
+                self._extra.to(device, non_blocking=non_blocking)
+                if self._extra is not None
+                else None
+            ),
+            weights=(
+                weights.to(device, non_blocking=non_blocking)
+                if weights is not None
+                else None
+            ),
+            lengths=(
+                lengths.to(device, non_blocking=non_blocking)
+                if lengths is not None
+                else None
+            ),
+            offsets=(
+                offsets.to(device, non_blocking=non_blocking)
+                if offsets is not None
+                else None
+            ),
+            stride=stride,
+            stride_per_key_per_rank=stride_per_key_per_rank,
+            length_per_key=length_per_key,
+            offset_per_key=offset_per_key,
+            index_per_key=index_per_key,
+            jt_dict=jt_dict,
+            extra_field_name=self._extra_field_name,
+        )
+
+    @torch.jit.unused
+    def record_stream_base(self, stream: torch.cuda.streams.Stream) -> None:
+        """Base implementation for record_stream method."""
+        super().record_stream(stream)
+        if self._extra is not None:
+            self._extra.record_stream(stream)

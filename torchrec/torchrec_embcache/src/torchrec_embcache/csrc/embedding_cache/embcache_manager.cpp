@@ -36,6 +36,10 @@ EmbcacheManager::EmbcacheManager(const std::vector<EmbConfig>& embConfigs, bool 
     auto length = embConfigs[0].tableName.size();
     enableFastHashMap_ = EnableFastHashMap();
 
+    // 初始化表索引到FeatureFilter索引的映射
+    tableToFilterIndexMap_.resize(embNum_, INVALID_KEY);
+    int32_t filterIndex = 0;
+
     for (int32_t i = 0; i < embNum_; i++) {
         LOG_INFO("The tableName: {}, table index: {}, cacheSize is: {}", embConfigs[i].tableName, i,
                  embConfigs[i].cacheSize);
@@ -56,6 +60,7 @@ EmbcacheManager::EmbcacheManager(const std::vector<EmbConfig>& embConfigs, bool 
                               aaeConfig.admitThreshold,
                               aaeConfig.evictThreshold,
                               aaeConfig.evictStepInterval));
+            tableToFilterIndexMap_[i] = filterIndex++;
         }
     }
     TORCH_CHECK(embConfigs.size() > 0, "ERROR, Size of embConfigs must > 0")
@@ -107,7 +112,10 @@ SwapInfo EmbcacheManager::ComputeSwapInfo(const at::Tensor& batchKeys, const std
     for (int64_t i = 0; i < curTableIndices.size(); i++) {
         int64_t idx = curTableIndices[i];
         if (embConfigs_[idx].admitAndEvictConfig.IsAdmitEnabled()) {
-            featureFilters_[idx].CountFilter(keyPtr, offsetPerKey[i], offsetPerKey[i + 1]);
+            int32_t filterIndex = tableToFilterIndexMap_[idx];
+            if (filterIndex >= 0) {
+                featureFilters_[filterIndex].CountFilter(keyPtr, offsetPerKey[i], offsetPerKey[i + 1]);
+            }
         }
 
         // 取出每个表的 key
@@ -305,7 +313,10 @@ void EmbcacheManager::RecordTimestamp(const at::Tensor& batchKeys, const std::ve
     for (int64_t i = 0; i < embNum_; ++i) {
         int32_t idx = curTableIndices[i];
         if (embConfigs_[idx].admitAndEvictConfig.IsEvictEnabled()) {
-            featureFilters_[idx].RecordTimestamp(keyPtr, offsetPerKey[i], offsetPerKey[i + 1], timestampsPtr);
+            int32_t filterIndex = tableToFilterIndexMap_[idx];
+            if (filterIndex >= 0) {
+                featureFilters_[filterIndex].RecordTimestamp(keyPtr, offsetPerKey[i], offsetPerKey[i + 1], timestampsPtr);
+            }
         }
     }
     LOG_INFO("RecordTimestamp execution time: {} ms", recordTimestampTC.ElapsedMS());
@@ -323,14 +334,18 @@ void EmbcacheManager::EvictFeatures()
         }
 
         // 获取当前表要淘汰的keys
-        const std::vector<int64_t>& evictFeatures = featureFilters_[i].evictFeatureRecord_.GetEvictKeys();
+        int32_t filterIndex = tableToFilterIndexMap_[i];
+        if (filterIndex < 0) {
+            continue;
+        }
+        const std::vector<int64_t>& evictFeatures = featureFilters_[filterIndex].evictFeatureRecord_.GetEvictKeys();
         // 调用swapManager删除映射信息
         // 删除embeddingTables中的embedding待对应step的swap out emb update执行完成后触发
         swapManagers_[i].RemoveKeys(evictFeatures);
-        featureFilters_[i].evictFeatureRecord_.SetSwapCount(swapCount_);
+        featureFilters_[filterIndex].evictFeatureRecord_.SetSwapCount(swapCount_);
         evictKeyCount += evictFeatures.size();
     }
-    LOG_INFO("EvictFeatures execution time : {} ms, all table evictKeyCount : {}", evictFeaturesTC.ElapsedMS(),
+    LOG_INFO("EvictFeatures execution time: {} ms, all table evictKeyCount: {}", evictFeaturesTC.ElapsedMS(),
              evictKeyCount);
 }
 
@@ -358,9 +373,13 @@ bool EmbcacheManager::NeedEvictEmbeddingTable()
         if (!embConfigs_[i].admitAndEvictConfig.IsEvictEnabled()) {
             continue;
         }
+        int32_t filterIndex = tableToFilterIndexMap_[i];
+        if (filterIndex < 0) {
+            continue;
+        }
         // 待删除embTable的keys非空且达到和GetSwapInfo相同的步数
-        if (!featureFilters_[i].evictFeatureRecord_.GetEvictKeys().empty() &&
-            featureFilters_[i].evictFeatureRecord_.CanRemoveFromEmbTable(embUpdateCount_)) {
+        if (!featureFilters_[filterIndex].evictFeatureRecord_.GetEvictKeys().empty() &&
+            featureFilters_[filterIndex].evictFeatureRecord_.CanRemoveFromEmbTable(embUpdateCount_)) {
             return true;
         }
     }
@@ -372,16 +391,20 @@ void EmbcacheManager::RemoveEmbeddingTableInfo()
     LOG_INFO("Start invoke RemoveEmbeddingTableInfo, embUpdateCount_: {}", embUpdateCount_);
     TimeCost removeEmbeddingTableTC;
     for (int32_t i = 0; i < embNum_; ++i) {
-        auto& keys = featureFilters_[i].evictFeatureRecord_.GetEvictKeys();
+        int32_t filterIndex = tableToFilterIndexMap_[i];
+        if (filterIndex < 0) {
+            continue;
+        }
+        auto& keys = featureFilters_[filterIndex].evictFeatureRecord_.GetEvictKeys();
         if (keys.empty()) {
             LOG_INFO("Feature keys list is empty, skip to remove embedding from table: {}", embConfigs_[i].tableName);
             continue;
         }
 
         embeddingTables_[i]->RemoveEmbedding(keys);
-        LOG_INFO("Remove table embedding info, table : {}, remove key size : {}, detail keys : {}",
+        LOG_INFO("Remove table embedding info, tableName: {}, remove key size: {}, detail keys: {}",
                  embConfigs_[i].tableName, keys.size(), StringTools::ToString(keys));
-        featureFilters_[i].evictFeatureRecord_.ClearEvictInfo();
+        featureFilters_[filterIndex].evictFeatureRecord_.ClearEvictInfo();
     }
     LOG_INFO("RemoveEmbeddingTableInfo execution time: {} ms", removeEmbeddingTableTC.ElapsedMS());
 }
@@ -389,13 +412,13 @@ void EmbcacheManager::RemoveEmbeddingTableInfo()
 void EmbcacheManager::StatisticsKeyCount(const at::Tensor& batchKeys, const torch::Tensor& offset,
                                          const at::Tensor& batchKeyCounts, int64_t tableIndex)
 {
-    LOG_INFO("StatisticsKeyCount, tableIndex : {}, isAdmit : {}",
-             tableIndex, embConfigs_[tableIndex].admitAndEvictConfig.IsAdmitEnabled());
+    LOG_INFO("StatisticsKeyCount, tableName: {}, isAdmit: {}",
+             embConfigs_[i].tableName, embConfigs_[tableIndex].admitAndEvictConfig.IsAdmitEnabled());
     if (!embConfigs_[tableIndex].admitAndEvictConfig.IsAdmitEnabled()) {
         return;
     }
     TORCH_CHECK(offset.numel() > tableIndex + 1, "param error, tableIndex need be smaller than offset length,"
-                                           " but got equal or greater than offset length.")
+                " but got equal or greater than offset length.")
     // 未开启local unique时，counts为空tensor，处理时默认key对应count为1
     bool isCountDataEmpty = batchKeyCounts.numel() == 0;
     if (!isCountDataEmpty) {

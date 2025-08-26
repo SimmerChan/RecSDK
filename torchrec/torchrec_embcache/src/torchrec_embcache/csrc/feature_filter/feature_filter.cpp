@@ -40,7 +40,7 @@ void FeatureFilter::RecordTimestamp(const int64_t* featureDataPtr, int64_t start
         latestTimestamp_ = std::max(latestTimestamp_, timestamp);
     }
     auto afterRecordSize = timestampRecordMap_.size();
-    LOG_DEBUG("Enter RecordTimestamp, beforeRecordSize: {}, afterRecordSize: {}", beforeRecordSize, afterRecordSize);
+    LOG_DEBUG("Enter RecordTimestamp, beforeRecordSize : {}, afterRecordSize : {}", beforeRecordSize, afterRecordSize);
 
     // 因记录timestamp和计算swap info存在步数差异，因此记录timestamp时需同时记录淘汰keys
     if (recordTsBatchId_ > 0 && (recordTsBatchId_ + 1) % evictStepInterval_ == 0) {
@@ -57,7 +57,7 @@ void FeatureFilter::FeatureEvict()
         return;
     }
 
-    LOG_DEBUG("The latestTimestamp for current table: {}, evictThreshold: {}", latestTimestamp_, evictThreshold_);
+    LOG_DEBUG("The latestTimestamp for current table : {}, evictThreshold : {}", latestTimestamp_, evictThreshold_);
     auto tempEvictThreshold = static_cast<std::time_t>(evictThreshold_);
     for (const auto& iter : timestampRecordMap_) {
         auto feature = iter.first;
@@ -69,15 +69,14 @@ void FeatureFilter::FeatureEvict()
         }
     }
     // 淘汰掉的key从timestampRecordMap中移出
-    bool isAdmitEnabled = admitThreshold_ != INVALID_KEY;
     for (const auto& feature : evictKeys) {
         timestampRecordMap_.erase(feature);
-        if (isAdmitEnabled) {
+        if (IsAdmitEnabled()) {
             // 开启准入时同时移出准入map中的key
             featureRecordMap_.erase(feature);
         }
     }
-    LOG_INFO("The table name: {}, get evict keys size: {}", tableName_, evictKeys.size());
+    LOG_INFO("The table name : {}, get evict keys size : {}", tableName_, evictKeys.size());
 }
 
 const std::unordered_map<int64_t, FeatureRecord>& FeatureFilter::GetFeatureCountMap()
@@ -113,6 +112,11 @@ void FeatureFilter::LoadTimestampRecords(const std::vector<int64_t>& keys, std::
 void FeatureFilter::StatisticsKeyCount(const int64_t* featureDataPtr, const int64_t* countDataPtr, int64_t startIndex,
                                        int64_t endIndex, bool isCountDataEmpty)
 {
+    // 添加空指针校验
+    TORCH_CHECK(featureDataPtr != nullptr, "featureDataPtr should not be nullptr");
+    TORCH_CHECK(isCountDataEmpty || countDataPtr != nullptr, 
+                "countDataPtr should not be nullptr when counts data is not empty");
+    
     for (int64_t i = startIndex; i < endIndex; ++i) {
         auto feature = *(featureDataPtr + i);
         // 确保 count 为非负数，并转换为 uint64_t 类型
@@ -139,8 +143,7 @@ void FeatureFilter::CountFilter(int64_t* featureDataPtr, int64_t startIndex, int
     TORCH_CHECK(featureDataPtr != nullptr, "featureDataPtr should not be nullptr");
     
     // 准入检查，将未准入的特征置为INVALID_KEY
-    // 如果admitThreshold_为负数（如INVALID_KEY），则跳过准入检查
-    if (admitThreshold_ < 0) {
+    if (!IsAdmitEnabled()) {
         return;
     }
     
@@ -149,11 +152,16 @@ void FeatureFilter::CountFilter(int64_t* featureDataPtr, int64_t startIndex, int
         auto feature = *(featureDataPtr + i);
         auto iter = featureRecordMap_.find(feature);
         if (iter != featureRecordMap_.end() && iter->second.count < thresholdCount) {
-            LOG_DEBUG("Feature filtered out due to insufficient count. TableName: {}, Feature: {}, Count: {}, "
-                      "Threshold: {}", tableName_, feature, iter->second.count, thresholdCount);
+            LOG_DEBUG("Feature filtered out due to insufficient count. TableName : {}, Feature : {}, Count : {}, "
+                      "Threshold : {}", tableName_, feature, iter->second.count, thresholdCount);
             *(featureDataPtr + i) = INVALID_KEY;
         }
     }
+}
+
+bool FeatureFilter::IsAdmitEnabled() const
+{
+    return admitThreshold_ != INVALID_KEY;
 }
 
 }  // namespace Embcache

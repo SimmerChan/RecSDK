@@ -30,4 +30,9 @@ std::vector<int64_t>& EvictFeatureRecord::GetEvictKeys()
     return evictKeys_;
 }
 
+const std::vector<int64_t>& EvictFeatureRecord::GetEvictKeys() const
+{
+    return evictKeys_;
+}
+
 }  // namespace Embcache

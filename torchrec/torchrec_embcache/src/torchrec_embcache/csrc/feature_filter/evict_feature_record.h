@@ -9,8 +9,6 @@
 #define EVICT_FEATURE_RECORD_H
 
 #include <cstdint>
-#include <ctime>
-#include <unordered_map>
 #include <vector>
 
 namespace Embcache {
@@ -21,6 +19,7 @@ public:
     void ClearEvictInfo();
     void SetSwapCount(uint64_t swapCount);
     std::vector<int64_t>& GetEvictKeys();
+    const std::vector<int64_t>& GetEvictKeys() const;
 
 private:
     // 触发淘汰时ComputeSwapInfo的执行步数，用于判断调用embTable删除接口的时机
