@@ -2,6 +2,7 @@ import pytest
 import logging
 import torch
 from dataclasses import dataclass
+import itertools
 
 
 @dataclass
@@ -123,16 +124,36 @@ def write_tensor2file(tensor: torch.Tensor):
             one_line_str = ",".join([str(mask) for mask in tensor_list[i]])
             f.write(one_line_str + "\n")
 
+test_param_all = {
+    "seq_len": [64],
+    "num_target": [16],
+    "num_context": [16],
+    "target_group_size": [4],
+    "block_height": [8],
+    "block_weight": [8]
+}
 
-@pytest.mark.parametrize("seq_len", [64])
-@pytest.mark.parametrize("num_target", [16])
-@pytest.mark.parametrize("num_context", [16])
-@pytest.mark.parametrize("target_group_size", [4])
-@pytest.mark.parametrize("block_height", [8])
-@pytest.mark.parametrize("block_weight", [8])
+@dataclass
+class TestParam:
+    seq_len: int
+    num_target: int
+    num_context: int
+    target_group_size: int
+    block_height: int
+    block_weight: int
+
+
+@pytest.mark.parametrize("test_param", [TestParam(*v) for v in itertools.product(*test_param_all.values())])
 def test_hstu_target_mask(
-    seq_len, num_target, num_context, target_group_size, block_height, block_weight
+    test_param: TestParam
 ):
+    seq_len = test_param.seq_len
+    num_target = test_param.num_target
+    num_context = test_param.num_context
+    target_group_size = test_param.target_group_size
+    block_height = test_param.block_height
+    block_weight = test_param.block_weight
+
     is_valid = _check_param_valid(seq_len, num_target, num_context, target_group_size)
     if not is_valid:
         raise RuntimeError("param is not valid")
@@ -149,5 +170,5 @@ def test_hstu_target_mask(
     result = compute_target_mask_each_block(score_shape_param)
     write_tensor2file(result)
 
-
-reuslt = test_hstu_target_mask(64, 16, 16, 4, 8, 8)
+if __name__ == "__main__":
+    reuslt = test_hstu_target_mask(TestParam(64, 16, 16, 4, 8, 8))
