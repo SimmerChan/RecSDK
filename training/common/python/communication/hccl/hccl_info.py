@@ -98,12 +98,10 @@ def get_device_id() -> Optional[int]:
 
 
 def get_min_device_id() -> Optional[int]:
-    """Get the min device logic id of the calling process.
-
+    """
+    Get the min device logic id of the calling process.
     Note: this method should be used after mpi init.
-
-    Returns:
-        Int, the min device id of the calling process.
+    :return: the min device id of the calling process.
     """
     rank_to_device_dict = get_rank_to_device_dict()
     return min(rank_to_device_dict)

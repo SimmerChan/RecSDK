@@ -600,6 +600,11 @@ class LearningRateValidator(FloatValidator):
             try:
                 value = sess.run(value).item()
             except Exception as e:
+                # 当前仅支持数值类型Tensor和feed数值类型的tf.PlaceHolder，其它tensor可能会导致程序异常
+                LoggingProxy.warning("[Validator] Parameter %s is passed, and an exception occurred while getting the value "
+                               "in the tensor: \n%s\n. Ensure that the passed parameter is a constant tensor or "
+                               "a tf.PlaceHolder that feeds a constant value. Otherwise, an exception may occur.",
+                               value, e)
                 value = 0.0 if min_value is None else float(min_value)
 
         super().__init__(name, value, min_value=min_value, max_value=max_value)
