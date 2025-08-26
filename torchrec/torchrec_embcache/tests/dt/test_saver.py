@@ -1,0 +1,87 @@
+#!/usr/bin/env python3
+# Copyright (c) Huawei Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+import os
+import random
+import shutil
+from datetime import datetime
+from unittest.mock import patch
+
+import pytest
+import torch.nn
+from torchrec_embcache.saver import Saver, SAVE_PATH_MAX_LEN, TIMESTAMP_FORMAT
+
+
+class TestSaver:
+    @patch("torch.distributed.is_initialized", return_value=True)
+    @patch("torch.distributed.get_rank", return_value=0)
+    def test_init_with_no_rank_should_ok(self):
+        saver = Saver()
+        assert saver.rank == 0
+
+    @patch("torch.distributed.is_initialized", return_value=True)
+    @patch("torch.distributed.get_world_size", return_value=10)
+    def test_init_with_rank_should_ok(self):
+        _ = Saver(9)
+
+    @patch("torch.distributed.is_initialized", return_value=True)
+    @patch("torch.distributed.get_world_size", return_value=10)
+    def test_init_with_exceed_rank_should_failed(self):
+        with pytest.raises(ValueError):
+            _ = Saver(15)
+
+    @patch("torch.distributed.is_initialized", return_value=False)
+    def test_init_with_no_rank_should_failed(self):
+        with pytest.raises(ValueError):
+            _ = Saver()
+
+    def test_init_with_invalid_rank_should_failed(self):
+        with pytest.raises(ValueError):
+            _ = Saver("rank_str")
+
+        with pytest.raises(ValueError):
+            _ = Saver(False)
+
+        with pytest.raises(ValueError):
+            _ = Saver(-1)
+
+    def test_save_with_valid_path_should_failed(self):
+        saver = Saver(0)
+        with pytest.raises(TypeError):
+            saver.save(None, 1)
+        with pytest.raises(ValueError):
+            path = "a" * (SAVE_PATH_MAX_LEN + 1)
+            saver.save(None, path)
+        with pytest.raises(ValueError):
+            saver.save(None, "../../bin")
+        with pytest.raises(ValueError):
+            saver.save(None, "/usr/bin")
+        with pytest.raises(ValueError):
+            saver.save(None, "password")
+        with pytest.raises(ValueError):
+            module = torch.nn.Module()
+            saver.save(module, "save_dir")
+
+    def test_load_with_valid_path_should_failed(self):
+        saver = Saver(0)
+        with pytest.raises(ValueError):
+            # not exist directory
+            saver.load(None, "xxx")
+        with pytest.raises(ValueError):
+            # error module
+            module = torch.nn.Module()
+            saver.load(module, "save_dir")
+
+        # 不存在时间戳目录
+        dir_path = os.path.dirname(os.path.realpath(__file__))
+        temp_dir = datetime.now().strftime(TIMESTAMP_FORMAT) + str(random.randint(0, 100000))
+        temp_dir = os.path.join(dir_path, temp_dir)
+        os.makedirs(temp_dir, exist_ok=True)
+        with pytest.raises(ValueError):
+            module = torch.nn.Module()
+            saver.load(module, temp_dir)
+        shutil.rmtree(temp_dir, ignore_errors=True)
+

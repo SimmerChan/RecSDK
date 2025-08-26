@@ -275,7 +275,7 @@ void EmbcacheManager::Embedding2Host(const at::Tensor& weightsDev, const std::ve
         TORCH_CHECK(momentumDev.dtype() == torch::kFloat32)
     }
     TORCH_CHECK(weightsDev.dtype() == torch::kFloat32)
-    LOG_INFO("In Embedding2Host, weightsDev shape:{}", GetDevWeightsShape(weightsDev));
+    LOG_INFO("In Embedding2Host, weightsDev shape:{}.", GetDevWeightsShape(weightsDev));
 
     auto* weightsDevPtr = weightsDev.data_ptr<float>();
     int64_t jaggedOff = 0;
@@ -298,7 +298,7 @@ void EmbcacheManager::Embedding2Host(const at::Tensor& weightsDev, const std::ve
         // Here, GetOccupiedNum is less than embConfigs_[embIndex].cacheSize = weightsDev.shape[0],
         // and we need to skip the unnecessary weight indices.
         jaggedOff += embConfigs_[embIndex].cacheSize * embConfigs_[embIndex].embDim;
-        LOG_DEBUG("Embedding2Host, embIndex:{}, , update key size:{}, jaggedOff:{}, currentTableOffset:{}",
+        LOG_DEBUG("Embedding2Host, embIndex:{}, , update key size:{}, jaggedOff:{}, currentTableOffset:{}.",
                   embIndex, keys.size(), jaggedOff, currentTableOffset);
     }
 }
@@ -330,29 +330,29 @@ void EmbcacheManager::Save(const std::string path, const int rank)
             }
             // 2. write embedding
             WriteData(fileEmbeddingSliceData, reinterpret_cast<const char*>(value), embDim * sizeof(float));
-            LOG_DEBUG("In save, table:{}, key:{}, embedding.dim:{}, detail embedding:{}",
+            LOG_DEBUG("In save, table:{}, key:{}, embedding.dim:{}, detail embedding:{}.",
                       tableName, key, embDim, StringTools::ToString(value, embDim));
 
             // 3. write momentum
             if (optimNum_ > 0) {
                 WriteData(fileMomentum1SliceData, reinterpret_cast<const char*>(value + embDim),
                           embDim * sizeof(float));
-                LOG_DEBUG("In save, table:{}, key:{}, momentum1.dim:{}, momentum1:{}",
+                LOG_DEBUG("In save, table:{}, key:{}, momentum1.dim:{}, momentum1:{}.",
                           tableName, key, embDim, StringTools::ToString(value + 1 * embDim, embDim));
             }
             if (optimNum_ > 1) {
                 WriteData(fileMomentum2SliceData, reinterpret_cast<const char*>(value + optimNum_ * embDim),
                           embDim * sizeof(float));
-                LOG_DEBUG("In save, table:{}, key:{}, momentum2.dim:{}, momentum2:{}",
+                LOG_DEBUG("In save, table:{}, key:{}, momentum2.dim:{}, momentum2:{}.",
                           tableName, key, embDim,
                           StringTools::ToString(value + optimNum_ * embDim, embDim));
             }
         });
-        LOG_INFO("The table:{}, saved data shape info: {}, {}", tableName, count, embDim);
+        LOG_INFO("In save, table:{}, save data shape: [{}, {}].", tableName, count, embDim);
         std::vector<int64_t> keyAttribute = {sizeof(int64_t), count};
         WriteData(fileKeySliceAttr, reinterpret_cast<const char*>(keyAttribute.data()),
                   keyAttribute.size() * sizeof(int64_t));
-        std::vector<int64_t> embedAttribute = {sizeof(int64_t), count, embDim};
+        std::vector<int64_t> embedAttribute = {sizeof(float), count, embDim};
         WriteData(fileEmbeddingSliceAttr, reinterpret_cast<const char*>(embedAttribute.data()),
                   embedAttribute.size() * sizeof(int64_t));
         WriteOptimizerAttributeFile(i, fileMomentum1SliceAttr, fileMomentum2SliceAttr, count);
@@ -365,14 +365,19 @@ void EmbcacheManager::Save(const std::string path, const int rank)
 void EmbcacheManager::WriteOptimizerAttributeFile(int32_t i, std::ofstream& fileMomentum1SliceAttr,
                                                   std::ofstream& fileMomentum2SliceAttr, size_t count)
 {
-    std::vector<int64_t> momentum1Attribute = {sizeof(int64_t), count, embConfigs_[i].embDim};
-
-    WriteData(fileMomentum1SliceAttr, reinterpret_cast<const char*>(momentum1Attribute.data()),
-              momentum1Attribute.size() * sizeof(int64_t));
-
-    // 目前momentum2Attribute和momentum1Attribute是一致的
-    WriteData(fileMomentum2SliceAttr, reinterpret_cast<const char*>(momentum1Attribute.data()),
-              momentum1Attribute.size() * sizeof(int64_t));
+    if (optimNum_ == 0) {
+        return;
+    }
+    std::vector<int64_t> momentum1Attribute = {sizeof(float), count, embConfigs_[i].embDim};
+    if (optimNum_ > 0) {
+        WriteData(fileMomentum1SliceAttr, reinterpret_cast<const char*>(momentum1Attribute.data()),
+                  momentum1Attribute.size() * sizeof(int64_t));
+    }
+    if (optimNum_ > 1) {
+        // 目前momentum2Attribute和momentum1Attribute是一致的
+        WriteData(fileMomentum2SliceAttr, reinterpret_cast<const char*>(momentum1Attribute.data()),
+                  momentum1Attribute.size() * sizeof(int64_t));
+    }
 }
 
 std::ofstream EmbcacheManager::OpenFile(const std::string& path)
@@ -441,8 +446,8 @@ void EmbcacheManager::Load(const std::string& path, int rank)
             std::vector<float> m1 = momentum1.empty() ? emptyList : momentum1[j];
             std::vector<float> m2 = momentum2.empty() ? emptyList : momentum2[j];
             LOG_DEBUG("In load, rank:{}, table:{}, current key:{}, embedding:{}, momentum1:{}, momentum2:{}.",
-                     rank, tableName, keys[j], StringTools::ToString(embeddings[j]),
-                     StringTools::ToString(m1), StringTools::ToString(m2));
+                      rank, tableName, keys[j], StringTools::ToString(embeddings[j]),
+                      StringTools::ToString(m1), StringTools::ToString(m2));
         }
 
         for (size_t k = 0; k < keys.size(); k++) {
