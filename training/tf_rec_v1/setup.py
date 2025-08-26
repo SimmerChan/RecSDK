@@ -42,23 +42,12 @@ shutil.copytree("python", "mx_rec")
 
 common_version = Version(args.version)
 
-class PostInstallCommand(install):
-    def run(self):
-        install.run(self)
-        install_dir = self.install_lib
-        whl_path = os.path.join(install_dir, f"../../../../common/dist/rec_sdk_common-{common_version}-py3-none-any.whl")
-        if not os.path.exists(whl_path):
-            raise FileNotFoundError(f"not find：{whl_path}")
+current_dir = os.path.dirname(os.path.abspath(__file__))
+source_path = os.path.join(current_dir, "..", "common", "rec_sdk_common")
+dest_path = os.path.join(current_dir, "rec_sdk_common")
 
-        try:
-            subprocess.check_call(
-                [sys.executable, "-m", "pip", "install", whl_path],
-                stdout=subprocess.DEVNULL,  # 隐藏输出（可选）
-                stderr=subprocess.STDOUT
-            )
-            print(f"success install ：{whl_path}")
-        except subprocess.CalledProcessError as e:
-            raise RuntimeError(f"install fail：{e}")
+if(os.path.exists(source_path)):
+    shutil.copytree(source_path, dest_path)
 
 setup(
     name='mx_rec',
@@ -69,12 +58,10 @@ setup(
     # include mx_rec
     packages=find_packages(
         where=".",
-        include=["mx_rec*"]
+        include=["mx_rec*", "rec_sdk_common*"]
     ),
     # other file
-    package_data={'': ['tools/*', 'tools/*/*', '*.yml', '*.sh',
-                        '*.so*', f"../../../../common/dist/rec_sdk_common-{common_version}-py3-none-any.whl"]},
-    cmdclass={'install':PostInstallCommand},
+    package_data={'': ['tools/*', 'tools/*/*', '*.yml', '*.sh', '*.so*']},
     # dependency
     python_requires='>=3.7.5'
 )

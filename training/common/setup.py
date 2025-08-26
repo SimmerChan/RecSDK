@@ -52,4 +52,3 @@ setup(
     # dependency
     python_requires='>=3.7.5'
 )
-shutil.rmtree("rec_sdk_common")
