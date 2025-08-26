@@ -63,7 +63,7 @@ def _compute_target_mask_one_block(
     """
     block_mask = torch.ones((block_param.block_h, block_param.block_w))
 
-    for row_id_on_block in range(block_param.block_w):
+    for row_id_on_block in range(block_param.block_h):
         for col_id_on_block in range(block_param.block_w):
             row_on_score = (
                 row_id_on_block + block_param.block_id_q * block_param.block_h
