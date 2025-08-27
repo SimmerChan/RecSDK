@@ -560,26 +560,4 @@ typedef void (*ReleaseHugeMem)(void*, bool);
         }                                                                                                              \
     } while (false)
 
-/**
- * 检查张量是否非空
- * @param tensor 要检查的张量
- * @param name 张量名称(用于错误信息)
- */
-inline void check_tensor_non_empty(const at::Tensor& tensor, const std::string &name)
-{
-    TORCH_CHECK(tensor.defined(), name, " tensor must be defined");
-    TORCH_CHECK(tensor.numel() > 0, name, " tensor must be non-empty");
-}
-
-/**
- * 检查张量维度是否符合预期
- * @param tensor 要检查的张量
- * @param expectedDim 期望的维度
- * @param name 张量名称(用于错误信息)
- */
-inline void check_tensor_dim(const at::Tensor& tensor, int64_t expectedDim, const std::string &name)
-{
-    TORCH_CHECK(tensor.dim() == expectedDim, name, " must be ", expectedDim, "D");
-}
-
 #endif // PYTORCH_NPU_HELPER_HPP_
