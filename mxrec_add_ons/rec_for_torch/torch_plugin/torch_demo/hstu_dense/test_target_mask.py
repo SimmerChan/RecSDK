@@ -146,7 +146,6 @@ def _compute_target_mask_one_block_npu(
     )
     for row_id_on_block in range(block_param.block_h):
         row_on_score = row_id_on_block + block_param.block_id_q * block_param.block_h
-        # breakpoint()
         block_mask_this_line = block_mask[row_id_on_block, :]
         if _is_this_line_on_context(row_on_score, param):
             _process_line_on_context(block_mask_this_line, col_on_score_range, param)
