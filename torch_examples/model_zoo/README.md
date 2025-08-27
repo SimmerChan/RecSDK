@@ -10,7 +10,7 @@
 | Python3.11 | torch==2.6.0<br/>torch_npu==2.6.0<br/> |
 
 ### 基础镜像
-下载基础镜像地址为：
+下载基础镜像地址为：https://www.hiascend.com/developer/ascendhub/detail/9faeb4847b3e419f81b78a4d0ed574b5
 
 ### 启动容器
 说明：以下启动命令仅作参考

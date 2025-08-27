@@ -116,6 +116,8 @@ def json_file_load(json_name: str, json_path: str) -> dict:
             json_re = json.load(fp)
     except FileNotFoundError as e:
         raise FileNotFoundError(f"{json_name} file not found: {e}") from e
+    except json.JSONDecodeError as e:
+        raise ValueError(f"{json_name} contains invalid JSON: {e}") from e
     except Exception as e:
         raise RuntimeError(f"Error loading {json_name} file: {e}") from e
 
