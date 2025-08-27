@@ -24,15 +24,15 @@ from tensorflow.python.ops import math_ops
 from tensorflow.python.training import adagrad
 from tensorflow.python.training.optimizer import Optimizer
 
-from mx_rec.optimizers.base import CustomizedOptimizer
-from mx_rec.util.initialize import ConfigInitializer
-from mx_rec.util.ops import import_host_pipeline_ops
-from mx_rec.validator.validator import (
+from rec_sdk_common.validator.validator import (
     FloatValidator,
     StringValidator,
     para_checker_decorator,
     LearningRateValidator,
 )
+from mx_rec.optimizers.base import CustomizedOptimizer
+from mx_rec.util.initialize import ConfigInitializer
+from mx_rec.util.ops import import_host_pipeline_ops
 
 
 @para_checker_decorator(
