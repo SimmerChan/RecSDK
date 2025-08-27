@@ -57,14 +57,12 @@ class GPUSmit:
         return False
 
 
-def _duplicate(ub: torch.Tensor, value, len):
-    ub[:len] = value
+def _duplicate(ub: torch.Tensor, value, mask_len):
+    ub[:mask_len] = value
 
 
 def _compute_col_start_and_end_on_score(block_id_k, block_w):
-    col_on_score_range = [0, 0]
-    col_on_score_range[0] = block_id_k * block_w
-    col_on_score_range[1] = (block_id_k + 1) * block_w
+    col_on_score_range = [block_id_k * block_w, (block_id_k + 1) * block_w] 
     return col_on_score_range
 
 
@@ -109,7 +107,7 @@ def process_one_block_of_target_mask(
         if col_on_score_range[0] > param.num_history
         else param.num_history - col_on_score_range[0]
     )
-    mask_start_in_score = (
+    mask_col_start_in_score = (
         col_on_score_range[0]
         if col_on_score_range[0] > param.num_history
         else param.num_history
@@ -128,7 +126,7 @@ def process_one_block_of_target_mask(
         ):
             continue
         mask_len = (
-            min(col_on_score_range[1], target_mask_end_on_score) - mask_start_in_score
+            min(col_on_score_range[1], target_mask_end_on_score) - mask_col_start_in_score
         )
         block_mask_this_line = block_mask[row_id_on_block, :]
         _duplicate(block_mask_this_line[mask_start_in_block:], 0, mask_len)
