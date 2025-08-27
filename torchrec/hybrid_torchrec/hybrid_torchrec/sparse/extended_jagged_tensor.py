@@ -110,10 +110,6 @@ class KeyedExtendedJaggedTensor(KeyedJaggedTensor):
         self._extra: Optional[torch.Tensor] = extra
         self._extra_field_name = extra_field_name
 
-    def get_extra(self) -> Optional[torch.Tensor]:
-        """Get the extra tensor field."""
-        return self._extra
-
     @classmethod
     def from_jt_dict_base(
         cls,
@@ -198,6 +194,10 @@ class KeyedExtendedJaggedTensor(KeyedJaggedTensor):
         
         kjt = cls(**constructor_kwargs).sync()
         return kjt
+
+    def get_extra(self) -> Optional[torch.Tensor]:
+        """Get the extra tensor field."""
+        return self._extra
 
     def split_base(self, segments: List[int], cls_type) -> List["KeyedExtendedJaggedTensor"]:
         """
@@ -356,12 +356,6 @@ class KeyedExtendedJaggedTensor(KeyedJaggedTensor):
             start_offset = end_offset
         return split_list
 
-    def _validate_permuted_length_per_key_sum(self, permuted_length_per_key_sum: int) -> None:
-        """Validate permuted_length_per_key_sum value."""
-        if not torch.jit.is_scripting() and is_non_strict_exporting():
-            if permuted_length_per_key_sum <= 0:
-                raise ValueError("permuted_length_per_key_sum needs to be greater than 0")
-
     def pin_memory_base(self, cls_type) -> "KeyedExtendedJaggedTensor":
         """Base implementation for pin_memory method."""
         weights = self._weights
@@ -478,3 +472,9 @@ class KeyedExtendedJaggedTensor(KeyedJaggedTensor):
         super().record_stream(stream)
         if self._extra is not None:
             self._extra.record_stream(stream)
+
+    def _validate_permuted_length_per_key_sum(self, permuted_length_per_key_sum: int) -> None:
+        """Validate permuted_length_per_key_sum value."""
+        if not torch.jit.is_scripting() and is_non_strict_exporting():
+            if permuted_length_per_key_sum <= 0:
+                raise ValueError("permuted_length_per_key_sum needs to be greater than 0")

@@ -109,7 +109,7 @@ SwapInfo EmbcacheManager::ComputeSwapInfo(const at::Tensor& batchKeys, const std
     for (int64_t i = 0; i < curTableIndices.size(); i++) {
         int64_t idx = curTableIndices[i];
         TORCH_CHECK(idx >= 0 && idx < embNum_, "table index {} is out of range [0, {})", idx, embNum_);
-        
+
         if (embConfigs_[idx].admitAndEvictConfig.IsAdmitEnabled()) {
             if (featureFilters_[idx]) {
                 featureFilters_[idx]->CountFilter(keyPtr, offsetPerKey[i], offsetPerKey[i + 1]);
@@ -290,7 +290,7 @@ void EmbcacheManager::RecordTimestamp(const at::Tensor& batchKeys, const std::ve
     TimeCost recordTimestampTC;
     const auto* keyPtr = batchKeys.data_ptr<int64_t>();
     const auto* timestampsPtr = timestamps.data_ptr<int64_t>();
-    
+
     TORCH_CHECK(keyPtr != nullptr, "keyPtr should not be nullptr");
     TORCH_CHECK(timestampsPtr != nullptr, "timestampsPtr should not be nullptr");
     const std::vector<int32_t>& curTableIndices = tableIndices.empty() ? embTableIndies_ : tableIndices;
@@ -300,7 +300,7 @@ void EmbcacheManager::RecordTimestamp(const at::Tensor& batchKeys, const std::ve
     for (int64_t i = 0; i < embNum_; ++i) {
         int32_t idx = curTableIndices[i];
         TORCH_CHECK(idx >= 0 && idx < embNum_, "table index {} is out of range [0, {})", idx, embNum_);
-        
+
         if (embConfigs_[idx].admitAndEvictConfig.IsEvictEnabled()) {
             if (featureFilters_[idx]) {
                 featureFilters_[idx]->RecordTimestamp(keyPtr, offsetPerKey[i], offsetPerKey[i + 1], timestampsPtr);
@@ -325,7 +325,7 @@ void EmbcacheManager::EvictFeatures()
         if (!featureFilters_[i]) {
             continue;
         }
-        
+
         const std::vector<int64_t>& evictFeatures = featureFilters_[i]->evictFeatureRecord_.GetEvictKeys();
         // 调用swapManager删除映射信息
         // 删除embeddingTables中的embedding待对应step的swap out emb update执行完成后触发
@@ -364,7 +364,7 @@ bool EmbcacheManager::NeedEvictEmbeddingTable()
         if (!featureFilters_[i]) {
             continue;
         }
-        
+
         // 待删除embTable的keys非空且达到和GetSwapInfo相同的步数
         if (!featureFilters_[i]->evictFeatureRecord_.GetEvictKeys().empty() &&
             featureFilters_[i]->evictFeatureRecord_.CanRemoveFromEmbTable(embUpdateCount_)) {
@@ -382,7 +382,7 @@ void EmbcacheManager::RemoveEmbeddingTableInfo()
         if (!featureFilters_[i]) {
             continue;
         }
-        
+
         auto& keys = featureFilters_[i]->evictFeatureRecord_.GetEvictKeys();
         if (keys.empty()) {
             LOG_INFO("Feature keys list is empty, skip to remove embedding from table: {}", embConfigs_[i].tableName);
@@ -402,15 +402,15 @@ void EmbcacheManager::StatisticsKeyCount(const at::Tensor& batchKeys, const torc
 {
     // 添加表索引边界检查和详细调试信息
     LOG_INFO("StatisticsKeyCount called with tableIndex: {}, embNum_: {}", tableIndex, embNum_);
-    TORCH_CHECK(tableIndex >= 0 && tableIndex < embNum_, 
+    TORCH_CHECK(tableIndex >= 0 && tableIndex < embNum_,
                 "table index {} is out of range [0, {}). embNum_={}, "
                 "This error indicates that the tableIndex parameter passed from Python exceeds "
-                "the number of tables configured in EmbcacheManager.", 
+                "the number of tables configured in EmbcacheManager.",
                 tableIndex, embNum_, embNum_);
-    
+
     LOG_INFO("StatisticsKeyCount, tableName: {}, isAdmit: {}",
              embConfigs_[tableIndex].tableName, embConfigs_[tableIndex].admitAndEvictConfig.IsAdmitEnabled());
-    
+
     // 只有开启了准入功能的表才需要记录key count统计信息
     if (!embConfigs_[tableIndex].admitAndEvictConfig.IsAdmitEnabled()) {
         LOG_INFO("Table {} does not have admit enabled, skipping StatisticsKeyCount", tableIndex);
@@ -418,7 +418,7 @@ void EmbcacheManager::StatisticsKeyCount(const at::Tensor& batchKeys, const torc
     }
     TORCH_CHECK(offset.numel() > tableIndex + 1, "param error, tableIndex need be smaller than offset length,"
                 " but got equal or greater than offset length.")
-    
+
     bool isCountDataEmpty = batchKeyCounts.numel() == 0;
     if (!isCountDataEmpty) {
         TORCH_CHECK(batchKeys.numel() == batchKeyCounts.numel(),
@@ -427,7 +427,7 @@ void EmbcacheManager::StatisticsKeyCount(const at::Tensor& batchKeys, const torc
     auto* featureDataPtr = batchKeys.data_ptr<int64_t>();
     auto* countDataPtr = batchKeyCounts.data_ptr<int64_t>();
     auto* offsetDataPtr = offset.data_ptr<int64_t>();
-    
+
     TORCH_CHECK(featureDataPtr != nullptr, "featureDataPtr should not be nullptr");
     TORCH_CHECK(offsetDataPtr != nullptr, "offsetDataPtr should not be nullptr");
     if (!isCountDataEmpty) {
@@ -436,10 +436,10 @@ void EmbcacheManager::StatisticsKeyCount(const at::Tensor& batchKeys, const torc
     int64_t start = offsetDataPtr[tableIndex];
     int64_t end = offsetDataPtr[tableIndex + 1];
     TORCH_CHECK(end <= batchKeys.numel())
-    
+
     if (!featureFilters_[tableIndex]) {
         return;
     }
-    
+
     featureFilters_[tableIndex]->StatisticsKeyCount(featureDataPtr, countDataPtr, start, end, isCountDataEmpty);
-} 
+}

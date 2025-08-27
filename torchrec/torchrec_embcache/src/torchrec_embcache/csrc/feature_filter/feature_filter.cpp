@@ -30,7 +30,7 @@ void FeatureFilter::RecordTimestamp(const int64_t* featureDataPtr, int64_t start
     // 添加空指针校验
     TORCH_CHECK(featureDataPtr != nullptr, "featureDataPtr should not be nullptr");
     TORCH_CHECK(timestampDataPtr != nullptr, "timestampDataPtr should not be nullptr");
-    
+
     auto beforeRecordSize = timestampRecordMap_.size();
     for (int64_t i = startIndex; i < endIndex; ++i) {
         auto feature = *(featureDataPtr + i);
@@ -114,9 +114,9 @@ void FeatureFilter::StatisticsKeyCount(const int64_t* featureDataPtr, const int6
 {
     // 添加空指针校验
     TORCH_CHECK(featureDataPtr != nullptr, "featureDataPtr should not be nullptr");
-    TORCH_CHECK(isCountDataEmpty || countDataPtr != nullptr, 
+    TORCH_CHECK(isCountDataEmpty || countDataPtr != nullptr,
                 "countDataPtr should not be nullptr when counts data is not empty");
-    
+
     for (int64_t i = startIndex; i < endIndex; ++i) {
         auto feature = *(featureDataPtr + i);
         // 确保 count 为非负数，并转换为 uint64_t 类型
@@ -126,7 +126,7 @@ void FeatureFilter::StatisticsKeyCount(const int64_t* featureDataPtr, const int6
             rawCount = 0;
         }
         auto count = static_cast<uint64_t>(rawCount);
-        
+
         auto iter = featureRecordMap_.find(feature);
         if (iter != featureRecordMap_.end()) {
             iter->second.count += count;
@@ -141,12 +141,12 @@ void FeatureFilter::CountFilter(int64_t* featureDataPtr, int64_t startIndex, int
 {
     // 添加空指针校验
     TORCH_CHECK(featureDataPtr != nullptr, "featureDataPtr should not be nullptr");
-    
+
     // 准入检查，将未准入的特征置为INVALID_KEY
     if (!IsAdmitEnabled()) {
         return;
     }
-    
+
     auto thresholdCount = static_cast<uint64_t>(admitThreshold_);
     for (int64_t i = startIndex; i < endIndex; ++i) {
         auto feature = *(featureDataPtr + i);
