@@ -244,11 +244,11 @@ class ETA(nn.Module):
 
         for i, (emb_cat, target) in enumerate(zip(emb_cats, target_fields)):
             emb_target = embeddings[target]
-
+            # short-Attention:topk embedding and mask
             emb_short = emb_cat[0]
             mask_short = emb_cat[2]
             short_attns.append(self.short_attentions[i](emb_target, emb_short, mask_short))
-
+            # long-Attention: max_seq_len embedding and mask
             emb_long = emb_cat[1]
             mask_long = emb_cat[3]
             long_attns.append(self.long_attentions[i](emb_target, emb_long, mask_long))
@@ -256,12 +256,14 @@ class ETA(nn.Module):
         # concat all embeddings
         all_embs = []
         for field in self.spec["one_hot_fields"] + self.spec["special_fields"]:
+            # 统一嵌入张量维度，去除冗余维度。
             if embeddings[field].dim() > 3:
                 all_embs.append(embeddings[field].squeeze(1))
             else:
                 all_embs.append(embeddings[field])
         all_embs += short_attns + long_attns
         all_embs = torch.cat(all_embs, dim=1)
+        # 统一嵌入张量维度，便于后续拼接。
         if all_embs.dim() >= 2:
             concat_emb = all_embs.squeeze(1)
         else:
@@ -274,6 +276,7 @@ class ETA(nn.Module):
         pred = torch.sigmoid(logits)
         return pred, logits
 
+    # click_weight is 0.14
     def build_loss(self, pred, labels, click_weight=0.14, epsilon=1e-7):
         if pred.shape != labels.shape:
             raise ValueError(f"pred and labels must be the same shape. "
