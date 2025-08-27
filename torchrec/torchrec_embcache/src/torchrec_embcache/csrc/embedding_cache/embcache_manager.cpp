@@ -303,7 +303,13 @@ void EmbcacheManager::Embedding2Host(const at::Tensor& weightsDev, const std::ve
     }
 }
 
-void EmbcacheManager::Save(const std::string path, const int rank)
+std::shared_ptr<FileSystem> EmbcacheManager::GetFileSystem(const std::string& path)
+{
+    FileSystemHandler handler;
+    return handler.Create(path);
+}
+
+void EmbcacheManager::SaveOld(const std::string path, const int rank)
 {
     for (int32_t i = 0; i < embNum_; i++) {
         std::string tableName = embConfigs_[i].tableName;
@@ -355,25 +361,93 @@ void EmbcacheManager::Save(const std::string path, const int rank)
         std::vector<int64_t> embedAttribute = {sizeof(float), count, embDim};
         WriteData(fileEmbeddingSliceAttr, reinterpret_cast<const char*>(embedAttribute.data()),
                   embedAttribute.size() * sizeof(int64_t));
-        WriteOptimizerAttributeFile(i, fileMomentum1SliceAttr, fileMomentum2SliceAttr, count);
+//        WriteOptimizerAttributeFile(i, fileMomentum1SliceAttr, fileMomentum2SliceAttr, count);
     }
 }
 
-void EmbcacheManager::WriteOptimizerAttributeFile(int32_t i, std::ofstream& fileMomentum1SliceAttr,
-                                                  std::ofstream& fileMomentum2SliceAttr, size_t count)
+void EmbcacheManager::Save(const std::string path, const int rank)
+{
+    auto fileSystemPtr = GetFileSystem(path);
+    for (int32_t i = 0; i < embNum_; i++) {
+        std::string tableName = embConfigs_[i].tableName;
+        std::string midPath = path + "/" + tableName + RANK_STR_PATH + std::to_string(rank);
+        std::string embAttrFile = midPath + EMBEDDING_STR_PATH + SLICE_ATTR_PATH;
+        fileSystemPtr->CreateFileDir(embAttrFile);
+        std::string fileEmbeddingSliceData = midPath + EMBEDDING_STR_PATH + SLICE_DATA_PATH;
+        fileSystemPtr->CreateFileDir(fileEmbeddingSliceData);
+        std::string fileKeySliceAttr = midPath + KEY_STR_PATH + SLICE_ATTR_PATH;
+        fileSystemPtr->CreateFileDir(fileKeySliceAttr);
+        std::string fileKeySliceData = midPath + KEY_STR_PATH + SLICE_DATA_PATH;
+        fileSystemPtr->CreateFileDir(fileKeySliceData);
+        std::string fileMomentum1SliceAttr = midPath + MOMENTUM1_STR_PATH + SLICE_ATTR_PATH;
+        fileSystemPtr->CreateFileDir(fileMomentum1SliceAttr);
+        std::string fileMomentum1SliceData = midPath + MOMENTUM1_STR_PATH + SLICE_DATA_PATH;
+        fileSystemPtr->CreateFileDir(fileMomentum1SliceData);
+        std::string fileMomentum2SliceAttr = midPath + MOMENTUM2_STR_PATH + SLICE_ATTR_PATH;
+        fileSystemPtr->CreateFileDir(fileMomentum2SliceAttr);
+        std::string fileMomentum2SliceData = midPath + MOMENTUM2_STR_PATH + SLICE_DATA_PATH;
+        fileSystemPtr->CreateFileDir(fileMomentum2SliceData);
+
+        size_t count = 0;
+        std::vector<int64_t> saveKeys;
+        LOG_INFO("Start save table:{}.", tableName);
+        auto embDim = embConfigs_[i].embDim;
+        embeddingTables_[i]->ForEachKey([&](const int64_t key, const float* value) {
+            ++count;
+            // 1. write key
+            fileSystemPtr->Write(fileKeySliceData, reinterpret_cast<const char*>(&key), 1 * sizeof(int64_t));
+            if (embConfigs_[i].admitAndEvictConfig.IsAdmitEnabled()) {
+                saveKeys.emplace_back(key);
+            }
+            // 2. write embedding
+            fileSystemPtr->Write(fileEmbeddingSliceData, reinterpret_cast<const char*>(value), embDim * sizeof(float));
+            LOG_DEBUG("In save, table:{}, key:{}, embedding.dim:{}, detail embedding:{}.",
+                      tableName, key, embDim, StringTools::ToString(value, embDim));
+
+            // 3. write momentum
+            if (optimNum_ > 0) {
+                fileSystemPtr->Write(fileMomentum1SliceData, reinterpret_cast<const char*>(value + embDim),
+                          embDim * sizeof(float));
+                LOG_DEBUG("In save, table:{}, key:{}, momentum1.dim:{}, momentum1:{}.",
+                          tableName, key, embDim, StringTools::ToString(value + 1 * embDim, embDim));
+            }
+            if (optimNum_ > 1) {
+                fileSystemPtr->Write(fileMomentum2SliceData, reinterpret_cast<const char*>(value + optimNum_ * embDim),
+                          embDim * sizeof(float));
+                LOG_DEBUG("In save, table:{}, key:{}, momentum2.dim:{}, momentum2:{}.",
+                          tableName, key, embDim,
+                          StringTools::ToString(value + optimNum_ * embDim, embDim));
+            }
+        });
+        LOG_INFO("In save, table:{}, save data shape: [{}, {}].", tableName, count, embDim);
+        std::vector<int64_t> keyAttribute = {sizeof(int64_t), count};
+        fileSystemPtr->Write(fileKeySliceAttr, reinterpret_cast<const char*>(keyAttribute.data()),
+                  keyAttribute.size() * sizeof(int64_t));
+        std::vector<int64_t> embedAttribute = {sizeof(float), count, embDim};
+        fileSystemPtr->Write(embAttrFile, reinterpret_cast<const char*>(embedAttribute.data()),
+                  embedAttribute.size() * sizeof(int64_t));
+        WriteOptimizerAttributeFile(i, fileMomentum1SliceAttr, fileMomentum2SliceAttr, count, fileSystemPtr);
+    }
+}
+
+void EmbcacheManager::WriteOptimizerAttributeFile(int32_t i, std::string& fileMomentum1SliceAttr,
+                                                  std::string& fileMomentum2SliceAttr, size_t count,
+                                                  std::shared_ptr<FileSystem> fileSystemPtr)
 {
     if (optimNum_ == 0) {
         return;
     }
     std::vector<int64_t> momentum1Attribute = {sizeof(float), count, embConfigs_[i].embDim};
     if (optimNum_ > 0) {
-        WriteData(fileMomentum1SliceAttr, reinterpret_cast<const char*>(momentum1Attribute.data()),
-                  momentum1Attribute.size() * sizeof(int64_t));
+        fileSystemPtr->CreateFileDir(fileMomentum1SliceAttr);
+        fileSystemPtr->Write(fileMomentum1SliceAttr, reinterpret_cast<const char*>(momentum1Attribute.data()),
+                             momentum1Attribute.size() * sizeof(int64_t));
     }
     if (optimNum_ > 1) {
+        fileSystemPtr->CreateFileDir(fileMomentum2SliceAttr);
         // 目前momentum2Attribute和momentum1Attribute是一致的
-        WriteData(fileMomentum2SliceAttr, reinterpret_cast<const char*>(momentum1Attribute.data()),
-                  momentum1Attribute.size() * sizeof(int64_t));
+        fileSystemPtr->Write(fileMomentum2SliceAttr, reinterpret_cast<const char*>(momentum1Attribute.data()),
+                             momentum1Attribute.size() * sizeof(int64_t));
     }
 }
 

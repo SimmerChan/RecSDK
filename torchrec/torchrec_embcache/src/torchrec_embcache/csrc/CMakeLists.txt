@@ -31,6 +31,7 @@ file(GLOB SOURCES
         ./feature_filter/*.cpp
         ./ops/*.cpp
         ./utils/*.cpp
+        ./file_system/*.cpp
         ./bind.cpp
 )
 

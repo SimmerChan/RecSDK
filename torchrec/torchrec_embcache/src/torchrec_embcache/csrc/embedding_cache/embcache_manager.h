@@ -13,12 +13,16 @@
 #include <string>
 #include <torch/extension.h>
 #include <vector>
+#include <memory>
 
 #include "common/common.h"
 #include "emb_table/emb_table.h"
 #include "swap_manager.h"
 #include "utils/async_task.h"
 #include "utils/thread_pool.h"
+#include "file_system/file_system_handler.h"
+
+using namespace MxRec;
 
 namespace Embcache {
 
@@ -122,6 +126,7 @@ public:
     void RecordEmbeddingUpdateTimes();
 
     void Save(const std::string path, const int rank);
+    void SaveOld(const std::string path, const int rank);
 
     void Embedding2Host(const at::Tensor& weightsDev, const std::vector<at::Tensor>& momentumDev);
 
@@ -141,6 +146,7 @@ private:
 
     bool NeedEvictEmbeddingTable();
     void RemoveEmbeddingTableInfo();
+    std::shared_ptr<FileSystem> GetFileSystem(const std::string& path);
 
     /**
      * 读取指定文件。 示例：save_dir/sparse/table1/rank0/key/slice.data
@@ -161,8 +167,9 @@ private:
     void WriteData(std::ofstream& file, const char* dataPtr, size_t bytes);
 
     std::string GetDevWeightsShape(const at::Tensor& weightsDev) const;
-    void WriteOptimizerAttributeFile(int32_t i, std::ofstream& fileMomentum1SliceAttr,
-                                     std::ofstream& fileMomentum2SliceAttr, size_t count);
+    void WriteOptimizerAttributeFile(int32_t i, std::string& fileMomentum1SliceAttr,
+                                     std::string& fileMomentum2SliceAttr, size_t count,
+                                     std::shared_ptr<FileSystem> fileSystemPtr);
 
 private:
     int32_t embNum_;

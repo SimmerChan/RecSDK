@@ -51,7 +51,7 @@ class TestSaver:
             _ = Saver(rank)
 
     @staticmethod
-    def test_save_with_invalid_path_should_failed():
+    def test_save_with_invalid_path_or_module_should_failed():
         saver = Saver(0)
         with pytest.raises(TypeError):
             saver.save(None, 1)
