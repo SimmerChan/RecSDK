@@ -19,39 +19,36 @@ class TestSaver:
     @staticmethod
     @patch("torch.distributed.is_initialized", return_value=True)
     @patch("torch.distributed.get_rank", return_value=0)
-    def test_init_with_no_rank_should_ok():
+    def test_init_with_no_rank_should_ok(*mock):
         saver = Saver()
         assert saver.rank == 0
 
     @staticmethod
     @patch("torch.distributed.is_initialized", return_value=True)
     @patch("torch.distributed.get_world_size", return_value=10)
-    def test_init_with_rank_should_ok():
-        _ = Saver(9)
+    @pytest.mark.parametrize("rank", [0, 2, 9])
+    def test_init_with_rank_should_ok(mock0, mock1, rank):
+        _ = Saver(rank)
 
     @staticmethod
     @patch("torch.distributed.is_initialized", return_value=True)
     @patch("torch.distributed.get_world_size", return_value=10)
-    def test_init_with_exceed_rank_should_failed():
+    @pytest.mark.parametrize("rank", [10, 15])
+    def test_init_with_exceed_rank_should_failed(mock0, mock1, rank):
         with pytest.raises(ValueError):
-            _ = Saver(15)
+            _ = Saver(rank)
 
     @staticmethod
     @patch("torch.distributed.is_initialized", return_value=False)
-    def test_init_with_no_rank_should_failed():
+    def test_init_with_no_rank_should_failed(*mock):
         with pytest.raises(ValueError):
             _ = Saver()
 
     @staticmethod
-    def test_init_with_invalid_rank_should_failed():
+    @pytest.mark.parametrize("rank", ["rank_str", False, -1])
+    def test_init_with_invalid_rank_should_failed(rank):
         with pytest.raises(ValueError):
-            _ = Saver("rank_str")
-
-        with pytest.raises(ValueError):
-            _ = Saver(False)
-
-        with pytest.raises(ValueError):
-            _ = Saver(-1)
+            _ = Saver(rank)
 
     @staticmethod
     def test_save_with_valid_path_should_failed():
