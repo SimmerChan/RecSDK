@@ -40,7 +40,7 @@ void FeatureFilter::RecordTimestamp(const int64_t* featureDataPtr, int64_t start
         latestTimestamp_ = std::max(latestTimestamp_, timestamp);
     }
     auto afterRecordSize = timestampRecordMap_.size();
-    LOG_DEBUG("Enter RecordTimestamp, beforeRecordSize : {}, afterRecordSize : {}", beforeRecordSize, afterRecordSize);
+    LOG_DEBUG("Enter RecordTimestamp, beforeRecordSize: {}, afterRecordSize: {}", beforeRecordSize, afterRecordSize);
 
     // 因记录timestamp和计算swap info存在步数差异，因此记录timestamp时需同时记录淘汰keys
     if (recordTsBatchId_ > 0 && (recordTsBatchId_ + 1) % evictStepInterval_ == 0) {
@@ -57,7 +57,7 @@ void FeatureFilter::FeatureEvict()
         return;
     }
 
-    LOG_DEBUG("The latestTimestamp for current table : {}, evictThreshold : {}", latestTimestamp_, evictThreshold_);
+    LOG_DEBUG("The latestTimestamp for current table: {}, evictThreshold: {}", latestTimestamp_, evictThreshold_);
     auto tempEvictThreshold = static_cast<std::time_t>(evictThreshold_);
     for (const auto& iter : timestampRecordMap_) {
         auto feature = iter.first;
@@ -76,7 +76,7 @@ void FeatureFilter::FeatureEvict()
             featureRecordMap_.erase(feature);
         }
     }
-    LOG_INFO("The table name : {}, get evict keys size : {}", tableName_, evictKeys.size());
+    LOG_INFO("The table name: {}, get evict keys size: {}", tableName_, evictKeys.size());
 }
 
 const std::unordered_map<int64_t, FeatureRecord>& FeatureFilter::GetFeatureCountMap()

@@ -25,11 +25,6 @@ void EvictFeatureRecord::ClearEvictInfo()
     evictKeys_.clear();
 }
 
-std::vector<int64_t>& EvictFeatureRecord::GetEvictKeys()
-{
-    return evictKeys_;
-}
-
 const std::vector<int64_t>& EvictFeatureRecord::GetEvictKeys() const
 {
     return evictKeys_;

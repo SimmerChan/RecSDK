@@ -18,7 +18,6 @@ public:
     bool CanRemoveFromEmbTable(uint64_t embUpdateCount) const;
     void ClearEvictInfo();
     void SetSwapCount(uint64_t swapCount);
-    std::vector<int64_t>& GetEvictKeys();
     const std::vector<int64_t>& GetEvictKeys() const;
 
 private:

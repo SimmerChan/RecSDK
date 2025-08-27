@@ -208,81 +208,30 @@ SwapinTensor EmbcacheManager::EmbeddingLookup(const std::vector<std::vector<int6
     SwapinTensor swapinTensor;
     swapinTensor.jaggedOffs = at::empty({static_cast<int64_t>(swapinKeys.size() + 1)}, longPinnedOpt);
     auto jaggedOffsPtr = swapinTensor.jaggedOffs.data_ptr<int64_t>();
-    TORCH_CHECK(jaggedOffsPtr != nullptr, "jaggedOffsPtr should not be nullptr");
+
+    jaggedOffsPtr[0] = 0;
+    for (uint64_t i = 1; i <= swapinKeys.size(); i++) {
+        jaggedOffsPtr[i] = jaggedOffsPtr[i - 1] + swapinKeys[i - 1].size() * embConfigs_[i - 1].embDim;
+    }
+
+    int64_t embsSize = jaggedOffsPtr[swapinKeys.size()];
+    swapinTensor.swapinEmbs = at::empty({embsSize}, floatPinnedOpt);
+    for (int32_t i = 0; i < optimNum_; i++) {
+        swapinTensor.swapinOptims.emplace_back(at::empty({embsSize}, floatPinnedOpt));
+    }
 
     const std::vector<int32_t>& curTableIndices = tableIndices.empty() ? embTableIndies_ : tableIndices;
     TORCH_CHECK(curTableIndices.size() == swapinKeys.size(),
                 "tableIndices size must be equal to swapinKeys size");
 
-    jaggedOffsPtr[0] = 0;
-    
-    for (uint64_t i = 1; i <= swapinKeys.size(); i++) {
-        int64_t tableKeyCount = swapinKeys[i - 1].size();
-        int32_t tableIdx = curTableIndices[i - 1];
-        TORCH_CHECK(tableIdx >= 0 && tableIdx < embNum_, "table index {} is out of range [0, {})", tableIdx, embNum_);
-        int32_t embDim = embConfigs_[tableIdx].embDim;
-        int64_t tableSize = tableKeyCount * embDim;
-        
-        jaggedOffsPtr[i] = jaggedOffsPtr[i - 1] + tableSize;
-        
-        TORCH_CHECK(jaggedOffsPtr[i] >= jaggedOffsPtr[i - 1], 
-                   "Integer overflow detected in jaggedOffs calculation for table {}", i-1);
-    }
-
-    int64_t embsSize = jaggedOffsPtr[swapinKeys.size()];
-    
-    if (embsSize <= 0) {
-        swapinTensor.swapinEmbs = at::empty({0}, floatPinnedOpt);
-        return swapinTensor;
-    }
-    
-    swapinTensor.swapinEmbs = at::empty({embsSize}, floatPinnedOpt);
-    
-    for (int32_t i = 0; i < optimNum_; i++) {
-        auto optimTensor = at::empty({embsSize}, floatPinnedOpt);
-        TORCH_CHECK(optimTensor.defined(), "optimizer tensor {} creation failed", i);
-        TORCH_CHECK(optimTensor.data_ptr<float>() != nullptr, 
-                   "optimizer tensor {} data_ptr is nullptr after creation", i);
-        
-        swapinTensor.swapinOptims.emplace_back(std::move(optimTensor));
-    }
-
-    if (swapinKeys.empty()) {
-        return swapinTensor;
-    }
     std::vector<float*> swapinOptimsPtr(optimNum_);
-    
     for (uint64_t i = 0; i < swapinKeys.size(); i++) {
-        if (optimNum_ > 0) {
-            TORCH_CHECK(swapinTensor.swapinOptims.size() == static_cast<size_t>(optimNum_), 
-                       "swapinOptims size {} does not match optimNum_ {}", 
-                       swapinTensor.swapinOptims.size(), optimNum_);
-            
-            for (int32_t j = 0; j < optimNum_; j++) {
-                TORCH_CHECK(swapinTensor.swapinOptims[j].defined(), 
-                           "swapinOptims[{}] tensor is not defined", j);
-                TORCH_CHECK(swapinTensor.swapinOptims[j].numel() > 0, 
-                           "swapinOptims[{}] tensor is empty, numel={}", j, swapinTensor.swapinOptims[j].numel());
-                           
-                auto* optimPtr = swapinTensor.swapinOptims[j].data_ptr<float>();
-                TORCH_CHECK(optimPtr != nullptr, "swapinOptims[{}] data_ptr should not be nullptr", j);
-                
-                TORCH_CHECK(jaggedOffsPtr[i] < swapinTensor.swapinOptims[j].numel(), 
-                           "jaggedOffsPtr[{}]={} exceeds swapinOptims[{}] tensor size {}", 
-                           i, jaggedOffsPtr[i], j, swapinTensor.swapinOptims[j].numel());
-                           
-                swapinOptimsPtr[j] = optimPtr + jaggedOffsPtr[i];
-            }
+        for (int32_t j = 0; j < optimNum_; j++) {
+            swapinOptimsPtr[j] = swapinTensor.swapinOptims[j].data_ptr<float>() + jaggedOffsPtr[i];
         }
 
         int32_t idx = curTableIndices[i];
-        TORCH_CHECK(idx >= 0 && idx < embNum_, "table index {} is out of range [0, {})", idx, embNum_);
-        TORCH_CHECK(idx < static_cast<int32_t>(embeddingTables_.size()), 
-                   "embeddingTables index {} is out of range [0, {})", idx, embeddingTables_.size());
-        
-        auto* swapinEmbsPtr = swapinTensor.swapinEmbs.data_ptr<float>();
-        TORCH_CHECK(swapinEmbsPtr != nullptr, "swapinEmbs data_ptr should not be nullptr");
-        embeddingTables_[idx]->FindOrInsert(swapinKeys[i], swapinEmbsPtr + jaggedOffsPtr[i],
+        embeddingTables_[idx]->FindOrInsert(swapinKeys[i], swapinTensor.swapinEmbs.data_ptr<float>() + jaggedOffsPtr[i],
                                             swapinOptimsPtr);
     }
 
@@ -303,15 +252,12 @@ void EmbcacheManager::EmbeddingUpdate(const std::vector<std::vector<int64_t>>& s
                                       const std::vector<int32_t>& tableIndices)
 {
     TimeCost embeddingUpdateTC;
-    // 当优化器数量为0时，应该允许传入空的优化器张量数组
-    if (optimNum_ > 0) {
-        for (auto& embedConfig : embConfigs_) {
-            TORCH_CHECK(embedConfig.optimNum == (int32_t)swapoutOptims.size())
-        }
-        for (auto& optimition : swapoutOptims) {
-            TORCH_CHECK(swapoutEmbs.numel() == optimition.numel())
-            TORCH_CHECK(optimition.dtype() == torch::kFloat32)
-        }
+    for (auto& embedConfig : embConfigs_) {
+        TORCH_CHECK(embedConfig.optimNum == (int32_t)swapoutOptims.size())
+    }
+    for (auto& optimition : swapoutOptims) {
+        TORCH_CHECK(swapoutEmbs.numel() == optimition.numel())
+        TORCH_CHECK(optimition.dtype() == torch::kFloat32)
     }
     TORCH_CHECK(swapoutEmbs.dtype() == torch::kFloat32)
 
@@ -320,26 +266,14 @@ void EmbcacheManager::EmbeddingUpdate(const std::vector<std::vector<int64_t>>& s
                 "tableIndices size must be equal to swapoutKeys size");
 
     auto* swapoutEmbsPtr = swapoutEmbs.data_ptr<float>();
-    // 添加空指针校验
-    TORCH_CHECK(swapoutEmbsPtr != nullptr, "swapoutEmbsPtr should not be nullptr");
     int64_t jaggedOff = 0;
     std::vector<float*> swapoutOptimPtrs(swapoutOptims.size());
     for (uint64_t i = 0; i < swapoutKeys.size(); i++) {
-        // 当优化器数量为0时，跳过优化器张量的处理
-        if (optimNum_ > 0) {
-            for (size_t j = 0; j < swapoutOptims.size(); j++) {
-                auto* optimPtr = swapoutOptims[j].data_ptr<float>();
-                TORCH_CHECK(optimPtr != nullptr, "swapoutOptims[{}] data_ptr should not be nullptr", j);
-                swapoutOptimPtrs[j] = optimPtr + jaggedOff;
-            }
+        for (size_t j = 0; j < swapoutOptims.size(); j++) {
+            swapoutOptimPtrs[j] = swapoutOptims[j].data_ptr<float>() + jaggedOff;
         }
 
         int32_t idx = curTableIndices[i];
-        // 添加表索引边界检查
-        TORCH_CHECK(idx >= 0 && idx < embNum_, "table index {} is out of range [0, {})", idx, embNum_);
-        TORCH_CHECK(idx < static_cast<int32_t>(embeddingTables_.size()), 
-                   "embeddingTables index {} is out of range [0, {})", idx, embeddingTables_.size());
-        
         embeddingTables_[idx]->InsertOrAssign(swapoutKeys[i], swapoutEmbsPtr + jaggedOff, swapoutOptimPtrs);
         jaggedOff += swapoutKeys[i].size() * embConfigs_[idx].embDim;
     }

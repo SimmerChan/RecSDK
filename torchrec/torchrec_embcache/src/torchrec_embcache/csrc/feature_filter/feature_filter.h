@@ -57,7 +57,6 @@ private:
     std::time_t latestTimestamp_ = 0;                              // 当前表最新的时间戳，用于判断淘汰
     std::unordered_map<int64_t, std::time_t> timestampRecordMap_;  // 淘汰，记录key时间戳
 
-    // 辅助方法
     bool IsAdmitEnabled() const;
 };
 
