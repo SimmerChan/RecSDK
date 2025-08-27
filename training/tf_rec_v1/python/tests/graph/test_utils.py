@@ -38,7 +38,7 @@ from mx_rec.graph.utils import (
     make_sorted_key_to_tensor_list,
     replace_anchor_vec,
 )
-from tests.mx_rec.graph.mock_dataset import gen_mock_dataset
+from graph.mock_dataset import gen_mock_dataset
 
 
 class FindTransDatasetTest(TestCase):

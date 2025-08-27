@@ -20,9 +20,9 @@ from unittest import mock
 
 import tensorflow as tf
 
-from tests.mx_rec.core.generator_dataset import generate_dataset, Config
-from tests.mx_rec.core.mock_class import MockConfigInitializer
-from tests.mx_rec.data.mock_class import MockEosOpsLib
+from core.generator_dataset import generate_dataset, Config
+from core.mock_class import MockConfigInitializer
+from data.mock_class import MockEosOpsLib
 
 
 @mock.patch.multiple(

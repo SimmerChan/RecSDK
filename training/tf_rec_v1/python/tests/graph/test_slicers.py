@@ -24,7 +24,7 @@ from tensorflow import Graph
 from mx_rec.constants.constants import ASCEND_SPARSE_LOOKUP_ENTRANCE
 from mx_rec.graph.constants import AnchorDatasetOp
 from mx_rec.graph.slicers import NoGradSubgraphSlicer, LookupSubgraphSlicer, OrphanLookupKeySlicer
-from tests.mx_rec.graph.mock_dataset import gen_mock_dataset
+from graph.mock_dataset import gen_mock_dataset
 
 
 class MockNoGradSubgraphSlicer(NoGradSubgraphSlicer):

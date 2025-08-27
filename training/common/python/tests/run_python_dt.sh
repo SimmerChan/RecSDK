@@ -33,7 +33,7 @@ TF1_PATH=$(dirname "$(dirname "$(which python3.7)")")/lib/python3.7/site-package
 cd "$TOP_PATH"/training/common/src
 
 # build Rec SDK and get output directory
-bash "$TOP_PATH"/training/common/src/build.sh "$TF1_PATH" "$TOP_PATH"
+bash "$TOP_PATH"/training/common/src/build.sh "$TOP_PATH"
 
 # create libasc directory and copy so files into it
 mkdir -p lib
