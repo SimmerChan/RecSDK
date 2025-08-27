@@ -8,7 +8,7 @@
 #include "index_select_for_rank1_backward_tiling.h"
 #include "register/op_def_registry.h"
 #include "tiling/platform/platform_ascendc.h"
-#include "../../../../common/ops_log.h"
+#include "ops_log.h"
 
 namespace optiling {
 

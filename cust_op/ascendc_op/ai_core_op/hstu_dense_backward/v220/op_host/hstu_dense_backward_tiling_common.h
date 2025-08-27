@@ -22,7 +22,7 @@ See the License for the specific language governing permissions and
 
 #include "register/tilingdata_base.h"
 #include "tiling/tiling_api.h"
-#include "../../../../common/ops_log.h"
+#include "ops_log.h"
 
 constexpr int MAX_BATCH_SIZE = 2048;
 constexpr int MAX_SEQ_LENS = 20480;
