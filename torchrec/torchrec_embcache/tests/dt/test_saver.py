@@ -33,7 +33,7 @@ class TestSaver:
     @staticmethod
     @patch("torch.distributed.is_initialized", return_value=True)
     @patch("torch.distributed.get_world_size", return_value=10)
-    @pytest.mark.parametrize("rank", [10, 15])
+    @pytest.mark.parametrize("rank", [-1, 10, 15])
     def test_init_with_exceed_rank_should_failed(mock0, mock1, rank):
         with pytest.raises(ValueError):
             _ = Saver(rank)
@@ -79,7 +79,7 @@ class TestSaver:
             module = torch.nn.Module()
             saver.load(module, "save_dir")
 
-        # 不存在时间戳目录
+        # don't have timestamp directory in path
         dir_path = os.path.dirname(os.path.realpath(__file__))
         temp_dir = datetime.now(tz=timezone.utc).strftime(TIMESTAMP_FORMAT) + str(random.randint(0, 100000))
         temp_dir = os.path.join(dir_path, temp_dir)
@@ -88,4 +88,3 @@ class TestSaver:
             module = torch.nn.Module()
             saver.load(module, temp_dir)
         shutil.rmtree(temp_dir, ignore_errors=True)
-
