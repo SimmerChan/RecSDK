@@ -13,26 +13,17 @@ See the License for the specific language governing permissions and
         limitations under the License.
 ==============================================================================*/
 
-#include "constant_initializer.h"
-#include "utils/common.h"
+#include <mpi.h>
+#include <gtest/gtest.h>
 
-using namespace std;
-using namespace MxRec;
-
-ConstantInitializer::ConstantInitializer(int start, int len, float value, float initK)
-    : start(start), len(len), value(value)
+int main(int argc, char *argv[])
 {
-    initParam = initK;
-}
+    int result = 0;
+    ::testing::InitGoogleTest(&argc, argv);
+    int provided;
+    MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &provided);
+    result = RUN_ALL_TESTS();
+    MPI_Finalize();
 
-void ConstantInitializer::GenerateData(float* const emb, const int embSize)
-{
-    if (len == 0) {
-        return;
-    }
-    if (embSize < (start + len)) {
-        LOG_WARN("InitializeInfo start {} + len {} is larger than embedding size {}.", start, len, embSize);
-        return;
-    }
-    std::fill_n(emb + start, len, initParam * value);
+    return result;
 }

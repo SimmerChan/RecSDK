@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 ==============================================================================*/
 
 #include <gtest/gtest.h>
-#include "utils/common.h"
+#include "log/logger.h"
 
 using namespace std;
 using namespace MxRec;
@@ -145,12 +145,12 @@ TEST(Log, CkptType)
 {
     MxRec::Logger::SetLevel(Logger::INFO);
     testing::internal::CaptureStdout();
-    LOG_INFO("ckpt type={}", CkptDataType::EMB_DATA);
+    LOG_INFO("ckpt type={}", "1");
     std::string output = testing::internal::GetCapturedStdout();
     EXPECT_NE(output.find("ckpt type=1"), string::npos);
 
     testing::internal::CaptureStdout();
-    LOG_INFO("ckpt type={}", CkptDataType::NDDR_OFFSET);
+    LOG_INFO("ckpt type={}", "5");
     output = testing::internal::GetCapturedStdout();
     EXPECT_NE(output.find("ckpt type=5"), string::npos);
 }
