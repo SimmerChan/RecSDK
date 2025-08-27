@@ -10,7 +10,7 @@
 #include "register/op_def_registry.h"
 #include "tiling/tiling_api.h"
 #include "tiling/platform/platform_ascendc.h"
-#include "../../../../common/ops_log.h"
+#include "ops_log.h"
 
 constexpr int32_t RESERVER_UB_SIZE = (20 * 1024);
 constexpr int32_t DATA_ALIGN_BYTES = 32;

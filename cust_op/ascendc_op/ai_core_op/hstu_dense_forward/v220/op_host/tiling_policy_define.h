@@ -17,7 +17,7 @@ See the License for the specific language governing permissions and
 #ifndef TILING_POLICY_DEFINE_H
 #define TILING_POLICY_DEFINE_H
 
-#include "../../../../common/ops_log.h"
+#include "ops_log.h"
 
 namespace HstuDenseForward {
 

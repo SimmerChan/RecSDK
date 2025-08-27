@@ -44,7 +44,6 @@ sed -i 's/--nomd5/--nomd5 --nocrc/g' ./cmake/makeself.cmake
 sed -i 's:"/usr/local/Ascend/latest":"/usr/local/Ascend/ascend-toolkit/latest":g' CMakePresets.json
 sed -i 's:"customize":"lccl":g' CMakePresets.json
 
-cp -r ../../../common ./op_host/
 if [ -f "op_host/CMakeLists.txt" ]; then
     sed -i "1 i include(../../../../cmake/func.cmake)" ./op_host/CMakeLists.txt
 

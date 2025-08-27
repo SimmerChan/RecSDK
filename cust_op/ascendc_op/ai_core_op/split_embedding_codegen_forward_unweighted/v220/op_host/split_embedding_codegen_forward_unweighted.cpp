@@ -20,7 +20,7 @@ See the License for the specific language governing permissions and
 #include "split_embedding_codegen_forward_unweighted_tiling.h"
 #include "tiling/platform/platform_ascendc.h"
 
-#include "../../../../common/ops_log.h"
+#include "ops_log.h"
 
 namespace optiling {
 
