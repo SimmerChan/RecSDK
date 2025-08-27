@@ -210,11 +210,17 @@ SwapinTensor EmbcacheManager::EmbeddingLookup(const std::vector<std::vector<int6
     auto jaggedOffsPtr = swapinTensor.jaggedOffs.data_ptr<int64_t>();
     TORCH_CHECK(jaggedOffsPtr != nullptr, "jaggedOffsPtr should not be nullptr");
 
+    const std::vector<int32_t>& curTableIndices = tableIndices.empty() ? embTableIndies_ : tableIndices;
+    TORCH_CHECK(curTableIndices.size() == swapinKeys.size(),
+                "tableIndices size must be equal to swapinKeys size");
+
     jaggedOffsPtr[0] = 0;
     
     for (uint64_t i = 1; i <= swapinKeys.size(); i++) {
         int64_t tableKeyCount = swapinKeys[i - 1].size();
-        int32_t embDim = embConfigs_[i - 1].embDim;
+        int32_t tableIdx = curTableIndices[i - 1];
+        TORCH_CHECK(tableIdx >= 0 && tableIdx < embNum_, "table index {} is out of range [0, {})", tableIdx, embNum_);
+        int32_t embDim = embConfigs_[tableIdx].embDim;
         int64_t tableSize = tableKeyCount * embDim;
         
         jaggedOffsPtr[i] = jaggedOffsPtr[i - 1] + tableSize;
@@ -241,15 +247,11 @@ SwapinTensor EmbcacheManager::EmbeddingLookup(const std::vector<std::vector<int6
         swapinTensor.swapinOptims.emplace_back(std::move(optimTensor));
     }
 
-    const std::vector<int32_t>& curTableIndices = tableIndices.empty() ? embTableIndies_ : tableIndices;
-    TORCH_CHECK(curTableIndices.size() == swapinKeys.size(),
-                "tableIndices size must be equal to swapinKeys size");
-
-    std::vector<float*> swapinOptimsPtr(optimNum_);
-    
     if (swapinKeys.empty()) {
         return swapinTensor;
     }
+    std::vector<float*> swapinOptimsPtr(optimNum_);
+    
     for (uint64_t i = 0; i < swapinKeys.size(); i++) {
         if (optimNum_ > 0) {
             TORCH_CHECK(swapinTensor.swapinOptims.size() == static_cast<size_t>(optimNum_), 
@@ -274,7 +276,6 @@ SwapinTensor EmbcacheManager::EmbeddingLookup(const std::vector<std::vector<int6
         }
 
         int32_t idx = curTableIndices[i];
-        // 添加表索引边界检查
         TORCH_CHECK(idx >= 0 && idx < embNum_, "table index {} is out of range [0, {})", idx, embNum_);
         TORCH_CHECK(idx < static_cast<int32_t>(embeddingTables_.size()), 
                    "embeddingTables index {} is out of range [0, {})", idx, embeddingTables_.size());
