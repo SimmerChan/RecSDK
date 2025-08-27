@@ -244,11 +244,11 @@ class ETA(nn.Module):
 
         for i, (emb_cat, target) in enumerate(zip(emb_cats, target_fields)):
             emb_target = embeddings[target]
-            # short-Attention:topk embedding and mask
+            # short-Attention:topk embeddings and masks
             emb_short = emb_cat[0]
             mask_short = emb_cat[2]
             short_attns.append(self.short_attentions[i](emb_target, emb_short, mask_short))
-            # long-Attention: max_seq_len embedding and mask
+            # long-Attention: max_seq_len embeddings and masks
             emb_long = emb_cat[1]
             mask_long = emb_cat[3]
             long_attns.append(self.long_attentions[i](emb_target, emb_long, mask_long))
