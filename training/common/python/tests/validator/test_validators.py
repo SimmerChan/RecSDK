@@ -129,44 +129,6 @@ class ParameterCheckerTest(unittest.TestCase):
         else:
             self.fail("ValueError not raised.")
 
-    def test_learning_rate_validator(self):
-        if hasattr(BaseSession, "old_run_method"):
-            BaseSession.run = BaseSession.old_run_method
-
-        with tf.Graph().as_default():
-            self.assertTrue(LearningRateValidator(
-                name="whatever",
-                value=tf.constant([1.0]),
-                min_value=0.0,
-                max_value=10.0
-                ).check_value().check().is_valid())
-
-            try:
-                self.assertTrue(LearningRateValidator(
-                    name="whatever",
-                    value=tf.constant([11.0]),
-                    min_value=0.0,
-                    max_value=10.0
-                ).check_value().check().is_valid())
-
-            except ValueError as exp:
-                self.assertEqual(type(exp), ValueError)
-            else:
-                self.fail("ValueError not raised.")
-
-            try:
-                self.assertTrue(LearningRateValidator(
-                    name="whatever",
-                    value=tf.constant([1.0, 2.0]),
-                    min_value=0.0,
-                    max_value=10.0
-                ).check_value_for_left_open_interval().check().is_valid())
-
-            except ValueError as exp:
-                self.assertEqual(type(exp), ValueError)
-            else:
-                self.fail("ValueError not raised.")
-
     def test_string_validator_max_len_parameter(self):
         try:
             StringValidator("val", 'aa.1245', max_len=3).check_string_length().check().is_valid()

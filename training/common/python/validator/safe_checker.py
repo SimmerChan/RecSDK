@@ -74,20 +74,6 @@ def class_safe_check(name: str, value: Any, classes: Union[Any, Tuple[Any]]):
     validator = ClassValidator(name, value, classes)
     validator.check()
 
-
-def file_safe_check(
-        name: str,
-        path: str,
-        unsupported_mode: int = 0o022,
-        min_size: int = ValidatorParams.FILE_MIN_SIZE.value,
-        max_size: int = ValidatorParams.FILE_MAX_SIZE.value,
-):
-    validator = FileValidator(name, path)
-    validator.check_not_soft_link().check_file_size(max_size, min_size).check_file_mode(
-        unsupported_mode
-    ).check_user_group().check()
-
-
 def dir_safe_check(name: str, directory: str) -> None:
     """
     Directory safety check
