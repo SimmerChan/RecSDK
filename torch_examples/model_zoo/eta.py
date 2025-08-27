@@ -328,7 +328,6 @@ class ShortAttention(nn.Module):
 
     def forward(self, target_input, seq_input, mask):
         # target_input:[B, 1, E], seq_input:[B, S, E], mask:[B, 1, S] B = target_input.size(0)
-        logger.info(f"tgt shape: {target_input.shape}, seq shape: {seq_input.shape}, mask shape: {mask.shape}")
         b, tgt_len = target_input.shape[:2]
         b, seq_len = seq_input.shape[:2]
         query = self.q_fc(target_input) # [B, 1, A]
@@ -435,12 +434,13 @@ def train(model: ETA, train_loader, eval_loader, device, args):
 
         # evaluate
         eval_metrics = evaluate(model, eval_loader, device)
-        logging.info("Eval Avg Loss %s", eval_metrics['loss'])
+        eval_metrics_loss = eval_metrics['loss']
+        logging.info("Eval Avg Loss %s", eval_metrics_loss)
         logging.info("Eval Avg AUC %s", eval_metrics['auc'])
 
         # save the best model
-        if eval_metrics["loss"] < best_eval_loss:
-            best_eval_loss = eval_metrics["loss"]
+        if eval_metrics_loss < best_eval_loss:
+            best_eval_loss = eval_metrics_loss
             no_improve_epochs = 0
         else:
             no_improve_epochs += 1
