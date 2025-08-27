@@ -51,7 +51,7 @@ class TestSaver:
             _ = Saver(rank)
 
     @staticmethod
-    def test_save_with_valid_path_should_failed():
+    def test_save_with_invalid_path_should_failed():
         saver = Saver(0)
         with pytest.raises(TypeError):
             saver.save(None, 1)
@@ -69,16 +69,23 @@ class TestSaver:
             saver.save(module, "save_dir")
 
     @staticmethod
-    def test_load_with_valid_path_should_failed():
+    def test_load_with_invalid_path_should_failed():
         saver = Saver(0)
         with pytest.raises(ValueError):
             # not exist directory
             saver.load(None, "xxx")
+
+    @staticmethod
+    def test_load_with_invalid_module_should_failed():
+        saver = Saver(0)
         with pytest.raises(ValueError):
             # error module
             module = torch.nn.Module()
             saver.load(module, "save_dir")
 
+    @staticmethod
+    def test_load_with_ts_dir_not_exist_should_failed():
+        saver = Saver(0)
         # don't have timestamp directory in path
         dir_path = os.path.dirname(os.path.realpath(__file__))
         temp_dir = datetime.now(tz=timezone.utc).strftime(TIMESTAMP_FORMAT) + str(random.randint(0, 100000))
