@@ -99,7 +99,7 @@ if (OPENMP_FOUND)
 endif ()
 add_compile_options(-D_GLIBCXX_USE_CXX11_ABI=0)
 if(NOT OPENSOURCE_DIR)
-    set(OPENSOURCE_DIR ${PROJECT_SOURCE_DIR}/../../../../../opensource/)
+    message(FATAL_ERROR "Not found OPENSOURCE_DIR")
 endif()
 
 if(IS_DIRECTORY ${OPENSOURCE_DIR})
