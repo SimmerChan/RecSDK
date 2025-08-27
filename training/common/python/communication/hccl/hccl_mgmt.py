@@ -20,7 +20,7 @@ import json
 from typing import Dict, List
 
 from rec_sdk_common.constants.constants import RankTableInfo, ChipName, CommParams, CommonEnv, FileParams
-from rec_sdk_common.validator.safe_checker import file_safe_check, class_safe_check, int_safe_check
+from rec_sdk_common.validator.safe_checker import class_safe_check, int_safe_check
 
 def _get_chip_name():
     import common_binding
@@ -35,8 +35,10 @@ def _get_rank_info_with_ranktable() -> Dict[int, int]:
     """
     rank_table_path = os.getenv(RankTableInfo.RANK_TABLE_FILE.value, "")
     with open(rank_table_path, "r", encoding="utf-8") as file:
-        file_safe_check(RankTableInfo.RANK_TABLE_FILE.value, rank_table_path, min_size = FileParams.MIN_SIZE.value,
-                        max_size = FileParams.MAX_CONFIG_SIZE.value)
+        stat_info = os.stat(rank_table_path)
+        file_size = stat_info.st_size
+        if (file_size < FileParams.MIN_SIZE.value or file_size > FileParams.MAX_CONFIG_SIZE.value):
+            raise ValueError("rank table file size id illegal")
 
         try:
             ranktable_info = json.load(file)
