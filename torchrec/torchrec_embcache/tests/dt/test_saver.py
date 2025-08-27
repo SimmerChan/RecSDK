@@ -19,31 +19,31 @@ class TestSaver:
     @staticmethod
     @patch("torch.distributed.is_initialized", return_value=True)
     @patch("torch.distributed.get_rank", return_value=0)
-    def test_init_with_no_rank_should_ok(self):
+    def test_init_with_no_rank_should_ok():
         saver = Saver()
         assert saver.rank == 0
 
     @staticmethod
     @patch("torch.distributed.is_initialized", return_value=True)
     @patch("torch.distributed.get_world_size", return_value=10)
-    def test_init_with_rank_should_ok(self):
+    def test_init_with_rank_should_ok():
         _ = Saver(9)
 
     @staticmethod
     @patch("torch.distributed.is_initialized", return_value=True)
     @patch("torch.distributed.get_world_size", return_value=10)
-    def test_init_with_exceed_rank_should_failed(self):
+    def test_init_with_exceed_rank_should_failed():
         with pytest.raises(ValueError):
             _ = Saver(15)
 
     @staticmethod
     @patch("torch.distributed.is_initialized", return_value=False)
-    def test_init_with_no_rank_should_failed(self):
+    def test_init_with_no_rank_should_failed():
         with pytest.raises(ValueError):
             _ = Saver()
 
     @staticmethod
-    def test_init_with_invalid_rank_should_failed(self):
+    def test_init_with_invalid_rank_should_failed():
         with pytest.raises(ValueError):
             _ = Saver("rank_str")
 
@@ -54,7 +54,7 @@ class TestSaver:
             _ = Saver(-1)
 
     @staticmethod
-    def test_save_with_valid_path_should_failed(self):
+    def test_save_with_valid_path_should_failed():
         saver = Saver(0)
         with pytest.raises(TypeError):
             saver.save(None, 1)
@@ -72,7 +72,7 @@ class TestSaver:
             saver.save(module, "save_dir")
 
     @staticmethod
-    def test_load_with_valid_path_should_failed(self):
+    def test_load_with_valid_path_should_failed():
         saver = Saver(0)
         with pytest.raises(ValueError):
             # not exist directory
