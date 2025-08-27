@@ -29,11 +29,10 @@ else
 fi
 
 cmake -DCMAKE_BUILD_TYPE=Release \
-    -DTF_PATH="$1" \
     -DPYTHON_PATH="$python_path" \
     -DASCEND_PATH="$ascend_path" \
-    -DSECUREC_PATH="$2"/../opensource/securec \
-    -DCMAKE_INSTALL_PREFIX="$2"/common_output \
-    -DBUILD_CUST="$3" ..
+    -DSECUREC_PATH="$1"/../opensource/securec \
+    -DCMAKE_INSTALL_PREFIX="$1"/common_output \
+    -DBUILD_CUST="$2" ..
 make -j8
 make install

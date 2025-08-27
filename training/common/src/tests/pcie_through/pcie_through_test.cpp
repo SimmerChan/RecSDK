@@ -21,18 +21,18 @@ See the License for the specific language governing permissions and
 using namespace MxRec;
 TEST(TestGetShmAddr, Basic)
 {
-std::string name = "test";
-int deviceId = 1;
-int capacity = 51;
+    std::string name = "test";
+    int deviceId = 1;
+    int capacity = 51;
 
-EMOCK(GetChipName).stubs().will(returnValue(std::string("testDeviceName")));
-try {
-int64_t res = GetShmAddr(name, deviceId, capacity);
-EXPECT_GE(res, 0);
-}
-catch  (const std::runtime_error& e) {
-std::cerr << "Caught expected runtime_error: " << e.what() << std::endl;
-}
+    EMOCK(GetChipName).stubs().will(returnValue(std::string("testDeviceName")));
+    try {
+        int64_t res = GetShmAddr(name, deviceId, capacity);
+        EXPECT_GE(res, 0);
+    }
+    catch  (const std::runtime_error& e) {
+        std::cerr << "Caught expected runtime_error: " << e.what() << std::endl;
+    }
 }
 
 

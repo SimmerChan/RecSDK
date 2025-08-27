@@ -18,8 +18,14 @@ See the License for the specific language governing permissions and
 
 #include "common_func/common_func.h"
 
-
 TEST(TestStringFormat, Basic)
 {
-EXPECT_EQ(MxRec::StringFormat("%s %d", "test", 123), "test 123");
+    EXPECT_EQ(MxRec::StringFormat("%s %d", "test", 123), "test 123");
+}
+
+TEST(TestGetChipName, Basic)
+{
+    std::string chip_name = "910";
+    std::string result = MxRec::GetChipName(0);
+    EXPECT_NE(result.find(chip_name), std::string::npos);
 }

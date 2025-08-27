@@ -16,15 +16,6 @@
 
 set -e
 
-TF_VERSION=$1
-if [ "${TF_VERSION}" == "tf1" ]; then
-    TF_DIR=tensorflow_core
-elif [ "${TF_VERSION}" == "tf2" ];then
-    TF_DIR=tensorflow
-else
-    echo "TF_VERSION should be tf1 or tf2"
-fi
-
 # add mpirun env
 export OMPI_ALLOW_RUN_AS_ROOT=1
 export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
@@ -126,7 +117,6 @@ export ASAN_OPTIONS=halt_on_error=1:detect_leaks=1:fast_unwind_on_malloc=0
 export LSAN_OPTIONS=suppressions=../tests/leaks.supp
 
 cmake -DCMAKE_BUILD_TYPE=Debug \
-    -DTF_PATH="${python_path}"/lib/python3.7/site-packages/"${TF_DIR}" \
     -DPYTHON_PATH="${python_path}" \
     -DASCEND_PATH=/usr/local/Ascend/ascend-toolkit/latest \
     -DSECUREC_PATH="${ROOT_DIR}"/../../../opensource/securec \

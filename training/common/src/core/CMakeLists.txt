@@ -22,12 +22,6 @@ if(NOT SECUREC_PATH)
 endif()
 message("SECUREC_PATH: " ${SECUREC_PATH})
 
-if (${TF_PATH} MATCHES "tensorflow_core")
-    include_directories(${PYTHON_PATH}/lib/python3.7/site-packages/tensorflow_core/include)
-else()
-    include_directories(${PYTHON_PATH}/lib/python3.7/site-packages/tensorflow/include)
-endif()
-
 link_libraries(stdc++fs)
 
 file(GLOB_RECURSE COMMON_SRC ./*.cpp ./*.h)
@@ -66,7 +60,6 @@ target_link_directories(COMMON_ASC
 target_link_libraries(COMMON_ASC PUBLIC ascendcl ge_executor gert runtime ge_common register graph ascend_protobuf
      opt_feature error_manager exe_graph acl_tdt_channel acl_tdt_queue securec drvdsmi_host profapi c_sec)
 target_link_libraries(COMMON_ASC PUBLIC
-        -l:_tf_adapter.so
         ${PYTHON_LIBRARY}
 )
 
