@@ -45,7 +45,7 @@ class Saver:
         self.cache_module = []
 
     @staticmethod
-    def is_timestamp_format(self, dir_name: str) -> bool:
+    def is_timestamp_format(dir_name: str) -> bool:
         try:
             datetime.strptime(dir_name, TIMESTAMP_FORMAT)
             return True
@@ -53,13 +53,17 @@ class Saver:
             return False
 
     @staticmethod
-    def _get_latest_load_path(self, path):
+    def _get_latest_load_path(path):
         path = Path(path)
-        dirs = [d for d in path.iterdir() if d.is_dir() and self.is_timestamp_format(d.name)]
+        dirs = [d for d in path.iterdir() if d.is_dir() and Saver.is_timestamp_format(d.name)]
         if not dirs:
             raise ValueError(f"expect a timestamp directory but empty in path:{path}")
         latest_dir = max(d.name for d in dirs)
         return os.path.join(os.path.realpath(path), latest_dir)
+
+    @staticmethod
+    def _get_format_path(path):
+        return os.path.join(path, datetime.now(tz=timezone.utc).strftime(TIMESTAMP_FORMAT))
 
     def save(self, module: torch.nn.Module, path: str) -> None:
         check_path(path)
@@ -67,7 +71,7 @@ class Saver:
             raise ValueError(f"param `module` must an instance of torch.nn.Module, but got:{type(module)}")
 
         path = os.path.realpath(path)
-        path = self._get_format_path(path)
+        path = Saver._get_format_path(path)
         self.cache_module.clear()
         self._find_all_embed_cache_instance(module)
         self._check_emb_cache_instance_len()
@@ -88,12 +92,9 @@ class Saver:
         self._check_emb_cache_instance_len()
         path = os.path.realpath(path)
         path = self._get_latest_load_path(path)
+        check_path(path)
         for mod in self.cache_module:
             mod.embcache_mgr.load(path, self.rank)
-
-    @staticmethod
-    def _get_format_path(self, path):
-        return os.path.join(path, datetime.now(tz=timezone.utc).strftime(TIMESTAMP_FORMAT))
 
     def _find_all_embed_cache_instance(self, module):
         for _, child in module.named_children():
