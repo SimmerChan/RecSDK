@@ -25,7 +25,7 @@ from tensorflow.python.client.session import BaseSession
 
 from rec_sdk_common.validator.validator import ClassValidator, Convert2intValidator, DirectoryValidator, IntValidator, \
     NumValidator, OptionalIntValidator, OptionalStringValidator, OptionValidator, para_checker_decorator, \
-    StringValidator, ValueCompareValidator, FloatValidator, SSDFeatureValidator, ListValidator, LearningRateValidator
+    StringValidator, ValueCompareValidator, FloatValidator, SSDFeatureValidator, ListValidator
 
 
 class ParameterCheckerTest(unittest.TestCase):

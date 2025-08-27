@@ -20,13 +20,11 @@ __all__ = [
     "IntValidator",
     "FloatValidator",
     "ClassValidator",
-    "FileValidator",
     "DirectoryValidator",
     "str_safe_check",
     "int_safe_check",
     "float_safe_check",
     "class_safe_check",
-    "file_safe_check",
     "dir_safe_check",
 ]
 
@@ -35,7 +33,6 @@ from rec_sdk_common.validator.validator import (
     IntValidator,
     FloatValidator,
     ClassValidator,
-    FileValidator,
     DirectoryValidator,
 )
 from rec_sdk_common.validator.safe_checker import (
@@ -43,6 +40,5 @@ from rec_sdk_common.validator.safe_checker import (
     int_safe_check,
     float_safe_check,
     class_safe_check,
-    file_safe_check,
     dir_safe_check,
 )

@@ -23,7 +23,6 @@ from rec_sdk_common.validator.validator import (
     IntValidator,
     FloatValidator,
     ClassValidator,
-    FileValidator,
     DirectoryValidator,
 )
 
