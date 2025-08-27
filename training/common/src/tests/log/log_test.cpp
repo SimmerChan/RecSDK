@@ -145,12 +145,14 @@ TEST(Log, CkptType)
 {
     MxRec::Logger::SetLevel(Logger::INFO);
     testing::internal::CaptureStdout();
-    LOG_INFO("ckpt type={}", "1");
+    int EMB_DATA = 1;
+    LOG_INFO("ckpt type={}", EMB_DATA);
     std::string output = testing::internal::GetCapturedStdout();
     EXPECT_NE(output.find("ckpt type=1"), string::npos);
 
     testing::internal::CaptureStdout();
-    LOG_INFO("ckpt type={}", "5");
+    int NDDR_OFFSET = 5;
+    LOG_INFO("ckpt type={}", NDDR_OFFSET);
     output = testing::internal::GetCapturedStdout();
     EXPECT_NE(output.find("ckpt type=5"), string::npos);
 }
