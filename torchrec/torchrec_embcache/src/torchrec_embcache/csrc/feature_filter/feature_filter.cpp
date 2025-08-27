@@ -51,7 +51,7 @@ void FeatureFilter::RecordTimestamp(const int64_t* featureDataPtr, int64_t start
 
 void FeatureFilter::FeatureEvict()
 {
-    std::vector<int64_t>& evictKeys = evictFeatureRecord_.GetEvictKeys();
+    auto& evictKeys = evictFeatureRecord_.GetEvictKeys();
     if (evictThreshold_ == 0) {
         LOG_DEBUG("Current table evictThreshold is 0, will skip.");
         return;
