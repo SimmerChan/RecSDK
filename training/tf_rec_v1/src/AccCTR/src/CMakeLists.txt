@@ -20,6 +20,7 @@ set(OCK_CTR_COMMON_DIR              ${PROJECT_SOURCE_DIR}/src/common)
 set(OCK_CTR_BUILD_PATH              ${PROJECT_SOURCE_DIR}/build)
 
 set(OUTPUT                          ${PROJECT_SOURCE_DIR}/output)
+set(OCK_CTR_PLATFORM_UTIL_DIR       ${PROJECT_SOURCE_DIR}/../../../../../opensource)
 set(OCK_CTR_UTIL_INSTALL_DIR        ${PROJECT_SOURCE_DIR}/install)
 
 if (${BUILD_MODE} MATCHES "ut")
