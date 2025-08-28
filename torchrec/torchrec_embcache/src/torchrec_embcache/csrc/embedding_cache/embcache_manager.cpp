@@ -285,7 +285,8 @@ void EmbcacheManager::Embedding2Host(const at::Tensor& weightsDev, const std::ve
         auto start = swapManagers_[embIndex].GetMemStartOffset();
         int64_t currentTableOffset = jaggedOff + start * embConfigs_[embIndex].embDim;
         auto end = swapManagers_[embIndex].GetOccupiedNum();
-        std::vector<int64_t> keys(end - start);
+        std::vector<int64_t> keys;
+        keys.reserve(end - start);
         for (int64_t off = start; off < end; off++) {
             keys.emplace_back(swapManagers_[embIndex].GetKey(off));
         }
@@ -499,11 +500,10 @@ void EmbcacheManager::ReadAttributeData(const std::shared_ptr<FileSystem>& fileS
 void EmbcacheManager::ReadKeysData(const std::shared_ptr<FileSystem>& fileSystemPtr, const string& filePrefix,
                                    std::vector<int64_t>& keys)
 {
-    // read attribute
+    // check key attribute
     std::string keyAttrFile = filePrefix + "/key/slice.attribute";
     std::vector<int64_t> keyAttrVec;
     ReadAttributeData(fileSystemPtr, keyAttrFile, keyAttrVec, KEY_ATTRIBUTE_DATA_LEN);
-
     if (keyAttrVec[1] == ATTR_VEC_INIT_VALUE || keyAttrVec[1] > KEY_SIZE_MAX) {
         auto errMsg =
             Logger::Format("Read key attribute file error, keys count is invalid:{}, file:{}.",
@@ -512,6 +512,7 @@ void EmbcacheManager::ReadKeysData(const std::shared_ptr<FileSystem>& fileSystem
         throw std::runtime_error(errMsg);
     }
 
+    // key data
     std::string keyDataFile = filePrefix + "/key/slice.data";
     size_t keyFileBytes = fileSystemPtr->GetFileSize(keyDataFile);
     if (keyFileBytes % sizeof(int64_t) != 0 || keyFileBytes / sizeof(int64_t) != keyAttrVec[1]) {
