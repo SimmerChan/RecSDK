@@ -27,6 +27,7 @@ from torchrec_embcache.distributed.configs import (EmbCacheEmbeddingConfig,
 from torchrec_embcache.distributed.train_pipeline import EmbCacheTrainPipelineSparseDist
 from torchrec_embcache.distributed.sharding.embedding_sharder import EmbCacheEmbeddingCollectionSharder
 from torchrec_embcache.sparse.jagged_tensor_with_timestamp import KeyedJaggedTensorWithTimestamp
+from torchrec_embcache.saver import Saver
 import torchrec
 import torchrec.distributed
 from torchrec import EmbeddingCollection
@@ -179,6 +180,8 @@ def execute(rank: int, config: ExecuteConfig):
     if not enable_admit and enable_evict:
         test_result_golden = test_model.cpu_golden_loss(embedding_configs, data_loader_golden, evict_threshold, rank)
     test_results = test_model.test_loss(embedding_configs, data_loader, sharding_type, enable_evict, training=True)
+    if enable_admit and not enable_evict:
+        _check_admit_key_count(data_loader_golden, embedding_configs, rank)
 
     # load
     test_model.test_loss(embedding_configs, data_loader_golden, sharding_type, enable_evict, training=False)
@@ -243,11 +246,11 @@ class TestModel:
         os.environ["LOCAL_RANK"] = f"{rank}"
 
     def test_loss(
-            self,
-            embedding_configs: List[EmbCacheEmbeddingConfig],
-            dataloader: DataLoader[Batch],
-            sharding_type: str,
-            enable_evict: bool,
+        self,
+        embedding_configs: List[EmbCacheEmbeddingConfig],
+        dataloader: DataLoader[Batch],
+        sharding_type: str,
+        enable_evict: bool,
         training: bool = True,
         ):
         rank, world_size = self.rank, self.world_size
@@ -324,7 +327,12 @@ class TestModel:
             save_dir = os.path.abspath("save_dir")
             if os.path.exists(save_dir):
                 shutil.rmtree(save_dir, ignore_errors=True)
-            os.makedirs(save_dir, exist_ok=True) 
+            os.makedirs(save_dir, exist_ok=True)
+            saver = Saver(rank=rank)
+            saver.save(ddp_model, _SAVE_PATH)
+        else:
+            saver = Saver(rank=rank)
+            saver.load(ddp_model, _SAVE_PATH)
 
         return results
 
