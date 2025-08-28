@@ -48,6 +48,12 @@ const std::string SLICE_DATA_PATH = "/slice.data";
 const std::string SLICE_EVICT_KEY_DATA_PATH = "/slice_evict_key.data";
 const std::string SLICE_EVICT_TS_DATA_PATH = "/slice_evict_ts.data";
 
+constexpr int KEY_ATTRIBUTE_DATA_LEN = 2;
+constexpr int EMB_ATTRIBUTE_DATA_LEN = 3;
+constexpr int64_t ATTR_VEC_INIT_VALUE = -1;
+constexpr long long KEY_SIZE_MAX = 1e9L;
+const std::string ATTR_SUFFIX = "attribute";
+const std::string DATA_SUFFIX = "data";
 
 struct SwapInfo {
     std::vector<std::vector<int64_t>> swapoutKeys;
@@ -176,12 +182,6 @@ private:
     static std::string GetDevWeightsShape(const at::Tensor& weightsDev);
 
 private:
-    const int KEY_ATTRIBUTE_DATA_LEN = 2;
-    const int EMB_ATTRIBUTE_DATA_LEN = 3;
-    const int64_t ATTR_VEC_INIT_VALUE = -1;
-    const long long KEY_SIZE_MAX = 1e9L;
-    const std::string ATTR_SUFFIX = "attribute";
-    const std::string DATA_SUFFIX = "data";
     int32_t embNum_;
     std::vector<int32_t> embTableIndies_;
     std::vector<EmbConfig> embConfigs_;

@@ -213,7 +213,10 @@ ssize_t LocalFileSystem::Read(const string& filePath, vector<vector<float>>& fil
     try {
         ValidateReadFile(filePath, GetFileSize(filePath));
     } catch (const std::invalid_argument& e) {
-        fclose(fp);
+        auto ret = fclose(fp);
+        if (ret != 0) {
+            LOG_ERROR("Close file failed, file:{}", filePath);
+        }
         auto errMsg = Logger::Format("Invalid read file path: {}.", filePath);
         LOG_ERROR(errMsg);
         throw std::runtime_error(errMsg);
@@ -241,7 +244,12 @@ ssize_t LocalFileSystem::Read(const string& filePath, vector<vector<float>>& fil
         readBytesNum += embeddingSize * sizeof(float);
     }
 
-    fclose(fp);
+    auto ret = fclose(fp);
+    if (ret != 0) {
+        auto errMsg = Logger::Format("Close file failed, file:{}", filePath);
+        LOG_ERROR(errMsg);
+        throw std::runtime_error(errMsg);
+    }
     return readBytesNum;
 }
 

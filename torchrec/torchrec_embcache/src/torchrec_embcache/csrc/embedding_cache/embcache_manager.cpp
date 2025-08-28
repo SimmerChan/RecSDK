@@ -524,7 +524,7 @@ void EmbcacheManager::ReadKeysData(const std::shared_ptr<FileSystem>& fileSystem
     auto readBytes = fileSystemPtr->Read(keyDataFile, reinterpret_cast<char*>(keys.data()), keyFileBytes);
     if (readBytes != static_cast<ssize_t>(keyFileBytes)) {
         auto errMsg = Logger::Format("Read key data file error, expect read bytes:{}, actual read bytes:{}, file:{}",
-                                     keyDataFile, keyFileBytes, readBytes);
+            keyDataFile, keyFileBytes, readBytes);
         throw std::runtime_error(errMsg);
     }
 }
@@ -539,7 +539,7 @@ void EmbcacheManager::CheckEmbeddingDim(const std::shared_ptr<FileSystem>& fileS
     std::string embAttrFile = dataFilePath.substr(0, dataFilePath.size() - DATA_SUFFIX.length()) + ATTR_SUFFIX;
     std::vector<int64_t> embAttrVec;
     ReadAttributeData(fileSystemPtr, embAttrFile, embAttrVec, EMB_ATTRIBUTE_DATA_LEN);
-    auto embDimFromFile = embAttrFile[EMB_ATTRIBUTE_DATA_LEN - 1];
+    auto embDimFromFile = embAttrVec[EMB_ATTRIBUTE_DATA_LEN - 1];
     if (embDimFromFile == ATTR_VEC_INIT_VALUE || embDimFromFile != tableParams.embDim) {
         auto errMsg = Logger::Format(
             "Embedding or momentum dim error, load data dim from attribute:{}, current table dim:{}, file:{}.",
@@ -566,14 +566,14 @@ void EmbcacheManager::ReadEmbeddings(const std::shared_ptr<FileSystem>& fileSyst
         readBytes = fileSystemPtr->Read(filePath, embeddings, 0, offsetVec, embDim);
     } catch (std::runtime_error& e) {
         auto errMsg = Logger::Format("In load, rank:{}, table:{}, load file error: {}.", tableParams.rank,
-                                     tableParams.tableName, filePath);
+            tableParams.tableName, filePath);
         LOG_ERROR(errMsg);
         throw std::runtime_error(errMsg);
     }
     auto expectReadBytes = static_cast<ssize_t>(embeddings.size() * embDim * sizeof(float));
     if (readBytes != expectReadBytes) {
         auto errMsg = Logger::Format("Read data to file error, expect read bytes:{}, actual read bytes:{}, file:{}",
-                                     filePath, expectReadBytes, readBytes);
+            filePath, expectReadBytes, readBytes);
         LOG_ERROR(errMsg);
         throw std::runtime_error(errMsg);
     }
