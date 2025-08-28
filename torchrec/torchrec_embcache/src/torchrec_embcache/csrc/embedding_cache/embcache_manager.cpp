@@ -298,7 +298,7 @@ void EmbcacheManager::Embedding2Host(const at::Tensor& weightsDev, const std::ve
         // Here, GetOccupiedNum is less than embConfigs_[embIndex].cacheSize = weightsDev.shape[0],
         // and we need to skip the unnecessary weight indices.
         jaggedOff += embConfigs_[embIndex].cacheSize * embConfigs_[embIndex].embDim;
-        LOG_DEBUG("Embedding2Host, embIndex:{}, , update key size:{}, jaggedOff:{}, currentTableOffset:{}.",
+        LOG_DEBUG("Embedding2Host, embIndex:{}, update key size:{}, jaggedOff:{}, currentTableOffset:{}.",
                   embIndex, keys.size(), jaggedOff, currentTableOffset);
     }
 }
@@ -370,23 +370,18 @@ void EmbcacheManager::Save(const std::string path, const int rank)
     auto fileSystemPtr = GetFileSystem(path);
     for (int32_t i = 0; i < embNum_; i++) {
         std::string tableName = embConfigs_[i].tableName;
-        std::string midPath = path + "/" + tableName + RANK_STR_PATH + std::to_string(rank);
-        std::string embAttrFile = midPath + EMBEDDING_STR_PATH + SLICE_ATTR_PATH;
+        std::string pathPrefix = path + "/" + tableName + RANK_STR_PATH + std::to_string(rank);
+        std::string embAttrFile = pathPrefix + EMBEDDING_STR_PATH + SLICE_ATTR_PATH;
         fileSystemPtr->CreateFileDir(embAttrFile);
-        std::string fileEmbeddingSliceData = midPath + EMBEDDING_STR_PATH + SLICE_DATA_PATH;
+        std::string fileEmbeddingSliceData = pathPrefix + EMBEDDING_STR_PATH + SLICE_DATA_PATH;
         fileSystemPtr->CreateFileDir(fileEmbeddingSliceData);
-        std::string fileKeySliceAttr = midPath + KEY_STR_PATH + SLICE_ATTR_PATH;
+        std::string fileKeySliceAttr = pathPrefix + KEY_STR_PATH + SLICE_ATTR_PATH;
         fileSystemPtr->CreateFileDir(fileKeySliceAttr);
-        std::string fileKeySliceData = midPath + KEY_STR_PATH + SLICE_DATA_PATH;
+        std::string fileKeySliceData = pathPrefix + KEY_STR_PATH + SLICE_DATA_PATH;
         fileSystemPtr->CreateFileDir(fileKeySliceData);
-        std::string fileMomentum1SliceAttr = midPath + MOMENTUM1_STR_PATH + SLICE_ATTR_PATH;
-        fileSystemPtr->CreateFileDir(fileMomentum1SliceAttr);
-        std::string fileMomentum1SliceData = midPath + MOMENTUM1_STR_PATH + SLICE_DATA_PATH;
-        fileSystemPtr->CreateFileDir(fileMomentum1SliceData);
-        std::string fileMomentum2SliceAttr = midPath + MOMENTUM2_STR_PATH + SLICE_ATTR_PATH;
-        fileSystemPtr->CreateFileDir(fileMomentum2SliceAttr);
-        std::string fileMomentum2SliceData = midPath + MOMENTUM2_STR_PATH + SLICE_DATA_PATH;
-        fileSystemPtr->CreateFileDir(fileMomentum2SliceData);
+
+        std::string fileMomentum1SliceAttr = pathPrefix + MOMENTUM1_STR_PATH + SLICE_ATTR_PATH;
+        std::string fileMomentum2SliceAttr = pathPrefix + MOMENTUM2_STR_PATH + SLICE_ATTR_PATH;
 
         size_t count = 0;
         std::vector<int64_t> saveKeys;
@@ -406,17 +401,16 @@ void EmbcacheManager::Save(const std::string path, const int rank)
 
             // 3. write momentum
             if (optimNum_ > 0) {
+                std::string fileMomentum1SliceData = pathPrefix + MOMENTUM1_STR_PATH + SLICE_DATA_PATH;
+                fileSystemPtr->CreateFileDir(fileMomentum1SliceData);
                 fileSystemPtr->Write(fileMomentum1SliceData, reinterpret_cast<const char*>(value + embDim),
                           embDim * sizeof(float));
-                LOG_DEBUG("In save, table:{}, key:{}, momentum1.dim:{}, momentum1:{}.",
-                          tableName, key, embDim, StringTools::ToString(value + 1 * embDim, embDim));
             }
             if (optimNum_ > 1) {
+                std::string fileMomentum2SliceData = pathPrefix + MOMENTUM2_STR_PATH + SLICE_DATA_PATH;
+                fileSystemPtr->CreateFileDir(fileMomentum2SliceData);
                 fileSystemPtr->Write(fileMomentum2SliceData, reinterpret_cast<const char*>(value + optimNum_ * embDim),
                           embDim * sizeof(float));
-                LOG_DEBUG("In save, table:{}, key:{}, momentum2.dim:{}, momentum2:{}.",
-                          tableName, key, embDim,
-                          StringTools::ToString(value + optimNum_ * embDim, embDim));
             }
         });
         LOG_INFO("In save, table:{}, save data shape: [{}, {}].", tableName, count, embDim);
@@ -432,22 +426,22 @@ void EmbcacheManager::Save(const std::string path, const int rank)
 
 void EmbcacheManager::WriteOptimizerAttributeFile(int32_t i, std::string& fileMomentum1SliceAttr,
                                                   std::string& fileMomentum2SliceAttr, size_t count,
-                                                  std::shared_ptr<FileSystem> fileSystemPtr)
+                                                  const std::shared_ptr<FileSystem>& fileSystemPtr)
 {
     if (optimNum_ == 0) {
         return;
     }
-    std::vector<int64_t> momentum1Attribute = {sizeof(float), count, embConfigs_[i].embDim};
+    std::vector<int64_t> momentumAttrData = {sizeof(float), static_cast<int64_t>(count), embConfigs_[i].embDim};
     if (optimNum_ > 0) {
         fileSystemPtr->CreateFileDir(fileMomentum1SliceAttr);
-        fileSystemPtr->Write(fileMomentum1SliceAttr, reinterpret_cast<const char*>(momentum1Attribute.data()),
-                             momentum1Attribute.size() * sizeof(int64_t));
+        fileSystemPtr->Write(fileMomentum1SliceAttr, reinterpret_cast<const char*>(momentumAttrData.data()),
+                             momentumAttrData.size() * sizeof(int64_t));
     }
     if (optimNum_ > 1) {
         fileSystemPtr->CreateFileDir(fileMomentum2SliceAttr);
         // 目前momentum2Attribute和momentum1Attribute是一致的
-        fileSystemPtr->Write(fileMomentum2SliceAttr, reinterpret_cast<const char*>(momentum1Attribute.data()),
-                             momentum1Attribute.size() * sizeof(int64_t));
+        fileSystemPtr->Write(fileMomentum2SliceAttr, reinterpret_cast<const char*>(momentumAttrData.data()),
+                             momentumAttrData.size() * sizeof(int64_t));
     }
 }
 
@@ -618,15 +612,15 @@ void EmbcacheManager::ReadEmbeddings(std::shared_ptr<FileSystem>& fileSystemPtr,
     std::vector<int64_t> offsetVec(vector_size);
     std::iota(offsetVec.begin(), offsetVec.end(), 0);
     try {
-        fileSystemPtr->Read(filePath, embeddings, 0, offsetVec, vector_size);
+        fileSystemPtr->Read(filePath, embeddings, 0, offsetVec, embDim);
     } catch (std::runtime_error& e) {
         auto errMsg = Logger::Format("In load, rank:{}, table:{}, load file error: {}.",
                                      tableParams.rank, tableParams.tableName, filePath);
         LOG_ERROR(errMsg);
         throw std::runtime_error(errMsg);
     }
-    LOG_INFO("In load, rank:{}, table:{}, load file end:{}, embeddings size:{}.",
-             tableParams.rank, tableParams.tableName, filePath, embeddings.size());
+    LOG_INFO("In load, rank:{}, table:{}, load file end, embeddings size:{}, file:{}.",
+             tableParams.rank, tableParams.tableName, embeddings.size(), filePath);
 }
 
 template <class T>

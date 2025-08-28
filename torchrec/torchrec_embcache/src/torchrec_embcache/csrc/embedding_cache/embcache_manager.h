@@ -179,7 +179,7 @@ private:
     std::string GetDevWeightsShape(const at::Tensor& weightsDev) const;
     void WriteOptimizerAttributeFile(int32_t i, std::string& fileMomentum1SliceAttr,
                                      std::string& fileMomentum2SliceAttr, size_t count,
-                                     std::shared_ptr<FileSystem> fileSystemPtr);
+                                     const std::shared_ptr<FileSystem>& fileSystemPtr);
 
 private:
     int32_t embNum_;
