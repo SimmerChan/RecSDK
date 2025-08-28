@@ -19,7 +19,6 @@
 #include "utils/logger.h"
 #include "utils/string_tools.h"
 #include "utils/time_cost.h"
-#include "hash_table/hash_bucket.h"
 
 using namespace Embcache;
 
@@ -609,16 +608,25 @@ void EmbcacheManager::ReadEmbeddings(std::shared_ptr<FileSystem>& fileSystemPtr,
                                      std::vector<std::vector<float>>& embeddings,
                                      const string& filePath, size_t vector_size, TableRankParam tableParams) const
 {
+    LOG_INFO("In load, rank:{}, table:{}, start load file data:{}.",
+             tableParams.rank, tableParams.tableName, filePath);
     int32_t embDim = tableParams.embDim;
-    std::vector<int64_t> offsetVec(vector_size);
     for (size_t i = 0; i < vector_size; ++i) {
-        std::vector<float> embedding(embDim);
-        embeddings.emplace_back(embedding);
+        std::vector<float> tmp(embDim);
+        embeddings.emplace_back(tmp);
     }
+    std::vector<int64_t> offsetVec(vector_size);
     std::iota(offsetVec.begin(), offsetVec.end(), 0);
-    fileSystemPtr->Read(filePath, embeddings, 0, offsetVec, vector_size);
-    LOG_INFO("In load, rank:{}, table:{}, keys size:{}, embeddings size:{}.",
-             tableParams.rank, tableParams.tableName, vector_size, embeddings.size());
+    try {
+        fileSystemPtr->Read(filePath, embeddings, 0, offsetVec, vector_size);
+    } catch (std::runtime_error& e) {
+        auto errMsg = Logger::Format("In load, rank:{}, table:{}, load file error: {}.",
+                                     tableParams.rank, tableParams.tableName, filePath);
+        LOG_ERROR(errMsg);
+        throw std::runtime_error(errMsg);
+    }
+    LOG_INFO("In load, rank:{}, table:{}, load file end:{}, embeddings size:{}.",
+             tableParams.rank, tableParams.tableName, filePath, embeddings.size());
 }
 
 template <class T>
