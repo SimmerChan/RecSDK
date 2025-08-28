@@ -467,7 +467,8 @@ void EmbcacheManager::Load(const std::string& path, int rank)
 
 void EmbcacheManager::RecordLoadDebugInfo(const vector<int64_t>& keys, const vector<std::vector<float>>& embeddings,
                                           const vector<std::vector<float>>& momentum1,
-                                          const vector<std::vector<float>>& momentum2, const TableRankParam& tableParams)
+                                          const vector<std::vector<float>>& momentum2,
+                                          const TableRankParam& tableParams)
 {
     if (Logger::GetLevel() > Logger::TRACE) {
         return;
@@ -507,8 +508,7 @@ void EmbcacheManager::ReadKeysData(const std::shared_ptr<FileSystem>& fileSystem
     if (keyAttrVec[1] == ATTR_VEC_INIT_VALUE || keyAttrVec[1] > KEY_SIZE_MAX) {
         auto errMsg =
             Logger::Format("Read key attribute file error, keys count is invalid:{}, file:{}.",
-                           keyAttrVec[1],
-                                     keyAttrFile);
+                           keyAttrVec[1], keyAttrFile);
         throw std::runtime_error(errMsg);
     }
 
@@ -544,7 +544,7 @@ void EmbcacheManager::CheckEmbeddingDim(const std::shared_ptr<FileSystem>& fileS
     if (embDimFromFile == ATTR_VEC_INIT_VALUE || embDimFromFile != tableParams.embDim) {
         auto errMsg = Logger::Format(
             "Embedding or momentum dim error, load data dim from attribute:{}, current table dim:{}, file:{}.",
-                           embDimFromFile, tableParams.embDim, embAttrFile);
+            embDimFromFile, tableParams.embDim, embAttrFile);
         throw std::runtime_error(errMsg);
     }
 }
