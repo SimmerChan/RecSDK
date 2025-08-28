@@ -534,8 +534,9 @@ void EmbcacheManager::CheckEmbeddingDim(const std::shared_ptr<FileSystem>& fileS
 {
     if (dataFilePath.substr(dataFilePath.size() - DATA_SUFFIX.length()) != DATA_SUFFIX) {
         LOG_ERROR("Check embedding data file dim error, dataFilePath is not end with `data`.");
+        throw std::runtime_error("Check embedding data file dim error, dataFilePath is not end with `data`.");
     }
-    std::string embAttrFile = dataFilePath.substr(dataFilePath.size() - DATA_SUFFIX.length()) + ATTR_SUFFIX;
+    std::string embAttrFile = dataFilePath.substr(0, dataFilePath.size() - DATA_SUFFIX.length()) + ATTR_SUFFIX;
     std::vector<int64_t> embAttrVec;
     ReadAttributeData(fileSystemPtr, embAttrFile, embAttrVec, EMB_ATTRIBUTE_DATA_LEN);
     auto embDimFromFile = embAttrFile[EMB_ATTRIBUTE_DATA_LEN - 1];
