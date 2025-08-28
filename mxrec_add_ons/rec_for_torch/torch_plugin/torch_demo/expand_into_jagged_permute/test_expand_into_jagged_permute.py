@@ -131,7 +131,7 @@ def test_expand_into_jagged_permute_random(num_features, max_batch_size):
 
 def test_expand_into_jagged_permute_large_input():
     """测试非常大的输入情况"""
-    num_features = 512
+    num_features = 10000
     max_batch_size = 100
 
     test_data = generate_test_data(num_features, max_batch_size)
