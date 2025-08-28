@@ -20,7 +20,6 @@ from torchrec_embcache.utils import check_path
 SAVE_PATH_MAX_LEN = 1024
 TIMESTAMP_FORMAT = "%Y%m%d%H%M%S"
 _SAVE_PATH_MIN_LEN = 1
-_FILE_MODE = 0o640
 _DIR_MODE = 0o750
 
 

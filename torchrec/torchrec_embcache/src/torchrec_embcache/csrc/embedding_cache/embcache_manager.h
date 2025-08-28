@@ -134,13 +134,11 @@ public:
 
     void RecordEmbeddingUpdateTimes();
 
-    void Save(const std::string path, const int rank);
-    void SaveOld(const std::string path, const int rank);
+    void Save(const std::string& path, const int rank);
 
     void Embedding2Host(const at::Tensor& weightsDev, const std::vector<at::Tensor>& momentumDev);
 
     void Load(const std::string& path, int rank);
-    void LoadOld(const std::string& path, int rank);
 
 private:
     SwapInfo ComputeSwapInfo(const at::Tensor& batchKeys, const std::vector<int64_t>& offsetPerKey,
@@ -156,30 +154,20 @@ private:
 
     bool NeedEvictEmbeddingTable();
     void RemoveEmbeddingTableInfo();
-    std::shared_ptr<FileSystem> GetFileSystem(const std::string& path);
 
-    /**
-     * 读取指定文件。 示例：save_dir/sparse/table1/rank0/key/slice.data
-     * @tparam T 数据类型泛型
-     * @param filePath 示例：save_dir/sparse/table1/rank0
-     * @param dataOutputs 输出参数，读取到的数据集合
-     * @param loadItemName 读取哪一种类别文件，示例：key
-     * @param detailFileName 具体文件名称，示例：/slice.data
-     * @return code
-     */
-    template <class T>
-    static int32_t ReadFile(const std::string& filePath, std::vector<T>& dataOutputs, const std::string& loadItemName,
-                            const std::string& detailFileName = "/slice.data");
-
-    static int32_t ReadFile(const std::string& filePath, std::vector<std::vector<float>>& embedding,
-                            const std::string& loadItemName, int32_t embDim);
-    std::ofstream OpenFile(const std::string& path);
-    void WriteData(std::ofstream& file, const char* dataPtr, size_t bytes);
-
-    std::string GetDevWeightsShape(const at::Tensor& weightsDev) const;
-    void WriteOptimizerAttributeFile(int32_t i, std::string& fileMomentum1SliceAttr,
-                                     std::string& fileMomentum2SliceAttr, size_t count,
-                                     const std::shared_ptr<FileSystem>& fileSystemPtr);
+    void WriteAttributeFile(int32_t tableIndex, const std::string& pathPrefix, size_t count,
+                            const std::shared_ptr<FileSystem>& fileSystemPtr);
+    void CreateMomentumDir(const std::string& pathPrefix, const std::shared_ptr<FileSystem>& fileSystemPtr) const;
+    void WriteData(const std::shared_ptr<FileSystem>& fileSystemPtr, const std::string& filePath, const char* dataAddr,
+                   size_t dataSize);
+    static std::shared_ptr<FileSystem> GetFileSystem(const std::string& path);
+    static void ReadEmbeddings(std::shared_ptr<FileSystem>& fileSystemPtr,
+                               std::vector<std::vector<float>>& embeddings,
+                               const string& filePath, size_t vectorSize, TableRankParam tableParams) ;
+    static void RecordLoadDebugInfo(const vector<int64_t>& keys, const vector<std::vector<float>>& embeddings,
+                                    const vector<std::vector<float>>& momentum1,
+                                    const vector<std::vector<float>>& momentum2, TableRankParam tableParams);
+    static std::string GetDevWeightsShape(const at::Tensor& weightsDev);
 
 private:
     int32_t embNum_;
@@ -196,12 +184,6 @@ private:
 
     // 计算换入换出offset时是否要累加表外偏移. 逻辑上作为一个大表处理时设置为true，否则false
     bool needAccumulateOffset_ = true;
-    void ReadEmbeddings(std::shared_ptr<FileSystem>& fileSystemPtr,
-                        std::vector<std::vector<float>>& embeddings,
-                        const string& filePath, size_t vector_size, TableRankParam tableParams) const;
-    void RecordLoadDebugInfo(const vector<int64_t>& keys, const vector<std::vector<float>>& embeddings,
-                             const vector<std::vector<float>>& momentum1,
-                             const vector<std::vector<float>>& momentum2, TableRankParam tableParams) const;
 };
 }  // namespace Embcache
 #endif  // EMBEDDING_CACHE_EMBEDDING_MANAGER_H

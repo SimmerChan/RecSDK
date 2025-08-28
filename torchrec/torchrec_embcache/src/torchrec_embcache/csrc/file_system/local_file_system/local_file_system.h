@@ -53,9 +53,7 @@ private:
     const string prevDir;
 };
 
-
 bool CheckFilePermission(const string& filePath);
-
 
 void ValidateReadFile(const string& dataDir, size_t datasetSize);
 
