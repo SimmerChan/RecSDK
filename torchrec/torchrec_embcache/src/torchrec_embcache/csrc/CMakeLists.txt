@@ -23,7 +23,7 @@ find_package(pybind11 REQUIRED)
 
 find_package(Threads REQUIRED)
 
-file(GLOB SOURCES
+file(GLOB_RECURSE SOURCES
         ./common/*.cpp
         ./emb_table/*.cpp
         ./embedding_cache/*.cpp
