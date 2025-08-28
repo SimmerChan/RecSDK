@@ -36,8 +36,8 @@ std::string StringFormat(const std::string& format, Args... args)
     }
     return std::string(buf.get(), buf.get() + nChar);
 }
-
-std::string GetChipName(int devID);
+uint32_t GetDeviceCount();
+std::string GetChipName(uint32_t devID);
 }
 
 #endif //RECSDK_REFACTORING_COMMON_FUNC_H
