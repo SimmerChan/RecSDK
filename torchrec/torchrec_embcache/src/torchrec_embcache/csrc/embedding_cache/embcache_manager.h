@@ -92,6 +92,15 @@ struct SwapinTensor {
     at::Tensor jaggedOffs;                 // 区分每个表
 };
 
+struct TableRankParam {
+    TableRankParam(const std::string& tableName, int32_t tableIndex, int32_t embDim, int rank)
+        : tableName(tableName), tableIndex(tableIndex), embDim(embDim), rank(rank) {}
+    std::string tableName;
+    int32_t tableIndex;
+    int32_t embDim;
+    int rank;
+};
+
 class EmbcacheManager {
 public:
     explicit EmbcacheManager(const std::vector<EmbConfig>& embConfigs, bool needAccumulateOffset = true);
@@ -131,6 +140,7 @@ public:
     void Embedding2Host(const at::Tensor& weightsDev, const std::vector<at::Tensor>& momentumDev);
 
     void Load(const std::string& path, int rank);
+    void LoadOld(const std::string& path, int rank);
 
 private:
     SwapInfo ComputeSwapInfo(const at::Tensor& batchKeys, const std::vector<int64_t>& offsetPerKey,
@@ -186,6 +196,12 @@ private:
 
     // 计算换入换出offset时是否要累加表外偏移. 逻辑上作为一个大表处理时设置为true，否则false
     bool needAccumulateOffset_ = true;
+    void ReadEmbeddings(std::shared_ptr<FileSystem>& fileSystemPtr,
+                        std::vector<std::vector<float>>& embeddings,
+                        const string& filePath, size_t vector_size, TableRankParam tableParams) const;
+    void RecordLoadDebugInfo(const vector<int64_t>& keys, const vector<std::vector<float>>& embeddings,
+                             const vector<std::vector<float>>& momentum1,
+                             const vector<std::vector<float>>& momentum2, TableRankParam tableParams) const;
 };
 }  // namespace Embcache
 #endif  // EMBEDDING_CACHE_EMBEDDING_MANAGER_H

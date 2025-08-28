@@ -19,6 +19,7 @@
 #include "utils/logger.h"
 #include "utils/string_tools.h"
 #include "utils/time_cost.h"
+#include "hash_table/hash_bucket.h"
 
 using namespace Embcache;
 
@@ -483,7 +484,7 @@ void EmbcacheManager::WriteData(std::ofstream& file, const char* dataPtr, size_t
     }
 }
 
-void EmbcacheManager::Load(const std::string& path, int rank)
+void EmbcacheManager::LoadOld(const std::string& path, int rank)
 {
     for (int32_t i = 0; i < embNum_; i++) {
         std::string tableName = embConfigs_[i].tableName;
@@ -533,6 +534,91 @@ void EmbcacheManager::Load(const std::string& path, int rank)
             embeddingTables_[i]->InsertOrAssign(insertKey, embeddings[k].data(), momentum);
         }
     }
+}
+
+void EmbcacheManager::Load(const std::string& path, int rank)
+{
+    auto fileSystemPtr = GetFileSystem(path);
+    for (int32_t i = 0; i < embNum_; i++) {
+        std::string tableName = embConfigs_[i].tableName;
+        TableRankParam tableParams(embConfigs_[i].tableName, i, embConfigs_[i].embDim, rank);
+        LOG_INFO("Start load, rank:{}, table:{}.", rank, tableName);
+        std::string filePrefix = path + "/" + tableName + "/rank" + std::to_string(rank);
+        std::string keyFilePath = filePrefix + "/key/slice.data";
+        size_t keyFileBytes = fileSystemPtr->GetFileSize(keyFilePath);
+        if (keyFileBytes / sizeof(int64_t) * sizeof(int64_t) != keyFileBytes) {
+            auto errMsg = Logger::Format("Key file bytes is not an integer multiple of type int64_t, key file:{}",
+                                         keyFilePath);
+            LOG_ERROR(errMsg);
+            throw std::runtime_error(errMsg);
+        }
+
+        std::vector<int64_t> keys(keyFileBytes / sizeof(int64_t));
+        fileSystemPtr->Read(keyFilePath, reinterpret_cast<char*>(keys.data()), keyFileBytes);
+
+        std::vector<std::vector<float>> embeddings;
+        std::string embFilePath = filePrefix + "/embedding/slice.data";
+        ReadEmbeddings(fileSystemPtr, embeddings, embFilePath, keys.size(), tableParams);
+
+        std::vector<std::vector<float>> momentum1;
+        if (optimNum_ > 0) {
+            std::string momentum1FilePath = filePrefix + "/momentum1/slice.data";
+            ReadEmbeddings(fileSystemPtr, momentum1, momentum1FilePath, keys.size(), tableParams);
+        }
+
+        std::vector<std::vector<float>> momentum2;
+        if (optimNum_ > 1) {
+            std::string momentum2FilePath = filePrefix + "/momentum2/slice.data";
+            ReadEmbeddings(fileSystemPtr, momentum2, momentum2FilePath, keys.size(), tableParams);
+        }
+
+        RecordLoadDebugInfo(keys, embeddings, momentum1, momentum2, tableParams);
+
+        for (size_t k = 0; k < keys.size(); k++) {
+            std::vector<int64_t> insertKey = {keys[k]};
+            std::vector<float*> momentum = {};
+            if (optimNum_ > 0) {
+                momentum.emplace_back(momentum1[k].data());
+            }
+            if (optimNum_ > 1) {
+                momentum.emplace_back(momentum2[k].data());
+            }
+            embeddingTables_[i]->InsertOrAssign(insertKey, embeddings[k].data(), momentum);
+        }
+    }
+}
+
+void EmbcacheManager::RecordLoadDebugInfo(const vector<int64_t>& keys, const vector<std::vector<float>>& embeddings,
+                                          const vector<std::vector<float>>& momentum1,
+                                          const vector<std::vector<float>>& momentum2, TableRankParam tableParams) const
+{
+    if (Logger::GetLevel() > Logger::DEBUG) {
+        return;
+    }
+    std::vector<float> emptyList = {};
+    for (size_t j = 0; j < keys.size(); ++j) {
+        std::vector<float> m1 = momentum1.empty() ? emptyList : momentum1[j];
+        std::vector<float> m2 = momentum2.empty() ? emptyList : momentum2[j];
+        LOG_DEBUG("In load, rank:{}, table:{}, current key:{}, embedding:{}, momentum1:{}, momentum2:{}.",
+                  tableParams.rank, tableParams.tableName, keys[j], StringTools::ToString(embeddings[j]),
+                  StringTools::ToString(m1), StringTools::ToString(m2));
+    }
+}
+
+void EmbcacheManager::ReadEmbeddings(std::shared_ptr<FileSystem>& fileSystemPtr,
+                                     std::vector<std::vector<float>>& embeddings,
+                                     const string& filePath, size_t vector_size, TableRankParam tableParams) const
+{
+    int32_t embDim = tableParams.embDim;
+    std::vector<int64_t> offsetVec(vector_size);
+    for (size_t i = 0; i < vector_size; ++i) {
+        std::vector<float> embedding(embDim);
+        embeddings.emplace_back(embedding);
+    }
+    std::iota(offsetVec.begin(), offsetVec.end(), 0);
+    fileSystemPtr->Read(filePath, embeddings, 0, offsetVec, vector_size);
+    LOG_INFO("In load, rank:{}, table:{}, keys size:{}, embeddings size:{}.",
+             tableParams.rank, tableParams.tableName, vector_size, embeddings.size());
 }
 
 template <class T>
