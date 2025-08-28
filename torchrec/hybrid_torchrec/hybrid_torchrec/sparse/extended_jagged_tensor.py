@@ -13,7 +13,7 @@ from torchrec.sparse.jagged_tensor import (
     JaggedTensor,
     KeyedJaggedTensor,
 )
-from torchrec.pt2.checks import  is_non_strict_exporting
+from torchrec.pt2.checks import is_non_strict_exporting
 
 T = TypeVar('T', bound='ExtendedJaggedTensor')
 K = TypeVar('K', bound='KeyedExtendedJaggedTensor')
