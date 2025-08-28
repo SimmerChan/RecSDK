@@ -428,18 +428,11 @@ void EmbcacheManager::Load(const std::string& path, int rank)
         LOG_INFO("Start load, rank:{}, table:{}.", rank, tableName);
         TableRankParam tableParams(embConfigs_[i].tableName, i, embConfigs_[i].embDim, rank);
         std::string filePrefix = path + "/" + tableName + "/rank" + std::to_string(rank);
-        std::string keyFilePath = filePrefix + "/key/slice.data";
-        size_t keyFileBytes = fileSystemPtr->GetFileSize(keyFilePath);
-        if (keyFileBytes / sizeof(int64_t) * sizeof(int64_t) != keyFileBytes) {
-            auto errMsg =
-                Logger::Format("Key file bytes is not an integer multiple of type int64_t, key file:{}", keyFilePath);
-            LOG_ERROR(errMsg);
-            throw std::runtime_error(errMsg);
-        }
 
         // load key and embedding
-        std::vector<int64_t> keys(keyFileBytes / sizeof(int64_t));
-        fileSystemPtr->Read(keyFilePath, reinterpret_cast<char*>(keys.data()), keyFileBytes);
+        std::vector<int64_t> keys;
+        ReadKeysData(fileSystemPtr, filePrefix, keys);
+
         std::vector<std::vector<float>> embeddings;
         std::string embFilePath = filePrefix + "/embedding/slice.data";
         ReadEmbeddings(fileSystemPtr, embeddings, embFilePath, keys.size(), tableParams);
@@ -473,7 +466,7 @@ void EmbcacheManager::Load(const std::string& path, int rank)
 
 void EmbcacheManager::RecordLoadDebugInfo(const vector<int64_t>& keys, const vector<std::vector<float>>& embeddings,
                                           const vector<std::vector<float>>& momentum1,
-                                          const vector<std::vector<float>>& momentum2, TableRankParam tableParams)
+                                          const vector<std::vector<float>>& momentum2, const TableRankParam& tableParams)
 {
     if (Logger::GetLevel() > Logger::TRACE) {
         return;
@@ -488,12 +481,79 @@ void EmbcacheManager::RecordLoadDebugInfo(const vector<int64_t>& keys, const vec
     }
 }
 
-void EmbcacheManager::ReadEmbeddings(std::shared_ptr<FileSystem>& fileSystemPtr,
+void EmbcacheManager::ReadAttributeData(const std::shared_ptr<FileSystem>& fileSystemPtr, const string& filePath,
+                                        std::vector<int64_t>& dataVec, int dataCount)
+{
+    dataVec.resize(dataCount, ATTR_VEC_INIT_VALUE);
+    auto attrBytes = dataCount * sizeof(int64_t);
+    auto readBytes = fileSystemPtr->Read(filePath, reinterpret_cast<char*>(dataVec.data()),
+                                         dataCount * sizeof(int64_t));
+    if (readBytes != static_cast<ssize_t>(attrBytes)) {
+        auto errMsg =
+            Logger::Format("Read key attribute file error, expect read bytes:{}, actual read bytes:{}, file:{}",
+                           filePath, attrBytes, readBytes);
+        throw std::runtime_error(errMsg);
+    }
+}
+
+void EmbcacheManager::ReadKeysData(const std::shared_ptr<FileSystem>& fileSystemPtr, const string& filePrefix,
+                                   std::vector<int64_t>& keys)
+{
+    // read attribute
+    std::string keyAttrFile = filePrefix + "/key/slice.attribute";
+    std::vector<int64_t> keyAttrVec;
+    ReadAttributeData(fileSystemPtr, keyAttrFile, keyAttrVec, KEY_ATTRIBUTE_DATA_LEN);
+
+    if (keyAttrVec[1] == ATTR_VEC_INIT_VALUE || keyAttrVec[1] > KEY_SIZE_MAX) {
+        auto errMsg =
+            Logger::Format("Read key attribute file error, keys count is invalid:{}, file:{}.",
+                           keyAttrVec[1],
+                                     keyAttrFile);
+        throw std::runtime_error(errMsg);
+    }
+
+    std::string keyDataFile = filePrefix + "/key/slice.data";
+    size_t keyFileBytes = fileSystemPtr->GetFileSize(keyDataFile);
+    if (keyFileBytes % sizeof(int64_t) != 0 || keyFileBytes / sizeof(int64_t) != keyAttrVec[1]) {
+        auto errMsg =
+            Logger::Format("Key file bytes is not an integer multiple of type int64_t, key file:{}", keyDataFile);
+        LOG_ERROR(errMsg);
+        throw std::runtime_error(errMsg);
+    }
+    keys.resize(keyAttrVec[1], INVALID_KEY);
+    auto readBytes = fileSystemPtr->Read(keyDataFile, reinterpret_cast<char*>(keys.data()), keyFileBytes);
+    if (readBytes != static_cast<ssize_t>(keyFileBytes)) {
+        auto errMsg = Logger::Format("Read key data file error, expect read bytes:{}, actual read bytes:{}, file:{}",
+                                     keyDataFile, keyFileBytes, readBytes);
+        throw std::runtime_error(errMsg);
+    }
+}
+
+void EmbcacheManager::CheckEmbeddingDim(const std::shared_ptr<FileSystem>& fileSystemPtr, const string& dataFilePath,
+                                        const TableRankParam& tableParams)
+{
+    if (dataFilePath.substr(dataFilePath.size() - DATA_SUFFIX.length()) != DATA_SUFFIX) {
+        LOG_ERROR("Check embedding data file dim error, dataFilePath is not end with `data`.");
+    }
+    std::string embAttrFile = dataFilePath.substr(dataFilePath.size() - DATA_SUFFIX.length()) + ATTR_SUFFIX;
+    std::vector<int64_t> embAttrVec;
+    ReadAttributeData(fileSystemPtr, embAttrFile, embAttrVec, EMB_ATTRIBUTE_DATA_LEN);
+    auto embDimFromFile = embAttrFile[EMB_ATTRIBUTE_DATA_LEN - 1];
+    if (embDimFromFile == ATTR_VEC_INIT_VALUE || embDimFromFile != tableParams.embDim) {
+        auto errMsg = Logger::Format(
+            "Embedding or momentum dim error, load data dim from attribute:{}, current table dim:{}, file:{}.",
+                           embDimFromFile, tableParams.embDim, embAttrFile);
+        throw std::runtime_error(errMsg);
+    }
+}
+
+void EmbcacheManager::ReadEmbeddings(const std::shared_ptr<FileSystem>& fileSystemPtr,
                                      std::vector<std::vector<float>>& embeddings, const string& filePath,
-                                     size_t vectorSize, TableRankParam tableParams)
+                                     size_t vectorSize, const TableRankParam& tableParams)
 {
     LOG_INFO("In load, rank:{}, table:{}, start load file data:{}.", tableParams.rank, tableParams.tableName, filePath);
     int32_t embDim = tableParams.embDim;
+    CheckEmbeddingDim(fileSystemPtr, filePath, tableParams);
     for (size_t i = 0; i < vectorSize; ++i) {
         std::vector<float> tmp(embDim);
         embeddings.emplace_back(tmp);
