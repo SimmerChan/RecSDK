@@ -15,14 +15,13 @@ See the License for the specific language governing permissions and
 
 #include <sstream>
 #include <dsmi_common_interface.h>
-#include <acl/acl_base.h>
-#include <acl/acl_rt.h>
 #include "log/logger.h"
 #include "common_func.h"
 
 namespace MxRec {
     const int GLOG_MAX_BUF_SIZE = 1024;
     const char* HUGE_TLB_ENABLE = "HUGE_TLB_ENABLE";
+    const MAX_DEVICE_ID = 15;
 
     uint32_t GetDeviceCount()
     {
@@ -36,8 +35,7 @@ namespace MxRec {
 
     std::string GetChipName(uint32_t devID)
     {
-        uint32_t d_count = GetDeviceCount();
-        if (devID < 0 || devID > (d_count - 1)) {
+        if (devID < 0 || devID > MAX_DEVICE_ID) {
             throw std::runtime_error("The failed to get chip name.");
         }
         int ret = 0;
