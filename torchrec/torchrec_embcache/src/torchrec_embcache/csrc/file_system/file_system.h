@@ -48,6 +48,7 @@ public:
     virtual ssize_t Read(const string& filePath, vector<vector<float>>& fileContent, int64_t contentOffset,
                          vector<int64_t> offsetArr, const size_t& embeddingSize) = 0;
     virtual void CreateFileDir(const string& filePath) = 0;
+    virtual void Valid4WriteDir(const string& fileDirPath) = 0;
     // The parameter oneTimeReadWriteLen specifies the maximum length of a file read or write at a time.
     // The parameter can be adjusted based on the service requirements.
     const size_t oneTimeReadWriteLen = 32768;
