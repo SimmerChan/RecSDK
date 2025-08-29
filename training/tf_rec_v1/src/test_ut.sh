@@ -126,8 +126,11 @@ compile_securec
 
 function common_dt() {
     cd ${common_src_path}
+    chmod +x ./test_ut.sh
     bash ./test_ut.sh
-    [ -d "${COVERAGE_COMMON_FILE}" ] && cp ./${COVERAGE_FILE} ${tf1_src_path}/${COVERAGE_COMMON_FILE}
+    echo "###############cp common dt"
+    [ -d "${COVERAGE_FILE}" ] && cp ./${COVERAGE_FILE} ${tf1_src_path}/${COVERAGE_COMMON_FILE}
+    echo "###############cp common dt end"
 }
 
 echo "###############begin common dt"
