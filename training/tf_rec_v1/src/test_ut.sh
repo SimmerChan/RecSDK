@@ -130,8 +130,10 @@ function common_dt() {
     [ -d "${COVERAGE_COMMON_FILE}" ] && cp ./${COVERAGE_FILE} ${tf1_src_path}/${COVERAGE_COMMON_FILE}
 }
 
+echo "###############begin common dt"
 common_dt
-
+echo "###############finish common dt"
+echo "###############begin tf1 dt"
 function compile_common_so_file() {
     cd "${common_src_path}"
     chmod u+x build.sh
