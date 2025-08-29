@@ -542,25 +542,7 @@ enum CTRLogLevel {  // can't use enum class due to compatibility for AccCTR
     ERROR,
 };
 
-static void CTRLog(int level, const char* msg)
-{
-    switch (level) {
-        case CTRLogLevel::DEBUG:
-            LOG_DEBUG(msg);
-            break;
-        case CTRLogLevel::INFO:
-            LOG_INFO(msg);
-            break;
-        case CTRLogLevel::WARN:
-            LOG_WARN(msg);
-            break;
-        case CTRLogLevel::ERROR:
-            LOG_ERROR(msg);
-            break;
-        default:
-            break;
-    }
-}
+void CTRLog(int level, const char* msg);
 
 ostream& operator<<(ostream& ss, MxRec::CkptDataType type);
 bool CheckFilePermission(const string& filePath);
