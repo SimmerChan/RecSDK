@@ -28,5 +28,3 @@ TEST(TESTToString, Basic)
     bool contain = (ret.find("CheckPoint") && ret.find("NotSupported"));
     EXPECT_TRUE(contain);
 }
-
-
