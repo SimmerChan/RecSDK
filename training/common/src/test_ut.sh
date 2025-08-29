@@ -137,8 +137,8 @@ cd "$(dirname "${PWD}")"
 
 COVERAGE_FILE=coverage.info
 REPORT_FOLDER=coverage_report
-lcov --rc lcov_branch_coverage=1 --filter branch -c -d build -o "${COVERAGE_FILE}"_tmp
-lcov -r "${COVERAGE_FILE}"_tmp 'ut/*' '7/ext*' '*7/bits*' 'platform/*' '/usr/local/*' '/usr/include/*' '/opt/buildtools/python-3.7.5/lib/python3.7/site-packages/tensorflow*' '/opt/rh/devtoolset-7/root/usr/lib/gcc/x86_64-redhat-linux/7/include/*' 'tests/*' --rc lcov_branch_coverage=1 --filter branch --ignore-errors unused,unused -o "${COVERAGE_FILE}"
+lcov --rc lcov_branch_coverage=1 -c -d build -o "${COVERAGE_FILE}"_tmp
+lcov -r "${COVERAGE_FILE}"_tmp 'ut/*' '7/ext*' '*7/bits*' 'platform/*' '/usr/local/*' '/usr/include/*' '/opt/buildtools/python-3.7.5/lib/python3.7/site-packages/tensorflow*' '/opt/rh/devtoolset-7/root/usr/lib/gcc/x86_64-redhat-linux/7/include/*' 'tests/*' --rc lcov_branch_coverage=1 --ignore-errors unused,unused -o "${COVERAGE_FILE}"
 echo "###############end common dt"
 exit 0
 #genhtml "${COVERAGE_FILE}" --output-directory "${REPORT_FOLDER}" --branch-coverage --filter branch
