@@ -10,10 +10,6 @@
 
 #include "../common/pytorch_npu_helper.hpp"
 #include "../common/common_utils.h"
-using namespace at;
-using namespace std;
-
-constexpr int EXPECTED_DIM_1D = 1;
 
 /**
  * 验证permute1d_sparse_data的输入参数

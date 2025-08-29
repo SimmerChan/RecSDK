@@ -12,14 +12,6 @@
 
 #include "../common/pytorch_npu_helper.hpp"
 #include "../common/common_utils.h"
-using torch::autograd::AutogradContext;
-using torch::autograd::Function;
-using torch::autograd::Variable;
-using tensor_list = std::vector<at::Tensor>;
-using namespace at;
-
-constexpr int EXPECTED_DIM_1D = 1;
-constexpr int EXPECTED_DIM_2D = 2;
 
 namespace fbgemm_npu {
 at::Tensor dense_to_jagged_forward_npu(const at::Tensor& dense,

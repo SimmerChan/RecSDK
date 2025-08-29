@@ -13,6 +13,16 @@
 
 #include <ATen/ATen.h>
 #include <string>
+using torch::autograd::AutogradContext;
+using torch::autograd::Function;
+using torch::autograd::Variable;
+using tensor_list = std::vector<at::Tensor>;
+using namespace at;
+using namespace std;
+
+constexpr int EXPECTED_DIM_1D = 1;
+constexpr int EXPECTED_DIM_2D = 2;
+constexpr int EXPECTED_DIM_3D = 3;
 
 /**
  * @file common_utils.h

@@ -12,15 +12,6 @@
 
 #include "../common/pytorch_npu_helper.hpp"
 #include "../common/common_utils.h"
-using torch::autograd::AutogradContext;
-using torch::autograd::Function;
-using torch::autograd::Variable;
-using tensor_list = std::vector<at::Tensor>;
-using namespace at;
-
-constexpr int EXPECTED_DIM_1D = 1;
-constexpr int EXPECTED_DIM_2D = 2;
-constexpr int EXPECTED_DIM_3D = 3;
 
 at::Tensor jagged_to_padded_dense_forward_npu(const at::Tensor& values,
                                               const tensor_list& offsets,
