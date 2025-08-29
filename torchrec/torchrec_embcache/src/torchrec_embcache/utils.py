@@ -22,10 +22,29 @@ def check_str(string_value: str, min_length: int, max_length: int) -> None:
         raise ValueError(f"string param length is invalid, length limit:[{min_length}, {max_length}]")
 
 
-def check_path(value: str, min_len: int = _STRING_MIN_LEN, max_len: int = _STRING_MAX_LEN,
-               need_exist: bool = False, file_size_min: int = None, file_size_max: int = None, is_dir: bool = False,
-               black_dirs: List[str] = None, sensitive_words: List[str] = None) -> None:
-    check_str(value, min_len, max_len)
+def check_path(value: str, need_exist: bool = False, is_dir: bool = False, **kwargs) -> None:
+    """
+    Check path whether valid.
+
+    Args:
+        value (str): check path str.
+        need_exist (bool): check path need exist if True, default is False.
+        is_dir (bool): Check that the path needs to be a directory if True, default is False.
+        **kwargs: other parameter dict.
+            file_size_min: int = 0,
+            file_size_max: int = 0,
+            black_dirs: List[str] = None,
+            sensitive_words: List[str] = None
+
+    Returns:
+        None.
+    """
+    file_size_min: int = kwargs.get("file_size_min", 0)
+    file_size_max: int = kwargs.get("file_size_max", 0)
+    black_dirs: List[str] = kwargs.get("black_dirs", [])
+    sensitive_words: List[str] = kwargs.get("sensitive_words", [])
+
+    check_str(value, _STRING_MIN_LEN, _STRING_MAX_LEN)
     if os.path.abspath(value) != os.path.realpath(value):
         raise ValueError(f"soft link or relative path can't be a path param, got:{value}")
     if need_exist and not os.path.exists(os.path.realpath(value)):
@@ -56,6 +75,7 @@ def check_path(value: str, min_len: int = _STRING_MIN_LEN, max_len: int = _STRIN
     if is_dir and not current_is_dir:
         raise ValueError(f"expected path param is a directory, but file not exist or not a directory")
 
+    file_exist = os.path.exists(os.path.realpath(value))
     if file_exist and not os.path.isdir(value):
         file_bytes = Path(value).stat().st_size
         if file_size_min and file_bytes < file_size_min:
