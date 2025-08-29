@@ -1757,6 +1757,11 @@ void KeyProcess::EnqueueEosBatch(int64_t batchNum, int channelId)
 {
     LOG_INFO("Enqueue dataSet eos on batch queue, channel:{}, eos number:{}", channelId, batchNum);
     int threadNum = GetThreadNumEnv();
+    if (threadNum == 0) {
+        LOG_ERROR("threadNum cannot be equal to 0.");
+        return;
+    }
+
     int batchQueueId = int(batchNum % threadNum) + (MAX_KEY_PROCESS_THREAD * channelId);
     auto queue = SingletonQueue<EmbBatchT>::GetInstances(batchQueueId);
     for (auto& emb : embInfos) {
