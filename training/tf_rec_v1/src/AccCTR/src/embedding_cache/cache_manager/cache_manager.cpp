@@ -29,7 +29,7 @@ int EmbCacheManagerImpl::CreateCacheForTable(const EmbCacheInfo& embCacheInfo,
                                              const std::vector<InitializerInfo>& initializerInfos, int64_t invalidKey,
                                              uint64_t prefillBufferSize, uint32_t refillThreadNum)
 {
-    int checkTableNameRet = CheckCreateTableName(embCacheInfo.tableName)
+    int checkTableNameRet = CheckCreateTableName(embCacheInfo.tableName);
     if (checkTableNameRet != H_OK) { return checkTableNameRet; }
 
     if (embCacheInfo.extEmbeddingSize == 0 || embCacheInfo.embeddingSize == 0 || embCacheInfo.vocabSize == 0 ||
