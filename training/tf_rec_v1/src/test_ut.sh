@@ -115,7 +115,11 @@ function prepare_pybind(){
   fi
 }
 
-
+function compile_common_so_file() {
+    cd "${common_src_path}"
+    chmod u+x build.sh
+    ./build.sh "${ROOT_DIR}" "YES"
+}
 
 prepare_pybind
 echo "opensource path:${opensource_path}"
