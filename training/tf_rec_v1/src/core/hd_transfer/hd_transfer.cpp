@@ -127,11 +127,11 @@ void HDTransfer::CreateChannel(const uint32_t localRankId, const string& embName
         std::string sendName =
             StringFormat("%s_%s_%d", embName.c_str(), TransferChannel2Str(channel).c_str(), channelNum);
 
-        if (channel == TransferChannel::ALL2ALL || channel == TransferChannel::RESTORE ||
-            channel == TransferChannel::LOOKUP || channel == TransferChannel::RESTORE_SECOND ||
-            channel == TransferChannel::UNIQKEYS || channel == TransferChannel::EVICT ||
-            channel == TransferChannel::SWAP || channel == TransferChannel::MASK ||
-            channel == TransferChannel::RECVSHAPE) {
+        if (TransferChannel2Str(channel) == "all2all" || TransferChannel2Str(channel) == "restore" ||
+            TransferChannel2Str(channel) == "lookup" || TransferChannel2Str(channel) == "restore_second" ||
+            TransferChannel2Str(channel) == "uniquekeys" || TransferChannel2Str(channel) == "evict" ||
+            TransferChannel2Str(channel) == "swap" || TransferChannel2Str(channel) == "mask" ||
+            TransferChannel2Str(channel) == "recvshape") {
             transferChannels[sendName] = TDT_CREATE_CHANNEL(localRankId, sendName.c_str(), channelSize);
         } else {
             transferChannels[sendName] = TDT_CREATE_CHANNEL(localRankId, sendName.c_str(), PING_PONG_SIZE);
@@ -412,39 +412,3 @@ void HDTransfer::RecordTrainingChannelStr(TransferChannel channel, const int cha
     }
 #endif
 }
-
-string TransferChannel2Str(TransferChannel e)
-{
-    switch (e) {
-        case TransferChannel::RESTORE_SECOND:
-            return "restore_second";
-        case TransferChannel::D2H:
-            return "d2h";
-        case TransferChannel::RESTORE:
-            return "restore";
-        case TransferChannel::ALL2ALL:
-            return "all2all";
-        case TransferChannel::UNIQKEYS:
-            return "uniquekeys";
-        case TransferChannel::LOOKUP:
-            return "lookup";
-        case TransferChannel::MASK:
-            return "mask";
-        case TransferChannel::EVICT:
-            return "evict";
-        case TransferChannel::H2D:
-            return "h2d";
-        case TransferChannel::SWAP:
-            return "swap";
-        case TransferChannel::SAVE_D2H:
-            return "save_d2h";
-        case TransferChannel::SAVE_H2D:
-            return "save_h2d";
-        case TransferChannel::KEY_D2H:
-            return "key_d2h";
-        case TransferChannel::RECVSHAPE:
-            return "recvshape";
-        default:
-            throw std::invalid_argument("Invalid TransferChannel");
-    }
-};

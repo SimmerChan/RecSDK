@@ -54,7 +54,41 @@ enum class TransferChannel {
     INVALID,
 };
 
-string TransferChannel2Str(TransferChannel e);
+inline string TransferChannel2Str(TransferChannel e)	
+{
+    switch (e) {
+        case TransferChannel::RESTORE_SECOND:
+            return "restore_second";
+        case TransferChannel::D2H:
+            return "d2h";
+        case TransferChannel::RESTORE:
+            return "restore";
+        case TransferChannel::ALL2ALL:
+            return "all2all";
+        case TransferChannel::UNIQKEYS:
+            return "uniquekeys";
+        case TransferChannel::LOOKUP:
+            return "lookup";
+        case TransferChannel::MASK:
+            return "mask";
+        case TransferChannel::EVICT:
+            return "evict";
+        case TransferChannel::H2D:
+            return "h2d";
+        case TransferChannel::SWAP:
+            return "swap";
+        case TransferChannel::SAVE_D2H:
+            return "save_d2h";
+        case TransferChannel::SAVE_H2D:
+            return "save_h2d";
+        case TransferChannel::KEY_D2H:
+            return "key_d2h";
+        case TransferChannel::RECVSHAPE:
+            return "recvshape";
+        default:
+            throw std::invalid_argument("Invalid TransferChannel");
+    }
+};
 
 class HDTransfer {
 public:
