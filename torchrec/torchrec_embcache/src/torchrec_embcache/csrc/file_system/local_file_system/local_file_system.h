@@ -26,6 +26,7 @@ namespace MxRec {
 using namespace std;
 const int DIR_RIGHT_MODE = 0750;
 const int FILE_RIGHT_MODE = 0640;
+const int FILE_PATH_LEN_MAX = 1024;
 class LocalFileSystem : public FileSystem {
 public:
     LocalFileSystem() : dirMode(DIR_RIGHT_MODE), fileMode(FILE_RIGHT_MODE), currDir("."), prevDir("..") {}
@@ -41,6 +42,7 @@ public:
     ssize_t Read(const string& filePath, char* fileContent, size_t datasetSize) override;
     ssize_t Read(const string& filePath, vector<vector<float>>& fileContent, int64_t contentOffset,
                  vector<int64_t> offsetArr, const size_t& embeddingSize) override;
+    void Valid4WriteDir(const string& fileDirPath) override;
     void CreateFileDir(const string& filePath) override;
     void CheckOpenFileRet(FILE* fp, const string& filePath);
 
@@ -53,9 +55,7 @@ private:
     const string prevDir;
 };
 
-
 bool CheckFilePermission(const string& filePath);
-
 
 void ValidateReadFile(const string& dataDir, size_t datasetSize);
 

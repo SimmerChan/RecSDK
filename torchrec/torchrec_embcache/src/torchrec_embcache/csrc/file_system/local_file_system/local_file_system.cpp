@@ -213,7 +213,10 @@ ssize_t LocalFileSystem::Read(const string& filePath, vector<vector<float>>& fil
     try {
         ValidateReadFile(filePath, GetFileSize(filePath));
     } catch (const std::invalid_argument& e) {
-        fclose(fp);
+        auto ret = fclose(fp);
+        if (ret != 0) {
+            LOG_ERROR("Close file failed, file:{}", filePath);
+        }
         auto errMsg = Logger::Format("Invalid read file path: {}.", filePath);
         LOG_ERROR(errMsg);
         throw std::runtime_error(errMsg);
@@ -241,7 +244,12 @@ ssize_t LocalFileSystem::Read(const string& filePath, vector<vector<float>>& fil
         readBytesNum += embeddingSize * sizeof(float);
     }
 
-    fclose(fp);
+    auto ret = fclose(fp);
+    if (ret != 0) {
+        auto errMsg = Logger::Format("Close file failed, file:{}", filePath);
+        LOG_ERROR(errMsg);
+        throw std::runtime_error(errMsg);
+    }
     return readBytesNum;
 }
 
@@ -263,6 +271,28 @@ void LocalFileSystem::CheckOpenFileRet(FILE* fp, const string& filePath)
     auto errMsg = Logger::Format("Failed to open read file: {}.", filePath);
     LOG_ERROR(errMsg);
     throw std::runtime_error(errMsg);
+}
+
+void LocalFileSystem::Valid4WriteDir(const string& fileDirPath)
+{
+    if (fileDirPath.size() > FILE_PATH_LEN_MAX) {
+        auto errMsg = Logger::Format("File dir path length exceed limit, file dir path:{}, len limit:{}.", fileDirPath,
+            FILE_PATH_LEN_MAX);
+        throw std::runtime_error(errMsg);
+    }
+    std::filesystem::path filePathObj(fileDirPath);
+    if (!std::filesystem::exists(filePathObj)) {
+        auto errMsg = Logger::Format("Directory path is not exist when write, file dir path:{}.", fileDirPath);
+        throw std::runtime_error(errMsg);
+    }
+    if (!std::filesystem::is_directory(filePathObj)) {
+        auto errMsg = Logger::Format("Param path is not a directory path, file dir path:{}.", fileDirPath);
+        throw std::runtime_error(errMsg);
+    }
+    if (std::filesystem::is_symlink(filePathObj)) {
+        auto errMsg = Logger::Format("Directory path is symbol link and is invalid, file dir path:{}.", fileDirPath);
+        throw std::runtime_error(errMsg);
+    }
 }
 
 bool MxRec::CheckFilePermission(const string& filePath)

@@ -27,6 +27,7 @@
 #include "utils/logger.h"
 
 namespace Embcache {
+constexpr long long EMB_SIZE_MAX = 1e9L;
 
 class EmbTable {
 public:
@@ -170,7 +171,10 @@ public:
     void ForEachKey(const std::function<void(const int64_t, const float*)>& callback) override
     {
         std::lock_guard<std::mutex> lk(mtx_);
-
+        if (this->table_.size() > EMB_SIZE_MAX) {
+            auto errMsg = Logger::Format("Emb size exceed limit, table:{}, max:{}.", config_.tableName, EMB_SIZE_MAX);
+            throw std::runtime_error(errMsg);
+        }
         for (const auto& [key, vec] : this->table_) {
             callback(key, vec.data());
         }
@@ -351,7 +355,12 @@ public:
 
     void ForEachKey(const std::function<void(const int64_t, const float*)>& callback) override
     {
-        for (auto key : this->fastHashMapPtr_->Export()) {
+        auto keyEmbList = this->fastHashMapPtr_->Export();
+        if (keyEmbList.size() > EMB_SIZE_MAX) {
+            auto errMsg = Logger::Format("Emb size exceed limit, table:{}, max:{}.", config_.tableName, EMB_SIZE_MAX);
+            throw std::runtime_error(errMsg);
+        }
+        for (auto key : keyEmbList) {
             callback(key.first, (float*)key.second);
         }
     }
