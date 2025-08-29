@@ -37,7 +37,7 @@ namespace MxRec {
 
     std::string GetChipName(uint32_t devID)
     {
-        if (devID < 0 || devID > MAX_DEVICE_ID) {
+        if (devID < 0 || devID > (GetDeviceCount() - 1)) {
             throw std::runtime_error("The failed to get chip name.");
         }
         int ret = 0;
