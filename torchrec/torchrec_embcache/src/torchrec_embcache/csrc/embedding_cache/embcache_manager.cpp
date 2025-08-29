@@ -857,12 +857,14 @@ void EmbcacheManager::SaveFeatureCount(const std::shared_ptr<FileSystem>& fileSy
 {
     // write attribute
     std::string attributeFile = filePrefix + ADMIT_STR_PATH + SLICE_ATTR_PATH;
+    fileSystemPtr->CreateFileDir(attributeFile);
     std::vector<int64_t> attrVec = {sizeof(int64_t), static_cast<long>(saveKeys.size())};
     WriteData(fileSystemPtr, attributeFile, reinterpret_cast<const char*>(attrVec.data()),
               attrVec.size() * sizeof(int64_t));
 
     // write key count data.
     std::string dataFile = filePrefix + ADMIT_STR_PATH + SLICE_DATA_PATH;
+    fileSystemPtr->CreateFileDir(dataFile);
     const auto& featureCountMap = featureFilters_[tableIndex]->GetFeatureCountMap();
     std::vector<int64_t> keyCountVec;
     keyCountVec.reserve(ONE_TIME_IO_WRITE);
