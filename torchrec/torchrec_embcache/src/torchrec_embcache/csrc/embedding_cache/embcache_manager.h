@@ -172,8 +172,8 @@ private:
     static std::shared_ptr<FileSystem> GetFileSystem(const std::string& path);
 
     template <class T>
-    void ReadKeysData(const std::shared_ptr<FileSystem>& fileSystemPtr, const string& keyDataFile,
-                      std::vector<T>& keys, const string& keyAttrFile);
+    void ReadKeysData(const std::shared_ptr<FileSystem>& fileSystemPtr, std::vector<T>& keys,
+                      const string& keyAttrFile, const string& keyDataFile);
     void ReadAttributeData(const std::shared_ptr<FileSystem>& fileSystemPtr, const string& filePath,
                            std::vector<int64_t>& dataVec, int dataCount);
     void CheckEmbeddingDim(const std::shared_ptr<FileSystem>& fileSystemPtr, const string& dataFilePath,

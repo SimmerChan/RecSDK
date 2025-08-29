@@ -469,7 +469,7 @@ void EmbcacheManager::Load(const std::string& path, int rank)
         std::vector<int64_t> keys;
         std::string keyAttrFile = filePrefix + "/key/slice.attribute";
         std::string keysDataFile = filePrefix + "/key/slice.data";
-        ReadKeysData(fileSystemPtr, keysDataFile, keys, keyAttrFile);
+        ReadKeysData(fileSystemPtr, keys, keyAttrFile, keysDataFile);
 
         std::vector<std::vector<float>> embeddings;
         std::string embFilePath = filePrefix + "/embedding/slice.data";
@@ -539,8 +539,8 @@ void EmbcacheManager::ReadAttributeData(const std::shared_ptr<FileSystem>& fileS
 }
 
 template <class T>
-void EmbcacheManager::ReadKeysData(const std::shared_ptr<FileSystem>& fileSystemPtr, const string& keyDataFile,
-                                   std::vector<T>& keys, const string& keyAttrFile)
+void EmbcacheManager::ReadKeysData(const std::shared_ptr<FileSystem>& fileSystemPtr, std::vector<T>& keys,
+                                   const string& keyAttrFile, const string& keyDataFile)
 {
     // check key attribute
     std::vector<int64_t> keyAttrVec;
@@ -896,23 +896,23 @@ void EmbcacheManager::LoadFeatureAdmitAndEvictInfo(const std::shared_ptr<FileSys
     if (embConfigs_[tableIndex].admitAndEvictConfig.IsAdmitEnabled()) {
         // read key count data
         std::vector<uint64_t> keyCountVec;
-        std::string keyAttrFile = filePrefix + "/admit_count/slice.attribute";
-        std::string keysDataFile = filePrefix + "/admit_count/slice.data";
-        ReadKeysData(fileSystemPtr, keysDataFile, keyCountVec, keyAttrFile);
+        std::string keyAttrFile = filePrefix + ADMIT_STR_PATH + SLICE_ATTR_PATH;
+        std::string keysDataFile = filePrefix + ADMIT_STR_PATH + SLICE_DATA_PATH;;
+        ReadKeysData(fileSystemPtr, keyCountVec, keyAttrFile, keysDataFile);
         featureFilters_[tableIndex]->LoadFeatureRecords(saveKeys, keyCountVec);
     }
     if (embConfigs_[tableIndex].admitAndEvictConfig.IsEvictEnabled()) {
         // 时间戳数据 key数量和当前卡的key不一样；需要分别读取 evict key， evict timestamp 信息
         // read key
         std::vector<int64_t> keysVec;
-        std::string keyAttrFile = filePrefix + EVICT_STR_PATH + SLICE_ATTR_PATH;;
+        std::string keyAttrFile = filePrefix + EVICT_STR_PATH + SLICE_ATTR_PATH;
         std::string keysDataFile = filePrefix + EVICT_STR_PATH + SLICE_EVICT_KEY_DATA_PATH;
-        ReadKeysData(fileSystemPtr, keysDataFile, keysVec, keyAttrFile);
+        ReadKeysData(fileSystemPtr, keysVec, keyAttrFile, keysDataFile);
 
         // read timestamp
         std::vector<int64_t> keyTimestampVec;
         std::string evictTsDataFile = filePrefix + EVICT_STR_PATH + SLICE_EVICT_TS_DATA_PATH;
-        ReadKeysData(fileSystemPtr, evictTsDataFile, keyTimestampVec, keyAttrFile);
+        ReadKeysData(fileSystemPtr, keyTimestampVec, keyAttrFile, evictTsDataFile);
 
         // data load
         featureFilters_[tableIndex]->LoadTimestampRecords(keysVec, keyTimestampVec);
