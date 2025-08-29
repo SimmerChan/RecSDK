@@ -15,6 +15,8 @@ See the License for the specific language governing permissions and
 
 #include <sstream>
 #include <dsmi_common_interface.h>
+#include <acl/acl_base.h>
+#include <acl/acl_rt.h>
 #include "log/logger.h"
 #include "common_func.h"
 
