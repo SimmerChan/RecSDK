@@ -1759,7 +1759,7 @@ void KeyProcess::EnqueueEosBatch(int64_t batchNum, int channelId)
     int threadNum = GetThreadNumEnv();
     if (threadNum == 0) {
         auto error = Error(ModuleName::M_KEY_PROCESS, ErrorType::INVALID_ARGUMENT,
-                            StringFormat("threadNum cannot be equal to 0."));
+                           StringFormat("threadNum cannot be equal to 0."));
         LOG_ERROR(error.ToString());
         throw runtime_error(error.ToString().c_str());
     }
