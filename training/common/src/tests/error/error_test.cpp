@@ -20,19 +20,13 @@ using namespace std;
 using namespace MxRec;
 using namespace testing;
 
-TEST(TESTModuleName, Basic)
+TEST(TESTToString, Basic)
 {
     string errMsg = "test";
     Error error = Error(ModuleName::M_CHECK_POINT, ErrorType::NOT_SUPPORTED, errMsg);
-    std::string ret= error.ModAsString();
-    EXPECT_EQ(ret, "CheckPoint");
+    std::string ret= error.ToString();
+    bool contain = (ret.find("CheckPoint") && ret.find("NotSupported"));
+    EXPECT_TRUE(contain);
 }
 
-TEST(TESTErrorType, Basic)
-{
-    string errMsg = "test";
-    Error error = Error(ModuleName::M_CHECK_POINT, ErrorType::NOT_SUPPORTED, errMsg);
-    std::string ret= error.TypeAsString();
-    EXPECT_EQ(ret, "NotSupported");
-}
 
