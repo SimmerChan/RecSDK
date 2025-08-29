@@ -49,6 +49,17 @@ void validate_expand_into_jagged_permute_inputs(
     TORCH_CHECK(permute.scalar_type() == outputOffsets.scalar_type(),
                 "permute and outputOffsets must have the same data type, but got permute: ",
                 permute.scalar_type(), " and outputOffsets: ", outputOffsets.scalar_type());
+
+    // 3. 校验outputOffset最后一个值等于output_size
+    if (outputOffsets.numel() > 0) {
+        auto last_offset = outputOffsets[-1].item<int64_t>();
+        TORCH_CHECK(last_offset == outputSize,
+                    "Last value of outputOffsets (", last_offset,
+                    ") must equal outputSize (", outputSize, ")");
+    } else {
+        TORCH_CHECK(outputSize == 0,
+                    "outputSize must be 0 when outputOffsets is empty, but got ", outputSize);
+    }
 }
 
 at::Tensor expand_into_jagged_permute_impl_npu(const at::Tensor& permute,
