@@ -343,12 +343,7 @@ void EmbcacheManager::CreateMomentumDir(const std::string& pathPrefix,
 void EmbcacheManager::Save(const std::string& path, const int rank)
 {
     auto fileSystemPtr = GetFileSystem(path);
-    if (fileSystemPtr == nullptr) {
-        auto errMsg = Logger::Format(
-            "Failed to get file system pointer, the fileSystemPtr is nullptr. Current rank:{}.", rank);
-        throw std::runtime_error(errMsg);
-    }
-    fileSystemPtr->Valid4WriteDir(path);
+    Check4Write(fileSystemPtr, path, rank);
     for (int32_t i = 0; i < embNum_; i++) {
         std::string tableName = embConfigs_[i].tableName;
         std::string pathPrefix = path + "/" + tableName + RANK_STR_PATH + std::to_string(rank);
@@ -389,6 +384,23 @@ void EmbcacheManager::Save(const std::string& path, const int rank)
         WriteAttributeFile(i, pathPrefix, count, fileSystemPtr);
         LOG_INFO("In save, table:{}, save data shape: [{}, {}].", tableName, count, embDim);
     }
+}
+
+void EmbcacheManager::Check4Write(const std::shared_ptr<FileSystem>& fileSystemPtr, const std::string& filePath,
+                                  int rank)
+{
+    std::filesystem::path pathObj(filePath);
+    if (std::filesystem::absolute(pathObj) != filePath) {
+        auto errMsg = Logger::Format(
+            "File path is invalid, it is not an absolute path:{}.", filePath);
+        throw std::runtime_error(errMsg);
+    }
+    if (fileSystemPtr == nullptr) {
+        auto errMsg = Logger::Format(
+            "Failed to get file system pointer, the fileSystemPtr is nullptr. Current rank:{}.", rank);
+        throw std::runtime_error(errMsg);
+    }
+    fileSystemPtr->Valid4WriteDir(filePath);
 }
 
 void EmbcacheManager::WriteData(const std::shared_ptr<FileSystem>& fileSystemPtr, const std::string& filePath,

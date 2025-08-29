@@ -166,6 +166,7 @@ private:
     void WriteAttributeFile(int32_t tableIndex, const std::string& pathPrefix, size_t count,
                             const std::shared_ptr<FileSystem>& fileSystemPtr);
     void CreateMomentumDir(const std::string& pathPrefix, const std::shared_ptr<FileSystem>& fileSystemPtr) const;
+    void Check4Write(const std::shared_ptr<FileSystem>& fileSystemPtr, const std::string& filePath, int rank);
     void WriteData(const std::shared_ptr<FileSystem>& fileSystemPtr, const std::string& filePath, const char* dataAddr,
                    size_t dataSize);
     static std::shared_ptr<FileSystem> GetFileSystem(const std::string& path);
