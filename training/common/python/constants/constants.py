@@ -74,6 +74,7 @@ class NumCheckValueMethod(Enum):
 
 class ChipName(Enum):
     ASCEND_910B = "ASCEND_910B"
+    NONE = "NONE"
 
 class CommonEnv(Enum):
     CM_WORKER_SIZE = "CM_WORKER_SIZE"
