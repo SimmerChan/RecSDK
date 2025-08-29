@@ -343,6 +343,11 @@ void EmbcacheManager::CreateMomentumDir(const std::string& pathPrefix,
 void EmbcacheManager::Save(const std::string& path, const int rank)
 {
     auto fileSystemPtr = GetFileSystem(path);
+    if (fileSystemPtr == nullptr) {
+        auto errMsg = Logger::Format(
+            "Failed to get file system pointer, the fileSystemPtr is nullptr. Current rank:{}.", rank);
+        throw std::runtime_error(errMsg);
+    }
     for (int32_t i = 0; i < embNum_; i++) {
         std::string tableName = embConfigs_[i].tableName;
         std::string pathPrefix = path + "/" + tableName + RANK_STR_PATH + std::to_string(rank);

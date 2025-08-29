@@ -175,9 +175,8 @@ private:
                            std::vector<int64_t>& dataVec, int dataCount);
     void CheckEmbeddingDim(const std::shared_ptr<FileSystem>& fileSystemPtr, const string& dataFilePath,
                            const TableRankParam& tableParams);
-    void ReadEmbeddings(const std::shared_ptr<FileSystem>& fileSystemPtr,
-                               std::vector<std::vector<float>>& embeddings,
-                               const string& filePath, size_t vectorSize, const TableRankParam& tableParams);
+    void ReadEmbeddings(const std::shared_ptr<FileSystem>& fileSystemPtr, std::vector<std::vector<float>>& embeddings,
+                        const string& filePath, size_t vectorSize, const TableRankParam& tableParams);
     static void RecordLoadDebugInfo(const vector<int64_t>& keys, const vector<std::vector<float>>& embeddings,
                                     const vector<std::vector<float>>& momentum1,
                                     const vector<std::vector<float>>& momentum2, const TableRankParam& tableParams);
