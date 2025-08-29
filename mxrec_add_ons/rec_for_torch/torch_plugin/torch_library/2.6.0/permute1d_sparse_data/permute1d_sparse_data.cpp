@@ -27,14 +27,14 @@ void validate_permute1d_sparse_data_inputs(
     const c10::optional<int64_t> &permuted_lengths_sum)
 {
     // ============= 空值检查 =============
-    check_tensor_non_empty(permute, "permute");
-    check_tensor_non_empty(lengths, "lengths");
-    check_tensor_non_empty(values, "values");
+    CheckTensorNonEmpty(permute, "permute");
+    CheckTensorNonEmpty(lengths, "lengths");
+    CheckTensorNonEmpty(values, "values");
 
     // ============= 维度检查 =============
-    check_tensor_dim(permute, EXPECTED_DIM_1D, "permute");
-    check_tensor_dim(lengths, EXPECTED_DIM_1D, "lengths");
-    check_tensor_dim(values, EXPECTED_DIM_1D, "values");
+    CheckTensorDim(permute, EXPECTED_DIM_1D, "permute");
+    CheckTensorDim(lengths, EXPECTED_DIM_1D, "lengths");
+    CheckTensorDim(values, EXPECTED_DIM_1D, "values");
 
     // ============= 长度一致性检查 =============
     const auto permute_len = permute.size(0);
@@ -43,8 +43,8 @@ void validate_permute1d_sparse_data_inputs(
 
     // 检查weights张量(如果存在)
     if (weights.has_value()) {
-        check_tensor_non_empty(*weights, "weights");
-        check_tensor_dim(*weights, EXPECTED_DIM_1D, "weights");
+        CheckTensorNonEmpty(*weights, "weights");
+        CheckTensorDim(*weights, EXPECTED_DIM_1D, "weights");
         const auto weights_len = weights->size(0);
         TORCH_CHECK(weights_len == values_len,
             "weights and values length mismatch: ", weights_len, " vs ", values_len);

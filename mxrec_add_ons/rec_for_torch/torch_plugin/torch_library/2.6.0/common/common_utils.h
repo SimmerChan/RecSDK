@@ -36,7 +36,7 @@ constexpr int EXPECTED_DIM_3D = 3;
  * @param name 张量名称(用于错误信息)
  * @throw torch::library::Exception 如果张量未定义或为空
  */
-inline void check_tensor_non_empty(const at::Tensor& tensor, const std::string& name)
+inline void CheckTensorNonEmpty(const at::Tensor& tensor, const std::string& name)
 {
     TORCH_CHECK(tensor.defined(), name, " tensor must be defined");
     TORCH_CHECK(tensor.numel() > 0, name, " tensor must be non-empty");
@@ -49,7 +49,7 @@ inline void check_tensor_non_empty(const at::Tensor& tensor, const std::string& 
  * @param name 张量名称(用于错误信息)
  * @throw torch::library::Exception 如果张量维度不符合预期
  */
-inline void check_tensor_dim(const at::Tensor& tensor, int64_t expectedDim, const std::string& name)
+inline void CheckTensorDim(const at::Tensor& tensor, int64_t expectedDim, const std::string& name)
 {
     TORCH_CHECK(tensor.dim() == expectedDim, name, " must be ", expectedDim, "D");
 }

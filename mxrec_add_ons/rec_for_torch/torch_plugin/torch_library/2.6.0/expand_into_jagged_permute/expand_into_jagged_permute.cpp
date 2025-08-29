@@ -20,13 +20,13 @@ void validate_expand_into_jagged_permute_inputs(
     const int64_t outputSize)
 {
     // ============= 空值检查 =============
-    check_tensor_non_empty(permute, "permute");
-    check_tensor_non_empty(inputOffset, "inputOffset");
-    check_tensor_non_empty(outputOffsets, "outputOffsets");
+    CheckTensorNonEmpty(permute, "permute");
+    CheckTensorNonEmpty(inputOffset, "inputOffset");
+    CheckTensorNonEmpty(outputOffsets, "outputOffsets");
 
-    check_tensor_dim(permute, EXPECTED_DIM_1D, "permute");
-    check_tensor_dim(inputOffset, EXPECTED_DIM_1D, "inputOffset");
-    check_tensor_dim(outputOffsets, EXPECTED_DIM_1D, "outputOffsets");
+    CheckTensorDim(permute, EXPECTED_DIM_1D, "permute");
+    CheckTensorDim(inputOffset, EXPECTED_DIM_1D, "inputOffset");
+    CheckTensorDim(outputOffsets, EXPECTED_DIM_1D, "outputOffsets");
 
     const auto permute_len = permute.size(0);
     const auto input_offset_len = inputOffset.size(0);
