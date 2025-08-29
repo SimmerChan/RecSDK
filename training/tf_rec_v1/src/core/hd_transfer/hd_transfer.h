@@ -54,7 +54,7 @@ enum class TransferChannel {
     INVALID,
 };
 
-inline string TransferChannel2Str(TransferChannel e)	
+inline string TransferChannel2Str(TransferChannel e)
 {
     switch (e) {
         case TransferChannel::RESTORE_SECOND:
