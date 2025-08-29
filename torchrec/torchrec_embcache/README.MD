@@ -1,7 +1,7 @@
 # TorchRec-EmbCache NPU适配方案
 
 ## 说明
-本项目是基于开源项目TrochRec的1.1.0版本开发的embedding cache,（参考网站：https://github.com/pytorch/torchrec ）为助力开发者快速应用TorchRec框架并适配到NPU进行模型训练和推理,
+本项目是基于开源项目TorchRec的1.1.0版本开发的embedding cache,（参考网站：https://github.com/pytorch/torchrec ）为助力开发者快速应用TorchRec框架并适配到NPU进行模型训练和推理,
 版本要求 Python >= 3.11, torchrec==1.1.0+npu, hybrid_torchrec==1.1.0+npu。
 
 1.环境准备
