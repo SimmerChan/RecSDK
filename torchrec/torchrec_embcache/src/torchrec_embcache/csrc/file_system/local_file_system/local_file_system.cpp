@@ -168,7 +168,8 @@ ssize_t LocalFileSystem::Read(const string& filePath, char* fileContent, size_t 
 {
     int fd = open(filePath.c_str(), O_RDONLY);
     if (fd == -1) {
-        auto errMsg = Logger::Format("Failed to open read file: {}.", filePath);
+        auto errMsg = Logger::Format("Failed to open read file, please check whether the file exists, file:{}.",
+            filePath);
         LOG_ERROR(errMsg);
         throw std::runtime_error(errMsg);
     }
