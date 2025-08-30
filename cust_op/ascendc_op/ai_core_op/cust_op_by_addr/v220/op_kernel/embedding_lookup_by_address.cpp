@@ -114,12 +114,10 @@ private:
         int times = embDimAligned >> 3; // >>3位运算：除以8。 embDimAligned一定是8的倍数，若地址无效时，每次填充8个0
         int tmpCache = cache - 1; // 设计初是一次cache执行多次copyin、一次compute和一次copyout，现状是一次loop就只对应一次cache
 
-        for (int i = 0; i < addrNum; i++)
-        {
+        for (int i = 0; i < addrNum; i++) {
             // 多次copyIn， 对应一次compute和copyOut，由cache决定
             dataLocal = isFull ? inQueue.AllocTensor<T>() : dataLocal;
             int64_t address = srcAddrLocal.GetValue(i);
-
             if (address != 0) {
 #ifdef L2_CACHE_HINT
                 srcDataBufferGm.SetL2CacheHint(CacheMode::CACHE_MODE_NORMAL);
