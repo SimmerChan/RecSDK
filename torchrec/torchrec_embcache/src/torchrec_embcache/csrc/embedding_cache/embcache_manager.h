@@ -170,8 +170,10 @@ private:
     void WriteData(const std::shared_ptr<FileSystem>& fileSystemPtr, const std::string& filePath, const char* dataAddr,
                    size_t dataSize);
     static std::shared_ptr<FileSystem> GetFileSystem(const std::string& path);
-    void ReadKeysData(const std::shared_ptr<FileSystem>& fileSystemPtr, const string& filePrefix,
-                      std::vector<int64_t>& keys);
+
+    template <class T>
+    void ReadKeysData(const std::shared_ptr<FileSystem>& fileSystemPtr, std::vector<T>& keys,
+                      const string& keyAttrFile, const string& keyDataFile);
     void ReadAttributeData(const std::shared_ptr<FileSystem>& fileSystemPtr, const string& filePath,
                            std::vector<int64_t>& dataVec, int dataCount);
     void CheckEmbeddingDim(const std::shared_ptr<FileSystem>& fileSystemPtr, const string& dataFilePath,
@@ -182,13 +184,17 @@ private:
                                     const vector<std::vector<float>>& momentum1,
                                     const vector<std::vector<float>>& momentum2, const TableRankParam& tableParams);
     static std::string GetDevWeightsShape(const at::Tensor& weightsDev);
-    void SaveFeatureAdmitAndEvictInfo(int32_t tableIndex, const std::string& filePrefix,
+
+    void SaveFeatureAdmitAndEvictInfo(const std::shared_ptr<FileSystem>& fileSystemPtr,
+                                      int32_t tableIndex, const std::string& filePrefix,
                                       const std::vector<int64_t>& saveKeys);
-    void LoadFeatureAdmitAndEvictInfo(int32_t tableIndex, const std::string& filePrefix,
-    void SaveFeatureCount(int32_t tableIndex, const std::string& filePrefix, const std::vector<int64_t>& saveKeys);
-    void SaveFeatureTimestamp(int32_t tableIndex, const std::string& filePrefix);
-
-
+    void SaveFeatureCount(const std::shared_ptr<FileSystem>& fileSystemPtr,
+                          int32_t tableIndex, const std::string& filePrefix, const std::vector<int64_t>& saveKeys);
+    void SaveFeatureTimestamp(const std::shared_ptr<FileSystem>& fileSystemPtr,
+                              int32_t tableIndex, const std::string& filePrefix);
+    void LoadFeatureAdmitAndEvictInfo(const std::shared_ptr<FileSystem>& fileSystemPtr,
+                                      int32_t tableIndex, const std::string& filePrefix,
+                                      const std::vector<int64_t>& saveKeys);
 private:
     int32_t embNum_;
     std::vector<int32_t> embTableIndies_;
