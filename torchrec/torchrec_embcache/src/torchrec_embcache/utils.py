@@ -8,18 +8,24 @@ import os
 from pathlib import Path
 from typing import List
 
-_STRING_MIN_LEN = 0
-_STRING_MAX_LEN = 1024
+_ABS_PATH_MIN_LEN = 1
+_ABS_PATH_MAX_LEN = 1024
+_FILE_NAME_MAX_LEN = 200  # max file name size is 255 bytes, reserve some bytes
 
 _DEFAULT_BLACK_DIRS = ["/usr/bin", "/usr/bin", "/usr/sbin", "/etc", "/usr/lib", "/usr/lib64", "/usr/local"]
 _DEFAULT_SENSITIVE_WORDS = ["Key", "password", "privatekey"]
 
 
-def check_str(string_value: str, min_length: int, max_length: int) -> None:
+def check_str_type(string_value: str) -> None:
     if not isinstance(string_value, str):
         raise TypeError(f"expected param type string but got {type(string_value)}")
+
+
+def check_str(string_value: str, min_length: int, max_length: int) -> None:
+    check_str_type(string_value)
     if len(string_value) < min_length or len(string_value) > max_length:
-        raise ValueError(f"string param length is invalid, length limit:[{min_length}, {max_length}]")
+        raise ValueError(f"string param length is invalid, got param length:{string_value},"
+                         f" length limit:[{min_length}, {max_length}]")
 
 
 def check_path(value: str, need_exist: bool = False, is_dir: bool = False, **kwargs) -> None:
@@ -44,11 +50,14 @@ def check_path(value: str, need_exist: bool = False, is_dir: bool = False, **kwa
     black_dirs: List[str] = kwargs.get("black_dirs", [])
     sensitive_words: List[str] = kwargs.get("sensitive_words", [])
 
-    check_str(value, _STRING_MIN_LEN, _STRING_MAX_LEN)
+    check_str_type(value)
     if os.path.abspath(value) != os.path.realpath(value):
         raise ValueError(f"soft link or relative path can't be a path param, got:{value}")
     if need_exist and not os.path.exists(os.path.realpath(value)):
         raise ValueError(f"expected path exist, but got:{value}")
+    if not Path(value).is_absolute():
+        check_str(value, 0, _FILE_NAME_MAX_LEN)
+    check_str(os.path.abspath(value), _ABS_PATH_MIN_LEN, _ABS_PATH_MAX_LEN)
 
     black_dirs = black_dirs or _DEFAULT_BLACK_DIRS
     is_start_with_black_dirs = any([value.startswith(item) for item in black_dirs])
