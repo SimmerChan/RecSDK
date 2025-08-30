@@ -84,7 +84,7 @@ inline void* GetOpApiLibHandler(const char* libName)
 inline std::vector<std::string> GetCustLibPath()
 {
     char* ascendOppPath = std::getenv("ASCEND_OPP_PATH");
-    if (ascendOppPath == NULL) {
+    if (ascendOppPath == nullptr) {
         ASCEND_LOGW("ASCEND_OPP_PATH is not set.");
         return std::vector<std::string>();
     }

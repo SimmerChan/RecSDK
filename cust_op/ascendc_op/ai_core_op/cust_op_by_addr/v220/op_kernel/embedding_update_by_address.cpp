@@ -93,6 +93,10 @@ public:
         }
     }
 
+public:
+    int32_t addrNumPerLoop, loopCount, singleCoreAddrLen, needComputeAddrLen, addrNums, cache, veclen, dim, pingpongNum;
+    int32_t inputDimAligned, typeSize, updateType;
+
 private:
     __aicore__ inline void MoveProcess(const LocalTensor<int64_t> srcAddrLocal, const int turns, int addrNum)
     {
@@ -183,10 +187,6 @@ private:
         }
         outQueue.FreeTensor(dstLocal);
     }
-
-public:
-    int32_t addrNumPerLoop, loopCount, singleCoreAddrLen, needComputeAddrLen, addrNums, cache, veclen, dim, pingpongNum;
-    int32_t inputDimAligned, typeSize, updateType;
 
 private:
     TPipe pipe;
