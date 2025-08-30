@@ -114,7 +114,46 @@ class KeyedJaggedTensorWithCount(KeyedExtendedJaggedTensor):
         Returns:
             KeyedJaggedTensorWithCount: constructed KeyedJaggedTensorWithCount.
         """
-        return KeyedJaggedTensorWithCount.from_jt_dict_base(jt_dict, "counts")
+        kjt_keys = list(jt_dict.keys())
+        kjt_vals_list: List[torch.Tensor] = []
+        kjt_counts_list: List[torch.Tensor] = []
+        kjt_lens_list: List[torch.Tensor] = []
+        kjt_weights_list: List[torch.Tensor] = []
+        stride_per_key: List[int] = []
+        for jt in jt_dict.values():
+            stride_per_key.append(len(jt.lengths()))
+            kjt_vals_list.append(jt.values())
+            kjt_counts_list.append(jt.counts)
+            kjt_lens_list.append(jt.lengths())
+            weight = jt.weights_or_none()
+            if weight is not None:
+                kjt_weights_list.append(weight)
+        kjt_vals = torch.concat(kjt_vals_list)
+        kjt_lens = torch.concat(kjt_lens_list)
+
+        # handle custom attribute: counts
+        kjt_counts = (
+            torch.concat(kjt_counts_list) if len(kjt_counts_list) > 0 else None
+        )
+
+        kjt_weights = (
+            torch.concat(kjt_weights_list) if len(kjt_weights_list) > 0 else None
+        )
+        kjt_stride, kjt_stride_per_key_per_rank = (
+            (stride_per_key[0], None)
+            if all(s == stride_per_key[0] for s in stride_per_key)
+            else (None, [[stride] for stride in stride_per_key])
+        )
+        kjt = KeyedJaggedTensorWithCount(
+            keys=kjt_keys,
+            values=kjt_vals,
+            counts=kjt_counts,
+            weights=kjt_weights,
+            lengths=kjt_lens,
+            stride=kjt_stride,
+            stride_per_key_per_rank=kjt_stride_per_key_per_rank,
+        ).sync()
+        return kjt
 
     def split(self, segments: List[int]) -> List["KeyedJaggedTensorWithCount"]:
         return self.split_base(segments, KeyedJaggedTensorWithCount)
