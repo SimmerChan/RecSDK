@@ -24,7 +24,7 @@ def check_str_type(string_value: str) -> None:
 def check_str(string_value: str, min_length: int, max_length: int) -> None:
     check_str_type(string_value)
     if len(string_value) < min_length or len(string_value) > max_length:
-        raise ValueError(f"string param length is invalid, got param length:{string_value},"
+        raise ValueError(f"string param length is invalid, got param length:{len(string_value)},"
                          f" length limit:[{min_length}, {max_length}]")
 
 
