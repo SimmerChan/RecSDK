@@ -412,7 +412,8 @@ void EmbcacheManager::WriteData(const std::shared_ptr<FileSystem>& fileSystemPtr
     auto writeBytes = fileSystemPtr->Write(filePath, dataAddr, dataSize);
     if (writeBytes != static_cast<ssize_t>(dataSize)) {
         auto errMsg = Logger::Format(
-            "Write data to file error, expect write bytes:{}, actual write bytes:{}, file:{}",
+            "Write data to file error, expect write bytes:{}, actual write bytes:{}, file:{}."
+            " Please check whether the available disk space is sufficient.",
             filePath, dataSize, writeBytes);
         LOG_ERROR(errMsg);
         throw std::runtime_error(errMsg);
