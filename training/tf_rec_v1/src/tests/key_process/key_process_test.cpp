@@ -74,6 +74,7 @@ protected:
         BuildExpect();
 
         Logger::SetLevel(Logger::DEBUG);
+        emock::GlobalMockObject::reset();
     }
 
     // 使用该方法构造的数据需要使用掉，否则会影响其他用例
