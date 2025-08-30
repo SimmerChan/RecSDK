@@ -706,6 +706,16 @@ TEST_F(KeyProcessTest, EnqueueEosBatchTest)
     process.Destroy();
 }
 
+TEST_F(KeyProcessTest, EnqueueEosBatch_ThrowWhenThreadNumIsZero)
+{
+    EMOCK(GetThreadNumEnv).stubs().will(returnValue(0));
+
+    // 预期抛出 std::runtime_error
+    EXPECT_THROW({
+        process.EnqueueEosBatch(100, 1);
+    }, std::runtime_error);
+}
+
 TEST_F(KeyProcessTest, DumpSplitKeysTest)
 {
     vector<vector<emb_key_t>> keys = {{1, 4}, {23}, {14, 16, 7}, {2, 21}};
