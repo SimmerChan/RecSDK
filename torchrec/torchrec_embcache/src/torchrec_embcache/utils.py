@@ -53,11 +53,11 @@ def check_path(value: str, need_exist: bool = False, is_dir: bool = False, **kwa
     check_str_type(value)
     if os.path.abspath(value) != os.path.realpath(value):
         raise ValueError(f"soft link or relative path can't be a path param, got:{value}")
-    if need_exist and not os.path.exists(os.path.realpath(value)):
-        raise ValueError(f"expected path exist, but got:{value}")
     if not Path(value).is_absolute():
         check_str(value, 0, _FILE_NAME_MAX_LEN)
     check_str(os.path.abspath(value), _ABS_PATH_MIN_LEN, _ABS_PATH_MAX_LEN)
+    if need_exist and not os.path.exists(os.path.realpath(value)):
+        raise ValueError(f"expected path exist, but got:{value}")
 
     black_dirs = black_dirs or _DEFAULT_BLACK_DIRS
     is_start_with_black_dirs = any([value.startswith(item) for item in black_dirs])
