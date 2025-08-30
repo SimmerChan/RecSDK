@@ -73,7 +73,6 @@ public:
 
     __aicore__ inline void Process()
     {
-
         LocalTensor<int64_t> srcAddrLocal = tbuf.Get<int64_t>(addrNumPerLoop);
 
         if (loopCount > 0)
