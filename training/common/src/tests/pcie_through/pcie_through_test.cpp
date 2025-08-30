@@ -23,6 +23,7 @@ using namespace MxRec;
 namespace MxRec {
     void InitShmHeader(RmaShmHeader* header, int64_t memSize, int32_t capacity);
 }
+
 TEST(TestGetShmAddr, Basic)
 {
     std::string name = "test";
