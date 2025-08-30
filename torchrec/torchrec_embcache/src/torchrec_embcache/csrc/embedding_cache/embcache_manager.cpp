@@ -899,7 +899,7 @@ void EmbcacheManager::LoadFeatureAdmitAndEvictInfo(const std::shared_ptr<FileSys
         // read key count data
         std::vector<uint64_t> keyCountVec;
         std::string keyAttrFile = filePrefix + ADMIT_STR_PATH + SLICE_ATTR_PATH;
-        std::string keysDataFile = filePrefix + ADMIT_STR_PATH + SLICE_DATA_PATH;;
+        std::string keysDataFile = filePrefix + ADMIT_STR_PATH + SLICE_DATA_PATH;
         ReadKeysData(fileSystemPtr, keyCountVec, keyAttrFile, keysDataFile);
         featureFilters_[tableIndex]->LoadFeatureRecords(saveKeys, keyCountVec);
     }
