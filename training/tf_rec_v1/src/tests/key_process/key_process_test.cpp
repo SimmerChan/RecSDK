@@ -74,7 +74,6 @@ protected:
         BuildExpect();
 
         Logger::SetLevel(Logger::DEBUG);
-        emock::GlobalMockObject::reset();
     }
 
     // 使用该方法构造的数据需要使用掉，否则会影响其他用例
@@ -709,12 +708,15 @@ TEST_F(KeyProcessTest, EnqueueEosBatchTest)
 
 TEST_F(KeyProcessTest, EnqueueEosBatch_ThrowWhenThreadNumIsZero)
 {
+    int threadNum = GetThreadNumEnv();
     EMOCK(GetThreadNumEnv).stubs().will(returnValue(0));
 
     // 预期抛出 std::runtime_error
     EXPECT_THROW({
         process.EnqueueEosBatch(100, 1);
     }, std::runtime_error);
+
+    EMOCK(GetThreadNumEnv).stubs().will(returnValue(threadNum));
 }
 
 TEST_F(KeyProcessTest, DumpSplitKeysTest)
