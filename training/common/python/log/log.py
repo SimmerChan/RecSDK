@@ -20,6 +20,7 @@ import logging
 
 from rec_sdk_common.constants.constants import LogLevel, EnvOptionCommon
 
+
 class LoggingProxy:
     _instance: logging.Logger = None
 
@@ -94,6 +95,7 @@ class LoggingProxy:
         logger.critical("Houston, we have a %s", "major disaster", exc_info=1)
         """
         cls._instance.critical(msg, *args, **kwargs)
+
 
 def _get_logger(log_level: str = LogLevel.INFO.value) -> logging.Logger:
     options = [i.value for i in list(LogLevel)]
