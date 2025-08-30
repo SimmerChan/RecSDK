@@ -19,6 +19,10 @@ See the License for the specific language governing permissions and
 #include "pcie_through/rma_shm_svm.h"
 
 using namespace MxRec;
+
+namespace MxRec {
+    void InitShmHeader(RmaShmHeader* header, int64_t memSize, int32_t capacity);
+}
 TEST(TestGetShmAddr, Basic)
 {
     std::string name = "test";
