@@ -19,11 +19,6 @@ See the License for the specific language governing permissions and
 #include "pcie_through/rma_shm_svm.h"
 
 using namespace MxRec;
-
-namespace MxRec {
-    void InitShmHeader(RmaShmHeader* header, int64_t memSize, int32_t capacity);
-}
-
 TEST(TestGetShmAddr, Basic)
 {
     std::string name = "test";
@@ -40,21 +35,10 @@ TEST(TestGetShmAddr, Basic)
     }
 }
 
-TEST(TestGetShmAddr, InitShmHeader_NormalCase)
+TEST(TestGetShmAddr, MallocFromShm_nullptr)
 {
-    const int64_t memSize = 1024 * 1024; // 1MB
-    const int32_t capacity = 100;
-    RmaShmHeader header;
+    std::string chanName = "chanNameNone_test";
+    std::array<int64_t, RMA_DIM_MAX> dims= {2, 1};
 
-    InitShmHeader(&header, memSize, capacity);
-    
-    EXPECT_EQ(header.totalMemSize, memSize - RMA_SHM_HEAD_LEN);
-    EXPECT_EQ(header.queueCapacity, capacity);
-    EXPECT_EQ(header.seqIn, 0);
-    EXPECT_EQ(header.seqOut, 0);
-    EXPECT_EQ(header.frontOffset, RMA_SHM_HEAD_LEN);
-    EXPECT_EQ(header.tailOffset, RMA_SHM_HEAD_LEN);
-    EXPECT_EQ(header.buffLimit, 0);
-    EXPECT_EQ(header.seqOutPre, 0);
-    EXPECT_EQ(header.frontOffsetPre, RMA_SHM_HEAD_LEN);
+    EXPECT_THROW(MallocFromShm(chanName, dims), std::runtime_error);
 }
