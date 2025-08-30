@@ -55,33 +55,6 @@ EVICT_STEP_INTERVAL = LOOP_TIMES // 4
 BATCH_NUM = LOOP_TIMES
 
 
-def _get_latest_timestamp_dir(base_path):
-    """
-    获取base_path下最新的日期时间戳目录
-    
-    Args:
-        base_path: 基础路径
-        
-    Returns:
-        str: 最新的日期时间戳目录路径，如果不存在则返回None
-    """
-    if not os.path.exists(base_path):
-        return None
-        
-    # 匹配14位数字的日期时间戳目录
-    timestamp_dirs = []
-    for d in os.listdir(base_path):
-        if re.match(r'^\d{14}$', d) and os.path.isdir(os.path.join(base_path, d)):
-            timestamp_dirs.append(d)
-    
-    # 返回最新的时间戳目录
-    if timestamp_dirs:
-        latest_dir = max(timestamp_dirs)
-        return os.path.join(base_path, latest_dir)
-    
-    return None
-
-
 def _check_admit_key_count(data_loader_golden, embedding_configs: List[EmbCacheEmbeddingConfig], rank):
     # 1 手动统计key count
     iter_ = iter(data_loader_golden)
@@ -111,9 +84,7 @@ def _check_admit_key_count(data_loader_golden, embedding_configs: List[EmbCacheE
 
     # 2 读取保存目录下的key count
     # 获取最新的时间戳目录
-    latest_timestamp_dir = _get_latest_timestamp_dir(_SAVE_PATH)
-    if not latest_timestamp_dir:
-        raise ValueError(f"No timestamp directory found under {_SAVE_PATH}")
+    latest_timestamp_dir = Saver.get_latest_load_path(_SAVE_PATH)
     
     key_file_saved = os.path.join(latest_timestamp_dir, "table{}", "rank{}".format(rank), "key", "slice.data")
     count_file_saved = os.path.join(latest_timestamp_dir, "table{}", "rank{}".format(rank), "admit_count", "slice.data")
