@@ -89,7 +89,8 @@ size_t LocalFileSystem::GetFileSize(const string& filePath)
     std::ifstream thisReadFile;
     thisReadFile.open(filePath.c_str(), std::ios::in | std::ios::binary | std::ios::ate);
     if (!thisReadFile.is_open()) {
-        auto errMsg = Logger::Format("Open file:{} to get file size failed.", filePath);
+        auto errMsg = Logger::Format("Open file:{} to get file size failed, please check whether the file exists.",
+            filePath);
         LOG_ERROR(errMsg);
         throw std::runtime_error(errMsg);
     }
