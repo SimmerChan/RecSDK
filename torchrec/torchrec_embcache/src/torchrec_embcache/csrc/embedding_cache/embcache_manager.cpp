@@ -382,6 +382,8 @@ void EmbcacheManager::Save(const std::string& path, const int rank)
             }
         });
         WriteAttributeFile(i, pathPrefix, count, fileSystemPtr);
+                // 4 保存准入淘汰数据
+        SaveFeatureAdmitAndEvictInfo(i, midPath, saveKeys);
         LOG_INFO("In save, table:{}, save data shape: [{}, {}].", tableName, count, embDim);
     }
 }
@@ -494,6 +496,9 @@ void EmbcacheManager::Load(const std::string& path, int rank)
             }
             embeddingTables_[i]->InsertOrAssign(insertKey, embeddings[k].data(), momentum);
         }
+
+        // 加载准入淘汰数据
+        LoadFeatureAdmitAndEvictInfo(i, filePath, keys);
     }
 }
 
@@ -743,6 +748,126 @@ void EmbcacheManager::RemoveEmbeddingTableInfo()
     LOG_INFO("RemoveEmbeddingTableInfo execution time: {} ms", removeEmbeddingTableTC.ElapsedMS());
 }
 
+void EmbcacheManager::SaveFeatureAdmitAndEvictInfo(int32_t tableIndex, const std::string& filePrefix,
+                                                   const std::vector<int64_t>& saveKeys)
+{
+    TimeCost saveFeatureFilterDataTC;
+    if (embConfigs[tableIndex].admitAndEvictConfig.IsAdmitEnabled()) {
+        SaveFeatureCount(tableIndex, filePrefix, saveKeys);
+    }
+    if (embConfigs[tableIndex].admitAndEvictConfig.IsEvictEnabled()) {
+        SaveFeatureTimestamp(tableIndex, filePrefix);
+    }
+    LOG(INFO) << "saveFeatureFilterDataTC(ms):" << saveFeatureFilterDataTC.ElapsedMS();
+}
+
+void EmbcacheManager::SaveFeatureTimestamp(int32_t tableIndex, const std::string& filePrefix)
+{
+    // 时间戳数据 key数量和当前卡的key不一样；需要单独保存key数据
+    auto& featureTimestampMap = featureFilters[tableIndex].GetFeatureTimestampMap();
+
+    // write attribute
+    std::ofstream attributeFile = OpenFile(filePrefix + EVICT_STR_PATH + SLICE_ATTR_PATH);
+    std::vector<int64_t> attrVec = {sizeof(int64_t), featureTimestampMap.size()};
+    WriteData(attributeFile, reinterpret_cast<const char*>(attrVec.data()), attrVec.size() * sizeof(int64_t));
+
+    // write evict record key
+    std::ofstream evictKeyFile = OpenFile(filePrefix + EVICT_STR_PATH + SLICE_EVICT_KEY_DATA_PATH);
+    std::vector<int64_t> evictRecordKeys;
+    // write evict record timestamp
+    std::ofstream evictTsFile = OpenFile(filePrefix + EVICT_STR_PATH + SLICE_EVICT_TS_DATA_PATH);
+    std::vector<int64_t> evictRecordTs;
+
+    size_t loopCount = 0;
+    for (auto iter : featureTimestampMap) {
+        evictRecordKeys.emplace_back(iter.first);
+        evictRecordTs.emplace_back(static_cast<int64_t>(iter.second));
+        if (loopCount > 0 &&
+            (loopCount % ONE_TIME_IO_WRITE == 0 || loopCount == (featureTimestampMap.size() - 1))) {
+            WriteData(evictKeyFile, reinterpret_cast<const char*>(evictRecordKeys.data()),
+                      evictRecordKeys.size() * sizeof(int64_t));
+            evictRecordKeys.clear();
+            WriteData(evictTsFile, reinterpret_cast<const char*>(evictRecordTs.data()),
+                      evictRecordTs.size() * sizeof(int64_t));
+            evictRecordTs.clear();
+        }
+        loopCount++;
+    }
+}
+
+void EmbcacheManager::SaveFeatureCount(int32_t tableIndex, const std::string& filePrefix,
+                                       const std::vector<int64_t>& saveKeys)
+{
+    // write attribute
+    std::ofstream attributeFile = OpenFile(filePrefix + ADMIT_STR_PATH + SLICE_ATTR_PATH);
+    std::vector<int64_t> attrVec = {sizeof(int64_t), saveKeys.size()};
+    WriteData(attributeFile, reinterpret_cast<const char*>(attrVec.data()), attrVec.size() * sizeof(int64_t));
+
+    // write key count data.
+    std::ofstream dataFile = OpenFile(filePrefix + ADMIT_STR_PATH + SLICE_DATA_PATH);
+    const auto& featureCountMap = featureFilters[tableIndex].GetFeatureCountMap();
+    std::vector<int64_t> keyCountVec;
+    size_t count = 0;
+    for (size_t i = 0; i < saveKeys.size(); ++i) {
+        auto key = saveKeys[i];
+        auto ret = featureCountMap.find(key);
+        if (ret != featureCountMap.end()) {
+            keyCountVec.emplace_back(ret->second.count);
+        } else {
+            keyCountVec.emplace_back(-1);
+        }
+        LOG(INFO) << "In save key count, tableIndex:" << tableIndex << ", key:" << key
+                  << ", count:" << keyCountVec[i];
+
+        if (i > 0 && (i % ONE_TIME_IO_WRITE == 0 || i == (saveKeys.size() - 1))) {
+            WriteData(dataFile, reinterpret_cast<const char*>(keyCountVec.data()),
+                      keyCountVec.size() * sizeof(int64_t));
+            count += keyCountVec.size();
+            keyCountVec.clear();
+        }
+    }
+    LOG(INFO) << "In save key count, tableIndex:" << tableIndex << ", save key count size:" << count
+              << ", featureCountMap size:" << featureCountMap.size();
+}
+
+
+void EmbcacheManager::LoadFeatureAdmitAndEvictInfo(int32_t tableIndex, const std::string& filePrefix,
+                                                   const std::vector<int64_t>& saveKeys)
+{
+    TimeCost loadFeatureFilterDataTC;
+    if (embConfigs[tableIndex].admitAndEvictConfig.IsAdmitEnabled()) {
+        // read key count data
+        std::vector<uint64_t> keyCountVec;
+        auto retCode = ReadFile(filePrefix, keyCountVec, ADMIT_STR_PATH);
+        if (retCode != 0) {
+            LOG(ERROR) << "Failed to read feature count file, error code:" + std::to_string(retCode);
+            TORCH_CHECK(-1, "Failed to read feature count file, error code:" + std::to_string(retCode))
+        }
+        featureFilters[tableIndex].LoadFeatureRecords(saveKeys, keyCountVec);
+    }
+    if (embConfigs[tableIndex].admitAndEvictConfig.IsEvictEnabled()) {
+        // 时间戳数据 key数量和当前卡的key不一样；需要分别读取 evict key， evict timestamp 信息
+        // read key
+        std::vector<int64_t> keysVec;
+        auto retCode = ReadFile(filePrefix, keysVec, EVICT_STR_PATH, SLICE_EVICT_KEY_DATA_PATH);
+        if (retCode != 0) {
+            LOG(ERROR) << "Failed to read feature evict key file, error code:" + std::to_string(retCode);
+            TORCH_CHECK(-1, "Failed to read feature evict key file, error code:" + std::to_string(retCode))
+        }
+
+        // read timestamp
+        std::vector<int64_t> keyTimestampVec;
+        retCode = ReadFile(filePrefix, keyTimestampVec, EVICT_STR_PATH, SLICE_EVICT_TS_DATA_PATH);
+        if (retCode != 0) {
+            LOG(ERROR) << "Failed to read feature evict timestamp file, error code:" + std::to_string(retCode);
+            TORCH_CHECK(-1, "Failed to read feature evict timestamp file, error code:" + std::to_string(retCode))
+        }
+
+        // data load
+        featureFilters[tableIndex].LoadTimestampRecords(keysVec, keyTimestampVec);
+    }
+    LOG(INFO) << "The loadFeatureFilterDataTC(ms):" << loadFeatureFilterDataTC.ElapsedMS();
+}
 void EmbcacheManager::StatisticsKeyCount(const at::Tensor& batchKeys, const torch::Tensor& offset,
                                          const at::Tensor& batchKeyCounts, int64_t tableIndex)
 {

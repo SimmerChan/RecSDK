@@ -182,6 +182,12 @@ private:
                                     const vector<std::vector<float>>& momentum1,
                                     const vector<std::vector<float>>& momentum2, const TableRankParam& tableParams);
     static std::string GetDevWeightsShape(const at::Tensor& weightsDev);
+    void SaveFeatureAdmitAndEvictInfo(int32_t tableIndex, const std::string& filePrefix,
+                                      const std::vector<int64_t>& saveKeys);
+    void LoadFeatureAdmitAndEvictInfo(int32_t tableIndex, const std::string& filePrefix,
+    void SaveFeatureCount(int32_t tableIndex, const std::string& filePrefix, const std::vector<int64_t>& saveKeys);
+    void SaveFeatureTimestamp(int32_t tableIndex, const std::string& filePrefix);
+
 
 private:
     int32_t embNum_;
