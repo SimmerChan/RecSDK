@@ -9,15 +9,10 @@
 from typing import Optional, Dict, List, Tuple
 
 import torch
-
 from torchrec.sparse.jagged_tensor import (
     JaggedTensor,
-    KeyedJaggedTensor,
-    _pin_and_move,
     _permute_tensor_by_segments,
 )
-from torchrec.pt2.checks import is_torchdynamo_compiling, is_non_strict_exporting
-
 
 from hybrid_torchrec.sparse.extended_jagged_tensor import ExtendedJaggedTensor, KeyedExtendedJaggedTensor
 

@@ -6,14 +6,12 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Optional, Dict, List, Tuple, TypeVar, Generic, Type, Any, Callable
+from typing import Optional, Dict, List, Tuple, TypeVar, Generic, Callable
 import torch
 
-from torch.autograd.profiler import record_function
 from torchrec.sparse.jagged_tensor import (
     _pin_and_move,
     _permute_tensor_by_segments,
-    _sum_by_splits,
     JaggedTensor,
     KeyedJaggedTensor,
 )

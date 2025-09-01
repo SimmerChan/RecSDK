@@ -15,9 +15,8 @@ from torchrec.sparse.jagged_tensor import (
     _permute_tensor_by_segments,
     _sum_by_splits,
     JaggedTensor,
-    KeyedJaggedTensor,
 )
-from torchrec.pt2.checks import is_torchdynamo_compiling, is_non_strict_exporting
+from torchrec.pt2.checks import is_torchdynamo_compiling
 
 from .extended_jagged_tensor import ExtendedJaggedTensor, KeyedExtendedJaggedTensor
 
