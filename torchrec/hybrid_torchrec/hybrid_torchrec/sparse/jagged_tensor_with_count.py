@@ -9,7 +9,6 @@
 from typing import Optional, Dict, List, Tuple, NamedTuple
 
 import torch
-
 from torch.autograd.profiler import record_function
 from torchrec.sparse.jagged_tensor import (
     _pin_and_move,

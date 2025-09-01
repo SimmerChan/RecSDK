@@ -7,8 +7,8 @@
 # LICENSE file in the root directory of this source tree.
 
 from typing import Optional, Dict, List, Tuple, TypeVar, Generic, Callable
-import torch
 
+import torch
 from torchrec.sparse.jagged_tensor import (
     _pin_and_move,
     _permute_tensor_by_segments,

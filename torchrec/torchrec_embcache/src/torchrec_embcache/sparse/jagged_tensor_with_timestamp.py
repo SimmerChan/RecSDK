@@ -13,7 +13,6 @@ from torchrec.sparse.jagged_tensor import (
     JaggedTensor,
     _permute_tensor_by_segments,
 )
-
 from hybrid_torchrec.sparse.extended_jagged_tensor import ExtendedJaggedTensor, KeyedExtendedJaggedTensor
 
 
