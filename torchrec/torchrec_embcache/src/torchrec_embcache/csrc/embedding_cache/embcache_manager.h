@@ -200,7 +200,7 @@ private:
     void LoadFeatureAdmitAndEvictInfo(const std::shared_ptr<FileSystem>& fileSystemPtr,
                                       int32_t tableIndex, const std::string& filePrefix,
                                       const std::vector<int64_t>& saveKeys);
-    int32_t GetOneTimeLoadCount(int32_t embDim);
+    static int32_t GetOneTimeLoadCount(int32_t embDim);
 private:
     int32_t embNum_;
     std::vector<int32_t> embTableIndies_;
