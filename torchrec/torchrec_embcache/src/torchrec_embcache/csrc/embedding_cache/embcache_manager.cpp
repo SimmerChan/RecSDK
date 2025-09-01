@@ -516,16 +516,16 @@ void EmbcacheManager::LoadEmbeddingAndOptimizer(const shared_ptr<FileSystem>& fi
     RecordLoadDebugInfo(keys, embeddings, momentum1, momentum2, tableParams);
 
     for (size_t k = 0; k < keys.size(); k++) {
-            vector<int64_t> insertKey = {keys[k]};
-            vector<float*> momentum = {};
-            if (optimNum_ > 0) {
-                momentum.emplace_back(momentum1[k].data());
-            }
-            if (optimNum_ > 1) {
-                momentum.emplace_back(momentum2[k].data());
-            }
-            embeddingTables_[tableIndex]->InsertOrAssign(insertKey, embeddings[k].data(), momentum);
+        vector<int64_t> insertKey = {keys[k]};
+        vector<float*> momentum = {};
+        if (optimNum_ > 0) {
+            momentum.emplace_back(momentum1[k].data());
         }
+        if (optimNum_ > 1) {
+            momentum.emplace_back(momentum2[k].data());
+        }
+        embeddingTables_[tableIndex]->InsertOrAssign(insertKey, embeddings[k].data(), momentum);
+    }
 }
 
 void EmbcacheManager::RecordLoadDebugInfo(const vector<int64_t>& keys, const vector<std::vector<float>>& embeddings,
