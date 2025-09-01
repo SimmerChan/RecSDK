@@ -18,7 +18,8 @@ from torchrec.sparse.jagged_tensor import (
 )
 from torchrec.pt2.checks import is_torchdynamo_compiling, is_non_strict_exporting
 
-from .extended_jagged_tensor import ExtendedJaggedTensor, KeyedExtendedJaggedTensor
+# 从混合分支导入重构后的基类
+from torchrec.hybrid_torchrec.hybrid_torchrec.sparse.extended_jagged_tensor import ExtendedJaggedTensor, KeyedExtendedJaggedTensor
 
 
 class JaggedTensorWithTimestamp(ExtendedJaggedTensor):
