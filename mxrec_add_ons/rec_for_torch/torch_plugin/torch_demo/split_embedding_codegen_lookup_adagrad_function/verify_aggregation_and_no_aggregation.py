@@ -22,7 +22,6 @@ from torch.optim import Adam, Adagrad, SGD
 import torchrec
 from torchrec import JaggedTensor, KeyedJaggedTensor, PoolingType, ComputeDevice
 
-
 def set_seed(seed=42):
     random.seed(seed)
     torch.manual_seed(seed)
@@ -31,7 +30,6 @@ def set_seed(seed=42):
         torch.cuda.manual_seed_all(seed)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
-
 
 set_seed(42)
 
@@ -86,7 +84,6 @@ def create_data(params):
 
     return indices_test, offsets_test, jt_lst
 
-
 def generate_unique(jt_lst, feature_map):
     unique_indices = []
     unique_inverse = []
@@ -108,7 +105,6 @@ def generate_unique(jt_lst, feature_map):
     unique_offset.extend([start])
     return unique_indices, unique_inverse, unique_offset
 
-
 def look_table(indices, offsets, jt_lst, tbe, params):
     if params.unique:
         unique_indices, unique_inverse, unique_offset = generate_unique(jt_lst, params.feature_map)
@@ -119,11 +115,11 @@ def look_table(indices, offsets, jt_lst, tbe, params):
     else:
         kwargs = dict()
 
+
     output = tbe(indices, offsets, **kwargs)  # bs,dim
     loss = torch.sum(output ** 2 / 2)
     loss.backward()
     return tbe.weights_dev
-
 
 def concat_tensors_by_category(a):
     num_categories = len(a[0])
@@ -133,7 +129,6 @@ def concat_tensors_by_category(a):
         result.append(torch.cat(tensors))
 
     return result
-
 
 def verify_grad_aggregation(params):
     torch.npu.set_device(DEVICEID)
@@ -219,7 +214,6 @@ def verify_grad_aggregation(params):
     print('allclose', verify)
 
     raise ValueError(f"verify grad aggregation is {verify}")
-
 
 @pytest.mark.parametrize("tables", [[(10, 8), (5, 8), (4, 8)]])
 @pytest.mark.parametrize("mutile_hots", [[1, 1, 1]])
