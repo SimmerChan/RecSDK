@@ -22,6 +22,17 @@ from torchrec.pt2.checks import is_torchdynamo_compiling, is_non_strict_exportin
 from .extended_jagged_tensor import ExtendedJaggedTensor, KeyedExtendedJaggedTensor
 
 
+class DistInitParams(NamedTuple):
+    """Parameters for KeyedJaggedTensorWithCount.dist_init method"""
+    keys: List[str]
+    tensors: List[torch.Tensor]
+    variable_stride_per_key: bool
+    num_workers: int
+    recat: Optional[torch.Tensor]
+    stride_per_rank: Optional[List[int]]
+    stagger: int = 1
+
+
 class JaggedTensorWithCount(ExtendedJaggedTensor):
     """带有计数信息的JaggedTensor"""
     
@@ -412,4 +423,20 @@ class KeyedJaggedTensorWithCount(KeyedExtendedJaggedTensor[JaggedTensorWithCount
             )
             return kjt.sync()
 
-
+    @staticmethod
+    def dist_init_with_params(
+        params: DistInitParams,
+    ) -> "KeyedJaggedTensorWithCount":
+        """
+        Alternative version of dist_init that takes a DistInitParams object
+        to comply with the rule of limiting function arguments.
+        """
+        return KeyedJaggedTensorWithCount.dist_init(
+            keys=params.keys,
+            tensors=params.tensors,
+            variable_stride_per_key=params.variable_stride_per_key,
+            num_workers=params.num_workers,
+            recat=params.recat,
+            stride_per_rank=params.stride_per_rank,
+            stagger=params.stagger,
+        )

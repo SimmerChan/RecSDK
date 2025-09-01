@@ -19,8 +19,10 @@ from torchrec.sparse.jagged_tensor import (
 )
 from torchrec.pt2.checks import is_torchdynamo_compiling, is_non_strict_exporting
 
+
 T = TypeVar('T', bound='ExtendedJaggedTensor')
 KT = TypeVar('KT', bound='KeyedExtendedJaggedTensor')
+
 
 class ExtendedJaggedTensor(JaggedTensor):
     """扩展的JaggedTensor基类，用于处理带有额外字段的JaggedTensor"""
@@ -35,8 +37,10 @@ class ExtendedJaggedTensor(JaggedTensor):
         extra_field_name: str = "extra"
     ) -> None:
         if extra is not None and values.size() != extra.size():
-            raise ValueError(f"{extra_field_name} size must same with values, but got {extra_field_name} size:{extra.size()},"
-                             f" values size:{values.size()}.")
+            raise ValueError(
+                f"{extra_field_name} size must same with values, but got "
+                f"{extra_field_name} size:{extra.size()}, values size:{values.size()}."
+            )
 
         super().__init__(values, weights, lengths, offsets)
         self._extra = extra
@@ -413,7 +417,9 @@ class KeyedExtendedJaggedTensor(KeyedJaggedTensor, Generic[T]):
 
         # 处理额外字段
         kjt_extra = (
-            torch.concat(kjt_extra_list) if len(kjt_extra_list) > 0 and all(t is not None for t in kjt_extra_list) else None
+            torch.concat(kjt_extra_list) 
+            if len(kjt_extra_list) > 0 and all(t is not None for t in kjt_extra_list) 
+            else None
         )
 
         kjt_weights = (
