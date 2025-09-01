@@ -11,12 +11,13 @@ import torch
 
 from torch.autograd.profiler import record_function
 from torchrec.sparse.jagged_tensor import (
+    _pin_and_move,
     _permute_tensor_by_segments,
     _sum_by_splits,
     JaggedTensor,
     KeyedJaggedTensor,
 )
-from torchrec.pt2.checks import is_non_strict_exporting
+from torchrec.pt2.checks import is_torchdynamo_compiling, is_non_strict_exporting
 
 from .extended_jagged_tensor import ExtendedJaggedTensor, KeyedExtendedJaggedTensor
 
@@ -219,51 +220,126 @@ class KeyedJaggedTensorWithCount(KeyedExtendedJaggedTensor):
         return split_list
 
     def permute(
-        self,
-        permute_order: List[int],
-        permuted_length_per_key: List[int],
+        self, indices: List[int], indices_tensor: Optional[torch.Tensor] = None
     ) -> "KeyedJaggedTensorWithCount":
+        """
+        Permutes the KeyedJaggedTensorWithCount.
+
+        Args:
+            indices (List[int]): list of indices.
+            indices_tensor (Optional[torch.Tensor]): tensor of indices.
+
+        Returns:
+            KeyedJaggedTensorWithCount: permuted KeyedJaggedTensorWithCount.
+        """
+        if indices_tensor is None:
+            indices_tensor = torch.tensor(
+                indices, dtype=torch.int, device=self.device()
+            )
+
+        length_per_key = self.length_per_key()
+        permuted_keys: List[str] = []
+        permuted_stride_per_key_per_rank: List[List[int]] = []
+        permuted_length_per_key: List[int] = []
+        permuted_length_per_key_sum = 0
+        for index in indices:
+            key = self.keys()[index]
+            permuted_keys.append(key)
+            permuted_length_per_key.append(length_per_key[index])
+            if self.variable_stride_per_key():
+                permuted_stride_per_key_per_rank.append(
+                    self.stride_per_key_per_rank()[index]
+                )
+
         permuted_length_per_key_sum = sum(permuted_length_per_key)
-        # 避免直接访问受保护的成员
         if not torch.jit.is_scripting() and is_non_strict_exporting():
-            # 使用公共API替代受保护成员的访问
-            if permuted_length_per_key_sum <= 0:
-                raise ValueError("permuted_length_per_key_sum needs to be greater than 0")
+            torch._check_is_size(permuted_length_per_key_sum)
+            torch._check(permuted_length_per_key_sum != -1)
+            torch._check(permuted_length_per_key_sum != 0)
 
-        with record_function("KeyedJaggedTensorWithCount.permute"):
-            permuted_values = _permute_tensor_by_segments(
-                self._values,
-                self._offsets,
-                permute_order,
-                permuted_length_per_key,
+        if self.variable_stride_per_key():
+            length_per_key_tensor = _pin_and_move(
+                torch.tensor(self.length_per_key()), self.device()
             )
-            permuted_counts = _permute_tensor_by_segments(
-                self._counts,
-                self._offsets,
-                permute_order,
-                permuted_length_per_key,
+            stride_per_key_tensor = _pin_and_move(
+                torch.tensor(self.stride_per_key()), self.device()
             )
-            permuted_lengths = _sum_by_splits(
-                torch.ones_like(self._values),
-                self._offsets,
-                permute_order,
-                permuted_length_per_key,
+            permuted_lengths, _ = _permute_tensor_by_segments(
+                self.lengths(),
+                stride_per_key_tensor,
+                indices_tensor,
+                None,
             )
-            permuted_offsets = torch.cumsum(
-                torch.cat([torch.tensor([0]), permuted_lengths]), dim=0
+            permuted_values, permuted_weights = _permute_tensor_by_segments(
+                self.values(),
+                length_per_key_tensor,
+                indices_tensor,
+                self.weights_or_none(),
             )
-
-            return KeyedJaggedTensorWithCount(
-                keys=self._keys,
-                values=permuted_values,
-                counts=permuted_counts,
-                weights=None,
-                lengths=permuted_lengths,
-                offsets=permuted_offsets,
-                stride=self._stride,
-                stride_per_key_per_rank=self._stride_per_key_per_rank,
-                length_per_key=permuted_length_per_key,
-                offset_per_key=None,
-                index_per_key=self._index_per_key,
-                jt_dict=None,
+            permuted_counts, _ = _permute_tensor_by_segments(
+                self.counts,
+                length_per_key_tensor,
+                indices_tensor,
+                self.weights_or_none(),
             )
+        elif is_torchdynamo_compiling() and not torch.jit.is_scripting():
+            (
+                permuted_lengths,
+                permuted_values,
+                permuted_weights,
+            ) = torch.ops.fbgemm.permute_2D_sparse_data_input1D(
+                indices_tensor,
+                self.lengths(),
+                self.values(),
+                self.stride(),
+                self.weights_or_none(),
+                permuted_length_per_key_sum,
+            )
+            _, permuted_counts, _ = torch.ops.fbgemm.permute_2D_sparse_data_input1D(
+                indices_tensor,
+                self.lengths(),
+                self.counts,
+                self.stride(),
+                self.weights_or_none(),
+                permuted_length_per_key_sum,
+            )
+        else:
+            (
+                permuted_lengths,
+                permuted_values,
+                permuted_weights,
+            ) = torch.ops.fbgemm.permute_2D_sparse_data(
+                indices_tensor,
+                self.lengths().view(len(self._keys), -1),
+                self.values(),
+                self.weights_or_none(),
+                permuted_length_per_key_sum,
+            )
+            _, permuted_counts, _ = torch.ops.fbgemm.permute_2D_sparse_data(
+                indices_tensor,
+                self.lengths().view(len(self._keys), -1),
+                self.counts,
+                self.weights_or_none(),
+                permuted_length_per_key_sum,
+            )
+        stride_per_key_per_rank = (
+            permuted_stride_per_key_per_rank if self.variable_stride_per_key() else None
+        )
+        kjt = KeyedJaggedTensorWithCount(
+            keys=permuted_keys,
+            values=permuted_values,
+            counts=permuted_counts,
+            weights=permuted_weights,
+            lengths=permuted_lengths.view(-1),
+            offsets=None,
+            stride=self._stride,
+            stride_per_key_per_rank=stride_per_key_per_rank,
+            stride_per_key=None,
+            length_per_key=permuted_length_per_key if len(permuted_keys) > 0 else None,
+            lengths_offset_per_key=None,
+            offset_per_key=None,
+            index_per_key=None,
+            jt_dict=None,
+            inverse_indices=None,
+        )
+        return kjt
