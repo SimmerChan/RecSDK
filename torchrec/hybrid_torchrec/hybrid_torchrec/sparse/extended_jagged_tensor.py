@@ -25,8 +25,8 @@ KT = TypeVar('KT', bound='KeyedExtendedJaggedTensor')
 class ExtendedJaggedTensor(JaggedTensor):
     """扩展的JaggedTensor基类，用于处理带有额外字段的JaggedTensor"""
     
-    # 子类需要定义_fields属性，例如_fields = ["_counts"]
-    _fields: List[str] = []
+    # 子类需要定义_fields属性，例如_fields = "_counts"
+    _fields: str = ""
     
     def __init__(
         self,
@@ -35,25 +35,13 @@ class ExtendedJaggedTensor(JaggedTensor):
         weights: Optional[torch.Tensor] = None,
         lengths: Optional[torch.Tensor] = None,
         offsets: Optional[torch.Tensor] = None,
-        extra_field_name: str = "extra"
     ) -> None:
-        # 验证_fields是否为列表类型
-        if not isinstance(self._fields, list):
-            raise TypeError(f"_fields must be a list, but got {type(self._fields)}")
-        
-        # 验证每个额外字段并设置属性
-        for field in self._fields:
-            field_tensor = extra  # 可以根据需要扩展为字段特定的张量
-            if field_tensor is not None and values.size() != field_tensor.size():
-                raise ValueError(
-                    f"{field} size must match values size, but got "
-                    f"{field} size: {field_tensor.size()}, values size: {values.size()}"
-                )
-            setattr(self, field, field_tensor)
-        
         super().__init__(values, weights, lengths, offsets)
         self._extra = extra
-        self._extra_field_name = extra_field_name
+        
+        # 动态设置字段属性
+        if self._fields and extra is not None:
+            setattr(self, self._fields, extra)
 
     @property
     def extra(self) -> Optional[torch.Tensor]:
@@ -63,8 +51,8 @@ class ExtendedJaggedTensor(JaggedTensor):
 class KeyedExtendedJaggedTensor(KeyedJaggedTensor, Generic[T]):
     """扩展的KeyedJaggedTensor基类，用于处理带有额外字段的KeyedJaggedTensor"""
     
-    # 子类需要定义_fields属性，例如_fields = ["_counts"]
-    _fields: List[str] = []
+    # 子类需要定义_fields属性，例如_fields = "_counts"
+    _fields: str = ""
     
     def __init__(
         self,
@@ -84,7 +72,6 @@ class KeyedExtendedJaggedTensor(KeyedJaggedTensor, Generic[T]):
         index_per_key: Optional[Dict[str, int]] = None,
         jt_dict: Optional[Dict[str, JaggedTensor]] = None,
         inverse_indices: Optional[Tuple[List[str], torch.Tensor]] = None,
-        extra_field_name: str = "extra",
         field_tensors: Optional[Dict[str, torch.Tensor]] = None
     ) -> None:
         super().__init__(
@@ -104,25 +91,24 @@ class KeyedExtendedJaggedTensor(KeyedJaggedTensor, Generic[T]):
             inverse_indices
         )
         self._extra: Optional[torch.Tensor] = extra
-        self._extra_field_name = extra_field_name
 
         # 设置字段张量
         field_tensors = field_tensors or {}
 
-        # 验证字段名是否在 _fields 中
+        # 验证字段名是否匹配 _fields
         for field in field_tensors:
-            if field not in self._fields:
-                raise ValueError(f"Field '{field}' not declared in _fields")
+            if field != self._fields:
+                raise ValueError(f"Field '{field}' not match declared field '{self._fields}'")
 
         # 动态设置字段属性
-        for field in self._fields:
-            tensor = field_tensors.get(field, extra)
+        if self._fields:
+            tensor = field_tensors.get(self._fields, extra)
             if tensor is not None and values.size() != tensor.size():
                 raise ValueError(
-                    f"Field '{field}' size must match values size, "
+                    f"Field '{self._fields}' size must match values size, "
                     f"but got tensor size: {tensor.size()}, values size: {values.size()}"
                 )
-            setattr(self, field, tensor)
+            setattr(self, self._fields, tensor)
 
     @property
     def extra(self) -> Optional[torch.Tensor]:

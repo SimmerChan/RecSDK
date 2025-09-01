@@ -46,7 +46,7 @@ class DistInitParams(NamedTuple):
 class JaggedTensorWithCount(ExtendedJaggedTensor):
     """带有计数信息的JaggedTensor"""
     
-    _fields = ["_counts"]
+    _fields = "_counts"
 
     def __init__(
         self,
@@ -62,7 +62,6 @@ class JaggedTensorWithCount(ExtendedJaggedTensor):
             weights=weights,
             lengths=lengths,
             offsets=offsets,
-            extra_field_name="counts"
         )
         # values中每个ids出现次数，分桶去重时会进行计算，input_dist all2all会做集合通信，post dist input时做count记录
         self._counts = counts
