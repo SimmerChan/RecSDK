@@ -14,8 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-import sys
 import os
+import sys
 import sysconfig
 import pytest
 import torch
@@ -32,6 +32,10 @@ torch.npu.config.allow_internal_format = False
 torch.ops.load_library(f"{sysconfig.get_path('purelib')}/libfbgemm_npu_api.so")
 
 device_id: int = 0
+
+bfloat16_pre: float = 5e-3
+float16_pre: float = 1e-3
+float32_pre: float = 1e-4
 
 
 def jagged_data_gen(batch_size, max_seq_len, num_heads, attention_dim, mask_type, data_type):
@@ -226,11 +230,11 @@ class TestHstuJaggedDemo:
         q_grad_golden, k_grad_golden, v_grad_golden, attn_bias_grad_golden = self.golden_op_exec(
             grad, q, k, v, bias, mask, max_seq_len, seq_offset, mask_type, silu_scale, enable_bias, data_type)
 
-        loss = 1e-4
+        loss = float32_pre
         if data_type == torch.float16:
-            loss = 1e-3
+            loss = float16_pre
         elif data_type == torch.bfloat16:
-            loss = 5e-3
+            loss = bfloat16_pre
 
         q_res = allclose(q_grad, q_grad_golden, loss, loss)
         k_res = allclose(k_grad, k_grad_golden, loss, loss)
@@ -352,11 +356,11 @@ class TestHstuNormalDemo:
 
         torch.npu.synchronize()
 
-        loss = 1e-4
+        loss = float32_pre
         if data_type == torch.float16:
-            loss = 1e-3
+            loss = float16_pre
         elif data_type == torch.bfloat16:
-            loss = 5e-3
+            loss = bfloat16_pre
 
         q_res = allclose(q_grad, q_grad_golden, loss, loss)
         k_res = allclose(k_grad, k_grad_golden, loss, loss)

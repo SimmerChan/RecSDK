@@ -14,8 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-import sys
 import os
+import sys
 import sysconfig
 import numpy as np
 import pytest
@@ -37,6 +37,10 @@ mask_tril: int = 0
 mask_triu: int = 1
 mask_none: int = 2
 mask_custom: int = 3
+
+bfloat16_pre: float = 5e-3
+float16_pre: float = 1e-3
+float32_pre: float = 1e-4
 
 torch.npu.set_device(device_id)
 
@@ -172,17 +176,17 @@ class TestHstuAutogradNormal:
                                                                         mask_type, silu_scale, data_type)
 
         if data_type == torch.bfloat16:
-            res = allclose(output, golden, 5e-3, 5e-3)
+            res = allclose(output, golden, bfloat16_pre, bfloat16_pre)
         elif data_type == torch.float16:
-            res = allclose(output, golden, 1e-3, 1e-3)
+            res = allclose(output, golden, float16_pre, float16_pre)
         else:
-            res = allclose(output, golden, 1e-4, 1e-4)
+            res = allclose(output, golden, float32_pre, float32_pre)
         assert res
-        assert allclose(q_grad, q_grad_op, 1e-4, 1e-4)
-        assert allclose(k_grad, k_grad_op, 1e-4, 1e-4)
-        assert allclose(v_grad, v_grad_op, 1e-4, 1e-4)
+        assert allclose(q_grad, q_grad_op, float32_pre, float32_pre)
+        assert allclose(k_grad, k_grad_op, float32_pre, float32_pre)
+        assert allclose(v_grad, v_grad_op, float32_pre, float32_pre)
         if enable_bias:
-            assert allclose(bias_grad.to(torch.float32), bias_grad_op.to(torch.float32), 1e-4, 1e-4)
+            assert allclose(bias_grad.to(torch.float32), bias_grad_op.to(torch.float32), float32_pre, float32_pre)
         else:
             assert bias_grad is None
             assert bias_grad_op is None
@@ -347,11 +351,11 @@ class TestHstuAutogradJagged:
                                                                         max_seq_len, num_heads, attention_dim,
                                                                         enable_bias, mask_type, silu_scale, data_type)
 
-        loss = 1e-4
+        loss = float32_pre
         if data_type == torch.bfloat16:
-            loss = 5e-3
+            loss = bfloat16_pre
         elif data_type == torch.float16:
-            loss = 1e-3
+            loss = float16_pre
         output_res = allclose(output, golden, loss, loss)
         q_grad_res = allclose(q_grad_op, q_grad, loss, loss)
         k_grad_res = allclose(k_grad_op, k_grad, loss, loss)

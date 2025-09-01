@@ -15,8 +15,8 @@
 # limitations under the License.
 # ==============================================================================
 
-import sys
 import os
+import sys
 import sysconfig
 import pytest
 import torch
@@ -38,6 +38,10 @@ mask_tril: int = 0
 mask_triu: int = 1
 mask_none: int = 2
 mask_custom: int = 3
+
+bfloat16_pre: float = 5e-3
+float16_pre: float = 1e-3
+float32_pre: float = 1e-4
 
 torch.npu.set_device(device_id)
 
@@ -199,11 +203,11 @@ class TestHstuJaggedFuxi:
         
 
         if data_type == torch.bfloat16:
-            res = allclose(output, gloden, 5e-3, 5e-3)
+            res = allclose(output, gloden, bfloat16_pre, bfloat16_pre)
         elif data_type == torch.float16:
-            res = allclose(output, gloden, 1e-3, 1e-3)
+            res = allclose(output, gloden, float16_pre, float16_pre)
         else:
-            res = allclose(output, gloden, 1e-4, 1e-4)
+            res = allclose(output, gloden, float32_pre, float32_pre)
         assert res
 
     @pytest.mark.parametrize("batch_size", [1, 16])

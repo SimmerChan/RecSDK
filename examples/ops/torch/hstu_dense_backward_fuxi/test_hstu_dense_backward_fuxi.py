@@ -14,8 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-import sys
 import os
+import sys
 from pathlib import Path
 import numpy as np
 import pytest
@@ -38,6 +38,10 @@ mask_tril: int = 0
 mask_triu: int = 1
 mask_none: int = 2
 mask_custom: int = 3
+
+bfloat16_pre: float = 5e-3
+float16_pre: float = 1e-3
+float32_pre: float = 1e-4
 
 torch.manual_seed(3)
 
@@ -274,11 +278,11 @@ class TestHstuJaggedDemo:
             mask_type, silu_scale, enable_bias, data_type
         )
 
-        loss = 1e-4
+        loss = float32_pre
         if data_type == torch.float16:
-            loss = 1e-3
+            loss = float16_pre
         elif data_type == torch.bfloat16:
-            loss = 5e-3
+            loss = bfloat16_pre
 
         q_res = allclose(q_grad, q_grad_golden, loss, loss)
         k_res = allclose(k_grad, k_grad_golden, loss, loss)
