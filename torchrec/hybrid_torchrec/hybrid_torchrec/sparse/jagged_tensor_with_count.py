@@ -1,54 +1,3 @@
-#!/usr/bin/env python3
-# Copyright (c) Huawei Platforms, Inc. and affiliates.
-# Copyright (c) Meta Platforms, Inc. and affiliates.
-# All rights reserved.
-#
-# This source code is licensed under the BSD-style license found in the
-# LICENSE file in the root directory of this source tree.
-from typing import Optional, Dict, List, Tuple
-
-import torch
-
-from torch.autograd.profiler import record_function
-from torchrec.sparse.jagged_tensor import (
-    _permute_tensor_by_segments,
-    _sum_by_splits,
-    JaggedTensor,
-    KeyedJaggedTensor,
-)
-from torchrec.pt2.checks import is_non_strict_exporting
-from .extended_jagged_tensor import ExtendedJaggedTensor, KeyedExtendedJaggedTensor
-
-
-class JaggedTensorWithCount(ExtendedJaggedTensor):
-    _fields = [
-        "_counts"
-    ]
-
-    def __init__(
-        self,
-        values: torch.Tensor,
-        weights: Optional[torch.Tensor] = None,
-        lengths: Optional[torch.Tensor] = None,
-        offsets: Optional[torch.Tensor] = None,
-        counts: Optional[torch.Tensor] = None,
-    ) -> None:
-        super().__init__(
-            values=values,
-            extra=counts,
-            weights=weights,
-            lengths=lengths,
-            offsets=offsets,
-            extra_field_name="counts"
-        )
-        # values中每个ids出现次数，分桶去重时会进行计算，input_dist all2all会做集合通信，post dist input时做count记录
-        self._counts = counts
-
-    @property
-    def counts(self):
-        return self._counts
-
-
 class KeyedJaggedTensorWithCount(KeyedExtendedJaggedTensor):
     _fields = [
         "_counts"
@@ -158,7 +107,7 @@ class KeyedJaggedTensorWithCount(KeyedExtendedJaggedTensor):
                         counts=torch.tensor(
                             empty_int_list,
                             device=self.device(),
-                            dtype=self._counts.dtype,
+                            dtype=self._counts.dtype if self._counts is not None else torch.int64,
                         ),
                         weights=(
                             None

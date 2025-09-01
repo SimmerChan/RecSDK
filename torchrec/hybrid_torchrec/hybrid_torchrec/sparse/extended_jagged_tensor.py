@@ -286,20 +286,20 @@ class KeyedExtendedJaggedTensor(KeyedJaggedTensor):
                     constructor_kwargs[_FIELD_TIMESTAMPS] = torch.tensor(
                         empty_int_list,
                         device=self.device(),
-                        dtype=self._extra.dtype if self._extra is not None else torch.int64,
+                        dtype=torch.int64,
                     )
                 elif self._extra_field_name == _FIELD_COUNTS:
                     constructor_kwargs[_FIELD_COUNTS] = torch.tensor(
                         empty_int_list,
                         device=self.device(),
-                        dtype=self._extra.dtype if self._extra is not None else torch.int64,
+                        dtype=torch.int64,
                     )
                 else:
                     # 对于其他情况，使用通用的extra参数
                     constructor_kwargs[_FIELD_EXTRA] = torch.tensor(
                         empty_int_list,
                         device=self.device(),
-                        dtype=self._extra.dtype if self._extra is not None else torch.int64,
+                        dtype=torch.int64,
                     )
                     constructor_kwargs[_FIELD_EXTRA_FIELD_NAME] = self._extra_field_name
 
