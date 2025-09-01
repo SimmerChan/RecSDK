@@ -14,14 +14,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-
+import sys
+import os
 import subprocess
 import sysconfig
-
 import numpy as np
 import pytest
 import torch
 import torch.nn.functional as F
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+common_dir = os.path.abspath(os.path.join(current_dir, "..", "common"))
+sys.path.insert(0, common_dir)
+from utils import allclose
 
 torch.npu.config.allow_internal_format = False
 
@@ -54,14 +59,11 @@ def jagged_data_gen(batch_size, max_seq_len, num_heads, attention_dim, data_type
     max_seq_len = np.max(seq_lens)
     total_seqs = np.sum(seq_lens)
 
-    q = torch.rand(total_seqs, num_heads, attention_dim).to(torch.float32)
-    q = q.uniform_(-1, 1)
-    k = torch.rand(total_seqs, num_heads, attention_dim).to(torch.float32)
-    k = k.uniform_(-1, 1)
-    v = torch.rand(total_seqs, num_heads, attention_dim).to(torch.float32)
-    v = v.uniform_(-1, 1)
+    q = torch.rand(total_seqs, num_heads, attention_dim).to(torch.float32).uniform_(-1, 1)
+    k = torch.rand(total_seqs, num_heads, attention_dim).to(torch.float32).uniform_(-1, 1)
+    v = torch.rand(total_seqs, num_heads, attention_dim).to(torch.float32).uniform_(-1, 1)
 
-    rel_attn_bias = torch.zeros(batch_size, num_heads, max_seq_len, max_seq_len).to(torch.float32)
+    rel_attn_bias = torch.zeros(batch_size, num_heads, max_seq_len, max_seq_len).to(torch.float32).uniform_(-1, 1)
     for batch_id in range(batch_size):
         seq_len = seq_lens[batch_id]
         rel_attn_bias[batch_id, :, 0:seq_len, 0:seq_len] = torch.rand(seq_len, seq_len).to(torch.float32)
@@ -78,10 +80,10 @@ def jagged_data_gen(batch_size, max_seq_len, num_heads, attention_dim, data_type
 def generate_tensor(batch_size, max_seq_len, num_heads, attention_dim, data_type, mask_type):
     total_num = batch_size * max_seq_len * num_heads * attention_dim
 
-    q = torch.rand(total_num).reshape(batch_size, max_seq_len, num_heads, attention_dim)
-    k = torch.rand(total_num).reshape(batch_size, max_seq_len, num_heads, attention_dim)
-    v = torch.rand(total_num).reshape(batch_size, max_seq_len, num_heads, attention_dim)
-    rel_attn_bias = torch.rand(batch_size, num_heads, max_seq_len, max_seq_len)
+    q = torch.rand(total_num).reshape(batch_size, max_seq_len, num_heads, attention_dim).uniform_(-1, 1)
+    k = torch.rand(total_num).reshape(batch_size, max_seq_len, num_heads, attention_dim).uniform_(-1, 1)
+    v = torch.rand(total_num).reshape(batch_size, max_seq_len, num_heads, attention_dim).uniform_(-1, 1)
+    rel_attn_bias = torch.rand(batch_size, num_heads, max_seq_len, max_seq_len).uniform_(-1, 1)
     if get_chip():
         invalid_attn_mask = torch.randint(0, 2, (max_seq_len, max_seq_len))
         invalid_attn_mask = torch.tril(invalid_attn_mask)
@@ -196,11 +198,11 @@ class TestHstuJaggedDemo:
                                      data_type)
 
         if data_type == torch.bfloat16:
-            res = torch.allclose(output, gloden, 1e-2, 1e-2)
+            res = allclose(output, gloden, 5e-3, 5e-3)
         elif data_type == torch.float16:
-            res = torch.allclose(output, gloden, 1e-3, 1e-3)
+            res = allclose(output, gloden, 1e-3, 1e-3)
         else:
-            res = torch.allclose(output, gloden, 1e-4, 1e-4)
+            res = allclose(output, gloden, 1e-4, 1e-4)
         assert res
 
     @pytest.mark.parametrize("batch_size", [1, 16])
@@ -325,11 +327,11 @@ class TestHstuNormalDemo:
         torch.npu.synchronize()
 
         if data_type == torch.bfloat16:
-            res = torch.allclose(output, gloden, 1e-2, 1e-2)
+            res = allclose(output, gloden, 5e-3, 5e-3)
         elif data_type == torch.float16:
-            res = torch.allclose(output, gloden, 1e-3, 1e-3)
+            res = allclose(output, gloden, 1e-3, 1e-3)
         else:
-            res = torch.allclose(output, gloden, 1e-4, 1e-4)
+            res = allclose(output, gloden, 1e-4, 1e-4)
         assert res
 
     max_seq_len = [1, 15, 31, 256, 768, 1023, 4095]
