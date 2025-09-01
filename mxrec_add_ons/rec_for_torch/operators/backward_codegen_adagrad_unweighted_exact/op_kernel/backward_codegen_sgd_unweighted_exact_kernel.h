@@ -163,7 +163,6 @@ public:
         pipe_barrier(PIPE_ALL);
         SyncAll();
 
-        UpdateEmbedSgd(args);
     }
 
 private:
