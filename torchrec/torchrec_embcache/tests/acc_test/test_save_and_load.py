@@ -46,7 +46,7 @@ from util import setup_logging
 
 WORLD_SIZE = 2
 LOOP_TIMES = 500
-BATCH_NUM = 1000
+BATCH_NUM = LOOP_TIMES * 2  # will execute LOOP_TIMES*2 times lookup when save load
 
 
 @dataclass
@@ -158,7 +158,7 @@ class TestModel:
 
         results = []
         batch: Batch
-        iter_ = iter(dataloader)
+        iter_ = iter(dataloader.dataset)
         for _ in range(LOOP_TIMES):
             batch = next(iter_)
             opt.zero_grad()
