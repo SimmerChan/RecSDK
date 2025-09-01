@@ -19,7 +19,8 @@ import torch
 
 
 def allclose(a, b, atol, ratio):
-    assert a.shape == b.shape
+    if a.shape != b.shape:
+        raise Exception("The shape of a and b must be same.")
     diff = torch.abs(a - b) > atol
     diff_count = torch.sum(diff)
     diff_ratio = diff_count / a.numel()
