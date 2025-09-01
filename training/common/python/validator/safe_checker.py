@@ -35,7 +35,7 @@ def str_safe_check(
         black_element: Optional[str] = None,
 ):
     if not isinstance(value, str):
-        raise ValueError("Value must be a string")
+        raise ValueError("Value is not str")
 
     if black_element is not None:
         safe_black_element = black_element.strip()
