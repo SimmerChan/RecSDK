@@ -32,18 +32,8 @@ def str_safe_check(
         value: str,
         min_len: int = ValidatorParams.STR_MIN_LENGTH.value,
         max_len: int = ValidatorParams.STR_MAX_LENGTH.value,
-        black_element: Optional[str] = None,
 ):
-    if not isinstance(value, str):
-        raise ValueError("Value is not str")
-
-    if black_element is not None:
-        safe_black_element = black_element.strip()
-        if len(safe_black_element) == 0:
-            safe_black_element = None
-    else:
-        safe_black_element = None
-    validator = StringValidator(name, value, max_len, min_len, safe_black_element)
+    validator = StringValidator(name, value, max_len, min_len)
     validator.check_whitelist().check_not_contain_black_element().check_string_length().check()
 
 
