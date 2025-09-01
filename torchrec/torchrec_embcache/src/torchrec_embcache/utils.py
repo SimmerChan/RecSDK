@@ -21,7 +21,7 @@ def check_str_type(string_value: str) -> None:
         raise TypeError(f"expected param type string but got {type(string_value)}")
 
 
-def check_str(string_value: str, min_length: int, max_length: int) -> None:
+def check_str_type_and_len(string_value: str, min_length: int, max_length: int) -> None:
     check_str_type(string_value)
     if len(string_value) < min_length or len(string_value) > max_length:
         raise ValueError(f"string param length is invalid, got param length:{len(string_value)},"
@@ -54,8 +54,8 @@ def check_path(value: str, need_exist: bool = False, is_dir: bool = False, **kwa
     if os.path.abspath(value) != os.path.realpath(value):
         raise ValueError(f"soft link or relative path can't be a path param, got:{value}")
     if not Path(value).is_absolute():
-        check_str(value, 0, _FILE_NAME_MAX_LEN)
-    check_str(os.path.abspath(value), _ABS_PATH_MIN_LEN, _ABS_PATH_MAX_LEN)
+        check_str_type_and_len(value, 0, _FILE_NAME_MAX_LEN)
+    check_str_type_and_len(os.path.abspath(value), _ABS_PATH_MIN_LEN, _ABS_PATH_MAX_LEN)
     if need_exist and not os.path.exists(os.path.realpath(value)):
         raise ValueError(f"expected path exist, but got:{value}")
 
