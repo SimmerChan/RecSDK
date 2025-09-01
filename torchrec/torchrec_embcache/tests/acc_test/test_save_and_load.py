@@ -143,40 +143,6 @@ class TestModel:
             torch_npu.npu.set_device(rank)
         self.setup(rank=rank, world_size=world_size)
 
-    @staticmethod
-    def cpu_golden_loss(
-        embedding_config: List[EmbeddingBagConfig], dataloader: DataLoader[Batch]
-    ):
-        table_num = len(embedding_config)
-        ebc = EmbeddingBagCollection(device=torch.device("cpu"), tables=embedding_config)
-        num_features = sum([c.num_features() for c in embedding_config])
-
-        ebc = Model(ebc, num_features)
-        pg = dist.new_group(backend="gloo")
-        model = DDP(ebc, device_ids=None, process_group=pg)
-        opt = torch.optim.Adagrad(model.parameters(), lr=0.02, eps=1e-8)
-
-        results = []
-        batch: Batch
-        iter_ = iter(dataloader.dataset)
-        for _ in range(LOOP_TIMES):
-            batch = next(iter_)
-            opt.zero_grad()
-            loss, output = model(batch)
-            results.append(loss.detach().cpu())
-            results.append(output.detach().cpu())
-            loss.backward()
-            opt.step()
-
-        for i in range(table_num):
-            logging.debug(
-                "single table%d weight %s",
-                i,
-                ebc.ebc.embedding_bags[f"table{i}"].weight,
-            )
-
-        return results
-
     def setup(self, rank: int, world_size: int):
         os.environ["MASTER_ADDR"] = "127.0.0.1"
         os.environ["MASTER_PORT"] = "6000"
@@ -242,7 +208,7 @@ class TestModel:
         # Optimizer
         optimizer = CombinedOptimizer([ddp_model.fused_optimizer])
         results = []
-        iter_ = iter(dataloader)
+        iter_ = iter(dataloader.dataset)
         ddp_model.train()
         pipe = EmbCacheTrainPipelineSparseDist(
             ddp_model,
