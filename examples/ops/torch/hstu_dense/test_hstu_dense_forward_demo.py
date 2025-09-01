@@ -25,7 +25,7 @@ import torch.nn.functional as F
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 common_dir = os.path.abspath(os.path.join(current_dir, "..", "common"))
-sys.path.insert(0, common_dir)
+sys.path.append(common_dir)
 from utils import allclose
 
 torch.npu.config.allow_internal_format = False
