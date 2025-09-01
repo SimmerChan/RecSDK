@@ -31,25 +31,29 @@ class ExtendedJaggedTensor(JaggedTensor):
     def __init__(
         self,
         values: torch.Tensor,
-        extra: Optional[torch.Tensor],
+        extra: Optional[torch.Tensor] = None,
         weights: Optional[torch.Tensor] = None,
         lengths: Optional[torch.Tensor] = None,
         offsets: Optional[torch.Tensor] = None,
         extra_field_name: str = "extra"
     ) -> None:
-        if extra is not None and values.size() != extra.size():
-            raise ValueError(
-                f"{extra_field_name} size must same with values, but got "
-                f"{extra_field_name} size:{extra.size()}, values size:{values.size()}."
-            )
-
+        # 验证_fields是否为列表类型
+        if not isinstance(self._fields, list):
+            raise TypeError(f"_fields must be a list, but got {type(self._fields)}")
+        
+        # 验证每个额外字段并设置属性
+        for field in self._fields:
+            field_tensor = extra  # 可以根据需要扩展为字段特定的张量
+            if field_tensor is not None and values.size() != field_tensor.size():
+                raise ValueError(
+                    f"{field} size must match values size, but got "
+                    f"{field} size: {field_tensor.size()}, values size: {values.size()}"
+                )
+            setattr(self, field, field_tensor)
+        
         super().__init__(values, weights, lengths, offsets)
         self._extra = extra
         self._extra_field_name = extra_field_name
-        
-        # 动态设置字段属性
-        for field in self._fields:
-            setattr(self, field, extra)
 
     @property
     def extra(self) -> Optional[torch.Tensor]:
@@ -66,7 +70,7 @@ class KeyedExtendedJaggedTensor(KeyedJaggedTensor, Generic[T]):
         self,
         keys: List[str],
         values: torch.Tensor,
-        extra: Optional[torch.Tensor],
+        extra: Optional[torch.Tensor] = None,
         weights: Optional[torch.Tensor] = None,
         lengths: Optional[torch.Tensor] = None,
         offsets: Optional[torch.Tensor] = None,
@@ -80,7 +84,8 @@ class KeyedExtendedJaggedTensor(KeyedJaggedTensor, Generic[T]):
         index_per_key: Optional[Dict[str, int]] = None,
         jt_dict: Optional[Dict[str, JaggedTensor]] = None,
         inverse_indices: Optional[Tuple[List[str], torch.Tensor]] = None,
-        extra_field_name: str = "extra"
+        extra_field_name: str = "extra",
+        field_tensors: Optional[Dict[str, torch.Tensor]] = None
     ) -> None:
         super().__init__(
             keys,
@@ -100,10 +105,24 @@ class KeyedExtendedJaggedTensor(KeyedJaggedTensor, Generic[T]):
         )
         self._extra: Optional[torch.Tensor] = extra
         self._extra_field_name = extra_field_name
-        
+
+        # 设置字段张量
+        field_tensors = field_tensors or {}
+
+        # 验证字段名是否在 _fields 中
+        for field in field_tensors:
+            if field not in self._fields:
+                raise ValueError(f"Field '{field}' not declared in _fields")
+
         # 动态设置字段属性
         for field in self._fields:
-            setattr(self, field, extra)
+            tensor = field_tensors.get(field, extra)
+            if tensor is not None and values.size() != tensor.size():
+                raise ValueError(
+                    f"Field '{field}' size must match values size, "
+                    f"but got tensor size: {tensor.size()}, values size: {values.size()}"
+                )
+            setattr(self, field, tensor)
 
     @property
     def extra(self) -> Optional[torch.Tensor]:
@@ -116,7 +135,7 @@ class KeyedExtendedJaggedTensor(KeyedJaggedTensor, Generic[T]):
         start_offset = 0
         _length_per_key = self.length_per_key()
         _offset_per_key = self.offset_per_key()
-        
+
         for segment in segments:
             end = start + segment
             end_offset = _offset_per_key[end]
@@ -127,7 +146,6 @@ class KeyedExtendedJaggedTensor(KeyedJaggedTensor, Generic[T]):
                 if self.variable_stride_per_key()
                 else (self._stride, None)
             )
-            
             if segment == len(self._keys):
                 # no torch slicing required
                 split_list.append(
