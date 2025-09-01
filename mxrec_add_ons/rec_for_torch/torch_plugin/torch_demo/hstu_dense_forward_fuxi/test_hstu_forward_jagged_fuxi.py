@@ -64,7 +64,7 @@ def jagged_data_gen(batch_size, max_seq_len, num_heads, attention_dim, mask_type
     if mask_type == mask_tril:
         mask = 1 - torch.triu(torch.ones(batch_size, num_heads, max_seq_len, max_seq_len), diagonal=1)
     else:
-        mask = torch.empty(batch_size, num_heads, max_seq_len, max_seq_len).uniform_(-1, 1)
+        mask = torch.randint(0, 2, size=(batch_size, num_heads, max_seq_len, max_seq_len))
     mask = mask.cpu().to(torch.float32)
 
     return q, k, v, seq_offset, ts_bias, pos_bias, mask
