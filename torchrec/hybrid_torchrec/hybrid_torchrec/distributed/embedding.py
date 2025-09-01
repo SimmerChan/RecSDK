@@ -6,6 +6,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+import copy
 from collections import defaultdict, deque, OrderedDict
 from itertools import accumulate
 import logging
@@ -39,9 +40,16 @@ from hybrid_torchrec.distributed.sharding.hybrid_rw_sequence_sharding import (
 )
 from hybrid_torchrec.distributed.sharding.post_input_dist import EMPTY_POST_INPUT_DIST, PostInputKJTListAwaitable
 from hybrid_torchrec.distributed.sharding.sequence_sharding import HybridSequenceShardingContext
-
+from torchrec.distributed.utils import (
+    add_params_from_parameter_sharding,
+    convert_to_fbgemm_types,
+    maybe_annotate_embedding_event,
+    merge_fused_params,
+)
+from hybrid_torchrec.distributed.utils import (
+    hybrid_optimizer_type_to_emb_opt_type,
+)
 from torchrec.distributed.embedding import (
-    create_sharding_infos_by_sharding,
     EmbeddingCollectionContext,
     EmbeddingCollectionAwaitable,
 )
@@ -72,16 +80,18 @@ from torchrec.distributed.types import (
 )
 from torchrec.distributed.shards_wrapper import LocalShardsWrapper
 from torchrec.modules.utils import SequenceVBEContext
-from torchrec.modules.embedding_configs import (
-    EmbeddingConfig,
-)
 from torchrec.modules.embedding_modules import (
     EmbeddingCollection,
+    EmbeddingCollectionInterface,
 )
 from torchrec.optim.fused import EmptyFusedOptimizer, FusedOptimizerModule
 from torchrec.optim.keyed import CombinedOptimizer, KeyedOptimizer
 from torchrec.sparse.jagged_tensor import _to_offsets, KeyedJaggedTensor, KeyedTensor, JaggedTensor
-
+from torchrec.modules.embedding_configs import (
+    EmbeddingConfig,
+    EmbeddingTableConfig,
+    PoolingType,
+)
 
 Out = TypeVar("Out")
 
@@ -133,6 +143,180 @@ def _pin_and_move(tensor: torch.Tensor, device: torch.device) -> torch.Tensor:
         else tensor.pin_memory().to(device=device, non_blocking=True)
     )
 
+def create_sharding_infos_by_sharding(
+        module: EmbeddingCollectionInterface,
+        table_name_to_parameter_sharding: Dict[str, ParameterSharding],
+        fused_params: Optional[Dict[str, Any]],
+) -> Dict[str, List[EmbeddingShardingInfo]]:
+
+    if fused_params is None:
+        fused_params = {}
+    print("in create_sharding_infos_by_sharding......")
+    sharding_type_to_sharding_infos: Dict[str, List[EmbeddingShardingInfo]] = {}
+    # state_dict returns parameter.Tensor, which loses parameter level attributes
+    parameter_by_name = dict(module.named_parameters())
+    # QuantEBC registers weights as buffers (since they are INT8), and so we need to grab it there
+    state_dict = module.state_dict()
+
+    for (
+            config,
+            embedding_names,
+    ) in zip(module.embedding_configs(), module.embedding_names_by_table()):
+        table_name = config.name
+        assert table_name in table_name_to_parameter_sharding
+
+        parameter_sharding = table_name_to_parameter_sharding[table_name]
+        if parameter_sharding.compute_kernel not in [
+            kernel.value for kernel in EmbeddingComputeKernel
+        ]:
+            raise ValueError(
+                f"Compute kernel not supported {parameter_sharding.compute_kernel}"
+            )
+
+        param_name = "embeddings." + config.name + ".weight"
+        assert param_name in parameter_by_name or param_name in state_dict
+        param = parameter_by_name.get(param_name, state_dict[param_name])
+
+        if parameter_sharding.sharding_type not in sharding_type_to_sharding_infos:
+            sharding_type_to_sharding_infos[parameter_sharding.sharding_type] = []
+
+        optimizer_params = getattr(param, "_optimizer_kwargs", [{}])
+        optimizer_classes = getattr(param, "_optimizer_classes", [None])
+        print(f"optimizer_params is {optimizer_params}")
+        assert (
+                len(optimizer_classes) == 1 and len(optimizer_params) == 1
+        ), f"Only support 1 optimizer, given {len(optimizer_classes)}"
+
+        optimizer_class = optimizer_classes[0]
+        optimizer_params = optimizer_params[0]
+        if optimizer_class:
+            optimizer_params["optimizer"] = hybrid_optimizer_type_to_emb_opt_type(
+                optimizer_class
+            )
+
+        per_table_fused_params = merge_fused_params(fused_params, optimizer_params)
+        per_table_fused_params = add_params_from_parameter_sharding(
+            per_table_fused_params, parameter_sharding
+        )
+        per_table_fused_params = convert_to_fbgemm_types(per_table_fused_params)
+
+        sharding_type_to_sharding_infos[parameter_sharding.sharding_type].append(
+            (
+                EmbeddingShardingInfo(
+                    embedding_config=EmbeddingTableConfig(
+                        num_embeddings=config.num_embeddings,
+                        embedding_dim=config.embedding_dim,
+                        name=config.name,
+                        data_type=config.data_type,
+                        feature_names=copy.deepcopy(config.feature_names),
+                        pooling=PoolingType.NONE,
+                        is_weighted=False,
+                        has_feature_processor=False,
+                        embedding_names=embedding_names,
+                        weight_init_max=config.weight_init_max,
+                        weight_init_min=config.weight_init_min,
+                    ),
+                    param_sharding=parameter_sharding,
+                    param=param,
+                    fused_params=per_table_fused_params,
+                )
+            )
+        )
+    return sharding_type_to_sharding_infos
+
+
+def create_sharding_infos_by_sharding_device_group(
+        module: EmbeddingCollectionInterface,
+        table_name_to_parameter_sharding: Dict[str, ParameterSharding],
+        fused_params: Optional[Dict[str, Any]],
+) -> Dict[Tuple[str, TypeUnion[str, Tuple[str, ...]]], List[EmbeddingShardingInfo]]:
+
+    if fused_params is None:
+        fused_params = {}
+
+    sharding_type_device_group_to_sharding_infos: Dict[
+        Tuple[str, TypeUnion[str, Tuple[str, ...]]], List[EmbeddingShardingInfo]
+    ] = {}
+    # state_dict returns parameter.Tensor, which loses parameter level attributes
+    parameter_by_name = dict(module.named_parameters())
+    # QuantEBC registers weights as buffers (since they are INT8), and so we need to grab it there
+    state_dict = module.state_dict()
+
+    for (
+            config,
+            embedding_names,
+    ) in zip(module.embedding_configs(), module.embedding_names_by_table()):
+        table_name = config.name
+        assert table_name in table_name_to_parameter_sharding
+
+        parameter_sharding = table_name_to_parameter_sharding[table_name]
+        if parameter_sharding.compute_kernel not in [
+            kernel.value for kernel in EmbeddingComputeKernel
+        ]:
+            raise ValueError(
+                f"Compute kernel not supported {parameter_sharding.compute_kernel}"
+            )
+
+        param_name = "embeddings." + config.name + ".weight"
+        assert param_name in parameter_by_name or param_name in state_dict
+        param = parameter_by_name.get(param_name, state_dict[param_name])
+
+        device_group: TypeUnion[str, Tuple[str, ...]] = (
+            get_device_from_parameter_sharding(parameter_sharding)
+        )
+        if (
+                parameter_sharding.sharding_type,
+                device_group,
+        ) not in sharding_type_device_group_to_sharding_infos:
+            sharding_type_device_group_to_sharding_infos[
+                (parameter_sharding.sharding_type, device_group)
+            ] = []
+
+        optimizer_params = getattr(param, "_optimizer_kwargs", [{}])
+        optimizer_classes = getattr(param, "_optimizer_classes", [None])
+
+        assert (
+                len(optimizer_classes) == 1 and len(optimizer_params) == 1
+        ), f"Only support 1 optimizer, given {len(optimizer_classes)}"
+
+        optimizer_class = optimizer_classes[0]
+        optimizer_params = optimizer_params[0]
+        if optimizer_class:
+            optimizer_params["optimizer"] = hybrid_optimizer_type_to_emb_opt_type(
+                optimizer_class
+            )
+
+        per_table_fused_params = merge_fused_params(fused_params, optimizer_params)
+        per_table_fused_params = add_params_from_parameter_sharding(
+            per_table_fused_params, parameter_sharding
+        )
+        per_table_fused_params = convert_to_fbgemm_types(per_table_fused_params)
+
+        sharding_type_device_group_to_sharding_infos[
+            (parameter_sharding.sharding_type, device_group)
+        ].append(
+            (
+                EmbeddingShardingInfo(
+                    embedding_config=EmbeddingTableConfig(
+                        num_embeddings=config.num_embeddings,
+                        embedding_dim=config.embedding_dim,
+                        name=config.name,
+                        data_type=config.data_type,
+                        feature_names=copy.deepcopy(config.feature_names),
+                        pooling=PoolingType.NONE,
+                        is_weighted=False,
+                        has_feature_processor=False,
+                        embedding_names=embedding_names,
+                        weight_init_max=config.weight_init_max,
+                        weight_init_min=config.weight_init_min,
+                    ),
+                    param_sharding=parameter_sharding,
+                    param=param,
+                    fused_params=per_table_fused_params,
+                )
+            )
+        )
+    return sharding_type_device_group_to_sharding_infos
 
 class HybridShardedEmbeddingCollection(
     ShardedEmbeddingModule[
