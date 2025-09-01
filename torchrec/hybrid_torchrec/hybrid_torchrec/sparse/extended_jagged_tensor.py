@@ -27,6 +27,9 @@ KT = TypeVar('KT', bound='KeyedExtendedJaggedTensor')
 class ExtendedJaggedTensor(JaggedTensor):
     """扩展的JaggedTensor基类，用于处理带有额外字段的JaggedTensor"""
     
+    # 子类需要定义_fields属性，例如_fields = ["_counts"]
+    _fields: List[str] = []
+    
     def __init__(
         self,
         values: torch.Tensor,
@@ -45,6 +48,10 @@ class ExtendedJaggedTensor(JaggedTensor):
         super().__init__(values, weights, lengths, offsets)
         self._extra = extra
         self._extra_field_name = extra_field_name
+        
+        # 动态设置字段属性
+        for field in self._fields:
+            setattr(self, field, extra)
 
     @property
     def extra(self) -> Optional[torch.Tensor]:
@@ -53,6 +60,9 @@ class ExtendedJaggedTensor(JaggedTensor):
 
 class KeyedExtendedJaggedTensor(KeyedJaggedTensor, Generic[T]):
     """扩展的KeyedJaggedTensor基类，用于处理带有额外字段的KeyedJaggedTensor"""
+    
+    # 子类需要定义_fields属性，例如_fields = ["_counts"]
+    _fields: List[str] = []
     
     def __init__(
         self,
@@ -92,6 +102,10 @@ class KeyedExtendedJaggedTensor(KeyedJaggedTensor, Generic[T]):
         )
         self._extra: Optional[torch.Tensor] = extra
         self._extra_field_name = extra_field_name
+        
+        # 动态设置字段属性
+        for field in self._fields:
+            setattr(self, field, extra)
 
     @property
     def extra(self) -> Optional[torch.Tensor]:

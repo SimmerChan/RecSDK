@@ -115,15 +115,7 @@ class KeyedJaggedTensorWithCount(KeyedExtendedJaggedTensor[JaggedTensorWithCount
         """
         从JaggedTensorWithCount字典构造KeyedJaggedTensorWithCount
         """
-        # 创建临时实例以访问通用方法
-        temp_instance = KeyedJaggedTensorWithCount(
-            keys=[], values=torch.tensor([]), counts=None
-        )
-        return temp_instance._construct_from_jt_dict(
-            jt_dict,
-            KeyedJaggedTensorWithCount,
-            lambda jt: jt.counts
-        )
+        return KeyedExtendedJaggedTensor.from_jt_dict(jt_dict, lambda jt: jt.counts)
 
     def split(self, segments: List[int]) -> List["KeyedJaggedTensorWithCount"]:
         return super().split(segments, KeyedJaggedTensorWithCount)
@@ -144,49 +136,7 @@ class KeyedJaggedTensorWithCount(KeyedExtendedJaggedTensor[JaggedTensorWithCount
     def to(
         self, device: torch.device, non_blocking: bool = False
     ) -> "KeyedJaggedTensorWithCount":
-        weights = self._weights
-        lengths = self._lengths
-        offsets = self._offsets
-        stride, stride_per_key_per_rank = (
-            (None, self._stride_per_key_per_rank)
-            if self.variable_stride_per_key()
-            else (self._stride, None)
-        )
-        length_per_key = self._length_per_key
-        offset_per_key = self._offset_per_key
-        index_per_key = self._index_per_key
-        jt_dict = self._jt_dict
-
-        return KeyedJaggedTensorWithCount(
-            keys=self._keys,
-            values=self._values.to(device, non_blocking=non_blocking),
-            counts=(
-                self._counts.to(device, non_blocking=non_blocking)
-                if self._counts is not None
-                else None
-            ),
-            weights=(
-                weights.to(device, non_blocking=non_blocking)
-                if weights is not None
-                else None
-            ),
-            lengths=(
-                lengths.to(device, non_blocking=non_blocking)
-                if lengths is not None
-                else None
-            ),
-            offsets=(
-                offsets.to(device, non_blocking=non_blocking)
-                if offsets is not None
-                else None
-            ),
-            stride=stride,
-            stride_per_key_per_rank=stride_per_key_per_rank,
-            length_per_key=length_per_key,
-            offset_per_key=offset_per_key,
-            index_per_key=index_per_key,
-            jt_dict=jt_dict,
-        )
+        return super().to(device, non_blocking, KeyedJaggedTensorWithCount)
 
     @torch.jit.unused
     def record_stream(self, stream: torch.cuda.streams.Stream) -> None:
