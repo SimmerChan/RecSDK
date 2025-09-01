@@ -74,7 +74,13 @@ class KeyedJaggedTensorWithTimestamp(KeyedExtendedJaggedTensor[JaggedTensorWithT
         index_per_key: Optional[Dict[str, int]] = None,
         jt_dict: Optional[Dict[str, JaggedTensor]] = None,
         inverse_indices: Optional[Tuple[List[str], torch.Tensor]] = None,
+        # 为兼容重构后的基类添加extra参数
+        extra: Optional[torch.Tensor] = None,
     ) -> None:
+        # 处理来自基类的extra参数
+        if extra is not None and timestamps is None:
+            timestamps = extra
+            
         super().__init__(
             keys=keys,
             values=values,
