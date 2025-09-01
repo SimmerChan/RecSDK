@@ -27,6 +27,7 @@ from rec_sdk_common.validator.validator import (
 )
 from rec_sdk_common.log.log import LoggingProxy
 
+
 def str_safe_check(
         name: str,
         value: str,
