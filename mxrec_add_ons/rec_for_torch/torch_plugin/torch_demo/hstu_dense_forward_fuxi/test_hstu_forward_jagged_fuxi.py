@@ -15,12 +15,19 @@
 # limitations under the License.
 # ==============================================================================
 
+import sys
+import os
 import sysconfig
 import pytest
 import torch
 import torch_npu
 import torch.nn.functional as F
 import numpy as np
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+common_dir = os.path.abspath(os.path.join(current_dir, "..", "common"))
+sys.path.insert(0, common_dir)
+from utils import allclose
 
 torch.npu.config.allow_internal_format = False
 torch.ops.load_library(f"{sysconfig.get_path('purelib')}/libfbgemm_npu_api.so")
@@ -47,8 +54,8 @@ def jagged_data_gen(batch_size, max_seq_len, num_heads, attention_dim, mask_type
     k = torch.rand(total_seqs, num_heads, attention_dim).to(torch.float32).uniform_(-1, 1)
     v = torch.rand(total_seqs, num_heads, attention_dim).to(torch.float32).uniform_(-1, 1)
 
-    ts_bias = torch.zeros(batch_size, max_seq_len, max_seq_len).to(torch.float32)
-    pos_bias = torch.zeros(1, max_seq_len, max_seq_len).to(torch.float32)
+    ts_bias = torch.zeros(batch_size, max_seq_len, max_seq_len).to(torch.float32).uniform_(-1, 1)
+    pos_bias = torch.zeros(1, max_seq_len, max_seq_len).to(torch.float32).uniform_(-1, 1)
     for batch_id in range(batch_size):
         seq_len = seq_lens[batch_id]
         ts_bias[batch_id, 0:seq_len, 0:seq_len] = torch.rand(seq_len, seq_len).to(torch.float32)
@@ -57,7 +64,7 @@ def jagged_data_gen(batch_size, max_seq_len, num_heads, attention_dim, mask_type
     if mask_type == mask_tril:
         mask = 1 - torch.triu(torch.ones(batch_size, num_heads, max_seq_len, max_seq_len), diagonal=1)
     else:
-        mask = torch.randint(0, 2, size=(batch_size, num_heads, max_seq_len, max_seq_len))
+        mask = torch.empty(batch_size, num_heads, max_seq_len, max_seq_len).uniform_(-1, 1)
     mask = mask.cpu().to(torch.float32)
 
     return q, k, v, seq_offset, ts_bias, pos_bias, mask
@@ -192,11 +199,11 @@ class TestHstuJaggedFuxi:
         
 
         if data_type == torch.bfloat16:
-            res = torch.allclose(output, gloden, 1e-2, 1e-2)
+            res = allclose(output, gloden, 5e-3, 5e-3)
         elif data_type == torch.float16:
-            res = torch.allclose(output, gloden, 1e-3, 1e-3)
+            res = allclose(output, gloden, 1e-3, 1e-3)
         else:
-            res = torch.allclose(output, gloden, 1e-4, 1e-4)
+            res = allclose(output, gloden, 1e-4, 1e-4)
         assert res
 
     @pytest.mark.parametrize("batch_size", [1, 16])

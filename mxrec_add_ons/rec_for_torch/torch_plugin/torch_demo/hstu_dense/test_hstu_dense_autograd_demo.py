@@ -14,12 +14,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+import sys
+import os
 import sysconfig
-
 import numpy as np
 import pytest
 import torch
 import torch.nn.functional as F
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+common_dir = os.path.abspath(os.path.join(current_dir, "..", "common"))
+sys.path.insert(0, common_dir)
+from utils import allclose
 
 torch.npu.config.allow_internal_format = False
 
@@ -38,10 +44,10 @@ torch.npu.set_device(device_id)
 def generate_tensor(batch_size, max_seq_len, num_heads, attention_dim, data_type, mask_type):
     total_num = batch_size * max_seq_len * num_heads * attention_dim
 
-    q = torch.rand(total_num).reshape(batch_size, max_seq_len, num_heads, attention_dim).to(data_type)
-    k = torch.rand(total_num).reshape(batch_size, max_seq_len, num_heads, attention_dim).to(data_type)
-    v = torch.rand(total_num).reshape(batch_size, max_seq_len, num_heads, attention_dim).to(data_type)
-    rel_attn_bias = torch.rand(batch_size, num_heads, max_seq_len, max_seq_len).to(data_type)
+    q = torch.rand(total_num).reshape(batch_size, max_seq_len, num_heads, attention_dim).to(data_type).uniform_(-1, 1)
+    k = torch.rand(total_num).reshape(batch_size, max_seq_len, num_heads, attention_dim).to(data_type).uniform_(-1, 1)
+    v = torch.rand(total_num).reshape(batch_size, max_seq_len, num_heads, attention_dim).to(data_type).uniform_(-1, 1)
+    rel_attn_bias = torch.rand(batch_size, num_heads, max_seq_len, max_seq_len).to(data_type).uniform_(-1, 1)
 
     if mask_type == mask_tril:
         mask = 1 - torch.triu(torch.ones(batch_size, num_heads, max_seq_len, max_seq_len), \
@@ -64,7 +70,7 @@ def jagged_data_gen(batch_size, max_seq_len, num_heads, attention_dim, mask_type
     k = torch.rand(total_seqs, num_heads, attention_dim).to(torch.float32).uniform_(-1, 1)
     v = torch.rand(total_seqs, num_heads, attention_dim).to(torch.float32).uniform_(-1, 1)
 
-    rel_attn_bias = torch.zeros(batch_size, num_heads, max_seq_len, max_seq_len).to(torch.float32)
+    rel_attn_bias = torch.zeros(batch_size, num_heads, max_seq_len, max_seq_len).to(torch.float32).uniform_(-1, 1)
     for batch_id in range(batch_size):
         seq_len = seq_lens[batch_id]
         rel_attn_bias[batch_id, :, 0:seq_len, 0:seq_len] = torch.rand(seq_len, seq_len).to(torch.float32)
@@ -166,17 +172,17 @@ class TestHstuAutogradNormal:
                                                                         mask_type, silu_scale, data_type)
 
         if data_type == torch.bfloat16:
-            res = torch.allclose(output, golden, 1e-2, 1e-2)
+            res = allclose(output, golden, 5e-3, 5e-3)
         elif data_type == torch.float16:
-            res = torch.allclose(output, golden, 1e-3, 1e-3)
+            res = allclose(output, golden, 1e-3, 1e-3)
         else:
-            res = torch.allclose(output, golden, 1e-4, 1e-4)
+            res = allclose(output, golden, 1e-4, 1e-4)
         assert res
-        assert torch.allclose(q_grad, q_grad_op, 1e-4, 1e-4)
-        assert torch.allclose(k_grad, k_grad_op, 1e-4, 1e-4)
-        assert torch.allclose(v_grad, v_grad_op, 1e-4, 1e-4)
+        assert allclose(q_grad, q_grad_op, 1e-4, 1e-4)
+        assert allclose(k_grad, k_grad_op, 1e-4, 1e-4)
+        assert allclose(v_grad, v_grad_op, 1e-4, 1e-4)
         if enable_bias:
-            assert torch.allclose(bias_grad.to(torch.float32), bias_grad_op.to(torch.float32), 1e-4, 1e-4)
+            assert allclose(bias_grad.to(torch.float32), bias_grad_op.to(torch.float32), 1e-4, 1e-4)
         else:
             assert bias_grad is None
             assert bias_grad_op is None
@@ -238,9 +244,9 @@ class TestHstuAutogradJagged:
             seq_lens[i] = seq_offset[i + 1] - seq_offset[i]
 
         for batch, seq_len in enumerate(seq_lens):
-            equal = torch.allclose(bias_grad[batch, :, :seq_len, :seq_len],
-                                   bias_grad_golden[batch, :, :seq_len, :seq_len],
-                                   loss, loss)
+            equal = allclose(bias_grad[batch, :, :seq_len, :seq_len],
+                             bias_grad_golden[batch, :, :seq_len, :seq_len],
+                             loss, loss)
             if not equal:
                 return False
 
@@ -343,13 +349,13 @@ class TestHstuAutogradJagged:
 
         loss = 1e-4
         if data_type == torch.bfloat16:
-            loss = 1e-2
+            loss = 5e-3
         elif data_type == torch.float16:
             loss = 1e-3
-        output_res = torch.allclose(output, golden, loss, loss)
-        q_grad_res = torch.allclose(q_grad_op, q_grad, loss, loss)
-        k_grad_res = torch.allclose(k_grad_op, k_grad, loss, loss)
-        v_grad_res = torch.allclose(v_grad_op, v_grad, loss, loss)
+        output_res = allclose(output, golden, loss, loss)
+        q_grad_res = allclose(q_grad_op, q_grad, loss, loss)
+        k_grad_res = allclose(k_grad_op, k_grad, loss, loss)
+        v_grad_res = allclose(v_grad_op, v_grad, loss, loss)
 
         bias_grad_res = False
         if enable_bias:

@@ -14,14 +14,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-
+import sys
+import os
 from pathlib import Path
-
 import numpy as np
 import pytest
 import torch
 import torch.nn.functional as F
 import torch_npu
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+common_dir = os.path.abspath(os.path.join(current_dir, "..", "common"))
+sys.path.insert(0, common_dir)
+from utils import allclose
 
 torch.npu.config.allow_internal_format = False
 CURR_DIR = Path(__file__).resolve().parent
@@ -117,9 +122,9 @@ class TestHstuJaggedDemo:
             seq_lens[i] = seq_offset[i + 1] - seq_offset[i]
         
         for batch, seq_len in enumerate(seq_lens):
-            equal = torch.allclose(bias_grad[batch, :, :seq_len, :seq_len],
-                                   bias_grad_golden[batch, :, :seq_len, :seq_len],
-                                   loss, loss)
+            equal = allclose(bias_grad[batch, :, :seq_len, :seq_len],
+                             bias_grad_golden[batch, :, :seq_len, :seq_len],
+                             loss, loss)
             if not equal:
                 return False
 
@@ -255,12 +260,6 @@ class TestHstuJaggedDemo:
                 (enable_bias and bpos_grad.cpu()), (enable_bias and bts_grad.cpu()))
     
     def execute(self, batch_size, max_seq_len, head_num, head_dim, mask_type, silu_scale, enable_bias, data_type):
-        def allclose(a, b, loss1, loss2):
-            diff = torch.abs(a - b) >= loss1
-            diff_count = torch.sum(diff)
-            diff_ratio = diff_count / a.numel()
-            return diff_ratio < loss2
-
         grad, q, k, v, bpos, bts, grad_pos, grad_ts, mask, max_seq_len, seq_offset = \
             jagged_data_gen(batch_size, max_seq_len, head_num, head_dim, mask_type, data_type)
 
@@ -279,7 +278,7 @@ class TestHstuJaggedDemo:
         if data_type == torch.float16:
             loss = 1e-3
         elif data_type == torch.bfloat16:
-            loss = 1e-2
+            loss = 5e-3
 
         q_res = allclose(q_grad, q_grad_golden, loss, loss)
         k_res = allclose(k_grad, k_grad_golden, loss, loss)
