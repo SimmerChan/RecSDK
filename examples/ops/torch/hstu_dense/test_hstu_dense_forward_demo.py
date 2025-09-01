@@ -39,17 +39,6 @@ mask_none: int = 2
 mask_custom: int = 3
 
 
-def get_chip():
-    return False
-
-
-def skip_seq_len(seq_len):
-    block_len = 128
-    if get_chip() and seq_len % block_len:
-        return True
-    return False
-
-
 def jagged_data_gen(batch_size, max_seq_len, num_heads, attention_dim, data_type, mask_type):
     seq_lens = np.random.randint(1, max_seq_len + 1, (batch_size))
 
@@ -84,11 +73,7 @@ def generate_tensor(batch_size, max_seq_len, num_heads, attention_dim, data_type
     k = torch.rand(total_num).reshape(batch_size, max_seq_len, num_heads, attention_dim).uniform_(-1, 1)
     v = torch.rand(total_num).reshape(batch_size, max_seq_len, num_heads, attention_dim).uniform_(-1, 1)
     rel_attn_bias = torch.rand(batch_size, num_heads, max_seq_len, max_seq_len).uniform_(-1, 1)
-    if get_chip():
-        invalid_attn_mask = torch.randint(0, 2, (max_seq_len, max_seq_len))
-        invalid_attn_mask = torch.tril(invalid_attn_mask)
-        invalid_attn_mask = invalid_attn_mask.unsqueeze(0).unsqueeze(1).repeat(batch_size, 1, 1, 1)
-    elif mask_type == mask_tril:
+    if mask_type == mask_tril:
         invalid_attn_mask = 1 - torch.triu(torch.ones(batch_size, num_heads, max_seq_len, max_seq_len), diagonal=1)
     else:
         invalid_attn_mask = torch.randint(0, 2, size=(batch_size, num_heads, max_seq_len, max_seq_len))
@@ -213,7 +198,6 @@ class TestHstuJaggedDemo:
     @pytest.mark.parametrize("mask_type", [mask_tril, mask_none, mask_custom])
     @pytest.mark.parametrize("silu_scale", [0, 1 / 1024])
     @pytest.mark.parametrize("data_type", [torch.float32, torch.float16, torch.bfloat16])
-    @pytest.mark.skipif(get_chip(), reason="This test case is Skipped for Ascend310P.")
     def test_hstu_dens_forward(self, batch_size, head_num, max_seq_len, head_dim, enable_bias, mask_type, silu_scale,
                                data_type):
         self.execute(batch_size, max_seq_len, head_num, head_dim, enable_bias, mask_type, silu_scale, data_type)
@@ -225,7 +209,6 @@ class TestHstuJaggedDemo:
     @pytest.mark.parametrize("mask_type", [mask_tril, mask_none, mask_custom])
     @pytest.mark.parametrize("silu_scale", [0, 1 / 1024])
     @pytest.mark.parametrize("data_type", [torch.float32, torch.float16, torch.bfloat16])
-    @pytest.mark.skipif(get_chip(), reason="This test case is Skipped for Ascend310P.")
     def test_hstu_dens_forward_128bs(self, head_num, max_seq_len, head_dim, enable_bias, mask_type, silu_scale,
                                      data_type):
         self.execute(128, max_seq_len, head_num, head_dim, enable_bias, mask_type, silu_scale, data_type)
@@ -237,7 +220,6 @@ class TestHstuJaggedDemo:
     @pytest.mark.parametrize("mask_type", [mask_tril, mask_none, mask_custom])
     @pytest.mark.parametrize("silu_scale", [0, 1 / 1024])
     @pytest.mark.parametrize("data_type", [torch.float32, torch.float16, torch.bfloat16])
-    @pytest.mark.skipif(get_chip(), reason="This test case is Skipped for Ascend310P.")
     def test_hstu_dens_forward_2048bs(self, head_num, max_seq_len, head_dim, enable_bias, mask_type, silu_scale,
                                       data_type):
         self.execute(2048, max_seq_len, head_num, head_dim, enable_bias, mask_type, silu_scale, data_type)
@@ -249,7 +231,6 @@ class TestHstuJaggedDemo:
     @pytest.mark.parametrize("mask_type", [mask_custom])
     @pytest.mark.parametrize("silu_scale", [1 / 1024])
     @pytest.mark.parametrize("data_type", [torch.bfloat16])
-    @pytest.mark.skipif(get_chip(), reason="This test case is Skipped for Ascend310P.")
     def test_hstu_dens_forward_head_num_255(self, head_num, max_seq_len, head_dim, enable_bias, mask_type, silu_scale,
                                         data_type):
         with pytest.raises(RuntimeError) as e_info:
@@ -263,7 +244,6 @@ class TestHstuJaggedDemo:
     @pytest.mark.parametrize("mask_type", [mask_custom])
     @pytest.mark.parametrize("silu_scale", [1 / 1024])
     @pytest.mark.parametrize("data_type", [torch.bfloat16])
-    @pytest.mark.skipif(get_chip(), reason="This test case is Skipped for Ascend310P.")
     def test_hstu_dens_forward_head_dim_255(self, head_num, max_seq_len, head_dim, enable_bias, mask_type, silu_scale,
                                         data_type):
         with pytest.raises(RuntimeError) as e_info:
@@ -288,10 +268,7 @@ class TestHstuNormalDemo:
 
         qk_attn = F.silu(qk_attn) * silu_scale
 
-        if get_chip():
-            mask = mask.repeat(1, num_heads, 1, 1)
-            qk_attn = qk_attn * mask
-        elif mask_type != mask_none:
+        if mask_type != mask_none:
             qk_attn = qk_attn * mask
 
         v = v.permute(0, 2, 1, 3)
@@ -334,29 +311,14 @@ class TestHstuNormalDemo:
             res = allclose(output, gloden, 1e-4, 1e-4)
         assert res
 
-    max_seq_len = [1, 15, 31, 256, 768, 1023, 4095]
-    paramFalse = pytest.param(False,
-                              marks=pytest.mark.skipif(get_chip(), reason="This test case is Skipped for Ascend310P."))
-    paramFp32 = pytest.param(torch.float32,
-                             marks=pytest.mark.skipif(get_chip(), reason="This test case is Skipped for Ascend310P."))
-    parambF16 = pytest.param(torch.bfloat16,
-                             marks=pytest.mark.skipif(get_chip(), reason="This test case is Skipped for Ascend310P."))
-    paramsSeqlen = []
-    for i in max_seq_len:
-        if skip_seq_len(i):
-            paramsSeqlen.append(
-                pytest.param(i, marks=pytest.mark.skipif(True, reason="This test case is Skipped for Ascend310P.")))
-        else:
-            paramsSeqlen.append(pytest.param(i))
-
     @pytest.mark.parametrize("batch_size", [1, 16])
     @pytest.mark.parametrize("head_num", [2, 4])
-    @pytest.mark.parametrize("max_seq_len", paramsSeqlen)
+    @pytest.mark.parametrize("max_seq_len", [1, 15, 31, 256, 768, 1023, 4095])
     @pytest.mark.parametrize("head_dim", [32, 64])
-    @pytest.mark.parametrize("enable_bias", [True, paramFalse])
+    @pytest.mark.parametrize("enable_bias", [True, False])
     @pytest.mark.parametrize("mask_type", [mask_tril, mask_none, mask_custom])
     @pytest.mark.parametrize("silu_scale", [1 / 256])
-    @pytest.mark.parametrize("data_type", [torch.float16, paramFp32, parambF16])
+    @pytest.mark.parametrize("data_type", [torch.float16, torch.float32, torch.bfloat16])
     def test_hstu_dens_normal(self, batch_size, head_num, max_seq_len, head_dim, enable_bias, mask_type, silu_scale,
                               data_type):
         self.execute(batch_size, max_seq_len, head_num, head_dim, enable_bias, mask_type, silu_scale, data_type)

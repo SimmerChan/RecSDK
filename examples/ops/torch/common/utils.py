@@ -18,8 +18,9 @@
 import torch
 
 
-def allclose(a, b, loss1, loss2):
-    diff = torch.abs(a - b) > loss1
+def allclose(a, b, atol, ratio):
+    assert a.shape == b.shape
+    diff = torch.abs(a - b) > atol
     diff_count = torch.sum(diff)
     diff_ratio = diff_count / a.numel()
-    return diff_ratio < loss2
+    return diff_ratio < ratio
