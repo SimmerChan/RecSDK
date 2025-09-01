@@ -1,19 +1,10 @@
 #!/usr/bin/env python3
-# Copyright (c) Huawei Technologies Co., Ltd. 2024. All rights reserved.
+# Copyright (c) Huawei Platforms, Inc. and affiliates.
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-# ============================================================================
-
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
 from typing import Optional, Dict, List, Tuple
 
 import torch
@@ -28,6 +19,35 @@ from torchrec.sparse.jagged_tensor import (
 from torchrec.pt2.checks import is_non_strict_exporting
 
 from .extended_jagged_tensor import ExtendedJaggedTensor, KeyedExtendedJaggedTensor
+
+
+class JaggedTensorWithCount(ExtendedJaggedTensor):
+    _fields = [
+        "_counts"
+    ]
+
+    def __init__(
+        self,
+        values: torch.Tensor,
+        weights: Optional[torch.Tensor] = None,
+        lengths: Optional[torch.Tensor] = None,
+        offsets: Optional[torch.Tensor] = None,
+        counts: Optional[torch.Tensor] = None,
+    ) -> None:
+        super().__init__(
+            values=values,
+            extra=counts,
+            weights=weights,
+            lengths=lengths,
+            offsets=offsets,
+            extra_field_name="counts"
+        )
+        # values中每个ids出现次数，分桶去重时会进行计算，input_dist all2all会做集合通信，post dist input时做count记录
+        self._counts = counts
+
+    @property
+    def counts(self):
+        return self._counts
 
 
 class KeyedJaggedTensorWithCount(KeyedExtendedJaggedTensor):
