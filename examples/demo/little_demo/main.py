@@ -22,6 +22,7 @@ from glob import glob
 
 import numpy as np
 import tensorflow as tf
+from mpi4py import MPI
 
 from mx_rec.constants.constants import ASCEND_TIMESTAMP
 from mx_rec.core.asc.feature_spec import FeatureSpec
@@ -42,7 +43,7 @@ from demo_logger import logger
 from model import MyModel
 from optimizer import create_dense_and_sparse_optimizer
 from run_mode import RunMode, UseMode
-from utils import GLOBAL_RANK_SIZE, PRECISION_DUMP_STEP, PrecisionDumpInfo
+from utils import GLOBAL_RANK_SIZE, LOCAL_RANK_ID, PRECISION_DUMP_STEP, PrecisionDumpInfo
 
 tf.compat.v1.disable_eager_execution()
 
@@ -173,9 +174,10 @@ def _del_related_dir(del_path: str) -> None:
     if not os.path.isabs(del_path):
         del_path = os.path.join(os.getcwd(), del_path)
     dirs = glob(del_path)
-    for sub_dir in dirs:
-        shutil.rmtree(sub_dir, ignore_errors=True)
-        logger.info(f"delete dir:{sub_dir}")
+    if LOCAL_RANK_ID % GLOBAL_RANK_SIZE == 0:
+        for sub_dir in dirs:
+            shutil.rmtree(sub_dir, ignore_errors=True)
+            logger.info(f"delete dir:{sub_dir}")
 
 
 def _clear_saved_model() -> None:
@@ -211,7 +213,9 @@ def index_initializer(shape, dtype=None, partition_info=None):
 if __name__ == "__main__":
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
     warnings.filterwarnings("ignore")
+    comm = MPI.COMM_WORLD
     _clear_saved_model()
+    comm.Barrier()
 
     use_mode = UseMode.mapping(os.getenv("USE_MODE"))
     # 最大数据集生成数量
