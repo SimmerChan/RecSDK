@@ -30,7 +30,7 @@ from mx_rec.core.asc.helper import get_asc_insert_func
 from mx_rec.core.asc.manager import start_asc_pipeline
 from mx_rec.core.embedding import create_table, sparse_lookup
 from mx_rec.graph.modifier import modify_graph_and_start_emb_cache
-from rec_sdk_common.communication.hccl.hccl_info import get_rank_size
+from rec_sdk_common.communication.hccl.hccl_info import get_rank_id, get_rank_size, get_local_rank_size
 from mx_rec.util.initialize import init, terminate_config_initializer
 from mx_rec.util.variable import get_dense_and_sparse_variable
 
@@ -43,7 +43,7 @@ from demo_logger import logger
 from model import MyModel
 from optimizer import create_dense_and_sparse_optimizer
 from run_mode import RunMode, UseMode
-from utils import GLOBAL_RANK_SIZE, LOCAL_RANK_ID, PRECISION_DUMP_STEP, PrecisionDumpInfo
+from utils import GLOBAL_RANK_SIZE, PRECISION_DUMP_STEP, PrecisionDumpInfo
 
 tf.compat.v1.disable_eager_execution()
 
@@ -174,7 +174,7 @@ def _del_related_dir(del_path: str) -> None:
     if not os.path.isabs(del_path):
         del_path = os.path.join(os.getcwd(), del_path)
     dirs = glob(del_path)
-    if LOCAL_RANK_ID % GLOBAL_RANK_SIZE == 0:
+    if get_rank_id() % get_local_rank_size() == 0:
         for sub_dir in dirs:
             shutil.rmtree(sub_dir, ignore_errors=True)
             logger.info(f"delete dir:{sub_dir}")

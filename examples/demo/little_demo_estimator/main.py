@@ -23,7 +23,7 @@ from glob import glob
 import tensorflow as tf
 from mpi4py import MPI
 
-from rec_sdk_common.communication.hccl.hccl_info import get_rank_id, get_rank_size
+from rec_sdk_common.communication.hccl.hccl_info import get_rank_id, get_local_rank_size
 from mx_rec.util.initialize import init, terminate_config_initializer
 from mx_rec.core.asc.helper import FeatureSpec
 from mx_rec.graph.modifier import GraphModifierHook
@@ -166,7 +166,7 @@ def _del_related_dir(del_path: str) -> None:
     if not os.path.isabs(del_path):
         del_path = os.path.join(os.getcwd(), del_path)
     dirs = glob(del_path)
-    if get_rank_id() % get_rank_size() == 0:
+    if get_rank_id() % get_local_rank_size() == 0:
         for sub_dir in dirs:
             shutil.rmtree(sub_dir, ignore_errors=True)
             logger.info(f"delete dir:{sub_dir}")
