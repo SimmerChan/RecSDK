@@ -370,5 +370,3 @@ class KeyedJaggedTensorWithCount(KeyedExtendedJaggedTensor[JaggedTensorWithCount
                 stride=sum(stride_per_rank),
             )
             return kjt.sync()
-
-
