@@ -105,7 +105,19 @@ class KeyedJaggedTensorWithTimestamp(KeyedExtendedJaggedTensor[JaggedTensorWithT
         """
         从JaggedTensorWithTimestamp字典构造KeyedJaggedTensorWithTimestamp
         """
-        return KeyedExtendedJaggedTensor.from_jt_dict(jt_dict, lambda jt: jt.timestamps)
+        # 创建一个实例用于调用_construct_from_jt_dict方法
+        dummy_instance = KeyedJaggedTensorWithTimestamp(
+            keys=[],
+            values=torch.tensor([]),
+            timestamps=None
+        )
+        
+        # 使用_construct_from_jt_dict方法创建实例
+        return dummy_instance._construct_from_jt_dict(
+            jt_dict,
+            KeyedJaggedTensorWithTimestamp,
+            lambda jt: jt.timestamps
+        )
 
     def split(self, segments: List[int]) -> List["KeyedJaggedTensorWithTimestamp"]:
         return super().split(segments, KeyedJaggedTensorWithTimestamp)
