@@ -123,7 +123,10 @@ public:
         this->Attr("max_seq_len").Int();
         this->Attr("silu_scale").Float();
         this->Attr("layout").AttrType(OPTIONAL).String("normal");
-        this->Attr("seq_offets").AttrType(OPTIONAL).ListInt();
+        this->Attr("seq_offsets").AttrType(OPTIONAL).ListInt();
+        this->Attr("num_context").Int();
+        this->Attr("num_target").Int();
+        this->Attr("target_group_size").Int();
 
         OpAICoreConfig aicore_config;
         aicore_config.DynamicCompileStaticFlag(true)
