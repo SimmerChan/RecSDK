@@ -78,7 +78,7 @@ bash mxrec_opp_asynchronous_complete_cumsum.run
 
 # 编译算子适配文件
 cd ../../
-cd mindxsdk-mxrec-add-ons/torch_plugin/torch_library/2.6.0/common
+cd recsdk-npu-ops/torch_plugin/torch_library/2.6.0/common
 bash build_ops.sh
 ```
 2.源码编译安装
