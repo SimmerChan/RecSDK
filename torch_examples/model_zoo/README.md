@@ -31,14 +31,13 @@ docker run \
 ```
 执行如下命令新建容器：
 ```shell
-source /etc/profile
 bash run_docker.sh 容器名 {镜像名称}:{版本名称}
 ```
 
 ### 设置环境变量
 进入容器后，设置环境变量
 ```shell
-
+source /etc/profile
 source /usr/local/Ascend/ascend-toolkit/set_env.sh
 ```
 

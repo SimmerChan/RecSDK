@@ -18,12 +18,12 @@
 ## 版本配套说明
 本模型迁移依赖特定版本的CANN、PyTorch、驱动和固件,源码编译需使用指定版本的Python、GCC、CMake等工具,仅支持昇腾平台（Atlas 800T A2）,基于软件环境以RecSDK-Torch提供的基础镜像环境为准，主要的配套依赖如下表所示：
 
-| Python版本   | 主要配套依赖                                                                                            |
-|------------|---------------------------------------------------------------------------------------------------|
-| Python3.11 | torch==2.6.0<br/>torch_npu==2.6.0<br/>fbgemm+gpu==1.1.0+cpu<br/>torchrec==1.1.0+npu<br/>hybrid_torchrec==1.1.0 |
+| Python版本   | 主要配套依赖                                                                                                         |
+|------------|----------------------------------------------------------------------------------------------------------------|
+| Python3.11 | torch==2.6.0<br/>torch_npu==2.6.0<br/>fbgemm_gpu==1.1.0+cpu<br/>torchrec==1.1.0+npu<br/>hybrid_torchrec==1.1.0 |
 
 ### 基础镜像
-下载基础镜像地址为：
+下载基础镜像地址为：https://www.hiascend.com/developer/ascendhub/detail/9faeb4847b3e419f81b78a4d0ed574b5
 
 ### 启动容器
 说明：以下启动命令仅作参考，按需挂在目录。
@@ -73,11 +73,12 @@ tar -zxvf Ascend-mindxsdk-hybrid-torchrec-1.1.0-*.tar.gz
 pip3 install hybrid_torchrec-1.1.0-*.whl
 
 # 安装算子
-tar -zxvf Ascend-mindxsdk-mxrec-add-ons-*.tar.gz
-cd mindxsdk-mxrec-add-ons/mxrec_ops/
+tar -zxvf Ascend-recsdk-npu-ops-*.tar.gz
+cd recsdk-npu-ops/recsdk_ops/
 bash mxrec_opp_backward_codegen_adagrad_unweighted_exact.run
 bash mxrec_opp_split_embedding_codegen_forward_unweighted.run
 bash mxrec_opp_asynchronous_complete_cumsum.run
+bash mxrec_opp_permute2d_sparse_data.run
 
 # 编译算子适配文件
 cd ../../
@@ -87,25 +88,25 @@ bash build_ops.sh
 2.源码编译安装
 
 （1）编译安装torchrec
-参考：https://gitee.com/ascend/RecSDK/blob/develop/torchrec/README.md
+参考：https://gitcode.com/Ascend/RecSDK/blob/develop/training/torch_rec_v1/torchrec_npu/README.md
 
 （2）编译安装hybrid_torchrec
-参考：https://gitee.com/ascend/RecSDK/blob/develop/torchrec/hybrid_torchrec/README.MD
+参考：https://gitcode.com/Ascend/RecSDK/blob/develop/training/torch_rec_v1/hybrid_torchrec/README.MD
 
 （3）编译安装算子和适配文件
 
 ```shell
 # 克隆源码仓
-git clone -b develop https://gitee.com/ascend/RecSDK.git  # 如果已经克隆此分支请忽略
+git clone -b develop https://gitcode.com/Ascend/RecSDK.git  # 如果已经克隆此分支请忽略
 # 算子编译
-cd RecSDK/mxrec_add_ons/build
+cd RecSDK/cust_op/ascendc_op/build
 bash build.sh
 # 进入打包文件
-cd ../../../RecSDK/mxrec_add_ons/output
+cd ../../../RecSDK/cust_op/ascendc_op/output
 # 解压安装包
-tar -zvxf Ascend-mindxsdk-mxrec-add-ons-*.tar.gz
+tar -zxvf Ascend-recsdk-npu-ops-*.tar.gz
 # 进入算子目录
-cd mindxsdk-mxrec-add-ons/mxrec_ops
+cd recsdk-npu-ops/recsdk_ops/
 # 安装算子--参考以上安装方法
 # 编译算子适配文件--参考以上编译方法
 ```
@@ -125,7 +126,7 @@ cp ../din_npu.patch ./ && git apply din_npu.patch
 将代码仓中.proto定义文件编译为python代码。
 注意：需先安装Protocl Buffers编译器，如基于Debian/Ubuntu系统参考命令:
 ```bash
-apt-get install protobuf-compiler
+apt-get install protobuf-compiler=3.20.0
 ```
 ```bash
 protoc --proto_path=./ --python_out=./ tzrec/protos/*.proto
