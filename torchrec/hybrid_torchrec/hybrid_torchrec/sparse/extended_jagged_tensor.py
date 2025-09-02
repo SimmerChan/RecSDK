@@ -146,6 +146,38 @@ class KeyedExtendedJaggedTensor(KeyedJaggedTensor, Generic[T]):
             extra_field_getter
         )
 
+    @staticmethod
+    def from_jt_dict(
+        jt_dict: Dict[str, T], 
+        extra_field_getter: Optional[Callable[[T], Optional[torch.Tensor]]] = None
+    ) -> "KeyedExtendedJaggedTensor[T]":
+        """
+        通用的from_jt_dict实现
+        
+        Args:
+            jt_dict: JaggedTensor字典
+            extra_field_getter: 用于获取额外字段的函数，如果为None则尝试直接访问extra属性
+        """
+        # 创建一个实例用于调用_construct_from_jt_dict方法
+        dummy_instance = KeyedExtendedJaggedTensor(
+            keys=[],
+            values=torch.tensor([]),
+            extra=None
+        )
+        
+        # 如果没有提供extra_field_getter，则使用默认的getter
+        if extra_field_getter is None:
+            def default_getter(jt):
+                return getattr(jt, 'extra', None)
+            extra_field_getter = default_getter
+        
+        # 使用_construct_from_jt_dict方法创建实例
+        return dummy_instance._construct_from_jt_dict(
+            jt_dict,
+            KeyedExtendedJaggedTensor,
+            extra_field_getter
+        )
+
     def split(self, segments: List[int], constructor: Callable[..., KT]) -> List[KT]:
         """通用的split方法，子类需要提供构造函数"""
         split_list: List[KT] = []
@@ -441,6 +473,55 @@ class KeyedExtendedJaggedTensor(KeyedJaggedTensor, Generic[T]):
         constructor: Callable[..., KT],
         extra_field_getter: Callable[[T], Optional[torch.Tensor]]
     ) -> KT:
+        """
+        通用的from_jt_dict实现
+        """
+        kjt_keys = list(jt_dict.keys())
+        kjt_vals_list: List[torch.Tensor] = []
+        kjt_extra_list: List[torch.Tensor] = []
+        kjt_lens_list: List[torch.Tensor] = []
+        kjt_weights_list: List[torch.Tensor] = []
+        stride_per_key: List[int] = []
+        
+        for jt in jt_dict.values():
+            stride_per_key.append(len(jt.lengths()))
+            kjt_vals_list.append(jt.values())
+            kjt_extra_list.append(extra_field_getter(jt))
+            kjt_lens_list.append(jt.lengths())
+            weight = jt.weights_or_none()
+            if weight is not None:
+                kjt_weights_list.append(weight)
+                
+        kjt_vals = torch.concat(kjt_vals_list)
+        kjt_lens = torch.concat(kjt_lens_list)
+
+        # 处理额外字段
+        kjt_extra = (
+            torch.concat(kjt_extra_list) 
+            if len(kjt_extra_list) > 0 and all(t is not None for t in kjt_extra_list) 
+            else None
+        )
+
+        kjt_weights = (
+            torch.concat(kjt_weights_list) if len(kjt_weights_list) > 0 else None
+        )
+        
+        kjt_stride, kjt_stride_per_key_per_rank = (
+            (stride_per_key[0], None)
+            if all(s == stride_per_key[0] for s in stride_per_key)
+            else (None, [[stride] for stride in stride_per_key])
+        )
+        
+        kjt = constructor(
+            keys=kjt_keys,
+            values=kjt_vals,
+            extra=kjt_extra,
+            weights=kjt_weights,
+            lengths=kjt_lens,
+            stride=kjt_stride,
+            stride_per_key_per_rank=kjt_stride_per_key_per_rank,
+        ).sync()
+        return kjt
         """
         通用的from_jt_dict实现
         """
