@@ -175,7 +175,7 @@ class TestModel:
         )
         # Shard
         constrains = {
-            f"table{i}": ParameterConstraints(sharding_types=[sharding_type])
+            f"table{i}": ParameterConstraints(sharding_types=[sharding_type], compute_kernels=['fused'])
             for i in range(table_num)
         }
         cpu_device = torch.device("cpu")
