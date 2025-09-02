@@ -74,7 +74,7 @@ class JaggedTensorWithCount(ExtendedJaggedTensor):
 class KeyedJaggedTensorWithCount(KeyedExtendedJaggedTensor[JaggedTensorWithCount]):
     """带有计数信息的KeyedJaggedTensor"""
     
-    _fields = ["_counts"]
+    _fields = "_counts"
 
     def __init__(
         self,
@@ -111,7 +111,7 @@ class KeyedJaggedTensorWithCount(KeyedExtendedJaggedTensor[JaggedTensorWithCount
             index_per_key=index_per_key,
             jt_dict=jt_dict,
             inverse_indices=inverse_indices,
-            extra_field_name="counts"
+            field_tensors={"_counts": counts} if counts is not None else {}
         )
         self._counts: Optional[torch.Tensor] = counts
 
