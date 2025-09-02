@@ -11,7 +11,9 @@ from typing import Optional, Dict, List, Tuple
 import torch
 from torch.autograd.profiler import record_function
 from torchrec.sparse.jagged_tensor import (
+    _pin_and_move,
     _permute_tensor_by_segments,
+    _sum_by_splits,
     JaggedTensor,
 )
 from torchrec.pt2.checks import is_torchdynamo_compiling
