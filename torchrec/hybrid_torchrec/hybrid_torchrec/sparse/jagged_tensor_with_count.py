@@ -254,8 +254,8 @@ class KeyedJaggedTensorWithCount(KeyedExtendedJaggedTensor[JaggedTensorWithCount
                             torch.jit._unwrap_optional(recat),
                             None,
                         )
-                        else:
-                            new_counts = None
+                    else:
+                        new_counts = None
 
                 stride_per_key_per_rank = torch.jit.annotate(
                     List[List[int]], stride_per_key_per_rank_tensor.tolist()
