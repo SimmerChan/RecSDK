@@ -283,8 +283,9 @@ def test_hstu_target_mask(test_param: TestParam):
     write_tensor2file(result_npu)
     assert torch.allclose(
         result_gpu, result_npu, 1e-4, 1e-4
-    ), f"gloden {result_gpu} result {result_npu} not close"
+    ), f"golden {result_gpu} result {result_npu} not close"
 
 
 if __name__ == "__main__":
-    reuslt = test_hstu_target_mask(TestParam(65, 31, 17, 5, 8, 8))
+    # result = test_hstu_target_mask(TestParam(65, 31, 17, 5, 8, 8))
+    result = test_hstu_target_mask(TestParam(16, 30, 6, 3, 256, 256))

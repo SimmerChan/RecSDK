@@ -85,8 +85,8 @@ at::Tensor hstu_dense_normal_forward_impl_npu(
     TORCH_CHECK(seqLen >= MIN_SEQ_LEN && seqLen <= MAX_SEQ_LEN,
         "maxSeqLen expect in [1, 20480], but value is ", seqLen);
     TORCH_CHECK(maxSeqLen == seqLen, "maxSeqLen should equal to q dim 1");
-    TORCH_CHECK(numContext <= 0, "context + causal + target mask is not support on \"Normal\" HSTU");
-    TORCH_CHECK(numTarget <= 0, "context + causal + target mask is not support on \"Normal\" HSTU");
+    TORCH_CHECK(numContext <= 0, "context mask is not support on \"Normal\" HSTU");
+    TORCH_CHECK(numTarget <= 0, "target mask is not support on \"Normal\" HSTU");
 
     TORCH_CHECK(MaskCheck(maskType, maskNpu.defined()), "maskType check failed");
 
@@ -389,9 +389,9 @@ TORCH_LIBRARY_FRAGMENT(mxrec, m)
           "           float siluScale=0.0, "
           "           str layout=\"normal\", "
           "           int[]? seqOffset=None, "
-          "           int numContext, "
-          "           int numTarget, "
-          "           int targetGroupSize) -> Tensor");
+          "           int numContext=0, "
+          "           int numTarget=0, "
+          "           int targetGroupSize=0) -> Tensor");
     m.def("hstu_dense_backward(Tensor grad, "
           "                    Tensor q, "
           "                    Tensor k, "

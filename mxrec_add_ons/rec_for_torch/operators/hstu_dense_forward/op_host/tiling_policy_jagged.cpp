@@ -42,12 +42,12 @@ inline T ceilDiv(T dividend, T divisor) {
 
 struct MaskParams {
     uint32_t *seqOffsets;
-    uint32_t batchSize;
-    uint32_t headNum;
-    uint32_t numContext;
-    uint32_t numTarget;
-    uint32_t targetGroupSize;
-    uint32_t blockHeight;
+    int64_t batchSize;
+    int64_t headNum;
+    int64_t numContext;
+    int64_t numTarget;
+    int64_t targetGroupSize;
+    int64_t blockHeight;
 };
 
 struct BlockTaskInfo {
@@ -116,7 +116,7 @@ public:
     {
 #if JAGGED_TASK_ASSIGN_DEBUG
         OPS_LOG_D("BlockTaskAssign coreNum:%d blockLen:%d batchSize:%d headNum:%d\n",
-                  coreNum, params.blockLen, params.batchSize, params.headNum);
+                  coreNum, params.blockHeight, params.batchSize, params.headNum);
         OPS_LOG_D("BlockTaskAssign seqOffsets:");
         for (auto i = 0; i <= batchSize; i++) {
             OPS_LOG_D("%d ", params.seqOffsets[i]);
@@ -127,7 +127,7 @@ public:
         this->params = params;
         this->seqOffsets = params.seqOffsets;
         this->coreNum = coreNum;
-        this->blockLen = params.blockLen;
+        this->blockLen = params.blockHeight;
         this->batchSize = params.batchSize;
         this->headNum = params.headNum;
 
@@ -141,13 +141,13 @@ public:
         std::vector<int64_t> blockNumber(bXn, 0);
         ComputeBlockNum(this->seqOffsets, blockNumber);
 
-        int64_t totalTaskNumber = 0;
+        uint32_t totalTaskNumber = 0;
         for (auto seqId = 0; seqId < batchSize; seqId++) {
             auto seqlen = seqOffsets[seqId + 1] - seqOffsets[seqId];
             totalTaskNumber += this->policy.GetSeqTasks(seqlen, this->params);
         }
 
-        int64_t eachCoreTaskNumLimit = ceilDiv(totalTaskNumber, coreNum);
+        uint32_t eachCoreTaskNumLimit = ceilDiv(totalTaskNumber, coreNum);
 
 #if JAGGED_TASK_ASSIGN_DEBUG
         int64_t total_block_number = 0;
@@ -162,7 +162,7 @@ public:
 
 private:
     Policy policy;
-    MaskParams& params;
+    MaskParams params;
     uint32_t *seqOffsets = nullptr;
     uint32_t coreNum = 0;
     uint32_t blockLen = 0;
