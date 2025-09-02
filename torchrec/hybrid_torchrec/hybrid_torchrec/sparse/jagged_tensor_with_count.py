@@ -154,6 +154,29 @@ class KeyedJaggedTensorWithCount(KeyedExtendedJaggedTensor[JaggedTensorWithCount
             labels.append("counts")
         return labels
 
+    def dist_splits(self, key_splits: List[int]) -> List[List[int]]:
+        batch_size_per_split = _sum_by_splits(self.stride_per_key(), key_splits)
+        length_per_split = _sum_by_splits(self.length_per_key(), key_splits)
+        splits = [batch_size_per_split, length_per_split]
+        if self.variable_stride_per_key():
+            splits.append(key_splits)
+        if self.weights_or_none() is not None:
+            splits.append(length_per_split)
+        if self._counts is not None:
+            splits.append(length_per_split)
+        return splits
+
+    def dist_tensors(self) -> List[torch.Tensor]:
+        tensors = [self.lengths(), self.values()]
+        if self.variable_stride_per_key():
+            strides = _pin_and_move(torch.tensor(self.stride_per_key()), self.device())
+            tensors.append(strides)
+        if self.weights_or_none() is not None:
+            tensors.append(self.weights())
+        if self._counts is not None:
+            tensors.append(self._counts)
+        return tensors
+
     @staticmethod
     def dist_init(
         keys: List[str],
@@ -225,13 +248,6 @@ class KeyedJaggedTensorWithCount(KeyedExtendedJaggedTensor[JaggedTensorWithCount
                             torch.jit._unwrap_optional(recat),
                             None,
                         )
-                    else:
-                        new_counts = None
-                else:
-                    new_lengths = lengths
-                    new_values = values
-                    new_weights = weights
-                    new_counts = counts
 
             stride_per_key_per_rank = torch.jit.annotate(
                 List[List[int]], stride_per_key_per_rank_tensor.tolist()
@@ -256,7 +272,7 @@ class KeyedJaggedTensorWithCount(KeyedExtendedJaggedTensor[JaggedTensorWithCount
                 values=new_values,
                 counts=new_counts,
                 weights=new_weights,
-                lengths=new_lengths.view(-1),
+                lengths=lengths,
                 stride_per_key_per_rank=stride_per_key_per_rank,
             )
             return kjt.sync()
@@ -266,78 +282,64 @@ class KeyedJaggedTensorWithCount(KeyedExtendedJaggedTensor[JaggedTensorWithCount
                     stride = stride_per_rank[0]
 
                     single_batch_per_rank = True
-                    if is_torchdynamo_compiling() and not torch.jit.is_scripting():
-                        if lengths.numel() > 0:
-                            single_batch_per_rank = all(
-                                s == stride for s in stride_per_rank
-                            )
-                        if (
-                            single_batch_per_rank
-                            and is_torchdynamo_compiling()
-                            and not torch.jit.is_scripting()
-                        ):
-                            (
-                                new_lengths,
-                                new_values,
-                                new_weights,
-                            ) = torch.ops.fbgemm.permute_1D_sparse_data_input1D(
-                                torch.jit._unwrap_optional(recat),
-                                lengths.view(-1),
-                                values,
-                                stride,
-                                weights,
-                                values.numel(),
-                            )
-                            if counts is not None:
-                                _, new_counts, _ = torch.ops.fbgemm.permute_1D_sparse_data_input1D(
-                                    torch.jit._unwrap_optional(recat),
-                                    lengths.view(-1),
-                                    counts,
-                                    stride,
-                                    None,
-                                    counts.numel(),
-                                )
-                            else:
-                                new_counts = None
-                        else:
-                            new_lengths = lengths
-                            new_values = values
-                            new_weights = weights
-                            new_counts = counts
-                    elif torch.jit.is_scripting() or single_batch_per_rank:
-                        if lengths.numel() > 0 and values.numel() > 0:
-                            (
-                                new_lengths,
-                                new_values,
-                                new_weights,
-                            ) = torch.ops.fbgemm.permute_1D_sparse_data(
-                                torch.jit._unwrap_optional(recat),
-                                lengths.view(-1),
-                                values,
-                                weights,
-                                values.numel(),
-                            )
-                            if counts is not None:
-                                _, new_counts, _ = torch.ops.fbgemm.permute_1D_sparse_data(
-                                    torch.jit._unwrap_optional(recat),
-                                    lengths.view(-1),
-                                    counts,
-                                    None,
-                                    counts.numel(),
-                                )
-                            else:
-                                new_counts = None
-                        else:
-                            new_lengths = lengths
-                            new_values = values
-                            new_weights = weights
-                            new_counts = counts
-                    else:
+                    new_counts = None
+                    if not is_torchdynamo_compiling():
+                        single_batch_per_rank = all(
+                            s == stride for s in stride_per_rank
+                        )
+                    if (
+                        single_batch_per_rank
+                        and is_torchdynamo_compiling()
+                        and not torch.jit.is_scripting()
+                    ):
                         (
                             new_lengths,
                             new_values,
                             new_weights,
-                        ) = torch.ops.fbgemm.asynchronous_permute_1d_sparse_data(
+                        ) = torch.ops.fbgemm.permute_2D_sparse_data_input1D(
+                            torch.jit._unwrap_optional(recat),
+                            lengths,
+                            values,
+                            stride,
+                            weights,
+                            values.numel(),
+                        )
+                        if counts is not None:
+                            _, new_counts, _ = torch.ops.fbgemm.permute_2D_sparse_data_input1D(
+                                torch.jit._unwrap_optional(recat),
+                                lengths,
+                                counts,
+                                stride,
+                                None,
+                                counts.numel(),
+                            )
+                    elif single_batch_per_rank:
+                        (
+                            new_lengths,
+                            new_values,
+                            new_weights,
+                        ) = torch.ops.fbgemm.permute_2D_sparse_data(
+                            torch.jit._unwrap_optional(recat),
+                            lengths.view(-1, stride),
+                            values,
+                            weights,
+                            values.numel(),
+                        )
+                        if counts is not None:
+                            _, new_counts, _ = torch.ops.fbgemm.permute_2D_sparse_data(
+                                torch.jit._unwrap_optional(recat),
+                                lengths.view(-1, stride),
+                                counts,
+                                None,
+                                counts.numel(),
+                            )
+                        new_lengths = new_lengths.view(-1)
+                    else:  # variable batch size per rank
+                        (
+                            new_lengths,
+                            new_values,
+                            new_weights,
+                        ) = torch.ops.fbgemm.permute_1D_sparse_data(
                             torch.jit._unwrap_optional(recat),
                             lengths.view(-1),
                             values,
@@ -345,15 +347,13 @@ class KeyedJaggedTensorWithCount(KeyedExtendedJaggedTensor[JaggedTensorWithCount
                             values.numel(),
                         )
                         if counts is not None:
-                            _, new_counts, _ = torch.ops.fbgemm.asynchronous_permute_1d_sparse_data(
+                            _, new_counts, _ = torch.ops.fbgemm.permute_1D_sparse_data(
                                 torch.jit._unwrap_optional(recat),
                                 lengths.view(-1),
                                 counts,
                                 None,
                                 counts.numel(),
                             )
-                        else:
-                            new_counts = None
                 else:
                     new_lengths = lengths
                     new_values = values
@@ -364,7 +364,9 @@ class KeyedJaggedTensorWithCount(KeyedExtendedJaggedTensor[JaggedTensorWithCount
                 values=new_values,
                 counts=new_counts,
                 weights=new_weights,
-                lengths=new_lengths.view(-1),
-                stride=stride,
+                lengths=new_lengths,
+                stride=sum(stride_per_rank),
             )
             return kjt.sync()
+
+
