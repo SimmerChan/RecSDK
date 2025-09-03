@@ -45,7 +45,8 @@ at::Tensor dense_to_jagged_forward_npu(const at::Tensor& dense,
     
     // 支持BF16和FP16类型，需要先转换为FP32进行处理，然后转回原类型
     if (dense.dtype() == at::kBFloat16 || dense.dtype() == at::kHalf) {
-        EXEC_NPU_CMD(aclnnDenseToJagged, dense_contin.to(at::kFloat), offsets[0], totalLength, output);
+        auto dense_float = dense_contin.to(at::kFloat);
+        EXEC_NPU_CMD(aclnnDenseToJagged, dense_float, offsets[0], totalLength, output);
         return output.to(dense.dtype());
     } else {
         EXEC_NPU_CMD(aclnnDenseToJagged, dense_contin, offsets[0], totalLength, output);
