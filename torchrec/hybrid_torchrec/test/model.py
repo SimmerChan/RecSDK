@@ -14,7 +14,6 @@ from hybrid_torchrec import (
 )
 from hybrid_torchrec.distributed.embeddingbag import HybridShardedEmbeddingBagCollection
 from hybrid_torchrec.distributed.embedding import HybridShardedEmbeddingCollection
-from hybrid_torchrec.modules.little_embedding import HashEmbeddingModuleCollection
 from torchrec import (
     EmbeddingBagCollection,
     EmbeddingCollection,
@@ -77,13 +76,10 @@ class Model(torch.nn.Module):
             HashEmbeddingCollection,
             HybridShardedEmbeddingCollection,
         )
-        little_embed_types = (HashEmbeddingModuleCollection,)
         if isinstance(self._module, ebc_types):
             return "ebc"
         if isinstance(self._module, ec_types):
             return "ec"
-        if isinstance(self._module, little_embed_types):
-            return "permute_values_little_emb"
         raise ValueError(
             "Module must be one of the supported types: EmbeddingCollection or EmbeddingBagCollection"
         )
