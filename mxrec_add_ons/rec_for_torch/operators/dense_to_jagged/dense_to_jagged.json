@@ -17,10 +17,10 @@
                 "name": "offset",
                 "param_type": "required",
                 "format": [
-                    "ND", "ND", "ND", "ND"
+                    "ND", "ND", "ND", "ND", "ND", "ND"
                 ],
                 "type": [
-                    "int64", "int32", "int32", "int64"
+                    "int64", "int32", "int32", "int64", "int64", "int64"
                 ]
             }
         ],
