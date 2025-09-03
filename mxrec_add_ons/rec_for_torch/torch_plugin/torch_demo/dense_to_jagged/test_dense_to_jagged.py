@@ -4,7 +4,7 @@
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
+# You License at
 #
 #    http://www.apache.org/licenses/LICENSE-2.0
 #
@@ -33,7 +33,7 @@ DENSE_DIM1 = [210] # 固定特征维度1
 DENSE_DIM2 = [1, 8] # 固定特征维度2
 DIM_LIST = list(itertools.product(DENSE_DIM0, DENSE_DIM1, DENSE_DIM2))
 
-DENSE_DATATYPE = [torch.float32, torch.int64] # 测试不同数据类型
+DENSE_DATATYPE = [torch.float32, torch.int64, torch.bfloat16, torch.float16] # 增加BF16和FP16支持
 OFFSET_DATATYPE = [torch.int32, torch.int64] # 偏移量数据类型
 TYPE_LIST = list(itertools.product(DENSE_DATATYPE, OFFSET_DATATYPE))
 
@@ -62,13 +62,19 @@ def get_result(device, denses, offsets, types, use_output_size):
 def test_dense_to_jagged(dims, types, use_output_size):
     dense_dim0, dense_dim1, dense_dim2 = dims
     # 1. 生成随机输入数据
-    denses = np.random.randn(dense_dim0, dense_dim1, dense_dim2).astype(np.float32)
+    dense_datatype, _ = types
+    # 根据目标数据类型生成相应的numpy数据
+    if dense_datatype in [torch.bfloat16, torch.float16]:
+        denses = np.random.randn(dense_dim0, dense_dim1, dense_dim2).astype(np.float32)
+    else:
+        denses = np.random.randn(dense_dim0, dense_dim1, dense_dim2).astype(np.float32)
     offsets = np.random.randint(0, dense_dim1, dense_dim0) # 生成随机偏移量
 
     # 2. 分别获取CPU和NPU结果
     golden_result = get_result(torch.device("cpu"), denses, offsets, types, use_output_size)
     npu_result = get_result(torch.device(DEVICE), denses, offsets, types, use_output_size)
 
-    # 3. 结果比对（允许1e-4的误差）
-    result_forward = torch.abs(golden_result[0] - npu_result[0]) < 1e-4
+    # 3. 结果比对（允许1e-4的误差，BF16/FP16精度较低，使用1e-3误差）
+    tolerance = 1e-3 if types[0] in [torch.bfloat16, torch.float16] else 1e-4
+    result_forward = torch.abs(golden_result[0] - npu_result[0]) < tolerance
     logging.info(result_forward.all().item())  # 输出是否全部通过验证

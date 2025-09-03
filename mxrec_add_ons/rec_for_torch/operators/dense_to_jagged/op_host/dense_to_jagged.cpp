@@ -30,6 +30,8 @@ constexpr int32_t DIM1 = 1;
 constexpr int32_t DIM2 = 2;
 constexpr int32_t TYPE_FLOAT = 0;
 constexpr int32_t TYPE_INT64 = 9;
+constexpr int32_t TYPE_BF16 = 15;  // BF16 type identifier
+constexpr int32_t TYPE_FP16 = 14;  // FP16 type identifier
 constexpr int32_t SIZEOF_FLOAT = 4;
 constexpr int32_t SIZEOF_INT64 = 8;
 
@@ -50,7 +52,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     OPS_LOG_E_IF_NULL("offset", context->GetInputTensor(INPUT_OFFSET_INDEX),
                       return ge::GRAPH_FAILED);
 
-    // 获取输入形状和类型
+    // Get input shapes and types
     auto denseShape = context->GetInputShape(INPUT_DENSE_INDEX)->GetStorageShape();
     auto offsetShape = context->GetInputShape(INPUT_OFFSET_INDEX)->GetStorageShape();
     auto denseType = context->GetInputTensor(INPUT_DENSE_INDEX)->GetDataType();
@@ -62,11 +64,12 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     // Platform configuration
     size_t usrSize = 0;
     auto ascnedPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
-    // 通过框架获取workspace的指针，GetWorkspaceSizes入参为所需workspace的块数。当前限制使用一块。
+    // Get workspace pointer through the framework, GetWorkspaceSizes parameter is the number of required workspace blocks.
+    // Currently limited to use one block.
     size_t *currentWorkspace = context->GetWorkspaceSizes(1);
-    // 如需要使用系统workspace需要调用GetLibApiWorkSpaceSize获取系统workspace的大小。
+    // If you need to use system workspace, call GetLibApiWorkSpaceSize to get the size of system workspace.
     size_t systemWorkspacesSize = ascnedPlatform.GetLibApiWorkSpaceSize();
-    // 设置总的workspace的数值大小，总的workspace空间由框架来申请并管理。
+    // Set the total workspace size, the total workspace space is applied and managed by the framework.
     currentWorkspace[0] = usrSize + systemWorkspacesSize;
 #ifndef SUPPORT_V200
     size_t coreNum = ascnedPlatform.GetCoreNumAiv();
@@ -87,7 +90,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     int left = (offsetShape.GetDim(DIM0) - 1) % coreNum;
     int singleLoopSize = (ubSize - RESERVER_UB_SIZE) / 2 / ALIGN_512 * ALIGN_512;
 
-    // 设置分片数据
+    // Set tiling data
     DenseToJaggedTilling tilingData;
     tilingData.set_denseDim1(denseShape.GetDim(DIM1));
     tilingData.set_denseDim2(denseShape.GetDim(DIM2));
@@ -99,7 +102,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     tilingData.set_denseTotal(denseTotal);
     tilingData.set_jaggedTotal(jaggedTotal);
 
-    // 保存分片数据
+    // Save tiling data
     OPS_LOG_E_IF_NULL("raw tilingData", context->GetRawTilingData(), return ge::GRAPH_FAILED);
     context->SetBlockDim(coreNum);
     tilingData.SaveToBuffer(context->GetRawTilingData()->GetData(),
@@ -152,7 +155,7 @@ public:
     {
         this->Input("dense")
             .ParamType(REQUIRED)
-            .DataType({ge::DT_FLOAT, ge::DT_FLOAT, ge::DT_INT64, ge::DT_INT64})
+            .DataType({ge::DT_FLOAT, ge::DT_FLOAT, ge::DT_INT64, ge::DT_INT64, ge::DT_BF16, ge::DT_FLOAT16}) // Add BF16 and FP16 support
             .FormatList({ge::FORMAT_ND});
         this->Input("offset")
             .ParamType(REQUIRED)
@@ -160,11 +163,12 @@ public:
             .FormatList({ge::FORMAT_ND});
         this->Output("jagged_dense")
             .ParamType(REQUIRED)
-            .DataType({ge::DT_FLOAT, ge::DT_FLOAT, ge::DT_INT64, ge::DT_INT64})
+            .DataType({ge::DT_FLOAT, ge::DT_FLOAT, ge::DT_INT64, ge::DT_INT64, ge::DT_BF16, ge::DT_FLOAT16}) // Add BF16 and FP16 support
             .FormatList({ge::FORMAT_ND});
 
         this->Attr("jagged_dim0").Int();
 
+        // Keep consistent with the original code, use InferDtype instead of InferDataType
         this->SetInferShape(ge::InferShape).SetInferDataType(ge::InferDtype);
 
         this->AICore().SetTiling(optiling::TilingFunc);

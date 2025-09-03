@@ -7,10 +7,10 @@
                 "name": "dense",
                 "param_type": "required",
                 "format": [
-                    "ND", "ND", "ND", "ND"
+                    "ND", "ND", "ND", "ND", "ND", "ND"
                 ],
                 "type": [
-                    "fp32", "fp32", "int64", "int64"
+                    "fp32", "fp32", "int64", "int64", "bf16", "fp16"
                 ]
             },
             {
@@ -29,10 +29,10 @@
                 "name": "jagged_dense",
                 "param_type": "required",
                 "format": [
-                    "ND", "ND", "ND", "ND"
+                    "ND", "ND", "ND", "ND", "ND", "ND"
                 ],
                 "type": [
-                    "fp32", "fp32", "int64", "int64"
+                    "fp32", "fp32", "int64", "int64", "bf16", "fp16"
                 ]
             }
         ],

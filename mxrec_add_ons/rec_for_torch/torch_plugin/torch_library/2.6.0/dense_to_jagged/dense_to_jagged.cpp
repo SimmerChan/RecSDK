@@ -42,8 +42,15 @@ at::Tensor dense_to_jagged_forward_npu(const at::Tensor& dense,
 
     int64_t totalLength = total_L.value_or(expected_total_L);
     auto output = at::empty({totalLength, D}, dense.options());
-    EXEC_NPU_CMD(aclnnDenseToJagged, dense_contin, offsets[0], totalLength, output);
-    return output;
+    
+    // 支持BF16和FP16类型，需要先转换为FP32进行处理，然后转回原类型
+    if (dense.dtype() == at::kBFloat16 || dense.dtype() == at::kHalf) {
+        EXEC_NPU_CMD(aclnnDenseToJagged, dense_contin.to(at::kFloat), offsets[0], totalLength, output);
+        return output.to(dense.dtype());
+    } else {
+        EXEC_NPU_CMD(aclnnDenseToJagged, dense_contin, offsets[0], totalLength, output);
+        return output;
+    }
 };
 
 std::tuple<at::Tensor, tensor_list> dense_to_jagged_npu(const at::Tensor& dense,
