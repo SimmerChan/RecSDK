@@ -7,20 +7,24 @@
                 "name": "dense",
                 "param_type": "required",
                 "format": [
+                    "ND", "ND", "ND", "ND", "ND", "ND",
                     "ND", "ND", "ND", "ND", "ND", "ND"
                 ],
                 "type": [
-                    "fp32", "fp32", "int64", "int64", "bf16", "fp16"
+                    "fp32", "fp32", "int64", "int64", "bf16", "fp16",
+                    "fp32", "fp32", "fp16", "bf16", "fp16", "bf16"
                 ]
             },
             {
                 "name": "offset",
                 "param_type": "required",
                 "format": [
+                    "ND", "ND", "ND", "ND", "ND", "ND",
                     "ND", "ND", "ND", "ND", "ND", "ND"
                 ],
                 "type": [
-                    "int64", "int32", "int32", "int64", "int64", "int64"
+                    "int64", "int32", "int32", "int64", "int64", "int64",
+                    "int64", "int64", "int64", "int64", "int32", "int32"
                 ]
             }
         ],
@@ -29,10 +33,12 @@
                 "name": "jagged_dense",
                 "param_type": "required",
                 "format": [
+                    "ND", "ND", "ND", "ND", "ND", "ND",
                     "ND", "ND", "ND", "ND", "ND", "ND"
                 ],
                 "type": [
-                    "fp32", "fp32", "int64", "int64", "bf16", "fp16"
+                    "fp32", "fp32", "int64", "int64", "bf16", "fp16",
+                    "fp16", "bf16", "fp16", "bf16", "fp32", "fp32"
                 ]
             }
         ],
