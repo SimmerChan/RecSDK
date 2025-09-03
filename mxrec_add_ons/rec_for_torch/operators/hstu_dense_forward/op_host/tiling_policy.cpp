@@ -148,13 +148,13 @@ bool TilingPolicy::TilingAttribute(gert::TilingContext *context, optiling::HstuD
     const float *siluScale = attrs->GetAttrPointer<float>(INDEX_T::INDEX_2);
     OPS_CHECK_PTR_NULL(siluScale, return false);
 
-    const uint32_t *numContext = attrs->GetAttrPointer<uint32_t>(INDEX_T::INDEX_4);
+    const int64_t *numContext = attrs->GetAttrPointer<int64_t>(INDEX_T::INDEX_4);
     OPS_CHECK_PTR_NULL(numContext, return false);
 
-    const uint32_t *numTarget = attrs->GetAttrPointer<uint32_t>(INDEX_T::INDEX_5);
+    const int64_t *numTarget = attrs->GetAttrPointer<int64_t>(INDEX_T::INDEX_5);
     OPS_CHECK_PTR_NULL(numTarget, return false);
 
-    const uint32_t *targetGroupSize = attrs->GetAttrPointer<uint32_t>(INDEX_T::INDEX_6);
+    const int64_t *targetGroupSize = attrs->GetAttrPointer<int64_t>(INDEX_T::INDEX_6);
     OPS_CHECK_PTR_NULL(targetGroupSize, return false);
 
     auto biasTensor = context->GetOptionalInputTensor(INDEX_T::INDEX_4);

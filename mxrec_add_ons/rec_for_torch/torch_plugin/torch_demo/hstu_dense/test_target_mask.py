@@ -287,5 +287,4 @@ def test_hstu_target_mask(test_param: TestParam):
 
 
 if __name__ == "__main__":
-    # result = test_hstu_target_mask(TestParam(65, 31, 17, 5, 8, 8))
-    result = test_hstu_target_mask(TestParam(16, 30, 6, 3, 256, 256))
+    result = test_hstu_target_mask(TestParam(65, 31, 17, 5, 8, 8))

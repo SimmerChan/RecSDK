@@ -74,9 +74,11 @@ public:
         auto blkNum = ceilDiv(seqlen, params.blockHeight);
         return blkNum * blkNum;
     }
+
     uint32_t InitTaskNum(const std::vector<int64_t>& blockNumber, uint32_t batchId, MaskParams& params) override {
         return blockNumber[batchId];
     }
+
     void UpdateTask(uint32_t& taskNum) override {
         // 无变化
     }
@@ -96,10 +98,12 @@ public:
         }
         return task;
     }
+
     uint32_t InitTaskNum(const std::vector<int64_t>& blockNumber, uint32_t batchId, MaskParams& params) override {
         this->initFlag = true;
         return blockNumber[batchId] - ceilDiv(params.numTarget, params.blockHeight);  // 任务量估算(误差0~1)
     }
+
     void UpdateTask(uint32_t& taskNum) override {
         if (this->initFlag) {
             this->initFlag = false;
