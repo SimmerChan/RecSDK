@@ -90,22 +90,10 @@ bash build_ops.sh
 参考：https://gitcode.com/Ascend/RecSDK/blob/develop/training/torch_rec_v1/hybrid_torchrec/README.MD
 
 （3）编译安装算子和适配文件
+参考：https://gitcode.com/Ascend/RecSDK/blob/develop/cust_op/ascendc_op/build/README.md
 
-```shell
-# 克隆源码仓
-git clone -b develop https://gitcode.com/Ascend/RecSDK.git  # 如果已经克隆此分支请忽略
-# 算子编译
-cd RecSDK/cust_op/ascendc_op/build
-bash build.sh
-# 进入打包文件
-cd ../../../RecSDK/cust_op/ascendc_op/output
-# 解压安装包
-tar -zxvf Ascend-recsdk-npu-ops-*.tar.gz
-# 进入算子目录
-cd recsdk-npu-ops/recsdk_ops/
-# 安装算子--参考以上安装方法
-# 编译算子适配文件--参考以上编译方法
-```
+编译完成后生成的tar包在 RecSDK/cust_op/ascendc_op/output下,安装算子和算子适配文件请参考以上安装方法。
+
 
 注意：执行完"编译算子适配文件"步骤后，融合算子的依赖包libfbgemm_npu_api.so会生成在同目录下的build文件夹下，同时也会生成在python默认安装的site-package路径中，也可以将该so包拷贝到指定的目录下，在后续模型运行时会配置该文件的路径 。
 
