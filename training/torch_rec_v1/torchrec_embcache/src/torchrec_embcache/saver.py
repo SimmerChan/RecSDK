@@ -74,11 +74,11 @@ class Saver:
 
         path = os.path.realpath(path)
         dist.barrier()
-        timestamp_data = int(Saver._get_format_path()) if self.rank == 0 else 0.0
-        timestamp_tensor = torch.tensor([timestamp_data])
+        timestamp_data = int(Saver._get_format_path()) if self.rank == 0 else 0
+        timestamp_tensor = torch.tensor([timestamp_data], device="npu")
         dist.broadcast(timestamp_tensor, src=0)
         timestamp_str = str(timestamp_tensor[0].item())
-        logging.info("rank:%d, get current timestamp: %s", self.rank, timestamp_str)
+        logging.info("rank:%d, after broadcast, get current timestamp: %s", self.rank, timestamp_str)
         path = os.path.join(path, timestamp_str)
 
         self.cache_module.clear()

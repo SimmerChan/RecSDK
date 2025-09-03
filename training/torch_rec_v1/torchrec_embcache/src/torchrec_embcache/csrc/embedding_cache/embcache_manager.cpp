@@ -766,7 +766,7 @@ void EmbcacheManager::RemoveEmbeddingTableInfo()
         }
 
         embeddingTables_[i]->RemoveEmbedding(keys);
-        LOG_INFO("Remove table embedding info, tableName: {}, remove key size: {}, detail keys: {}",
+        LOG_TRACE("Remove table embedding info, tableName: {}, remove key size: {}, detail keys: {}",
                  embConfigs_[i].tableName, keys.size(), StringTools::ToString(keys));
         featureFilters_[i]->evictFeatureRecord_.ClearEvictInfo();
     }
