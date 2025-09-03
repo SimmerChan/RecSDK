@@ -159,7 +159,7 @@ public:
             .FormatList({ge::FORMAT_ND});
         this->Input("offset")
             .ParamType(REQUIRED)
-            .DataType({ge::DT_INT64, ge::DT_INT32, ge::DT_INT32, ge::DT_INT64})
+            .DataType({ge::DT_INT64, ge::DT_INT32, ge::DT_INT32, ge::DT_INT64, ge::DT_INT64, ge::DT_INT64}) // 与JSON保持一致
             .FormatList({ge::FORMAT_ND});
         this->Output("jagged_dense")
             .ParamType(REQUIRED)

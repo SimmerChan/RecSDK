@@ -212,22 +212,22 @@ extern "C" __global__ __aicore__ void dense_to_jagged(GM_ADDR dense, GM_ADDR off
         kernel.Compute();
     } else if (tiling_data.denseType == bf16Type && tiling_data.offsetType == int32Type) {
         // BF16类型处理分支
-        DenseToJagged_Kernel::DenseToJagged<bfloat16, int32_t> kernel;
+        DenseToJagged_Kernel::DenseToJagged<bfloat16_t, int32_t> kernel;
         kernel.init(&args, &pipe);
         kernel.Compute();
     } else if (tiling_data.denseType == bf16Type && tiling_data.offsetType == int64Type) {
         // BF16类型处理分支
-        DenseToJagged_Kernel::DenseToJagged<bfloat16, int64_t> kernel;
+        DenseToJagged_Kernel::DenseToJagged<bfloat16_t, int64_t> kernel;
         kernel.init(&args, &pipe);
         kernel.Compute();
     } else if (tiling_data.denseType == fp16Type && tiling_data.offsetType == int32Type) {
         // FP16类型处理分支
-        DenseToJagged_Kernel::DenseToJagged<float16, int32_t> kernel;
+        DenseToJagged_Kernel::DenseToJagged<float16_t, int32_t> kernel;
         kernel.init(&args, &pipe);
         kernel.Compute();
     } else if (tiling_data.denseType == fp16Type && tiling_data.offsetType == int64Type) {
         // FP16类型处理分支
-        DenseToJagged_Kernel::DenseToJagged<float16, int64_t> kernel;
+        DenseToJagged_Kernel::DenseToJagged<float16_t, int64_t> kernel;
         kernel.init(&args, &pipe);
         kernel.Compute();
     }
