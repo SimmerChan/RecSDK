@@ -69,7 +69,7 @@ class Saver:
         if not isinstance(module, torch.nn.Module):
             raise ValueError(f"param `module` must an instance of torch.nn.Module, but got:{type(module)}")
 
-        if dist.is_initialized():
+        if not dist.is_initialized():
             raise ValueError("when save, the status of torch.distributed.is_initialized() must be True, but got False.")
 
         path = os.path.realpath(path)
