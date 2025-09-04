@@ -17,6 +17,7 @@ See the License for the specific language governing permissions and
 
 
 #include "hstu_dense_forward_kernel_patten_bsnd.h"
+#include "hstu_split_core_policy.h"
 
 using namespace AscendC;
 
@@ -362,26 +363,41 @@ __aicore__ inline void HstuDenseForwardJaggedKernel<qType>::GetTaskInfo(uint32_t
     }
 }
 
+
+HstuDenseForwardJaggedKernel<qType>::CallBlockAssign(
+    uint32_t *seqOffsets,
+    uint32_t coreNum,
+    std::vector<BlockTaskInfo> &workTasks,
+    std::vector<int> &workLoads,
+    optiling::HstuDenseForwardTilingData &tiling)
+{
+    
+
+    auto taskAssigner = BlockTaskAssign(seqOffsets, coreNum, this->blockHeight;, this->batchSize, this->headNum);
+    if (maskType == 0) {
+        taskAssigner.ComputeCausal(workTasks, workLoads);
+    } else {
+        taskAssigner.Compute(workTasks, workLoads);
+    }
+}
+
 template <typename qType>
 __aicore__ inline int
 HstuDenseForwardJaggedKernel<qType>::PreInit(const HstuDenseForwardTilingData *__restrict tilingDataPtr)
 {
-    this->maxSeqLen = tilingDataPtr->maxSeqLen;
-    this->sBlkId = tilingDataPtr->eachCoreStartBlockId[GetBlockIdx()];
-    this->eBlkId = tilingDataPtr->eachCoreEndBlockId[GetBlockIdx()];
 
-    if (this->sBlkId == this->eBlkId && this->eBlkId == 0) {
-        return -1;
-    }
-
-    for (auto i = 0; i < this->xDim0 + 1; i++) {
-        this->seqOffsets[i] = tilingDataPtr->seqOffset[i];
-    }
-
+    int blockId = GetBlockIdx();
+    std::vector<BlockTaskInfo> workTasks;
+    std::vector<int> workLoads;
     this->batchSize = this->xDim0;
     this->seqLen = this->xDim1;
     this->headNum = this->xDim2;
     this->headDim = this->xDim3;
+    CallBlockAssign(tilingDataPtr->seqOffset, GetBlockNum(), workTasks, workLoads);
+    this->sBlkId =  workTasks[blockId].startBlockId;
+    this->eBlkId = workTasks[blockId].endBlockId;
+
+   
     return 0;
 }
 
