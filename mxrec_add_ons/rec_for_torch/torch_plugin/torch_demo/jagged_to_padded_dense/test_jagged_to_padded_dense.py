@@ -91,13 +91,7 @@ test_params = {
 @pytest.mark.parametrize("config", [
     ExecuteConfig(*v) for v in itertools.product(*test_params.values())
 ])
-def test_jagged_to_padded_dense(batch_size,
-                                max_seq_len,
-                                num_heads,
-                                attention_dim,
-                                use_list_max_lengths,
-                                values_data_type,
-                                offsets_data_type):
+def test_jagged_to_padded_dense(config: ExecuteConfig):
     """
     测试不规则张量到填充密集张量的转换算子
     测试逻辑:
@@ -106,6 +100,14 @@ def test_jagged_to_padded_dense(batch_size,
     3. 调用NPU算子计算结果
     4. 对比两者差异(允许1e-4的误差)
     """
+    batch_size = config.batch_size
+    max_seq_len = config.max_seq_len
+    num_heads = config.num_heads
+    attention_dim = config.attention_dim
+    use_list_max_lengths = config.use_list_max_lengths
+    values_data_type = config.values_data_type
+    offsets_data_type = config.offsets_data_type
+
     # 1. 生成测试数据
     data_types = (values_data_type, offsets_data_type)
     jagged_tensor, seq_offsets, total_sequences = generate_jagged_tensor(
