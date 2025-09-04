@@ -342,7 +342,6 @@ void EmbcacheManager::CreateMomentumDir(const std::string& pathPrefix,
 void EmbcacheManager::Save(const std::string& path, const int rank)
 {
     auto fileSystemPtr = GetFileSystem(path);
-    fileSystemPtr->CreateFileDir(path + "/file");  // only create file parent dir if not exist
     Check4Write(fileSystemPtr, path, rank);
     for (int32_t i = 0; i < embNum_; i++) {
         std::string tableName = embConfigs_[i].tableName;
@@ -403,6 +402,7 @@ void EmbcacheManager::Check4Write(const std::shared_ptr<FileSystem>& fileSystemP
             "Failed to get file system pointer, the fileSystemPtr is nullptr. Current rank:{}.", rank);
         throw std::runtime_error(errMsg);
     }
+    fileSystemPtr->CreateFileDir(path + "/file");  // only create file parent dir if not exist
     fileSystemPtr->Valid4WriteDir(filePath);
 }
 
