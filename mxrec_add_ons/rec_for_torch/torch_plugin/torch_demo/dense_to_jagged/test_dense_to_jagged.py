@@ -202,7 +202,6 @@ def test_dense_to_jagged_forward_npu_fbgemm_call():
     assert jagged_embedding is not None
     assert jagged_embedding.shape[0] == output_size
     assert jagged_embedding.shape[1] == dense_dim2
-    print(f"fbgemm.dense_to_jagged_forward测试通过: 输出形状 {jagged_embedding.shape}")
 
 
 def test_dense_to_jagged_forward_npu_mxrec_call():
@@ -230,7 +229,6 @@ def test_dense_to_jagged_forward_npu_mxrec_call():
     assert jagged_embedding is not None
     assert jagged_embedding.shape[0] == output_size
     assert jagged_embedding.shape[1] == dense_dim2
-    print(f"mxrec.dense_to_jagged_forward测试通过: 输出形状 {jagged_embedding.shape}")
 
 
 def test_dense_to_jagged_forward_npu_int32_dense():
@@ -259,7 +257,6 @@ def test_dense_to_jagged_forward_npu_int32_dense():
     assert jagged_embedding.shape[0] == output_size
     assert jagged_embedding.shape[1] == dense_dim2
     assert jagged_embedding.dtype == torch.int32
-    print(f"int32 dense测试通过: 输出形状 {jagged_embedding.shape}, 数据类型 {jagged_embedding.dtype}")
 
 
 def test_dense_to_jagged_npu_fbgemm_call():
@@ -288,4 +285,3 @@ def test_dense_to_jagged_npu_fbgemm_call():
     assert len(offset_list) == 1
     assert jagged_embedding.shape[0] == output_size
     assert jagged_embedding.shape[1] == dense_dim2
-    print(f"fbgemm.dense_to_jagged测试通过: 输出形状 {jagged_embedding.shape}")
