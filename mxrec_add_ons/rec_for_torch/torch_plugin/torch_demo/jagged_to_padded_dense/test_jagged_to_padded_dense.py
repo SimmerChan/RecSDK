@@ -73,18 +73,18 @@ class ExecuteConfig:
     num_heads: int
     attention_dim: int
     use_list_max_lengths: bool
-    values_data_type: Union[torch.float32, torch.int64, torch.float16, torch.bf16, torch.int32]
+    values_data_type: Union[torch.float32, torch.int64, torch.float16, torch.bfloat16, torch.int32]
     offsets_data_type: Union[torch.int32, torch.int64]
 
 
 test_params = {
-    "batch_size", [2, 4],
-    "max_seq_len", [128, 256],
-    "num_heads", [2, 8],
-    "attention_dim", [32],
-    "use_list_max_lengths", [True, False],
-    "values_data_type", [torch.float32, torch.int64, torch.float16, torch.bf16, torch.int32],
-    "offsets_data_type", [torch.int32, torch.int64],
+    "batch_size": [2, 4],
+    "max_seq_len": [128, 256],
+    "num_heads": [2, 8],
+    "attention_dim": [32],
+    "use_list_max_lengths": [True, False],
+    "values_data_type": [torch.float32, torch.int64, torch.float16, torch.bfloat16, torch.int32],
+    "offsets_data_type": [torch.int32, torch.int64],
 }
 
 
