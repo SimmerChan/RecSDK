@@ -83,8 +83,15 @@ def test_dense_to_jagged(dims, types, use_output_size):
 
     # 3. 结果比对（允许1e-4的误差，BF16/FP16精度较低，使用1e-3误差）
     tolerance = 1e-3 if types[0] in [torch.bfloat16, torch.float16] else 1e-4
-    result_forward = torch.abs(golden_result[0] - npu_result[0]) < tolerance
-    logging.info(result_forward.all().item())  # 输出是否全部通过验证
+    # 检查两个结果的形状是否相同
+    assert golden_result.shape == npu_result.shape, f"Shape mismatch: golden {golden_result.shape} vs npu {npu_result.shape}"
+    # 对于非空张量进行数值比较
+    if golden_result.numel() > 0:
+        result_forward = torch.abs(golden_result - npu_result) < tolerance
+        assert result_forward.all().item(), "Result values do not match within tolerance"
+    else:
+        # 空张量直接通过检查
+        pass
 
 
 @pytest.mark.parametrize("dims", EDGE_CASE_DIMS)
@@ -99,7 +106,7 @@ def test_dense_to_jagged_edge_cases(dims, dense_dtype, offset_dtype):
         denses = np.random.randn(dense_dim0, dense_dim1, dense_dim2).astype(np.float32)
     else:
         denses = np.random.randn(dense_dim0, dense_dim1, dense_dim2).astype(np.float32)
-    offsets = np.random.randint(0, dense_dim1, dense_dim0)
+    offsets = np.random.randint(0, dense_dim1, dense_dim0)  # 确保 len(offsets) == dense.shape[0]
     
     types = (dense_dtype, offset_dtype)
     
@@ -109,32 +116,41 @@ def test_dense_to_jagged_edge_cases(dims, dense_dtype, offset_dtype):
     
     # 结果比对
     tolerance = 1e-3 if dense_dtype in [torch.bfloat16, torch.float16] else 1e-4
-    result_forward = torch.abs(golden_result[0] - npu_result[0]) < tolerance
-    assert result_forward.all().item(), f"Edge case test failed for dims={dims}, dense_dtype={dense_dtype}, offset_dtype={offset_dtype}"
+    # 检查两个结果的形状是否相同
+    assert golden_result.shape == npu_result.shape, f"Shape mismatch: golden {golden_result.shape} vs npu {npu_result.shape}"
+    # 对于非空张量进行数值比较
+    if golden_result.numel() > 0:
+        result_forward = torch.abs(golden_result - npu_result) < tolerance
+        assert result_forward.all().item(), f"Edge case test failed for dims={dims}, dense_dtype={dense_dtype}, offset_dtype={offset_dtype}"
+    else:
+        # 空张量直接通过检查
+        pass
 
 
 def test_dense_to_jagged_empty_offsets():
     """测试空偏移量的情况"""
-    # 创建空的偏移量
-    denses = np.random.randn(1, 10, 8).astype(np.float32)
-    offsets = np.array([0, 0])  # 空偏移量
+    # 创建空的偏移量 - 确保 len(offsets) == dense.shape[0]
+    denses = np.random.randn(0, 10, 8).astype(np.float32)  # 0个batch
+    offsets = np.array([])  # 空偏移量
     
     types = (torch.float32, torch.int64)
     
     golden_result = get_result(torch.device("cpu"), denses, offsets, types, False)
     npu_result = get_result(torch.device(DEVICE), denses, offsets, types, False)
     
-    tolerance = 1e-4
-    result_forward = torch.abs(golden_result[0] - npu_result[0]) < tolerance
-    assert result_forward.all().item(), "Empty offsets test failed"
+    # 检查两个结果的形状是否相同
+    assert golden_result.shape == npu_result.shape, f"Shape mismatch: golden {golden_result.shape} vs npu {npu_result.shape}"
+    # 空张量应该有0元素
+    assert golden_result.numel() == 0 and npu_result.numel() == 0, "Expected empty tensors"
 
 
 def test_dense_to_jagged_large_offsets():
     """测试大偏移量的情况"""
     # 创建大的偏移量
-    denses = np.random.randn(5, 100, 16).astype(np.float32)
+    dense_dim0 = 5
+    denses = np.random.randn(dense_dim0, 100, 16).astype(np.float32)
     # 创建较大的偏移量，但不超过dense_dim1
-    offsets = np.array([0, 20, 40, 60, 80, 100])
+    offsets = np.random.randint(0, 100, dense_dim0)  # 确保 len(offsets) == dense.shape[0]
     
     types = (torch.float32, torch.int64)
     
@@ -142,16 +158,24 @@ def test_dense_to_jagged_large_offsets():
     npu_result = get_result(torch.device(DEVICE), denses, offsets, types, False)
     
     tolerance = 1e-4
-    result_forward = torch.abs(golden_result[0] - npu_result[0]) < tolerance
-    assert result_forward.all().item(), "Large offsets test failed"
+    # 检查两个结果的形状是否相同
+    assert golden_result.shape == npu_result.shape, f"Shape mismatch: golden {golden_result.shape} vs npu {npu_result.shape}"
+    # 对于非空张量进行数值比较
+    if golden_result.numel() > 0:
+        result_forward = torch.abs(golden_result - npu_result) < tolerance
+        assert result_forward.all().item(), "Large offsets test failed"
+    else:
+        # 空张量直接通过检查
+        pass
 
 
 @pytest.mark.parametrize("dense_dtype", [torch.bfloat16, torch.float16])
 def test_bf16_fp16_precision(dense_dtype):
     """专门测试BF16和FP16精度"""
     # 创建特定测试数据
-    denses = np.random.randn(10, 50, 8).astype(np.float32)
-    offsets = np.random.randint(0, 50, 10)
+    dense_dim0 = 10
+    denses = np.random.randn(dense_dim0, 50, 8).astype(np.float32)
+    offsets = np.random.randint(0, 50, dense_dim0)  # 确保 len(offsets) == dense.shape[0]
     
     types = (dense_dtype, torch.int64)
     
@@ -160,5 +184,12 @@ def test_bf16_fp16_precision(dense_dtype):
     
     # BF16/FP16精度较低，使用更大的容差
     tolerance = 1e-2
-    result_forward = torch.abs(golden_result[0] - npu_result[0]) < tolerance
-    assert result_forward.all().item(), f"BF16/FP16 precision test failed for {dense_dtype}"
+    # 检查两个结果的形状是否相同
+    assert golden_result.shape == npu_result.shape, f"Shape mismatch: golden {golden_result.shape} vs npu {npu_result.shape}"
+    # 对于非空张量进行数值比较
+    if golden_result.numel() > 0:
+        result_forward = torch.abs(golden_result - npu_result) < tolerance
+        assert result_forward.all().item(), f"BF16/FP16 precision test failed for {dense_dtype}"
+    else:
+        # 空张量直接通过检查
+        pass
