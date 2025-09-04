@@ -15,18 +15,15 @@
 # limitations under the License.
 # ==============================================================================
 
-# 标准库导入
+
 import itertools
 import logging
 import sysconfig
 
-# 第三方库导入
 import pytest
 import numpy as np
 import torch
 import torch_npu
-
-# 项目特定导入
 import fbgemm_gpu
 
 DEVICE = "npu:0"
