@@ -258,7 +258,7 @@ private:
     TQue<QuePosition::VECOUT, 1> outQueue;
 };
 
-// 修改kernel调用部分，建议使用查表法重构
+// 修改kernel调用部分
 extern "C" __global__ __aicore__ void dense_to_jagged(GM_ADDR dense, GM_ADDR offset, GM_ADDR jagged_dense,
     GM_ADDR workspace, GM_ADDR tiling) {
     GET_TILING_DATA(tiling_data, tiling);
@@ -480,70 +480,7 @@ def test_bf16_fp16_precision(dense_dtype):
 ### 3.5 精度测试
 验证BF16/FP16与FP32的精度差异在可接受范围内。
 
-## 4. 性能优化建议
-
-### 4.1 查表法重构建议
-
-当前[dense_to_jagged](file:///c%3A/zengxiong/RecSDK/mxrec_add_ons/rec_for_torch/operators/dense_to_jagged/op_kernel/dense_to_jagged.cpp#L180-L180)函数中使用了多个if-else分支来处理不同的数据类型组合，可以考虑使用查表法进行重构以提高性能：
-
-```cpp
-// 定义函数指针类型
-typedef void (*KernelFunc)(DenseToJagged_Kernel::DenseToJaggedArgs*, TPipe*);
-
-// 定义内核函数模板实例化
-template<typename DT, typename OT>
-void LaunchKernel(DenseToJagged_Kernel::DenseToJaggedArgs* args, TPipe* pipe) {
-    DenseToJagged_Kernel::DenseToJagged<DT, OT> kernel;
-    kernel.init(args, pipe);
-    kernel.Compute();
-}
-
-// 定义查表结构
-struct KernelEntry {
-    int denseType;
-    int offsetType;
-    KernelFunc func;
-};
-
-// 构建内核函数查找表
-static const KernelEntry kernelTable[] = {
-    {DenseToJagged_Kernel::TYPE_FLOAT, DenseToJagged_Kernel::TYPE_INT32, LaunchKernel<float, int32_t>},
-    {DenseToJagged_Kernel::TYPE_FLOAT, DenseToJagged_Kernel::TYPE_INT64, LaunchKernel<float, int64_t>},
-    {DenseToJagged_Kernel::TYPE_INT64, DenseToJagged_Kernel::TYPE_INT64, LaunchKernel<int64_t, int64_t>},
-    {DenseToJagged_Kernel::TYPE_INT64, DenseToJagged_Kernel::TYPE_INT32, LaunchKernel<int64_t, int32_t>},
-    {DenseToJagged_Kernel::TYPE_BF16, DenseToJagged_Kernel::TYPE_INT32, LaunchKernel<bfloat16_t, int32_t>},
-    {DenseToJagged_Kernel::TYPE_BF16, DenseToJagged_Kernel::TYPE_INT64, LaunchKernel<bfloat16_t, int64_t>},
-    {DenseToJagged_Kernel::TYPE_FP16, DenseToJagged_Kernel::TYPE_INT32, LaunchKernel<float16_t, int32_t>},
-    {DenseToJagged_Kernel::TYPE_FP16, DenseToJagged_Kernel::TYPE_INT64, LaunchKernel<float16_t, int64_t>}
-};
-
-// 使用查表法调用内核函数
-extern "C" __global__ __aicore__ void dense_to_jagged(GM_ADDR dense, GM_ADDR offset, GM_ADDR jagged_dense,
-    GM_ADDR workspace, GM_ADDR tiling) {
-    GET_TILING_DATA(tiling_data, tiling);
-
-    DenseToJagged_Kernel::DenseToJaggedArgs args {
-        dense, offset, jagged_dense, tiling_data.denseDim1, tiling_data.denseDim2, tiling_data.left,
-        tiling_data.singleCoreBatch, tiling_data.singleLoopSize, tiling_data.denseTotal, tiling_data.jaggedTotal
-    };
-
-    TPipe pipe;
-    
-    // 查找并调用对应的内核函数
-    for (const auto& entry : kernelTable) {
-        if (entry.denseType == tiling_data.denseType && entry.offsetType == tiling_data.offsetType) {
-            entry.func(&args, &pipe);
-            return;
-        }
-    }
-    
-    // 如果没有找到匹配的类型组合，可以抛出错误或使用默认处理
-}
-```
-
-通过这种方式，可以将原来的多个if-else分支简化为一个查表过程，不仅提高了代码的可读性，也可能在某些编译器优化下获得更好的性能。不过需要注意的是，这种优化的实际效果还需要通过性能测试来验证。
-
-## 5. 实施计划
+## 4. 实施计划
 
 1. **第一阶段**：修改JSON配置文件和Host端代码，扩展类型支持
 2. **第二阶段**：修改Kernel端代码，增加BF16/FP16支持
@@ -551,7 +488,7 @@ extern "C" __global__ __aicore__ void dense_to_jagged(GM_ADDR dense, GM_ADDR off
 4. **第四阶段**：编写测试用例，验证功能正确性
 5. **第五阶段**：性能测试和精度评估
 
-## 6. 风险评估
+## 5. 风险评估
 
 1. **兼容性风险**：新数据类型可能与现有代码不兼容，已通过PTA层类型转换解决
 2. **精度风险**：BF16/FP16精度可能影响模型训练效果，通过测试验证精度在可接受范围内
