@@ -6,21 +6,21 @@
             {
                 "name": "values",
                 "param_type": "required",
-                "format": [
-                    "ND", "ND", "ND", "ND"
+                "format_list": [
+                    "ND"
                 ],
-                "type": [
-                    "fp32", "int64", "fp32", "int64"
+                "data_type_list": [
+                    "fp32", "int64", "fp16", "bf16", "int64"
                 ]
             },
             {
                 "name": "offsets",
                 "param_type": "required",
-                "format": [
-                    "ND", "ND", "ND", "ND"
+                "format_list": [
+                    "ND"
                 ],
-                "type": [
-                    "int64", "int64", "int32", "int32"
+                "data_type_list": [
+                    "int64", "int64"
                 ]
             }
         ],
@@ -28,11 +28,11 @@
             {
                 "name": "out",
                 "param_type": "required",
-                "format": [
-                    "ND", "ND", "ND", "ND"
+                "format_list": [
+                    "ND"
                 ],
-                "type": [
-                    "fp32", "int64", "fp32", "int64"
+                "data_type_list": [
+                  "fp32", "int64", "fp16", "bf16", "int64"
                 ]
             }
         ],
