@@ -161,6 +161,10 @@ public:
         maskType = static_cast<CausalMaskT>(tilingDataPtr->maskType);
         enableBias = (tilingDataPtr->enableBias == 1);
 
+        numContext = tilingDataPtr->numContext;
+        numTarget = tilingDataPtr->numTarget;
+        targetGroupSize = tilingDataPtr->targetGroupSize;
+
         // Gt
         qGt.SetGlobalBuffer(reinterpret_cast<__gm__ qType*>(q));
         kGt.SetGlobalBuffer(reinterpret_cast<__gm__ qType*>(k));
@@ -372,10 +376,11 @@ public:
         return needMask;
     }
 
+    template<typename MaskInfoType>
     __aicore__ inline bool DoMaskInitOptional(
         LocalTensor<qType>& inMaskLt,
         LocalTensor<float>& inMaskLtFp32,
-        uint32_t causalMask,
+        MaskInfoType maskinfo,
         int64_t maskOffset,
         int64_t thisLen,
         int64_t blockOffset,
@@ -385,9 +390,21 @@ public:
         bool needMask = false;
         if (maskType == CausalMaskT::MASK_TRIL) {
             inMaskLtFp32 = queMaskIn.AllocTensor<float>();
-            needMask = GenMask(
-                inMaskLtFp32, causalMask, thisLen,
-                ((causalMask == 1) ? (blockOffset) : n), scale);
+            if constexpr (std::is_same<MaskInfoType, uint32_t>::value) {
+                // 处理 uint32_t 类型
+                needMask = GenMask(
+                    inMaskLtFp32,
+                    maskinfo,
+                    thisLen,
+                    ((maskinfo > 0) ? (blockOffset) : n),  // blockOffset为行号
+                    scale);
+            } else {
+                // 处理 BlockMaskParams* 类型
+                BlockMaskGenerator<qType, maskType> blkMaskGen(maskinfo)
+                needMask = blkMaskGen.GenMask(inMaskLtFp32, blockOffset, 
+                    thisLen / this->blockHeight, this->blockHeight);
+            }
+            
             queMaskIn.EnQue(inMaskLtFp32);
         } else if (maskType == CausalMaskT::MASK_CUSTOME) {
             int64_t thisMaskOffset = maskOffset + blockOffset * xDim1;
@@ -418,12 +435,13 @@ public:
         }
     }
 
+    template<typename MaskInfoType>
     __aicore__ inline void VecScoreImpl(
         int64_t taskId,
         int64_t biasOffset,
         int64_t maskOffset,
         float scale,
-        uint32_t causalMask,
+        MaskInfoType maskinfo,
         uint32_t m,
         uint32_t n)
     {
@@ -458,7 +476,7 @@ public:
             int64_t blockOffset = (total - remain) / blockHeight;
             DoBiasCopyOptional(biasLt, biasOffset, thisLen, blockOffset, n);
 
-            bool needMask = DoMaskInitOptional(inMaskLt, inMaskLtFp32, causalMask,
+            bool needMask = DoMaskInitOptional(inMaskLt, inMaskLtFp32, contextMask, causalMask, targetMask,
                 maskOffset, thisLen, blockOffset, scale, n);
 
             if (enableBias) {
@@ -595,6 +613,9 @@ public:
     float siluScale;
     CausalMaskT maskType;
     bool enableBias;
+    int64_t numContext;
+    int64_t numTarget;
+    int64_t targetGroupSize;
 
     // Tpipe
     TPipe *pipe;

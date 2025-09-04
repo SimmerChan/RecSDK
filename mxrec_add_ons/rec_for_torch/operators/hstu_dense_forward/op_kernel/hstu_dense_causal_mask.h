@@ -30,10 +30,189 @@ using namespace AscendC;
 namespace HstuDenseForward {
 
 enum class CausalMaskT {
-    MASK_TRIL = 0,          // 下三角
-    MASK_TRIU,              // 上三角
-    MASK_NONE,              // 不使能mask
-    MASK_CUSTOME,           // 用户自定义mask
+    MASK_TRIL = 0,  // 下三角
+    MASK_TRIU,      // 上三角
+    MASK_NONE,      // 不使能mask
+    MASK_CUSTOME,   // 用户自定义mask
+};
+
+template<CausalMaskT maskType>
+struct BlockMaskParams {
+    uint32_t qSeqId;          // 该基本块所属Query 输入的第几个seq block 一个block是256条seq
+    uint32_t kSeqId;          // 该基本块所属Key 输入的第几个seq block 一个block是256条seq
+    uint32_t seqlen;          // 序列总长度
+    int64_t blockHeight;      // 基本块高度
+    int64_t numContext;       // context 掩码长度
+    int64_t numTarget;        // target 掩码长度
+    int64_t targetGroupSize;  // target 掩码group size
+    qType value;              // 掩码值
+
+    __aicore__ inline BlockMaskParams(uint32_t qSeq, uint32_t kSeq, uint32_t len, int64_t bHeight, int64_t nContext,
+                                      int64_t nTarget, int64_t groupSize, qType val)
+        : qSeqId(qSeq),
+          kSeqId(kSeq),
+          seqlen(len),
+          blockHeight(bHeight),
+          numContext(nContext),
+          numTarget(nTarget),
+          targetGroupSize(groupSize),
+          value(val) {}
+
+    __aicore__ inline bool NoComputation()
+    {
+        if constexpr (maskType != CausalMaskT::MASK_TRIL) {
+            return false;
+        }
+        bool noCausal = (kSeqId > qSeqId);
+        bool noContext = (numContext <= 0) ||
+                        (qSeqId > numContext / blockHeight) ||
+                        (kSeqId > (seqlen - numTarget) / blockHeight);
+        return noCausal && noContext;
+    }
+}
+
+template <typename qType, CausalMaskT maskType>
+class BlockMaskGenerator {
+public:
+    __aicore__ inline BlockMaskGenerator(BlockMaskParams* params)
+    {
+        qSeqId = params->qSeqId;
+        kSeqId = params->kSeqId;
+        seqlen = params->seqlen;
+        blockHeight = params->blockHeight;
+        numContext = params->numContext;
+        numTarget = params->numTarget;
+        targetGroupSize = params->targetGroupSize;
+        value = params->value;
+        contextMask = NeedContextMask();
+        causalMask = NeedCausalMask();
+        targetMask = NeedTargetMask();
+    }
+
+    __aicore__ inline bool NeedContextMask()
+    {
+        if constexpr (maskType != CausalMaskT::MASK_TRIL) {
+            return false;
+        }
+        return (numContext > 0) && (qSeqId <= numContext / blockHeight) &&
+               (kSeqId <= (seqlen - numTarget) / blockHeight);
+    }
+
+    __aicore__ inline bool NeedCausalMask()
+    {
+        if constexpr (maskType != CausalMaskT::MASK_TRIL) {
+            return false;
+        }
+        return (qSeqId == kSeqId);
+    }
+
+    __aicore__ inline bool NeedTargetMask()
+    {
+        if constexpr (maskType != CausalMaskT::MASK_TRIL) {
+            return false;
+        }
+        auto tbase = (seqlen - numTarget) / blockHeight;
+        return (numTarget > 0) && (targetGroupSize > 0) && (tbase <= kSeqId) && (kSeqId <= qSeqId);
+    }
+
+    /**
+     * (Hblcok x Hblock)中[line, line+height]行mask生成
+     * @param inMaskLt mask写入的local tensor
+     * @param line (Hblcok x Hblock)中的第几行
+     * @param height
+     * @param width
+     */
+    __aicore__ inline bool GenMask(LocalTensor<qType>& inMaskLt, int64_t line, int64_t height, int64_t width)
+    {
+        int64_t total = height * width;
+        Duplicate<qType>(inMaskLt, 0, total);
+        if (contextMask) {
+            GenContextMask(inMaskLt, line, height, width);
+        }
+        if (causalMask) {
+            GenCausalMask(inMaskLt, line, height, width);
+        }
+        if (targetMask) {
+            if (!causalMask) {
+                Duplicate<qType>(inMaskLt, value, total);
+            }
+            GenTargetMask(inMaskLt, line, height, width);
+        }
+    }
+
+private:
+    uint32_t qSeqId;
+    uint32_t kSeqId;
+    uint32_t seqlen;
+    int64_t blockHeight;
+    int64_t numContext;
+    int64_t numTarget;
+    int64_t targetGroupSize;
+    qType value;
+
+    bool contextMask;
+    bool causalMask;
+    bool targetMask;
+
+    __aicore__ inline void GenContextMask(LocalTensor<qType>& inMaskLt, int64_t line, int64_t height, int64_t width)
+    {
+        int cmaskWidth = (seqlen - numTarget);
+        int validWith = cmaskWidth - kSeqId * blockHeight;
+        if (validWith > blockHeight) {
+            validWith = blockHeight;
+        }
+        for (int i = 0; i < height; i++) {
+            if ((line + i) >= numContext) {
+                break;
+            }
+            Duplicate<qType>(inMaskLt[i * width], value, validWith);
+        }
+    }
+
+    __aicore__ inline void GenCausalMask(LocalTensor<qType>& inMaskLt, int64_t line, int64_t height, int64_t width) 
+    {
+        for (int i = 0; i < height; i++) {
+            int64_t thisIndexMask = line + i + 1;
+            Duplicate<qType>(inMaskLt[i * width], value, thisIndexMask);
+        }
+    }
+
+    __aicore__ inline void GenTargetMask(LocalTensor<qType>& inMaskLt, int64_t line, int64_t height, int64_t width) 
+    {
+        int tbase = (seqlen - numTarget) / blockHeight;
+        int blkLeft = kSeqId * blockHeight;
+        int blkRight = (kSeqId + 1) * blockHeight;
+        int blkTop = qSeqId * blockHeight;
+        int blkBottom = (qSeqId + 1) * blockHeight;
+
+        for (int i = 0; i < height; i++) {
+            // 1.找最近的小三角形
+            int64_t lineInScore = line + i + blkTop;
+            int64_t triNum = (lineInScore - tbase) / targetGroupSize;  // 该行上方有多少个三角形
+            // 2.计算三角形下方挖空边界
+            int64_t triBottom = tbase + triNum * targetGroupSize;
+            if (triNum < 1 || triBottom < blkLeft) {
+                continue;
+            }
+            // 3.计算valid_rbound = min(triBottom, blkRight)
+            int64_t validRbound = (triBottom >= blkRight) ? blkRight : triBottom;
+            // 4.计算valid_lbound = max(tbase, blkLeft)
+            int64_t validLbound = (tbase >= blkLeft) ? tbase : blkLeft;
+            int64_t validLboundInBlk = validLbound - blkLeft;
+            // 5.计算挖空宽度
+            int64_t validWith = validRbound - validLbound;
+            // 6.挖空
+            int alignStart = validLboundInBlk * sizeof(qType) / DATA_ALIGN_BYTES * DATA_ALIGN_BYTES / sizeof(qType);
+            if (alignStart != validLboundInBlk) {
+                int unalignlen = validLboundInBlk - alignStart;
+                Duplicate<qType>(inMaskLt[i * width + alignStart], 0, DATA_ALIGN_BYTES / sizeof(qType));
+                Duplicate<qType>(inMaskLt[i * width + alignStart], value, unalignlen);
+                alignStart += DATA_ALIGN_BYTES / sizeof(qType);
+                validWith -= unalignlen;
+            }
+            Duplicate<qType>(inMaskLt[i * width + alignStart], 0, validWith);
+        }
+    }
 };
 
 template<typename qType, CausalMaskT maskType>
@@ -63,5 +242,5 @@ __aicore__ inline void DoCausalMask(
         ASCENDC_ASSERT((false), "DoCausalMask custom is unreadlized");
     }
 }
-}
+}  // namespace HstuDenseForward
 #endif

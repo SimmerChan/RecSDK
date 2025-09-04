@@ -29,7 +29,6 @@ struct JaggedTaskArgs {
     uint32_t kSeqId = 0;            // 该基本块所属Key 输入的第几个seq block 一个block是256条seq
     uint32_t actualSeqLen = 0;      // 该基本块实际的序列长度
     uint32_t kSeqNum = 0;           // 该基本块在K轴需要乘多少次
-    uint32_t causalMask = 0;        // 该基本块是否需要做causal 掩码
     uint32_t transTaskId = 0;       // 该基本块转置任务的id
     uint32_t computeASeqLen = 0;    // 该基本块matmul计算左矩阵的序列长度
     uint32_t computeBSeqLen = 0;    // 该基本块matmul计算右矩阵的序列长度
@@ -39,6 +38,7 @@ struct JaggedTaskArgs {
     int64_t headSeqLimit = 0;       // 该基本块的head offset最大长度, 超过则需要考虑切换head_id
     int64_t kvOffset = 0;           // 该基本块的key value计算偏移
     int64_t ioOffset = 0;           // 该基本块的query attenOutput计算偏移
+    BlockMaskParams* maskParams = nullptr; // 该基本块的mask参数
 };
 
 template <typename qType>
@@ -66,6 +66,15 @@ private:
     __aicore__ inline void ComputeSvMatmul(uint32_t taskId);
 
     __aicore__ inline void TransResult(uint32_t transtaskId);
+
+    __aicore__ inline bool DoMaskInitOptionalV2(LocalTensor<qType>& inMaskLt,
+        LocalTensor<float>& inMaskLtFp32,
+        BlockMaskParams* maskParams,
+        int64_t maskOffset,
+        int64_t thisLen,
+        int64_t blockOffset,
+        float scale,
+        uint32_t n);
 
     uint32_t seqOffsets[MAX_BATCH_SIZE + 1];
     uint32_t sBlkId {0};
@@ -111,7 +120,6 @@ __aicore__ inline void HstuDenseForwardJaggedKernel<qType>::ComputeQkMatmul(uint
                          computeTaskInfo[taskId].computeASeqLen, computeTaskInfo[taskId].computeBSeqLen, this->headDim);
 }
 
-
 template <typename qType>
 __aicore__ inline void HstuDenseForwardJaggedKernel<qType>::ComputeVecScore(uint32_t taskId)
 {
@@ -122,8 +130,10 @@ __aicore__ inline void HstuDenseForwardJaggedKernel<qType>::ComputeVecScore(uint
 
     int64_t maskOffset = biasOffset;
 
-    this->VecScoreImpl(taskId, biasOffset, maskOffset, computeTaskInfo[taskId].scale,
-                       computeTaskInfo[taskId].causalMask, computeTaskInfo[taskId].computeASeqLen,
+    this->VecScoreImpl(taskId, biasOffset, maskOffset,
+                       computeTaskInfo[taskId].scale,
+                       computeTaskInfo[taskId].maskParams,
+                       computeTaskInfo[taskId].computeASeqLen,
                        computeTaskInfo[taskId].computeBSeqLen);
 }
 
@@ -149,10 +159,18 @@ __aicore__ inline void HstuDenseForwardJaggedKernel<qType>::ComputeAllBlock()
     for (auto blkId = sBlkId; blkId < eBlkId; blkId++) {
         auto kSeqNum = computeTaskInfo[taskId % COMPUTE_PIPE_NUM].kSeqNum;
         for (auto kSeqId = 0; kSeqId < kSeqNum; kSeqId++) {
-            uint32_t causalMask = 0;
-
-            if ((this->maskType == CausalMaskT::MASK_TRIL) &&
-                kSeqId > computeTaskInfo[taskId % COMPUTE_PIPE_NUM].qSeqId) {
+            auto args = this->computeTaskInfo[taskId % COMPUTE_PIPE_NUM];
+            BlockMaskParams maskinfo = {
+                args.qSeqId,
+                (uint32_t)kSeqId,
+                args.actualSeqLen,
+                this->blockHeight,
+                this->numContext,
+                this->numTarget,
+                this->targetGroupSize,
+                (qType)(args.scale)
+            };
+            if (maskinfo.NoComputation()) {
                 continue;
             }
 
@@ -161,13 +179,8 @@ __aicore__ inline void HstuDenseForwardJaggedKernel<qType>::ComputeAllBlock()
             prePreTaskId = (taskId - 2) % COMPUTE_PIPE_NUM;
             nextTaskId = (taskId + 1) % COMPUTE_PIPE_NUM;
 
-            if ((this->maskType == CausalMaskT::MASK_TRIL) &&
-                kSeqId == computeTaskInfo[currentTaskId].qSeqId) {
-                causalMask = 1;
-            }
-
             this->computeTaskInfo[currentTaskId].transTaskId = transtaskId % TRANS_PIPE_NUM;
-            this->computeTaskInfo[currentTaskId].causalMask = causalMask;
+            this->computeTaskInfo[currentTaskId].maskParams = &maskinfo;
             this->computeTaskInfo[currentTaskId].kSeqId = kSeqId;
             this->computeTaskInfo[currentTaskId].computeBSeqLen =
                 (kSeqId != (kSeqNum - 1)) ?
