@@ -43,7 +43,7 @@ at::Tensor dense_to_jagged_forward_npu(const at::Tensor& dense,
     int64_t totalLength = total_L.value_or(expected_total_L);
     auto output = at::empty({totalLength, D}, dense.options());
     EXEC_NPU_CMD(aclnnDenseToJagged, dense_contin, offsets[0], totalLength, output);
-    return output;
+    return {output, offsets};
 };
 
 std::tuple<at::Tensor, tensor_list> dense_to_jagged_npu(const at::Tensor& dense,
