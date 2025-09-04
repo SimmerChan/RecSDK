@@ -135,7 +135,6 @@ public:
 Kernel端的核心计算过程可以分为以下几个步骤：
 
 #### 3.3.1 多核并行处理策略
-
 ```mermaid
 graph TD
     A[输入数据] --> B[分片到多个AI Core]
