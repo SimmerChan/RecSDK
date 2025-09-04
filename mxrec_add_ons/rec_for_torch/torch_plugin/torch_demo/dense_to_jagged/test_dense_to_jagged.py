@@ -21,32 +21,32 @@ import sysconfig
 import pytest
 import numpy as np
 import torch
-import torch_npu
-import fbgemm_gpu
+
 
 DEVICE = "npu:0"
 logging.getLogger().setLevel(logging.INFO)
 torch.ops.load_library(f"{sysconfig.get_path('purelib')}/libfbgemm_npu_api.so")
 
-DENSE_DIM0 = [128, 40] # 测试不同batch大小
-DENSE_DIM1 = [210] # 固定特征维度1
-DENSE_DIM2 = [1, 8] # 固定特征维度2
+DENSE_DIM0 = [128, 40]  # 测试不同batch大小
+DENSE_DIM1 = [210]      # 固定特征维度1
+DENSE_DIM2 = [1, 8]     # 固定特征维度2
 DIM_LIST = list(itertools.product(DENSE_DIM0, DENSE_DIM1, DENSE_DIM2))
 
-DENSE_DATATYPE = [torch.float32, torch.int64, torch.bfloat16, torch.float16] # 增加BF16和FP16支持
-OFFSET_DATATYPE = [torch.int32, torch.int64] # 偏移量数据类型
+DENSE_DATATYPE = [torch.float32, torch.int64, torch.bfloat16, torch.float16]  # 增加BF16和FP16支持
+OFFSET_DATATYPE = [torch.int32, torch.int64]  # 偏移量数据类型
 TYPE_LIST = list(itertools.product(DENSE_DATATYPE, OFFSET_DATATYPE))
 
 # 边界测试用例
 EDGE_CASE_DIMS = [
-    (1, 10, 1),      # 最小batch和特征维度
-    (10, 1, 16),     # 最小序列长度
-    (1, 1, 1),       # 所有维度都最小
-    (256, 500, 32),  # 较大的batch和特征维度
+    (1, 10, 1),       # 最小batch和特征维度
+    (10, 1, 16),      # 最小序列长度
+    (1, 1, 1),        # 所有维度都最小
+    (256, 500, 32),   # 较大的batch和特征维度
 ]
 
 
 def get_result(device, denses, offsets, types, use_output_size):
+    """获取指定设备上的算子执行结果"""
     dense_datatype, offset_datatype = types
     dense_torch = torch.from_numpy(denses).to(dense_datatype).to(device)
     offsets_torch = torch.from_numpy(offsets).to(offset_datatype).to(device)
@@ -67,8 +67,9 @@ def get_result(device, denses, offsets, types, use_output_size):
 def compare_results(golden_result, npu_result, tolerance=1e-4):
     """比较CPU和NPU的结果"""
     # 检查两个结果的形状是否相同
-    assert golden_result.shape == npu_result.shape, f"Shape mismatch: golden {golden_result.shape} vs npu {npu_result.shape}"
-    
+    assert golden_result.shape == npu_result.shape, \
+        f"Shape mismatch: golden {golden_result.shape} vs npu {npu_result.shape}"
+
     # 对所有张量进行数值比较（包括空张量）
     if golden_result.numel() > 0:
         result_forward = torch.abs(golden_result - npu_result) < tolerance
@@ -93,8 +94,7 @@ def run_test(denses, offsets, types, use_output_size=False):
     # 获取结果
     golden_result = get_result(torch.device("cpu"), denses, offsets, types, use_output_size)
     npu_result = get_result(torch.device(DEVICE), denses, offsets, types, use_output_size)
-    
-    # 结果比对
+
     tolerance = 1e-3 if types[0] in [torch.bfloat16, torch.float16] else 1e-4
     compare_results(golden_result, npu_result, tolerance)
 
@@ -103,12 +103,12 @@ def run_test(denses, offsets, types, use_output_size=False):
 @pytest.mark.parametrize("types", TYPE_LIST)
 @pytest.mark.parametrize("use_output_size", [True, False])  # 测试是否传入 output_size
 def test_dense_to_jagged(dims, types, use_output_size):
+    """基本功能测试"""
     dense_dim0, dense_dim1, dense_dim2 = dims
     # 1. 生成随机输入数据
     dense_datatype, _ = types
     denses, offsets = generate_test_data(dense_dim0, dense_dim1, dense_dim2, dense_datatype)
 
-    # 2. 运行测试
     run_test(denses, offsets, types, use_output_size)
 
 
@@ -118,12 +118,11 @@ def test_dense_to_jagged(dims, types, use_output_size):
 def test_dense_to_jagged_edge_cases(dims, dense_dtype, offset_dtype):
     """边界情况测试：测试各种极端维度组合"""
     dense_dim0, dense_dim1, dense_dim2 = dims
-    
+
     # 生成测试数据
     denses, offsets = generate_test_data(dense_dim0, dense_dim1, dense_dim2, dense_dtype)
     types = (dense_dtype, offset_dtype)
-    
-    # 运行测试
+
     run_test(denses, offsets, types)
 
 
@@ -132,13 +131,9 @@ def test_dense_to_jagged_empty_offsets():
     # 创建空的偏移量 - 确保 len(offsets) == dense.shape[0]
     denses = np.random.randn(0, 10, 8).astype(np.float32)  # 0个batch
     offsets = np.array([])  # 空偏移量
-    
     types = (torch.float32, torch.int64)
-    
-    # 空张量应该有0元素
+
     assert len(denses) == 0 and len(offsets) == 0, "Expected empty tensors"
-    
-    # 运行测试
     run_test(denses, offsets, types)
 
 
@@ -149,10 +144,8 @@ def test_dense_to_jagged_large_offsets():
     denses = np.random.randn(dense_dim0, 100, 16).astype(np.float32)
     # 创建较大的偏移量，但不超过dense_dim1
     offsets = np.random.randint(0, 100, dense_dim0)  # 确保 len(offsets) == dense.shape[0]
-    
     types = (torch.float32, torch.int64)
-    
-    # 运行测试
+
     run_test(denses, offsets, types)
 
 
@@ -163,8 +156,6 @@ def test_bf16_fp16_precision(dense_dtype):
     dense_dim0 = 10
     denses = np.random.randn(dense_dim0, 50, 8).astype(np.float32)
     offsets = np.random.randint(0, 50, dense_dim0)  # 确保 len(offsets) == dense.shape[0]
-    
     types = (dense_dtype, torch.int64)
-    
-    # 运行测试，使用更大的容差
+
     run_test(denses, offsets, types)
