@@ -43,6 +43,8 @@ source /usr/local/Ascend/ascend-toolkit/set_env.sh
 说明：容器中已经安装好torchrec,hybrid_torchrec以及算子等依赖。如需重新安装依赖需确保网络通畅，可选择（1）通过获取安装包或者（2）源码编译的方式。
 
 1.获取安装包安装
+
+获取地址：https://gitcode.com/Ascend/RecSDK/releases
 ```shell
 # 如果已经安装,请先卸载
 pip3 uninstall -y hybrid_torchrec torchrec
