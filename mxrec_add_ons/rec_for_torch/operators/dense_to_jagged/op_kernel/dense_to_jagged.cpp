@@ -21,11 +21,6 @@ using namespace AscendC;
 namespace DenseToJagged_Kernel {
 constexpr int32_t ALIGN_32 = 32;
 constexpr int32_t ALIGN_16 = 16;
-constexpr int32_t TYPE_FLOAT = 0;
-constexpr int32_t TYPE_INT32 = 3;
-constexpr int32_t TYPE_INT64 = 9;
-constexpr int32_t TYPE_BF16 = 15;  // BF16类型标识
-constexpr int32_t TYPE_FP16 = 14;  // FP16类型标识
 
 struct DenseToJaggedArgs {
     GM_ADDR dense;
@@ -187,48 +182,7 @@ extern "C" __global__ __aicore__ void dense_to_jagged(GM_ADDR dense, GM_ADDR off
     };
 
     TPipe pipe;
-    int32_t floatType = DenseToJagged_Kernel::TYPE_FLOAT; // 0
-    int32_t bf16Type = DenseToJagged_Kernel::TYPE_BF16;   // 15
-    int32_t fp16Type = DenseToJagged_Kernel::TYPE_FP16;   // 14
-    int32_t int32Type = DenseToJagged_Kernel::TYPE_INT32; // 3
-    int32_t int64Type = DenseToJagged_Kernel::TYPE_INT64; // 9
-
-    // Init DenseToJagged class with different data type according to dense and offset data type.
-    if (tiling_data.denseType == floatType && tiling_data.offsetType == int32Type) {
-        DenseToJagged_Kernel::DenseToJagged<float, int32_t> kernel;
-        kernel.init(&args, &pipe);
-        kernel.Compute();
-    } else if (tiling_data.denseType == floatType && tiling_data.offsetType == int64Type) {
-        DenseToJagged_Kernel::DenseToJagged<float, int64_t> kernel;
-        kernel.init(&args, &pipe);
-        kernel.Compute();
-    } else if (tiling_data.denseType == int64Type && tiling_data.offsetType == int64Type) {
-        DenseToJagged_Kernel::DenseToJagged<int64_t, int64_t> kernel;
-        kernel.init(&args, &pipe);
-        kernel.Compute();
-    } else if (tiling_data.denseType == int64Type && tiling_data.offsetType == int32Type) {
-        DenseToJagged_Kernel::DenseToJagged<int64_t, int32_t> kernel;
-        kernel.init(&args, &pipe);
-        kernel.Compute();
-    } else if (tiling_data.denseType == bf16Type && tiling_data.offsetType == int32Type) {
-        // BF16类型处理分支
-        DenseToJagged_Kernel::DenseToJagged<bfloat16_t, int32_t> kernel;
-        kernel.init(&args, &pipe);
-        kernel.Compute();
-    } else if (tiling_data.denseType == bf16Type && tiling_data.offsetType == int64Type) {
-        // BF16类型处理分支
-        DenseToJagged_Kernel::DenseToJagged<bfloat16_t, int64_t> kernel;
-        kernel.init(&args, &pipe);
-        kernel.Compute();
-    } else if (tiling_data.denseType == fp16Type && tiling_data.offsetType == int32Type) {
-        // FP16类型处理分支
-        DenseToJagged_Kernel::DenseToJagged<float16_t, int32_t> kernel;
-        kernel.init(&args, &pipe);
-        kernel.Compute();
-    } else if (tiling_data.denseType == fp16Type && tiling_data.offsetType == int64Type) {
-        // FP16类型处理分支
-        DenseToJagged_Kernel::DenseToJagged<float16_t, int64_t> kernel;
-        kernel.init(&args, &pipe);
-        kernel.Compute();
-    }
+    DenseToJagged_Kernel::DenseToJagged<DTYPE_DENSE, DTYPE_OFFSET> kernel;
+    kernel.init(&args, &pipe);
+    kernel.Compute();
 }
