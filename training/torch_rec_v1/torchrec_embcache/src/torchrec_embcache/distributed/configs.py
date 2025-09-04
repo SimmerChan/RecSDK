@@ -11,7 +11,7 @@ from enum import Enum
 from typing import Optional
 
 from torchrec import EmbeddingConfig, EmbeddingBagConfig
-from hybrid_torchrec.hybrid_torchrec.constants import EMBEDDINGS_DIM_ALIGNMENT, MAX_EMBEDDINGS_DIM, MAX_NUM_EMBEDDINGS
+from hybrid_torchrec.constants import EMBEDDINGS_DIM_ALIGNMENT, MAX_EMBEDDINGS_DIM, MAX_NUM_EMBEDDINGS
 
 
 _DEFAULT_ADMIT_THRESHOLD: int = -1
