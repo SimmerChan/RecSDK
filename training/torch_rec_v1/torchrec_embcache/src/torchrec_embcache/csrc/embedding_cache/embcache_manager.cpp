@@ -402,7 +402,7 @@ void EmbcacheManager::Check4Write(const std::shared_ptr<FileSystem>& fileSystemP
             "Failed to get file system pointer, the fileSystemPtr is nullptr. Current rank:{}.", rank);
         throw std::runtime_error(errMsg);
     }
-    fileSystemPtr->CreateFileDir(path + "/file");  // only create file parent dir if not exist
+    fileSystemPtr->CreateFileDir(filePath + "/file");  // only create file parent dir if not exist
     fileSystemPtr->Valid4WriteDir(filePath);
 }
 
