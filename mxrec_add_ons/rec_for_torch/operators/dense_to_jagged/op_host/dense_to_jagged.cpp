@@ -156,7 +156,7 @@ public:
             .FormatList({ge::FORMAT_ND});
         this->Output("jagged_dense")
             .ParamType(REQUIRED)
-            .DataTypeList({ge::DT_FLOAT, ge::DT_INT64, ge::DT_INT32, ge::DT_BF16, ge::DT_FLOAT16})
+            .Follow("dense", FollowType::DTYPE)
             .FormatList({ge::FORMAT_ND});
 
         this->Attr("jagged_dim0").Int();
