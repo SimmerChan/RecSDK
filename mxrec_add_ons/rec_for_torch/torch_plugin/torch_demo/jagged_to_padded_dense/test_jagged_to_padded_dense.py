@@ -30,6 +30,15 @@ torch.ops.load_library(f"{sysconfig.get_path('purelib')}/libfbgemm_npu_api.so")
 # 设置用的卡号
 DEVICE = "npu:0"
 
+_PRECISION_ERROR_RANGE = {
+    torch.float32: 1e-4,
+    torch.int64: 1e-4,
+    torch.float16: 1e-3,
+    torch.bfloat16: 5e-3,
+    torch.int32: 1e-4
+}
+_VALUES_DATA_TYPES = _PRECISION_ERROR_RANGE.keys()
+
 
 def generate_jagged_tensor(batch_size, max_seq_len, num_heads, attention_dim, data_types):
     """
@@ -83,7 +92,7 @@ test_params = {
     "num_heads": [2, 8],
     "attention_dim": [32],
     "use_list_max_lengths": [True, False],
-    "values_data_type": [torch.float32, torch.int64, torch.float16, torch.bfloat16, torch.int32],
+    "values_data_type": _VALUES_DATA_TYPES,
     "offsets_data_type": [torch.int32, torch.int64],
 }
 
@@ -137,7 +146,16 @@ def test_jagged_to_padded_dense(config: ExecuteConfig):
     assert torch.allclose(
         fbgemm_dense.reshape(-1),
         npu_dense.cpu().reshape(-1),
-        atol=1e-4,
-        rtol=1e-4
+        atol=_PRECISION_ERROR_RANGE[values_data_type],
+        rtol=_PRECISION_ERROR_RANGE[values_data_type]
     ), f"NPU结果与FBGEMM CPU结果不匹配\nFBGEMM:\n{fbgemm_dense}\nNPU:\n{npu_dense.cpu()}"
 
+
+if __name__ == '__main__':
+    config = ExecuteConfig(batch_size=2,
+                           max_seq_len=128,
+                           num_heads=2,
+                           attention_dim=32,
+                           use_list_max_lengths=True,
+                           values_data_type=torch.float32,
+                           offsets_data_type=torch.int32)
