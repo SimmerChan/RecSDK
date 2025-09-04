@@ -29,7 +29,7 @@ cd TorchEasyRec && git checkout 9ffe1f09d336d3a5cdb5bb6970aa8cc8bc648b2e
 cp ../din_npu.patch ./ && git apply din_npu.patch
 ```
 将代码仓中.proto定义文件编译为python代码。
-注意：需先安装Protocl Buffers编译器。如基于Debian/Ubuntu系统参考命令:
+注意：需先安装Protocl Buffers编译器，如基于Debian/Ubuntu系统参考命令:
 ```bash
 apt-get install protobuf-compiler
 ```
