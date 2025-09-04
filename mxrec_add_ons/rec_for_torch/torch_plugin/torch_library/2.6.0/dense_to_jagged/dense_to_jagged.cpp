@@ -15,7 +15,7 @@ using tensor_list = std::vector<at::Tensor>;
 using namespace at;
 
 // 目前只支持3维的dense
-at::Tensor dense_to_jagged_forward_npu(const at::Tensor& dense,
+std::tuple<at::Tensor, tensor_list> dense_to_jagged_forward_npu(const at::Tensor& dense,
                                        const tensor_list& offsets,
                                        const c10::optional<int64_t> total_L)
 {
