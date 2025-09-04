@@ -57,7 +57,7 @@ TORCH_LIBRARY_FRAGMENT(mxrec, m)
 {
     m.def("dense_to_jagged_forward(Tensor dense, "
           "                        Tensor[] offsets, "
-          "                        SymInt? total_L=None) -> Tensor");
+          "                        SymInt? total_L=None) -> (Tensor, Tensor[])");
 
     m.def("dense_to_jagged(Tensor dense, "
           "                Tensor[] offsets, "
