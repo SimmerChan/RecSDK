@@ -342,6 +342,7 @@ void EmbcacheManager::CreateMomentumDir(const std::string& pathPrefix,
 void EmbcacheManager::Save(const std::string& path, const int rank)
 {
     auto fileSystemPtr = GetFileSystem(path);
+    fileSystemPtr->CreateFileDir(path + "/file");  // only create file parent dir if not exist
     Check4Write(fileSystemPtr, path, rank);
     for (int32_t i = 0; i < embNum_; i++) {
         std::string tableName = embConfigs_[i].tableName;

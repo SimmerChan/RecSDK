@@ -87,7 +87,6 @@ class Saver:
         self._check_emb_cache_instance_len()
         if not os.path.exists(path):
             os.makedirs(path, _DIR_MODE, exist_ok=True)
-        time.sleep(1)  # avoid the C++ size unable to recognize the created folder.
         logging.info("In save scene, path:%s, cache_module info:%s", path, self.cache_module)
         for mod in self.cache_module:
             logging.info("In save scene, embcache_mgr info:%s", mod.embcache_mgr)
