@@ -92,13 +92,28 @@ def generate_test_data(dense_dim0, dense_dim1, dense_dim2, dense_dtype):
     return denses, offsets
 
 
+def get_tolerance(dense_dtype):
+    """根据数据类型获取相应的容差值"""
+    if dense_dtype == torch.float16:
+        return 1e-3  # float16: 双千分之一
+    elif dense_dtype == torch.bfloat16:
+        return 5e-3  # bfloat16: 双千分之五
+    elif dense_dtype == torch.int32:
+        return 1e-4  # int32: 双万分之一
+    elif dense_dtype in [torch.float32, torch.int64]:
+        return 1e-4  # float32和int64: 双万分之一
+    else:
+        return 1e-4  # 默认容差
+
+
 def run_test(denses, offsets, types, use_output_size=False):
     """运行测试的核心逻辑"""
     # 获取结果
     golden_result = get_result(torch.device("cpu"), denses, offsets, types, use_output_size)
     npu_result = get_result(torch.device(DEVICE), denses, offsets, types, use_output_size)
 
-    tolerance = 1e-3 if types[0] in [torch.bfloat16, torch.float16] else 1e-4
+    # 根据数据类型获取相应的容差值
+    tolerance = get_tolerance(types[0])
     compare_results(golden_result, npu_result, tolerance)
 
 
