@@ -66,11 +66,18 @@ def generate_jagged_tensor(batch_size, max_seq_len, num_heads, attention_dim, da
 
     total_sequences = np.sum(seq_lens)
 
-    # 生成随机数据(-1到1均匀分布)
-    jagged_tensor = torch.rand(
-        total_sequences, num_heads, attention_dim,
-        dtype=data_types[0]
-    ).uniform_(-1, 1)
+    # 生成随机数据
+    values_data_type = data_types[0]
+    if values_data_type == torch.int64 or values_data_type == torch.int32:
+        jagged_tensor = torch.randint(
+            low=0, high=10000, size=(total_sequences, num_heads, attention_dim),
+            dtype=values_data_type
+        )
+    else:
+        jagged_tensor = torch.rand(
+            total_sequences, num_heads, attention_dim,
+            dtype=values_data_type
+        ).uniform_(-1, 1)
 
     return jagged_tensor, seq_offsets, total_sequences
 
@@ -159,3 +166,4 @@ if __name__ == '__main__':
                            use_list_max_lengths=True,
                            values_data_type=torch.float32,
                            offsets_data_type=torch.int32)
+    test_jagged_to_padded_dense(config)
