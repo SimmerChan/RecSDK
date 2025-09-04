@@ -68,9 +68,9 @@ def generate_jagged_tensor(batch_size, max_seq_len, num_heads, attention_dim, da
 
     # 生成随机数据
     values_data_type = data_types[0]
-    if values_data_type == torch.int64 or values_data_type == torch.int32:
+    if values_data_type in [torch.int64, torch.int32]:
         jagged_tensor = torch.randint(
-            low=0, high=10000, size=(total_sequences, num_heads, attention_dim),
+            low=0, high=1000000, size=(total_sequences, num_heads, attention_dim),
             dtype=values_data_type
         )
     else:
