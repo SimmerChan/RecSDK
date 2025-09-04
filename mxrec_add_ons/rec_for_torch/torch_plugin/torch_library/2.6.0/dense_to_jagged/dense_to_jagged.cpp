@@ -50,7 +50,7 @@ std::tuple<at::Tensor, tensor_list> dense_to_jagged_npu(const at::Tensor& dense,
                                                         const tensor_list& offsets,
                                                         const c10::optional<int64_t> total_L)
 {
-    return {dense_to_jagged_forward_npu(dense, offsets, total_L), offsets};
+    return dense_to_jagged_forward_npu(dense, offsets, total_L);
 };
 
 TORCH_LIBRARY_FRAGMENT(mxrec, m)
