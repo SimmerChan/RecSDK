@@ -8,7 +8,7 @@
 
 ### 2.1 JSON配置文件修改
 
-修改dense_to_jagged.json文件，增加BF16和FP16支持：
+修改dense_to_jagged.json文件，增加BF16和FP16支持，扩展类型组合以支持FP32+INT64->FP16/BF16等转换：
 
 ```json
 {
@@ -19,20 +19,24 @@
             "name": "dense",
             "param_type": "required",
             "format": [
+                "ND", "ND", "ND", "ND", "ND", "ND",
                 "ND", "ND", "ND", "ND", "ND", "ND"
             ],
             "type": [
-                "fp32", "fp32", "int64", "int64", "bf16", "fp16"
+                "fp32", "fp32", "int64", "int64", "bf16", "fp16",
+                "fp32", "fp32", "fp16", "bf16", "fp16", "bf16"
             ]
         },
         {
             "name": "offset",
             "param_type": "required",
             "format": [
-                "ND", "ND", "ND", "ND"
+                "ND", "ND", "ND", "ND", "ND", "ND",
+                "ND", "ND", "ND", "ND", "ND", "ND"
             ],
             "type": [
-                "int64", "int32", "int32", "int64"
+                "int64", "int32", "int32", "int64", "int64", "int64",
+                "int64", "int64", "int64", "int64", "int32", "int32"
             ]
         }
     ],
@@ -41,10 +45,12 @@
             "name": "jagged_dense",
             "param_type": "required",
             "format": [
+                "ND", "ND", "ND", "ND", "ND", "ND",
                 "ND", "ND", "ND", "ND", "ND", "ND"
             ],
             "type": [
-                "fp32", "fp32", "int64", "int64", "bf16", "fp16"
+                "fp32", "fp32", "int64", "int64", "bf16", "fp16",
+                "fp16", "bf16", "fp16", "bf16", "fp32", "fp32"
             ]
         }
     ],
@@ -63,19 +69,26 @@
 
 修改[op_host/dense_to_jagged.cpp](file:///c%3A/zengxiong/RecSDK/mxrec_add_ons/rec_for_torch/operators/dense_to_jagged/op_host/dense_to_jagged.cpp)文件，增加BF16和FP16类型支持：
 
-``cpp
+```cpp
 // 增加新的类型常量定义
 constexpr int32_t TYPE_BF16 = 15;
 constexpr int32_t TYPE_FP16 = 14;
 
-// 修改OpDef注册
+// 修改OpDef注册，扩展类型支持
 this->Input("dense")
     .ParamType(REQUIRED)
-    .DataType({ge::DT_FLOAT, ge::DT_FLOAT, ge::DT_INT64, ge::DT_INT64, ge::DT_BF16, ge::DT_FLOAT16})
+    .DataType({ge::DT_FLOAT, ge::DT_FLOAT, ge::DT_INT64, ge::DT_INT64, ge::DT_BF16, ge::DT_FLOAT16,
+              ge::DT_FLOAT, ge::DT_FLOAT, ge::DT_FLOAT16, ge::DT_BF16, ge::DT_FLOAT16, ge::DT_BF16})
+    .FormatList({ge::FORMAT_ND});
+this->Input("offset")
+    .ParamType(REQUIRED)
+    .DataType({ge::DT_INT64, ge::DT_INT32, ge::DT_INT32, ge::DT_INT64, ge::DT_INT64, ge::DT_INT64,
+              ge::DT_INT64, ge::DT_INT64, ge::DT_INT64, ge::DT_INT64, ge::DT_INT32, ge::DT_INT32})
     .FormatList({ge::FORMAT_ND});
 this->Output("jagged_dense")
     .ParamType(REQUIRED)
-    .DataType({ge::DT_FLOAT, ge::DT_FLOAT, ge::DT_INT64, ge::DT_INT64, ge::DT_BF16, ge::DT_FLOAT16})
+    .DataType({ge::DT_FLOAT, ge::DT_FLOAT, ge::DT_INT64, ge::DT_INT64, ge::DT_BF16, ge::DT_FLOAT16,
+              ge::DT_FLOAT16, ge::DT_BF16, ge::DT_FLOAT16, ge::DT_BF16, ge::DT_FLOAT, ge::DT_FLOAT})
     .FormatList({ge::FORMAT_ND});
 ```
 
@@ -83,7 +96,7 @@ this->Output("jagged_dense")
 
 修改[op_kernel/dense_to_jagged.cpp](file:///c%3A/zengxiong/RecSDK/mxrec_add_ons/rec_for_torch/operators/dense_to_jagged/op_kernel/dense_to_jagged.cpp)文件，扩展模板参数支持：
 
-```
+```cpp
 // 增加新的类型常量
 constexpr int32_t TYPE_BF16 = 15;
 constexpr int32_t TYPE_FP16 = 14;
@@ -110,108 +123,41 @@ public:
         int32_t left;
         int32_t singleCoreBatch;
         int32_t singleLoopSize;
-        int32_t denseTotal;
-        int32_t jaggedTotal;
+        int64_t denseTotal;
+        int64_t jaggedTotal;
     };
 
-    void init(DenseToJaggedArgs* args, TPipe* pipe) {
+    __aicore__ inline DenseToJagged() {};
+
+    __aicore__ inline void init(DenseToJaggedArgs *args, TPipe *pipe)
+    {
         this->args = args;
         this->pipe = pipe;
+
+        thisId = GetBlockIdx();
+        if (thisId < args->left) {
+            args->singleCoreBatch += 1;
+            offsetStartPos = thisId * args->singleCoreBatch;
+        } else {
+            offsetStartPos = (args->singleCoreBatch + 1) * args->left + (thisId - args->left) * args->singleCoreBatch;
+        }
+
+        align = sizeof(dType);
+        denseGb.SetGlobalBuffer(reinterpret_cast<__gm__ uint8_t*>(args->dense), args->denseTotal * align);
+        jaggedDenseGb.SetGlobalBuffer(reinterpret_cast<__gm__ uint8_t*>(args->jagged_dense), args->jaggedTotal * align);
+
+        pipe->InitBuffer(inQueue, 1, args->singleLoopSize);
+        pipe->InitBuffer(outQueue, 1, args->singleLoopSize);
     }
 
-    void Compute() {
-        int32_t align = sizeof(dType);
-        denseGb.SetGlobalBuffer(reinterpret_cast<__gm__ uint8_t*>(args->dense), args->denseTotal * align);
-        offsetGb.SetGlobalBuffer(reinterpret_cast<__gm__ uint8_t*>(args->offset), args->jaggedTotal * sizeof(oType));
-        jaggedGb.SetGlobalBuffer(reinterpret_cast<__gm__ uint8_t*>(args->jagged_dense), args->jaggedTotal * align);
-
-        int32_t loopNum = args->denseDim1 / args->singleCoreBatch;
-        int32_t loopRemain = args->denseDim1 % args->singleCoreBatch;
-
-        for (int32_t loop = 0; loop < loopNum; loop++) {
-            int32_t start = loop * args->singleCoreBatch;
-            int32_t end = start + args->singleCoreBatch;
-
-            ComputeLoop(start, end);
-        }
-
-        if (loopRemain > 0) {
-            int32_t start = loopNum * args->singleCoreBatch;
-            int32_t end = start + loopRemain;
-
-            ComputeLoop(start, end);
-        }
+    __aicore__ inline void Compute()
+    {
+        ComputeEachBatch();
     }
 
 private:
-    void ComputeLoop(int32_t start, int32_t end) {
-        int32_t align = sizeof(dType);
-        LocalTensor<uint8_t> denseLt = LocalTensor<uint8_t>(args->singleLoopSize * args->denseDim2 * align);
-        LocalTensor<uint8_t> offsetLt = LocalTensor<uint8_t>(args->singleLoopSize * sizeof(oType));
-        LocalTensor<uint8_t> jaggedLt = LocalTensor<uint8_t>(args->singleLoopSize * args->denseDim2 * align);
-
-        for (int32_t i = start; i < end; i++) {
-            int32_t offset = i * args->denseDim2 * align;
-            DataCopy(denseLt, denseGb, offset, args->denseDim2 * align);
-
-            offset = i * sizeof(oType);
-            DataCopy(offsetLt, offsetGb, offset, sizeof(oType));
-
-            ComputeSingle(denseLt, offsetLt, jaggedLt);
-
-            offset = i * args->denseDim2 * align;
-            DataCopy(jaggedGb, jaggedLt, offset, args->denseDim2 * align);
-        }
-    }
-
-    void ComputeSingle(LocalTensor<uint8_t>& denseLt, LocalTensor<uint8_t>& offsetLt, LocalTensor<uint8_t>& jaggedLt) {
-        int32_t align = sizeof(dType);
-        LocalTensor<uint8_t> denseLtPad = LocalTensor<uint8_t>(args->singleLoopSize * args->denseDim2 * align);
-        LocalTensor<uint8_t> offsetLtPad = LocalTensor<uint8_t>(args->singleLoopSize * sizeof(oType));
-        LocalTensor<uint8_t> jaggedLtPad = LocalTensor<uint8_t>(args->singleLoopSize * args->denseDim2 * align);
-
-        DataCopyPadLocal2Local(denseLtPad, denseLt, args->left);
-        DataCopyPadLocal2Local(offsetLtPad, offsetLt, args->left);
-        DataCopyPadLocal2Local(jaggedLtPad, jaggedLt, args->left);
-
-        ComputeSinglePad(denseLtPad, offsetLtPad, jaggedLtPad);
-
-        DataCopyPadLocal2Local(denseLt, denseLtPad, args->left);
-        DataCopyPadLocal2Local(offsetLt, offsetLtPad, args->left);
-        DataCopyPadLocal2Local(jaggedLt, jaggedLtPad, args->left);
-    }
-
-    void ComputeSinglePad(LocalTensor<uint8_t>& denseLt, LocalTensor<uint8_t>& offsetLt, LocalTensor<uint8_t>& jaggedLt) {
-        int32_t align = sizeof(dType);
-        LocalTensor<uint8_t> denseLtPad = LocalTensor<uint8_t>(args->singleLoopSize * args->denseDim2 * align);
-        LocalTensor<uint8_t> offsetLtPad = LocalTensor<uint8_t>(args->singleLoopSize * sizeof(oType));
-        LocalTensor<uint8_t> jaggedLtPad = LocalTensor<uint8_t>(args->singleLoopSize * args->denseDim2 * align);
-
-        DataCopyPadLocal2Local(denseLtPad, denseLt, args->left);
-        DataCopyPadLocal2Local(offsetLtPad, offsetLt, args->left);
-        DataCopyPadLocal2Local(jaggedLtPad, jaggedLt, args->left);
-
-        ComputeSinglePad(denseLtPad, offsetLtPad, jaggedLtPad);
-
-        DataCopyPadLocal2Local(denseLt, denseLtPad, args->left);
-        DataCopyPadLocal2Local(offsetLt, offsetLtPad, args->left);
-        DataCopyPadLocal2Local(jaggedLt, jaggedLtPad, args->left);
-    }
-
-    void DataCopyPadLocal2Local(LocalTensor<uint8_t>& ltPad, LocalTensor<uint8_t>& lt, int32_t left) {
-        int32_t align = sizeof(dType);
-        LocalTensor<uint8_t> ltPadLeft = LocalTensor<uint8_t>(left * args->denseDim2 * align);
-        LocalTensor<uint8_t> ltPadRight = LocalTensor<uint8_t>(left * args->denseDim2 * align);
-
-        DataCopy(ltPadLeft, ltPad, 0, left * args->denseDim2 * align);
-        DataCopy(ltPadRight, ltPad, args->singleLoopSize * args->denseDim2 * align - left * args->denseDim2 * align,
-                 left * args->denseDim2 * align);
-
-        DataCopy(ltPad, lt, left * args->denseDim2 * align, args->singleLoopSize * args->denseDim2 * align - 2 * left * args->denseDim2 * align);
-    }
-
-    void DataCopyPadLocal2Gm(const GlobalTensor<uint8_t>& gt, const LocalTensor<uint8_t>& lt,
-                              uint32_t unAlignLen)
+    __aicore__ inline void DataCopyPadLocal2Gm(const GlobalTensor<uint8_t>& gt, const LocalTensor<uint8_t>& lt,
+                                               uint32_t unAlignLen)
     {
         GlobalTensor<uint16_t> uint16Gt;
         uint16Gt.SetGlobalBuffer((__gm__ uint16_t*)gt.GetPhyAddr(), unAlignLen/2);
@@ -228,11 +174,88 @@ private:
         SetAtomicNone();
     }
 
-    DenseToJaggedArgs* args;
-    TPipe* pipe;
+    __aicore__ inline void ComputeEachBatch()
+    {
+        oType jaggedPos;
+        oType jaggedPosNext;
+
+        __gm__ oType *oPtr = (__gm__ oType *)args->offset;
+
+        for (int i = 0; i < args->singleCoreBatch; i++) {
+            // Get information form offset tensor to jag dense
+            jaggedPos = *(oPtr + offsetStartPos + i);
+            jaggedPosNext = *(oPtr + offsetStartPos + i + 1);
+            int copyRows = jaggedPosNext - jaggedPos;
+
+            // Get jagged Global tensor with offset
+            GlobalTensor<uint8_t> jaggedDenseCopyGb = jaggedDenseGb[jaggedPos * args->denseDim2 * align];
+            GlobalTensor<uint8_t> denseCopyGb =
+                denseGb[(offsetStartPos + i) * args->denseDim2 * args->denseDim1 * align];
+
+            // When offset[n] - offset[n + 1] > dense dim1, only need to copy dense dim1 * dim2
+            // otherwise, copy (offset[n] - offset[n + 1]) * dense dim2
+            int64_t remainLen = copyRows > args->denseDim1 ? (args->denseDim1 * args->denseDim2 * align) :
+                (copyRows * args->denseDim2 * align);
+            while (remainLen > 0) {
+                // args->singleLoopSize - ALIGN_32 to avoid overAlignLen exceed singleLoopSize
+                int64_t thisLen = args->singleLoopSize - ALIGN_32;
+                if (remainLen < (args->singleLoopSize - ALIGN_32)) {
+                    thisLen = remainLen;
+                }
+
+                LocalTensor<uint8_t> localIn = inQueue.AllocTensor<uint8_t>();
+                LocalTensor<uint8_t> localOut = outQueue.AllocTensor<uint8_t>();
+
+                uint32_t overAlignLen = (thisLen + ALIGN_32 - 1) / ALIGN_32 * ALIGN_32;
+                uint32_t alignLen = thisLen / ALIGN_32 * ALIGN_32;
+                uint32_t unAlignLen = thisLen - alignLen;
+
+                // Copy over aligned size to avoid dealing unaligned tail
+                DataCopy(localIn, denseCopyGb, overAlignLen);
+                inQueue.EnQue(localIn);
+
+                LocalTensor<uint8_t> localInCopy = inQueue.DeQue<uint8_t>();
+
+                // Copy from input to output queue
+                DataCopy(localOut, localInCopy, overAlignLen);
+                outQueue.EnQue(localOut);
+
+                LocalTensor<uint8_t> localOutCopy = outQueue.DeQue<uint8_t>();
+
+                // Copy aligned size, left unaligned tail for DataCopyPad to deal with
+                if (alignLen != 0) {
+                    DataCopy(jaggedDenseCopyGb, localOutCopy, alignLen);
+                }
+
+                if (unAlignLen != 0) {
+#ifndef SUPPORT_V200
+                    const DataCopyExtParams dataCopyExtParams{1, unAlignLen, 0, 0, 0};
+                    DataCopyPad(jaggedDenseCopyGb[alignLen], localOutCopy[alignLen], dataCopyExtParams);
+#else
+                    DataCopyPadLocal2Gm(jaggedDenseCopyGb[alignLen], localOutCopy[alignLen], unAlignLen);
+#endif
+                }
+
+                jaggedDenseCopyGb = jaggedDenseCopyGb[thisLen];
+                denseCopyGb = denseCopyGb[thisLen];
+                inQueue.FreeTensor(localInCopy);
+                outQueue.FreeTensor(localOutCopy);
+                remainLen = remainLen - thisLen;
+            }
+        }
+    }
+
+    TPipe *pipe;
+    int32_t align;
+    int32_t thisId;
+    int32_t offsetStartPos;
+    DenseToJaggedArgs *args;
+
     GlobalTensor<uint8_t> denseGb;
-    GlobalTensor<uint8_t> offsetGb;
-    GlobalTensor<uint8_t> jaggedGb;
+    GlobalTensor<uint8_t> jaggedDenseGb;
+
+    TQue<QuePosition::VECIN, 1> inQueue;
+    TQue<QuePosition::VECOUT, 1> outQueue;
 };
 
 // 修改kernel调用部分
@@ -252,7 +275,7 @@ extern "C" __global__ __aicore__ void dense_to_jagged(GM_ADDR dense, GM_ADDR off
     int32_t int32Type = DenseToJagged_Kernel::TYPE_INT32; // 3
     int32_t int64Type = DenseToJagged_Kernel::TYPE_INT64; // 9
 
-    // 扩展类型支持
+    // Init DenseToJagged class with different data type according to dense and offset data type.
     if (tiling_data.denseType == floatType && tiling_data.offsetType == int32Type) {
         DenseToJagged_Kernel::DenseToJagged<float, int32_t> kernel;
         kernel.init(&args, &pipe);
@@ -270,19 +293,23 @@ extern "C" __global__ __aicore__ void dense_to_jagged(GM_ADDR dense, GM_ADDR off
         kernel.init(&args, &pipe);
         kernel.Compute();
     } else if (tiling_data.denseType == bf16Type && tiling_data.offsetType == int32Type) {
-        DenseToJagged_Kernel::DenseToJagged<bfloat16, int32_t> kernel;
+        // BF16类型处理分支
+        DenseToJagged_Kernel::DenseToJagged<bfloat16_t, int32_t> kernel;
         kernel.init(&args, &pipe);
         kernel.Compute();
     } else if (tiling_data.denseType == bf16Type && tiling_data.offsetType == int64Type) {
-        DenseToJagged_Kernel::DenseToJagged<bfloat16, int64_t> kernel;
+        // BF16类型处理分支
+        DenseToJagged_Kernel::DenseToJagged<bfloat16_t, int64_t> kernel;
         kernel.init(&args, &pipe);
         kernel.Compute();
     } else if (tiling_data.denseType == fp16Type && tiling_data.offsetType == int32Type) {
-        DenseToJagged_Kernel::DenseToJagged<float16, int32_t> kernel;
+        // FP16类型处理分支
+        DenseToJagged_Kernel::DenseToJagged<float16_t, int32_t> kernel;
         kernel.init(&args, &pipe);
         kernel.Compute();
     } else if (tiling_data.denseType == fp16Type && tiling_data.offsetType == int64Type) {
-        DenseToJagged_Kernel::DenseToJagged<float16, int64_t> kernel;
+        // FP16类型处理分支
+        DenseToJagged_Kernel::DenseToJagged<float16_t, int64_t> kernel;
         kernel.init(&args, &pipe);
         kernel.Compute();
     }
@@ -328,17 +355,17 @@ extern "C" __global__ __aicore__ void dense_to_jagged(GM_ADDR dense, GM_ADDR off
    BF16和FP16类型使用专门的模板实例化：
    ```cpp
    // BF16类型实例化
-   DenseToJagged_Kernel::DenseToJagged<bfloat16, int32_t> kernel;
+   DenseToJagged_Kernel::DenseToJagged<bfloat16_t, int32_t> kernel;
    
    // FP16类型实例化
-   DenseToJagged_Kernel::DenseToJagged<float16, int64_t> kernel;
+   DenseToJagged_Kernel::DenseToJagged<float16_t, int64_t> kernel;
    ```
 
 ### 2.4 PTA适配层修改
 
-修改PTA层代码以支持新数据类型：
+修改PTA层代码以支持新数据类型，通过类型转换方式支持FP32+INT64->FP16/BF16等组合：
 
-``cpp
+```cpp
 // 在dense_to_jagged_forward_npu函数中增加BF16/FP16支持
 at::Tensor dense_to_jagged_forward_npu(const at::Tensor& dense,
                                        const tensor_list& offsets,
@@ -368,9 +395,10 @@ at::Tensor dense_to_jagged_forward_npu(const at::Tensor& dense,
     int64_t totalLength = total_L.value_or(expected_total_L);
     auto output = at::empty({totalLength, D}, dense.options());
     
-    // 支持BF16和FP16类型
+    // 支持BF16和FP16类型，需要先转换为FP32进行处理，然后转回原类型
     if (dense.dtype() == at::kBFloat16 || dense.dtype() == at::kHalf) {
-        EXEC_NPU_CMD(aclnnDenseToJagged, dense_contin.to(at::kFloat), offsets[0], totalLength, output);
+        auto dense_float = dense_contin.to(at::kFloat);
+        EXEC_NPU_CMD(aclnnDenseToJagged, dense_float, offsets[0], totalLength, output);
         return output.to(dense.dtype());
     } else {
         EXEC_NPU_CMD(aclnnDenseToJagged, dense_contin, offsets[0], totalLength, output);
@@ -384,7 +412,7 @@ at::Tensor dense_to_jagged_forward_npu(const at::Tensor& dense,
 ### 3.1 功能测试
 增加BF16和FP16数据类型的测试用例：
 
-``python
+```python
 @pytest.mark.parametrize("dense_dtype", [torch.float32, torch.bfloat16, torch.float16])
 @pytest.mark.parametrize("offset_dtype", [torch.int32, torch.int64])
 def test_dense_to_jagged_new_dtypes(dense_dtype, offset_dtype):
@@ -395,24 +423,66 @@ def test_dense_to_jagged_new_dtypes(dense_dtype, offset_dtype):
 
 修改现有的测试用例以包含BF16和FP16类型：
 
-``python
+```python
 # 在test_dense_to_jagged.py中修改
 DENSE_DATATYPE = [torch.float32, torch.int64, torch.bfloat16, torch.float16] # 增加新数据类型
 ```
 
-### 3.2 性能测试
+### 3.2 边界测试
+增加边界情况测试用例：
+
+```python
+# 边界测试用例
+EDGE_CASE_DIMS = [
+    (1, 10, 1),      # 最小batch和特征维度
+    (10, 1, 16),     # 最小序列长度
+    (1, 1, 1),       # 所有维度都最小
+    (256, 500, 32),  # 较大的batch和特征维度
+]
+
+@pytest.mark.parametrize("dims", EDGE_CASE_DIMS)
+@pytest.mark.parametrize("dense_dtype", [torch.float32, torch.bfloat16, torch.float16])
+@pytest.mark.parametrize("offset_dtype", [torch.int32, torch.int64])
+def test_dense_to_jagged_edge_cases(dims, dense_dtype, offset_dtype):
+    """边界情况测试：测试各种极端维度组合"""
+    # 实现边界测试逻辑
+    pass
+```
+
+### 3.3 特殊场景测试
+增加特殊场景测试：
+
+```python
+def test_dense_to_jagged_empty_offsets():
+    """测试空偏移量的情况"""
+    # 实现空偏移量测试逻辑
+    pass
+
+def test_dense_to_jagged_large_offsets():
+    """测试大偏移量的情况"""
+    # 实现大偏移量测试逻辑
+    pass
+
+@pytest.mark.parametrize("dense_dtype", [torch.bfloat16, torch.float16])
+def test_bf16_fp16_precision(dense_dtype):
+    """专门测试BF16和FP16精度"""
+    # 实现BF16/FP16精度测试逻辑
+    pass
+```
+
+### 3.4 性能测试
 对比不同数据类型的性能表现：
 
 1. 内存占用对比
 2. 计算速度对比
 3. 精度损失评估
 
-### 3.3 精度测试
+### 3.5 精度测试
 验证BF16/FP16与FP32的精度差异在可接受范围内。
 
 ## 4. 实施计划
 
-1. **第一阶段**：修改JSON配置文件和Host端代码
+1. **第一阶段**：修改JSON配置文件和Host端代码，扩展类型支持
 2. **第二阶段**：修改Kernel端代码，增加BF16/FP16支持
 3. **第三阶段**：修改PTA适配层，支持新数据类型
 4. **第四阶段**：编写测试用例，验证功能正确性
@@ -420,8 +490,8 @@ DENSE_DATATYPE = [torch.float32, torch.int64, torch.bfloat16, torch.float16] # �
 
 ## 5. 风险评估
 
-1. **兼容性风险**：新数据类型可能与现有代码不兼容
-2. **精度风险**：BF16/FP16精度可能影响模型训练效果
-3. **性能风险**：新数据类型可能在某些场景下性能不如FP32
+1. **兼容性风险**：新数据类型可能与现有代码不兼容，已通过PTA层类型转换解决
+2. **精度风险**：BF16/FP16精度可能影响模型训练效果，通过测试验证精度在可接受范围内
+3. **性能风险**：新数据类型可能在某些场景下性能不如FP32，通过性能测试评估
 
 通过以上详细设计方案，可以为dense_to_jagged算子增加BF16和FP16支持，提升算子在实际应用中的性能表现。
