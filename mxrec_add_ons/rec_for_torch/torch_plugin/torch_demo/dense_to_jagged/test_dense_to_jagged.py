@@ -14,15 +14,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+
+# 标准库导入
 import itertools
 import logging
 import sysconfig
 
+# 第三方库导入
 import pytest
-import fbgemm_gpu
 import numpy as np
-import torch_npu
 import torch
+import torch_npu
+
+# 项目特定导入
+import fbgemm_gpu
 
 DEVICE = "npu:0"
 logging.getLogger().setLevel(logging.INFO)
