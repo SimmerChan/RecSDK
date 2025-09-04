@@ -296,29 +296,65 @@ TORCH_LIBRARY_FRAGMENT(mxrec, m)
 
 ### 4.2 核心实现逻辑
 ```cpp
+// 修改前的函数签名
 at::Tensor dense_to_jagged_forward_npu(const at::Tensor& dense,
                                        const tensor_list& offsets,
                                        const c10::optional<int64_t> total_L)
 {
-    // 参数检查
-    TORCH_CHECK(dense.dim() == 3, "dense must be 3-dimensional");
-    TORCH_CHECK(offsets.size() == 1, "Only single-dimension jagged tensors supported");
-    
-    // 计算输出大小
-    int64_t expected_total_L = offsets.back()[-1].item<int64_t>();
-    int64_t totalLength = total_L.value_or(expected_total_L);
-    
-    // 支持BF16和FP16类型，需要先转换为FP32进行处理，然后转回原类型
-    if (dense.dtype() == at::kBFloat16 || dense.dtype() == at::kHalf) {
-        auto dense_float = dense_contin.to(at::kFloat);
-        EXEC_NPU_CMD(aclnnDenseToJagged, dense_float, offsets[0], totalLength, output);
-        return output.to(dense.dtype());
-    } else {
-        EXEC_NPU_CMD(aclnnDenseToJagged, dense_contin, offsets[0], totalLength, output);
+    ...
         return output;
-    }
+
+};
+
+// 修改后的函数签名
+std::tuple<at::Tensor, tensor_list> dense_to_jagged_forward_npu(const at::Tensor& dense,
+                                       const tensor_list& offsets,
+                                       const c10::optional<int64_t> total_L)
+{
+        ...
+        return {output, offsets};
+
 };
 ```
+
+### 4.3 函数返回值修改
+
+```cpp
+// 修改前的dense_to_jagged_npu函数实现
+std::tuple<at::Tensor, tensor_list> dense_to_jagged_npu(const at::Tensor& dense,
+                                                        const tensor_list& offsets,
+                                                        const c10::optional<int64_t> total_L)
+{
+    return {dense_to_jagged_forward_npu(dense, offsets, total_L), offsets};
+};
+
+// 修改后的dense_to_jagged_npu函数实现
+std::tuple<at::Tensor, tensor_list> dense_to_jagged_npu(const at::Tensor& dense,
+                                                        const tensor_list& offsets,
+                                                        const c10::optional<int64_t> total_L)
+{
+    return dense_to_jagged_forward_npu(dense, offsets, total_L);
+};
+```
+
+### 4.4 与开源算子对齐说明
+
+为了与开源FBGEMM算子保持接口一致性，我们对PTA层的函数返回值进行了重要修改：
+
+1. **返回类型变更**：
+   - 原始实现：`at::Tensor dense_to_jagged_forward_npu(...)`
+   - 修改后实现：`std::tuple<at::Tensor, tensor_list> dense_to_jagged_forward_npu(...)`
+   
+   这一修改使我们的实现与开源FBGEMM的接口保持一致，确保了在PyTorch生态中的兼容性。
+
+2. **返回值内容**：
+   - 修改后的函数不仅返回转换后的jagged张量，还同时返回offsets张量列表
+   - 这种设计与FBGEMM开源实现保持一致，便于上层代码处理
+
+3. **接口一致性优势**：
+   - 保持与FBGEMM开源算子的接口一致性
+   - 简化上层代码的调用逻辑
+   - 提高代码的可移植性和兼容性
 
 ## 5. 测试用例分析
 
@@ -366,74 +402,9 @@ def test_dense_to_jagged(dims, types, use_output_size):
 | 数据对齐 | 32字节对齐 | 通常16字节对齐 | 对齐要求不同 |
 | 精度 | fp32/fp16/bf16/int64/int32 | fp32/fp16/bf16/int64/int32 | 精度支持基本一致 |
 
-## 7. 性能优化建议
+## 7. 本次修改点总结
 
-### 7.1 查表法重构建议
-
-当前[dense_to_jagged](file:///c%3A/zengxiong/RecSDK/mxrec_add_ons/rec_for_torch/operators/dense_to_jagged/op_kernel/dense_to_jagged.cpp#L180-L180)函数中使用了多个if-else分支来处理不同的数据类型组合，可以考虑使用查表法进行重构以提高性能：
-
-```cpp
-// 定义函数指针类型
-typedef void (*KernelFunc)(DenseToJagged_Kernel::DenseToJaggedArgs*, TPipe*);
-
-// 定义内核函数模板实例化
-template<typename DT, typename OT>
-void LaunchKernel(DenseToJagged_Kernel::DenseToJaggedArgs* args, TPipe* pipe) {
-    DenseToJagged_Kernel::DenseToJagged<DT, OT> kernel;
-    kernel.init(args, pipe);
-    kernel.Compute();
-}
-
-// 定义查表结构
-struct KernelEntry {
-    int denseType;
-    int offsetType;
-    KernelFunc func;
-};
-
-// 构建内核函数查找表
-static const KernelEntry kernelTable[] = {
-    {DenseToJagged_Kernel::TYPE_FLOAT, DenseToJagged_Kernel::TYPE_INT32, LaunchKernel<float, int32_t>},
-    {DenseToJagged_Kernel::TYPE_FLOAT, DenseToJagged_Kernel::TYPE_INT64, LaunchKernel<float, int64_t>},
-    {DenseToJagged_Kernel::TYPE_INT64, DenseToJagged_Kernel::TYPE_INT64, LaunchKernel<int64_t, int64_t>},
-    {DenseToJagged_Kernel::TYPE_INT64, DenseToJagged_Kernel::TYPE_INT32, LaunchKernel<int64_t, int32_t>},
-    {DenseToJagged_Kernel::TYPE_BF16, DenseToJagged_Kernel::TYPE_INT32, LaunchKernel<bfloat16_t, int32_t>},
-    {DenseToJagged_Kernel::TYPE_BF16, DenseToJagged_Kernel::TYPE_INT64, LaunchKernel<bfloat16_t, int64_t>},
-    {DenseToJagged_Kernel::TYPE_FP16, DenseToJagged_Kernel::TYPE_INT32, LaunchKernel<float16_t, int32_t>},
-    {DenseToJagged_Kernel::TYPE_FP16, DenseToJagged_Kernel::TYPE_INT64, LaunchKernel<float16_t, int64_t>},
-    {DenseToJagged_Kernel::TYPE_INT32, DenseToJagged_Kernel::TYPE_INT32, LaunchKernel<int32_t, int32_t>},
-    {DenseToJagged_Kernel::TYPE_INT32, DenseToJagged_Kernel::TYPE_INT64, LaunchKernel<int32_t, int64_t>}
-};
-
-// 使用查表法调用内核函数
-extern "C" __global__ __aicore__ void dense_to_jagged(GM_ADDR dense, GM_ADDR offset, GM_ADDR jagged_dense,
-    GM_ADDR workspace, GM_ADDR tiling) {
-    GET_TILING_DATA(tiling_data, tiling);
-
-    DenseToJagged_Kernel::DenseToJaggedArgs args {
-        dense, offset, jagged_dense, tiling_data.denseDim1, tiling_data.denseDim2, tiling_data.left,
-        tiling_data.singleCoreBatch, tiling_data.singleLoopSize, tiling_data.denseTotal, tiling_data.jaggedTotal
-    };
-
-    TPipe pipe;
-    
-    // 查找并调用对应的内核函数
-    for (const auto& entry : kernelTable) {
-        if (entry.denseType == tiling_data.denseType && entry.offsetType == tiling_data.offsetType) {
-            entry.func(&args, &pipe);
-            return;
-        }
-    }
-    
-    // 如果没有找到匹配的类型组合，可以抛出错误或使用默认处理
-}
-```
-
-通过这种方式，可以将原来的多个if-else分支简化为一个查表过程，不仅提高了代码的可读性，也可能在某些编译器优化下获得更好的性能。不过需要注意的是，这种优化的实际效果还需要通过性能测试来验证。
-
-## 8. 本次修改点总结
-
-### 8.1 主要修改内容
+### 7.1 主要修改内容
 
 1. **JSON配置文件修改**：
    - 增加了对int32、bf16、fp16数据类型的支持
@@ -451,13 +422,15 @@ extern "C" __global__ __aicore__ void dense_to_jagged(GM_ADDR dense, GM_ADDR off
 
 4. **PTA适配层修改**：
    - 修改了函数返回值类型，从单一Tensor改为tuple形式，与fbgemm接口保持一致
+   - 修改了dense_to_jagged_npu函数的实现，避免重复添加offsets到返回值中
+   - 增加了与开源算子对齐的说明，确保接口一致性
 
 5. **测试用例修改**：
    - 增加了对新增数据类型的支持测试
    - 增加了边界情况和特殊场景测试
    - 完善了测试框架，提高了代码复用性
 
-### 8.2 优化点
+### 7.2 优化点
 
 1. **代码结构优化**：
    - Kernel端使用宏定义方式替代大量if-else分支，代码更简洁
