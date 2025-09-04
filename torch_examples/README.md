@@ -1,16 +1,16 @@
 # RecSDK-Torch 模型样例运行环境说明
 
-### 版本配套说明
+## 版本配套说明
 本模型迁移依赖特定版本的CANN、PyTorch、驱动和固件,源码编译需使用指定版本的Python、GCC、CMake等工具,仅支持昇腾平台（Atlas 800T A2）,基于软件环境以RecSDK-Torch提供的基础镜像环境为准，主要的配套依赖如下表所示：
 
 | Python版本   | 主要配套依赖                                                                                                         |
 |------------|----------------------------------------------------------------------------------------------------------------|
 | Python3.11 | torch==2.6.0<br/>torch_npu==2.6.0<br/>fbgemm_gpu==1.1.0+cpu<br/>torchrec==1.1.0+npu<br/>hybrid_torchrec==1.1.0 |
 
-### 基础镜像
+## 基础镜像
 下载基础镜像地址为：https://www.hiascend.com/developer/ascendhub/detail/9faeb4847b3e419f81b78a4d0ed574b5
 
-### 启动容器
+## 启动容器
 说明：以下启动命令仅作参考，按需挂载目录。
 ```shell
 #!/bin/bash
@@ -32,14 +32,14 @@ docker run \
 bash run_docker.sh 容器名 {镜像名称}:{版本名称}
 ```
 
-### 设置环境变量
+## 设置环境变量
 进入容器后，设置环境变量
 ```shell
 source /etc/profile
 source /usr/local/Ascend/ascend-toolkit/set_env.sh
 ```
 
-### 安装依赖
+## 安装依赖
 说明：容器中已经安装好torchrec,hybrid_torchrec以及算子等依赖。如需重新安装依赖需确保网络通畅，可选择（1）通过获取安装包或者（2）源码编译的方式。
 
 1.获取安装包安装
