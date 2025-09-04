@@ -301,9 +301,23 @@ at::Tensor dense_to_jagged_forward_npu(const at::Tensor& dense,
                                        const tensor_list& offsets,
                                        const c10::optional<int64_t> total_L)
 {
-    ...
+    // 参数检查
+    TORCH_CHECK(dense.dim() == 3, "dense must be 3-dimensional");
+    TORCH_CHECK(offsets.size() == 1, "Only single-dimension jagged tensors supported");
+    
+    // 计算输出大小
+    int64_t expected_total_L = offsets.back()[-1].item<int64_t>();
+    int64_t totalLength = total_L.value_or(expected_total_L);
+    
+    // 支持BF16和FP16类型，需要先转换为FP32进行处理，然后转回原类型
+    if (dense.dtype() == at::kBFloat16 || dense.dtype() == at::kHalf) {
+        auto dense_float = dense_contin.to(at::kFloat);
+        EXEC_NPU_CMD(aclnnDenseToJagged, dense_float, offsets[0], totalLength, output);
+        return output.to(dense.dtype());
+    } else {
+        EXEC_NPU_CMD(aclnnDenseToJagged, dense_contin, offsets[0], totalLength, output);
         return output;
-
+    }
 };
 
 // 修改后的函数签名
@@ -311,9 +325,23 @@ std::tuple<at::Tensor, tensor_list> dense_to_jagged_forward_npu(const at::Tensor
                                        const tensor_list& offsets,
                                        const c10::optional<int64_t> total_L)
 {
-        ...
+    // 参数检查
+    TORCH_CHECK(dense.dim() == 3, "dense must be 3-dimensional");
+    TORCH_CHECK(offsets.size() == 1, "Only single-dimension jagged tensors supported");
+    
+    // 计算输出大小
+    int64_t expected_total_L = offsets.back()[-1].item<int64_t>();
+    int64_t totalLength = total_L.value_or(expected_total_L);
+    
+    // 支持BF16和FP16类型，需要先转换为FP32进行处理，然后转回原类型
+    if (dense.dtype() == at::kBFloat16 || dense.dtype() == at::kHalf) {
+        auto dense_float = dense_contin.to(at::kFloat);
+        EXEC_NPU_CMD(aclnnDenseToJagged, dense_float, offsets[0], totalLength, output);
+        return {output.to(dense.dtype()), offsets};
+    } else {
+        EXEC_NPU_CMD(aclnnDenseToJagged, dense_contin, offsets[0], totalLength, output);
         return {output, offsets};
-
+    }
 };
 ```
 
@@ -366,7 +394,54 @@ std::tuple<at::Tensor, tensor_list> dense_to_jagged_npu(const at::Tensor& dense,
 - output_size参数的有无测试
 
 ### 5.2 精度测试
-- 与CPU参考实现结果对比，确保精度误差在1e-4以内
+- 与CPU参考实现结果对比，确保精度误差在容差范围内
+
+#### 5.2.1 精度验证标准
+
+根据项目规范，不同数据类型的精度容差标准如下：
+
+| 数据类型 | 容差值 | 说明 |
+|---------|--------|------|
+| float16 | 1e-3 | 双千分之一 |
+| bfloat16 | 5e-3 | 双千分之五 |
+| int32 | 1e-4 | 双万分之一 |
+| float32 | 1e-4 | 双万分之一 |
+| int64 | 1e-4 | 双万分之一 |
+
+#### 5.2.2 精度验证实现
+
+测试代码中通过`get_tolerance`函数根据数据类型动态获取相应的容差值：
+
+```python
+def get_tolerance(dense_dtype):
+    """根据数据类型获取相应的容差值"""
+    if dense_dtype == torch.float16:
+        return 1e-3  # float16: 双千分之一
+    elif dense_dtype == torch.bfloat16:
+        return 5e-3  # bfloat16: 双千分之五
+    elif dense_dtype in [torch.int32, torch.float32, torch.int64]:
+        return 1e-4  # int32、float32和int64: 双万分之一
+    else:
+        raise ValueError(f"Unsupported data type: {dense_dtype}")
+```
+
+在测试过程中，通过`compare_results`函数进行精度验证：
+
+```python
+def compare_results(golden_result, npu_result, tolerance=1e-4):
+    """比较CPU和NPU的结果"""
+    # 检查两个结果的形状是否相同
+    assert golden_result.shape == npu_result.shape, \
+        f"Shape mismatch: golden {golden_result.shape} vs npu {npu_result.shape}"
+
+    # 对所有张量进行数值比较（包括空张量）
+    if golden_result.numel() > 0:
+        result_forward = torch.abs(golden_result - npu_result) < tolerance
+        assert result_forward.all().item(), "Result values do not match within tolerance"
+    else:
+        # 空张量直接通过检查（形状已验证）
+        assert torch.equal(golden_result, npu_result), "Empty tensors should be equal"
+```
 
 ### 5.3 自动求导测试
 - 前向传播结果验证
@@ -380,16 +455,10 @@ std::tuple<at::Tensor, tensor_list> dense_to_jagged_npu(const at::Tensor& dense,
 def test_dense_to_jagged(dims, types, use_output_size):
     dense_dim0, dense_dim1, dense_dim2 = dims
     # 1. 生成随机输入数据
-    denses = np.random.randn(dense_dim0, dense_dim1, dense_dim2).astype(np.float32)
-    offsets = np.random.randint(0, dense_dim1, dense_dim0) # 生成随机偏移量
+    dense_datatype, _ = types
+    denses, offsets = generate_test_data(dense_dim0, dense_dim1, dense_dim2, dense_datatype)
 
-    # 2. 分别获取CPU和NPU结果
-    golden_result = get_result(torch.device("cpu"), denses, offsets, types, use_output_size)
-    npu_result = get_result(torch.device(DEVICE), denses, offsets, types, use_output_size)
-
-    # 3. 结果比对（允许1e-4的误差）
-    result_forward = torch.abs(golden_result[0] - npu_result[0]) < 1e-4
-    logging.info(result_forward.all().item())  # 输出是否全部通过验证
+    run_test(denses, offsets, types, use_output_size)
 ```
 
 ## 6. 与CUDA实现对比
@@ -429,6 +498,7 @@ def test_dense_to_jagged(dims, types, use_output_size):
    - 增加了对新增数据类型的支持测试
    - 增加了边界情况和特殊场景测试
    - 完善了测试框架，提高了代码复用性
+   - 增加了精度验证相关内容，明确不同数据类型的容差标准
 
 ### 7.2 优化点
 
@@ -440,7 +510,9 @@ def test_dense_to_jagged(dims, types, use_output_size):
    - 增加了全面的数据类型测试
    - 增加了边界和特殊场景测试
    - 重构了测试框架，提高了代码复用性和可维护性
+   - 明确了精度验证标准，确保不同数据类型的测试准确性
 
 3. **文档更新**：
    - 更新了README文档中的支持数据类型说明
    - 提供了完整的设计文档
+   - 增加了精度验证相关内容
