@@ -1,4 +1,4 @@
-  # dense_to_jagged算子详细设计方案
+# dense_to_jagged算子详细设计方案
 
 ## 1. 算子概述
 
@@ -248,7 +248,35 @@ if (tiling_data.denseType == floatType && tiling_data.offsetType == int32Type) {
     DenseToJagged_Kernel::DenseToJagged<float, int64_t> kernel;
     kernel.init(&args, &pipe);
     kernel.Compute();
-} // ... 其他类型组合
+} else if (tiling_data.denseType == int64Type && tiling_data.offsetType == int64Type) {
+    DenseToJagged_Kernel::DenseToJagged<int64_t, int64_t> kernel;
+    kernel.init(&args, &pipe);
+    kernel.Compute();
+} else if (tiling_data.denseType == int64Type && tiling_data.offsetType == int32Type) {
+    DenseToJagged_Kernel::DenseToJagged<int64_t, int32_t> kernel;
+    kernel.init(&args, &pipe);
+    kernel.Compute();
+} else if (tiling_data.denseType == bf16Type && tiling_data.offsetType == int32Type) {
+    // BF16类型处理分支
+    DenseToJagged_Kernel::DenseToJagged<bfloat16_t, int32_t> kernel;
+    kernel.init(&args, &pipe);
+    kernel.Compute();
+} else if (tiling_data.denseType == bf16Type && tiling_data.offsetType == int64Type) {
+    // BF16类型处理分支
+    DenseToJagged_Kernel::DenseToJagged<bfloat16_t, int64_t> kernel;
+    kernel.init(&args, &pipe);
+    kernel.Compute();
+} else if (tiling_data.denseType == fp16Type && tiling_data.offsetType == int32Type) {
+    // FP16类型处理分支
+    DenseToJagged_Kernel::DenseToJagged<float16_t, int32_t> kernel;
+    kernel.init(&args, &pipe);
+    kernel.Compute();
+} else if (tiling_data.denseType == fp16Type && tiling_data.offsetType == int64Type) {
+    // FP16类型处理分支
+    DenseToJagged_Kernel::DenseToJagged<float16_t, int64_t> kernel;
+    kernel.init(&args, &pipe);
+    kernel.Compute();
+}
 ```
 
 ## 4. PTA适配层实现
@@ -283,10 +311,15 @@ at::Tensor dense_to_jagged_forward_npu(const at::Tensor& dense,
     int64_t expected_total_L = offsets.back()[-1].item<int64_t>();
     int64_t totalLength = total_L.value_or(expected_total_L);
     
-    // 调用Ascend算子
-    auto output = at::empty({totalLength, D}, dense.options());
-    EXEC_NPU_CMD(aclnnDenseToJagged, dense_contin, offsets[0], totalLength, output);
-    return output;
+    // 支持BF16和FP16类型，需要先转换为FP32进行处理，然后转回原类型
+    if (dense.dtype() == at::kBFloat16 || dense.dtype() == at::kHalf) {
+        auto dense_float = dense_contin.to(at::kFloat);
+        EXEC_NPU_CMD(aclnnDenseToJagged, dense_float, offsets[0], totalLength, output);
+        return output.to(dense.dtype());
+    } else {
+        EXEC_NPU_CMD(aclnnDenseToJagged, dense_contin, offsets[0], totalLength, output);
+        return output;
+    }
 };
 ```
 
@@ -295,7 +328,7 @@ at::Tensor dense_to_jagged_forward_npu(const at::Tensor& dense,
 测试用例位于`mxrec_add_ons/rec_for_torch/torch_plugin/torch_demo/dense_to_jagged/test_dense_to_jagged.py`，主要覆盖以下方面：
 
 ### 5.1 功能测试
-- 不同数据类型组合测试（float32/int64作为dense，int32/int64作为offset）
+- 不同数据类型组合测试（float32/int64/bfloat16/float16作为dense，int32/int64作为offset）
 - 不同维度参数测试
 - output_size参数的有无测试
 
@@ -335,3 +368,66 @@ def test_dense_to_jagged(dims, types, use_output_size):
 | 并行策略 | 多AI Core并行 | 多线程块并行 | 并行粒度和调度机制不同 |
 | 数据对齐 | 32字节对齐 | 通常16字节对齐 | 对齐要求不同 |
 | 精度 | fp32/fp16/bf16/int64 | fp32/fp16/bf16/int64 | 精度支持基本一致 |
+
+## 7. 性能优化建议
+
+### 7.1 查表法重构建议
+
+当前[dense_to_jagged](file:///c%3A/zengxiong/RecSDK/mxrec_add_ons/rec_for_torch/operators/dense_to_jagged/op_kernel/dense_to_jagged.cpp#L180-L180)函数中使用了多个if-else分支来处理不同的数据类型组合，可以考虑使用查表法进行重构以提高性能：
+
+```cpp
+// 定义函数指针类型
+typedef void (*KernelFunc)(DenseToJagged_Kernel::DenseToJaggedArgs*, TPipe*);
+
+// 定义内核函数模板实例化
+template<typename DT, typename OT>
+void LaunchKernel(DenseToJagged_Kernel::DenseToJaggedArgs* args, TPipe* pipe) {
+    DenseToJagged_Kernel::DenseToJagged<DT, OT> kernel;
+    kernel.init(args, pipe);
+    kernel.Compute();
+}
+
+// 定义查表结构
+struct KernelEntry {
+    int denseType;
+    int offsetType;
+    KernelFunc func;
+};
+
+// 构建内核函数查找表
+static const KernelEntry kernelTable[] = {
+    {DenseToJagged_Kernel::TYPE_FLOAT, DenseToJagged_Kernel::TYPE_INT32, LaunchKernel<float, int32_t>},
+    {DenseToJagged_Kernel::TYPE_FLOAT, DenseToJagged_Kernel::TYPE_INT64, LaunchKernel<float, int64_t>},
+    {DenseToJagged_Kernel::TYPE_INT64, DenseToJagged_Kernel::TYPE_INT64, LaunchKernel<int64_t, int64_t>},
+    {DenseToJagged_Kernel::TYPE_INT64, DenseToJagged_Kernel::TYPE_INT32, LaunchKernel<int64_t, int32_t>},
+    {DenseToJagged_Kernel::TYPE_BF16, DenseToJagged_Kernel::TYPE_INT32, LaunchKernel<bfloat16_t, int32_t>},
+    {DenseToJagged_Kernel::TYPE_BF16, DenseToJagged_Kernel::TYPE_INT64, LaunchKernel<bfloat16_t, int64_t>},
+    {DenseToJagged_Kernel::TYPE_FP16, DenseToJagged_Kernel::TYPE_INT32, LaunchKernel<float16_t, int32_t>},
+    {DenseToJagged_Kernel::TYPE_FP16, DenseToJagged_Kernel::TYPE_INT64, LaunchKernel<float16_t, int64_t>}
+};
+
+// 使用查表法调用内核函数
+extern "C" __global__ __aicore__ void dense_to_jagged(GM_ADDR dense, GM_ADDR offset, GM_ADDR jagged_dense,
+    GM_ADDR workspace, GM_ADDR tiling) {
+    GET_TILING_DATA(tiling_data, tiling);
+
+    DenseToJagged_Kernel::DenseToJaggedArgs args {
+        dense, offset, jagged_dense, tiling_data.denseDim1, tiling_data.denseDim2, tiling_data.left,
+        tiling_data.singleCoreBatch, tiling_data.singleLoopSize, tiling_data.denseTotal, tiling_data.jaggedTotal
+    };
+
+    TPipe pipe;
+    
+    // 查找并调用对应的内核函数
+    for (const auto& entry : kernelTable) {
+        if (entry.denseType == tiling_data.denseType && entry.offsetType == tiling_data.offsetType) {
+            entry.func(&args, &pipe);
+            return;
+        }
+    }
+    
+    // 如果没有找到匹配的类型组合，可以抛出错误或使用默认处理
+}
+```
+
+通过这种方式，可以将原来的多个if-else分支简化为一个查表过程，不仅提高了代码的可读性，也可能在某些编译器优化下获得更好的性能。不过需要注意的是，这种优化的实际效果还需要通过性能测试来验证。

@@ -52,7 +52,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     OPS_LOG_E_IF_NULL("offset", context->GetInputTensor(INPUT_OFFSET_INDEX),
                       return ge::GRAPH_FAILED);
 
-    // Get input shapes and types
+    // 获取输入形状和类型
     auto denseShape = context->GetInputShape(INPUT_DENSE_INDEX)->GetStorageShape();
     auto offsetShape = context->GetInputShape(INPUT_OFFSET_INDEX)->GetStorageShape();
     auto denseType = context->GetInputTensor(INPUT_DENSE_INDEX)->GetDataType();
@@ -64,12 +64,11 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     // Platform configuration
     size_t usrSize = 0;
     auto ascnedPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
-    // Get workspace pointer through the framework, GetWorkspaceSizes parameter is the number of required workspace blocks.
-    // Currently limited to use one block.
+    // 通过框架获取workspace的指针，GetWorkspaceSizes入参为所需workspace的块数。当前限制使用一块。
     size_t *currentWorkspace = context->GetWorkspaceSizes(1);
-    // If you need to use system workspace, call GetLibApiWorkSpaceSize to get the size of system workspace.
+    // 如需要使用系统workspace需要调用GetLibApiWorkSpaceSize获取系统workspace的大小。
     size_t systemWorkspacesSize = ascnedPlatform.GetLibApiWorkSpaceSize();
-    // Set the total workspace size, the total workspace space is applied and managed by the framework.
+    // 设置总的workspace的数值大小，总的workspace空间由框架来申请并管理。
     currentWorkspace[0] = usrSize + systemWorkspacesSize;
 #ifndef SUPPORT_V200
     size_t coreNum = ascnedPlatform.GetCoreNumAiv();
@@ -90,7 +89,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     int left = (offsetShape.GetDim(DIM0) - 1) % coreNum;
     int singleLoopSize = (ubSize - RESERVER_UB_SIZE) / 2 / ALIGN_512 * ALIGN_512;
 
-    // Set tiling data
+    // 设置分片数据
     DenseToJaggedTilling tilingData;
     tilingData.set_denseDim1(denseShape.GetDim(DIM1));
     tilingData.set_denseDim2(denseShape.GetDim(DIM2));
@@ -102,7 +101,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     tilingData.set_denseTotal(denseTotal);
     tilingData.set_jaggedTotal(jaggedTotal);
 
-    // Save tiling data
+    // 保存分片数据
     OPS_LOG_E_IF_NULL("raw tilingData", context->GetRawTilingData(), return ge::GRAPH_FAILED);
     context->SetBlockDim(coreNum);
     tilingData.SaveToBuffer(context->GetRawTilingData()->GetData(),
@@ -171,7 +170,6 @@ public:
 
         this->Attr("jagged_dim0").Int();
 
-        // Keep consistent with the original code, use InferDtype instead of InferDataType
         this->SetInferShape(ge::InferShape).SetInferDataType(ge::InferDtype);
 
         this->AICore().SetTiling(optiling::TilingFunc);
