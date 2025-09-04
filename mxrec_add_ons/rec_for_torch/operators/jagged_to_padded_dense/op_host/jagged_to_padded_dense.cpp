@@ -122,7 +122,7 @@ public:
     {
         this->Input("values")
             .ParamType(REQUIRED)
-            .DataTypeList({ge::DT_FLOAT, ge::DT_INT64, ge::DT_FLOAT16, ge::DT_BF16, ge::DT_INT64})
+            .DataTypeList({ge::DT_FLOAT, ge::DT_INT64, ge::DT_FLOAT16, ge::DT_BF16, ge::DT_INT32})
             .FormatList({ge::FORMAT_ND});
         this->Input("offsets")
             .ParamType(REQUIRED)

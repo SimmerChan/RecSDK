@@ -14,8 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-
+import itertools
 import sysconfig
+from dataclasses import dataclass
+from typing import List, Union
+
 import pytest
 import fbgemm_gpu
 import numpy as np
@@ -28,7 +31,7 @@ torch.ops.load_library(f"{sysconfig.get_path('purelib')}/libfbgemm_npu_api.so")
 DEVICE = "npu:0"
 
 
-def generate_jagged_tensor(batch_size, max_seq_len, num_heads, attention_dim):
+def generate_jagged_tensor(batch_size, max_seq_len, num_heads, attention_dim, data_types):
     """
     生成不规则(Jagged)张量测试数据
     Args:
@@ -36,6 +39,7 @@ def generate_jagged_tensor(batch_size, max_seq_len, num_heads, attention_dim):
         max_seq_len: 单个样本最大序列长度
         num_heads: 注意力头数量
         attention_dim: 每个注意力头的维度
+        data_types: tuple(values_data_type, offsets_data_type), values/offsets数据类型
 
     Returns:
         jagged_tensor: 不规则数据张量，形状为(total_sequences, num_heads, attention_dim)
@@ -47,7 +51,7 @@ def generate_jagged_tensor(batch_size, max_seq_len, num_heads, attention_dim):
 
     # 计算累积偏移量(前面补0)
     seq_offsets = torch.concat((
-        torch.zeros((1,), dtype=torch.int64),
+        torch.zeros((1,), dtype=data_types[1]),
         torch.cumsum(torch.from_numpy(seq_lens), dim=0)
     )).numpy()
 
@@ -56,22 +60,44 @@ def generate_jagged_tensor(batch_size, max_seq_len, num_heads, attention_dim):
     # 生成随机数据(-1到1均匀分布)
     jagged_tensor = torch.rand(
         total_sequences, num_heads, attention_dim,
-        dtype=torch.float32
+        dtype=data_types[0]
     ).uniform_(-1, 1)
 
     return jagged_tensor, seq_offsets, total_sequences
 
 
-@pytest.mark.parametrize("batch_size", [2, 4])
-@pytest.mark.parametrize("max_seq_len", [128, 256])
-@pytest.mark.parametrize("num_heads", [2, 8])
-@pytest.mark.parametrize("attention_dim", [32])
-@pytest.mark.parametrize("use_list_max_lengths", [True, False])
+@dataclass
+class ExecuteConfig:
+    batch_size: int
+    max_seq_len: int
+    num_heads: int
+    attention_dim: int
+    use_list_max_lengths: bool
+    values_data_type: Union[torch.float32, torch.int64, torch.float16, torch.bf16, torch.int32]
+    offsets_data_type: Union[torch.int32, torch.int64]
+
+
+test_params = {
+    "batch_size", [2, 4],
+    "max_seq_len", [128, 256],
+    "num_heads", [2, 8],
+    "attention_dim", [32],
+    "use_list_max_lengths", [True, False],
+    "values_data_type", [torch.float32, torch.int64, torch.float16, torch.bf16, torch.int32],
+    "offsets_data_type", [torch.int32, torch.int64],
+}
+
+
+@pytest.mark.parametrize("config", [
+    ExecuteConfig(*v) for v in itertools.product(*test_params.values())
+])
 def test_jagged_to_padded_dense(batch_size,
                                 max_seq_len,
                                 num_heads,
                                 attention_dim,
-                                use_list_max_lengths):
+                                use_list_max_lengths,
+                                values_data_type,
+                                offsets_data_type):
     """
     测试不规则张量到填充密集张量的转换算子
     测试逻辑:
@@ -81,8 +107,9 @@ def test_jagged_to_padded_dense(batch_size,
     4. 对比两者差异(允许1e-4的误差)
     """
     # 1. 生成测试数据
+    data_types = (values_data_type, offsets_data_type)
     jagged_tensor, seq_offsets, total_sequences = generate_jagged_tensor(
-        batch_size, max_seq_len, num_heads, attention_dim)
+        batch_size, max_seq_len, num_heads, attention_dim, data_types)
 
     # 2. 准备FBGEMM算子输入(需要展平最后两个维度)
     input_flat = jagged_tensor.reshape(total_sequences, num_heads * attention_dim)
