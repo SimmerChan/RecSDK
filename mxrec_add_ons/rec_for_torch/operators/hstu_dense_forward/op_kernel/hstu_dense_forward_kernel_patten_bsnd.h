@@ -400,9 +400,9 @@ public:
                     scale);
             } else {
                 // 处理 BlockMaskParams* 类型
-                BlockMaskGenerator<qType, maskType> blkMaskGen(maskinfo)
-                needMask = blkMaskGen.GenMask(inMaskLtFp32, blockOffset, 
-                    thisLen / this->blockHeight, this->blockHeight);
+                BlockMaskGenerator<qType> blkMaskGen(maskinfo);
+                needMask =
+                    blkMaskGen.GenMask(inMaskLtFp32, blockOffset, thisLen / this->blockHeight, this->blockHeight);
             }
             
             queMaskIn.EnQue(inMaskLtFp32);
@@ -476,7 +476,7 @@ public:
             int64_t blockOffset = (total - remain) / blockHeight;
             DoBiasCopyOptional(biasLt, biasOffset, thisLen, blockOffset, n);
 
-            bool needMask = DoMaskInitOptional(inMaskLt, inMaskLtFp32, contextMask, causalMask, targetMask,
+            bool needMask = DoMaskInitOptional(inMaskLt, inMaskLtFp32, maskinfo, 
                 maskOffset, thisLen, blockOffset, scale, n);
 
             if (enableBias) {

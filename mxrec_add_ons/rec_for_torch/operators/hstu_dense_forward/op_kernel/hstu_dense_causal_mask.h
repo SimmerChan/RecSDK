@@ -24,6 +24,7 @@ See the License for the specific language governing permissions and
 #include "kernel_log.h"
 #include "kernel_operator.h"
 #include "lib/matmul_intf.h"
+#include "hstu_dense_forward_kernel_patten_bsnd.h"
 
 using namespace AscendC;
 
@@ -36,7 +37,7 @@ enum class CausalMaskT {
     MASK_CUSTOME,   // 用户自定义mask
 };
 
-template<CausalMaskT maskType>
+template<typename qType>
 struct BlockMaskParams {
     uint32_t qSeqId;          // 该基本块所属Query 输入的第几个seq block 一个block是256条seq
     uint32_t kSeqId;          // 该基本块所属Key 输入的第几个seq block 一个block是256条seq
@@ -60,18 +61,15 @@ struct BlockMaskParams {
 
     __aicore__ inline bool NoComputation()
     {
-        if constexpr (maskType != CausalMaskT::MASK_TRIL) {
-            return false;
-        }
         bool noCausal = (kSeqId > qSeqId);
         bool noContext = (numContext <= 0) ||
                         (qSeqId > numContext / blockHeight) ||
                         (kSeqId > (seqlen - numTarget) / blockHeight);
         return noCausal && noContext;
     }
-}
+};
 
-template <typename qType, CausalMaskT maskType>
+template <typename qType>
 class BlockMaskGenerator {
 public:
     __aicore__ inline BlockMaskGenerator(BlockMaskParams* params)
@@ -91,26 +89,17 @@ public:
 
     __aicore__ inline bool NeedContextMask()
     {
-        if constexpr (maskType != CausalMaskT::MASK_TRIL) {
-            return false;
-        }
         return (numContext > 0) && (qSeqId <= numContext / blockHeight) &&
                (kSeqId <= (seqlen - numTarget) / blockHeight);
     }
 
     __aicore__ inline bool NeedCausalMask()
     {
-        if constexpr (maskType != CausalMaskT::MASK_TRIL) {
-            return false;
-        }
         return (qSeqId == kSeqId);
     }
 
     __aicore__ inline bool NeedTargetMask()
     {
-        if constexpr (maskType != CausalMaskT::MASK_TRIL) {
-            return false;
-        }
         auto tbase = (seqlen - numTarget) / blockHeight;
         return (numTarget > 0) && (targetGroupSize > 0) && (tbase <= kSeqId) && (kSeqId <= qSeqId);
     }

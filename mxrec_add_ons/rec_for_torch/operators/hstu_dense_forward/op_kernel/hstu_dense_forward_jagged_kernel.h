@@ -17,11 +17,13 @@ See the License for the specific language governing permissions and
 
 
 #include "hstu_dense_forward_kernel_patten_bsnd.h"
+#include "hstu_dense_causal_mask.h"
 
 using namespace AscendC;
 
 namespace HstuDenseForward {
 
+template<typename qType>
 struct JaggedTaskArgs {
     uint32_t batchId = 0;           // 该基本块所属的batch
     uint32_t headId = 0;            // 该基本块所属的head
@@ -38,7 +40,7 @@ struct JaggedTaskArgs {
     int64_t headSeqLimit = 0;       // 该基本块的head offset最大长度, 超过则需要考虑切换head_id
     int64_t kvOffset = 0;           // 该基本块的key value计算偏移
     int64_t ioOffset = 0;           // 该基本块的query attenOutput计算偏移
-    BlockMaskParams* maskParams = nullptr; // 该基本块的mask参数
+    BlockMaskParams<qType>* maskParams = nullptr; // 该基本块的mask参数
 };
 
 template <typename qType>
@@ -67,15 +69,6 @@ private:
 
     __aicore__ inline void TransResult(uint32_t transtaskId);
 
-    __aicore__ inline bool DoMaskInitOptionalV2(LocalTensor<qType>& inMaskLt,
-        LocalTensor<float>& inMaskLtFp32,
-        BlockMaskParams* maskParams,
-        int64_t maskOffset,
-        int64_t thisLen,
-        int64_t blockOffset,
-        float scale,
-        uint32_t n);
-
     uint32_t seqOffsets[MAX_BATCH_SIZE + 1];
     uint32_t sBlkId {0};
     uint32_t eBlkId {0};
@@ -86,8 +79,8 @@ private:
     uint32_t headNum {0};
     uint32_t headDim {0};
 
-    JaggedTaskArgs computeTaskInfo[COMPUTE_PIPE_NUM];
-    JaggedTaskArgs trasnTaskInfo[TRANS_PIPE_NUM];
+    JaggedTaskArgs<qType> computeTaskInfo[COMPUTE_PIPE_NUM];
+    JaggedTaskArgs<qType> trasnTaskInfo[TRANS_PIPE_NUM];
 };
 
 template <typename qType>
@@ -130,7 +123,7 @@ __aicore__ inline void HstuDenseForwardJaggedKernel<qType>::ComputeVecScore(uint
 
     int64_t maskOffset = biasOffset;
 
-    this->VecScoreImpl(taskId, biasOffset, maskOffset,
+    this->VecScoreImpl<BlockMaskParams<qType>>(taskId, biasOffset, maskOffset,
                        computeTaskInfo[taskId].scale,
                        computeTaskInfo[taskId].maskParams,
                        computeTaskInfo[taskId].computeASeqLen,
@@ -160,7 +153,7 @@ __aicore__ inline void HstuDenseForwardJaggedKernel<qType>::ComputeAllBlock()
         auto kSeqNum = computeTaskInfo[taskId % COMPUTE_PIPE_NUM].kSeqNum;
         for (auto kSeqId = 0; kSeqId < kSeqNum; kSeqId++) {
             auto args = this->computeTaskInfo[taskId % COMPUTE_PIPE_NUM];
-            BlockMaskParams maskinfo = {
+            BlockMaskParams<qType> maskinfo = {
                 args.qSeqId,
                 (uint32_t)kSeqId,
                 args.actualSeqLen,
