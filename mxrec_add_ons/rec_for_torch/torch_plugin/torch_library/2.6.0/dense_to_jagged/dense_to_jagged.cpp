@@ -37,9 +37,8 @@ at::Tensor jagged_to_padded_dense_forward_npu(const at::Tensor& values,
 };
 
 // 目前只支持3维的dense
-at::Tensor dense_to_jagged_forward_npu(const at::Tensor& dense,
-                                       const tensor_list& offsets,
-                                       const c10::optional<int64_t> total_L)
+std::tuple<at::Tensor, tensor_list> dense_to_jagged_forward_npu(const at::Tensor& dense,
+    const tensor_list& offsets, const c10::optional<int64_t> total_L)
 {
     CheckTensorDim(dense, EXPECTED_DIM_3D, "dense");
     TORCH_CHECK(offsets.size() == 1,
@@ -64,14 +63,14 @@ at::Tensor dense_to_jagged_forward_npu(const at::Tensor& dense,
     int64_t totalLength = total_L.value_or(expected_total_L);
     auto output = at::empty({totalLength, D}, dense.options());
     EXEC_NPU_CMD(aclnnDenseToJagged, dense_contin, offsets[0], totalLength, output);
-    return output;
+    return {output, offsets};
 };
 
 std::tuple<at::Tensor, tensor_list> dense_to_jagged_npu(const at::Tensor& dense,
                                                         const tensor_list& offsets,
                                                         const c10::optional<int64_t> total_L)
 {
-    return {dense_to_jagged_forward_npu(dense, offsets, total_L), offsets};
+    return dense_to_jagged_forward_npu(dense, offsets, total_L);
 };
 
 // 反向算子 - 使用jagged_to_padded_dense作为反向
@@ -135,7 +134,7 @@ TORCH_LIBRARY_FRAGMENT(mxrec, m)
 {
     m.def("dense_to_jagged_forward(Tensor dense, "
           "                        Tensor[] offsets, "
-          "                        SymInt? total_L=None) -> Tensor");
+          "                        SymInt? total_L=None) -> (Tensor, Tensor[])");
 
     m.def("dense_to_jagged(Tensor dense, "
           "                Tensor[] offsets, "
