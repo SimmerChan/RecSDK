@@ -95,7 +95,7 @@ def execute(rank: int, config: ExecuteConfig):
             weight_init_max=1.0,
         )
         embedding_configs.append(ebc_config)
-        embedding_configs.init_fn = MethodType(weight_init, embedding_configs)
+        ebc_config.init_fn = MethodType(weight_init, ebc_config)
 
     test_model = TestModel(rank, world_size, device)
     golden_results = test_model.cpu_golden_loss(embedding_configs, dataset_loader_golden)
