@@ -13,6 +13,16 @@
 
 #include <ATen/ATen.h>
 #include <string>
+using torch::autograd::AutogradContext;
+using torch::autograd::Function;
+using torch::autograd::Variable;
+using tensor_list = std::vector<at::Tensor>;
+using namespace at;
+using namespace std;
+
+constexpr int EXPECTED_DIM_1D = 1;
+constexpr int EXPECTED_DIM_2D = 2;
+constexpr int EXPECTED_DIM_3D = 3;
 
 /**
  * @file common_utils.h
@@ -26,7 +36,7 @@
  * @param name 张量名称(用于错误信息)
  * @throw torch::library::Exception 如果张量未定义或为空
  */
-inline void check_tensor_non_empty(const at::Tensor& tensor, const std::string& name)
+inline void CheckTensorNonEmpty(const at::Tensor& tensor, const std::string& name)
 {
     TORCH_CHECK(tensor.defined(), name, " tensor must be defined");
     TORCH_CHECK(tensor.numel() > 0, name, " tensor must be non-empty");
@@ -39,7 +49,7 @@ inline void check_tensor_non_empty(const at::Tensor& tensor, const std::string& 
  * @param name 张量名称(用于错误信息)
  * @throw torch::library::Exception 如果张量维度不符合预期
  */
-inline void check_tensor_dim(const at::Tensor& tensor, int64_t expectedDim, const std::string& name)
+inline void CheckTensorDim(const at::Tensor& tensor, int64_t expectedDim, const std::string& name)
 {
     TORCH_CHECK(tensor.dim() == expectedDim, name, " must be ", expectedDim, "D");
 }

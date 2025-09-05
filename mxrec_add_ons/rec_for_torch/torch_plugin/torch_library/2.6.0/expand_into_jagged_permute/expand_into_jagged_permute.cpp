@@ -12,32 +12,25 @@
 
 #include "../common/pytorch_npu_helper.hpp"
 #include "../common/common_utils.h"
-using torch::autograd::AutogradContext;
-using torch::autograd::Function;
-using torch::autograd::Variable;
-using tensor_list = std::vector<at::Tensor>;
-using namespace at;
-
-constexpr int EXPECTED_DIM_1D = 1;
 
 void validate_expand_into_jagged_permute_inputs(
     const at::Tensor& permute,
-    const at::Tensor& input_offset,
-    const at::Tensor& output_offsets,
-    const int64_t output_size)
+    const at::Tensor& inputOffset,
+    const at::Tensor& outputOffsets,
+    const int64_t outputSize)
 {
     // ============= 空值检查 =============
-    check_tensor_non_empty(permute, "permute");
-    check_tensor_non_empty(input_offset, "input_offset");
-    check_tensor_non_empty(output_offsets, "output_offsets");
+    CheckTensorNonEmpty(permute, "permute");
+    CheckTensorNonEmpty(inputOffset, "inputOffset");
+    CheckTensorNonEmpty(outputOffsets, "outputOffsets");
 
-    check_tensor_dim(permute, EXPECTED_DIM_1D, "permute");
-    check_tensor_dim(input_offset, EXPECTED_DIM_1D, "input_offset");
-    check_tensor_dim(output_offsets, EXPECTED_DIM_1D, "output_offsets");
+    CheckTensorDim(permute, EXPECTED_DIM_1D, "permute");
+    CheckTensorDim(inputOffset, EXPECTED_DIM_1D, "inputOffset");
+    CheckTensorDim(outputOffsets, EXPECTED_DIM_1D, "outputOffsets");
 
     const auto permute_len = permute.size(0);
-    const auto input_offset_len = input_offset.size(0);
-    const auto output_offsets_len = output_offsets.size(0);
+    const auto input_offset_len = inputOffset.size(0);
+    const auto output_offsets_len = outputOffsets.size(0);
 
     // 1. 校验inputOffset和outputOffset的shape要相同
     TORCH_CHECK(input_offset_len == output_offsets_len,
@@ -49,40 +42,40 @@ void validate_expand_into_jagged_permute_inputs(
                 permute_len, " and input_offset_len: ", input_offset_len);
 
     // 2. 校验所有输入张量的数据类型相同
-    TORCH_CHECK(permute.scalar_type() == input_offset.scalar_type(),
-                "permute and input_offset must have the same data type, but got permute: ",
-                permute.scalar_type(), " and input_offset: ", input_offset.scalar_type());
+    TORCH_CHECK(permute.scalar_type() == inputOffset.scalar_type(),
+                "permute and inputOffset must have the same data type, but got permute: ",
+                permute.scalar_type(), " and inputOffset: ", inputOffset.scalar_type());
 
-    TORCH_CHECK(permute.scalar_type() == output_offsets.scalar_type(),
-                "permute and output_offsets must have the same data type, but got permute: ",
-                permute.scalar_type(), " and output_offsets: ", output_offsets.scalar_type());
+    TORCH_CHECK(permute.scalar_type() == outputOffsets.scalar_type(),
+                "permute and outputOffsets must have the same data type, but got permute: ",
+                permute.scalar_type(), " and outputOffsets: ", outputOffsets.scalar_type());
 
     // 3. 校验outputOffset最后一个值等于output_size
-    if (output_offsets.numel() > 0) {
-        auto last_offset = output_offsets[-1].item<int64_t>();
-        TORCH_CHECK(last_offset == output_size,
-                    "Last value of output_offsets (", last_offset,
-                    ") must equal output_size (", output_size, ")");
+    if (outputOffsets.numel() > 0) {
+        auto last_offset = outputOffsets[-1].item<int64_t>();
+        TORCH_CHECK(last_offset == outputSize,
+                    "Last value of outputOffsets (", last_offset,
+                    ") must equal outputSize (", outputSize, ")");
     } else {
-        TORCH_CHECK(output_size == 0,
-                    "output_size must be 0 when output_offsets is empty, but got ", output_size);
+        TORCH_CHECK(outputSize == 0,
+                    "outputSize must be 0 when outputOffsets is empty, but got ", outputSize);
     }
 }
 
 at::Tensor expand_into_jagged_permute_impl_npu(const at::Tensor& permute,
-                                               const at::Tensor& input_offset,
-                                               const at::Tensor& output_offsets,
-                                               const int64_t output_size)
+                                               const at::Tensor& inputOffset,
+                                               const at::Tensor& outputOffsets,
+                                               const int64_t outputSize)
 {
     validate_expand_into_jagged_permute_inputs(permute,
-                                               input_offset,
-                                               output_offsets,
-                                               output_size);
+                                               inputOffset,
+                                               outputOffsets,
+                                               outputSize);
 
     const at::OptionalDeviceGuard guard(device_of(permute));
-    at::Tensor outputPermuteOut = at::empty({output_size}, permute.options());
+    at::Tensor outputPermuteOut = at::empty({outputSize}, permute.options());
 
-    EXEC_NPU_CMD(aclnnExpandIntoJaggedPermute, permute, input_offset, output_offsets, output_size, outputPermuteOut);
+    EXEC_NPU_CMD(aclnnExpandIntoJaggedPermute, permute, inputOffset, outputOffsets, outputSize, outputPermuteOut);
 
     return outputPermuteOut;
 };
@@ -91,9 +84,9 @@ at::Tensor expand_into_jagged_permute_impl_npu(const at::Tensor& permute,
 TORCH_LIBRARY_FRAGMENT(mxrec, m)
 {
     m.def("expand_into_jagged_permute(Tensor permute, "
-          "                           Tensor input_offset, "
-          "                           Tensor output_offsets, "
-          "                           int output_size) -> Tensor");
+          "                           Tensor inputOffset, "
+          "                           Tensor outputOffsets, "
+          "                           int outputSize) -> Tensor");
 }
 
 // 这里表示该算子的 NPU 实现由 expand_into_jagged_permute_impl_npu 函数提供
