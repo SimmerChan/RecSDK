@@ -93,7 +93,8 @@ public:
         at::AutoDispatchBelowADInplaceOrView guard;
         ctx->save_for_backward({dense, offsets[0]});
 
-        return dense_to_jagged_forward_npu(dense, offsets, total_L)[0];
+        auto result = dense_to_jagged_forward_npu(dense, offsets, total_L);
+        return std::get<0>(result);
     }
 
     static tensor_list backward(AutogradContext* ctx, tensor_list grad_outputs)
