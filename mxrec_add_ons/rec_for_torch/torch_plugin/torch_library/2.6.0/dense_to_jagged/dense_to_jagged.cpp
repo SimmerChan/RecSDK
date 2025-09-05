@@ -16,8 +16,7 @@ using namespace at;
 
 // 目前只支持3维的dense
 std::tuple<at::Tensor, tensor_list> dense_to_jagged_forward_npu(const at::Tensor& dense,
-                                       const tensor_list& offsets,
-                                       const c10::optional<int64_t> total_L)
+    const tensor_list& offsets, const c10::optional<int64_t> total_L)
 {
     TORCH_CHECK(dense.dim() == 3,
         "dense must be 3-dimensional (B, MaxT, D), but got ", dense.dim(), "D input");
