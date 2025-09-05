@@ -37,7 +37,6 @@ enum class CausalMaskT {
     MASK_CUSTOME,   // 用户自定义mask
 };
 
-template<typename qType>
 struct BlockMaskParams {
     uint32_t qSeqId;          // 该基本块所属Query 输入的第几个seq block 一个block是256条seq
     uint32_t kSeqId;          // 该基本块所属Key 输入的第几个seq block 一个block是256条seq
@@ -46,10 +45,10 @@ struct BlockMaskParams {
     int64_t numContext;       // context 掩码长度
     int64_t numTarget;        // target 掩码长度
     int64_t targetGroupSize;  // target 掩码group size
-    qType value;              // 掩码值
+    float value;              // 掩码值
 
     __aicore__ inline BlockMaskParams(uint32_t qSeq, uint32_t kSeq, uint32_t len, int64_t bHeight, int64_t nContext,
-                                      int64_t nTarget, int64_t groupSize, qType val)
+                                      int64_t nTarget, int64_t groupSize, float val)
         : qSeqId(qSeq),
           kSeqId(kSeq),
           seqlen(len),
@@ -69,7 +68,6 @@ struct BlockMaskParams {
     }
 };
 
-template <typename qType>
 class BlockMaskGenerator {
 public:
     __aicore__ inline BlockMaskGenerator(BlockMaskParams* params)
@@ -111,10 +109,10 @@ public:
      * @param height
      * @param width
      */
-    __aicore__ inline bool GenMask(LocalTensor<qType>& inMaskLt, int64_t line, int64_t height, int64_t width)
+    __aicore__ inline bool GenMask(LocalTensor<float>& inMaskLt, int64_t line, int64_t height, int64_t width)
     {
         int64_t total = height * width;
-        Duplicate<qType>(inMaskLt, 0, total);
+        Duplicate<float>(inMaskLt, 0, total);
         if (contextMask) {
             GenContextMask(inMaskLt, line, height, width);
         }
@@ -123,7 +121,7 @@ public:
         }
         if (targetMask) {
             if (!causalMask) {
-                Duplicate<qType>(inMaskLt, value, total);
+                Duplicate<float>(inMaskLt, value, total);
             }
             GenTargetMask(inMaskLt, line, height, width);
         }
@@ -137,13 +135,13 @@ private:
     int64_t numContext;
     int64_t numTarget;
     int64_t targetGroupSize;
-    qType value;
+    float value;
 
     bool contextMask;
     bool causalMask;
     bool targetMask;
 
-    __aicore__ inline void GenContextMask(LocalTensor<qType>& inMaskLt, int64_t line, int64_t height, int64_t width)
+    __aicore__ inline void GenContextMask(LocalTensor<float>& inMaskLt, int64_t line, int64_t height, int64_t width)
     {
         int cmaskWidth = (seqlen - numTarget);
         int validWith = cmaskWidth - kSeqId * blockHeight;
@@ -154,19 +152,19 @@ private:
             if ((line + i) >= numContext) {
                 break;
             }
-            Duplicate<qType>(inMaskLt[i * width], value, validWith);
+            Duplicate<float>(inMaskLt[i * width], value, validWith);
         }
     }
 
-    __aicore__ inline void GenCausalMask(LocalTensor<qType>& inMaskLt, int64_t line, int64_t height, int64_t width) 
+    __aicore__ inline void GenCausalMask(LocalTensor<float>& inMaskLt, int64_t line, int64_t height, int64_t width) 
     {
         for (int i = 0; i < height; i++) {
             int64_t thisIndexMask = line + i + 1;
-            Duplicate<qType>(inMaskLt[i * width], value, thisIndexMask);
+            Duplicate<float>(inMaskLt[i * width], value, thisIndexMask);
         }
     }
 
-    __aicore__ inline void GenTargetMask(LocalTensor<qType>& inMaskLt, int64_t line, int64_t height, int64_t width) 
+    __aicore__ inline void GenTargetMask(LocalTensor<float>& inMaskLt, int64_t line, int64_t height, int64_t width) 
     {
         int tbase = (seqlen - numTarget) / blockHeight;
         int blkLeft = kSeqId * blockHeight;
@@ -191,15 +189,15 @@ private:
             // 5.计算挖空宽度
             int64_t validWith = validRbound - validLbound;
             // 6.挖空
-            int alignStart = validLboundInBlk * sizeof(qType) / DATA_ALIGN_BYTES * DATA_ALIGN_BYTES / sizeof(qType);
+            int alignStart = validLboundInBlk * sizeof(float) / DATA_ALIGN_BYTES * DATA_ALIGN_BYTES / sizeof(float);
             if (alignStart != validLboundInBlk) {
                 int unalignlen = validLboundInBlk - alignStart;
-                Duplicate<qType>(inMaskLt[i * width + alignStart], 0, DATA_ALIGN_BYTES / sizeof(qType));
-                Duplicate<qType>(inMaskLt[i * width + alignStart], value, unalignlen);
-                alignStart += DATA_ALIGN_BYTES / sizeof(qType);
+                Duplicate<float>(inMaskLt[i * width + alignStart], 0, DATA_ALIGN_BYTES / sizeof(float));
+                Duplicate<float>(inMaskLt[i * width + alignStart], value, unalignlen);
+                alignStart += DATA_ALIGN_BYTES / sizeof(float);
                 validWith -= unalignlen;
             }
-            Duplicate<qType>(inMaskLt[i * width + alignStart], 0, validWith);
+            Duplicate<float>(inMaskLt[i * width + alignStart], 0, validWith);
         }
     }
 };

@@ -96,7 +96,7 @@ public:
         int64_t n = (scoreArgs.kSeqId != (seqBlockNumQk - 1)) ? this->blockHeight :
                                                                 (this->xDim1 - scoreArgs.kSeqId * this->blockHeight);
 
-        this->VecScoreImpl<uint32_t>(scoreArgs.taskId, attnBiasOffset, maskOffset, this->siluScale, causalMask, m, n);
+        this->template VecScoreImpl<uint32_t>(scoreArgs.taskId, attnBiasOffset, maskOffset, this->siluScale, causalMask, m, n);
     }
 
     __aicore__ inline void DoQkMatmul(QkMatmulArgs& qkPosArgs)

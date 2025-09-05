@@ -400,7 +400,7 @@ public:
                     scale);
             } else {
                 // 处理 BlockMaskParams* 类型
-                BlockMaskGenerator<qType> blkMaskGen(maskinfo);
+                BlockMaskGenerator blkMaskGen(maskinfo);
                 needMask =
                     blkMaskGen.GenMask(inMaskLtFp32, blockOffset, thisLen / this->blockHeight, this->blockHeight);
             }

@@ -23,7 +23,6 @@ using namespace AscendC;
 
 namespace HstuDenseForward {
 
-template<typename qType>
 struct JaggedTaskArgs {
     uint32_t batchId = 0;           // 该基本块所属的batch
     uint32_t headId = 0;            // 该基本块所属的head
@@ -40,7 +39,7 @@ struct JaggedTaskArgs {
     int64_t headSeqLimit = 0;       // 该基本块的head offset最大长度, 超过则需要考虑切换head_id
     int64_t kvOffset = 0;           // 该基本块的key value计算偏移
     int64_t ioOffset = 0;           // 该基本块的query attenOutput计算偏移
-    BlockMaskParams<qType>* maskParams = nullptr; // 该基本块的mask参数
+    BlockMaskParams* maskParams = nullptr; // 该基本块的mask参数
 };
 
 template <typename qType>
@@ -123,7 +122,7 @@ __aicore__ inline void HstuDenseForwardJaggedKernel<qType>::ComputeVecScore(uint
 
     int64_t maskOffset = biasOffset;
 
-    this->VecScoreImpl<BlockMaskParams<qType>>(taskId, biasOffset, maskOffset,
+    this->VecScoreImpl<BlockMaskParams*>(taskId, biasOffset, maskOffset,
                        computeTaskInfo[taskId].scale,
                        computeTaskInfo[taskId].maskParams,
                        computeTaskInfo[taskId].computeASeqLen,
@@ -153,7 +152,7 @@ __aicore__ inline void HstuDenseForwardJaggedKernel<qType>::ComputeAllBlock()
         auto kSeqNum = computeTaskInfo[taskId % COMPUTE_PIPE_NUM].kSeqNum;
         for (auto kSeqId = 0; kSeqId < kSeqNum; kSeqId++) {
             auto args = this->computeTaskInfo[taskId % COMPUTE_PIPE_NUM];
-            BlockMaskParams<qType> maskinfo = {
+            BlockMaskParams maskinfo = {
                 args.qSeqId,
                 (uint32_t)kSeqId,
                 args.actualSeqLen,
@@ -161,7 +160,7 @@ __aicore__ inline void HstuDenseForwardJaggedKernel<qType>::ComputeAllBlock()
                 this->numContext,
                 this->numTarget,
                 this->targetGroupSize,
-                (qType)(args.scale)
+                args.scale
             };
             if (maskinfo.NoComputation()) {
                 continue;
