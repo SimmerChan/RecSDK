@@ -23,7 +23,7 @@ import pytest
 import torch
 import torch.nn.functional as F
 
-from test_target_mask import ScoreShapeParam, compute_target_mask_each_block_concat
+from test_target_mask import ScoreShapeParam, HstuBlockParam, _compute_target_mask_one_block_gpu
 
 torch.npu.config.allow_internal_format = False
 
@@ -70,20 +70,23 @@ def jagged_data_gen(batch_size, max_seq_len, num_heads, attention_dim, data_type
         rel_attn_bias[batch_id, :, 0:seq_len, 0:seq_len] = torch.rand(seq_len, seq_len).to(torch.float32)
 
     if mask_type == mask_tril:
-        invalid_attn_mask = torch.zeros(batch_size, num_heads, max_seq_len, max_seq_len)
-        for sample_id, seq_len in enumerate(seq_lens):
-            parm = ScoreShapeParam(
-                seq_len=seq_len,
-                num_target=num_target,
-                num_context=num_context,
-                num_history=None if num_target is None else seq_len-num_target,
-                target_group_size=target_group_size,
-                block_h=MASK_BLOCK_SIZE,
-                block_w=MASK_BLOCK_SIZE
-            )
-            mask_tensor = compute_target_mask_each_block_concat(parm, use_npu=False)
-            invalid_attn_mask[sample_id, :, :seq_len, :seq_len] = mask_tensor
-            
+        if (num_context is None and num_target is None):
+            invalid_attn_mask = 1 - torch.triu(torch.ones(batch_size, num_heads, max_seq_len, max_seq_len), diagonal=1)
+        else:
+            invalid_attn_mask = torch.zeros(batch_size, num_heads, max_seq_len, max_seq_len)
+            for sample_id, seq_len in enumerate(seq_lens):
+                parm = ScoreShapeParam(
+                    seq_len=seq_len,
+                    num_target=num_target,
+                    num_context=num_context,
+                    num_history=None if num_target is None else seq_len-num_target,
+                    target_group_size=target_group_size,
+                    block_h=seq_len,
+                    block_w=seq_len
+                )
+                block_param = HstuBlockParam(0, 0, seq_len, seq_len)
+                mask_tensor = _compute_target_mask_one_block_gpu(block_param, parm)
+                invalid_attn_mask[sample_id, :, :seq_len, :seq_len] = mask_tensor            
         
     else:
         invalid_attn_mask = torch.randint(0, 2, size=(batch_size, num_heads, max_seq_len, max_seq_len))
