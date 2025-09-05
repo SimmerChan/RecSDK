@@ -25,6 +25,10 @@ class ScoreShapeParam:
 
 
 def _check_param_valid(seq_len, num_target, num_context, target_group_size) -> bool:
+    if (num_target is None):
+        return True
+    if (num_context is None):
+        return True
     if seq_len < num_target + num_context:
         return False
     if target_group_size > num_target:
@@ -145,15 +149,15 @@ def _compute_target_mask_one_block_npu(
     for row_id_on_block in range(block_param.block_h):
         row_on_score = row_id_on_block + block_param.block_id_q * block_param.block_h
         block_mask_this_line = block_mask[row_id_on_block, :]
-        if _is_this_line_on_context(row_on_score, param):
+        if param.num_context is not None and _is_this_line_on_context(row_on_score, param) :
             _process_line_on_context(block_mask_this_line, col_on_score_range, param)
         else:
             # 滿足causul的条件一定不满足在context
             _process_line_with_causal(
                 block_mask_this_line, row_on_score, col_on_score_range, param
             )
-
-    process_one_block_of_target_mask(block_mask, block_param, param)
+    if (param.num_target is not None):
+        process_one_block_of_target_mask(block_mask, block_param, param)
     return block_mask
 
 
@@ -173,13 +177,13 @@ def _compute_target_mask_one_block_gpu(
             col_on_score = (
                 col_id_on_block + block_param.block_id_k * block_param.block_w
             )
-            if GPUSmit.is_this_point_in_context(
+            if param.num_context is not None and GPUSmit.is_this_point_in_context(
                 row_on_score, param.num_context, col_on_score, param.num_history
             ):
                 continue
             if GPUSmit.is_this_point_in_casual_mask(row_on_score, col_on_score):
                 block_mask[row_id_on_block][col_id_on_block] = 0
-            if GPUSmit.is_this_point_in_target_mask(
+            if param.num_context is not None and GPUSmit.is_this_point_in_target_mask(
                 row_on_score, col_on_score, param.num_history, param.target_group_size
             ):
                 block_mask[row_id_on_block][col_id_on_block] = 0
@@ -268,7 +272,10 @@ def test_hstu_target_mask(test_param: TestParam):
     is_valid = _check_param_valid(seq_len, num_target, num_context, target_group_size)
     if not is_valid:
         raise RuntimeError("param is not valid")
-    num_history = seq_len - num_target
+    if (num_target is not None):
+        num_history = seq_len - num_target
+    else:
+        num_history = seq_len
     score_shape_param = ScoreShapeParam(
         seq_len,
         num_target,
@@ -287,4 +294,4 @@ def test_hstu_target_mask(test_param: TestParam):
 
 
 if __name__ == "__main__":
-    reuslt = test_hstu_target_mask(TestParam(65, 31, 17, 5, 8, 8))
+    reuslt = test_hstu_target_mask(TestParam(65, None, None, None, 8, 8))
