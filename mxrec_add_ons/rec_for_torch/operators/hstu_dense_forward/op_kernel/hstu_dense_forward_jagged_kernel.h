@@ -363,43 +363,34 @@ __aicore__ inline void HstuDenseForwardJaggedKernel<qType>::GetTaskInfo(uint32_t
     }
 }
 
-
-HstuDenseForwardJaggedKernel<qType>::CallBlockAssign(
-    uint32_t *seqOffsets,
-    uint32_t coreNum,
-    std::vector<BlockTaskInfo> &workTasks,
-    std::vector<int> &workLoads,
-    optiling::HstuDenseForwardTilingData &tiling)
-{
-    
-
-    auto taskAssigner = BlockTaskAssign(seqOffsets, coreNum, this->blockHeight;, this->batchSize, this->headNum);
-    if (maskType == 0) {
-        taskAssigner.ComputeCausal(workTasks, workLoads);
-    } else {
-        taskAssigner.Compute(workTasks, workLoads);
-    }
-}
-
 template <typename qType>
 __aicore__ inline int
 HstuDenseForwardJaggedKernel<qType>::PreInit(const HstuDenseForwardTilingData *__restrict tilingDataPtr)
 {
-
     int blockId = GetBlockIdx();
-    std::vector<BlockTaskInfo> workTasks;
-    std::vector<int> workLoads;
+   
+
+    BlockTaskInfo workTasks[GetBlockNum()];
+    int workLoads[GetBlockNum()];
     this->batchSize = this->xDim0;
+    auto blockNumber = this->queIn.AllocTensor<int64_t>();
+    auto totalBlock = this->queOut.AllocTensor<int64_t>();
     this->seqLen = this->xDim1;
     this->headNum = this->xDim2;
     this->headDim = this->xDim3;
-    CallBlockAssign(tilingDataPtr->seqOffset, GetBlockNum(), workTasks, workLoads);
+    auto taskAssigner = BlockTaskAssign(tilingDataPtr->seqOffset, GetBlockNum(), this->blockHeight;, this->batchSize, this->headNum);
+    if (maskType == 0) {
+        taskAssigner.ComputeCausal(workTasks, workLoads, blockNumber);
+    } else {
+        taskAssigner.Compute(workTasks, workLoads, blockNumber, totalBlock);
+    }
     this->sBlkId =  workTasks[blockId].startBlockId;
     this->eBlkId = workTasks[blockId].endBlockId;
-
-   
+    this->queIn.FreeTensor(blockNumber);
+    this->queOut.FreeTensor(totalBlock);
     return 0;
 }
+
 
 }
 
