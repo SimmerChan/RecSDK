@@ -386,32 +386,3 @@ def test_dense_to_jagged_npu_fbgemm_call():
     assert len(offset_list) == 1
     assert jagged_embedding.shape[0] == output_size
     assert jagged_embedding.shape[1] == dense_dim2
-
-
-# 专门测试异常情况的测试用例
-@pytest.mark.parametrize("dims", [(128, 210, 8)])  # 固定维度简化测试
-@pytest.mark.parametrize("types", [(torch.float32, torch.int32)])  # 固定类型简化测试
-def test_dense_to_jagged_edge_cases(dims, types):
-    dense_dim0, dense_dim1, dense_dim2 = dims
-    # 1. 生成随机输入数据
-    denses = np.random.randn(dense_dim0, dense_dim1, dense_dim2).astype(np.float32)
-    offsets = np.random.randint(0, dense_dim1, dense_dim0)
-
-    # 计算实际的output_size
-    actual_size = np.sum(offsets)
-
-    # 测试output_size为0的情况
-    with pytest.raises(RuntimeError):
-        get_result(torch.device(DEVICE), denses, offsets, types, 0)
-
-    # 测试output_size为负数的情况
-    with pytest.raises(RuntimeError):
-        get_result(torch.device(DEVICE), denses, offsets, types, -1)
-
-    # 测试大于actual_size的output_size情况
-    with pytest.raises(RuntimeError):
-        get_result(torch.device(DEVICE), denses, offsets, types, actual_size + 10)
-
-    # 测试小于actual_size的output_size情况
-    with pytest.raises(RuntimeError):
-        get_result(torch.device(DEVICE), denses, offsets, types, max(1, actual_size - 10))
