@@ -186,8 +186,8 @@ def test_jagged_to_padded_dense(config: ExecuteConfig):
 
     # ===== 反向传播验证 =====
     # 6. 准备可训练参数
-    input_flat_npu = input_flat.clone().to(DEVICE).requires_grad_(True)
-    input_flat_npu_py = input_flat.clone().to(DEVICE).requires_grad_(True)
+    input_flat_npu = input_flat.clone().float().to(DEVICE).requires_grad_(True)
+    input_flat_npu_py = input_flat.clone().float().to(DEVICE).requires_grad_(True)
 
     # 7. 计算NPU前向传播
     npu_dense_for_grad = torch.ops.mxrec.jagged_to_padded_dense(
