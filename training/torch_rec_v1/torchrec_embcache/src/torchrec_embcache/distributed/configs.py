@@ -71,7 +71,7 @@ def check_embedding_config(config: EmbeddingConfig):
     
     if config.embedding_dim % EMBEDDINGS_DIM_ALIGNMENT != 0:
         raise ValueError(
-            f"The embedding dim should be a multiple of 8, but is {config.embedding_dim}"
+            f"The embedding dim should be a multiple of {EMBEDDINGS_DIM_ALIGNMENT}, but is {config.embedding_dim}"
         )
     
     if config.weight_init_min is None:

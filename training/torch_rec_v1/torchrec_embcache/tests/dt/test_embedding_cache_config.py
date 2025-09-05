@@ -39,8 +39,8 @@ from hybrid_torchrec.constants import (
             r"The embedding dim should be in",
         ),
         (
-            {"name": "t", "embedding_dim": EMBEDDINGS_DIM_ALIGNMENT + 2, "num_embeddings": 8},
-            r"The embedding dim should be a multiple of 8," 
+            {"name": "t", "embedding_dim": EMBEDDINGS_DIM_ALIGNMENT + 4, "num_embeddings": 8},
+            fr"The embedding dim should be a multiple of {EMBEDDINGS_DIM_ALIGNMENT}," 
         ),
         (
             {
