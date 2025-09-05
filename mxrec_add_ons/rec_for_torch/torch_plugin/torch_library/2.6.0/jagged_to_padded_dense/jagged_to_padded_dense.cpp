@@ -12,14 +12,6 @@
 
 #include "../common/pytorch_npu_helper.hpp"
 #include "../common/common_utils.h"
-using torch::autograd::AutogradContext;
-using torch::autograd::Function;
-using torch::autograd::Variable;
-using tensor_list = std::vector<at::Tensor>;
-using namespace at;
-
-constexpr int EXPECTED_DIM_1D = 1;
-constexpr int EXPECTED_DIM_2D = 2;
 
 namespace fbgemm_npu {
 at::Tensor dense_to_jagged_forward_npu(const at::Tensor& dense,
@@ -47,13 +39,13 @@ at::Tensor jagged_to_padded_dense_forward_npu_v1(const at::Tensor& values,
                                                  const int64_t max_lengths,
                                                  const double padding_value)
 {
-    check_tensor_dim(values, EXPECTED_DIM_2D, "values");
+    CheckTensorDim(values, EXPECTED_DIM_2D, "values");
     TORCH_CHECK(offsets.size() == 1,
         "offsets must contain exactly 1 tensor, but got ", offsets.size(), " tensors");
 
     const auto& offset_tensor = offsets[0];
-    check_tensor_non_empty(offset_tensor, "offset_tensor");
-    check_tensor_dim(offset_tensor, EXPECTED_DIM_1D, "offset_tensor");
+    CheckTensorNonEmpty(offset_tensor, "offset_tensor");
+    CheckTensorDim(offset_tensor, EXPECTED_DIM_1D, "offset_tensor");
     TORCH_CHECK(max_lengths > 0, "max_lengths must be positive, but got ", max_lengths);
 
     const at::OptionalDeviceGuard guard(device_of(values));

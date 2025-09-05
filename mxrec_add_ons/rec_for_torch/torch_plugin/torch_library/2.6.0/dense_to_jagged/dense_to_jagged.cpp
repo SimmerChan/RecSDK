@@ -12,28 +12,19 @@
 
 #include "../common/pytorch_npu_helper.hpp"
 #include "../common/common_utils.h"
-using torch::autograd::AutogradContext;
-using torch::autograd::Function;
-using torch::autograd::Variable;
-using tensor_list = std::vector<at::Tensor>;
-using namespace at;
-
-constexpr int EXPECTED_DIM_1D = 1;
-constexpr int EXPECTED_DIM_2D = 2;
-constexpr int EXPECTED_DIM_3D = 3;
 
 at::Tensor jagged_to_padded_dense_forward_npu(const at::Tensor& values,
                                               const tensor_list& offsets,
                                               const int64_t max_lengths,
                                               const double padding_value)
 {
-    check_tensor_dim(values, EXPECTED_DIM_2D, "values");
+    CheckTensorDim(values, EXPECTED_DIM_2D, "values");
     TORCH_CHECK(offsets.size() == 1,
         "offsets must contain exactly 1 tensor, but got ", offsets.size(), " tensors");
 
     const auto& offset_tensor = offsets[0];
-    check_tensor_non_empty(offset_tensor, "offset_tensor");
-    check_tensor_dim(offset_tensor, EXPECTED_DIM_1D, "offset_tensor");
+    CheckTensorNonEmpty(offset_tensor, "offset_tensor");
+    CheckTensorDim(offset_tensor, EXPECTED_DIM_1D, "offset_tensor");
     TORCH_CHECK(max_lengths > 0, "max_lengths must be positive, but got ", max_lengths);
 
     const at::OptionalDeviceGuard guard(device_of(values));
@@ -49,7 +40,7 @@ at::Tensor jagged_to_padded_dense_forward_npu(const at::Tensor& values,
 std::tuple<at::Tensor, tensor_list> dense_to_jagged_forward_npu(const at::Tensor& dense,
     const tensor_list& offsets, const c10::optional<int64_t> total_L)
 {
-    check_tensor_dim(dense, EXPECTED_DIM_3D, "dense");
+    CheckTensorDim(dense, EXPECTED_DIM_3D, "dense");
     TORCH_CHECK(offsets.size() == 1,
         "Only single-dimension jagged tensors supported (offsets.size() must be 1)");
 
