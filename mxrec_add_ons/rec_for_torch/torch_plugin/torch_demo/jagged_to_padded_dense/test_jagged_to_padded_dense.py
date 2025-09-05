@@ -19,8 +19,9 @@ import sysconfig
 from dataclasses import dataclass
 from typing import Union
 
-import pytest
+import fbgemm_gpu
 import numpy as np
+import pytest
 import torch
 
 # 加载NPU自定义算子库
