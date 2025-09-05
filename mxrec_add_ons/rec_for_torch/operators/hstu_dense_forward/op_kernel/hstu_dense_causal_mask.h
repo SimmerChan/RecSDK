@@ -24,7 +24,7 @@ See the License for the specific language governing permissions and
 #include "kernel_log.h"
 #include "kernel_operator.h"
 #include "lib/matmul_intf.h"
-#include "hstu_dense_forward_kernel_patten_bsnd.h"
+#include "hstu_common_const.h"
 
 using namespace AscendC;
 
@@ -112,6 +112,10 @@ public:
     __aicore__ inline bool GenMask(LocalTensor<float>& inMaskLt, int64_t line, int64_t height, int64_t width)
     {
         int64_t total = height * width;
+        bool needMask = (contextMask || causalMask || targetMask);
+        if (!needMask) {
+            return needMask;
+        }
         Duplicate<float>(inMaskLt, 0, total);
         if (contextMask) {
             GenContextMask(inMaskLt, line, height, width);
@@ -125,6 +129,7 @@ public:
             }
             GenTargetMask(inMaskLt, line, height, width);
         }
+        return needMask;
     }
 
 private:

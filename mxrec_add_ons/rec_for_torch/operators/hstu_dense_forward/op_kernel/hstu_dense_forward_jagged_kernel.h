@@ -122,7 +122,7 @@ __aicore__ inline void HstuDenseForwardJaggedKernel<qType>::ComputeVecScore(uint
 
     int64_t maskOffset = biasOffset;
 
-    this->VecScoreImpl<BlockMaskParams*>(taskId, biasOffset, maskOffset,
+    this->template VecScoreImpl<BlockMaskParams*>(taskId, biasOffset, maskOffset,
                        computeTaskInfo[taskId].scale,
                        computeTaskInfo[taskId].maskParams,
                        computeTaskInfo[taskId].computeASeqLen,
