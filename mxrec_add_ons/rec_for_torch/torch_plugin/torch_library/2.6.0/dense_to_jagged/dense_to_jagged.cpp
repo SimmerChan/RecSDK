@@ -17,6 +17,9 @@ at::Tensor jagged_to_padded_dense_forward_npu(const at::Tensor& values,
                                               const tensor_list& offsets,
                                               const int64_t max_lengths,
                                               const double padding_value)
+// 目前只支持3维的dense
+std::tuple<at::Tensor, tensor_list> dense_to_jagged_forward_npu(const at::Tensor& dense,
+    const tensor_list& offsets, const c10::optional<int64_t> total_L)
 {
     CheckTensorDim(values, EXPECTED_DIM_2D, "values");
     TORCH_CHECK(offsets.size() == 1,
@@ -128,6 +131,7 @@ std::tuple<at::Tensor, tensor_list> dense_to_jagged_npu_autograd(const at::Tenso
                                                                  const c10::optional<int64_t> total_L)
 {
     return {dense_to_jagged_autograd(dense, offsets, total_L), offsets};
+    return dense_to_jagged_forward_npu(dense, offsets, total_L);
 };
 
 TORCH_LIBRARY_FRAGMENT(mxrec, m)

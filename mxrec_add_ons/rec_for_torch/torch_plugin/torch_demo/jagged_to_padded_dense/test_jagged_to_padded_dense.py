@@ -63,7 +63,17 @@ class JaggedToPaddedDense(torch.autograd.Function):
         grad_values = torch.ops.mxrec.jagged_to_padded_dense_backward(grad_output.to(DEVICE), offsets, total_L)
         return grad_values, None, None, None
 
+_PRECISION_ERROR_RANGE = {
+    torch.float32: 1e-4,
+    torch.int64: 1e-4,
+    torch.float16: 1e-3,
+    torch.bfloat16: 5e-3,
+    torch.int32: 1e-4
+}
+_VALUES_DATA_TYPES = _PRECISION_ERROR_RANGE.keys()
 
+
+def generate_jagged_tensor(batch_size, max_seq_len, num_heads, attention_dim, data_types):
 def generate_jagged_tensor(batch_size, max_seq_len, num_heads, attention_dim):
 
 def generate_jagged_tensor(batch_size, max_seq_len, num_heads, attention_dim, data_types):
@@ -224,3 +234,6 @@ def test_jagged_to_padded_dense(config: ExecuteConfig):
         atol=1e-4,
         rtol=1e-4
     ), f"NPU python梯度与NPU梯度不匹配\nNPU python梯度:\n{npu_py_grad_input.cpu()}\nNPU梯度:\n{npu_grad_input.cpu()}"
+        atol=_PRECISION_ERROR_RANGE[values_data_type],
+        rtol=_PRECISION_ERROR_RANGE[values_data_type]
+    ), f"NPU结果与FBGEMM CPU结果不匹配\nFBGEMM:\n{fbgemm_dense}\nNPU:\n{npu_dense.cpu()}"
