@@ -48,13 +48,23 @@ def skip_seq_len(seq_len):
     return False
 
 
-def jagged_data_gen(batch_size, max_seq_len, num_heads, attention_dim, data_type, mask_type, num_context=None, num_target=None, target_group_size=None):
+def jagged_data_gen(
+    batch_size,
+    max_seq_len,
+    num_heads,
+    attention_dim,
+    data_type,
+    mask_type,
+    num_context=None,
+    num_target=None,
+    target_group_size=None,
+):
     min_seq_len = 1
     if (num_context is not None):
         min_seq_len += num_context
     if (num_target is not None):
         min_seq_len += num_target
-    
+
     seq_lens = np.random.randint(min_seq_len, max_seq_len + 1, (batch_size))
 
     seq_offset = torch.concat((torch.zeros((1,), dtype=torch.int64), \
@@ -85,15 +95,15 @@ def jagged_data_gen(batch_size, max_seq_len, num_heads, attention_dim, data_type
                     seq_len=seq_len,
                     num_target=num_target,
                     num_context=num_context,
-                    num_history=None if num_target is None else seq_len-num_target,
+                    num_history=None if num_target is None else seq_len - num_target,
                     target_group_size=target_group_size,
                     block_h=seq_len,
-                    block_w=seq_len
+                    block_w=seq_len,
                 )
                 block_param = HstuBlockParam(0, 0, seq_len, seq_len)
                 mask_tensor = _compute_target_mask_one_block_gpu(block_param, parm)
                 invalid_attn_mask[sample_id, :, :seq_len, :seq_len] = mask_tensor            
-        
+
     else:
         invalid_attn_mask = torch.randint(0, 2, size=(batch_size, num_heads, max_seq_len, max_seq_len))
     invalid_attn_mask = invalid_attn_mask.cpu().to(torch.float32)
@@ -168,7 +178,6 @@ class TestHstuJaggedDemo:
         torch.npu.synchronize()
         return output.cpu().to(data_type).reshape(-1)
 
-
     def gloden_op_exec(self, q, k, v, seq_offset, bias, mask, max_seq_len, enable_bias, mask_type, silu_scale,
                        data_type):
         head_nums = q.shape[1]
@@ -212,9 +221,31 @@ class TestHstuJaggedDemo:
         torch.npu.synchronize()
         return atten_output.to(data_type).reshape(-1)
 
-    def execute(self, batch_size, max_seq_len, head_num, head_dim, enable_bias, mask_type, silu_scale, data_type, num_context=None, num_target=None, target_group_size=None):
-        q, k, v, seq_offset, bias, mask, max_seq_len = jagged_data_gen(batch_size, max_seq_len, head_num, head_dim,
-                                                                       data_type, mask_type, num_context, num_target, target_group_size)
+    def execute(
+        self,
+        batch_size,
+        max_seq_len,
+        head_num,
+        head_dim,
+        enable_bias,
+        mask_type,
+        silu_scale,
+        data_type,
+        num_context=None,
+        num_target=None,
+        target_group_size=None,
+    ):
+        q, k, v, seq_offset, bias, mask, max_seq_len = jagged_data_gen(
+            batch_size,
+            max_seq_len,
+            head_num,
+            head_dim,
+            data_type,
+            mask_type,
+            num_context,
+            num_target,
+            target_group_size,
+        )
 
         output = self.custom_op_exec(q, k, v, seq_offset, bias, mask, max_seq_len, enable_bias, mask_type, silu_scale,
                                      data_type)
