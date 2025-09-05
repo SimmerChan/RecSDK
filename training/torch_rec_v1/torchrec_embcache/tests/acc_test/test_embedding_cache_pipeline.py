@@ -257,7 +257,7 @@ params = {
     "table_num": [2],
     "embedding_dims": [[128, 128]],
     "num_embeddings": [[4000, 400]],
-    "pool_type": [torchrec.PoolingType.SUM],
+    "pool_type": [torchrec.PoolingType.SUM, torchrec.PoolingType.MEAN],
     "sharding_type": ["row_wise"],
     "lookup_len": [128],  # batchsize
     "device": ["npu"],
