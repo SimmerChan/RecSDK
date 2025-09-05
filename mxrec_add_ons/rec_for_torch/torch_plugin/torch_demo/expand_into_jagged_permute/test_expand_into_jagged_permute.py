@@ -72,7 +72,7 @@ def generate_test_data(num_features, max_batch_size):
     # 计算输出大小
     output_size = np.sum(permuted_lengths)
     return {
-        PERMUTE_KEY : permute,
+        PERMUTE_KEY: permute,
         INPUT_OFFSETS_KEY: input_offsets,
         OUTPUT_OFFSETS_KEY: output_offsets,
         OUTPUT_SIZE_KEY: output_size
@@ -90,7 +90,7 @@ def test_expand_into_jagged_permute_basic(types):
     output_offsets = np.array([0, 2, 5, 9], dtype=otype)  # 包含起始0和所有累加值
     output_size = 9  # 2 + 3 + 4
     params = {
-        PERMUTE_KEY : permute,
+        PERMUTE_KEY: permute,
         INPUT_OFFSETS_KEY: input_offsets,
         OUTPUT_OFFSETS_KEY: output_offsets,
         OUTPUT_SIZE_KEY: output_size
@@ -111,7 +111,7 @@ def test_expand_into_jagged_permute_random(num_features, max_batch_size):
     """测试随机生成的测试用例"""
     test_data = generate_test_data(num_features, max_batch_size)
     params = {
-        PERMUTE_KEY : test_data[PERMUTE_KEY],
+        PERMUTE_KEY: test_data[PERMUTE_KEY],
         INPUT_OFFSETS_KEY: test_data[INPUT_OFFSETS_KEY],
         OUTPUT_OFFSETS_KEY: test_data[OUTPUT_OFFSETS_KEY],
         OUTPUT_SIZE_KEY: test_data[OUTPUT_SIZE_KEY]
