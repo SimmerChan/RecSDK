@@ -78,8 +78,8 @@ private:
     uint32_t headNum {0};
     uint32_t headDim {0};
 
-    JaggedTaskArgs<qType> computeTaskInfo[COMPUTE_PIPE_NUM];
-    JaggedTaskArgs<qType> trasnTaskInfo[TRANS_PIPE_NUM];
+    JaggedTaskArgs computeTaskInfo[COMPUTE_PIPE_NUM];
+    JaggedTaskArgs trasnTaskInfo[TRANS_PIPE_NUM];
 };
 
 template <typename qType>
