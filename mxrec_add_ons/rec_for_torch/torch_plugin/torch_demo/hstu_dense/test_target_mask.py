@@ -25,9 +25,9 @@ class ScoreShapeParam:
 
 
 def _check_param_valid(seq_len, num_target, num_context, target_group_size) -> bool:
-    if (num_target is None):
+    if num_target is None:
         return True
-    if (num_context is None):
+    if num_context is None:
         return True
     if seq_len < num_target + num_context:
         return False
@@ -66,7 +66,7 @@ def _duplicate(ub: torch.Tensor, value, mask_len):
 
 
 def _compute_col_start_and_end_on_score(block_id_k, block_w):
-    col_on_score_range = [block_id_k * block_w, (block_id_k + 1) * block_w] 
+    col_on_score_range = [block_id_k * block_w, (block_id_k + 1) * block_w]
     return col_on_score_range
 
 
@@ -130,7 +130,8 @@ def process_one_block_of_target_mask(
         ):
             continue
         mask_len = (
-            min(col_on_score_range[1], target_mask_end_on_score) - mask_col_start_in_score
+            min(col_on_score_range[1], target_mask_end_on_score)
+            - mask_col_start_in_score
         )
         block_mask_this_line = block_mask[row_id_on_block, :]
         _duplicate(block_mask_this_line[mask_start_in_block:], 0, mask_len)
@@ -149,14 +150,16 @@ def _compute_target_mask_one_block_npu(
     for row_id_on_block in range(block_param.block_h):
         row_on_score = row_id_on_block + block_param.block_id_q * block_param.block_h
         block_mask_this_line = block_mask[row_id_on_block, :]
-        if param.num_context is not None and _is_this_line_on_context(row_on_score, param) :
+        if param.num_context is not None and _is_this_line_on_context(
+            row_on_score, param
+        ):
             _process_line_on_context(block_mask_this_line, col_on_score_range, param)
         else:
             # 滿足causul的条件一定不满足在context
             _process_line_with_causal(
                 block_mask_this_line, row_on_score, col_on_score_range, param
             )
-    if (param.num_target is not None):
+    if param.num_target is not None:
         process_one_block_of_target_mask(block_mask, block_param, param)
     return block_mask
 
@@ -272,7 +275,7 @@ def test_hstu_target_mask(test_param: TestParam):
     is_valid = _check_param_valid(seq_len, num_target, num_context, target_group_size)
     if not is_valid:
         raise RuntimeError("param is not valid")
-    if (num_target is not None):
+    if num_target is not None:
         num_history = seq_len - num_target
     else:
         num_history = seq_len
