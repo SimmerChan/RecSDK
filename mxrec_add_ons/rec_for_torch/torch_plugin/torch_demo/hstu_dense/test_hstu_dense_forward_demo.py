@@ -49,7 +49,13 @@ def skip_seq_len(seq_len):
 
 
 def jagged_data_gen(batch_size, max_seq_len, num_heads, attention_dim, data_type, mask_type, num_context=None, num_target=None, target_group_size=None):
-    seq_lens = np.random.randint(1, max_seq_len + 1, (batch_size))
+    min_seq_len = 1
+    if (num_context is not None):
+        min_seq_len += num_context
+    if (num_target is not None):
+        min_seq_len += num_target
+    
+    seq_lens = np.random.randint(min_seq_len, max_seq_len + 1, (batch_size))
 
     seq_offset = torch.concat((torch.zeros((1,), dtype=torch.int64), \
                                torch.cumsum(torch.from_numpy(seq_lens), axis=0))).to(torch.int64).numpy()
