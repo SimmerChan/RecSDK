@@ -17,12 +17,10 @@
 import itertools
 import sysconfig
 from dataclasses import dataclass
-from typing import List, Union
+from typing import Union
 
 import pytest
-import fbgemm_gpu
 import numpy as np
-import torch_npu
 import torch
 
 # 加载NPU自定义算子库
@@ -156,14 +154,3 @@ def test_jagged_to_padded_dense(config: ExecuteConfig):
         atol=_PRECISION_ERROR_RANGE[values_data_type],
         rtol=_PRECISION_ERROR_RANGE[values_data_type]
     ), f"NPU结果与FBGEMM CPU结果不匹配\nFBGEMM:\n{fbgemm_dense}\nNPU:\n{npu_dense.cpu()}"
-
-
-if __name__ == '__main__':
-    config = ExecuteConfig(batch_size=2,
-                           max_seq_len=128,
-                           num_heads=2,
-                           attention_dim=32,
-                           use_list_max_lengths=True,
-                           values_data_type=torch.float32,
-                           offsets_data_type=torch.int32)
-    test_jagged_to_padded_dense(config)
