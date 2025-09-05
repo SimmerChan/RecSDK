@@ -37,8 +37,9 @@ at::Tensor jagged_to_padded_dense_forward_npu(const at::Tensor& values,
 };
 
 // 目前只支持3维的dense
-std::tuple<at::Tensor, tensor_list> dense_to_jagged_forward_npu(const at::Tensor& dense,
-    const tensor_list& offsets, const c10::optional<int64_t> total_L)
+at::Tensor dense_to_jagged_forward_npu(const at::Tensor& dense,
+                                       const tensor_list& offsets,
+                                       const c10::optional<int64_t> total_L)
 {
     CheckTensorDim(dense, EXPECTED_DIM_3D, "dense");
     TORCH_CHECK(offsets.size() == 1,
@@ -63,14 +64,14 @@ std::tuple<at::Tensor, tensor_list> dense_to_jagged_forward_npu(const at::Tensor
     int64_t totalLength = total_L.value_or(expected_total_L);
     auto output = at::empty({totalLength, D}, dense.options());
     EXEC_NPU_CMD(aclnnDenseToJagged, dense_contin, offsets[0], totalLength, output);
-    return {output, offsets};
+    return output;
 };
 
 std::tuple<at::Tensor, tensor_list> dense_to_jagged_npu(const at::Tensor& dense,
                                                         const tensor_list& offsets,
                                                         const c10::optional<int64_t> total_L)
 {
-    return dense_to_jagged_forward_npu(dense, offsets, total_L);
+    return {dense_to_jagged_forward_npu(dense, offsets, total_L), offsets};
 };
 
 // 反向算子 - 使用jagged_to_padded_dense作为反向
@@ -93,8 +94,7 @@ public:
         at::AutoDispatchBelowADInplaceOrView guard;
         ctx->save_for_backward({dense, offsets[0]});
 
-        auto result = dense_to_jagged_forward_npu(dense, offsets, total_L);
-        return std::get<0>(result);
+        return dense_to_jagged_forward_npu(dense, offsets, total_L);
     }
 
     static tensor_list backward(AutogradContext* ctx, tensor_list grad_outputs)
@@ -135,7 +135,7 @@ TORCH_LIBRARY_FRAGMENT(mxrec, m)
 {
     m.def("dense_to_jagged_forward(Tensor dense, "
           "                        Tensor[] offsets, "
-          "                        SymInt? total_L=None) -> (Tensor, Tensor[])");
+          "                        SymInt? total_L=None) -> Tensor");
 
     m.def("dense_to_jagged(Tensor dense, "
           "                Tensor[] offsets, "
