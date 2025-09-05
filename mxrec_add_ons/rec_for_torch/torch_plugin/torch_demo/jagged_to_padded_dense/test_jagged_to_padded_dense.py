@@ -39,7 +39,6 @@ _PRECISION_ERROR_RANGE = {
 _VALUES_DATA_TYPES = _PRECISION_ERROR_RANGE.keys()
 
 
-def generate_jagged_tensor(batch_size, max_seq_len, num_heads, attention_dim, data_types):
 def jagged_to_padded_dense_wrapper(values, offsets, max_lengths, padding_value):
     return JaggedToPaddedDense.apply(values, offsets, max_lengths, padding_value)
 
@@ -66,7 +65,7 @@ class JaggedToPaddedDense(torch.autograd.Function):
         return grad_values, None, None, None
 
 
-def generate_jagged_tensor(batch_size, max_seq_len, num_heads, attention_dim):
+def generate_jagged_tensor(batch_size, max_seq_len, num_heads, attention_dim, data_types):
     """
     生成不规则(Jagged)张量测试数据
     Args:
@@ -221,6 +220,6 @@ def test_jagged_to_padded_dense(config: ExecuteConfig):
     assert torch.allclose(
         npu_py_grad_input.cpu(),
         npu_grad_input.cpu(),
-        atol=1e-4,
-        rtol=1e-4
+        atol=_PRECISION_ERROR_RANGE[values_data_type],
+        rtol=_PRECISION_ERROR_RANGE[values_data_type]
     ), f"NPU python梯度与NPU梯度不匹配\nNPU python梯度:\n{npu_py_grad_input.cpu()}\nNPU梯度:\n{npu_grad_input.cpu()}"
