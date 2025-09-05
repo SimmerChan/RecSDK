@@ -604,7 +604,7 @@ class EmbCacheShardedEmbeddingBagCollection(ShardedEmbeddingBagCollection):
         ):
             awaitables.append(out_dist(lookup(features), sharding_ctx))
 
-        awaitable =EmbeddingBagCollectionAwaitable(
+        awaitable = EmbeddingBagCollectionAwaitable(
             awaitables=awaitables,
             embedding_dims=self._embedding_dims,
             embedding_names=self._embedding_names,
