@@ -101,7 +101,9 @@ public:
 
     uint32_t InitTaskNum(const std::vector<int64_t>& blockNumber, uint32_t batchId, MaskParams& params) override {
         this->initFlag = true;
-        return blockNumber[batchId] - ceilDiv(params.numTarget, params.blockHeight);  // 任务量估算(误差0~1)
+        uint32_t taskNums = blockNumber[batchId] - ceilDiv(params.numTarget, params.blockHeight);  // 任务量估算(误差0~1)
+        taskNums = (taskNums > 0) ? taskNums : 1;
+        return taskNums;
     }
 
     void UpdateTask(uint32_t& taskNum) override {
@@ -140,7 +142,7 @@ public:
         this->targetGroupSize = params.targetGroupSize;
     }
 
-    void Compute(std::vector<BlockTaskInfo> &workTasks, std::vector<int> &workLoads) {
+    void Compute(std::vector<BlockTaskInfo>& workTasks, std::vector<int>& workLoads) {
         uint32_t bXn = batchSize * headNum;
         std::vector<int64_t> blockNumber(bXn, 0);
         ComputeBlockNum(this->seqOffsets, blockNumber);
@@ -176,11 +178,11 @@ private:
     uint32_t numTarget = 0;
     uint32_t targetGroupSize = 0;
 
-    void ComputeBlockNum(uint32_t* seqOffsets, std::vector<int64_t> blockNumber)
+    void ComputeBlockNum(uint32_t* seqOffsets, std::vector<int64_t>& blockNumber)
     {
         for (auto seqId = 0; seqId < batchSize; seqId++) {
             auto batchBlockSize = seqOffsets[seqId + 1] - seqOffsets[seqId];
-            int64_t blk = (batchBlockSize + blockLen - 1) / blockLen;
+            int64_t blk = ceilDiv(batchBlockSize, blockLen);
             for (auto headId = 0; headId < headNum; headId++) {
                 blockNumber[seqId * headNum + headId] = blk;
             }
@@ -203,8 +205,8 @@ private:
         return true;  // 进入下一循环
     }
 
-    void DistributeTasks(std::vector<BlockTaskInfo> &workTasks,
-                         std::vector<int> &workLoads,
+    void DistributeTasks(std::vector<BlockTaskInfo>& workTasks,
+                         std::vector<int>& workLoads,
                          int64_t eachCoreTaskNumLimit,
                          std::vector<int64_t>& blockNumber
                          )

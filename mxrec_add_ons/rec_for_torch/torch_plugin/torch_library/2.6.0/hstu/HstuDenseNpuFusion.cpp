@@ -105,7 +105,7 @@ at::Tensor hstu_dense_normal_forward_impl_npu(
                  maxSeqLen,
                  realSiluScale,
                  layout,
-                 acSeqOffset,
+                 seqOffset,
                  numContext,
                  numTarget,
                  targetGroupSize,

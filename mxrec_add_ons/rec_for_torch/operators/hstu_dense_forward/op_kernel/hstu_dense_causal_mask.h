@@ -149,15 +149,15 @@ private:
     __aicore__ inline void GenContextMask(LocalTensor<float>& inMaskLt, int64_t line, int64_t height, int64_t width)
     {
         int cmaskWidth = (seqlen - numTarget);
-        int validWith = cmaskWidth - kSeqId * blockHeight;
-        if (validWith > blockHeight) {
-            validWith = blockHeight;
+        int validWidth = cmaskWidth - kSeqId * blockHeight;
+        if (validWidth > blockHeight) {
+            validWidth = blockHeight;
         }
         for (int i = 0; i < height; i++) {
             if ((line + i) >= numContext) {
                 break;
             }
-            Duplicate<float>(inMaskLt[i * width], value, validWith);
+            Duplicate<float>(inMaskLt[i * width], value, validWidth);
         }
     }
 
@@ -171,7 +171,7 @@ private:
 
     __aicore__ inline void GenTargetMask(LocalTensor<float>& inMaskLt, int64_t line, int64_t height, int64_t width) 
     {
-        int tbase = (seqlen - numTarget) / blockHeight;
+        int tbase = seqlen - numTarget;
         int blkLeft = kSeqId * blockHeight;
         int blkRight = (kSeqId + 1) * blockHeight;
         int blkTop = qSeqId * blockHeight;
@@ -188,21 +188,19 @@ private:
             }
             // 3.计算valid_rbound = min(triBottom, blkRight)
             int64_t validRbound = (triBottom >= blkRight) ? blkRight : triBottom;
+            int64_t validRboundInBlk = validRbound - blkLeft;
             // 4.计算valid_lbound = max(tbase, blkLeft)
             int64_t validLbound = (tbase >= blkLeft) ? tbase : blkLeft;
             int64_t validLboundInBlk = validLbound - blkLeft;
             // 5.计算挖空宽度
-            int64_t validWith = validRbound - validLbound;
-            // 6.挖空
             int alignStart = validLboundInBlk * sizeof(float) / DATA_ALIGN_BYTES * DATA_ALIGN_BYTES / sizeof(float);
+            int64_t validWidth = validRboundInBlk - alignStart;
+            // 6.挖空
+            Duplicate<float>(inMaskLt[i * width + alignStart], 0, validWidth);
             if (alignStart != validLboundInBlk) {
                 int unalignlen = validLboundInBlk - alignStart;
-                Duplicate<float>(inMaskLt[i * width + alignStart], 0, DATA_ALIGN_BYTES / sizeof(float));
                 Duplicate<float>(inMaskLt[i * width + alignStart], value, unalignlen);
-                alignStart += DATA_ALIGN_BYTES / sizeof(float);
-                validWith -= unalignlen;
             }
-            Duplicate<float>(inMaskLt[i * width + alignStart], 0, validWith);
         }
     }
 };
