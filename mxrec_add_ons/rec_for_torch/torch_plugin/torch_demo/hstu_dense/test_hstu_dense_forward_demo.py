@@ -274,7 +274,19 @@ class TestHstuJaggedDemo:
     @pytest.mark.parametrize("target_group_size", [None])
     def test_hstu_dens_forward(self, batch_size, head_num, max_seq_len, head_dim, enable_bias, mask_type, silu_scale,
                                data_type, num_context, num_target, target_group_size):
-        self.execute(batch_size, max_seq_len, head_num, head_dim, enable_bias, mask_type, silu_scale, data_type, num_context, num_target, target_group_size)
+        self.execute(
+            batch_size,
+            max_seq_len,
+            head_num,
+            head_dim,
+            enable_bias,
+            mask_type,
+            silu_scale,
+            data_type,
+            num_context,
+            num_target,
+            target_group_size,
+        )
 
     @pytest.mark.parametrize("head_num", [2])
     @pytest.mark.parametrize("max_seq_len", [2570])
