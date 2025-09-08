@@ -77,25 +77,35 @@ namespace HstuDenseForward {
             int64_t eachCoreTaskNumLimit = 0;
             InitAndComputeLimit(false, totalBatchSize, eachCoreTaskNumLimit);
 
-            // 遍历workers 计算得到每一个works的任务量
+            // 遍历workers 计算得到每一个works的任务量（非因果场景）
             uint32_t batchId = 0;
-            uint32_t batchTaskNum = blockNumberGt.GetValue(batchId);
+            int64_t remainingRowsInBatch = (totalBatchSize > 0) ? blockNumberGt.GetValue(batchId) : 0;
             uint32_t processBlockNum = 0;
-            uint32_t processTaskNum = 0;
-            uint32_t workLoads = 0;
             for (int i = 0; i < this->coreNum && batchId < totalBatchSize; i++) {
                 blockNumberGt.SetValue(totalBatchSize + i, processBlockNum);
-                workLoads = 0;
-                while (workLoads < eachCoreTaskNumLimit) {
-                    workLoads += batchTaskNum;
-                    processTaskNum += batchTaskNum;
-                    processBlockNum++;
-                    blockNumberGt.SetValue(batchId, blockNumberGt.GetValue(batchId) - 1);
-                    if (!BatchSwitch(batchId, totalBatchSize, batchTaskNum)) {
-                        break;
+                int64_t workLoads = 0;
+                while (workLoads < eachCoreTaskNumLimit && batchId < totalBatchSize) {
+                    if (remainingRowsInBatch == 0) {
+                        // 当前(batch, head)分配完，写回0并切换到下一个
+                        blockNumberGt.SetValue(batchId, 0);
+                        batchId++;
+                        if (batchId >= totalBatchSize) {
+                            break;
+                        }
+                        remainingRowsInBatch = blockNumberGt.GetValue(batchId);
+                        continue;
                     }
+                    // 每一行贡献等于该(batch, head)的列数（即块数n），总任务n*n，逐行分配
+                    workLoads += remainingRowsInBatch;
+                    processBlockNum++;
+                    remainingRowsInBatch--;
                 }
                 blockNumberGt.SetValue(totalBatchSize + i + this->coreNum, processBlockNum);
+            }
+            // 如果提前结束且当前batch仍有剩余行，写回剩余值
+            if (batchId < totalBatchSize) {
+                blockNumberGt.SetValue(batchId, remainingRowsInBatch);
+                // 之前未处理的batch保持原值，无需写回
             }
             DataCacheCleanAndInvalid<int64_t, CacheLine::ENTIRE_DATA_CACHE, DcciDst::CACHELINE_OUT>(blockNumberGt);
         }
@@ -124,24 +134,35 @@ namespace HstuDenseForward {
 
             // 遍历workers 计算得到每一个works的任务量（因果场景）
             uint32_t batchId = 0;
-            uint32_t taskNum = 1;
+            int64_t remainingRowsInBatch = (totalBatchSize > 0) ? blockNumberGt.GetValue(batchId) : 0; // 等同于n
+            uint32_t currentRowTaskNum = 1; // 第1行任务数为1，随后单调递增
             uint32_t processBlockNum = 0;
-            uint32_t processTaskNum = 0;
-            uint32_t workLoads = 0;
             for (int i = 0; i < this->coreNum && batchId < totalBatchSize; i++) {
                 blockNumberGt.SetValue(totalBatchSize + i, processBlockNum);
-                workLoads = 0;
-                while (workLoads < eachCoreTaskNumLimit) {
-                    workLoads += taskNum;
-                    processTaskNum += taskNum;
-                    taskNum++;
-                    processBlockNum++;
-                    blockNumberGt.SetValue(batchId, blockNumberGt.GetValue(batchId) - 1);
-                    if (!BatchSwitchCausal(batchId, taskNum, totalBatchSize)) {
-                        break;
+                int64_t workLoads = 0;
+                while (workLoads < eachCoreTaskNumLimit && batchId < totalBatchSize) {
+                    if (remainingRowsInBatch == 0) {
+                        // 当前(batch, head)结束，写回0，并切换到下一个，重置行任务数
+                        blockNumberGt.SetValue(batchId, 0);
+                        batchId++;
+                        if (batchId >= totalBatchSize) {
+                            break;
+                        }
+                        remainingRowsInBatch = blockNumberGt.GetValue(batchId);
+                        currentRowTaskNum = 1;
+                        continue;
                     }
+                    // 因果分配：第r行贡献r个任务，总计n*(n+1)/2
+                    workLoads += currentRowTaskNum;
+                    processBlockNum++;
+                    currentRowTaskNum++;
+                    remainingRowsInBatch--;
                 }
                 blockNumberGt.SetValue(totalBatchSize + i + this->coreNum, processBlockNum);
+            }
+            // 写回当前batch剩余行数
+            if (batchId < totalBatchSize) {
+                blockNumberGt.SetValue(batchId, remainingRowsInBatch);
             }
             DataCacheCleanAndInvalid<int64_t, CacheLine::ENTIRE_DATA_CACHE, DcciDst::CACHELINE_OUT>(blockNumberGt);
         }
