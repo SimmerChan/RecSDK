@@ -40,6 +40,8 @@ EXTRA_T = [1, 0, -1]
 B = [2048, 20480, 204800]
 SHAPE_LIST = list(itertools.product(T, EXTRA_T, B))
 
+_NOT_PERFORMED_SHAPES = list(itertools.product(T, [0], [0]))
+
 
 def get_result(tensors: dict, device: str = 'cpu'):
     tensors = {k: torch.from_numpy(v) if isinstance(v, np.ndarray) else v for k, v in tensors.items()}
@@ -88,3 +90,10 @@ def test_permute2d_sparse_data(types, shapes, enable_permuted_sum):
         assert type(gt) is type(pred)
         if isinstance(gt, torch.Tensor) and isinstance(pred, torch.Tensor):
             assert torch.allclose(gt, pred, atol=1e-5)
+
+
+@pytest.mark.parametrize("types", TYPE_LIST)
+@pytest.mark.parametrize("shapes", _NOT_PERFORMED_SHAPES)
+@pytest.mark.parametrize("enable_permuted_sum", [True, False])
+def test_permute2d_sparse_data_for_not_performed(types, shapes, enable_permuted_sum):
+    test_permute2d_sparse_data(types, shapes, enable_permuted_sum)
