@@ -40,7 +40,7 @@ EXTRA_T = [1, 0, -1]
 B = [2048, 20480, 204800]
 SHAPE_LIST = list(itertools.product(T, EXTRA_T, B))
 
-_NOT_PERFORMED_SHAPES = list(itertools.product(T, [0], [0]))
+_NOT_PERFORMED_SHAPES = list(itertools.product(T, [1], [0]))
 
 
 def get_result(tensors: dict, device: str = 'cpu'):
@@ -61,7 +61,7 @@ def test_permute2d_sparse_data(types, shapes, enable_permuted_sum):
     """
     Params:
         permute: (T) dtype=int32
-        lenghts: (T + T', B) dtype=ltype
+        lengths: (T + T', B) dtype=ltype
                  L = lengths[:T].sum()
         values: (L) dtype=vtype
         weights: (L) dtype=fp32
@@ -83,9 +83,12 @@ def test_permute2d_sparse_data(types, shapes, enable_permuted_sum):
         'permuted_lengths_sum': permuted_lengths_sum
     }
 
+    _compute_and_check(params)
+
+
+def _compute_and_check(params):
     golden = get_result(params)
     result = get_result(params, DEVICE)
-
     for gt, pred in zip(golden, result):
         assert type(gt) is type(pred)
         if isinstance(gt, torch.Tensor) and isinstance(pred, torch.Tensor):
@@ -96,4 +99,23 @@ def test_permute2d_sparse_data(types, shapes, enable_permuted_sum):
 @pytest.mark.parametrize("shapes", _NOT_PERFORMED_SHAPES)
 @pytest.mark.parametrize("enable_permuted_sum", [True, False])
 def test_permute2d_sparse_data_for_not_performed(types, shapes, enable_permuted_sum):
-    test_permute2d_sparse_data(types, shapes, enable_permuted_sum)
+    t, extra_t, b = shapes
+    extra_t = random.randint(1, t - 1) * extra_t
+
+    ptype, ltype, vtype, wtype = types
+    permute = np.random.choice(t + extra_t, t).astype(dtype=np.int32)
+    lengths = np.ones((t + extra_t, b), dtype=ltype)
+
+    # Not perform permutation, the difference in values size and lengths size can be ignored.
+    values = np.arange(0, (t + extra_t) * 1, dtype=vtype)
+    weights = np.arange(0, (t + extra_t) * 1, dtype=wtype) if wtype else None
+    permuted_lengths_sum = lengths[permute].sum() if enable_permuted_sum else None
+    params = {
+        'permute': permute,
+        'lengths': lengths,
+        'values': values,
+        'weights': weights,
+        'permuted_lengths_sum': permuted_lengths_sum
+    }
+
+    _compute_and_check(params)
