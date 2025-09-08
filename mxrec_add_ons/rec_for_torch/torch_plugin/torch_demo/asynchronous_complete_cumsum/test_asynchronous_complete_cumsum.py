@@ -35,7 +35,7 @@ def get_ops_result(t_in):
 
 @pytest.mark.parametrize("dtype", [torch.int32, torch.int64])
 @pytest.mark.parametrize("device", ["cpu", "npu:0", "npu:5"])
-@pytest.mark.parametrize("length", [1, 10, 100, 1000, 10000])
+@pytest.mark.parametrize("length", [1, 10, 100, 1000, 10000, 2**30])
 def test_asynchronous_complete_cumsum(dtype, device, length):
     t_int = torch.randint(0, 100, (length,), dtype=dtype)
     golden = get_result(t_int)
@@ -43,20 +43,9 @@ def test_asynchronous_complete_cumsum(dtype, device, length):
     assert torch.allclose(result, golden)
 
 
-def test_asynchronous_complete_cumsum_large_input():
-    """测试大输入元素数量，验证与GPU版本对齐的元素数量限制"""
-    # 创建一个接近但不超过INT_MAX的张量
-    large_length = 2**30  # 1073741824，小于INT_MAX(2**31-1)
-    t_large = torch.randint(0, 100, (large_length,), dtype=torch.int32)
-    
-    # 验证NPU版本可以处理这个大小的输入
-    result_npu = get_ops_result(t_large.npu())
-    result_cpu = get_result(t_large)
-    assert torch.allclose(result_npu, result_cpu)
-
 
 def test_asynchronous_complete_cumsum_exceed_limit():
-    """测试超过元素数量限制的情况"""
+    """测试超过元素数量限制的情况，验证PTA层校验机制"""
     # 创建一个超过INT_MAX的张量
     exceed_length = 2**31  # 超过INT_MAX(2**31-1)
     t_exceed = torch.randint(0, 100, (exceed_length,), dtype=torch.int32)
