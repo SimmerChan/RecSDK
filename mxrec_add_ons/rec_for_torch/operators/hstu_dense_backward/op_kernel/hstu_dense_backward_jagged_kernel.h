@@ -19,7 +19,9 @@ See the License for the specific language governing permissions and
 
 #include "hstu_dense_backward_kernel.h"
 #include "hstu_dense_backward_kernel_common.h"
+#include "hstu_mask.h"
 
+using HstuDenseBackward::BlockMaskParams;
 namespace HstuDenseBackward {
 
 struct JaggedTaskInfo {
@@ -349,7 +351,8 @@ public:
                          computeTaskInfo[curTaskId].rowId * this->blockHeight * this->maxSeqLen +
                          computeTaskInfo[curTaskId].colId * this->blockHeight;
         }
-
+        
+        // 是否需要生成Mask
         bool useMask = false;
         if (IfMask(this->maskType, MaskType::MASK_TRIL)) {
             useMask = computeTaskInfo[curTaskId].rowId == computeTaskInfo[curTaskId].colId;
@@ -494,7 +497,21 @@ public:
             int64_t rowLimit = computeTaskInfo[taskId % COMPUTE_PIPE_NUM].blockLimit;
 
             for (int64_t rowId = 0; rowId < rowLimit; rowId++) {
-                if (IfMask(this->maskType, MaskType::MASK_TRIL) && rowId < colId) {
+                auto args = this->computeTaskInfo[taskId % COMPUTE_PIPE_NUM];
+    
+                this->blockMaskParams[taskId % COMPUTE_PIPE_NUM] = {
+                    (uint32_t) args.rowId,
+                    (uint32_t) colId,
+                    (uint32_t) args.curSeqLen,
+                    this->blockHeight,
+                    this->numContext,
+                    this->numTarget,
+                    this->targetGroupSize,
+                    1
+                };
+
+                BlockMaskParams& maskinfo = this->blockMaskParams[taskId % COMPUTE_PIPE_NUM];
+                if (IfMask(this->maskType, MaskType::MASK_TRIL) && maskinfo.NoComputation()) {
                     continue;
                 }
 
@@ -543,7 +560,20 @@ public:
             int64_t colLimit = computeTaskInfo[taskId % COMPUTE_PIPE_NUM].blockLimit;
 
             for (int64_t colId = 0; colId < colLimit; colId++) {
-                if (IfMask(this->maskType, MaskType::MASK_TRIL) && rowId < colId) {
+                
+                auto args = this->computeTaskInfo[taskId % COMPUTE_PIPE_NUM];
+                this->blockMaskParams[taskId % COMPUTE_PIPE_NUM] = {
+                    (uint32_t)args.rowId,
+                    (uint32_t) colId,
+                    (uint32_t) args.curSeqLen,
+                    this->blockHeight,
+                    this->numContext,
+                    this->numTarget,
+                    this->targetGroupSize,
+                    1
+                };
+                BlockMaskParams& maskinfo = this->blockMaskParams[taskId % COMPUTE_PIPE_NUM];
+                if (IfMask(this->maskType, MaskType::MASK_TRIL) && maskinfo.NoComputation()) {
                     continue;
                 }
 
@@ -579,7 +609,6 @@ protected:
     uint32_t endRowBlock;
 
     JaggedTaskInfo computeTaskInfo[COMPUTE_PIPE_NUM];
-
     HstuDenseBackwardTilingData* __restrict backwardTilingData {nullptr};
 };
 

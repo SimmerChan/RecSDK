@@ -16,7 +16,9 @@ See the License for the specific language governing permissions and
 #ifndef HSTU_DENSE_BACKWARD_KERNEL_H
 #define HSTU_DENSE_BACKWARD_KERNEL_H
 
+#include <cstdint>
 #include "hstu_dense_backward_kernel_common.h"
+#include "hstu_mask.h"
 
 namespace HstuDenseBackward {
 
@@ -36,7 +38,7 @@ struct BlockInfo {
 };
 
 template <typename qType>
-class HstuDenseBackwardKernel {
+class  HstuDenseBackwardKernel {
 public:
     __aicore__ inline HstuDenseBackwardKernel() {}
 
@@ -78,6 +80,10 @@ public:
         enableBias = tilingData.enableBias;
         isNormal = tilingData.isNormal;
         aivNum = tilingData.aivNum;
+
+        numContext = tilingData.numContext;
+        numTarget = tilingData.numTarget;
+        targetGroupSize = tilingData.targetGroupSize;
 
         rowBlockNum = (seqLen + blockHeight - 1) / blockHeight;
         colBlockNum = (seqLen + blockHeight - 1) / blockHeight;
@@ -538,7 +544,7 @@ public:
     }
 
     __aicore__ inline void ValidVecScore(int64_t thisLen, int64_t validRowNum, int64_t totalColNum, int64_t qkOffset,
-        int64_t curMaskOffset, int64_t curAttnBiasOffset, int64_t curBiasGradOutOffset, bool useMask)
+        int64_t curMaskOffset, int64_t curAttnBiasOffset, int64_t curBiasGradOutOffset, bool useMask, BlockMaskGenerator& generator, int64_t rowInBlock)
     {
         int64_t gvOffset = qkOffset;
         int64_t scoreTempOffset = qkOffset;
@@ -552,7 +558,8 @@ public:
         if (useMask) {
             LocalTensor<float> inputMask = queueVecScoreMask.AllocTensor<float>();
             if (IfMask(maskType, MaskType::MASK_TRIL)) {
-                DataCopy<qType>(inputMask.template ReinterpretCast<qType>(), maskTemp[curMaskOffset], thisLen);
+                // DataCopy<qType>(inputMask.template ReinterpretCast<qType>(), maskTemp[curMaskOffset], thisLen);
+                generator.GenMask(inputMask, rowInBlock, blockHeight, blockHeight);
             }
             if (IfMask(maskType, MaskType::MASK_CUSTOM)) {
                 CopyInPadding(inputMask.template ReinterpretCast<qType>(), mask[curMaskOffset], validRowNum,
@@ -592,6 +599,7 @@ public:
         int64_t total = blockHeight * blockHeight;
         int64_t remain = total;
         int64_t thisLen = vecOnceDataNum;
+        BlockMaskGenerator generator(&blockMaskParams[taskId]);
         while (remain > 0) {
             if (remain < thisLen) {
                 thisLen = remain;
@@ -617,10 +625,10 @@ public:
 
             if (validRowNum > 0) {
                 ValidVecScore(thisLen, validRowNum, totalColNum, qkOffset, curMaskOffset, curAttnBiasOffset,
-                    curBiasGradOutOffset, useMask);
+                    curBiasGradOutOffset, useMask, generator, startRowNum);
             }
 
-            if (enableBias && IfMask(maskType, MaskType::MASK_TRIL) && !useMask) {
+            if (enableBias && IfMask(maskType, MaskType::MASK_TRIL) && blockMaskParams[taskId].DiagonalNoComputation()) {
                 LocalTensor<qType> outputTempTensor = queueOutputTemp.AllocTensor<qType>();
                 Duplicate<qType>(outputTempTensor, 0, thisLen);
                 queueOutputTemp.EnQue(outputTempTensor);
@@ -901,6 +909,7 @@ public:
             queueOutputTemp.FreeTensor(newOutput);
 
             remain = remain - thisLen;
+            
         }
     }
 
@@ -956,6 +965,12 @@ public:
     int64_t totalColBlockNum;
     int64_t totalBlockNum;
 
+    // MaskType
+    int64_t numContext;
+    int64_t numTarget;
+    int64_t targetGroupSize;
+    BlockMaskParams blockMaskParams[COMPUTE_PIPE_NUM];
+
     // task
     BlockInfo taskInfo[COMPUTE_PIPE_NUM];
 
@@ -994,6 +1009,7 @@ public:
     GlobalTensor<qType> maskTemp;
     GlobalTensor<float> qGradAccumTemp;
     GlobalTensor<qType> biasGradTemp;
+
 
     // Matmul
     matmul::Matmul<matmul::MatmulType<TPosition::GM, CubeFormat::ND, qType, false>,
