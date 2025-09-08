@@ -29,11 +29,7 @@ using namespace AscendC;
 
 
 namespace HstuDenseForward{
-    struct BlockTaskInfo {
-        uint32_t startBlockId = 0;
-        uint32_t endBlockId = 0;
-    };
-
+    constexpr int CONST_2 = 2;
     class BlockTaskAssign {
     public:
         __aicore__ inline BlockTaskAssign(uint32_t *seqOffsets,
@@ -88,8 +84,6 @@ namespace HstuDenseForward{
             uint32_t processTaskNum = 0;
             uint32_t workLoads = 0;
             for (int i = 0; i < this->coreNum && batchId < totalBatchSize; i++) {
-                BlockTaskInfo blockTask;
-                blockTask.startBlockId = processBlockNum;
                 blockNumberGt.SetValue(totalBatchSize + i, processBlockNum);
                 workLoads = 0;
                 while (workLoads < eachCoreTaskNumLimit) {
@@ -104,7 +98,7 @@ namespace HstuDenseForward{
                 blockNumberGt.SetValue(totalBatchSize + i + this->coreNum, processBlockNum);
 
             }
-            DataCacheCleanAndInvalid<int64_t, CacheLine::ENTIRE_DATA_CACHE, DcciDist::CACHELINE_OUT>(blockNumberGt);
+            DataCacheCleanAndInvalid<int64_t, CacheLine::ENTIRE_DATA_CACHE, DcciDst::CACHELINE_OUT>(blockNumberGt);
         }
 
         __aicore__ inline bool BatchSwitchCausal(
@@ -136,8 +130,6 @@ namespace HstuDenseForward{
             uint32_t processTaskNum = 0;
             uint32_t workLoads = 0;
             for (int i = 0; i < this->coreNum && batchId < totalBatchSize; i++) {
-                BlockTaskInfo blockTask;
-                blockTask.startBlockId = processBlockNum;
                 blockNumberGt.SetValue(totalBatchSize + i, processBlockNum);
                 workLoads = 0;
                 while (workLoads < eachCoreTaskNumLimit) {
@@ -153,7 +145,7 @@ namespace HstuDenseForward{
                 blockNumberGt.SetValue(totalBatchSize + i + this->coreNum, processBlockNum);
 
             }
-            DataCacheCleanAndInvalid<int64_t, CacheLine::ENTIRE_DATA_CACHE, DcciDist::CACHELINE_OUT>(blockNumberGt);
+            DataCacheCleanAndInvalid<int64_t, CacheLine::ENTIRE_DATA_CACHE, DcciDst::CACHELINE_OUT>(blockNumberGt);
         }
 
     private:

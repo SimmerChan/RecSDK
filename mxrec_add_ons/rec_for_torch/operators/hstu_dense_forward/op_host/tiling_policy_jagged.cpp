@@ -89,6 +89,14 @@ bool TilingPolicyJagged::TilingCore(gert::TilingContext* context, optiling::Hstu
         return false;
     }
 
+    uint32_t seqOffsets[MAX_BATCH_SIZE + 1] = {0};
+    for (auto i = 0; i < seqOffsetLens; i++) {
+        seqOffsets[i] = seqOffsetData[i];
+    }
+
+
+
+    
     auto ascendPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
     size_t coreNum = ascendPlatform.GetCoreNumAiv();
 
