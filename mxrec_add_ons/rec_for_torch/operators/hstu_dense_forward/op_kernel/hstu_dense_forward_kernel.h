@@ -88,7 +88,7 @@ public:
                      scoreArgs.qSeqId * this->blockHeight * this->xDim1 + \
                      scoreArgs.kSeqId * this->blockHeight;
 #endif
-        int causalMask = ((scoreArgs.qSeqId == scoreArgs.kSeqId) &&
+        uint32_t causalMask = ((scoreArgs.qSeqId == scoreArgs.kSeqId) &&
             (this->maskType == CausalMaskT::MASK_TRIL)) ? 1 : 0;
 
         int64_t m = (scoreArgs.qSeqId != (seqBlockNumQk - 1)) ? this->blockHeight :

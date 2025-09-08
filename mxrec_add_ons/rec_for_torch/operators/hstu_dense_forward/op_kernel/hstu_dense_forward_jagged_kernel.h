@@ -39,7 +39,6 @@ struct JaggedTaskArgs {
     int64_t headSeqLimit = 0;       // 该基本块的head offset最大长度, 超过则需要考虑切换head_id
     int64_t kvOffset = 0;           // 该基本块的key value计算偏移
     int64_t ioOffset = 0;           // 该基本块的query attenOutput计算偏移
-    BlockMaskParams* maskParams = nullptr; // 该基本块的mask参数
 };
 
 template <typename qType>
@@ -78,6 +77,7 @@ private:
     uint32_t headNum {0};
     uint32_t headDim {0};
 
+    BlockMaskParams maskTaskInfo[COMPUTE_PIPE_NUM];
     JaggedTaskArgs computeTaskInfo[COMPUTE_PIPE_NUM];
     JaggedTaskArgs trasnTaskInfo[TRANS_PIPE_NUM];
 };
@@ -122,9 +122,9 @@ __aicore__ inline void HstuDenseForwardJaggedKernel<qType>::ComputeVecScore(uint
 
     int64_t maskOffset = biasOffset;
 
-    this->template VecScoreImpl<BlockMaskParams*>(taskId, biasOffset, maskOffset,
+    this->template VecScoreImpl<BlockMaskParams>(taskId, biasOffset, maskOffset,
                        computeTaskInfo[taskId].scale,
-                       computeTaskInfo[taskId].maskParams,
+                       maskTaskInfo[taskId],
                        computeTaskInfo[taskId].computeASeqLen,
                        computeTaskInfo[taskId].computeBSeqLen);
 }
@@ -151,19 +151,20 @@ __aicore__ inline void HstuDenseForwardJaggedKernel<qType>::ComputeAllBlock()
     for (auto blkId = sBlkId; blkId < eBlkId; blkId++) {
         auto kSeqNum = computeTaskInfo[taskId % COMPUTE_PIPE_NUM].kSeqNum;
         for (auto kSeqId = 0; kSeqId < kSeqNum; kSeqId++) {
-            auto args = this->computeTaskInfo[taskId % COMPUTE_PIPE_NUM];
-            BlockMaskParams maskinfo = {
-                args.qSeqId,
+            currentTaskId = taskId % COMPUTE_PIPE_NUM;
+            auto taskinfo = this->computeTaskInfo[currentTaskId];
+            this->maskTaskInfo[currentTaskId] = {
+                taskinfo.qSeqId,
                 (uint32_t)kSeqId,
-                args.actualSeqLen,
+                taskinfo.actualSeqLen,
                 this->blockHeight,
                 this->numContext,
                 this->numTarget,
                 this->targetGroupSize,
-                args.scale
+                taskinfo.scale
             };
-            if (maskinfo.NoComputation()) {
-                continue;
+            if (this->maskTaskInfo[currentTaskId].NoComputation()) {
+                break;
             }
 
             currentTaskId = taskId % COMPUTE_PIPE_NUM;
@@ -172,7 +173,6 @@ __aicore__ inline void HstuDenseForwardJaggedKernel<qType>::ComputeAllBlock()
             nextTaskId = (taskId + 1) % COMPUTE_PIPE_NUM;
 
             this->computeTaskInfo[currentTaskId].transTaskId = transtaskId % TRANS_PIPE_NUM;
-            this->computeTaskInfo[currentTaskId].maskParams = &maskinfo;
             this->computeTaskInfo[currentTaskId].kSeqId = kSeqId;
             this->computeTaskInfo[currentTaskId].computeBSeqLen =
                 (kSeqId != (kSeqNum - 1)) ?

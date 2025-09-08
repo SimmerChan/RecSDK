@@ -375,7 +375,7 @@ public:
     __aicore__ inline bool DoMaskInitOptional(
         LocalTensor<qType>& inMaskLt,
         LocalTensor<float>& inMaskLtFp32,
-        MaskInfoType maskinfo,
+        MaskInfoType& maskinfo,
         int64_t maskOffset,
         int64_t thisLen,
         int64_t blockOffset,
@@ -394,7 +394,7 @@ public:
                     ((maskinfo > 0) ? (blockOffset) : n),  // blockOffset为行号
                     scale);
             } else {
-                // 处理 BlockMaskParams* 类型
+                // 处理 BlockMaskParams 类型
                 BlockMaskGenerator blkMaskGen(maskinfo);
                 needMask =
                     blkMaskGen.GenMask(inMaskLtFp32, blockOffset, thisLen / this->blockHeight, this->blockHeight);
@@ -436,7 +436,7 @@ public:
         int64_t biasOffset,
         int64_t maskOffset,
         float scale,
-        MaskInfoType maskinfo,
+        MaskInfoType& maskinfo,
         uint32_t m,
         uint32_t n)
     {

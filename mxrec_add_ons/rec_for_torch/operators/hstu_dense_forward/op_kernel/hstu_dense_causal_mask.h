@@ -47,6 +47,8 @@ struct BlockMaskParams {
     int64_t targetGroupSize;  // target 掩码group size
     float value;              // 掩码值
 
+    __aicore__ inline BlockMaskParams() {}
+
     __aicore__ inline BlockMaskParams(uint32_t qSeq, uint32_t kSeq, uint32_t len, int64_t bHeight, int64_t nContext,
                                       int64_t nTarget, int64_t groupSize, float val)
         : qSeqId(qSeq),
@@ -70,16 +72,16 @@ struct BlockMaskParams {
 
 class BlockMaskGenerator {
 public:
-    __aicore__ inline BlockMaskGenerator(BlockMaskParams* params)
+    __aicore__ inline BlockMaskGenerator(BlockMaskParams& params)
     {
-        qSeqId = params->qSeqId;
-        kSeqId = params->kSeqId;
-        seqlen = params->seqlen;
-        blockHeight = params->blockHeight;
-        numContext = params->numContext;
-        numTarget = params->numTarget;
-        targetGroupSize = params->targetGroupSize;
-        value = params->value;
+        qSeqId = params.qSeqId;
+        kSeqId = params.kSeqId;
+        seqlen = params.seqlen;
+        blockHeight = params.blockHeight;
+        numContext = params.numContext;
+        numTarget = params.numTarget;
+        targetGroupSize = params.targetGroupSize;
+        value = params.value;
         contextMask = NeedContextMask();
         causalMask = NeedCausalMask();
         targetMask = NeedTargetMask();

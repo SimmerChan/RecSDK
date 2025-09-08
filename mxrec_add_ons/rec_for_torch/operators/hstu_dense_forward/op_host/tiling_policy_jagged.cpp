@@ -150,7 +150,7 @@ public:
         uint32_t totalTaskNumber = 0;
         for (auto seqId = 0; seqId < batchSize; seqId++) {
             auto seqlen = seqOffsets[seqId + 1] - seqOffsets[seqId];
-            totalTaskNumber += this->policy.GetSeqTasks(seqlen, this->params);
+            totalTaskNumber += headNum * this->policy.GetSeqTasks(seqlen, this->params);
         }
 
         uint32_t eachCoreTaskNumLimit = ceilDiv(totalTaskNumber, coreNum);
