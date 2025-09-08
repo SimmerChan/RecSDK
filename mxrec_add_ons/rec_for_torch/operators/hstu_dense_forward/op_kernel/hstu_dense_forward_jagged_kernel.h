@@ -376,12 +376,12 @@ HstuDenseForwardJaggedKernel<qType>::PreInit(const HstuDenseForwardTilingData *_
     this->headDim = this->xDim3;
     this->maxSeqLen = tilingDataPtr->maxSeqLen;
 
-    int64_t totalBatchSize = this->xDim0 * this->xDim2;
+    uint32_t totalBatchSize = this->xDim0 * this->xDim2;
+    uint32_t totalGtSize = totalBatchSize + coreNum * CONST_2; // blocknum per batch, startblockid, endblockid
     for (auto i = 0; i < this->xDim0 + 1; i++) {
         this->seqOffsets[i] = tilingDataPtr->seqOffset[i];
     }
-   
-    blockNumberGt.SetGlobalBuffer(reinterpret_cast<__gm__ int64_t*>(this->workspace), totalBatchSize + coreNum * CONST_2);
+    blockNumberGt.SetGlobalBuffer(reinterpret_cast<__gm__ int64_t*>(this->workspace), totalGtSize);
     if (GetBlockIdx() == 0) {
         auto tmpLt = this->tmpBuff.template AllocTensor<int32_t>();
         auto dstLt = this->queOut.template AllocTensor<int64_t>();
@@ -390,7 +390,12 @@ HstuDenseForwardJaggedKernel<qType>::PreInit(const HstuDenseForwardTilingData *_
         Cast(dstLt, tmpLt, RoundMode::CAST_NONE, coreNum * CONST_2);
         DataCopy(blockNumberGt[totalBatchSize], dstLt, coreNum * CONST_2);
 
-        auto taskAssigner = BlockTaskAssign(this->seqOffsets, coreNum, this->blockHeight, this->batchSize, this->headNum, blockNumberGt);
+        auto taskAssigner = BlockTaskAssign(this->seqOffsets,
+                                            coreNum,
+                                            this->blockHeight,
+                                            this->batchSize,
+                                            this->headNum,
+                                            blockNumberGt);
         if (this->maskType == CausalMaskT::MASK_TRIL) {
             taskAssigner.ComputeCausal();
         } else {
@@ -409,8 +414,6 @@ HstuDenseForwardJaggedKernel<qType>::PreInit(const HstuDenseForwardTilingData *_
     }
     return 0;
 }
-
-
 }
 
 #endif

@@ -94,9 +94,6 @@ bool TilingPolicyJagged::TilingCore(gert::TilingContext* context, optiling::Hstu
         seqOffsets[i] = seqOffsetData[i];
     }
 
-
-
-    
     auto ascendPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
     size_t coreNum = ascendPlatform.GetCoreNumAiv();
 

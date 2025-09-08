@@ -28,12 +28,12 @@ See the License for the specific language governing permissions and
 using namespace AscendC;
 
 
-namespace HstuDenseForward{
+namespace HstuDenseForward {
     constexpr int CONST_2 = 2;
     class BlockTaskAssign {
     public:
-        __aicore__ inline BlockTaskAssign(uint32_t *seqOffsets,
-                        uint32_t coreNum, uint32_t blockLen, uint32_t batchSize, uint32_t headNum, GlobalTensor<int64_t> &blockNumberGt)
+        __aicore__ inline BlockTaskAssign(uint32_t *seqOffsets, uint32_t coreNum, uint32_t blockLen,
+                                          uint32_t batchSize, uint32_t headNum, GlobalTensor<int64_t> &blockNumberGt)
         {
             this->seqOffsets = seqOffsets;
             this->coreNum = coreNum;
@@ -96,7 +96,6 @@ namespace HstuDenseForward{
                     }
                 }
                 blockNumberGt.SetValue(totalBatchSize + i + this->coreNum, processBlockNum);
-
             }
             DataCacheCleanAndInvalid<int64_t, CacheLine::ENTIRE_DATA_CACHE, DcciDst::CACHELINE_OUT>(blockNumberGt);
         }
@@ -143,13 +142,15 @@ namespace HstuDenseForward{
                     }
                 }
                 blockNumberGt.SetValue(totalBatchSize + i + this->coreNum, processBlockNum);
-
             }
             DataCacheCleanAndInvalid<int64_t, CacheLine::ENTIRE_DATA_CACHE, DcciDst::CACHELINE_OUT>(blockNumberGt);
         }
 
     private:
-        __aicore__ inline void InitAndComputeLimit(bool isCausal, uint32_t &totalBatchSize, int64_t &eachCoreTaskNumLimit)
+        __aicore__ inline void InitAndComputeLimit(
+            bool isCausal,
+            uint32_t &totalBatchSize,
+            int64_t &eachCoreTaskNumLimit)
         {
             // 得到每个batch 和 head的block个数
             totalBatchSize = batchSize * headNum;
