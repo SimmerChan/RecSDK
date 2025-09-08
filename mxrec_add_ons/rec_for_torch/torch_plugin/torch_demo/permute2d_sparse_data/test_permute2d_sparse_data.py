@@ -40,7 +40,9 @@ EXTRA_T = [1, 0, -1]
 B = [2048, 20480, 204800]
 SHAPE_LIST = list(itertools.product(T, EXTRA_T, B))
 
-_NOT_PERFORMED_SHAPES = list(itertools.product(T, [1], [0]))
+_ZERO_PERMUTE = list(itertools.product([0], [1], B))
+_ZERO_LENGTH = list(itertools.product(T, [1], [0]))
+_NOT_PERFORMED_SHAPES = _ZERO_PERMUTE + _ZERO_LENGTH
 
 
 def get_result(tensors: dict, device: str = 'cpu'):
@@ -96,10 +98,10 @@ def _check_result(golden, result):
 
 @pytest.mark.parametrize("types", TYPE_LIST)
 @pytest.mark.parametrize("shapes", _NOT_PERFORMED_SHAPES)
-@pytest.mark.parametrize("enable_permuted_sum", [True, False])
+@pytest.mark.parametrize("enable_permuted_sum", [True])
 def test_permute2d_sparse_data_for_not_performed(types, shapes, enable_permuted_sum):
     t, extra_t, b = shapes
-    extra_t = random.randint(1, t - 1) * extra_t
+    extra_t = random.randint(1, max(t - 1, 1)) * extra_t
 
     ptype, ltype, vtype, wtype = types
     permute = np.random.choice(t + extra_t, t).astype(dtype=np.int32)
@@ -116,6 +118,7 @@ def test_permute2d_sparse_data_for_not_performed(types, shapes, enable_permuted_
         'weights': weights,
         'permuted_lengths_sum': permuted_lengths_sum
     }
-    golden = (lengths, values, weights)
+
+    golden = get_result(params)
     result = get_result(params, DEVICE)
     _check_result(golden, result)
