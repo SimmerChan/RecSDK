@@ -44,9 +44,9 @@ def test_asynchronous_complete_cumsum(dtype, device, length):
 
 
 @pytest.mark.parametrize("length", [2**31 - 1, 2**31])
-def test_asynchronous_complete_cumsum_exceed_limit(exceed_length):
+def test_asynchronous_complete_cumsum_exceed_limit(length):
     """测试超过元素数量限制的情况，验证PTA层校验机制"""
-    t_exceed = torch.randint(0, 100, (exceed_length,), dtype=torch.int32)
+    t_exceed = torch.randint(0, 100, (length,), dtype=torch.int32)
     
     # 验证NPU版本会抛出异常（与GPU版本对齐）
     with pytest.raises(RuntimeError):
