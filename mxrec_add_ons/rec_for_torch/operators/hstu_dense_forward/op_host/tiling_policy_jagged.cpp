@@ -74,25 +74,6 @@ bool TilingPolicyJagged::TilingShape(gert::TilingContext* context, optiling::Hst
     return true;
 }
 
-// static void CallBlockAssign(
-//     uint32_t *seqOffsets,
-//     uint32_t coreNum,
-//     std::vector<BlockTaskInfo> &workTasks,
-//     std::vector<int> &workLoads,
-//     optiling::HstuDenseForwardTilingData &tiling)
-// {
-//     uint32_t batchSize = tiling.get_batchSize();
-//     uint32_t headNum = tiling.get_headNum();
-//     uint32_t maskType = tiling.get_maskType();
-
-//     auto taskAssigner = BlockTaskAssign(seqOffsets, coreNum, BLOCK_HEIGHT, batchSize, headNum);
-//     if (maskType == 0) {
-//         taskAssigner.ComputeCausal(workTasks, workLoads);
-//     } else {
-//         taskAssigner.Compute(workTasks, workLoads);
-//     }
-// }
-
 bool TilingPolicyJagged::TilingCore(gert::TilingContext* context, optiling::HstuDenseForwardTilingData &tiling)
 {
     const gert::RuntimeAttrs* attrs = context->GetAttrs();
@@ -108,45 +89,10 @@ bool TilingPolicyJagged::TilingCore(gert::TilingContext* context, optiling::Hstu
         return false;
     }
 
-// #if JAGGED_TASK_ASSIGN_DEBUG
-//     auto start = std::chrono::high_resolution_clock::now();
-// #endif
-
-    // std::vector<BlockTaskInfo> workTasks;
-    // std::vector<int> workLoads;
-
-    // uint32_t seqOffsets[MAX_BATCH_SIZE + 1] = {0};
-    // for (auto i = 0; i < seqOffsetLens; i++) {
-    //     seqOffsets[i] = seqOffsetData[i];
-    // }
-
     auto ascendPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
     size_t coreNum = ascendPlatform.GetCoreNumAiv();
 
-    // CallBlockAssign(seqOffsets, coreNum, workTasks, workLoads, tiling);
-
-// #if JAGGED_TASK_ASSIGN_DEBUG
-//     auto end = std::chrono::high_resolution_clock::now();
-//     std::chrono::duration<double, std::micro> elapsed = end - start;
-//     std::cout << "BlockTaskAssign Elapsed time: " << elapsed.count() << " us\n";
-
-//     for (auto i = 0; i < coreNum; i++) {
-//         OPS_LOG_E("", "aicore :%d startBlockId:%d endBlockId:%d totalTaskNumber:%d\n",
-//             i, workTasks[i].startBlockId, workTasks[i].endBlockId, workLoads[i]);
-//     }
-// #endif
-
-    // uint32_t startBlockId[MAX_AIV_NUM] = {0};
-    // uint32_t endBlockId[MAX_AIV_NUM] = {0};
-
-    // for (auto i = 0; i < coreNum; i++) {
-    //     startBlockId[i] = workTasks[i].startBlockId;
-    //     endBlockId[i] = workTasks[i].endBlockId;
-    // }
-
     tiling.set_seqOffset(seqOffsets);
-    // tiling.set_eachCoreStartBlockId(startBlockId);
-    // tiling.set_eachCoreEndBlockId(endBlockId);
 
     size_t aicCoreNum = ascendPlatform.GetCoreNumAic();
     context->SetBlockDim(aicCoreNum);
@@ -175,20 +121,12 @@ void TilingPolicyJagged::DumpTiling(optiling::HstuDenseForwardTilingData &tiling
 {
     this->TilingPolicy::DumpTiling(tiling);
 
-    // uint32_t *seqOffset = tiling.get_seqOffset();
-    // uint32_t *startBlockId = tiling.get_eachCoreStartBlockId();
-    // uint32_t *endBlockId = tiling.get_eachCoreEndBlockId();
+    uint32_t *seqOffset = tiling.get_seqOffset();
 
-    // OPS_LOG_D("seq offset:");
-    // for (auto i = 0; i < (tiling.get_batchSize() + 1); i++) {
-    //     OPS_LOG_D("%d ", seqOffset[i]);
-    // }
-    // OPS_LOG_D("\n");
-
-    // OPS_LOG_D("core block range:\n");
-    // for (auto i = 0; i < MAX_AIV_NUM; i++) {
-    //     OPS_LOG_E("", "core_id:%d startBlockId:%d endBlockId:%d\n", i, startBlockId[i], endBlockId[i]);
-    // }
+    OPS_LOG_D("seq offset:");
+    for (auto i = 0; i < (tiling.get_batchSize() + 1); i++) {
+        OPS_LOG_D("%d ", seqOffset[i]);
+    }
+    OPS_LOG_D("\n");
 }
-
 }

@@ -80,6 +80,7 @@ private:
 
     JaggedTaskArgs computeTaskInfo[COMPUTE_PIPE_NUM];
     JaggedTaskArgs trasnTaskInfo[TRANS_PIPE_NUM];
+    GlobalTensor<int64_t> blockNumberGt;
 };
 
 template <typename qType>
@@ -368,26 +369,41 @@ __aicore__ inline int
 HstuDenseForwardJaggedKernel<qType>::PreInit(const HstuDenseForwardTilingData *__restrict tilingDataPtr)
 {
     int blockId = GetBlockIdx();
-   
-
-    BlockTaskInfo workTasks[GetBlockNum()];
-    int workLoads[GetBlockNum()];
+    uint32_t coreNum = GetBlockNum() * GetTaskRation();
     this->batchSize = this->xDim0;
-    auto blockNumber = this->queIn.AllocTensor<int64_t>();
-    auto totalBlock = this->queOut.AllocTensor<int64_t>();
     this->seqLen = this->xDim1;
     this->headNum = this->xDim2;
     this->headDim = this->xDim3;
-    auto taskAssigner = BlockTaskAssign(tilingDataPtr->seqOffset, GetBlockNum(), this->blockHeight;, this->batchSize, this->headNum);
-    if (maskType == 0) {
-        taskAssigner.ComputeCausal(workTasks, workLoads, blockNumber);
-    } else {
-        taskAssigner.Compute(workTasks, workLoads, blockNumber, totalBlock);
+    for (auto i = 0; i < this->xDim0; i++) {
+        this->seqOffsets[i] = tilingDataPtr->seqOffset[i];
     }
-    this->sBlkId =  workTasks[blockId].startBlockId;
-    this->eBlkId = workTasks[blockId].endBlockId;
-    this->queIn.FreeTensor(blockNumber);
-    this->queOut.FreeTensor(totalBlock);
+    int64_t totalBatchSize = this->xDim0 * this->xDim2;
+    blockNumberGt.SetGlobalBuffer(reinterpret_cast<__gm__ int64_t*>(this->workspace), totalBatchSize + coreNum * 2);
+    if (GetBlockIdx() == 0) {
+        auto tmpLt = this->tmpBuff.template AllocTensor<int32_t>();
+        auto dstLt = this->queOut.template AllocTensor<int64_t>();
+        int32_t initVal = 0;
+        Duplicate(tmpLt, initVal, coreNum * 2);
+        Cast(dstLt, tmpLt, RoundMode::CAST_NONE, coreNum * 2);
+        DataCopy(blockNumberGt[totalBatchSize], dstLt, coreNum * 2);
+
+        auto taskAssigner = BlockTaskAssign(tilingDataPtr->seqOffset,coreNum, this->blockHeight;, this->batchSize, this->headNum, blockNumberGt);
+        if (maskType == 0) {
+            taskAssigner.ComputeCausal();
+        } else {
+            taskAssigner.Compute();
+        }
+
+        this->tmpBuff.template FreeTensor(tmpLt);
+        this->queOut.template FreeTensor(dstLt);
+    }
+    SyncAll();
+    
+    this->sBlkId = blockNumberGt.GetValue(totalBatchSize + blockId);
+    this->eBlkId = blockNumberGt.GetValue(totalBatchSize + blockId + coreNum);
+    if (this->sBlkId == this->eBlkId && this->eBlkId == 0) {
+        return -1;
+    }
     return 0;
 }
 
