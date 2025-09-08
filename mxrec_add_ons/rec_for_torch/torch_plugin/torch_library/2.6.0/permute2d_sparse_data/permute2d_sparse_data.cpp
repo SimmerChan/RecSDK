@@ -38,7 +38,7 @@ tuple<Tensor, Tensor, c10::optional<Tensor>> permute2d_sparse_data_impl_npu(
             lengths.clone(),
             values.clone(),
             weights.has_value() ? std::make_optional(weights->clone()) : std::nullopt
-        }
+        };
     }
 
     int outValuesLen;
