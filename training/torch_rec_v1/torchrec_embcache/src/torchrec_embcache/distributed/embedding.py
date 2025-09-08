@@ -45,7 +45,8 @@ from hybrid_torchrec.sparse.jagged_tensor_with_looup_helper import (
 )
 
 from torchrec_embcache.distributed.configs import (
-    EmbCacheEmbeddingConfig
+    EmbCacheEmbeddingConfig,
+    check_embedding_config
 )
 from torchrec_embcache.distributed.sharding.rw_sequence_sharding import (
     EmbCacheRwSequenceEmbeddingSharding,
@@ -265,6 +266,7 @@ class EmbCacheEmbeddingCollection(EmbeddingCollection):
             emb_cache_config = EmbCacheEmbeddingConfig(embedding_dim=ori_config.embedding_dim,
                                                        num_embeddings=ori_config.num_embeddings)
             emb_cache_config.__dict__.update(ori_config.__dict__)
+            check_embedding_config(emb_cache_config)
             tables[i] = emb_cache_config
 
     def _calculate_caches(

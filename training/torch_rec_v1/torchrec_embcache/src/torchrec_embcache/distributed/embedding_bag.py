@@ -35,7 +35,7 @@ from hybrid_torchrec.distributed.sharding.post_input_dist import (
 from hybrid_torchrec.sparse.jagged_tensor_with_looup_helper import (
     KeyedJaggedTensorWithLookHelper,
 )
-from torchrec_embcache.distributed.configs import EmbCacheEmbeddingBagConfig
+from torchrec_embcache.distributed.configs import EmbCacheEmbeddingBagConfig, check_embedding_config
 from torchrec_embcache.distributed.sharding.rw_sharding import (
     EmbCacheRwPooledEmbeddingSharding,
 )
@@ -291,6 +291,7 @@ class EmbCacheEmbeddingBagCollection(EmbeddingBagCollection):
             emb_cache_config = EmbCacheEmbeddingBagConfig(embedding_dim=ori_config.embedding_dim,
                                                           num_embeddings=ori_config.num_embeddings)
             emb_cache_config.__dict__.update(ori_config.__dict__)
+            check_embedding_config(emb_cache_config)
             tables[i] = emb_cache_config
 
     def _calculate_caches(
