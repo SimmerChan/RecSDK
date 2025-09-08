@@ -36,7 +36,7 @@ namespace optiling {
         auto inputShape0 =  context->GetInputShape(0);
         OPS_LOG_E_IF_NULL("inputShape0", inputShape0, return ge::GRAPH_FAILED);
 
-        uint32_t totalLength = context->GetInputShape(0)->GetOriginShape().GetShapeSize();
+        uint64_t totalLength = context->GetInputShape(0)->GetOriginShape().GetShapeSize();
         uint32_t dimNum = context->GetInputShape(0)->GetOriginShape().GetDimNum();
 
         OPS_CHECK(totalLength >= std::numeric_limits<int32_t>::max(),
