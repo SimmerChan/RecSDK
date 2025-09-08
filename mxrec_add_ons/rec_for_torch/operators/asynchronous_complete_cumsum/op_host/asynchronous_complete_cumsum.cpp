@@ -13,11 +13,11 @@ See the License for the specific language governing permissions and
         limitations under the License.
 ==============================================================================*/
 
+#include <limits>
 #include "asynchronous_complete_cumsum_tiling.h"
 #include "register/op_def_registry.h"
 
 #include "../../../common/ops_log.h"
-#include <limits>
 
 namespace {
     constexpr int32_t EMBEDDING_TYPE_INT64 = 0;

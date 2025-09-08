@@ -18,7 +18,7 @@ using namespace at;
 at::Tensor asynchronous_complete_cumsum_npu(const at::Tensor &offset)
 {
     TORCH_CHECK(offset.is_contiguous(), "asynchronous_complete_cumsum: Offset tensor must be contiguous");
-    TORCH_CHECK(offset.dtype() == at::kInt || offset.dtype() == at::kLong, 
+    TORCH_CHECK(offset.dtype() == at::kInt || offset.dtype() == at::kLong,
                 "asynchronous_complete_cumsum: Offset tensor must be of type int32 or int64");
     TORCH_CHECK(offset.dim() == 1, "asynchronous_complete_cumsum: Offset tensor must be 1-D");
 
