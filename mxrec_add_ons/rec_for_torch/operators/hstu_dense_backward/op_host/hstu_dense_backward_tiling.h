@@ -51,6 +51,9 @@ TILING_DATA_FIELD_DEF(float, siluScale);
 TILING_DATA_FIELD_DEF(int32_t, isNormal);
 TILING_DATA_FIELD_DEF(uint32_t, aivNum);
 
+TILING_DATA_FIELD_DEF(int64_t, numContext);
+TILING_DATA_FIELD_DEF(int64_t, numTarget);
+TILING_DATA_FIELD_DEF(int64_t, targetGroupSize);
 END_TILING_DATA_DEF;
 
 REGISTER_TILING_DATA_CLASS(HstuDenseBackward, HstuDenseBackwardTilingData)

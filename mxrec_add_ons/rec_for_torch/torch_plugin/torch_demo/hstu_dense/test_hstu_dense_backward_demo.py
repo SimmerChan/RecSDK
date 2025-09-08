@@ -54,9 +54,9 @@ def jagged_data_gen(
 
     if mask_type == 0:
         if (num_context is None and num_target is None):
-            invalid_attn_mask = 1 - torch.triu(torch.ones(batch_size, num_heads, max_seq_len, max_seq_len), diagonal=1)
+            mask = 1 - torch.triu(torch.ones(batch_size, num_heads, max_seq_len, max_seq_len), diagonal=1)
         else:
-            invalid_attn_mask = torch.zeros(batch_size, num_heads, max_seq_len, max_seq_len)
+            mask = torch.zeros(batch_size, num_heads, max_seq_len, max_seq_len)
             for sample_id, seq_len in enumerate(seq_lens):
                 parm = ScoreShapeParam(
                     seq_len=seq_len,
@@ -69,7 +69,7 @@ def jagged_data_gen(
                 )
                 block_param = HstuBlockParam(0, 0, seq_len, seq_len)
                 mask_tensor = _compute_target_mask_one_block_gpu(block_param, parm)
-                invalid_attn_mask[sample_id, :, :seq_len, :seq_len] = mask_tensor   
+                mask[sample_id, :, :seq_len, :seq_len] = mask_tensor   
     elif mask_type == 1:
         mask = torch.triu(torch.ones(batch_size, num_heads, max_seq_len, max_seq_len, dtype=data_type))
     elif mask_type == 2:

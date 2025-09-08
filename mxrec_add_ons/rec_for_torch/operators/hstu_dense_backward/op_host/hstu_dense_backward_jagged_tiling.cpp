@@ -159,6 +159,15 @@ ge::graphStatus GetJaggedAttrsInfo(const gert::RuntimeAttrs *attrs, HstuDenseBac
     const auto seqOffset = attrs->GetAttrPointer<gert::ContinuousVector>(INDEX_T::INDEX_4);
     OPS_CHECK_PTR_NULL(seqOffset, return ge::GRAPH_FAILED);
 
+    const int64_t *numContext = attrs->GetAttrPointer<int64_t>(INDEX_T::INDEX_5);
+    OPS_CHECK_PTR_NULL(numContext, return false);
+
+    const int64_t *numTarget = attrs->GetAttrPointer<int64_t>(INDEX_T::INDEX_6);
+    OPS_CHECK_PTR_NULL(numTarget, return false);
+
+    const int64_t *targetGroupSize = attrs->GetAttrPointer<int64_t>(INDEX_T::INDEX_7);
+    OPS_CHECK_PTR_NULL(targetGroupSize, return false);
+
     auto *seqOffsetData = const_cast<int64_t *>(reinterpret_cast<const int64_t *>(seqOffset->GetData()));
     int seqOffsetLens = seqOffset->GetSize();
     if (seqOffsetLens > (MAX_BATCH_SIZE + 1)) {
@@ -176,7 +185,9 @@ ge::graphStatus GetJaggedAttrsInfo(const gert::RuntimeAttrs *attrs, HstuDenseBac
     tiling.set_siluScale(*siluScale);
     tiling.set_seqOffset(seqOffsets);
     tiling.set_batchSize(seqOffsetLens - 1);
-
+    tiling.set_numContext(*numContext);
+    tiling.set_numTarget(*numTarget);
+    tiling.set_targetGroupSize(*targetGroupSize);
     return ge::GRAPH_SUCCESS;
 }
 
