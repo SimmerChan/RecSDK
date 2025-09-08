@@ -37,7 +37,7 @@ namespace HstuDenseForward{
     class BlockTaskAssign {
     public:
         __aicore__ inline BlockTaskAssign(uint32_t *seqOffsets,
-                        uint32_t coreNum, uint32_t blockLen, uint32_t batchSize, uint32_t headNum, GlobalTensor<int64_t> blockNumberGt)
+                        uint32_t coreNum, uint32_t blockLen, uint32_t batchSize, uint32_t headNum, GlobalTensor<int64_t> &blockNumberGt)
         {
             this->seqOffsets = seqOffsets;
             this->coreNum = coreNum;
@@ -47,7 +47,7 @@ namespace HstuDenseForward{
             this->blockNumberGt = blockNumberGt;
         }
 
-        __aicore__ inline void PreInit() // 2408 * 8
+        __aicore__ inline void PreInit()
         {
             // 得到每个batch 和 head的block个数
             for (auto batchId = 0; batchId < batchSize; batchId++) {
@@ -143,16 +143,11 @@ namespace HstuDenseForward{
                 while (workLoads < eachCoreTaskNumLimit) {
                     workLoads += taskNum;
                     processTaskNum += taskNum;
+                    taskNum++;
                     processBlockNum++;
                     blockNumberGt.SetValue(batchId, blockNumberGt.GetValue(batchId) - 1);
-
-                    if (blockNumberGt.GetValue(batchId) == 0) {
-                        if (!BatchSwitchCausal(batchId, taskNum, totalBatchSize)) {
-                            break;
-                        }
-                    } else {
-                        // 因果场景下，下一步任务规模递增
-                        taskNum++;
+                    if (!BatchSwitchCausal(batchId, taskNum, totalBatchSize)) {
+                        break;
                     }
                 }
                 blockNumberGt.SetValue(totalBatchSize + i + this->coreNum, processBlockNum);
@@ -170,7 +165,6 @@ namespace HstuDenseForward{
 
             // 计算所有的task_num得到每个core 计算的task均值
             int64_t totalTaskNumber = 0;
-            // 循环计算blockNumber maxLen 32K
             for (uint32_t i = 0; i < totalBatchSize; i++) {
                 auto n = blockNumberGt.GetValue(i);
                 if (isCausal) {
