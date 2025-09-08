@@ -42,6 +42,7 @@ def test_asynchronous_complete_cumsum(dtype, device, length):
     result = get_ops_result(t_int.to(device))
     assert torch.allclose(result, golden)
 
+
 @pytest.mark.parametrize("length", [2**31 - 1, 2**31])
 def test_asynchronous_complete_cumsum_exceed_limit(exceed_length):
     """测试超过元素数量限制的情况，验证PTA层校验机制"""
