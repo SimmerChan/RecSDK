@@ -50,4 +50,4 @@ def test_asynchronous_complete_cumsum_exceed_limit(length):
     
     # 验证NPU版本会抛出异常（与GPU版本对齐）
     with pytest.raises(RuntimeError):
-        get_ops_result(t_exceed.npu())
+        result = get_ops_result(t_exceed.npu())
