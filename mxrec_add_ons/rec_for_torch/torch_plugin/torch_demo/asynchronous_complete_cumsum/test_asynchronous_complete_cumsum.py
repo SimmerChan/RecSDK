@@ -35,7 +35,7 @@ def get_ops_result(t_in):
 
 @pytest.mark.parametrize("dtype", [torch.int32, torch.int64])
 @pytest.mark.parametrize("device", ["cpu", "npu:0", "npu:5"])
-@pytest.mark.parametrize("length", [1, 10, 100, 1000, 10000, 2**30])
+@pytest.mark.parametrize("length", [1, 10, 100, 1000, 10000, 2**31 - 1])
 def test_asynchronous_complete_cumsum(dtype, device, length):
     t_int = torch.randint(0, 100, (length,), dtype=dtype)
     golden = get_result(t_int)
