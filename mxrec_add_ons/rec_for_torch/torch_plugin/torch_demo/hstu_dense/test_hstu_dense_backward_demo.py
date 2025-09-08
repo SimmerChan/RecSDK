@@ -21,13 +21,25 @@ import torch_npu
 import torch.nn.functional as F
 import numpy as np
 
+from test_target_mask import ScoreShapeParam, HstuBlockParam, _compute_target_mask_one_block_gpu
+
 torch.npu.config.allow_internal_format = False
 torch.ops.load_library(f"{sysconfig.get_path('purelib')}/libfbgemm_npu_api.so")
 
 device_id: int = 0
 
 
-def jagged_data_gen(batch_size, max_seq_len, num_heads, attention_dim, mask_type, data_type):
+def jagged_data_gen(
+    batch_size,
+    max_seq_len,
+    num_heads,
+    attention_dim,
+    mask_type,
+    data_type,
+    num_context=None,
+    num_target=None,
+    target_group_size=None,
+):
     seq_lens = torch.randint(1, max_seq_len + 1, (batch_size,), dtype=torch.int64)
     seq_offset = torch.concat((torch.zeros((1,), dtype=torch.int64), torch.cumsum(seq_lens, axis=0))).numpy()
 
@@ -41,7 +53,23 @@ def jagged_data_gen(batch_size, max_seq_len, num_heads, attention_dim, mask_type
     bias = torch.empty(batch_size, num_heads, max_seq_len, max_seq_len, dtype=data_type).uniform_(-1, 1)
 
     if mask_type == 0:
-        mask = torch.tril(torch.ones(batch_size, num_heads, max_seq_len, max_seq_len, dtype=data_type))
+        if (num_context is None and num_target is None):
+            invalid_attn_mask = 1 - torch.triu(torch.ones(batch_size, num_heads, max_seq_len, max_seq_len), diagonal=1)
+        else:
+            invalid_attn_mask = torch.zeros(batch_size, num_heads, max_seq_len, max_seq_len)
+            for sample_id, seq_len in enumerate(seq_lens):
+                parm = ScoreShapeParam(
+                    seq_len=seq_len,
+                    num_target=num_target,
+                    num_context=num_context,
+                    num_history=None if num_target is None else seq_len - num_target,
+                    target_group_size=target_group_size,
+                    block_h=seq_len,
+                    block_w=seq_len,
+                )
+                block_param = HstuBlockParam(0, 0, seq_len, seq_len)
+                mask_tensor = _compute_target_mask_one_block_gpu(block_param, parm)
+                invalid_attn_mask[sample_id, :, :seq_len, :seq_len] = mask_tensor   
     elif mask_type == 1:
         mask = torch.triu(torch.ones(batch_size, num_heads, max_seq_len, max_seq_len, dtype=data_type))
     elif mask_type == 2:
@@ -208,10 +236,31 @@ class TestHstuJaggedDemo:
 
         return q_grad, k_grad, v_grad, bias_grad
 
-
-    def execute(self, batch_size, max_seq_len, head_num, head_dim, mask_type, silu_scale, enable_bias, data_type):
+    def execute(
+        self,
+        batch_size,
+        max_seq_len,
+        head_num,
+        head_dim,
+        mask_type,
+        silu_scale,
+        enable_bias,
+        data_type,
+        num_context=None,
+        num_target=None,
+        target_group_size=None,
+    ):
         grad, q, k, v, bias, mask, max_seq_len, seq_offset = jagged_data_gen(
-            batch_size, max_seq_len, head_num, head_dim, mask_type, data_type)
+            batch_size,
+            max_seq_len,
+            head_num,
+            head_dim,
+            mask_type,
+            data_type,
+            num_context,
+            num_target,
+            target_group_size,
+        )
 
         q_grad, k_grad, v_grad, attn_bias_grad = self.custom_op_exec(
             grad, q, k, v, bias, mask, seq_offset, mask_type, max_seq_len, silu_scale, enable_bias, data_type)
@@ -240,9 +289,36 @@ class TestHstuJaggedDemo:
     @pytest.mark.parametrize("silu_scale", [0.0, 1.0 / 256])
     @pytest.mark.parametrize("enable_bias", [True, False])
     @pytest.mark.parametrize("data_type", [torch.float16, torch.float32, torch.bfloat16])
-    def test_hstu_dens_jagged(self, batch_size, max_seq_len, head_num, head_dim, mask_type, silu_scale, enable_bias,
-                              data_type):
-        self.execute(batch_size, max_seq_len, head_num, head_dim, mask_type, silu_scale, enable_bias, data_type)
+    @pytest.mark.parametrize("num_context", [None])
+    @pytest.mark.parametrize("num_target", [None])
+    @pytest.mark.parametrize("target_group_size", [None])
+    def test_hstu_dens_jagged(
+        self,
+        batch_size,
+        max_seq_len,
+        head_num,
+        head_dim,
+        mask_type,
+        silu_scale,
+        enable_bias,
+        data_type,
+        num_context,
+        num_target,
+        target_group_size,
+    ):
+        self.execute(
+            batch_size,
+            max_seq_len,
+            head_num,
+            head_dim,
+            mask_type,
+            silu_scale,
+            enable_bias,
+            data_type,
+            num_context,
+            num_target,
+            target_group_size,
+        )
 
     @pytest.mark.parametrize("max_seq_len", [16])
     @pytest.mark.parametrize("head_num", [2])
