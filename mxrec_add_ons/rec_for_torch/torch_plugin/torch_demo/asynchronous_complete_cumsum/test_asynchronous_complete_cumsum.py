@@ -43,7 +43,6 @@ def test_asynchronous_complete_cumsum(dtype, device, length):
     assert torch.allclose(result, golden)
 
 
-
 def test_asynchronous_complete_cumsum_exceed_limit():
     """测试超过元素数量限制的情况，验证PTA层校验机制"""
     # 创建一个超过INT_MAX的张量
