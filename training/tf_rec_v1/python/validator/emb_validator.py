@@ -77,6 +77,9 @@ def check_emb_lookup_params(
     if not (isinstance(send_count, int) and send_count > 0):
         raise ValueError("Send count must be a integer which is larger than 0.")
 
+    if not (isinstance(send_count, int) and send_count < (ValidatorParams.MAX_INT32.value / rank_size)):
+        raise ValueError("Send count must be a integer which is smaller than MAX_INT32.")
+
     if table_params.get("is_hbm") or ConfigInitializer.get_instance().use_dynamic_expansion:
         return
 
