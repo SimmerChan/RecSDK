@@ -82,13 +82,12 @@ def test_permute2d_sparse_data(types, shapes, enable_permuted_sum):
         'weights': weights,
         'permuted_lengths_sum': permuted_lengths_sum
     }
-
-    _compute_and_check(params)
-
-
-def _compute_and_check(params):
     golden = get_result(params)
     result = get_result(params, DEVICE)
+    _check_result(golden, result)
+
+
+def _check_result(golden, result):
     for gt, pred in zip(golden, result):
         assert type(gt) is type(pred)
         if isinstance(gt, torch.Tensor) and isinstance(pred, torch.Tensor):
@@ -117,5 +116,6 @@ def test_permute2d_sparse_data_for_not_performed(types, shapes, enable_permuted_
         'weights': weights,
         'permuted_lengths_sum': permuted_lengths_sum
     }
-
-    _compute_and_check(params)
+    golden = (lengths, values, weights)
+    result = get_result(params, DEVICE)
+    _check_result(golden, result)
