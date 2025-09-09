@@ -22,6 +22,7 @@ from torch.optim import Adam, Adagrad, SGD
 import torchrec
 from torchrec import JaggedTensor, KeyedJaggedTensor, PoolingType, ComputeDevice
 
+
 def set_seed(seed=42):
     random.seed(seed)
     torch.manual_seed(seed)
@@ -84,6 +85,7 @@ def create_data(params):
 
     return indices_test, offsets_test, jt_lst
 
+
 def generate_unique(jt_lst, feature_map):
     unique_indices = []
     unique_inverse = []
@@ -105,6 +107,7 @@ def generate_unique(jt_lst, feature_map):
     unique_offset.extend([start])
     return unique_indices, unique_inverse, unique_offset
 
+
 def look_table(indices, offsets, jt_lst, tbe, params):
     if params.unique:
         unique_indices, unique_inverse, unique_offset = generate_unique(jt_lst, params.feature_map)
@@ -121,6 +124,7 @@ def look_table(indices, offsets, jt_lst, tbe, params):
     loss.backward()
     return tbe.weights_dev
 
+
 def concat_tensors_by_category(a):
     num_categories = len(a[0])
     result = []
@@ -129,6 +133,7 @@ def concat_tensors_by_category(a):
         result.append(torch.cat(tensors))
 
     return result
+
 
 def verify_grad_aggregation(params):
     torch.npu.set_device(DEVICEID)
@@ -173,7 +178,7 @@ def verify_grad_aggregation(params):
     for i in range(2):
         all_idx = []
         all_offsets = []
-        for step in range(accumulate_step):  # TODO
+        for step in range(accumulate_step):
             indices_test, offsets_test, jt_lst = create_data(params)
             all_idx.append(indices_test)
             all_offsets.append(offsets_test)
@@ -192,8 +197,8 @@ def verify_grad_aggregation(params):
         all_idx = concat_tensors_by_category(all_idx)
 
         all_offsets = concat_tensors_by_category(all_offsets)
-        for i in range(len(params.tables)):
-            all_jt_lst.append(JaggedTensor(values=all_idx[i], lengths=all_offsets[i]))
+        for index in range(len(params.tables)):
+            all_jt_lst.append(JaggedTensor(values=all_idx[index], lengths=all_offsets[index]))
 
         all_idx = torch.cat(all_idx)
 
@@ -214,6 +219,7 @@ def verify_grad_aggregation(params):
     print('allclose', verify)
 
     raise ValueError(f"verify grad aggregation is {verify}")
+
 
 @pytest.mark.parametrize("tables", [[(10, 8), (5, 8), (4, 8)]])
 @pytest.mark.parametrize("mutile_hots", [[1, 1, 1]])

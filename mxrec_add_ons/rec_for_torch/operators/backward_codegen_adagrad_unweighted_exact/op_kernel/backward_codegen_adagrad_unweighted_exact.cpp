@@ -95,6 +95,5 @@ extern "C" __global__ __aicore__ void backward_codegen_adagrad_unweighted_exact(
         } else {
             kernel.Compute(args);
         }
-
     }
 }

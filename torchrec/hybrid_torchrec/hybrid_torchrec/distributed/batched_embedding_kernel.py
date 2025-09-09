@@ -70,6 +70,7 @@ from torchrec.distributed.batched_embedding_kernel import (
     _gen_named_parameters_by_table_fused,
 )
 
+
 class GradientAccumulator(nn.Module):
     def __init__(self, table_shapes, device):
         super().__init__()
@@ -198,6 +199,7 @@ class GradientAccumulator(nn.Module):
                 table_offsets.append(tmp)
         return torch.Tensor(table_offsets)
 
+
 class HybridSplitTableBatchedEmbeddingBagsCodegen(
     SplitTableBatchedEmbeddingBagsCodegen
 ):
@@ -262,11 +264,12 @@ class HybridSplitTableBatchedEmbeddingBagsCodegen(
         )
         # Print input stats if enable (for debugging purpose only)
         self._debug_print_input_stats(indices, offsets, per_sample_weights)
-        self.grad_accum.current_accumulate_step += 1
-        split_values = self.grad_accum.get_split_lookup_input(unique_indices, unique_offset)
+        if self.use_accumulate:
+            self.grad_accum.current_accumulate_step += 1
+            split_values = self.grad_accum.get_split_lookup_input(unique_indices, unique_offset)
 
-        # 将当前step拼接到每个表的多step索引中并存储
-        self.grad_accum.concat_multi_step(split_values)
+            # 将当前step拼接到每个表的多step索引中并存储
+            self.grad_accum.concat_multi_step(split_values)
 
         if not is_torchdynamo_compiling():
             # Mutations of nn.Module attr forces dynamo restart of Analysis which increases compilation time
@@ -297,7 +300,7 @@ class HybridSplitTableBatchedEmbeddingBagsCodegen(
             if len(self.lxu_cache_locations_list) == 0
             else self.lxu_cache_locations_list.pop(0)
         )
-        table_offsets = self.grad_accum.do_table_offsets(False,offsets)
+        table_offsets = self.grad_accum.do_table_offsets(False, offsets)
         table_offsets = table_offsets.to('npu').to(torch.int64)
         common_args = invokers.lookup_args.HybridCommonArgs(
             placeholder_autograd_tensor=self.placeholder_autograd_tensor,
@@ -363,18 +366,17 @@ class HybridSplitTableBatchedEmbeddingBagsCodegen(
             placements=self.momentum2_placements,
         )
 
-        self.grad_accum.total_index_size_pre = torch.tensor(self.grad_accum.total_index_size)
-
-        self.grad_accum.updata_total_index_size(unique_offset, self.dims)
-        table_shapes = self.grad_accum.total_index_size
-        table_dict = self.grad_accum.store_buffer_shape(table_shapes)
-        self.grad_accum.resize_buffer(table_dict)
-
-        grad_accumulate = self.grad_accum.get_buffer()
-
         if self.use_accumulate:
+            self.grad_accum.total_index_size_pre = torch.tensor(self.grad_accum.total_index_size)
+            self.grad_accum.updata_total_index_size(unique_offset, self.dims)
+            table_shapes = self.grad_accum.total_index_size
+            table_dict = self.grad_accum.store_buffer_shape(table_shapes)
+            self.grad_accum.resize_buffer(table_dict)
+            grad_accumulate = self.grad_accum.get_buffer()
             use_optimize = False
         else:
+            self.grad_accum.total_index_size_pre = torch.tensor([0])
+            grad_accumulate = [torch.tensor([0]).to('npu')]
             use_optimize = True
 
         if self.optimizer == OptimType.EXACT_ADAGRAD:

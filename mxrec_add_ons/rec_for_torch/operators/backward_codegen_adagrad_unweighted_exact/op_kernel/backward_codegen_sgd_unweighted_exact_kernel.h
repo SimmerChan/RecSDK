@@ -162,7 +162,6 @@ public:
         this->ComputeGrad();
         pipe_barrier(PIPE_ALL);
         SyncAll();
-
     }
 
 private:

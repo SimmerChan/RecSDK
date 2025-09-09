@@ -22,9 +22,9 @@ using namespace at;
 
 void copy_gm_to_gm(void* source_hbm_ptr, // output
                    const tensor_list& target_tensors, // 梯度表
-                   Tensor size, //unique_offsets_size
-                   Tensor grad_accumulate_offsets_size) { //grad_accumulate_offsets_size
-
+                   Tensor size, // unique_offsets_size
+                   Tensor grad_accumulate_offsets_size)
+{ // grad_accumulate_offsets_size
     for (size_t i = 0; i < target_tensors.size(); ++i) {
         const auto& target_tensor = target_tensors[i];
 
@@ -39,15 +39,12 @@ void copy_gm_to_gm(void* source_hbm_ptr, // output
             size_bytes,
             reinterpret_cast<char*>(source_hbm_ptr) + offset,
             size_bytes,
-            ACL_MEMCPY_DEVICE_TO_DEVICE
-        );
-
+            ACL_MEMCPY_DEVICE_TO_DEVICE);
         if (ret != ACL_SUCCESS) {
             const char* error_msg = aclGetRecentErrMsg();
             AT_ERROR("D2D copy failed for tensor ", i, ": ", error_msg);
         }
     }
-
 }
 
 namespace fbgemm_npu_lookups {
@@ -58,7 +55,7 @@ Tensor split_embedding_backward_codegen_adagrad_unweighted_exact_cuda(
     const int64_t pooling_mode, const Tensor& lxu_cache_locations, const int64_t BT_block_size,
     const int64_t max_segment_length_per_warp, const bool stochastic_rounding, const int64_t info_B_num_bits,
     const int64_t info_B_mask_int64, const bool use_uniq_cache_locations, const bool use_homogeneous_placements,
-    Tensor momentum1_dev, Tensor momentum1_uvm, Tensor momentum1_placements, Tensor momentum1_offsets, const tensor_list& grad_accumulate,const Tensor& grad_accumulate_offsets,
+    Tensor momentum1_dev, Tensor momentum1_uvm, Tensor momentum1_placements, Tensor momentum1_offsets, const tensor_list& grad_accumulate, const Tensor& grad_accumulate_offsets,
     const Tensor& hash_indices, const Tensor& unique_ids, const Tensor& unique_offsets, const Tensor& unique_inverse, const Tensor& table_offsets,
     double eps = 0, double learning_rate = 0, bool is_dynamic = false, const int64_t iteration = 0, bool use_optimize = true);
 
@@ -298,7 +295,7 @@ Tensor split_embedding_codegen_lookup_adagrad_function(
         unique_ids, unique_offsets, unique_inverse, table_offsets, offsets, pooling_mode, indice_weights, feature_requires_grad,
         lxu_cache_locations, uvm_cache_stats, gradient_clipping, max_gradient, stochastic_rounding, is_experimental,
         use_uniq_cache_locations_bwd, use_homogeneous_placements, momentum1_dev, momentum1_uvm, momentum1_placements,
-        momentum1_offsets, grad_accumulate, grad_accumulate_offsets, eps, learning_rate, is_dynamic, iter,use_optimize)[0];
+        momentum1_offsets, grad_accumulate, grad_accumulate_offsets, eps, learning_rate, is_dynamic, iter, use_optimize)[0];
 }
 
 at::Tensor split_embedding_backward_codegen_adagrad_unweighted_exact_npu(
@@ -324,18 +321,18 @@ at::Tensor split_embedding_backward_codegen_adagrad_unweighted_exact_npu(
     const auto grad_output_conti = grad_output.contiguous();
 
     EXEC_NPU_CMD(aclnnBackwardCodegenAdagradUnweightedExact, grad_output_conti, dev_weights, uvm_weights,
-                lxu_cache_weights, weights_placements, weights_offsets, D_offsets, hash_size_cumsum, indices, offsets,
-                lxu_cache_locations, momentum1_dev, momentum1_uvm, momentum1_placements, momentum1_offsets, _unused,
-                _unused, _unused, _unused, hash_indices, unique_ids, unique_offsets, unique_inverse, table_offsets, t_max_D,
-                total_hash_size_bits, pooling_mode, BT_block_size, max_segment_length_per_warp, stochastic_rounding,
-                info_B_num_bits, info_B_mask_int64, use_uniq_cache_locations, use_homogeneous_placements, optim_type,
-                eps, learning_rate, beta, beta, iter, is_dynamic, use_optimize, output, momentum1_dev, _unused, dev_weights);
+        lxu_cache_weights, weights_placements, weights_offsets, D_offsets, hash_size_cumsum, indices, offsets,
+        lxu_cache_locations, momentum1_dev, momentum1_uvm, momentum1_placements, momentum1_offsets, _unused,
+        _unused, _unused, _unused, hash_indices, unique_ids, unique_offsets, unique_inverse, table_offsets, t_max_D,
+        total_hash_size_bits, pooling_mode, BT_block_size, max_segment_length_per_warp, stochastic_rounding,
+        info_B_num_bits, info_B_mask_int64, use_uniq_cache_locations, use_homogeneous_placements, optim_type,
+        eps, learning_rate, beta, beta, iter, is_dynamic, use_optimize, output, momentum1_dev, _unused, dev_weights);
 
     // 拷贝输出至grad_accumulate
-    if(!use_optimize){
+    if(! use_optimize) {
         Tensor unique_offsets_size = unique_offsets * t_max_D * output.element_size();
         Tensor grad_accumulate_offsets_size = grad_accumulate_offsets * output.element_size();
-        void * new_tensor_device_ptr = output.data_ptr();
+        void* new_tensor_device_ptr = output.data_ptr();
         copy_gm_to_gm(new_tensor_device_ptr, grad_accumulate, unique_offsets_size, grad_accumulate_offsets_size);
     };
     return at::Tensor();

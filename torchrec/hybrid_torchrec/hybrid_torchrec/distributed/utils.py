@@ -5,11 +5,10 @@ import logging
 from typing import Any, Dict, List, Optional, Set, Tuple, Type, TypeVar, Union
 from fbgemm_gpu.split_embedding_configs import EmbOptimType
 
+
 def hybrid_optimizer_type_to_emb_opt_type(
         optimizer_class: Type[torch.optim.Optimizer],
 ) -> Optional[EmbOptimType]:
-    # TODO add more optimizers to be in parity with ones provided by FBGEMM
-    # TODO kwargs accepted by fbgemm and and canonical optimizers are different
     # may need to add special handling for them
     lookup = {
         torch.optim.SGD: EmbOptimType.EXACT_SGD,

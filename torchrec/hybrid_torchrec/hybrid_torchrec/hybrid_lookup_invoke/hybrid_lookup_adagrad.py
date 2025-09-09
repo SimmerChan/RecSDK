@@ -13,7 +13,7 @@ from fbgemm_gpu.split_embedding_codegen_lookup_invokers.lookup_adagrad import (
     Momentum,
 )
 
-from hybrid_torchrec.hybrid_lookup_invoke.hybrid_lookup_args import HybridCommonArgs,HybridCommonArgs_aggregation
+from hybrid_torchrec.hybrid_lookup_invoke.hybrid_lookup_args import HybridCommonArgs, HybridCommonArgs_aggregation
 
 
 def check_unique_valid(common_args: HybridCommonArgs):
@@ -348,5 +348,4 @@ def invoke_grad_aggregation(
         table_offsets=common_args.table_offsets,
         table_offsets_muti=common_args.table_offsets_muti
     )
-
     return result
