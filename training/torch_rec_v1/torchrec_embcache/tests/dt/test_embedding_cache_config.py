@@ -76,9 +76,9 @@ def test_embcache_embedding_config_invalid(kwargs, err_pattern):
         EmbCacheEmbeddingBagConfig(**kwargs)
 
     with pytest.raises(ValueError, match=err_pattern):
-        config = EmbeddingConfig(**kwargs)
+        config = EmbeddingConfig(init_fn=lambda *args: None, **kwargs)
         EmbCacheEmbeddingCollection([config], 1, 1, [1])
     
     with pytest.raises(ValueError, match=err_pattern):
-        config = EmbeddingBagConfig(**kwargs)
+        config = EmbeddingBagConfig(init_fn=lambda *args: None, **kwargs)
         EmbCacheEmbeddingBagCollection([config], 1, 1, [1])

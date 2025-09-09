@@ -188,6 +188,9 @@ class EmbCacheEmbeddingCollection(EmbeddingCollection):
         device: Optional[torch.device] = None,
         embedding_optimizer_cls: Type[torch.optim.Optimizer] = torch.optim.Adagrad,
     ) -> None:
+        for config in tables:
+            check_embedding_config(config)
+
         super().__init__(tables, device, need_indices)
         torch._C._log_api_usage_once(f"torchrec.modules.{self.__class__.__name__}")
         self.embeddings: nn.ModuleDict = nn.ModuleDict()
@@ -266,7 +269,6 @@ class EmbCacheEmbeddingCollection(EmbeddingCollection):
             emb_cache_config = EmbCacheEmbeddingConfig(embedding_dim=ori_config.embedding_dim,
                                                        num_embeddings=ori_config.num_embeddings)
             emb_cache_config.__dict__.update(ori_config.__dict__)
-            check_embedding_config(emb_cache_config)
             tables[i] = emb_cache_config
 
     def _calculate_caches(
