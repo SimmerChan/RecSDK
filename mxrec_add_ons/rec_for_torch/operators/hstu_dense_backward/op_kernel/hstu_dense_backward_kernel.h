@@ -38,11 +38,11 @@ struct BlockInfo {
 };
 
 template <typename qType>
-class  HstuDenseBackwardKernel {
+class HstuDenseBackwardKernel {
 public:
     __aicore__ inline HstuDenseBackwardKernel() {}
 
-    __aicore__ inline void Compute(Args &args)
+    __aicore__ inline void Compute(Args& args)
     {
         GET_TILING_DATA(tilingData, args.tiling);
         REGIST_MATMUL_OBJ(&pipe, GetSysWorkSpacePtr(), qkMatmul, &tilingData.qkMatmul, qGradMatmul,
@@ -59,7 +59,7 @@ public:
         ComputeSecond();
     }
 
-    __aicore__ inline void Init(Args &args)
+    __aicore__ inline void Init(Args& args)
     {
         GET_TILING_DATA(tilingData, args.tiling);
 
@@ -94,22 +94,22 @@ public:
         int64_t totalElementOfQ = batchSize * maxSeqLen * headNum * headDim;
         int64_t totalElementOfAttnBias = batchSize * headNum * biasGradSeqLen * biasGradSeqLen;
 
-        grad.SetGlobalBuffer(reinterpret_cast<__gm__ qType *>(args.grad), totalElementOfQ);
-        q.SetGlobalBuffer(reinterpret_cast<__gm__ qType *>(args.q), totalElementOfQ);
-        k.SetGlobalBuffer(reinterpret_cast<__gm__ qType *>(args.k), totalElementOfQ);
-        v.SetGlobalBuffer(reinterpret_cast<__gm__ qType *>(args.v), totalElementOfQ);
+        grad.SetGlobalBuffer(reinterpret_cast<__gm__ qType*>(args.grad), totalElementOfQ);
+        q.SetGlobalBuffer(reinterpret_cast<__gm__ qType*>(args.q), totalElementOfQ);
+        k.SetGlobalBuffer(reinterpret_cast<__gm__ qType*>(args.k), totalElementOfQ);
+        v.SetGlobalBuffer(reinterpret_cast<__gm__ qType*>(args.v), totalElementOfQ);
         if (enableBias) {
-            attnBias.SetGlobalBuffer(reinterpret_cast<__gm__ qType *>(args.attnBias), totalElementOfAttnBias);
+            attnBias.SetGlobalBuffer(reinterpret_cast<__gm__ qType*>(args.attnBias), totalElementOfAttnBias);
         }
         if (IfMask(maskType, MaskType::MASK_CUSTOM)) {
-            mask.SetGlobalBuffer(reinterpret_cast<__gm__ qType *>(args.mask), totalElementOfAttnBias);
+            mask.SetGlobalBuffer(reinterpret_cast<__gm__ qType*>(args.mask), totalElementOfAttnBias);
         }
 
-        qGrad.SetGlobalBuffer(reinterpret_cast<__gm__ qType *>(args.qGrad), totalElementOfQ);
-        kGrad.SetGlobalBuffer(reinterpret_cast<__gm__ qType *>(args.kGrad), totalElementOfQ);
-        vGrad.SetGlobalBuffer(reinterpret_cast<__gm__ qType *>(args.vGrad), totalElementOfQ);
+        qGrad.SetGlobalBuffer(reinterpret_cast<__gm__ qType*>(args.qGrad), totalElementOfQ);
+        kGrad.SetGlobalBuffer(reinterpret_cast<__gm__ qType*>(args.kGrad), totalElementOfQ);
+        vGrad.SetGlobalBuffer(reinterpret_cast<__gm__ qType*>(args.vGrad), totalElementOfQ);
         if (isNormal || enableBias) {
-            attnBiasGrad.SetGlobalBuffer(reinterpret_cast<__gm__ qType *>(args.attnBiasGrad), totalElementOfAttnBias);
+            attnBiasGrad.SetGlobalBuffer(reinterpret_cast<__gm__ qType*>(args.attnBiasGrad), totalElementOfAttnBias);
         }
 
         int64_t qkMatmulTempSpace = blockHeight * blockHeight;
@@ -125,40 +125,42 @@ public:
             MID_USE_TIMES * ((vGradAccumTempSpace + kGradAccumTempSpace) * sizeof(float) +
                              (qkMatmulTempSpace + gvMatmulTempSpace + scoreTempSpace) * sizeof(qType)) +
             maskTempSpace * sizeof(qType);
-        
+
         if (!isNormal && !enableBias) {
             totalTempSpaceForOneVec += biasGradTempSpace * sizeof(qType) * MID_USE_TIMES;
         }
 
-        curAICWorkspace = reinterpret_cast<__gm__ uint8_t *>(workspace) + GetBlockIdx() * totalTempSpaceForOneVec;
+        curAICWorkspace = reinterpret_cast<__gm__ uint8_t*>(workspace) + GetBlockIdx() * totalTempSpaceForOneVec;
 
-        qkTemp.SetGlobalBuffer(reinterpret_cast<__gm__ qType *>(curAICWorkspace), qkMatmulTempSpace * MID_USE_TIMES);
+        qkTemp.SetGlobalBuffer(reinterpret_cast<__gm__ qType*>(curAICWorkspace), qkMatmulTempSpace * MID_USE_TIMES);
         curAICWorkspace += qkMatmulTempSpace * sizeof(qType) * MID_USE_TIMES;
 
-        gvTemp.SetGlobalBuffer(reinterpret_cast<__gm__ qType *>(curAICWorkspace), gvMatmulTempSpace * MID_USE_TIMES);
+        gvTemp.SetGlobalBuffer(reinterpret_cast<__gm__ qType*>(curAICWorkspace), gvMatmulTempSpace * MID_USE_TIMES);
         curAICWorkspace += gvMatmulTempSpace * sizeof(qType) * MID_USE_TIMES;
 
-        scoreTemp.SetGlobalBuffer(reinterpret_cast<__gm__ qType *>(curAICWorkspace), scoreTempSpace * MID_USE_TIMES);
+        scoreTemp.SetGlobalBuffer(reinterpret_cast<__gm__ qType*>(curAICWorkspace), scoreTempSpace * MID_USE_TIMES);
         curAICWorkspace += scoreTempSpace * sizeof(qType) * MID_USE_TIMES;
 
-        vGradAccumTemp.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(curAICWorkspace),
+        vGradAccumTemp.SetGlobalBuffer(reinterpret_cast<__gm__ float*>(curAICWorkspace),
                                        vGradAccumTempSpace * MID_USE_TIMES);
         curAICWorkspace += vGradAccumTempSpace * sizeof(float) * MID_USE_TIMES;
 
-        kGradAccumTemp.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(curAICWorkspace),
+        kGradAccumTemp.SetGlobalBuffer(reinterpret_cast<__gm__ float*>(curAICWorkspace),
                                        kGradAccumTempSpace * MID_USE_TIMES);
         curAICWorkspace += kGradAccumTempSpace * sizeof(float) * MID_USE_TIMES;
 
-        maskTemp.SetGlobalBuffer(reinterpret_cast<__gm__ qType *>(curAICWorkspace), maskTempSpace);
+        maskTemp.SetGlobalBuffer(reinterpret_cast<__gm__ qType*>(curAICWorkspace), maskTempSpace);
         curAICWorkspace += maskTempSpace * sizeof(qType);
 
         if (!isNormal && !enableBias) {
-            biasGradTemp.SetGlobalBuffer(reinterpret_cast<__gm__ qType *>(curAICWorkspace),
-                biasGradTempSpace * MID_USE_TIMES);
+            biasGradTemp.SetGlobalBuffer(reinterpret_cast<__gm__ qType*>(curAICWorkspace),
+                                         biasGradTempSpace * MID_USE_TIMES);
             curAICWorkspace += biasGradTempSpace * sizeof(qType) * MID_USE_TIMES;
 
-            qGradAccumTemp.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(
-                reinterpret_cast<__gm__ uint8_t *>(workspace) + aivNum * totalTempSpaceForOneVec), qGradAccumTempSpace);
+            qGradAccumTemp.SetGlobalBuffer(
+                reinterpret_cast<__gm__ float*>(reinterpret_cast<__gm__ uint8_t*>(workspace) +
+                                                aivNum * totalTempSpaceForOneVec),
+                qGradAccumTempSpace);
 
             // 所有核共享一片globalMemory，且存在累加操作，每次执行需要清理内存防止上次执行结果残留数据影响本次结果
             // 多核执行后需要调用SyncAll保证多核间同步正常
@@ -170,9 +172,10 @@ public:
                 clearLen += leftClear;
             }
             GlobalTensor<float> thisBlockQGrad;
-            thisBlockQGrad.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(
-                reinterpret_cast<__gm__ uint8_t *>(workspace) + aivNum * totalTempSpaceForOneVec +
-                globalOffset * sizeof(float)), clearLen);
+            thisBlockQGrad.SetGlobalBuffer(
+                reinterpret_cast<__gm__ float*>(reinterpret_cast<__gm__ uint8_t*>(workspace) +
+                                                aivNum * totalTempSpaceForOneVec + globalOffset * sizeof(float)),
+                clearLen);
             InitGlobalMemory(thisBlockQGrad, clearLen, static_cast<float>(0));
             SyncAll();
         }
@@ -400,8 +403,8 @@ public:
         Cast(dstTensor, midTensor, RoundMode::CAST_NONE, len);
     }
 
-    __aicore__ inline void CastInputData(LocalTensor<float> &inputQK, LocalTensor<float> &inputGV,
-                                         LocalTensor<float> &inputMask, LocalTensor<float> &inputBias, int64_t thisLen,
+    __aicore__ inline void CastInputData(LocalTensor<float>& inputQK, LocalTensor<float>& inputGV,
+                                         LocalTensor<float>& inputMask, LocalTensor<float>& inputBias, int64_t thisLen,
                                          bool useMask)
     {
         LocalTensor<qType> outputMidTemp = queueOutputTemp.AllocTensor<qType>();
@@ -422,10 +425,10 @@ public:
     {
         auto inputQK = queueVecScoreQK.DeQue<float>();
         auto inputGV = queueVecScoreGV.DeQue<float>();
-        LocalTensor<float> inputMask = useMask ? queueVecScoreMask.DeQue<float>() :
-                                                 queueVecScoreMask.AllocTensor<float>();
-        LocalTensor<float> inputBias = enableBias ? queueVecScoreBias.DeQue<float>() :
-                                                    queueVecScoreBias.AllocTensor<float>();
+        LocalTensor<float> inputMask =
+            useMask ? queueVecScoreMask.DeQue<float>() : queueVecScoreMask.AllocTensor<float>();
+        LocalTensor<float> inputBias =
+            enableBias ? queueVecScoreBias.DeQue<float>() : queueVecScoreBias.AllocTensor<float>();
 
         CastInputData(inputQK, inputGV, inputMask, inputBias, thisLen, useMask);
 
@@ -544,7 +547,8 @@ public:
     }
 
     __aicore__ inline void ValidVecScore(int64_t thisLen, int64_t validRowNum, int64_t totalColNum, int64_t qkOffset,
-        int64_t curMaskOffset, int64_t curAttnBiasOffset, int64_t curBiasGradOutOffset, bool useMask, BlockMaskGenerator& generator, int64_t rowInBlock)
+                                         int64_t curMaskOffset, int64_t curAttnBiasOffset, int64_t curBiasGradOutOffset,
+                                         bool useMask, BlockMaskGenerator& generator, int64_t rowInBlock)
     {
         int64_t gvOffset = qkOffset;
         int64_t scoreTempOffset = qkOffset;
@@ -559,7 +563,7 @@ public:
             LocalTensor<float> inputMask = queueVecScoreMask.AllocTensor<float>();
             if (IfMask(maskType, MaskType::MASK_TRIL)) {
                 // DataCopy<qType>(inputMask.template ReinterpretCast<qType>(), maskTemp[curMaskOffset], thisLen);
-                generator.GenMask(inputMask, rowInBlock, thisLen/blockHeight, blockHeight);
+                generator.GenMask(inputMask, rowInBlock, thisLen / blockHeight, blockHeight);
             }
             if (IfMask(maskType, MaskType::MASK_CUSTOM)) {
                 CopyInPadding(inputMask.template ReinterpretCast<qType>(), mask[curMaskOffset], validRowNum,
@@ -580,11 +584,9 @@ public:
         LocalTensor<qType> outputBias = queueOutputBias.DeQue<qType>();
         DataCopy<qType>(scoreTemp[scoreTempOffset], outputScore, thisLen);
         if (isNormal || enableBias) {
-            CopyOutPadding(attnBiasGrad[curAttnBiasOffset], outputBias, validRowNum, totalColNum,
-                biasGradSeqLen);
+            CopyOutPadding(attnBiasGrad[curAttnBiasOffset], outputBias, validRowNum, totalColNum, biasGradSeqLen);
         } else {
-            CopyOutPadding(biasGradTemp[curBiasGradOutOffset], outputBias, validRowNum, totalColNum,
-                blockHeight);
+            CopyOutPadding(biasGradTemp[curBiasGradOutOffset], outputBias, validRowNum, totalColNum, blockHeight);
         }
         queueOutputScore.FreeTensor(outputScore);
         queueOutputBias.FreeTensor(outputBias);
@@ -625,10 +627,11 @@ public:
 
             if (validRowNum > 0) {
                 ValidVecScore(thisLen, validRowNum, totalColNum, qkOffset, curMaskOffset, curAttnBiasOffset,
-                    curBiasGradOutOffset, useMask, generator, startRowNum);
+                              curBiasGradOutOffset, useMask, generator, startRowNum);
             }
 
-            if (enableBias && IfMask(maskType, MaskType::MASK_TRIL) && blockMaskParams[taskId].DiagonalNoComputation()) {
+            if (enableBias && IfMask(maskType, MaskType::MASK_TRIL) &&
+                blockMaskParams[taskId].DiagonalNoComputation()) {
                 LocalTensor<qType> outputTempTensor = queueOutputTemp.AllocTensor<qType>();
                 Duplicate<qType>(outputTempTensor, 0, thisLen);
                 queueOutputTemp.EnQue(outputTempTensor);
@@ -792,7 +795,12 @@ public:
             colLine = colLine > blockHeight ? blockHeight : colLine;
 
             for (int64_t rowId = 0; rowId < rowBlockNum; rowId++) {
-                if (IfMask(maskType, MaskType::MASK_TRIL) && rowId < colId) {
+                auto args = this->computeTaskInfo[taskId % COMPUTE_PIPE_NUM];
+                this->blockMaskParams[taskId % COMPUTE_PIPE_NUM] = {
+                    (uint32_t)args.rowId, (uint32_t)colId, (uint32_t)args.curSeqLen, this->blockHeight,
+                    this->numContext,     this->numTarget, this->targetGroupSize,    1};
+                if (IfMask(maskType, MaskType::MASK_TRIL) &&
+                    this->blockMaskParams[taskId % COMPUTE_PIPE_NUM].NoComputation()) {
                     continue;
                 }
 
@@ -870,7 +878,7 @@ public:
     }
 
     __aicore__ inline void DoCopyBlockQGrad(int64_t thisBatchIdx, int64_t headIdx, int64_t curSeqLen,
-        const uint32_t *seqOffset)
+                                            const uint32_t* seqOffset)
     {
         int64_t totalLen = curSeqLen * headDim;
         int64_t remain = totalLen;
@@ -880,8 +888,8 @@ public:
                 thisLen = remain;
             }
 
-            int64_t curOffset = (headNum * seqOffset[thisBatchIdx] * headDim) + (headIdx * totalLen) +
-                (totalLen - remain);
+            int64_t curOffset =
+                (headNum * seqOffset[thisBatchIdx] * headDim) + (headIdx * totalLen) + (totalLen - remain);
             LocalTensor<float> input = queueVecScoreQK.AllocTensor<float>();
             DataCopy<float>(input, qGradAccumTemp[curOffset], thisLen);
             queueVecScoreQK.EnQue(input);
@@ -903,17 +911,16 @@ public:
             uint16_t dstStride = (headNum - 1) * headDim * sizeof(qType) / DATA_ALIGN_BYTES;
             DataCopyParams copyParams{blockCount, blockLen, 0, dstStride};
 
-            int64_t curOutOffset = seqOffset[thisBatchIdx] * headNum * headDim +
-                headIdx * headDim + (totalLen - remain) * headNum;
+            int64_t curOutOffset =
+                seqOffset[thisBatchIdx] * headNum * headDim + headIdx * headDim + (totalLen - remain) * headNum;
             DataCopy<qType>(qGrad[curOutOffset], newOutput, copyParams);
             queueOutputTemp.FreeTensor(newOutput);
 
             remain = remain - thisLen;
-            
         }
     }
 
-    __aicore__ inline void DoCopyQGrad(const uint32_t *seqOffset)
+    __aicore__ inline void DoCopyQGrad(const uint32_t* seqOffset)
     {
         int64_t batchIdx = GetBlockIdx();
         int64_t taskNum = batchSize * headNum;
@@ -1009,7 +1016,6 @@ public:
     GlobalTensor<qType> maskTemp;
     GlobalTensor<float> qGradAccumTemp;
     GlobalTensor<qType> biasGradTemp;
-
 
     // Matmul
     matmul::Matmul<matmul::MatmulType<TPosition::GM, CubeFormat::ND, qType, false>,
