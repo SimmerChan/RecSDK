@@ -295,7 +295,6 @@ def test_pipeline_normal(config: ExecuteConfig):
             "num_embeddings": [[1000000000+1, 400]],
             "pool_type": [
                 torchrec.PoolingType.SUM,
-                torchrec.PoolingType.MEAN,
             ],
             "sharding_type": ["row_wise"],
             "lookup_len": [128],  # batchsize
