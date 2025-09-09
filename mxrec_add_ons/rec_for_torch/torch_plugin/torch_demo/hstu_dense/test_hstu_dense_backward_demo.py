@@ -143,8 +143,23 @@ class TestHstuJaggedDemo:
         return True
 
     @staticmethod
-    def custom_op_exec(grad, q, k, v, bias, mask, seq_offset, mask_type, max_seq_len, silu_scale, enable_bias,
-                       data_type):
+    def custom_op_exec(
+        grad,
+        q,
+        k,
+        v,
+        bias,
+        mask,
+        seq_offset,
+        mask_type,
+        max_seq_len,
+        silu_scale,
+        enable_bias,
+        data_type,
+        num_context,
+        num_target,
+        target_group_size,
+    ):
         grad_npu = grad.to(f"npu:{device_id}")
         q_npu = q.to(f"npu:{device_id}")
         k_npu = k.to(f"npu:{device_id}")
@@ -157,12 +172,37 @@ class TestHstuJaggedDemo:
 
         if enable_bias:
             q_grad, k_grad, v_grad, bias_grad = torch.ops.mxrec.hstu_dense_backward(
-                grad_npu, q_npu, k_npu, v_npu, mask_npu, bias_npu, "jagged", mask_type, max_seq_len, silu_scale,
-                seq_offset
+                grad_npu,
+                q_npu,
+                k_npu,
+                v_npu,
+                mask_npu,
+                bias_npu,
+                "jagged",
+                mask_type,
+                max_seq_len,
+                silu_scale,
+                seq_offset,
+                num_context,
+                num_target,
+                target_group_size,
             )
         else:
             q_grad, k_grad, v_grad, bias_grad = torch.ops.mxrec.hstu_dense_backward(
-                grad_npu, q_npu, k_npu, v_npu, mask_npu, None, "jagged", mask_type, max_seq_len, silu_scale, seq_offset
+                grad_npu,
+                q_npu,
+                k_npu,
+                v_npu,
+                mask_npu,
+                None,
+                "jagged",
+                mask_type,
+                max_seq_len,
+                silu_scale,
+                seq_offset,
+                num_context,
+                num_target,
+                target_group_size,
             )
 
         torch.npu.synchronize()
@@ -263,7 +303,22 @@ class TestHstuJaggedDemo:
         )
 
         q_grad, k_grad, v_grad, attn_bias_grad = self.custom_op_exec(
-            grad, q, k, v, bias, mask, seq_offset, mask_type, max_seq_len, silu_scale, enable_bias, data_type)
+            grad,
+            q,
+            k,
+            v,
+            bias,
+            mask,
+            seq_offset,
+            mask_type,
+            max_seq_len,
+            silu_scale,
+            enable_bias,
+            data_type,
+            num_context,
+            num_target,
+            target_group_size,
+        )
 
         q_grad_golden, k_grad_golden, v_grad_golden, attn_bias_grad_golden = self.golden_op_exec(
             grad, q, k, v, bias, mask, max_seq_len, seq_offset, mask_type, silu_scale, enable_bias, data_type)
