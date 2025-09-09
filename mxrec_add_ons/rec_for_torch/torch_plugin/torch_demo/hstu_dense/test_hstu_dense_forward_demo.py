@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+from ast import main
 from copy import deepcopy
 import dataclasses
 import os
@@ -52,19 +53,20 @@ class MaskParams:
     target_group_size: int = 0
 
     def values(self):
-        return self.type, self.num_target, self.num_target, self.target_group_size
+        return self.type, self.num_context, self.num_target, self.target_group_size
 
 
 @dataclasses.dataclass
 class QKVShapeParams:
     dtype: torch.dtype
     batch_size: int
+    min_seq_len: int = 1
     max_seq_len: int
     num_heads: int
     attention_dim: int
 
     def values(self):
-        return self.batch_size, self.max_seq_len, self.num_heads, self.attention_dim
+        return self.batch_size, self.min_seq_len, self.max_seq_len, self.num_heads, self.attention_dim
 
 
 def get_chip():
@@ -81,24 +83,25 @@ def skip_seq_len(seq_len):
 def cached_create_causal_mask(param: ScoreShapeParam) -> torch.Tensor:
     cached_file = f"cached_target_mask{param.target_group_size}.pt"
     if os.path.exists(cached_file):
-        target_mask = torch.load(cached_file)
-        mask = torch.tril(torch.ones(param.seq_len, param.seq_len), diagonal=1)
+        mask = torch.tril(torch.ones(param.seq_len, param.seq_len))
         mask[:param.num_context, :param.num_target] = 1
         if param.num_target > 0:
+            target_mask = torch.load(cached_file)
             mask[-param.num_target:, -param.num_target:] = target_mask[:param.num_target, :param.num_target]
         return mask
     else:
         _param = deepcopy(param)
         _param.num_target = MAX_NUM_TARGET
+        _param.seq_len += MAX_NUM_TARGET
         mask = compute_target_mask_each_block_concat(_param, use_npu=False)
         torch.save(mask[-MAX_NUM_TARGET:, -MAX_NUM_TARGET:], cached_file)
-        return mask
+        return mask[:param.seq_len, :param.seq_len]
 
 
 def jagged_data_gen(qkv_shape_params: QKVShapeParams, mask_params: MaskParams):
-    batch_size, max_seq_len, num_heads, attention_dim = qkv_shape_params.values()
+    batch_size, min_seq_len, max_seq_len, num_heads, attention_dim = qkv_shape_params.values()
     mask_type, num_context, num_target, target_group_size = mask_params.values()
-    seq_lens = np.random.randint(1, max_seq_len + 1, batch_size)
+    seq_lens = np.random.randint(min_seq_len, max_seq_len + 1, batch_size)
     if mask_type is MaskType.TRIL:
         seq_lens += num_context + num_target
 
@@ -122,8 +125,7 @@ def jagged_data_gen(qkv_shape_params: QKVShapeParams, mask_params: MaskParams):
 
     if mask_type == MaskType.TRIL:
         invalid_attn_mask = torch.zeros(batch_size, num_heads, max_seq_len, max_seq_len)
-        for batch_id in range(batch_size):
-            seq_len = seq_lens[batch_id]
+        for sample_id, seq_len in enumerate(seq_lens):
             score_shape_param = ScoreShapeParam(
                 seq_len=seq_len,
                 num_target=num_target,
@@ -134,7 +136,7 @@ def jagged_data_gen(qkv_shape_params: QKVShapeParams, mask_params: MaskParams):
                 block_w=BLOCK_HEIGHT
             )
             mask = cached_create_causal_mask(score_shape_param)
-            invalid_attn_mask[batch_id, :seq_len, :seq_len] = mask
+            invalid_attn_mask[sample_id, :, :seq_len, :seq_len] = mask
     else:
         invalid_attn_mask = torch.randint(0, 2, size=(batch_size, num_heads, max_seq_len, max_seq_len))
     invalid_attn_mask = invalid_attn_mask.cpu().to(torch.float32)
@@ -160,9 +162,6 @@ def generate_tensor(batch_size, max_seq_len, num_heads, attention_dim, data_type
     return q.to(data_type).to(f"npu:{device_id}"), k.to(data_type).to(f"npu:{device_id}"), v.to(data_type).to(
         f"npu:{device_id}"), rel_attn_bias.to(data_type).to(f"npu:{device_id}"), invalid_attn_mask.to(data_type).to(
         f"npu:{device_id}")
-
-
-torch.npu.set_device(device_id)
 
 
 class TestHstuJaggedDemo:
@@ -205,7 +204,8 @@ class TestHstuJaggedDemo:
             )
         else:
             output = torch.ops.mxrec.hstu_dense(
-                q_npu, k_npu, v_npu, mask_npu, None, mask_type, max_seq_len, silu_scale, "jagged", seq_offset
+                q_npu, k_npu, v_npu, mask_npu, None, mask_type, max_seq_len, silu_scale, "jagged", seq_offset,
+                num_context, num_target, target_group_size
             )
         torch.npu.synchronize()
         return output.cpu().to(data_type).reshape(-1)
@@ -257,16 +257,17 @@ class TestHstuJaggedDemo:
         q, k, v, seq_offset, bias, mask, max_seq_len = jagged_data_gen(qkv_shape_params, mask_params)
 
         output = self.custom_op_exec(q, k, v, seq_offset, bias, mask, max_seq_len, enable_bias,
-                                     mask_params.type, silu_scale, qkv_shape_params.dtype)
+                                     mask_params.type, silu_scale, qkv_shape_params.dtype, 
+                                     mask_params.num_context, mask_params.num_target, mask_params.target_group_size)
         golden = self.golden_op_exec(q, k, v, seq_offset, bias, mask, max_seq_len, enable_bias,
                                      mask_params.type, silu_scale, qkv_shape_params.dtype)
 
         if qkv_shape_params.dtype == torch.bfloat16:
-            res = torch.allclose(output, golden, 1e-2, 1e-2)
+            res = torch.allclose(output, golden, 1e-2)
         elif qkv_shape_params.dtype == torch.float16:
-            res = torch.allclose(output, golden, 1e-3, 1e-3)
+            res = torch.allclose(output, golden, 1e-3)
         else:
-            res = torch.allclose(output, golden, 1e-4, 1e-4)
+            res = torch.allclose(output, golden, 1e-4)
         assert res
 
     @pytest.mark.parametrize("batch_size", [1, 16])
@@ -432,3 +433,23 @@ class TestHstuNormalDemo:
     def test_hstu_dens_normal(self, batch_size, head_num, max_seq_len, head_dim, enable_bias, mask_type, silu_scale,
                               data_type):
         self.execute(batch_size, max_seq_len, head_num, head_dim, enable_bias, mask_type, silu_scale, data_type)
+
+
+if __name__ == "__main__":
+    min_seq_len, max_seq_len = 1, 2048
+    batch_size, head_num, head_dim = 2048, 2, 256
+    data_type, mask_type, enable_bias, silu_scale = torch.float16, MaskType.TRIL, True, 1 / 256
+    num_context, num_target, target_group_size = 6, 512, 3
+
+    qkv_shape_params = QKVShapeParams(dtype=data_type,
+                                    batch_size=batch_size,
+                                    min_seq_len=min_seq_len,
+                                    max_seq_len=max_seq_len,
+                                    num_heads=head_num,
+                                    attention_dim=head_dim)
+    mask_params = MaskParams(type=mask_type,
+                                num_context=num_context,
+                                num_target=num_target,
+                                target_group_size=target_group_size)
+    op = TestHstuJaggedDemo()
+    op.execute(qkv_shape_params, mask_params, enable_bias, silu_scale)
