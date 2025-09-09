@@ -287,7 +287,7 @@ def test_pipeline_normal(config: ExecuteConfig):
     )
 
 
-@pytest.mark.parametrize("config, err_pattern", [
+@pytest.mark.parametrize("config", [
     *(
         ExecuteConfig(*v) for v in itertools.product(*{
             "world_size": [WORLD_SIZE],
@@ -319,8 +319,8 @@ def test_pipeline_normal(config: ExecuteConfig):
         }.values())
     ),
 ])
-def test_pipeline_invalid(config: ExecuteConfig, err_pattern: str):
-    with pytest.raises(ProcessRaisedException, match=err_pattern):
+def test_pipeline_invalid(config: ExecuteConfig):
+    with pytest.raises(ProcessRaisedException, match=config.err_pattern):
         mp.spawn(
             execute,
             args=(config,),
