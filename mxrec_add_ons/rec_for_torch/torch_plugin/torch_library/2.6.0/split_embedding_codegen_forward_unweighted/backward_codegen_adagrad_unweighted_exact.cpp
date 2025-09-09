@@ -248,6 +248,7 @@ public:
             Variable(),        // momentum1_placements
             Variable(),        // momentum1_offsets
             Variable(),        // grad_accumulate
+            Variable(),        // hash_indices
             Variable(),        // unique_ids
             Variable(),        // unique_offsets
             Variable(),        // unique_inverse
@@ -366,9 +367,9 @@ TORCH_LIBRARY(fbgemm, m)
           "    bool stochastic_rounding, "
           "    Tensor momentum1_dev, Tensor momentum1_uvm, Tensor momentum1_placements, "
           "    Tensor momentum1_offsets, "
-          "    Tensor? hash_indices = None, "
           "    Tensor[] grad_accumulate, "
           "    Tensor grad_accumulate_offsets, "
+          "    Tensor? hash_indices = None, "
           "    Tensor? unique_ids = None, "
           "    Tensor? unique_offsets = None, "
           "    Tensor? unique_inverse = None, "
