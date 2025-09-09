@@ -287,36 +287,41 @@ def test_pipeline_normal(config: ExecuteConfig):
     )
 
 
+params_invalid_num_embeddings = {
+    "world_size": [WORLD_SIZE],
+    "table_num": [2],
+    "embedding_dims": [[128, 128]],
+    "num_embeddings": [[1000000000 + 1, 400]],
+    "pool_type": [
+        torchrec.PoolingType.SUM,
+    ],
+    "sharding_type": ["row_wise"],
+    "lookup_len": [128],  # batchsize
+    "device": ["npu"],
+    "err_pattern": ["The num_embeddings should be in"],
+}
+
+params_invalid_embedding_dim = {
+    "world_size": [WORLD_SIZE],
+    "table_num": [2],
+    "embedding_dims": [[128, 127]],
+    "num_embeddings": [[4000, 400]],
+    "pool_type": [
+        torchrec.PoolingType.SUM,
+    ],
+    "sharding_type": ["row_wise"],
+    "lookup_len": [128],  # batchsize
+    "device": ["npu"],
+    "err_pattern": ["The embedding dim should be a multiple of"],
+}
+
+
 @pytest.mark.parametrize("config", [
     *(
-        ExecuteConfig(*v) for v in itertools.product(*{
-            "world_size": [WORLD_SIZE],
-            "table_num": [2],
-            "embedding_dims": [[128, 128]],
-            "num_embeddings": [[1000000000 + 1, 400]],
-            "pool_type": [
-                torchrec.PoolingType.SUM,
-            ],
-            "sharding_type": ["row_wise"],
-            "lookup_len": [128],  # batchsize
-            "device": ["npu"],
-            "err_pattern": ["The num_embeddings should be in"],
-        }.values())
+        ExecuteConfig(*v) for v in itertools.product(*params_invalid_num_embeddings.values())
     ),
     *(
-        ExecuteConfig(*v) for v in itertools.product(*{
-            "world_size": [WORLD_SIZE],
-            "table_num": [2],
-            "embedding_dims": [[128, 127]],
-            "num_embeddings": [[4000, 400]],
-            "pool_type": [
-                torchrec.PoolingType.SUM,
-            ],
-            "sharding_type": ["row_wise"],
-            "lookup_len": [128],  # batchsize
-            "device": ["npu"],
-            "err_pattern": ["The embedding dim should be a multiple of"],
-        }.values())
+        ExecuteConfig(*v) for v in itertools.product(*params_invalid_embedding_dim.values())
     ),
 ])
 def test_pipeline_invalid(config: ExecuteConfig):
