@@ -57,6 +57,7 @@ class ExecuteConfig:
     sharding_type: str
     lookup_len: int
     device: str
+    err_pattern: str = ''
 
 
 def execute(rank: int, config: ExecuteConfig):
@@ -288,21 +289,22 @@ def test_pipeline_normal(config: ExecuteConfig):
 
 @pytest.mark.parametrize("config, err_pattern", [
     *(
-        (ExecuteConfig(*v), "The num_embeddings should be in") for v in itertools.product(*{
+        ExecuteConfig(*v) for v in itertools.product(*{
             "world_size": [WORLD_SIZE],
             "table_num": [2],
             "embedding_dims": [[128, 128]],
-            "num_embeddings": [[1000000000+1, 400]],
+            "num_embeddings": [[1000000000 + 1, 400]],
             "pool_type": [
                 torchrec.PoolingType.SUM,
             ],
             "sharding_type": ["row_wise"],
             "lookup_len": [128],  # batchsize
             "device": ["npu"],
+            "err_pattern": ["The num_embeddings should be in"],
         }.values())
     ),
     *(
-        (ExecuteConfig(*v), "The embedding dim should be a multiple of") for v in itertools.product(*{
+        ExecuteConfig(*v) for v in itertools.product(*{
             "world_size": [WORLD_SIZE],
             "table_num": [2],
             "embedding_dims": [[128, 127]],
@@ -313,6 +315,7 @@ def test_pipeline_normal(config: ExecuteConfig):
             "sharding_type": ["row_wise"],
             "lookup_len": [128],  # batchsize
             "device": ["npu"],
+            "err_pattern": ["The embedding dim should be a multiple of"],
         }.values())
     ),
 ])
