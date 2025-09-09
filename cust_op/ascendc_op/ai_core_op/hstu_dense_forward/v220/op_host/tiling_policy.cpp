@@ -168,7 +168,7 @@ bool TilingPolicy::TilingAttribute(gert::TilingContext *context, optiling::HstuD
     const float *siluScale = attrs->GetAttrPointer<float>(INDEX_T::INDEX_2);
     OPS_CHECK_PTR_NULL(siluScale, return false);
 
-    const float *target_group_size = attrs->GetAttrPointer<float>(INDEX_T::INDEX_6);
+    const uint32_t *target_group_size = attrs->GetAttrPointer<uint32_t>(INDEX_T::INDEX_6);
     OPS_CHECK_PTR_NULL(target_group_size, return false);
 
     auto biasTensor = context->GetOptionalInputTensor(INDEX_T::INDEX_4);
