@@ -408,7 +408,7 @@ public:
         if (!std::is_same<qType, float>::value) {
             CastQType2Float(inputQK, inputQK.template ReinterpretCast<qType>(), outputMidTemp, thisLen);
             CastQType2Float(inputGV, inputGV.template ReinterpretCast<qType>(), outputMidTemp, thisLen);
-            if (useMask) {
+            if (useMask && IfMask(maskType, MaskType::MASK_CUSTOM)) {
                 CastQType2Float(inputMask, inputMask.template ReinterpretCast<qType>(), outputMidTemp, thisLen);
             }
             if (enableBias) {
@@ -508,7 +508,7 @@ public:
 
         bool useMask = false;
         if (IfMask(maskType, MaskType::MASK_TRIL)) {
-            useMask = taskInfo[curTaskId].rowId == taskInfo[curTaskId].colId;
+            useMask = blockMaskParams[taskId].NeedMask();
         } else if (IfMask(maskType, MaskType::MASK_CUSTOM)) {
             useMask = true;
         }
@@ -559,7 +559,7 @@ public:
             LocalTensor<float> inputMask = queueVecScoreMask.AllocTensor<float>();
             if (IfMask(maskType, MaskType::MASK_TRIL)) {
                 // DataCopy<qType>(inputMask.template ReinterpretCast<qType>(), maskTemp[curMaskOffset], thisLen);
-                generator.GenMask(inputMask, rowInBlock, blockHeight, blockHeight);
+                generator.GenMask(inputMask, rowInBlock, thisLen/blockHeight, blockHeight);
             }
             if (IfMask(maskType, MaskType::MASK_CUSTOM)) {
                 CopyInPadding(inputMask.template ReinterpretCast<qType>(), mask[curMaskOffset], validRowNum,

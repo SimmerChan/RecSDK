@@ -79,6 +79,28 @@ struct BlockMaskParams {
                         (kSeqId_diagonal > (seqlen - numTarget) / blockHeight);
         return noCausal && noContext;
     }
+
+    __aicore__ inline bool NeedContextMask()
+    {
+        return (numContext > 0) && (qSeqId <= numContext / blockHeight) &&
+               (kSeqId <= (seqlen - numTarget) / blockHeight);
+    }
+
+    __aicore__ inline bool NeedCausalMask()
+    {
+        return (qSeqId == kSeqId);
+    }
+
+    __aicore__ inline bool NeedTargetMask()
+    {
+        auto tbase = (seqlen - numTarget) / blockHeight;
+        return (numTarget > 0) && (targetGroupSize > 0) && (tbase <= kSeqId) && (kSeqId <= qSeqId);
+    }
+
+    __aicore__ inline bool NeedMask()
+    {
+        return NeedContextMask() || NeedCausalMask() || NeedTargetMask();
+    }
 };
 
 class BlockMaskGenerator {
