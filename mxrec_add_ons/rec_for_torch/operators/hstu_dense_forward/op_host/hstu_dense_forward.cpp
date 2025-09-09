@@ -164,11 +164,11 @@ public:
             .Follow("q", FollowType::DTYPE)
             .Format({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND});
-        this->Attr("masktype").Int();//0
-        this->Attr("max_seq_q").Int();//保留，减少修改
+        this->Attr("masktype").Int();
+        this->Attr("max_seq_q").Int();
         this->Attr("silu_scale").Float();
         this->Attr("layout").AttrType(OPTIONAL).String("normal");
-        this->Attr("max_seq_k").Int();//默认值？现在在适配层给max_seq_k赋值，max_seq_k不存在空的情况
+        this->Attr("max_seq_k").Int();
         this->Attr("enable_bias").Int();
         this->Attr("target_group_size").AttrType(OPTIONAL).Int(0);
 
