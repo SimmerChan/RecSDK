@@ -66,7 +66,7 @@ at::Tensor hstu_dense_forward_impl_npu(
     const std::string layout,
     const c10::optional<at::Tensor>& seqOffset)
 {
-    TORCH_CHECK(q.dim() == CONST_3, "The q should be 3D in jagged layout");
+    TORCH_CHECK(q.dim() == CONST_4, "The q should be 4D in dense layout");
 
     auto denseQ = q.contiguous();
     auto denseK = k.contiguous();
@@ -80,7 +80,7 @@ at::Tensor hstu_dense_forward_impl_npu(
 
     auto attnOutput = at::empty_like(denseQ);
     double realSiluScale = (siluScale == 0.0) ? 1.0f / maxSeqLen : siluScale;
-    //赋空值
+
     const auto _acSeqOffsetK = at::Tensor();
     const auto _acseqOffsetT = at::Tensor();
     const auto _kvCacheNpu = at::Tensor();
@@ -93,7 +93,6 @@ at::Tensor hstu_dense_forward_impl_npu(
     const auto _target_group_size = int();
 
 
-    //待修改，at::Tensor()
     EXEC_NPU_CMD(aclnnHstuDenseForward,
                  denseQ,
                  denseK,
@@ -157,7 +156,6 @@ at::Tensor hstu_jagged_forward_impl_npu(
     auto attnOutput = at::empty_like(denseQ);
     double realSiluScale = (siluScale == 0.0) ? 1.0f / maxSeqLen : siluScale;
 
-    //赋空值
     const auto _acSeqOffsetK = at::Tensor();
     const auto _acseqOffsetT = at::Tensor();
     const auto _kvCacheNpu = at::Tensor();
@@ -165,7 +163,7 @@ at::Tensor hstu_jagged_forward_impl_npu(
     const auto _pageIds = at::Tensor();
     const auto _lastPageLen = at::Tensor();
     const auto _maxSeqLenK = int();
-    //待修改，at::Tensor()
+
     EXEC_NPU_CMD(aclnnHstuDenseForward,
                  denseQ,
                  denseK,
@@ -226,7 +224,6 @@ at::Tensor hstu_varlen_forward_impl_npu(
 
     auto attnOutput = at::empty_like(denseQ);
     double realSiluScale = (siluScale == 0.0) ? 1.0f / maxSeqLen : siluScale;
-    //赋空值
 
     const auto _acseqOffsetT = at::Tensor();
     const auto _kvCacheNpu = at::Tensor();
@@ -236,7 +233,7 @@ at::Tensor hstu_varlen_forward_impl_npu(
     const auto _numContext = at::Tensor();
     const auto _numTarget = at::Tensor();
     const auto _target_group_size = int();
-    //待修改，at::Tensor()
+
     EXEC_NPU_CMD(aclnnHstuDenseForward,
                  denseQ,
                  denseK,
@@ -307,11 +304,11 @@ at::Tensor hstu_paged_forward_impl_npu(
 
     auto attnOutput = at::empty_like(denseQ);
     double realSiluScale = (siluScale == 0.0) ? 1.0f / maxSeqLen : siluScale;
-    //赋空值
+
     const auto _numContext = at::Tensor();
     const auto _numTarget = at::Tensor();
     const auto _target_group_size = int();
-    //待修改，at::Tensor()
+
     EXEC_NPU_CMD(aclnnHstuDenseForward,
                  denseQ,
                  denseK,
@@ -337,9 +334,7 @@ at::Tensor hstu_paged_forward_impl_npu(
                  attnOutput);
     return attnOutput;
 }
-//Y = f(Q, K, V, AttnBias)
-//∂L/∂Q = (∂L/∂Y) * (∂Y/∂Q)  # qGradOutput
-//aclnnHstuDenseBackward作用：根据∂Loss/∂output(即grad)求∂L/∂Q, ∂L/∂K, ∂L/∂V, ∂L/∂AttnBias
+
 std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> hstu_dense_backward_impl_npu(
     const at::Tensor& grad,
     const at::Tensor& q,
@@ -390,11 +385,10 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> hstu_dense_backward_i
         attnBiasGradOutput = at::empty({batchSize, headNum, biasGradSeqLen, biasGradSeqLen},
                                        at::device(denseGrad.device()).dtype(denseGrad.dtype()));
     }
-    //赋空值
+
     auto _denseNum_context = at::Tensor();
     auto _denseNum_target = at::Tensor();
     auto _target_group_size = int();
-
 
     EXEC_NPU_CMD(aclnnHstuDenseBackward,
                  denseGrad,
@@ -703,7 +697,6 @@ public:
                                                          num_context, num_target, target_group_size);
 
         // 返回梯度数量必须与前向输入参数数量一致
-        // 前向有14个参数，需要返回14个梯度
         if (attnBias.defined()) {
             return { std::get<0>(resultTuple), std::get<1>(resultTuple), std::get<2>(resultTuple), at::Tensor(),
                     std::get<3>(resultTuple), at::Tensor(), at::Tensor(), at::Tensor(), at::Tensor(), at::Tensor(),
