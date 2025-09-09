@@ -145,8 +145,14 @@ bool TilingPolicy::TilingAttribute(gert::TilingContext *context, optiling::HstuD
     const uint32_t *maxSeqLen = attrs->GetAttrPointer<uint32_t>(INDEX_T::INDEX_1);
     OPS_CHECK_PTR_NULL(maxSeqLen, return false);
 
+    const uint32_t *maxSeqLenk = attrs->GetAttrPointer<uint32_t>(INDEX_T::INDEX_4);
+    OPS_CHECK_PTR_NULL(maxSeqLenk, return false);
+
     const float *siluScale = attrs->GetAttrPointer<float>(INDEX_T::INDEX_2);
     OPS_CHECK_PTR_NULL(siluScale, return false);
+
+    const uint32_t *target_group_size = attrs->GetAttrPointer<uint32_t>(INDEX_T::INDEX_6);
+    OPS_CHECK_PTR_NULL(target_group_size, return false);
 
     auto biasTensor = context->GetOptionalInputTensor(INDEX_T::INDEX_4);
     if (biasTensor == nullptr) {
@@ -158,6 +164,9 @@ bool TilingPolicy::TilingAttribute(gert::TilingContext *context, optiling::HstuD
     tiling.set_maskType(*maskType);
     tiling.set_siluScale(*siluScale);
     tiling.set_maxSeqLen(*maxSeqLen);
+    tiling.set_maxSeqLenq(*maxSeqLen);
+    tiling.set_maxSeqLenk(*maxSeqLenk);
+    tiling.set_target_group_size(*target_group_size);
     return true;
 }
 
