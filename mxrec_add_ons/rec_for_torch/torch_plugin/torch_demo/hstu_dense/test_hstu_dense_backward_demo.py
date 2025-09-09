@@ -15,20 +15,40 @@
 # limitations under the License.
 # ==============================================================================
 import sysconfig
+import os
+from copy import deepcopy
+
 import pytest
 import torch
 import torch_npu
 import torch.nn.functional as F
 import numpy as np
 
-from test_target_mask import ScoreShapeParam, HstuBlockParam, _compute_target_mask_one_block_gpu
+from test_target_mask import ScoreShapeParam, compute_target_mask_each_block_concat
 
 torch.npu.config.allow_internal_format = False
 torch.ops.load_library(f"{sysconfig.get_path('purelib')}/libfbgemm_npu_api.so")
 
+MAX_NUM_TARGET = 1000
 device_id: int = 0
 
-
+def cached_create_causal_mask(param: ScoreShapeParam) -> torch.Tensor:
+    cached_file = f"cached_target_mask{param.target_group_size}.pt"
+    if os.path.exists(cached_file):
+        mask = torch.tril(torch.ones(param.seq_len, param.seq_len))
+        mask[:param.num_context, :param.num_target] = 1
+        if param.num_target > 0:
+            target_mask = torch.load(cached_file)
+            mask[-param.num_target:, -param.num_target:] = target_mask[:param.num_target, :param.num_target]
+        return mask
+    else:
+        _param = deepcopy(param)
+        _param.num_target = MAX_NUM_TARGET
+        _param.seq_len += MAX_NUM_TARGET
+        mask = compute_target_mask_each_block_concat(_param, use_npu=False)
+        torch.save(mask[-MAX_NUM_TARGET:, -MAX_NUM_TARGET:], cached_file)
+        return mask[:param.seq_len, :param.seq_len]
+    
 def jagged_data_gen(
     batch_size,
     max_seq_len,
@@ -67,8 +87,7 @@ def jagged_data_gen(
                     block_h=seq_len,
                     block_w=seq_len,
                 )
-                block_param = HstuBlockParam(0, 0, seq_len, seq_len)
-                mask_tensor = _compute_target_mask_one_block_gpu(block_param, parm)
+                mask_tensor = cached_create_causal_mask(parm)
                 mask[sample_id, :, :seq_len, :seq_len] = mask_tensor   
     elif mask_type == 1:
         mask = torch.triu(torch.ones(batch_size, num_heads, max_seq_len, max_seq_len, dtype=data_type))

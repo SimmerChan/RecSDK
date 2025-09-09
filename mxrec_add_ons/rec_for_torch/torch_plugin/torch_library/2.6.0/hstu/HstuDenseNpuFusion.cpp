@@ -380,9 +380,9 @@ TORCH_LIBRARY_FRAGMENT(mxrec, m)
         int maskType=0, int maxSeqLen=0, float siluScale=0.0, str layout=\"normal\", int[]? seqOffset=None) -> Tensor");
     m.def("hstu_dense_backward(Tensor grad, Tensor q, Tensor k, Tensor v, Tensor? mask, Tensor? attnBias, \
         str layout, int maskType, int maxSeqLen, float siluScale=0.0, int[]? seqOffset=None,              \
-        int? numContext,    \
-        int? numTarget,     \
-        int? targetGroupSize) -> (Tensor, Tensor, \
+        int? numContext=0,    \
+        int? numTarget=0,     \
+        int? targetGroupSize=0) -> (Tensor, Tensor, \
         Tensor, Tensor)");
 }
 
