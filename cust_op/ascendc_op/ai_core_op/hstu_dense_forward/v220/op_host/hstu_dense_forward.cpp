@@ -91,39 +91,89 @@ public:
     {
         this->Input("q")
             .ParamType(REQUIRED)
-            .DataType({ge::DT_FLOAT, ge::DT_FLOAT16, ge::DT_BF16})
+            .DataTypeList({ge::DT_FLOAT, ge::DT_FLOAT16, ge::DT_BF16})
             .Format({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND});
         this->Input("k")
             .ParamType(REQUIRED)
-            .DataType({ge::DT_FLOAT, ge::DT_FLOAT16, ge::DT_BF16})
+            .Follow("q", FollowType::DTYPE)
             .Format({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND});
         this->Input("v")
             .ParamType(REQUIRED)
-            .DataType({ge::DT_FLOAT, ge::DT_FLOAT16, ge::DT_BF16})
+            .Follow("q", FollowType::DTYPE)
             .Format({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND});
         this->Input("mask")
             .ParamType(OPTIONAL)
-            .DataType({ge::DT_FLOAT, ge::DT_FLOAT16, ge::DT_BF16})
+            .Follow("q", FollowType::DTYPE)
             .Format({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND});
         this->Input("attn_bias")
             .ParamType(OPTIONAL)
-            .DataType({ge::DT_FLOAT, ge::DT_FLOAT16, ge::DT_BF16})
+            .Follow("q", FollowType::DTYPE)
+            .Format({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND});
+        this->Input("seq_offset_q")
+            .ParamType(OPTIONAL)
+            .DataTypeList({ge::DT_INT64, ge::DT_INT32})
+            .Format({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND});
+        this->Input("seq_offset_k")
+            .ParamType(OPTIONAL)
+            .Follow("seq_offset_q", FollowType::DTYPE)
+            .Format({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND});
+        this->Input("seq_offset_t")
+            .ParamType(OPTIONAL)
+            .Follow("seq_offset_q", FollowType::DTYPE)
+            .Format({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND});
+        this->Input("kv_cache")
+            .ParamType(OPTIONAL)
+            .Follow("q", FollowType::DTYPE)
+            .Format({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND});
+        this->Input("page_offsets")
+            .ParamType(OPTIONAL)
+            .Follow("seq_offset_q", FollowType::DTYPE)
+            .Format({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND});
+        this->Input("page_ids")
+            .ParamType(OPTIONAL)
+            .Follow("seq_offset_q", FollowType::DTYPE)
+            .Format({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND});
+        this->Input("last_page_len")
+            .ParamType(OPTIONAL)
+            .Follow("seq_offset_q", FollowType::DTYPE)
+            .Format({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND});
+        this->Input("num_context")
+            .ParamType(OPTIONAL)
+            .Follow("seq_offset_q", FollowType::DTYPE)
+            .Format({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})
+            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND});
+        this->Input("num_target")
+            .ParamType(OPTIONAL)
+            .Follow("seq_offset_q", FollowType::DTYPE)
             .Format({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND});
         this->Output("attn_output")
             .ParamType(REQUIRED)
-            .DataType({ge::DT_FLOAT, ge::DT_FLOAT16, ge::DT_BF16})
+            .Follow("q", FollowType::DTYPE)
             .Format({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND});
-        this->Attr("maskType").Int();
-        this->Attr("max_seq_len").Int();
+        this->Attr("masktype").Int();//0
+        this->Attr("max_seq_q").Int();//保留，减少修改
         this->Attr("silu_scale").Float();
         this->Attr("layout").AttrType(OPTIONAL).String("normal");
-        this->Attr("seq_offsets").AttrType(OPTIONAL).ListInt();
+        this->Attr("max_seq_k").Int();//默认值？现在在适配层给max_seq_k赋值，max_seq_k不存在空的情况
+        this->Attr("enable_bias").Int();
+        this->Attr("target_group_size").AttrType(OPTIONAL).Int(0);
+
+
+
 
         OpAICoreConfig aicore_config;
         aicore_config.DynamicCompileStaticFlag(true)
