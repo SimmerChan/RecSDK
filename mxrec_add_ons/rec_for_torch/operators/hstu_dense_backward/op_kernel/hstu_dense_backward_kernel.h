@@ -795,9 +795,9 @@ public:
             colLine = colLine > blockHeight ? blockHeight : colLine;
 
             for (int64_t rowId = 0; rowId < rowBlockNum; rowId++) {
-                auto args = this->computeTaskInfo[taskId % COMPUTE_PIPE_NUM];
+                auto args = this->taskInfo[taskId % COMPUTE_PIPE_NUM];
                 this->blockMaskParams[taskId % COMPUTE_PIPE_NUM] = {
-                    (uint32_t)args.rowId, (uint32_t)colId, (uint32_t)args.curSeqLen, this->blockHeight,
+                    (uint32_t)args.rowId, (uint32_t)colId, (uint32_t)seqLen, this->blockHeight,
                     this->numContext,     this->numTarget, this->targetGroupSize,    1};
                 if (IfMask(maskType, MaskType::MASK_TRIL) &&
                     this->blockMaskParams[taskId % COMPUTE_PIPE_NUM].NoComputation()) {
