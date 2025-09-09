@@ -139,7 +139,7 @@ at::Tensor hstu_jagged_forward_impl_npu(
     TORCH_CHECK(q.dim() == CONST_3, "The q should be 3D in jagged layout");
 
     auto acSeqOffset = c10::value_or_else(seqOffset, [] {return at::Tensor(); });
-    TORCH_CHECK(acSeqOffset.size() >= CONST_2, "acSeqOffset params error should have at least two element.");
+    TORCH_CHECK(acSeqOffset.size(0) >= CONST_2, "acSeqOffset params error should have at least two element.");
 
     auto denseQ = q.contiguous();
     auto denseK = k.contiguous();
@@ -210,9 +210,9 @@ at::Tensor hstu_varlen_forward_impl_npu(
     TORCH_CHECK(q.dim() == CONST_3, "The q should be 3D in jagged layout");
 
     auto acSeqOffset = c10::value_or_else(seqOffset, [] {return at::Tensor(); });
-    auto acSeqOffsetK = c10::value_or_else(seqOffsetK, [] {return at::Tensor(); };
-    TORCH_CHECK(acSeqOffset.size() >= CONST_2, "acSeqOffset params error should have at least two element.");
-    TORCH_CHECK(acSeqOffsetK.size() >= CONST_2, "acSeqOffsetK params error should have at least two element.");
+    auto acSeqOffsetK = c10::value_or_else(seqOffsetK, [] {return at::Tensor(); });
+    TORCH_CHECK(acSeqOffset.size(0) >= CONST_2, "acSeqOffset params error should have at least two element.");
+    TORCH_CHECK(acSeqOffsetK.size(0) >= CONST_2, "acSeqOffsetK params error should have at least two element.");
 
     auto denseQ = q.contiguous();
     auto denseK = k.contiguous();
@@ -267,6 +267,7 @@ at::Tensor hstu_paged_forward_impl_npu(
     const at::Tensor& q,
     const at::Tensor& k,
     const at::Tensor& v,
+    const c10::optional<at::Tensor>& kv_cache,
     const c10::optional<at::Tensor>& mask,
     const c10::optional<at::Tensor>& attnBias,
     const int64_t enable_bias,
@@ -285,19 +286,20 @@ at::Tensor hstu_paged_forward_impl_npu(
     TORCH_CHECK(q.dim() == CONST_3, "The q should be 3D in jagged layout");
 
     auto acSeqOffset = c10::value_or_else(seqOffset, [] {return at::Tensor(); });
-    auto acSeqOffsetK = c10::value_or_else(seqOffsetK, [] {return at::Tensor(); };
-    TORCH_CHECK(acSeqOffset.size() >= CONST_2, "acSeqOffset params error should have at least two element.");
-    TORCH_CHECK(acSeqOffsetK.size() >= CONST_2, "acSeqOffsetK params error should have at least two element.");
+    auto acSeqOffsetK = c10::value_or_else(seqOffsetK, [] {return at::Tensor(); });
+    TORCH_CHECK(acSeqOffset.size(0) >= CONST_2, "acSeqOffset params error should have at least two element.");
+    TORCH_CHECK(acSeqOffsetK.size(0) >= CONST_2, "acSeqOffsetK params error should have at least two element.");
 
     auto denseQ = q.contiguous();
     auto denseK = k.contiguous();
     auto denseV = v.contiguous();
     auto denseBias = c10::value_or_else(attnBias, [] {return at::Tensor(); });
     auto maskNpu = c10::value_or_else(mask, [] {return at::Tensor(); });
-    auto acseqOffsetT = c10::value_or_else(seqOffset_t, [] {return at::Tensor(); });
+    auto acseqOffsetT = c10::value_or_else(seqOffsetT, [] {return at::Tensor(); });
     auto pageOffsets = c10::value_or_else(Page_offsets, [] {return at::Tensor(); });
     auto pageIds = c10::value_or_else(Page_ids, [] {return at::Tensor(); });
     auto lastPageLen = c10::value_or_else(Last_page_len, [] {return at::Tensor(); });
+    auto kvCacheNpu = c10::value_or_else(kv_cache, [] {return at::Tensor(); });
 
     TORCH_CHECK(maxSeqLen >= MIN_SEQ_LEN && maxSeqLen <= MAX_SEQ_LEN,
                 "maxSeqLen expect in [1, 20480], but value is ", maxSeqLen);
@@ -338,7 +340,7 @@ at::Tensor hstu_paged_forward_impl_npu(
 //Y = f(Q, K, V, AttnBias)
 //∂L/∂Q = (∂L/∂Y) * (∂Y/∂Q)  # qGradOutput
 //aclnnHstuDenseBackward作用：根据∂Loss/∂output(即grad)求∂L/∂Q, ∂L/∂K, ∂L/∂V, ∂L/∂AttnBias
-std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> hstu_dense_backward(
+std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> hstu_dense_backward_impl_npu(
     const at::Tensor& grad,
     const at::Tensor& q,
     const at::Tensor& k,
@@ -365,6 +367,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> hstu_dense_backward(
     auto denseAttnBias = acAttnBias.contiguous();
     auto denseMask = acMask.contiguous();
 
+
     uint32_t batchSize = denseGrad.size(0); // 0 means index 0
     uint32_t seqLen = denseGrad.size(1); // 1 means index 1
     uint32_t headNum = denseGrad.size(2); // 2 means index 2
@@ -388,9 +391,10 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> hstu_dense_backward(
                                        at::device(denseGrad.device()).dtype(denseGrad.dtype()));
     }
     //赋空值
-    auto _numContext = at::Tensor();
-    auto _numTarget = at::Tensor();
+    auto _denseNum_context = at::Tensor();
+    auto _denseNum_target = at::Tensor();
     auto _target_group_size = int();
+
 
     EXEC_NPU_CMD(aclnnHstuDenseBackward,
                  denseGrad,
@@ -416,7 +420,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> hstu_dense_backward(
     return std::make_tuple(qGradOutput, kGradOutput, vGradOutput, attnBiasGradOutput);
 }
 
-std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> hstu_jagged_backward(
+std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> hstu_jagged_backward_impl_npu(
     const at::Tensor& grad,
     const at::Tensor& q,
     const at::Tensor& k,
@@ -437,7 +441,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> hstu_jagged_backward(
     TORCH_CHECK(grad.dim() == dim, "The grad should be 3D in jagged layout");
 
     auto acSeqOffset = seqOffset.value_or(at::Tensor());
-    TORCH_CHECK(acSeqOffset.size() >= CONST_2, "acSeqOffset params error should have at least two element.");
+    TORCH_CHECK(acSeqOffset.size(0) >= CONST_2, "acSeqOffset params error should have at least two element.");
 
     auto acAttnBias = attnBias.value_or(at::Tensor());
     auto acMask = mask.value_or(at::Tensor());
@@ -452,8 +456,8 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> hstu_jagged_backward(
     auto denseMask = acMask.contiguous();
     auto denseNum_context = acNum_context.contiguous();
     auto denseNum_target = acNum_target.contiguous();
-
-    uint32_t batchSize = acSeqOffset.size() - 1;
+    //
+    uint32_t batchSize = acSeqOffset.size(0) - 1;
     uint32_t headNum = denseGrad.size(1); // 1 means index 1
     uint32_t headDim = denseGrad.size(2); // 2 means index 2
 
@@ -507,14 +511,6 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> hstu_jagged_backward(
     }
 }
 
-
-
-
-
-
-
-
-
 //注册算子到mxrec
 TORCH_LIBRARY_FRAGMENT(mxrec, m)
 {
@@ -526,7 +522,7 @@ TORCH_LIBRARY_FRAGMENT(mxrec, m)
     m.def("hstu_varlen(Tensor q, Tensor k, Tensor v, Tensor? mask=None, Tensor? attnBias=None, int enable_bias=1, \
            int maskType=0, int maxSeqLen=0, int maxSeqLenK=0, float siluScale=0.0, str layout=\"jagged\", int[]? seqOffset=None, \
            int[]? seqOffsetK=None) -> Tensor");
-    m.def("hstu_paged(Tensor q, Tensor k, Tensor v, Tensor? mask=None, Tensor? attnBias=None, int enable_bias=1, \
+    m.def("hstu_paged(Tensor q, Tensor k, Tensor v, Tensor? kv_cahce=None, Tensor? mask=None, Tensor? attnBias=None, int enable_bias=1, \
            int maskType=0, int maxSeqLen=0, int maxSeqLenK=0, float siluScale=0.0, str layout=\"jagged\", int[]? seqOffset=None, \
            int[]? seqOffsetK=None, Tensor? seqOffsetT=None, Tensor? Page_offsets=None, Tensor? Page_ids=None, \
            Tensor? Last_page_len=None) -> Tensor");
@@ -563,11 +559,11 @@ public:
                               const int64_t maxSeqLen,
                               const double siluScale,
                               const std::string layout,
-                              c10::optional<at::Tensor> seqOffset)
+                              const c10::optional<at::Tensor> seqOffset)
     {
         at::AutoDispatchBelowADInplaceOrView guard;
 
-        ctx->save_for_backward({ q, k, v, mask.value_or(at::Tensor()), attnBias.value_or(at::Tensor()) });
+        ctx->save_for_backward({ q, k, v, mask.value_or(at::Tensor()), attnBias.value_or(at::Tensor()), seqOffset.value_or(at::Tensor()) });
         ctx->saved_data["enable_bias"] = enable_bias;
         ctx->saved_data["maskType"] = maskType;
         ctx->saved_data["maxSeqLen"] = maxSeqLen;
@@ -575,15 +571,15 @@ public:
         ctx->saved_data["layout"] = layout;
 
         if (seqOffset.has_value()) {
-            auto seqOffsetVec = seqOffset->vec();
-            ctx->saved_data["seqOffset"] = seqOffsetVec;
+            //auto seqOffsetVec = seqOffset->vec();
+            //save_for_backward储存tensor
             ctx->saved_data["hasSeqOffset"] = true;
         } else {
             ctx->saved_data["hasSeqOffset"] = false;
         }
 
-        return hstu_dense(q, k, v, mask, attnBias, enable_bias, maskType,
-                          maxSeqLen, siluScale, layout, seqOffset);
+        return hstu_dense_forward_impl_npu(q, k, v, mask, attnBias, enable_bias, maskType,
+                                           maxSeqLen, siluScale, layout, seqOffset);
     }
 
     static tensor_list backward(AutogradContext *ctx, tensor_list grad_outputs)
@@ -596,6 +592,7 @@ public:
         auto v = saved[2];
         auto mask = saved[3];
         auto attnBias = saved[4];
+        auto seqOffset = saved[5];
 
         auto enable_bias = ctx->saved_data["enable_bias"].toInt();
         auto maskType = ctx->saved_data["maskType"].toInt();
@@ -604,24 +601,27 @@ public:
         auto layout = ctx->saved_data["layout"].toStringRef();
 
         bool hasSeqOffset = ctx->saved_data["hasSeqOffset"].toBool();
-        std::vector<int64_t> seqOffsetVec;
-        c10::optional<at::Tensor> seqOffset;
-        if (hasSeqOffset) {
-            seqOffsetVec = ctx->saved_data["seqOffset"].toIntVector();
-            seqOffset = at::Tensor(seqOffsetVec);
-        }
+        //        std::vector<int64_t> seqOffsetVec;
+        //        c10::optional<at::Tensor> seqOffset;
+        //        if (hasSeqOffset) {
+        ////            ctx->save_for_backward["seqOffset"] = seqOffset;
+        //            seqOffsetVec = ctx->saved_data["seqOffset"].toIntVector();
+        //            seqOffset = at::Tensor(seqOffsetVec);
+        //            seqOffset = ctx->save_for_backward["seqOffset"]
+        //        }
 
-        auto resultTuple = hstu_dense_backward(grad, q, k, v, mask, attnBias, enable_bias, maskType,
-                                               maxSeqLen, siluScale, layout, seqOffset);
+        auto resultTuple = hstu_dense_backward_impl_npu(grad, q, k, v, mask, attnBias, enable_bias, maskType,
+                                                        maxSeqLen, siluScale, layout, seqOffset);
 
         if (attnBias.defined()) {
+            //返回q, k, v, mask, attnBias, enable_bias, maskType, maxSeqLen, siluScale, layout, seqOffset的梯度
             return { std::get<0>(resultTuple), std::get<1>(resultTuple), std::get<2>(resultTuple), at::Tensor(),
                     std::get<3>(resultTuple), at::Tensor(), at::Tensor(), at::Tensor(), at::Tensor(), at::Tensor(),
-                    at::Tensor(), at::Tensor() };
+                    at::Tensor() };
         } else {
             return { std::get<0>(resultTuple), std::get<1>(resultTuple), std::get<2>(resultTuple), at::Tensor(),
                     at::Tensor(), at::Tensor(), at::Tensor(), at::Tensor(), at::Tensor(), at::Tensor(),
-                    at::Tensor(), at::Tensor() };
+                    at::Tensor() };
         }
     }
 };
@@ -639,7 +639,7 @@ public:
                               const int64_t maxSeqLen,
                               const double siluScale,
                               const std::string layout,
-                              c10::optional<at::Tensor> seqOffset,
+                              const c10::optional<at::Tensor> seqOffset,
                               const c10::optional<at::Tensor>& num_context,
                               const c10::optional<at::Tensor>& num_target,
                               const int64_t target_group_size)
@@ -647,7 +647,7 @@ public:
         at::AutoDispatchBelowADInplaceOrView guard;
 
         ctx->save_for_backward({ q, k, v, mask.value_or(at::Tensor()), attnBias.value_or(at::Tensor()),
-                                num_context.value_or(at::Tensor()), num_target.value_or(at::Tensor()) });
+                                num_context.value_or(at::Tensor()), num_target.value_or(at::Tensor()), seqOffset.value_or(at::Tensor()) });
 
         ctx->saved_data["enable_bias"] = enable_bias;
         ctx->saved_data["maskType"] = maskType;
@@ -657,16 +657,16 @@ public:
         ctx->saved_data["target_group_size"] = target_group_size;
 
         if (seqOffset.has_value()) {
-            auto seqOffsetVec = seqOffset->vec();
-            ctx->saved_data["seqOffset"] = seqOffsetVec;
+            //            auto seqOffsetVec = seqOffset->vec();
+            //            ctx->saved_data["seqOffset"] = seqOffsetVec;
             ctx->saved_data["hasSeqOffset"] = true;
         } else {
             ctx->saved_data["hasSeqOffset"] = false;
         }
 
-        return hstu_jagged(q, k, v, mask, attnBias, enable_bias, maskType,
-                           maxSeqLen, siluScale, layout, seqOffset,
-                           num_context, num_target, target_group_size);
+        return hstu_jagged_forward_impl_npu(q, k, v, mask, attnBias, enable_bias, maskType,
+                                            maxSeqLen, siluScale, layout, seqOffset,
+                                            num_context, num_target, target_group_size);
     }
 
     static tensor_list backward(AutogradContext *ctx, tensor_list grad_outputs)
@@ -681,6 +681,7 @@ public:
         auto attnBias = saved[4];
         auto num_context = saved[5];
         auto num_target = saved[6];
+        auto seqOffset = saved[7];
 
         auto enable_bias = ctx->saved_data["enable_bias"].toInt();
         auto maskType = ctx->saved_data["maskType"].toInt();
@@ -690,16 +691,16 @@ public:
         auto target_group_size = ctx->saved_data["target_group_size"].toInt();
 
         bool hasSeqOffset = ctx->saved_data["hasSeqOffset"].toBool();
-        std::vector<int64_t> seqOffsetVec;
-        c10::optional<at::Tensor> seqOffset;
-        if (hasSeqOffset) {
-            seqOffsetVec = ctx->saved_data["seqOffset"].toIntVector();
-            seqOffset = at::Tensor(seqOffsetVec);
-        }
+        //        std::vector<int64_t> seqOffsetVec;
+        //        c10::optional<at::Tensor> seqOffset;
+        //        if (hasSeqOffset) {
+        //            seqOffsetVec = ctx->saved_data["seqOffset"].toIntVector();
+        //            seqOffset = at::Tensor(seqOffsetVec);
+        //        }
 
-        auto resultTuple = hstu_jagged_backward(grad, q, k, v, mask, attnBias, enable_bias, maskType,
-                                                maxSeqLen, siluScale, layout, seqOffset,
-                                                num_context, num_target, target_group_size);
+        auto resultTuple = hstu_jagged_backward_impl_npu(grad, q, k, v, mask, attnBias, enable_bias, maskType,
+                                                         maxSeqLen, siluScale, layout, seqOffset,
+                                                         num_context, num_target, target_group_size);
 
         // 返回梯度数量必须与前向输入参数数量一致
         // 前向有14个参数，需要返回14个梯度
