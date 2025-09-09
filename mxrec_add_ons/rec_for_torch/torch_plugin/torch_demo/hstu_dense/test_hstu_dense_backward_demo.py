@@ -34,6 +34,8 @@ device_id: int = 0
 
 def cached_create_causal_mask(param: ScoreShapeParam) -> torch.Tensor:
     cached_file = f"cached_target_mask{param.target_group_size}.pt"
+    if (param.num_target > MAX_NUM_TARGET):
+        raise ValueError("param.num_target should be < 1000")
     if os.path.exists(cached_file):
         mask = torch.tril(torch.ones(param.seq_len, param.seq_len))
         mask[:param.num_context, :param.num_target] = 1
