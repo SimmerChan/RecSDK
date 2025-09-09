@@ -14,7 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+from copy import deepcopy
 import dataclasses
+import os
 import sysconfig
 from enum import Enum
 
@@ -32,6 +34,7 @@ torch.ops.load_library(f"{sysconfig.get_path('purelib')}/libfbgemm_npu_api.so")
 device_id: int = 0
 torch.npu.set_device(device_id)
 BLOCK_HEIGHT: int = 256
+MAX_NUM_TARGET: int = 512
 
 
 class MaskType(int, Enum):
@@ -75,10 +78,29 @@ def skip_seq_len(seq_len):
     return False
 
 
+def cached_create_causal_mask(param: ScoreShapeParam) -> torch.Tensor:
+    cached_file = f"cached_target_mask{param.target_group_size}.pt"
+    if os.path.exists(cached_file):
+        target_mask = torch.load(cached_file)
+        mask = torch.tril(torch.ones(param.seq_len, param.seq_len), diagonal=1)
+        mask[:param.num_context, :param.num_target] = 1
+        if param.num_target > 0:
+            mask[-param.num_target:, -param.num_target:] = target_mask[:param.num_target, :param.num_target]
+        return mask
+    else:
+        _param = deepcopy(param)
+        _param.num_target = MAX_NUM_TARGET
+        mask = compute_target_mask_each_block_concat(_param, use_npu=False)
+        torch.save(mask[-MAX_NUM_TARGET:, -MAX_NUM_TARGET:], cached_file)
+        return mask
+
+
 def jagged_data_gen(qkv_shape_params: QKVShapeParams, mask_params: MaskParams):
     batch_size, max_seq_len, num_heads, attention_dim = qkv_shape_params.values()
     mask_type, num_context, num_target, target_group_size = mask_params.values()
     seq_lens = np.random.randint(1, max_seq_len + 1, batch_size)
+    if mask_type is MaskType.TRIL:
+        seq_lens += num_context + num_target
 
     seq_offset = torch.concat((torch.zeros((1,), dtype=torch.int64),
                                torch.cumsum(torch.from_numpy(seq_lens), axis=0))).to(torch.int64).numpy()
@@ -111,9 +133,8 @@ def jagged_data_gen(qkv_shape_params: QKVShapeParams, mask_params: MaskParams):
                 block_h=BLOCK_HEIGHT,
                 block_w=BLOCK_HEIGHT
             )
-            mask = compute_target_mask_each_block_concat(score_shape_param, use_npu=False)
-            h, w = mask.shape
-            invalid_attn_mask[batch_id, :h, :w] = mask
+            mask = cached_create_causal_mask(score_shape_param)
+            invalid_attn_mask[batch_id, :seq_len, :seq_len] = mask
     else:
         invalid_attn_mask = torch.randint(0, 2, size=(batch_size, num_heads, max_seq_len, max_seq_len))
     invalid_attn_mask = invalid_attn_mask.cpu().to(torch.float32)
@@ -170,7 +191,7 @@ class TestHstuJaggedDemo:
 
     @staticmethod
     def custom_op_exec(q, k, v, seq_offset, bias, mask, max_seq_len, enable_bias, mask_type, silu_scale,
-                       data_type):
+                       data_type, num_context=0, num_target=0, target_group_size=0):
         q_npu = q.to(f"npu:{device_id}").to(data_type)
         k_npu = k.to(f"npu:{device_id}").to(data_type)
         v_npu = v.to(f"npu:{device_id}").to(data_type)
@@ -179,7 +200,8 @@ class TestHstuJaggedDemo:
 
         if enable_bias:
             output = torch.ops.mxrec.hstu_dense(
-                q_npu, k_npu, v_npu, mask_npu, bias_npu, mask_type, max_seq_len, silu_scale, "jagged", seq_offset
+                q_npu, k_npu, v_npu, mask_npu, bias_npu, mask_type, max_seq_len, silu_scale, "jagged", seq_offset, 
+                num_context, num_target, target_group_size
             )
         else:
             output = torch.ops.mxrec.hstu_dense(
@@ -280,7 +302,7 @@ class TestHstuJaggedDemo:
     @pytest.mark.parametrize("silu_scale", [0, 1 / 1024])
     @pytest.mark.parametrize("data_type", [torch.float32, torch.float16, torch.bfloat16])
     @pytest.mark.parametrize("num_context", [0, 6])
-    @pytest.mark.parametrize("num_target", [30, 512])
+    @pytest.mark.parametrize("num_target", [20, 512])
     @pytest.mark.parametrize("target_group_size", [1, 3])
     @pytest.mark.skipif(get_chip(), reason="This test case is Skipped for Ascend310P.")
     def test_hstu_dens_forward_128bs(self, head_num, max_seq_len, head_dim, enable_bias, mask_type, silu_scale,
