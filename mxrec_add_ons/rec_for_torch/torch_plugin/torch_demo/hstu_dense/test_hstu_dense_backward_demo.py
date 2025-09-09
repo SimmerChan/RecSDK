@@ -38,7 +38,7 @@ def cached_create_causal_mask(param: ScoreShapeParam) -> torch.Tensor:
         raise ValueError("param.num_target should be < 1000")
     if os.path.exists(cached_file):
         mask = torch.tril(torch.ones(param.seq_len, param.seq_len))
-        mask[:param.num_context, :param.num_target] = 1
+        mask[:param.num_context, :param.seq_len-param.num_target] = 1
         if param.num_target > 0:
             target_mask = torch.load(cached_file)
             mask[-param.num_target:, -param.num_target:] = target_mask[:param.num_target, :param.num_target]
@@ -62,6 +62,11 @@ def jagged_data_gen(
     num_target=None,
     target_group_size=None,
 ):
+    min_seq_len = 1
+    if num_context is not None:
+        min_seq_len += num_context
+    if num_target is not None:
+        min_seq_len += num_target
     seq_lens = torch.randint(1, max_seq_len + 1, (batch_size,), dtype=torch.int64)
     seq_offset = torch.concat((torch.zeros((1,), dtype=torch.int64), torch.cumsum(seq_lens, axis=0))).numpy()
 
