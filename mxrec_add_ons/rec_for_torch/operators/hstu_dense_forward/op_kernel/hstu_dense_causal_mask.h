@@ -60,8 +60,11 @@ struct BlockMaskParams {
           targetGroupSize(groupSize),
           value(val) {}
 
-    __aicore__ inline bool NoComputation()
+    __aicore__ inline bool NoComputation(CausalMaskT maskType)
     {
+        if (maskType != CausalMaskT::MASK_TRIL) {
+            return false;
+        }
         bool noCausal = (kSeqId > qSeqId);
         bool noContext = (numContext <= 0) ||
                         (qSeqId > numContext / blockHeight) ||

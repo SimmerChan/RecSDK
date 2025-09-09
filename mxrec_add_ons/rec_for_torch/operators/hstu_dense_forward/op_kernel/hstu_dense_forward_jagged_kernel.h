@@ -151,9 +151,8 @@ __aicore__ inline void HstuDenseForwardJaggedKernel<qType>::ComputeAllBlock()
     for (auto blkId = sBlkId; blkId < eBlkId; blkId++) {
         auto kSeqNum = computeTaskInfo[taskId % COMPUTE_PIPE_NUM].kSeqNum;
         for (auto kSeqId = 0; kSeqId < kSeqNum; kSeqId++) {
-            currentTaskId = taskId % COMPUTE_PIPE_NUM;
-            auto taskinfo = this->computeTaskInfo[currentTaskId];
-            this->maskTaskInfo[currentTaskId] = {
+            auto taskinfo = this->computeTaskInfo[taskId % COMPUTE_PIPE_NUM];
+            BlockMaskParams maskinfo = {
                 taskinfo.qSeqId,
                 (uint32_t)kSeqId,
                 taskinfo.actualSeqLen,
@@ -163,7 +162,7 @@ __aicore__ inline void HstuDenseForwardJaggedKernel<qType>::ComputeAllBlock()
                 this->targetGroupSize,
                 taskinfo.scale
             };
-            if (this->maskTaskInfo[currentTaskId].NoComputation()) {
+            if (maskinfo.NoComputation(this->maskType)) {
                 break;
             }
 
@@ -172,6 +171,7 @@ __aicore__ inline void HstuDenseForwardJaggedKernel<qType>::ComputeAllBlock()
             prePreTaskId = (taskId - 2) % COMPUTE_PIPE_NUM;
             nextTaskId = (taskId + 1) % COMPUTE_PIPE_NUM;
 
+            this->maskTaskInfo[currentTaskId] = maskinfo;
             this->computeTaskInfo[currentTaskId].transTaskId = transtaskId % TRANS_PIPE_NUM;
             this->computeTaskInfo[currentTaskId].kSeqId = kSeqId;
             this->computeTaskInfo[currentTaskId].computeBSeqLen =
@@ -205,6 +205,7 @@ __aicore__ inline void HstuDenseForwardJaggedKernel<qType>::ComputeAllBlock()
             }
 
             computeTaskInfo[nextTaskId] = computeTaskInfo[currentTaskId];
+            maskTaskInfo[nextTaskId] = maskTaskInfo[currentTaskId];
             taskId++;
         }
 
