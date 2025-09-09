@@ -55,7 +55,10 @@ __aicore__ inline void InvokeHstuOpImpl(const HstuDenseForward::Args &args)
 #include "kernel_operator.h"
 
 extern "C" __global__ __aicore__ void hstu_dense_forward(GM_ADDR q, GM_ADDR k, GM_ADDR v, GM_ADDR mask,
-                                                         GM_ADDR attnBias, GM_ADDR attnOutput, GM_ADDR workspace,
+                                                         GM_ADDR attnBias, GM_ADDR seq_offset_q, GM_ADDR seq_offset_k,
+                                                         GM_ADDR seq_offset_t, GM_ADDR kv_cache, GM_ADDR page_offsets,
+                                                         GM_ADDR page_ids, GM_ADDR last_page_len, GM_ADDR num_context,
+                                                         GM_ADDR num_target, GM_ADDR attnOutput, GM_ADDR workspace,
                                                          GM_ADDR tiling)
 {
     HstuDenseForward::Args args{q, k, v, attnBias, mask, attnOutput, workspace, tiling};
