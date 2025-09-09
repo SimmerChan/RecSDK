@@ -347,7 +347,7 @@ public:
         // 是否需要生成Mask
         bool useMask = false;
         if (IfMask(this->maskType, MaskType::MASK_TRIL)) {
-            useMask = computeTaskInfo[curTaskId].rowId == computeTaskInfo[curTaskId].colId;
+            useMask = this->blockMaskParams[curTaskId].NeedMask();
         } else if (IfMask(this->maskType, MaskType::MASK_CUSTOM)) {
             useMask = true;
         }
@@ -494,7 +494,7 @@ public:
                 auto args = this->computeTaskInfo[taskId % COMPUTE_PIPE_NUM];
 
                 this->blockMaskParams[taskId % COMPUTE_PIPE_NUM] = {
-                    (uint32_t)args.rowId, (uint32_t)colId, (uint32_t)args.curSeqLen, this->blockHeight,
+                    (uint32_t)rowId, (uint32_t)colId, (uint32_t)args.curSeqLen, this->blockHeight,
                     this->numContext,     this->numTarget, this->targetGroupSize,    1};
 
                 BlockMaskParams& maskinfo = this->blockMaskParams[taskId % COMPUTE_PIPE_NUM];
@@ -549,7 +549,7 @@ public:
             for (int64_t colId = 0; colId < colLimit; colId++) {
                 auto args = this->computeTaskInfo[taskId % COMPUTE_PIPE_NUM];
                 this->blockMaskParams[taskId % COMPUTE_PIPE_NUM] = {
-                    (uint32_t)args.rowId, (uint32_t)colId, (uint32_t)args.curSeqLen, this->blockHeight,
+                    (uint32_t)rowId, (uint32_t)colId, (uint32_t)args.curSeqLen, this->blockHeight,
                     this->numContext,     this->numTarget, this->targetGroupSize,    1};
                 BlockMaskParams& maskinfo = this->blockMaskParams[taskId % COMPUTE_PIPE_NUM];
                 if (IfMask(this->maskType, MaskType::MASK_TRIL) && maskinfo.NoComputation()) {

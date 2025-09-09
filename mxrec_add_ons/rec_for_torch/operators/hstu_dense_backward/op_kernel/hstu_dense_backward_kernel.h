@@ -797,7 +797,7 @@ public:
             for (int64_t rowId = 0; rowId < rowBlockNum; rowId++) {
                 auto args = this->taskInfo[taskId % COMPUTE_PIPE_NUM];
                 this->blockMaskParams[taskId % COMPUTE_PIPE_NUM] = {
-                    (uint32_t)args.rowId, (uint32_t)colId, (uint32_t)seqLen, this->blockHeight,
+                    (uint32_t) rowId, (uint32_t)colId, (uint32_t)seqLen, this->blockHeight,
                     this->numContext,     this->numTarget, this->targetGroupSize,    1};
                 if (IfMask(maskType, MaskType::MASK_TRIL) &&
                     this->blockMaskParams[taskId % COMPUTE_PIPE_NUM].NoComputation()) {
@@ -853,7 +853,12 @@ public:
             rowLine = rowLine > blockHeight ? blockHeight : rowLine;
 
             for (int64_t colId = 0; colId < colBlockNum; colId++) {
-                if (IfMask(maskType, MaskType::MASK_TRIL) && rowId < colId) {
+                auto args = this->taskInfo[taskId % COMPUTE_PIPE_NUM];
+                this->blockMaskParams[taskId % COMPUTE_PIPE_NUM] = {
+                    (uint32_t) rowId, (uint32_t)colId, (uint32_t)seqLen, this->blockHeight,
+                    this->numContext,     this->numTarget, this->targetGroupSize,    1};
+                if (IfMask(maskType, MaskType::MASK_TRIL) &&
+                    this->blockMaskParams[taskId % COMPUTE_PIPE_NUM].NoComputation()) {
                     continue;
                 }
 
