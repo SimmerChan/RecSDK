@@ -291,7 +291,10 @@ public:
         this->Attr("max_seq_len").Int();
         this->Attr("silu_scale").Float();
         this->Attr("seq_offsets").AttrType(OPTIONAL).ListInt();
-
+        this->Attr("num_context").Int();
+        this->Attr("num_target").Int();
+        this->Attr("target_group_size").Int();
+        
         OpAICoreConfig aicore_config;
         aicore_config.DynamicCompileStaticFlag(true)
             .ExtendCfgInfo("jitCompile.flag", "static_false,dynamic_false")
