@@ -267,7 +267,7 @@ bool TilingPolicyJagged::TilingShape(gert::TilingContext* context, optiling::Hst
     OPS_CHECK_PTR_NULL(seqOffsetData, return false);
 
     int64_t seqOffsetLens = seqOffset->GetSize();
-    int64_t batchSize = GetBatchSizeFromJaggedOffset(seqOffsetData, seqOffsetLens);
+    batchSize = GetBatchSizeFromJaggedOffset(seqOffsetData, seqOffsetLens);
     OPS_CHECK((batchSize == 0 || batchSize > MAX_BATCH_SIZE),
         OPS_LOG_E("", "batchSize limit (0, %d], but get %lld\n", MAX_BATCH_SIZE, batchSize), return false);
 
