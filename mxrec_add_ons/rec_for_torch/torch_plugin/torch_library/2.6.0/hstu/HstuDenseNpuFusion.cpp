@@ -26,6 +26,7 @@ using namespace at;
 
 constexpr size_t MIN_SEQ_LEN = 1;
 constexpr size_t MAX_SEQ_LEN = 20480;
+constexpr size_t MAX_NUM_CONTEXT = 128;
 constexpr uint32_t MASK_TYPE_TRIL = 0;
 constexpr uint32_t MASK_TYPE_TRIU = 1;
 constexpr uint32_t MASK_TYPE_CUSTOM = 3;
@@ -62,7 +63,10 @@ at::Tensor hstu_dense_normal_forward_impl_npu(
     const int64_t maskType,
     const int64_t maxSeqLen,
     const double siluScale,
-    c10::optional<at::IntArrayRef> seqOffset
+    c10::optional<at::IntArrayRef> seqOffset,
+    const int64_t numContext,
+    const int64_t numTarget,
+    const int64_t targetGroupSize
 )
 {
     TORCH_CHECK(q.dim() == CONST_4, "The q should be 4D in normal layout");
@@ -79,8 +83,10 @@ at::Tensor hstu_dense_normal_forward_impl_npu(
     uint32_t headDim = denseQ.size(3); // 3 means index 3
 
     TORCH_CHECK(seqLen >= MIN_SEQ_LEN && seqLen <= MAX_SEQ_LEN,
-        "maxSeqLen expect in [1, 20480], but value is ", seqLen);
+                "maxSeqLen expect in [1, 20480], but value is ", seqLen);
     TORCH_CHECK(maxSeqLen == seqLen, "maxSeqLen should equal to q dim 1");
+    TORCH_CHECK(numContext <= 0, "context mask is not support on \"Normal\" HSTU");
+    TORCH_CHECK(numTarget <= 0, "target mask is not support on \"Normal\" HSTU");
 
     TORCH_CHECK(MaskCheck(maskType, maskNpu.defined()), "maskType check failed");
 
@@ -90,17 +96,20 @@ at::Tensor hstu_dense_normal_forward_impl_npu(
 
     const char *layout = "normal";
     EXEC_NPU_CMD(aclnnHstuDenseForward,
-        denseQ,
-        denseK,
-        denseV,
-        maskNpu,
-        denseBias,
-        maskType,
-        maxSeqLen,
-        realSiluScale,
-        layout,
-        seqOffset,
-        attnOutput);
+                 denseQ,
+                 denseK,
+                 denseV,
+                 maskNpu,
+                 denseBias,
+                 maskType,
+                 maxSeqLen,
+                 realSiluScale,
+                 layout,
+                 seqOffset,
+                 numContext,
+                 numTarget,
+                 targetGroupSize,
+                 attnOutput);
 
     return attnOutput;
 }
@@ -114,7 +123,11 @@ at::Tensor hstu_dense_jagged_forward_impl_npu(
     const int64_t maskType,
     const int64_t maxSeqLen,
     const double siluScale,
-    c10::optional<at::IntArrayRef> seqOffset)
+    c10::optional<at::IntArrayRef> seqOffset,
+    const int64_t numContext,
+    const int64_t numTarget,
+    const int64_t targetGroupSize
+)
 {
     TORCH_CHECK(q.dim() == CONST_3, "The q should be 3D in jagged layout");
 
@@ -128,7 +141,8 @@ at::Tensor hstu_dense_jagged_forward_impl_npu(
     auto maskNpu = c10::value_or_else(mask, [] {return at::Tensor(); });
 
     TORCH_CHECK(maxSeqLen >= MIN_SEQ_LEN && maxSeqLen <= MAX_SEQ_LEN,
-        "maxSeqLen expect in [1, 20480], but value is ", maxSeqLen);
+                "maxSeqLen expect in [1, 20480], but value is ", maxSeqLen);
+    TORCH_CHECK(numContext <= MAX_NUM_CONTEXT, "numContext expect in [0, 128], but value is ", numContext);
 
     TORCH_CHECK(MaskCheck(maskType, maskNpu.defined()), "maskType check failed");
 
@@ -138,17 +152,20 @@ at::Tensor hstu_dense_jagged_forward_impl_npu(
 
     const char *layout = "jagged";
     EXEC_NPU_CMD(aclnnHstuDenseForward,
-        denseQ,
-        denseK,
-        denseV,
-        maskNpu,
-        denseBias,
-        maskType,
-        maxSeqLen,
-        realSiluScale,
-        layout,
-        acSeqOffset,
-        attnOutput);
+                 denseQ,
+                 denseK,
+                 denseV,
+                 maskNpu,
+                 denseBias,
+                 maskType,
+                 maxSeqLen,
+                 realSiluScale,
+                 layout,
+                 acSeqOffset,
+                 numContext,
+                 numTarget,
+                 targetGroupSize,
+                 attnOutput);
 
     return attnOutput;
 }
@@ -163,18 +180,23 @@ at::Tensor hstu_dense_forward_impl_npu(
     const int64_t maxSeqLen,
     const double siluScale,
     const std::string layout,
-    c10::optional<at::IntArrayRef> seqOffset)
+    c10::optional<at::IntArrayRef> seqOffset,
+    const int64_t numContext,
+    const int64_t numTarget,
+    const int64_t targetGroupSize)
 {
     TORCH_CHECK(layout == "normal" || layout == "jagged",
-        "The layout should be normal/jagged but got ", layout);
+                "The layout should be normal/jagged but got ", layout);
 
     TORCH_CHECK(q.scalar_type() == at::kHalf || q.scalar_type() == at::kFloat || q.scalar_type() == at::kBFloat16,
                 "float16, float32 or bfloat16 tensor expected but got a tensor with dtype: ", q.scalar_type());
 
     if (layout == "normal") {
-        return hstu_dense_normal_forward_impl_npu(q, k, v, mask, attnBias, maskType, maxSeqLen, siluScale, seqOffset);
+        return hstu_dense_normal_forward_impl_npu(q, k, v, mask, attnBias, maskType, maxSeqLen, siluScale, seqOffset,
+                                                  numContext, numTarget, targetGroupSize);
     } else {
-        return hstu_dense_jagged_forward_impl_npu(q, k, v, mask, attnBias, maskType, maxSeqLen, siluScale, seqOffset);
+        return hstu_dense_jagged_forward_impl_npu(q, k, v, mask, attnBias, maskType, maxSeqLen, siluScale, seqOffset,
+                                                  numContext, numTarget, targetGroupSize);
     }
 }
 
@@ -229,21 +251,21 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> hstu_dense_normal_bac
 
     const char *layout = "normal";
     EXEC_NPU_CMD(aclnnHstuDenseBackward,
-        denseGrad,
-        denseQ,
-        denseK,
-        denseV,
-        denseMask,
-        denseAttnBias,
-        layout,
-        maskType,
-        maxSeqLen,
-        realSiluScale,
-        seqOffset,
-        qGradOutput,
-        kGradOutput,
-        vGradOutput,
-        attnBiasGradOutput);
+                 denseGrad,
+                 denseQ,
+                 denseK,
+                 denseV,
+                 denseMask,
+                 denseAttnBias,
+                 layout,
+                 maskType,
+                 maxSeqLen,
+                 realSiluScale,
+                 seqOffset,
+                 qGradOutput,
+                 kGradOutput,
+                 vGradOutput,
+                 attnBiasGradOutput);
 
     return std::make_tuple(qGradOutput, kGradOutput, vGradOutput, attnBiasGradOutput);
 }
@@ -294,7 +316,7 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> hstu_dense_jagged_bac
     auto qGradOutput = at::empty_like(denseQ);
     auto kGradOutput = at::empty_like(denseK);
     auto vGradOutput = at::empty_like(denseV);
-    
+
     at::Tensor attnBiasGradOutput;
     if (denseAttnBias.defined()) {
         attnBiasGradOutput = at::empty_like(denseAttnBias);
@@ -304,21 +326,21 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> hstu_dense_jagged_bac
 
     const char *layout = "jagged";
     EXEC_NPU_CMD(aclnnHstuDenseBackward,
-        denseGrad,
-        denseQ,
-        denseK,
-        denseV,
-        denseMask,
-        denseAttnBias,
-        layout,
-        maskType,
-        maxSeqLen,
-        realSiluScale,
-        acSeqOffset,
-        qGradOutput,
-        kGradOutput,
-        vGradOutput,
-        attnBiasGradOutput);
+                 denseGrad,
+                 denseQ,
+                 denseK,
+                 denseV,
+                 denseMask,
+                 denseAttnBias,
+                 layout,
+                 maskType,
+                 maxSeqLen,
+                 realSiluScale,
+                 acSeqOffset,
+                 qGradOutput,
+                 kGradOutput,
+                 vGradOutput,
+                 attnBiasGradOutput);
 
     if (denseAttnBias.defined()) {
         return std::make_tuple(qGradOutput, kGradOutput, vGradOutput, attnBiasGradOutput);
@@ -341,27 +363,46 @@ std::tuple<at::Tensor, at::Tensor, at::Tensor, at::Tensor> hstu_dense_backward_i
     c10::optional<at::IntArrayRef> seqOffset)
 {
     TORCH_CHECK(layout == "normal" || layout == "jagged",
-        "The layout should be normal/jagged but got ", layout);
+                "The layout should be normal/jagged but got ", layout);
 
     TORCH_CHECK(q.scalar_type() == at::kHalf || q.scalar_type() == at::kFloat || q.scalar_type() == at::kBFloat16,
                 "float16, float32 or bfloat16 tensor expected but got a tensor with dtype: ", q.scalar_type());
 
     if (layout == "normal") {
         return hstu_dense_normal_backward_impl_npu(grad, q, k, v, mask, attnBias, maskType, maxSeqLen, siluScale,
-            seqOffset);
+                                                   seqOffset);
     } else {
         return hstu_dense_jagged_backward_impl_npu(grad, q, k, v, mask, attnBias, maskType, maxSeqLen, siluScale,
-            seqOffset);
+                                                   seqOffset);
     }
 }
 
 TORCH_LIBRARY_FRAGMENT(mxrec, m)
 {
-    m.def("hstu_dense(Tensor q, Tensor k, Tensor v, Tensor? mask=None, Tensor? attnBias=None, \
-        int maskType=0, int maxSeqLen=0, float siluScale=0.0, str layout=\"normal\", int[]? seqOffset=None) -> Tensor");
-    m.def("hstu_dense_backward(Tensor grad, Tensor q, Tensor k, Tensor v, Tensor? mask, Tensor? attnBias, \
-        str layout, int maskType, int maxSeqLen, float siluScale=0.0, int[]? seqOffset=None) -> (Tensor, Tensor, \
-        Tensor, Tensor)");
+    m.def("hstu_dense(Tensor q, "
+          "           Tensor k, "
+          "           Tensor v, "
+          "           Tensor? mask=None, "
+          "           Tensor? attnBias=None, "
+          "           int maskType=0, "
+          "           int maxSeqLen=0, "
+          "           float siluScale=0.0, "
+          "           str layout=\"normal\", "
+          "           int[]? seqOffset=None, "
+          "           int? numContext=0, "
+          "           int? numTarget=0, "
+          "           int? targetGroupSize=0) -> Tensor");
+    m.def("hstu_dense_backward(Tensor grad, "
+          "                    Tensor q, "
+          "                    Tensor k, "
+          "                    Tensor v, "
+          "                    Tensor? mask, "
+          "                    Tensor? attnBias, "
+          "                    str layout, "
+          "                    int maskType, "
+          "                    int maxSeqLen, "
+          "                    float siluScale=0.0, "
+          "                    int[]? seqOffset=None) -> (Tensor, Tensor, Tensor, Tensor)");
 }
 
 TORCH_LIBRARY_IMPL(mxrec, PrivateUse1, m)
@@ -382,15 +423,21 @@ public:
                               const int64_t maxSeqLen,
                               const double siluScale,
                               const std::string layout,
-                              c10::optional<at::IntArrayRef> seqOffset)
+                              c10::optional<at::IntArrayRef> seqOffset,
+                              const int64_t numContext,
+                              const int64_t numTarget,
+                              const int64_t targetGroupSize)
     {
         at::AutoDispatchBelowADInplaceOrView guard;
 
-        ctx->save_for_backward({ q, k, v, mask.value_or(at::Tensor()), attnBias.value_or(at::Tensor()) });
+        ctx->save_for_backward({q, k, v, mask.value_or(at::Tensor()), attnBias.value_or(at::Tensor())});
         ctx->saved_data["maskType"] = maskType;
         ctx->saved_data["maxSeqLen"] = maxSeqLen;
         ctx->saved_data["siluScale"] = siluScale;
         ctx->saved_data["layout"] = layout;
+        ctx->saved_data["numContext"] = numContext;
+        ctx->saved_data["numTarget"] = numTarget;
+        ctx->saved_data["targetGroupSize"] = targetGroupSize;
 
         if (seqOffset.has_value()) {
             auto seqOffsetVec = seqOffset->vec();
@@ -400,7 +447,8 @@ public:
             ctx->saved_data["hasSeqOffset"] = false;
         }
 
-        return hstu_dense_forward_impl_npu(q, k, v, mask, attnBias, maskType, maxSeqLen, siluScale, layout, seqOffset);
+        return hstu_dense_forward_impl_npu(q, k, v, mask, attnBias, maskType, maxSeqLen, siluScale, layout, seqOffset,
+                                           numContext, numTarget, targetGroupSize);
     }
 
     static tensor_list backward(AutogradContext *ctx, tensor_list grad_outputs)
@@ -428,14 +476,14 @@ public:
         }
 
         auto resultTuple = hstu_dense_backward_impl_npu(grad, q, k, v, mask, attnBias, layout, maskType,
-            maxSeqLen, siluScale, seqOffset);
-        
+                                                        maxSeqLen, siluScale, seqOffset);
+
         if (attnBias.defined()) {
             return { std::get<0>(resultTuple), std::get<1>(resultTuple), std::get<2>(resultTuple), at::Tensor(),
-                std::get<3>(resultTuple), at::Tensor(), at::Tensor(), at::Tensor(), at::Tensor(), at::Tensor() };
+                    std::get<3>(resultTuple), at::Tensor(), at::Tensor(), at::Tensor(), at::Tensor(), at::Tensor() };
         } else {
             return { std::get<0>(resultTuple), std::get<1>(resultTuple), std::get<2>(resultTuple), at::Tensor(),
-                at::Tensor(), at::Tensor(), at::Tensor(), at::Tensor(), at::Tensor(), at::Tensor() };
+                    at::Tensor(), at::Tensor(), at::Tensor(), at::Tensor(), at::Tensor(), at::Tensor() };
         }
     }
 };
@@ -449,9 +497,13 @@ at::Tensor hstu_dense_forward_impl_autograd(const at::Tensor& q,
                                             const int64_t maxSeqLen,
                                             const double siluScale,
                                             const std::string layout,
-                                            c10::optional<at::IntArrayRef> seqOffset)
+                                            c10::optional<at::IntArrayRef> seqOffset,
+                                            const int64_t numContext,
+                                            const int64_t numTarget,
+                                            const int64_t targetGroupSize)
 {
-    return HstuDenseNpuFusion::apply(q, k, v, mask, attnBias, maskType, maxSeqLen, siluScale, layout, seqOffset);
+    return HstuDenseNpuFusion::apply(q, k, v, mask, attnBias, maskType, maxSeqLen, siluScale, layout, seqOffset,
+                                     numContext, numTarget, targetGroupSize);
 }
 
 TORCH_LIBRARY_IMPL(mxrec, PrivateUse1, m)
