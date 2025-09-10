@@ -101,6 +101,13 @@ struct BlockMaskParams {
     {
         return NeedContextMask() || NeedCausalMask() || NeedTargetMask();
     }
+
+    __aicore__ inline bool IsFirstBlockNeedOverride()
+    {
+        bool kIdNotInContext = (numContext <= 0) ||
+                        (kSeqId > (seqlen - numTarget) / blockHeight);
+        return qSeqId == 0 || (kSeqId == qSeqId && kIdNotInContext);
+    }
 };
 
 class BlockMaskGenerator {

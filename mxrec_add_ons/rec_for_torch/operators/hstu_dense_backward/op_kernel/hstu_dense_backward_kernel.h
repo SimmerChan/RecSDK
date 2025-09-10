@@ -297,7 +297,7 @@ public:
 
         bool isNew = false;
         if (IfMask(maskType, MaskType::MASK_TRIL)) {
-            isNew = taskInfo[curTaskId].rowId == taskInfo[curTaskId].colId;
+            isNew = this->blockMaskParams[curTaskId].IsFirstBlockNeedOverride();
         } else {
             isNew = taskInfo[curTaskId].rowId == 0;
         }
@@ -333,7 +333,7 @@ public:
 
         bool isNew = false;
         if (IfMask(maskType, MaskType::MASK_TRIL)) {
-            isNew = taskInfo[curTaskId].rowId == taskInfo[curTaskId].colId;
+            isNew = this->blockMaskParams[curTaskId].IsFirstBlockNeedOverride();
         } else {
             isNew = taskInfo[curTaskId].rowId == 0;
         }
