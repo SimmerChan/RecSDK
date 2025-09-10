@@ -101,8 +101,12 @@ public:
 
     uint32_t InitTaskNum(const std::vector<int64_t>& blockNumber, uint32_t batchId, MaskParams& params) override {
         this->initFlag = true;
-        uint32_t taskNums = blockNumber[batchId] - ceilDiv(params.numTarget, params.blockHeight);  // 任务量估算(误差0~1)
-        taskNums = (taskNums > 0) ? taskNums : 1;
+        uint32_t taskNums = 1;
+        if (params.numContext > 0) {
+            int batch = batchId / params.headNum;
+            int seqlen = params.seqOffsets[batch + 1] - params.seqOffsets[batch];
+            taskNums = ceilDiv(seqlen - params.numTarget, params.blockHeight);
+        }
         return taskNums;
     }
 
