@@ -1,4 +1,4 @@
-/* Copyright 2025. Huawei Technologies Co.,Ltd. All rights reserved.
+/* Copyright (c) Huawei Technologies Co.,Ltd. 2025. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ int64_t GetBatchSizeFromJaggedOffset(const int64_t *seqOffsetData, int32_t seqOf
     int32_t right = seqOffsetLens - 1;
     int32_t firstMaxIdx = seqOffsetLens - 1;
     while (left <= right) {
-        int32_t mid = left + (right - left) / 2;
+        int32_t mid = left + (right - left) / 2;  // 二分法除以2找到剩余中间位置
         if (seqOffsetData[mid] == maxValue) {
             firstMaxIdx = mid;
             right = mid - 1;
