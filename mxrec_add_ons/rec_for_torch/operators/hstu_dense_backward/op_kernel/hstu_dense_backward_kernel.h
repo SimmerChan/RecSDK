@@ -511,7 +511,7 @@ public:
 
         bool useMask = false;
         if (IfMask(maskType, MaskType::MASK_TRIL)) {
-            useMask = blockMaskParams[taskId].NeedMask();
+            useMask = blockMaskParams[curTaskId].NeedMask();
         } else if (IfMask(maskType, MaskType::MASK_CUSTOM)) {
             useMask = true;
         }
@@ -601,7 +601,7 @@ public:
         int64_t total = blockHeight * blockHeight;
         int64_t remain = total;
         int64_t thisLen = vecOnceDataNum;
-        BlockMaskGenerator generator(&blockMaskParams[taskId]);
+        BlockMaskGenerator generator(&blockMaskParams[curTaskId]);
         while (remain > 0) {
             if (remain < thisLen) {
                 thisLen = remain;
@@ -631,7 +631,7 @@ public:
             }
 
             if (enableBias && IfMask(maskType, MaskType::MASK_TRIL) &&
-                blockMaskParams[taskId].DiagonalNoComputation()) {
+                blockMaskParams[curTaskId].DiagonalNoComputation()) {
                 LocalTensor<qType> outputTempTensor = queueOutputTemp.AllocTensor<qType>();
                 Duplicate<qType>(outputTempTensor, 0, thisLen);
                 queueOutputTemp.EnQue(outputTempTensor);

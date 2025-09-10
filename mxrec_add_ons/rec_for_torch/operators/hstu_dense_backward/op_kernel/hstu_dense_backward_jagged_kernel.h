@@ -289,7 +289,7 @@ public:
         int64_t outOffset = midAccumIdx * this->blockHeight * this->headDim;
 
         bool isNew = false;
-        if (IfMask(this->maskType, MaskType::MASK_TRIL) && this->numContext == 0) {
+        if (IfMask(this->maskType, MaskType::MASK_TRIL)) {
             isNew = this->blockMaskParams[curTaskId].IsFirstBlockNeedOverride();
         } else {
             isNew = computeTaskInfo[curTaskId].rowId == 0;

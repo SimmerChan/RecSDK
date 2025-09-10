@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 ==============================================================================*/
 
 
+#include <iterator>
 #include <vector>
 #include <numeric>
 
@@ -93,6 +94,8 @@ public:
             blockTask.endBlockId = processBlockNum;
             workTasks[i] = blockTask;
         }
+        int endBlockNum = std::accumulate(blockNumber.begin(), blockNumber.end(), 0);
+        workTasks[coreNum-1].endBlockId =  endBlockNum;
     }
 
     void ComputeCausal(std::vector<BlockTaskInfo> &workTasks, std::vector<int> &workLoads, bool isCol)
