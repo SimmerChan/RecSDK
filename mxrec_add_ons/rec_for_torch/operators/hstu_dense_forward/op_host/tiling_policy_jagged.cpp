@@ -22,10 +22,10 @@ See the License for the specific language governing permissions and
 #include <functional>
 #include <cassert>
 
+#include "../../../common/common_host.h"
 #include "register/op_def_registry.h"
 #include "tiling_policy_factory.h"
 #include "tiling_policy_jagged.h"
-#include "../../../common/common_host.h"
 
 constexpr bool JAGGED_TASK_ASSIGN_DEBUG = false;
 

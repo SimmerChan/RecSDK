@@ -17,10 +17,9 @@ See the License for the specific language governing permissions and
 #include <vector>
 #include <numeric>
 
-#include "register/op_def_registry.h"
-
-#include "hstu_dense_backward_jagged_tiling.h"
 #include "../../../common/common_host.h"
+#include "register/op_def_registry.h"
+#include "hstu_dense_backward_jagged_tiling.h"
 
 namespace {
 struct BlockTaskInfo {
