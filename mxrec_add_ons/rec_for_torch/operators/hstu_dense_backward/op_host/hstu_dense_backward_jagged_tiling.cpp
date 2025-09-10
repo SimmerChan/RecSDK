@@ -94,8 +94,6 @@ public:
             blockTask.endBlockId = processBlockNum;
             workTasks[i] = blockTask;
         }
-        int endBlockNum = std::accumulate(blockNumber.begin(), blockNumber.end(), 0);
-        workTasks[coreNum-1].endBlockId =  endBlockNum;
     }
 
     void ComputeCausal(std::vector<BlockTaskInfo> &workTasks, std::vector<int> &workLoads, bool isCol)
@@ -103,7 +101,6 @@ public:
         uint32_t totalBatchSize = batchSize * headNum;
         std::vector<int64_t> blockNumber(totalBatchSize, 0);
         PreInit(workTasks, workLoads, blockNumber);
-
         int64_t totalTaskNumber = 0;
         constexpr int two = 2;
         totalTaskNumber = std::accumulate(blockNumber.begin(), blockNumber.end(), totalTaskNumber,
