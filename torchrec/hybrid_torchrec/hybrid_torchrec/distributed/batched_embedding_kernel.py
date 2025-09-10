@@ -466,9 +466,10 @@ class HybridSplitTableBatchedEmbeddingBagsCodegen(
                     self.optimizer_args,
                     momentum1,
                     momentum2,
-                    # pyre-fixme[6]: Expected `int` for 5th param but got `Union[float,
-                    #  int]`.
                     self.iter.item(),
+                    grad_accumulate=grad_accumulate,
+                    grad_accumulate_offsets=self.grad_accum.total_index_size_pre,
+                    use_optimize=use_optimize
                 ),
             )
         else:

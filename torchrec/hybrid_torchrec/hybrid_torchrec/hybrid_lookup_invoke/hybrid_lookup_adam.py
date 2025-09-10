@@ -5,7 +5,7 @@
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
-from typing import Optional
+from typing import Optional, List
 
 import torch
 from fbgemm_gpu.split_embedding_codegen_lookup_invokers.lookup_adagrad import (
@@ -22,6 +22,9 @@ def invoke(
     momentum1: Momentum,
     momentum2: Momentum,
     iteration: int = 0,
+    grad_accumulate: List[torch.Tensor] = None,
+    grad_accumulate_offsets: Optional[torch.Tensor] = None,
+    use_optimize=True
 ) -> torch.Tensor:
     vbe_metadata = common_args.vbe_metadata
 
@@ -85,4 +88,9 @@ def invoke(
         use_homogeneous_placements=common_args.use_homogeneous_placements,
         apply_global_weight_decay=False,
         gwd_lower_bound=0.0,
+        use_optimize=use_optimize,
+        # grad_accumulate
+        grad_accumulate=grad_accumulate,
+        grad_accumulate_offsets=grad_accumulate_offsets,
+        table_offsets=common_args.table_offsets
     )

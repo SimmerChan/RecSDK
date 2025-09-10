@@ -50,9 +50,9 @@ extern "C" __global__ __aicore__ void backward_codegen_adagrad_unweighted_exact(
 {
     GET_TILING_DATA(tiling_data, tiling);
     BackwardCodegenUnweightedExact::Args args{
-        gradOutput, devWeights,      weightsPlacements, weightsOffsets, dOffsets,  hashSizeCumsum, indices,
-        offsets,    momentum1Dev,    momentum2Dev,      hashIndices,    uniqueId,  uniqueHashSize, uniqueInverse, table_indices_offsets,
-        out,        momentum1DevOut, momentum2DevOut,   weightsDevOut,  workspace, tiling};
+        gradOutput, devWeights, weightsPlacements, weightsOffsets, dOffsets, hashSizeCumsum, indices, offsets,
+        momentum1Dev, momentum2Dev, hashIndices, uniqueId, uniqueHashSize, uniqueInverse, table_indices_offsets,
+        out, momentum1DevOut, momentum2DevOut, weightsDevOut, workspace, tiling};
     if (TILING_KEY_IS(1)) {  // NORMAL_ADAGRAD
         BackwardCodegenAdagradUnweightedExact::BackwardCodegenAdagradUnweightedExactKernel<float> kernel;
         if (tiling_data.useOptimize) {

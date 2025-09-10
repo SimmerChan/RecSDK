@@ -36,7 +36,7 @@ set_seed(42)
 
 logging.getLogger().setLevel(logging.INFO)
 DEVICEID = "npu:0"
-EPOCH = 1
+EPOCH = 4
 torch.ops.load_library(f"{sysconfig.get_path('purelib')}/libfbgemm_npu_api.so")
 
 TORCH_POOLING_MODE_TO_FBGEMM = {
@@ -118,7 +118,6 @@ def look_table(indices, offsets, jt_lst, tbe, params):
     else:
         kwargs = dict()
 
-
     output = tbe(indices, offsets, **kwargs)  # bs,dim
     loss = torch.sum(output ** 2 / 2)
     loss.backward()
@@ -175,9 +174,12 @@ def verify_grad_aggregation(params):
 
     tbe_no_grad_aggregation.weights_dev = torch.nn.Parameter(weights_test.clone()).to(DEVICEID)
 
-    for i in range(2):
+    weights_grad_aggregation_ls = []
+    weights_no_grad_aggregation_ls = []
+    for i in range(EPOCH):
         all_idx = []
         all_offsets = []
+        # with grad aggregation
         for step in range(accumulate_step):
             indices_test, offsets_test, jt_lst = create_data(params)
             all_idx.append(indices_test)
@@ -192,7 +194,9 @@ def verify_grad_aggregation(params):
             indices_test = indices_test.to(DEVICEID)
             offsets_test = offsets_test.to(DEVICEID)
             weights_grad_aggregation = look_table(indices_test, offsets_test, jt_lst, tbe_grad_aggregation, params)
+        weights_grad_aggregation_ls.append(weights_grad_aggregation)
 
+        # with no grad aggregation
         all_jt_lst = []
         all_idx = concat_tensors_by_category(all_idx)
 
@@ -210,16 +214,11 @@ def verify_grad_aggregation(params):
         all_offsets = all_offsets.to(DEVICEID)
 
         weights_no_grad_aggregation = look_table(all_idx, all_offsets, all_jt_lst, tbe_no_grad_aggregation, params)
+        weights_no_grad_aggregation_ls.append(weights_no_grad_aggregation)
 
-    verify = torch.allclose(weights_grad_aggregation, weights_no_grad_aggregation, 1e-4, 1e-4)
-    print('weights_test', weights_test)
-    print('weights_grad_aggregation', weights_grad_aggregation)
-    print('weights_no_grad_aggregation', weights_no_grad_aggregation)
-    print('verify', torch.eq(weights_grad_aggregation, weights_no_grad_aggregation))
-    print('allclose', verify)
-
-    raise ValueError(f"verify grad aggregation is {verify}")
-
+    for weights_aggregation, weights_no_aggregation in zip(weights_grad_aggregation_ls, weights_no_grad_aggregation_ls):
+        assert torch.allclose(weights_aggregation, weights_no_grad_aggregation_ls, rtol=1e-04, atol=1e-04
+                              ), "gloden and result is not closed"
 
 @pytest.mark.parametrize("tables", [[(10, 8), (5, 8), (4, 8)]])
 @pytest.mark.parametrize("mutile_hots", [[1, 1, 1]])
