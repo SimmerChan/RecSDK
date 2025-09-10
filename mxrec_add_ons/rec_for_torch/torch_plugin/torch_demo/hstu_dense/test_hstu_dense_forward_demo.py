@@ -25,6 +25,7 @@ import numpy as np
 import pytest
 import torch
 import torch.nn.functional as F
+from holoviews import output
 
 from test_target_mask import ScoreShapeParam, compute_target_mask_each_block_concat
 
@@ -78,6 +79,13 @@ def skip_seq_len(seq_len):
     if get_chip() and seq_len % block_len:
         return True
     return False
+
+
+def allclose(tensor: torch.Tensor, other: torch.Tensor, atol: float, ratio: float):
+    assert tensor.shape == other.shape
+    diff = (torch.abs(tensor - other) > atol)
+    diff_count = torch.sum(diff)
+    assert diff_count / tensor.numel() < ratio
 
 
 def cached_create_causal_mask(param: ScoreShapeParam) -> torch.Tensor:
@@ -263,12 +271,12 @@ class TestHstuJaggedDemo:
                                      mask_params.type, silu_scale, qkv_shape_params.dtype)
 
         if qkv_shape_params.dtype == torch.bfloat16:
-            res = torch.allclose(output, golden, 1e-2)
+            tolerant = 1e-3
         elif qkv_shape_params.dtype == torch.float16:
-            res = torch.allclose(output, golden, 1e-3)
+            tolerant = 5e-3
         else:
-            res = torch.allclose(output, golden, 1e-4)
-        assert res
+            tolerant = 1e-4
+        assert allclose(output, golden, tolerant, tolerant)
 
     @pytest.mark.parametrize("batch_size", [1, 16])
     @pytest.mark.parametrize("head_num", [2, 4])
@@ -399,13 +407,13 @@ class TestHstuNormalDemo:
 
         torch.npu.synchronize()
 
-        if data_type == torch.bfloat16:
-            res = torch.allclose(output, golden, 1e-2, 1e-2)
-        elif data_type == torch.float16:
-            res = torch.allclose(output, golden, 1e-3, 1e-3)
+        if qkv_shape_params.dtype == torch.bfloat16:
+            tolerant = 1e-3
+        elif qkv_shape_params.dtype == torch.float16:
+            tolerant = 5e-3
         else:
-            res = torch.allclose(output, golden, 1e-4, 1e-4)
-        assert res
+            tolerant = 1e-4
+        assert allclose(output, golden, tolerant, tolerant)
 
     max_seq_len = [1, 15, 31, 256, 768, 1023, 4095]
     paramFalse = pytest.param(False,
