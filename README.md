@@ -1,3 +1,4 @@
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/SimmerChan/RecSDK)
 # Rec SDK
 
 ## 免责声明
