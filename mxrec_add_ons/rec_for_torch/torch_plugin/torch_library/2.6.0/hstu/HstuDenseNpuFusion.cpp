@@ -389,9 +389,9 @@ TORCH_LIBRARY_FRAGMENT(mxrec, m)
           "           float siluScale=0.0, "
           "           str layout=\"normal\", "
           "           int[]? seqOffset=None, "
-          "           int numContext=0, "
-          "           int numTarget=0, "
-          "           int targetGroupSize=0) -> Tensor");
+          "           int? numContext=0, "
+          "           int? numTarget=0, "
+          "           int? targetGroupSize=0) -> Tensor");
     m.def("hstu_dense_backward(Tensor grad, "
           "                    Tensor q, "
           "                    Tensor k, "
