@@ -48,7 +48,7 @@ struct BlockMaskParams {
     float value;              // 掩码值
 
     __aicore__ inline BlockMaskParams() {}
-    
+
     __aicore__ inline BlockMaskParams(uint32_t qSeq, uint32_t kSeq, uint32_t len, int64_t bHeight, int64_t nContext,
                                       int64_t nTarget, int64_t groupSize, float val)
         : qSeqId(qSeq),
@@ -58,14 +58,15 @@ struct BlockMaskParams {
           numContext(nContext),
           numTarget(nTarget),
           targetGroupSize(groupSize),
-          value(val) {}
+          value(val)
+    {
+    }
 
     __aicore__ inline bool NoComputation()
     {
         bool noCausal = (kSeqId > qSeqId);
-        bool noContext = (numContext <= 0) ||
-                        (qSeqId > numContext / blockHeight) ||
-                        (kSeqId > (seqlen - numTarget) / blockHeight);
+        bool noContext =
+            (numContext <= 0) || (qSeqId > numContext / blockHeight) || (kSeqId > (seqlen - numTarget) / blockHeight);
         return noCausal && noContext;
     }
 
@@ -74,9 +75,8 @@ struct BlockMaskParams {
         int64_t kSeqId_diagonal = qSeqId;
         int64_t qSeqId_diagonal = kSeqId;
         bool noCausal = (kSeqId_diagonal > qSeqId_diagonal);
-        bool noContext = (numContext <= 0) ||
-                        (qSeqId_diagonal > numContext / blockHeight) ||
-                        (kSeqId_diagonal > (seqlen - numTarget) / blockHeight);
+        bool noContext = (numContext <= 0) || (qSeqId_diagonal > numContext / blockHeight) ||
+                         (kSeqId_diagonal > (seqlen - numTarget) / blockHeight);
         return noCausal && noContext;
     }
 
@@ -104,8 +104,7 @@ struct BlockMaskParams {
 
     __aicore__ inline bool IsFirstBlockNeedOverride()
     {
-        bool kIdNotInContext = (numContext <= 0) ||
-                        (kSeqId > (seqlen - numTarget) / blockHeight);
+        bool kIdNotInContext = (numContext <= 0) || (kSeqId > (seqlen - numTarget) / blockHeight);
         return qSeqId == 0 || (kSeqId == qSeqId && kIdNotInContext);
     }
 };
@@ -203,7 +202,7 @@ private:
         }
     }
 
-    __aicore__ inline void GenCausalMask(LocalTensor<float>& inMaskLt, int64_t line, int64_t height, int64_t width) 
+    __aicore__ inline void GenCausalMask(LocalTensor<float>& inMaskLt, int64_t line, int64_t height, int64_t width)
     {
         for (int i = 0; i < height; i++) {
             int64_t thisIndexMask = line + i + 1;
@@ -211,7 +210,7 @@ private:
         }
     }
 
-    __aicore__ inline void GenTargetMask(LocalTensor<float>& inMaskLt, int64_t line, int64_t height, int64_t width) 
+    __aicore__ inline void GenTargetMask(LocalTensor<float>& inMaskLt, int64_t line, int64_t height, int64_t width)
     {
         int tbase = seqlen - numTarget;
         int blkLeft = kSeqId * blockHeight;
@@ -247,15 +246,9 @@ private:
     }
 };
 
-template<typename qType, CausalMaskT maskType>
-__aicore__ inline void DoCausalMask(
-    LocalTensor<qType>& inMaskLt,
-    int64_t maskOffset,
-    int64_t maskLens,
-    int64_t maskStride,
-    int64_t repeatTimes,
-    qType value
-)
+template <typename qType, CausalMaskT maskType>
+__aicore__ inline void DoCausalMask(LocalTensor<qType>& inMaskLt, int64_t maskOffset, int64_t maskLens,
+                                    int64_t maskStride, int64_t repeatTimes, qType value)
 {
     if constexpr (maskType == CausalMaskT::MASK_TRIL) {
         Duplicate<qType>(inMaskLt, 0, maskLens);
@@ -274,5 +267,5 @@ __aicore__ inline void DoCausalMask(
         ASCENDC_ASSERT((false), "DoCausalMask custom is unreadlized");
     }
 }
-}  // namespace HstuDenseForward
+}  // namespace HstuDenseBackward
 #endif

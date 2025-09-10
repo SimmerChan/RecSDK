@@ -32,16 +32,19 @@ torch.ops.load_library(f"{sysconfig.get_path('purelib')}/libfbgemm_npu_api.so")
 MAX_NUM_TARGET = 512
 device_id: int = 0
 
+
 def cached_create_causal_mask(param: ScoreShapeParam) -> torch.Tensor:
     cached_file = f"cached_target_mask{param.target_group_size}.pt"
-    if (param.num_target > MAX_NUM_TARGET):
+    if param.num_target > MAX_NUM_TARGET:
         raise ValueError("param.num_target should be < 256")
     if os.path.exists(cached_file):
         mask = torch.tril(torch.ones(param.seq_len, param.seq_len))
-        mask[:param.num_context, :param.seq_len-param.num_target] = 1
+        mask[: param.num_context, : param.seq_len - param.num_target] = 1
         if param.num_target > 0:
             target_mask = torch.load(cached_file)
-            mask[-param.num_target:, -param.num_target:] = target_mask[:param.num_target, :param.num_target]
+            mask[-param.num_target :, -param.num_target :] = target_mask[
+                : param.num_target, : param.num_target
+            ]
         return mask
     else:
         _param = deepcopy(param)
@@ -49,8 +52,9 @@ def cached_create_causal_mask(param: ScoreShapeParam) -> torch.Tensor:
         _param.num_target = MAX_NUM_TARGET
         mask = compute_target_mask_each_block_concat(_param, use_npu=False)
         torch.save(mask[-MAX_NUM_TARGET:, -MAX_NUM_TARGET:], cached_file)
-        return mask[:param.seq_len, :param.seq_len]
-    
+        return mask[: param.seq_len, : param.seq_len]
+
+
 def jagged_data_gen(
     batch_size,
     max_seq_len,
@@ -67,21 +71,37 @@ def jagged_data_gen(
         min_seq_len += num_context
     if num_target is not None:
         min_seq_len += num_target
-    seq_lens = torch.randint(min_seq_len, max_seq_len + 1, (batch_size,), dtype=torch.int64)
-    seq_offset = torch.concat((torch.zeros((1,), dtype=torch.int64), torch.cumsum(seq_lens, axis=0))).numpy()
+    seq_lens = torch.randint(
+        min_seq_len, max_seq_len + 1, (batch_size,), dtype=torch.int64
+    )
+    seq_offset = torch.concat(
+        (torch.zeros((1,), dtype=torch.int64), torch.cumsum(seq_lens, axis=0))
+    ).numpy()
 
     total_seqs = torch.sum(seq_lens)
 
-    grad = torch.empty(total_seqs, num_heads, attention_dim, dtype=data_type).uniform_(-1, 1)
-    q = torch.empty(total_seqs, num_heads, attention_dim, dtype=data_type).uniform_(-1, 1)
-    k = torch.empty(total_seqs, num_heads, attention_dim, dtype=data_type).uniform_(-1, 1)
-    v = torch.empty(total_seqs, num_heads, attention_dim, dtype=data_type).uniform_(-1, 1)
+    grad = torch.empty(total_seqs, num_heads, attention_dim, dtype=data_type).uniform_(
+        -1, 1
+    )
+    q = torch.empty(total_seqs, num_heads, attention_dim, dtype=data_type).uniform_(
+        -1, 1
+    )
+    k = torch.empty(total_seqs, num_heads, attention_dim, dtype=data_type).uniform_(
+        -1, 1
+    )
+    v = torch.empty(total_seqs, num_heads, attention_dim, dtype=data_type).uniform_(
+        -1, 1
+    )
 
-    bias = torch.empty(batch_size, num_heads, max_seq_len, max_seq_len, dtype=data_type).uniform_(-1, 1)
+    bias = torch.empty(
+        batch_size, num_heads, max_seq_len, max_seq_len, dtype=data_type
+    ).uniform_(-1, 1)
 
     if mask_type == 0:
-        if (num_context is None and num_target is None):
-            mask = 1 - torch.triu(torch.ones(batch_size, num_heads, max_seq_len, max_seq_len), diagonal=1)
+        if num_context is None and num_target is None:
+            mask = 1 - torch.triu(
+                torch.ones(batch_size, num_heads, max_seq_len, max_seq_len), diagonal=1
+            )
         else:
             mask = torch.zeros(batch_size, num_heads, max_seq_len, max_seq_len)
             for sample_id, seq_len in enumerate(seq_lens):
@@ -95,33 +115,55 @@ def jagged_data_gen(
                     block_w=seq_len,
                 )
                 mask_tensor = cached_create_causal_mask(parm)
-                mask[sample_id, :, :seq_len, :seq_len] = mask_tensor   
+                mask[sample_id, :, :seq_len, :seq_len] = mask_tensor
     elif mask_type == 1:
-        mask = torch.triu(torch.ones(batch_size, num_heads, max_seq_len, max_seq_len, dtype=data_type))
+        mask = torch.triu(
+            torch.ones(batch_size, num_heads, max_seq_len, max_seq_len, dtype=data_type)
+        )
     elif mask_type == 2:
         mask = None
     else:
-        mask = torch.empty(batch_size, num_heads, max_seq_len, max_seq_len, dtype=data_type).uniform_(-1, 1)
+        mask = torch.empty(
+            batch_size, num_heads, max_seq_len, max_seq_len, dtype=data_type
+        ).uniform_(-1, 1)
 
     return grad, q, k, v, bias, mask, max_seq_len, seq_offset
 
 
-def generate_tensor(batch_size, max_seq_len, num_heads, attention_dim, mask_type, data_type):
-    grad = torch.empty(batch_size, max_seq_len, num_heads, attention_dim, dtype=data_type).uniform_(-1, 1)
-    q = torch.empty(batch_size, max_seq_len, num_heads, attention_dim, dtype=data_type).uniform_(-1, 1)
-    k = torch.empty(batch_size, max_seq_len, num_heads, attention_dim, dtype=data_type).uniform_(-1, 1)
-    v = torch.empty(batch_size, max_seq_len, num_heads, attention_dim, dtype=data_type).uniform_(-1, 1)
+def generate_tensor(
+    batch_size, max_seq_len, num_heads, attention_dim, mask_type, data_type
+):
+    grad = torch.empty(
+        batch_size, max_seq_len, num_heads, attention_dim, dtype=data_type
+    ).uniform_(-1, 1)
+    q = torch.empty(
+        batch_size, max_seq_len, num_heads, attention_dim, dtype=data_type
+    ).uniform_(-1, 1)
+    k = torch.empty(
+        batch_size, max_seq_len, num_heads, attention_dim, dtype=data_type
+    ).uniform_(-1, 1)
+    v = torch.empty(
+        batch_size, max_seq_len, num_heads, attention_dim, dtype=data_type
+    ).uniform_(-1, 1)
 
-    bias = torch.empty(batch_size, num_heads, max_seq_len, max_seq_len, dtype=data_type).uniform_(-1, 1)
+    bias = torch.empty(
+        batch_size, num_heads, max_seq_len, max_seq_len, dtype=data_type
+    ).uniform_(-1, 1)
 
     if mask_type == 0:
-        mask = torch.tril(torch.ones(batch_size, num_heads, max_seq_len, max_seq_len, dtype=data_type))
+        mask = torch.tril(
+            torch.ones(batch_size, num_heads, max_seq_len, max_seq_len, dtype=data_type)
+        )
     elif mask_type == 1:
-        mask = torch.triu(torch.ones(batch_size, num_heads, max_seq_len, max_seq_len, dtype=data_type))
+        mask = torch.triu(
+            torch.ones(batch_size, num_heads, max_seq_len, max_seq_len, dtype=data_type)
+        )
     elif mask_type == 2:
         mask = None
     else:
-        mask = torch.empty(batch_size, num_heads, max_seq_len, max_seq_len, dtype=data_type).uniform_(-1, 1)
+        mask = torch.empty(
+            batch_size, num_heads, max_seq_len, max_seq_len, dtype=data_type
+        ).uniform_(-1, 1)
 
     return grad, q, k, v, bias, mask
 
@@ -133,11 +175,15 @@ class TestHstuJaggedDemo:
     @staticmethod
     def jagged_to_dense(jagged_tensor, seq_lens, max_seq_len, head_num, head_dim):
         batch_size = len(seq_lens)
-        dense_tensor = torch.zeros(batch_size, max_seq_len, head_num, head_dim, dtype=jagged_tensor.dtype)
+        dense_tensor = torch.zeros(
+            batch_size, max_seq_len, head_num, head_dim, dtype=jagged_tensor.dtype
+        )
 
         offset = 0
         for batch_id, seq_len in enumerate(seq_lens):
-            dense_tensor[batch_id, :seq_len, :, :] = jagged_tensor[offset: offset + seq_len, :, :]
+            dense_tensor[batch_id, :seq_len, :, :] = jagged_tensor[
+                offset : offset + seq_len, :, :
+            ]
             offset = offset + seq_len
 
         return dense_tensor
@@ -148,7 +194,9 @@ class TestHstuJaggedDemo:
 
         offset = 0
         for batch_id, seq_len in enumerate(seq_lens):
-            tensor[offset: offset + seq_len, :, :] = dense_tensor[batch_id, 0: seq_len, :, :]
+            tensor[offset : offset + seq_len, :, :] = dense_tensor[
+                batch_id, 0:seq_len, :, :
+            ]
             offset = offset + seq_len
 
         return tensor
@@ -160,9 +208,12 @@ class TestHstuJaggedDemo:
             seq_lens[i] = seq_offset[i + 1] - seq_offset[i]
 
         for batch, seq_len in enumerate(seq_lens):
-            equal = torch.allclose(bias_grad[batch, :, :seq_len, :seq_len],
-                                   bias_grad_golden[batch, :, :seq_len, :seq_len],
-                                   loss, loss)
+            equal = torch.allclose(
+                bias_grad[batch, :, :seq_len, :seq_len],
+                bias_grad_golden[batch, :, :seq_len, :seq_len],
+                loss,
+                loss,
+            )
             if not equal:
                 return False
 
@@ -236,8 +287,21 @@ class TestHstuJaggedDemo:
             return q_grad.cpu(), k_grad.cpu(), v_grad.cpu(), bias_grad.cpu()
         return q_grad.cpu(), k_grad.cpu(), v_grad.cpu(), None
 
-    def golden_op_exec(self, grad, q, k, v, bias, mask, max_seq_len, seq_offset, mask_type, silu_scale, enable_bias,
-                       data_type):
+    def golden_op_exec(
+        self,
+        grad,
+        q,
+        k,
+        v,
+        bias,
+        mask,
+        max_seq_len,
+        seq_offset,
+        mask_type,
+        silu_scale,
+        enable_bias,
+        data_type,
+    ):
         head_nums = grad.shape[1]
         head_dim = grad.shape[2]
         batch_size = bias.shape[0]
@@ -246,11 +310,23 @@ class TestHstuJaggedDemo:
         for batch_id in range(batch_size):
             seq_lens[batch_id] = seq_offset[batch_id + 1] - seq_offset[batch_id]
 
-        grad_dens = self.jagged_to_dense(grad, seq_lens, max_seq_len, head_nums, head_dim).to(f"npu:{device_id}")
-        q_dens = self.jagged_to_dense(q, seq_lens, max_seq_len, head_nums, head_dim).to(f"npu:{device_id}")
-        k_dens = self.jagged_to_dense(k, seq_lens, max_seq_len, head_nums, head_dim).to(f"npu:{device_id}")
-        v_dens = self.jagged_to_dense(v, seq_lens, max_seq_len, head_nums, head_dim).to(f"npu:{device_id}")
-        actual_seq_lens = torch.from_numpy(seq_lens).reshape(batch_size, 1, 1, 1).to(f"npu:{device_id}")
+        grad_dens = self.jagged_to_dense(
+            grad, seq_lens, max_seq_len, head_nums, head_dim
+        ).to(f"npu:{device_id}")
+        q_dens = self.jagged_to_dense(q, seq_lens, max_seq_len, head_nums, head_dim).to(
+            f"npu:{device_id}"
+        )
+        k_dens = self.jagged_to_dense(k, seq_lens, max_seq_len, head_nums, head_dim).to(
+            f"npu:{device_id}"
+        )
+        v_dens = self.jagged_to_dense(v, seq_lens, max_seq_len, head_nums, head_dim).to(
+            f"npu:{device_id}"
+        )
+        actual_seq_lens = (
+            torch.from_numpy(seq_lens)
+            .reshape(batch_size, 1, 1, 1)
+            .to(f"npu:{device_id}")
+        )
         actual_seq_lens = torch.broadcast_to(actual_seq_lens, bias.shape)
 
         qk = torch.matmul(q_dens.permute(0, 2, 1, 3), k_dens.permute(0, 2, 3, 1))
@@ -279,16 +355,30 @@ class TestHstuJaggedDemo:
             score = F.silu(qkb) * real_silu_scale
 
         score = score.to(data_type)
-        v_grad_dens = torch.matmul(score.permute(0, 1, 3, 2), grad_dens.permute(0, 2, 1, 3)).permute(0, 2, 1, 3)
+        v_grad_dens = torch.matmul(
+            score.permute(0, 1, 3, 2), grad_dens.permute(0, 2, 1, 3)
+        ).permute(0, 2, 1, 3)
 
         if mask_type == 0 or mask_type == 3:
-            bias_grad = gv * real_silu_scale * mask * F.sigmoid(qkb) * (1 + qkb * (1 - F.sigmoid(qkb)))
+            bias_grad = (
+                gv
+                * real_silu_scale
+                * mask
+                * F.sigmoid(qkb)
+                * (1 + qkb * (1 - F.sigmoid(qkb)))
+            )
         else:
-            bias_grad = gv * real_silu_scale * F.sigmoid(qkb) * (1 + qkb * (1 - F.sigmoid(qkb)))
+            bias_grad = (
+                gv * real_silu_scale * F.sigmoid(qkb) * (1 + qkb * (1 - F.sigmoid(qkb)))
+            )
 
         bias_grad = bias_grad.to(data_type)
-        k_grad_dens = torch.matmul(bias_grad.permute(0, 1, 3, 2), q_dens.permute(0, 2, 1, 3)).permute(0, 2, 1, 3)
-        q_grad_dens = torch.matmul(bias_grad, k_dens.permute(0, 2, 1, 3)).permute(0, 2, 1, 3)
+        k_grad_dens = torch.matmul(
+            bias_grad.permute(0, 1, 3, 2), q_dens.permute(0, 2, 1, 3)
+        ).permute(0, 2, 1, 3)
+        q_grad_dens = torch.matmul(bias_grad, k_dens.permute(0, 2, 1, 3)).permute(
+            0, 2, 1, 3
+        )
 
         bias_grad = bias_grad.cpu()
         q_grad_dens = q_grad_dens.cpu()
@@ -346,8 +436,22 @@ class TestHstuJaggedDemo:
             target_group_size,
         )
 
-        q_grad_golden, k_grad_golden, v_grad_golden, attn_bias_grad_golden = self.golden_op_exec(
-            grad, q, k, v, bias, mask, max_seq_len, seq_offset, mask_type, silu_scale, enable_bias, data_type)
+        q_grad_golden, k_grad_golden, v_grad_golden, attn_bias_grad_golden = (
+            self.golden_op_exec(
+                grad,
+                q,
+                k,
+                v,
+                bias,
+                mask,
+                max_seq_len,
+                seq_offset,
+                mask_type,
+                silu_scale,
+                enable_bias,
+                data_type,
+            )
+        )
 
         loss = 1e-4
         if data_type == torch.float16:
@@ -358,7 +462,9 @@ class TestHstuJaggedDemo:
         q_res = torch.allclose(q_grad, q_grad_golden, loss, loss)
         k_res = torch.allclose(k_grad, k_grad_golden, loss, loss)
         v_res = torch.allclose(v_grad, v_grad_golden, loss, loss)
-        bias_res = not enable_bias or self.compare_jagged_bias(attn_bias_grad, attn_bias_grad_golden, seq_offset, loss)
+        bias_res = not enable_bias or self.compare_jagged_bias(
+            attn_bias_grad, attn_bias_grad_golden, seq_offset, loss
+        )
 
         assert q_res and k_res and v_res and bias_res
 
@@ -369,10 +475,12 @@ class TestHstuJaggedDemo:
     @pytest.mark.parametrize("mask_type", [0, 2, 3])
     @pytest.mark.parametrize("silu_scale", [0.0, 1.0 / 256])
     @pytest.mark.parametrize("enable_bias", [True, False])
-    @pytest.mark.parametrize("data_type", [torch.float16, torch.float32, torch.bfloat16])
-    @pytest.mark.parametrize("num_context", [None])
-    @pytest.mark.parametrize("num_target", [None])
-    @pytest.mark.parametrize("target_group_size", [None])
+    @pytest.mark.parametrize(
+        "data_type", [torch.float16, torch.float32, torch.bfloat16]
+    )
+    @pytest.mark.parametrize("num_context", [6])
+    @pytest.mark.parametrize("num_target", [20])
+    @pytest.mark.parametrize("target_group_size", [3])
     def test_hstu_dens_jagged(
         self,
         batch_size,
@@ -407,10 +515,29 @@ class TestHstuJaggedDemo:
     @pytest.mark.parametrize("mask_type", [0, 2, 3])
     @pytest.mark.parametrize("silu_scale", [0.0, 1.0 / 256])
     @pytest.mark.parametrize("enable_bias", [True, False])
-    @pytest.mark.parametrize("data_type", [torch.float16, torch.float32, torch.bfloat16])
-    def test_hstu_dens_jagged_128bs(self, max_seq_len, head_num, head_dim, mask_type, silu_scale, enable_bias,
-                                    data_type):
-        self.execute(128, max_seq_len, head_num, head_dim, mask_type, silu_scale, enable_bias, data_type)
+    @pytest.mark.parametrize(
+        "data_type", [torch.float16, torch.float32, torch.bfloat16]
+    )
+    def test_hstu_dens_jagged_128bs(
+        self,
+        max_seq_len,
+        head_num,
+        head_dim,
+        mask_type,
+        silu_scale,
+        enable_bias,
+        data_type,
+    ):
+        self.execute(
+            128,
+            max_seq_len,
+            head_num,
+            head_dim,
+            mask_type,
+            silu_scale,
+            enable_bias,
+            data_type,
+        )
 
     @pytest.mark.parametrize("max_seq_len", [16])
     @pytest.mark.parametrize("head_num", [2])
@@ -418,15 +545,46 @@ class TestHstuJaggedDemo:
     @pytest.mark.parametrize("mask_type", [0, 2, 3])
     @pytest.mark.parametrize("silu_scale", [0.0, 1.0 / 256])
     @pytest.mark.parametrize("enable_bias", [True, False])
-    @pytest.mark.parametrize("data_type", [torch.float16, torch.float32, torch.bfloat16])
-    def test_hstu_dens_jagged_2048bs(self, max_seq_len, head_num, head_dim, mask_type, silu_scale, enable_bias,
-                                     data_type):
-        self.execute(2048, max_seq_len, head_num, head_dim, mask_type, silu_scale, enable_bias, data_type)
+    @pytest.mark.parametrize(
+        "data_type", [torch.float16, torch.float32, torch.bfloat16]
+    )
+    def test_hstu_dens_jagged_2048bs(
+        self,
+        max_seq_len,
+        head_num,
+        head_dim,
+        mask_type,
+        silu_scale,
+        enable_bias,
+        data_type,
+    ):
+        self.execute(
+            2048,
+            max_seq_len,
+            head_num,
+            head_dim,
+            mask_type,
+            silu_scale,
+            enable_bias,
+            data_type,
+        )
 
 
 class TestHstuNormalDemo:
     @staticmethod
-    def golden_op_exec(grad, q, k, v, bias, mask, mask_type, max_seq_len, silu_scale, enable_bias, data_type):
+    def golden_op_exec(
+        grad,
+        q,
+        k,
+        v,
+        bias,
+        mask,
+        mask_type,
+        max_seq_len,
+        silu_scale,
+        enable_bias,
+        data_type,
+    ):
         batch_size, seq_len, head_num, head_dim = grad.shape
 
         qk = torch.matmul(q.permute(0, 2, 1, 3), k.permute(0, 2, 3, 1))
@@ -452,34 +610,94 @@ class TestHstuNormalDemo:
             score = F.silu(qkb) * real_silu_scale
 
         score = score.to(data_type)
-        v_grad = torch.matmul(score.permute(0, 1, 3, 2), grad.permute(0, 2, 1, 3)).permute(0, 2, 1, 3)
+        v_grad = torch.matmul(
+            score.permute(0, 1, 3, 2), grad.permute(0, 2, 1, 3)
+        ).permute(0, 2, 1, 3)
 
         if mask_type == 0 or mask_type == 3:
-            attn_bias_grad = gv * real_silu_scale * mask * F.sigmoid(qkb) * (1 + qkb * (1 - F.sigmoid(qkb)))
+            attn_bias_grad = (
+                gv
+                * real_silu_scale
+                * mask
+                * F.sigmoid(qkb)
+                * (1 + qkb * (1 - F.sigmoid(qkb)))
+            )
         else:
-            attn_bias_grad = gv * real_silu_scale * F.sigmoid(qkb) * (1 + qkb * (1 - F.sigmoid(qkb)))
+            attn_bias_grad = (
+                gv * real_silu_scale * F.sigmoid(qkb) * (1 + qkb * (1 - F.sigmoid(qkb)))
+            )
 
         attn_bias_grad = attn_bias_grad.to(data_type)
-        k_grad = torch.matmul(attn_bias_grad.permute(0, 1, 3, 2), q.permute(0, 2, 1, 3)).permute(0, 2, 1, 3)
+        k_grad = torch.matmul(
+            attn_bias_grad.permute(0, 1, 3, 2), q.permute(0, 2, 1, 3)
+        ).permute(0, 2, 1, 3)
         q_grad = torch.matmul(attn_bias_grad, k.permute(0, 2, 1, 3)).permute(0, 2, 1, 3)
 
         torch.npu.synchronize()
         return q_grad.cpu(), k_grad.cpu(), v_grad.cpu(), attn_bias_grad.cpu()
 
     @staticmethod
-    def custom_op_exec(grad, q, k, v, bias, mask, mask_type, max_seq_len, silu_scale, enable_bias, data_type):
+    def custom_op_exec(
+        grad,
+        q,
+        k,
+        v,
+        bias,
+        mask,
+        mask_type,
+        max_seq_len,
+        silu_scale,
+        enable_bias,
+        data_type,
+    ):
         if enable_bias:
-            q_grad, k_grad, v_grad, attn_bias_grad = torch.ops.mxrec.hstu_dense_backward(
-                grad, q, k, v, mask, bias, "normal", mask_type, max_seq_len, silu_scale)
+            q_grad, k_grad, v_grad, attn_bias_grad = (
+                torch.ops.mxrec.hstu_dense_backward(
+                    grad,
+                    q,
+                    k,
+                    v,
+                    mask,
+                    bias,
+                    "normal",
+                    mask_type,
+                    max_seq_len,
+                    silu_scale,
+                )
+            )
         else:
-            q_grad, k_grad, v_grad, attn_bias_grad = torch.ops.mxrec.hstu_dense_backward(
-                grad, q, k, v, mask, None, "normal", mask_type, max_seq_len, silu_scale)
+            q_grad, k_grad, v_grad, attn_bias_grad = (
+                torch.ops.mxrec.hstu_dense_backward(
+                    grad,
+                    q,
+                    k,
+                    v,
+                    mask,
+                    None,
+                    "normal",
+                    mask_type,
+                    max_seq_len,
+                    silu_scale,
+                )
+            )
 
         torch.npu.synchronize()
         return q_grad.cpu(), k_grad.cpu(), v_grad.cpu(), attn_bias_grad.cpu()
 
-    def execute(self, batch_size, max_seq_len, head_num, head_dim, mask_type, silu_scale, enable_bias, data_type):
-        grad, q, k, v, bias, mask = generate_tensor(batch_size, max_seq_len, head_num, head_dim, mask_type, data_type)
+    def execute(
+        self,
+        batch_size,
+        max_seq_len,
+        head_num,
+        head_dim,
+        mask_type,
+        silu_scale,
+        enable_bias,
+        data_type,
+    ):
+        grad, q, k, v, bias, mask = generate_tensor(
+            batch_size, max_seq_len, head_num, head_dim, mask_type, data_type
+        )
 
         grad_npu = grad.to(f"npu:{device_id}")
         q_npu = q.to(f"npu:{device_id}")
@@ -493,12 +711,34 @@ class TestHstuNormalDemo:
             mask_npu = mask.to(f"npu:{device_id}")
 
         q_grad, k_grad, v_grad, attn_bias_grad = self.custom_op_exec(
-            grad_npu, q_npu, k_npu, v_npu, bias_npu, mask_npu, mask_type, max_seq_len, silu_scale, enable_bias,
-            data_type)
+            grad_npu,
+            q_npu,
+            k_npu,
+            v_npu,
+            bias_npu,
+            mask_npu,
+            mask_type,
+            max_seq_len,
+            silu_scale,
+            enable_bias,
+            data_type,
+        )
 
-        q_grad_golden, k_grad_golden, v_grad_golden, attn_bias_grad_golden = self.golden_op_exec(
-            grad_npu, q_npu, k_npu, v_npu, bias_npu, mask_npu, mask_type, max_seq_len, silu_scale, enable_bias,
-            data_type)
+        q_grad_golden, k_grad_golden, v_grad_golden, attn_bias_grad_golden = (
+            self.golden_op_exec(
+                grad_npu,
+                q_npu,
+                k_npu,
+                v_npu,
+                bias_npu,
+                mask_npu,
+                mask_type,
+                max_seq_len,
+                silu_scale,
+                enable_bias,
+                data_type,
+            )
+        )
 
         torch.npu.synchronize()
 
@@ -511,7 +751,9 @@ class TestHstuNormalDemo:
         q_res = torch.allclose(q_grad, q_grad_golden, loss, loss)
         k_res = torch.allclose(k_grad, k_grad_golden, loss, loss)
         v_res = torch.allclose(v_grad, v_grad_golden, loss, loss)
-        bias_res = not enable_bias or torch.allclose(attn_bias_grad, attn_bias_grad_golden, loss, loss)
+        bias_res = not enable_bias or torch.allclose(
+            attn_bias_grad, attn_bias_grad_golden, loss, loss
+        )
 
         assert q_res and k_res and v_res and bias_res
 
@@ -522,7 +764,27 @@ class TestHstuNormalDemo:
     @pytest.mark.parametrize("mask_type", [0, 2, 3])
     @pytest.mark.parametrize("silu_scale", [0.0, 1.0 / 256])
     @pytest.mark.parametrize("enable_bias", [True, False])
-    @pytest.mark.parametrize("data_type", [torch.float16, torch.float32, torch.bfloat16])
-    def test_hstu_dens_normal(self, batch_size, max_seq_len, head_num, head_dim, mask_type, silu_scale, enable_bias,
-                              data_type):
-        self.execute(batch_size, max_seq_len, head_num, head_dim, mask_type, silu_scale, enable_bias, data_type)
+    @pytest.mark.parametrize(
+        "data_type", [torch.float16, torch.float32, torch.bfloat16]
+    )
+    def test_hstu_dens_normal(
+        self,
+        batch_size,
+        max_seq_len,
+        head_num,
+        head_dim,
+        mask_type,
+        silu_scale,
+        enable_bias,
+        data_type,
+    ):
+        self.execute(
+            batch_size,
+            max_seq_len,
+            head_num,
+            head_dim,
+            mask_type,
+            silu_scale,
+            enable_bias,
+            data_type,
+        )
