@@ -33,6 +33,8 @@ namespace INDEX_T {
     constexpr int INDEX_3 = 3;
     constexpr int INDEX_4 = 4;
     constexpr int INDEX_5 = 5;
+    constexpr int INDEX_6 = 6;
+    constexpr int INDEX_7 = 7;
 }
 
 constexpr int FLOAT_TILING_KEY = 2;

@@ -17,6 +17,7 @@ See the License for the specific language governing permissions and
 
 
 #include "hstu_dense_forward_kernel_patten_bsnd.h"
+#include "hstu_dense_causal_mask.h"
 
 using namespace AscendC;
 
@@ -29,7 +30,6 @@ struct JaggedTaskArgs {
     uint32_t kSeqId = 0;            // 该基本块所属Key 输入的第几个seq block 一个block是256条seq
     uint32_t actualSeqLen = 0;      // 该基本块实际的序列长度
     uint32_t kSeqNum = 0;           // 该基本块在K轴需要乘多少次
-    uint32_t causalMask = 0;        // 该基本块是否需要做causal 掩码
     uint32_t transTaskId = 0;       // 该基本块转置任务的id
     uint32_t computeASeqLen = 0;    // 该基本块matmul计算左矩阵的序列长度
     uint32_t computeBSeqLen = 0;    // 该基本块matmul计算右矩阵的序列长度
@@ -77,6 +77,7 @@ private:
     uint32_t headNum {0};
     uint32_t headDim {0};
 
+    BlockMaskParams maskTaskInfo[COMPUTE_PIPE_NUM];
     JaggedTaskArgs computeTaskInfo[COMPUTE_PIPE_NUM];
     JaggedTaskArgs trasnTaskInfo[TRANS_PIPE_NUM];
 };
@@ -111,7 +112,6 @@ __aicore__ inline void HstuDenseForwardJaggedKernel<qType>::ComputeQkMatmul(uint
                          computeTaskInfo[taskId].computeASeqLen, computeTaskInfo[taskId].computeBSeqLen, this->headDim);
 }
 
-
 template <typename qType>
 __aicore__ inline void HstuDenseForwardJaggedKernel<qType>::ComputeVecScore(uint32_t taskId)
 {
@@ -122,8 +122,10 @@ __aicore__ inline void HstuDenseForwardJaggedKernel<qType>::ComputeVecScore(uint
 
     int64_t maskOffset = biasOffset;
 
-    this->VecScoreImpl(taskId, biasOffset, maskOffset, computeTaskInfo[taskId].scale,
-                       computeTaskInfo[taskId].causalMask, computeTaskInfo[taskId].computeASeqLen,
+    this->template VecScoreImpl<BlockMaskParams>(taskId, biasOffset, maskOffset,
+                       computeTaskInfo[taskId].scale,
+                       maskTaskInfo[taskId],
+                       computeTaskInfo[taskId].computeASeqLen,
                        computeTaskInfo[taskId].computeBSeqLen);
 }
 
@@ -149,11 +151,19 @@ __aicore__ inline void HstuDenseForwardJaggedKernel<qType>::ComputeAllBlock()
     for (auto blkId = sBlkId; blkId < eBlkId; blkId++) {
         auto kSeqNum = computeTaskInfo[taskId % COMPUTE_PIPE_NUM].kSeqNum;
         for (auto kSeqId = 0; kSeqId < kSeqNum; kSeqId++) {
-            uint32_t causalMask = 0;
-
-            if ((this->maskType == CausalMaskT::MASK_TRIL) &&
-                kSeqId > computeTaskInfo[taskId % COMPUTE_PIPE_NUM].qSeqId) {
-                continue;
+            auto taskinfo = this->computeTaskInfo[taskId % COMPUTE_PIPE_NUM];
+            BlockMaskParams maskinfo = {
+                taskinfo.qSeqId,
+                (uint32_t)kSeqId,
+                taskinfo.actualSeqLen,
+                this->blockHeight,
+                this->numContext,
+                this->numTarget,
+                this->targetGroupSize,
+                taskinfo.scale
+            };
+            if (maskinfo.NoComputation(this->maskType)) {
+                break;
             }
 
             currentTaskId = taskId % COMPUTE_PIPE_NUM;
@@ -161,13 +171,8 @@ __aicore__ inline void HstuDenseForwardJaggedKernel<qType>::ComputeAllBlock()
             prePreTaskId = (taskId - 2) % COMPUTE_PIPE_NUM;
             nextTaskId = (taskId + 1) % COMPUTE_PIPE_NUM;
 
-            if ((this->maskType == CausalMaskT::MASK_TRIL) &&
-                kSeqId == computeTaskInfo[currentTaskId].qSeqId) {
-                causalMask = 1;
-            }
-
+            this->maskTaskInfo[currentTaskId] = maskinfo;
             this->computeTaskInfo[currentTaskId].transTaskId = transtaskId % TRANS_PIPE_NUM;
-            this->computeTaskInfo[currentTaskId].causalMask = causalMask;
             this->computeTaskInfo[currentTaskId].kSeqId = kSeqId;
             this->computeTaskInfo[currentTaskId].computeBSeqLen =
                 (kSeqId != (kSeqNum - 1)) ?
@@ -200,6 +205,7 @@ __aicore__ inline void HstuDenseForwardJaggedKernel<qType>::ComputeAllBlock()
             }
 
             computeTaskInfo[nextTaskId] = computeTaskInfo[currentTaskId];
+            maskTaskInfo[nextTaskId] = maskTaskInfo[currentTaskId];
             taskId++;
         }
 

@@ -148,6 +148,15 @@ bool TilingPolicy::TilingAttribute(gert::TilingContext *context, optiling::HstuD
     const float *siluScale = attrs->GetAttrPointer<float>(INDEX_T::INDEX_2);
     OPS_CHECK_PTR_NULL(siluScale, return false);
 
+    const int64_t *numContext = attrs->GetAttrPointer<int64_t>(INDEX_T::INDEX_5);
+    OPS_CHECK_PTR_NULL(numContext, return false);
+
+    const int64_t *numTarget = attrs->GetAttrPointer<int64_t>(INDEX_T::INDEX_6);
+    OPS_CHECK_PTR_NULL(numTarget, return false);
+
+    const int64_t *targetGroupSize = attrs->GetAttrPointer<int64_t>(INDEX_T::INDEX_7);
+    OPS_CHECK_PTR_NULL(targetGroupSize, return false);
+
     auto biasTensor = context->GetOptionalInputTensor(INDEX_T::INDEX_4);
     if (biasTensor == nullptr) {
         tiling.set_enableBias(0);
@@ -158,6 +167,9 @@ bool TilingPolicy::TilingAttribute(gert::TilingContext *context, optiling::HstuD
     tiling.set_maskType(*maskType);
     tiling.set_siluScale(*siluScale);
     tiling.set_maxSeqLen(*maxSeqLen);
+    tiling.set_numContext(*numContext);
+    tiling.set_numTarget(*numTarget);
+    tiling.set_targetGroupSize(*targetGroupSize);
     return true;
 }
 

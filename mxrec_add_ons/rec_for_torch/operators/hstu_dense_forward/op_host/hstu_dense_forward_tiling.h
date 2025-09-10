@@ -50,6 +50,9 @@ TILING_DATA_FIELD_DEF(uint32_t, enableBias);
 TILING_DATA_FIELD_DEF(uint32_t, maskType);
 TILING_DATA_FIELD_DEF(int64_t, maxSeqLen);
 TILING_DATA_FIELD_DEF(float, siluScale);
+TILING_DATA_FIELD_DEF(int64_t, numContext);
+TILING_DATA_FIELD_DEF(int64_t, numTarget);
+TILING_DATA_FIELD_DEF(int64_t, targetGroupSize);
 
 END_TILING_DATA_DEF;
 REGISTER_TILING_DATA_CLASS(HstuDenseForward, HstuDenseForwardTilingData)
