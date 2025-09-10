@@ -60,10 +60,10 @@ class MaskParams:
 class QKVShapeParams:
     dtype: torch.dtype
     batch_size: int
-    min_seq_len: int = 1
-    max_seq_len: int
     num_heads: int
     attention_dim: int
+    min_seq_len: int = 1
+    max_seq_len: int = 1
 
     def values(self):
         return self.batch_size, self.min_seq_len, self.max_seq_len, self.num_heads, self.attention_dim
@@ -84,7 +84,7 @@ def cached_create_causal_mask(param: ScoreShapeParam) -> torch.Tensor:
     cached_file = f"cached_target_mask{param.target_group_size}.pt"
     if os.path.exists(cached_file):
         mask = torch.tril(torch.ones(param.seq_len, param.seq_len))
-        mask[:param.num_context, :param.num_target] = 1
+        mask[:param.num_context, :-param.num_target] = 1
         if param.num_target > 0:
             target_mask = torch.load(cached_file)
             mask[-param.num_target:, -param.num_target:] = target_mask[:param.num_target, :param.num_target]
@@ -92,7 +92,7 @@ def cached_create_causal_mask(param: ScoreShapeParam) -> torch.Tensor:
     else:
         _param = deepcopy(param)
         _param.num_target = MAX_NUM_TARGET
-        _param.seq_len += MAX_NUM_TARGET
+        _param.seq_len += MAX_NUM_TARGET - param.num_target
         mask = compute_target_mask_each_block_concat(_param, use_npu=False)
         torch.save(mask[-MAX_NUM_TARGET:, -MAX_NUM_TARGET:], cached_file)
         return mask[:param.seq_len, :param.seq_len]
